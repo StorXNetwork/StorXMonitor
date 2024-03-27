@@ -617,6 +617,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.URL(),
 			config.Analytics,
 			config.Payments.PackagePlans,
+			peer.Payments.StripeService,
 		)
 
 		peer.Servers.Add(lifecycle.Item{

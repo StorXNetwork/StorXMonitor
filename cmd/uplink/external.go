@@ -167,7 +167,7 @@ func (ex *external) Setup(f clingy.Flags) {
 	).(string)
 
 	ex.analytics = f.Flag(
-		"analytics", "Whether to send usage information to Storj", nil,
+		"analytics", "Whether to send usage information to StorX", nil,
 		clingy.Transform(strconv.ParseBool), clingy.Optional, clingy.Boolean,
 		clingy.Advanced,
 	).(*bool)

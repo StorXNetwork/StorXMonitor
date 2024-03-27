@@ -72,37 +72,36 @@ func (db billingDB) Insert(ctx context.Context, primaryTx billing.Transaction, s
 		return nil, Error.New("Cannot insert more than %d supplemental txs (tried %d)", supplementalTxLimit, len(supplementalTxs))
 	}
 
-	for retryCount := 0; retryCount < 5; retryCount++ {
-		txIDs, err := db.tryInsert(ctx, primaryTx, supplementalTxs)
-		switch {
-		case err == nil:
-			return txIDs, nil
-		case pgerrcode.IsConstraintViolation(err):
-		default:
-			return nil, err
-		}
-	}
 	return nil, Error.New("Unable to insert new billing transaction after several retries: %v", err)
 }
 
-func (db billingDB) tryInsert(ctx context.Context, primaryTx billing.Transaction, supplementalTxs []billing.Transaction) (_ []int64, err error) {
+// boris
+func (db billingDB) Inserts(ctx context.Context, primaryTx billing.Transactions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	convertToUSDMicro := func(amount currency.Amount) currency.Amount {
-		return currency.AmountFromDecimal(amount.AsDecimal().Truncate(currency.USDollarsMicro.DecimalPlaces()), currency.USDollarsMicro)
+	for retryCount := 0; retryCount < 5; retryCount++ {
+		err := db.tryInserts(ctx, primaryTx)
+		switch {
+		case err == nil:
+			return nil
+		case pgerrcode.IsConstraintViolation(err):
+		default:
+			return err
+		}
 	}
+	return Error.New("Unable to insert new billing transaction after several retries: %v", err)
+}
 
-	type balanceUpdate struct {
-		OldBalance currency.Amount
-		NewBalance currency.Amount
-	}
+// boris
+func (db billingDB) tryInserts(ctx context.Context, primaryTx billing.Transactions) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	createTransaction := func(ctx context.Context, tx *dbx.Tx, billingTX *billing.Transaction) (int64, error) {
-		amount := convertToUSDMicro(billingTX.Amount)
-		dbxTX, err := tx.Create_BillingTransaction(ctx,
+	createTransaction := func(ctx context.Context, tx *dbx.Tx, billingTX *billing.Transactions) error {
+		amount := billingTX.Amount
+		_, err := tx.Create_BillingTransaction(ctx,
 			dbx.BillingTransaction_UserId(billingTX.UserID[:]),
-			dbx.BillingTransaction_Amount(amount.BaseUnits()),
-			dbx.BillingTransaction_Currency(amount.Currency().Symbol()),
+			dbx.BillingTransaction_Amount(int64(amount)),
+			dbx.BillingTransaction_Currency("USD"),
 			dbx.BillingTransaction_Description(billingTX.Description),
 			dbx.BillingTransaction_Source(billingTX.Source),
 			dbx.BillingTransaction_Status(string(billingTX.Status)),
@@ -110,68 +109,121 @@ func (db billingDB) tryInsert(ctx context.Context, primaryTx billing.Transaction
 			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
 			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
 		if err != nil {
-			return 0, Error.Wrap(err)
-		}
-		return dbxTX.Id, nil
-	}
-
-	balances := make(map[uuid.UUID]*balanceUpdate)
-
-	adjustBalance := func(userID uuid.UUID, amount currency.Amount) error {
-		balance, ok := balances[userID]
-		if !ok {
-			oldBalance, err := db.GetBalance(ctx, userID)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			balance = &balanceUpdate{OldBalance: oldBalance, NewBalance: oldBalance}
-			balances[userID] = balance
-		}
-		newBalance, err := currency.Add(balance.NewBalance, convertToUSDMicro(amount))
-		switch {
-		case err != nil:
 			return Error.Wrap(err)
-		case newBalance.IsNegative():
-			return billing.ErrInsufficientFunds
 		}
-		balance.NewBalance = newBalance
 		return nil
 	}
 
-	if err := adjustBalance(primaryTx.UserID, primaryTx.Amount); err != nil {
-		return nil, err
-	}
-	for _, supplementalTx := range supplementalTxs {
-		if err := adjustBalance(supplementalTx.UserID, supplementalTx.Amount); err != nil {
-			return nil, err
-		}
-	}
-
-	var txIDs []int64
+	// var txIDs []int64
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		for userID, update := range balances {
-			if err := updateBalance(ctx, tx, userID, update.OldBalance, update.NewBalance); err != nil {
-				return err
-			}
-		}
 
-		txID, err := createTransaction(ctx, tx, &primaryTx)
+		err := createTransaction(ctx, tx, &primaryTx)
 		if err != nil {
 			return err
 		}
-		txIDs = append(txIDs, txID)
+		// txIDs = append(txIDs, txID)
 
-		for _, supplementalTx := range supplementalTxs {
-			txID, err := createTransaction(ctx, tx, &supplementalTx)
-			if err != nil {
-				return err
-			}
-			txIDs = append(txIDs, txID)
-		}
+		// for _, supplementalTx := range supplementalTxs {
+		// 	txID, err := createTransaction(ctx, tx, &supplementalTx)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	txIDs = append(txIDs, txID)
+		// }
 		return nil
 	})
-	return txIDs, err
+	return err
 }
+
+/////boris end  ////
+
+// func (db billingDB) tryInsert(ctx context.Context, primaryTx billing.Transaction, supplementalTxs []billing.Transaction) (_ []int64, err error) {
+// 	defer mon.Task()(&ctx)(&err)
+
+// 	convertToUSDMicro := func(amount currency.Amount) currency.Amount {
+// 		return currency.AmountFromDecimal(amount.AsDecimal().Truncate(currency.USDollarsMicro.DecimalPlaces()), currency.USDollarsMicro)
+// 	}
+
+// 	type balanceUpdate struct {
+// 		OldBalance currency.Amount
+// 		NewBalance currency.Amount
+// 	}
+
+// 	createTransaction := func(ctx context.Context, tx *dbx.Tx, billingTX *billing.Transaction) (int64, error) {
+// 		amount := convertToUSDMicro(billingTX.Amount)
+// 		dbxTX, err := tx.Create_BillingTransaction(ctx,
+// 			dbx.BillingTransaction_UserId(billingTX.UserID[:]),
+// 			dbx.BillingTransaction_Amount(amount.BaseUnits()),
+// 			dbx.BillingTransaction_Currency(amount.Currency().Symbol()),
+// 			dbx.BillingTransaction_Description(billingTX.Description),
+// 			dbx.BillingTransaction_Source(billingTX.Source),
+// 			dbx.BillingTransaction_Status(string(billingTX.Status)),
+// 			dbx.BillingTransaction_Type(string(billingTX.Type)),
+// 			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
+// 			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
+// 		if err != nil {
+// 			return 0, Error.Wrap(err)
+// 		}
+// 		return dbxTX.Id, nil
+// 	}
+
+// 	balances := make(map[uuid.UUID]*balanceUpdate)
+
+// 	adjustBalance := func(userID uuid.UUID, amount currency.Amount) error {
+// 		balance, ok := balances[userID]
+// 		if !ok {
+// 			oldBalance, err := db.GetBalance(ctx, userID)
+// 			if err != nil {
+// 				return Error.Wrap(err)
+// 			}
+// 			balance = &balanceUpdate{OldBalance: oldBalance, NewBalance: oldBalance}
+// 			balances[userID] = balance
+// 		}
+// 		newBalance, err := currency.Add(balance.NewBalance, convertToUSDMicro(amount))
+// 		switch {
+// 		case err != nil:
+// 			return Error.Wrap(err)
+// 		case newBalance.IsNegative():
+// 			return billing.ErrInsufficientFunds
+// 		}
+// 		balance.NewBalance = newBalance
+// 		return nil
+// 	}
+
+// 	if err := adjustBalance(primaryTx.UserID, primaryTx.Amount); err != nil {
+// 		return nil, err
+// 	}
+// 	for _, supplementalTx := range supplementalTxs {
+// 		if err := adjustBalance(supplementalTx.UserID, supplementalTx.Amount); err != nil {
+// 			return nil, err
+// 		}
+// 	}
+
+// 	var txIDs []int64
+// 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+// 		for userID, update := range balances {
+// 			if err := updateBalance(ctx, tx, userID, update.OldBalance, update.NewBalance); err != nil {
+// 				return err
+// 			}
+// 		}
+
+// 		txID, err := createTransaction(ctx, tx, &primaryTx)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		txIDs = append(txIDs, txID)
+
+// 		for _, supplementalTx := range supplementalTxs {
+// 			txID, err := createTransaction(ctx, tx, &supplementalTx)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			txIDs = append(txIDs, txID)
+// 		}
+// 		return nil
+// 	})
+// 	return txIDs, err
+// }
 
 func (db billingDB) FailPendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -275,6 +327,19 @@ func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.T
 	return txs, Error.Wrap(err)
 }
 
+// boris
+func (db billingDB) Lists(ctx context.Context, userID uuid.UUID) (txs []billing.Transactions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx,
+		dbx.BillingTransaction_UserId(userID[:]))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	txs, err = convertSlice(dbxTXs, fromDBXBillingTransactions)
+	return txs, Error.Wrap(err)
+}
+
 func (db billingDB) ListSource(ctx context.Context, userID uuid.UUID, txSource string) (txs []billing.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_Timestamp(ctx,
@@ -300,6 +365,26 @@ func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ currenc
 	}
 
 	return currency.AmountFromBaseUnits(dbxBilling.Balance, currency.USDollarsMicro), nil
+}
+
+// boris
+func fromDBXBillingTransactions(dbxTX *dbx.BillingTransaction) (billing.Transactions, error) {
+	userID, err := uuid.FromBytes(dbxTX.UserId)
+	if err != nil {
+		return billing.Transactions{}, errs.Wrap(err)
+	}
+	return billing.Transactions{
+		ID:          dbxTX.Id,
+		UserID:      userID,
+		Amount:      float64(dbxTX.Amount),
+		Description: dbxTX.Description,
+		Source:      dbxTX.Source,
+		Status:      billing.TransactionStatus(dbxTX.Status),
+		Type:        billing.TransactionType(dbxTX.Type),
+		Metadata:    dbxTX.Metadata,
+		Timestamp:   dbxTX.Timestamp,
+		CreatedAt:   dbxTX.CreatedAt,
+	}, nil
 }
 
 // fromDBXBillingTransaction converts *dbx.BillingTransaction to *billing.Transaction.

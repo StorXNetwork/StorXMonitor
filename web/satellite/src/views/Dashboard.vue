@@ -75,7 +75,7 @@
                     >
                         Click to learn more
                     </v-tooltip>
-                    <CardStatsComponent title="CO₂ Avoided" subtitle="By using Storj" :data="co2Saved" color="success" link />
+                    <CardStatsComponent title="CO₂ Avoided" subtitle="By using StorX" :data="co2Saved" color="success" link />
                 </v-col>
             </template>
             <v-col v-if="billingEnabled && !emissionImpactViewEnabled" cols="6" md="4" lg="2">

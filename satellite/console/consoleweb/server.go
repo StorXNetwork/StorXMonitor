@@ -38,10 +38,12 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 const (
@@ -63,6 +65,34 @@ type Config struct {
 	ExternalAddress     string `help:"external endpoint of the satellite if hosted" default:""`
 	FrontendEnable      bool   `help:"feature flag to toggle whether console back-end server should also serve front-end endpoints" default:"true"`
 	BackendReverseProxy string `help:"the target URL of console back-end reverse proxy for local development when running a UI server" default:""`
+
+	PaymentGateway_APIKey                  string `help:"api key for payment gateway" default:""`
+	PaymentGateway_APISecret               string `help:"api secret for payment gateway" default:""`
+	PaymentGateway_Pay_ReqUrl              string `help:"url for payment gateway request" default:""`
+	PaymentGateway_Pay_StatusUrl           string `help:"url for payment gateway status" default:""`
+	PaymentGateway_Pay_Success_RedirectUrl string `help:"url for payment gateway success redirect" default:""`
+	PaymentGateway_Pay_Failed_RedirectUrl  string `help:"url for payment gateway failed redirect" default:""`
+
+	ZohoClientID     string `help:"client id for zoho oauth" default:""`
+	ZohoClientSecret string `help:"client secret for zoho oauth" default:""`
+	ZohoRefreshToken string `help:"refresh token for zoho oauth" default:""`
+
+	ClientOrigin string `help:"client origin for redirection URLs" default:""`
+
+	GoogleClientID               string `help:"client id for google oauth" default:""`
+	GoogleClientSecret           string `help:"client secret for google oauth" default:""`
+	GoogleSigupRedirectURLstring string `help:"redirect url for google oauth" default:""`
+	GoggleLoginRedirectURLstring string `help:"redirect url for google oauth" default:""`
+
+	FacebookClientID               string `help:"client id for facebook oauth" default:""`
+	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
+	FacebookSigupRedirectURLstring string `help:"redirect url for facebook oauth" default:""`
+	FacebookLoginRedirectURLstring string `help:"redirect url for facebook oauth" default:""`
+
+	LinkedinClientID               string `help:"client id for linkedin oauth" default:""`
+	LinkedinClientSecret           string `help:"client secret for linkedin oauth" default:""`
+	LinkedinSigupRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
+	LinkedinLoginRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
 
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
@@ -159,6 +189,9 @@ type Server struct {
 	packagePlans paymentsconfig.PackagePlans
 
 	errorTemplate *template.Template
+
+	//boris
+	paymentMonitor *consoleapi.Payments
 }
 
 // apiAuth exposes methods to control authentication process for each generated API endpoint.
@@ -218,7 +251,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -307,14 +340,37 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/daily-usage", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.DailyUsage))).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-report", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.UsageReport))).Methods(http.MethodGet, http.MethodOptions)
 
+	// starting zoho refresh token goroutine
+	go consoleapi.ZohoRefreshTokenInit(context.Background(), config.ZohoClientID, config.ZohoClientSecret, config.ZohoRefreshToken, logger)
+
+	// set social media config
+	socialmedia.SetClientOrigin(config.ClientOrigin)
+	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
+	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
+	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring)
+
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
+	// starting zoho refresh token goroutine
+	go consoleapi.ZohoRefreshTokenInit(context.Background(), config.ZohoClientID, config.ZohoClientSecret, config.ZohoRefreshToken, logger)
+
 	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
+
+	router.HandleFunc("/registerbutton_facebook", authController.InitFacebookRegister)
+	router.HandleFunc("/facebook_register", authController.HandleFacebookRegister)
+	router.HandleFunc("/loginbutton_facebook", authController.InitFacebookLogin)
+	router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
+
+	router.HandleFunc("/registerbutton_linkedin", authController.InitLinkedInRegister)
+	router.HandleFunc("/linkedin_register", authController.HandleLinkedInRegister)
+	router.HandleFunc("/loginbutton_linkedin", authController.InitLinkedInLogin)
+	router.HandleFunc("/linkedin_login", authController.HandleLinkedInLogin)
+
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
@@ -332,6 +388,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
+
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost, http.MethodOptions)
@@ -349,7 +408,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}
 
 	if config.BillingFeaturesEnabled {
-		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans)
+		gatewayConfig := consoleapi.NewGatewayConfig(config.PaymentGateway_APIKey, config.PaymentGateway_APISecret,
+			config.PaymentGateway_Pay_ReqUrl, config.PaymentGateway_Pay_StatusUrl, config.PaymentGateway_Pay_Success_RedirectUrl,
+			config.PaymentGateway_Pay_Failed_RedirectUrl)
+		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans, stripe, gatewayConfig, mailService)
+		server.paymentMonitor = paymentController
+
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 		paymentsRouter.Use(server.withCORS)
 		paymentsRouter.Use(server.withAuth)
@@ -481,6 +545,11 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		}
 		return err
 	})
+
+	// paymentMonitor should be not nil before calling its methods
+	if server.paymentMonitor != nil {
+		server.paymentMonitor.StartMonitoringUserProjects(ctx)
+	}
 
 	return group.Wait()
 }

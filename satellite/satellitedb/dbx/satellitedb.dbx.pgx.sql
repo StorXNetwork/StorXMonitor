@@ -243,6 +243,7 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	default_placement integer,
 	default_versioning integer NOT NULL DEFAULT 1,
+	prevDays_UntilExpiration integer,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE project_bandwidth_daily_rollups (

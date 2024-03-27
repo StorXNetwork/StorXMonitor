@@ -47,7 +47,7 @@ model project (
     field salt                              blob      ( nullable )
 
     // created_at indicates when the project was created.
-    field created_at                        timestamp ( autoinsert )
+    field created_at                        timestamp ( autoinsert, updatable )
 
     // placement to be used for every new bucket.
     field default_placement int (nullable, updatable)
@@ -58,6 +58,9 @@ model project (
     //2 - VersioningEnabled (versioning for new buckets is supported and enabled)
     // note: suspended is not a valid state for new buckets
     field default_versioning int (updatable, default 1)
+    
+    //boris compare current day and prevDay_UntilExpired
+    field prevDays_UntilExpiration           int       ( nullable, updatable )
 )
 
 create project ( )
@@ -92,6 +95,17 @@ read one (
     select project.user_specified_bandwidth_limit
     where  project.id = ?
 )
+
+read one (
+    select project.created_at
+    where  project.id = ?
+)
+
+read one (
+    select project.prevDays_UntilExpiration
+    where  project.id = ?
+)
+
 read one (
     select project.segment_limit
     where  project.id = ?

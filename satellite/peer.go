@@ -308,6 +308,19 @@ func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, err
 			From:          *from,
 			ServerAddress: mailConfig.SMTPServerAddress,
 		}
+	case "mailv2":
+		from, _, err := fromAndHost(mailConfig)
+		if err != nil {
+			return nil, err
+		}
+		sender = &post.MailV2{
+			From: *from,
+			Auth: post.LoginAuth{
+				Username: mailConfig.Login,
+				Password: mailConfig.Password,
+			},
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}
 	case "nomail":
 		sender = simulate.NoMail{}
 	default:
