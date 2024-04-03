@@ -58,7 +58,7 @@ model project (
     //2 - VersioningEnabled (versioning for new buckets is supported and enabled)
     // note: suspended is not a valid state for new buckets
     field default_versioning int (updatable, default 1)
-    
+
     //boris compare current day and prevDay_UntilExpired
     field prevDays_UntilExpiration           int       ( nullable, updatable )
 )

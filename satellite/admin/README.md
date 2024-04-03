@@ -6,65 +6,66 @@ Requires setting `Authorization` header for requests.
 
 <!-- Auto-generate this ToC with https://github.com/ycd/toc -->
 <!-- toc -->
+
 - [satellite/admin](#satelliteadmin)
-    * [API design](#api-design)
-        * [Successful responses](#successful-responses)
-        * [Error responses](#error-responses)
-    * [API Endpoints](#api-endpoints)
-        * [User Management](#user-management)
-            * [POST /api/users](#post-apiusers)
-            * [PUT /api/users/{user-email}](#put-apiusersuser-email)
-            * [GET /api/users/{user-email}](#get-apiusersuser-email)
-            * [GET /api/users/{user-email}/limits](#get-apiusersuser-emaillimits)
-            * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
-            * [PUT /api/users/{user-email}/limits](#put-apiusersuser-emaillimits)
-            * [DELETE /api/users/{user-email}/mfa](#delete-apiusersuser-emailmfa)
-            * [PUT /api/users/{user-email}/billing-freeze](#put-apiusersuser-emailbilling-freeze)
-            * [DELETE /api/users/{user-email}/billing-freeze](#delete-apiusersuser-emailbilling-freeze)
-            * [PUT /api/users/{user-email}/violation-freeze](#put-apiusersuser-emailviolation-freeze)
-            * [DELETE /api/users/{user-email}/violation-freeze](#delete-apiusersuser-emailviolation-freeze)
-            * [PUT /api/users/{user-email}/legal-freeze](#put-apiusersuser-emaillegal-freeze)
-            * [DELETE /api/users/{user-email}/legal-freeze](#delete-apiusersuser-emaillegal-freeze)
-            * [PUT /api/users/{user-email}/trial-expiration-freeze](#put-apiusersuser-emailtrial-expiration-freeze)
-            * [DELETE /api/users/{user-email}/trial-expiration-freeze](#delete-apiusersuser-emailtrial-expiration-freeze)
-            * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
-            * [GET /api/users/pending-deletion](#get-apiuserspending-deletion)
-            * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
-            * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
-            * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
-            * [PATCH /api/users/{user-email}/trial-expiration](#patch-apiusersuser-emailtrial-expiration)
-        * [OAuth Client Management](#oauth-client-management)
-            * [POST /api/oauth/clients](#post-apioauthclients)
-            * [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
-            * [DELETE /api/oauth/clients/{id}](#delete-apioauthclientsid)
-        * [Project Management](#project-management)
-            * [POST /api/projects](#post-apiprojects)
-            * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
-            * [PUT /api/projects/{project-id}](#put-apiprojectsproject-id)
-            * [DELETE /api/projects/{project-id}](#delete-apiprojectsproject-id)
-            * [GET /api/projects/{project}/apikeys](#get-apiprojectsprojectapikeys)
-            * [POST /api/projects/{project}/apikeys](#post-apiprojectsprojectapikeys)
-            * [DELETE /api/projects/{project}/apikeys?name={value}](#delete-apiprojectsprojectapikeysnamevalue)
-            * [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
-            * [GET /api/projects/{project-id}/limit](#get-apiprojectsproject-idlimit)
-            * [Update limits](#update-limits)
-                * [PUT /api/projects/{project-id}/limit?usage={value}](#put-apiprojectsproject-idlimitusagevalue)
-                * [PUT /api/projects/{project-id}/limit?bandwidth={value}](#put-apiprojectsproject-idlimitbandwidthvalue)
-                * [PUT /api/projects/{project-id}/limit?rate={value}](#put-apiprojectsproject-idlimitratevalue)
-                * [PUT /api/projects/{project-id}/limit?buckets={value}](#put-apiprojectsproject-idlimitbucketsvalue)
-                * [PUT /api/projects/{project-id}/limit?burst={value}](#put-apiprojectsproject-idlimitburstvalue)
-                * [PUT /api/projects/{project-id}/limit?segments={value}](#put-apiprojectsproject-idlimitsegmentsvalue)
-        * [Bucket Management](#bucket-management)
-            * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
-            * [Geofencing](#geofencing)
-                * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue)
-                * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence](#delete-apiprojectsproject-idbucketsbucket-namegeofence)
-        * [Project API Keys Management](#project-api-keys-management)
-            * [GET /api/apikeys/{api-key}](#get-apiapikeysapi-key)
-            * [DELETE /api/apikeys/{api-key}](#delete-apiapikeysapi-key)
-        * [REST API Keys Management](#rest-api-keys-management)
-            * [POST /api/restkeys/{user-email}](#post-apirestkeysuser-email)
-            * [PUT /api/restkeys/{api-key}/revoke](#put-apirestkeysapi-keyrevoke)
+  - [API design](#api-design)
+    - [Successful responses](#successful-responses)
+    - [Error responses](#error-responses)
+  - [API Endpoints](#api-endpoints)
+    - [User Management](#user-management)
+      - [POST /api/users](#post-apiusers)
+      - [PUT /api/users/{user-email}](#put-apiusersuser-email)
+      - [GET /api/users/{user-email}](#get-apiusersuser-email)
+      - [GET /api/users/{user-email}/limits](#get-apiusersuser-emaillimits)
+      - [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
+      - [PUT /api/users/{user-email}/limits](#put-apiusersuser-emaillimits)
+      - [DELETE /api/users/{user-email}/mfa](#delete-apiusersuser-emailmfa)
+      - [PUT /api/users/{user-email}/billing-freeze](#put-apiusersuser-emailbilling-freeze)
+      - [DELETE /api/users/{user-email}/billing-freeze](#delete-apiusersuser-emailbilling-freeze)
+      - [PUT /api/users/{user-email}/violation-freeze](#put-apiusersuser-emailviolation-freeze)
+      - [DELETE /api/users/{user-email}/violation-freeze](#delete-apiusersuser-emailviolation-freeze)
+      - [PUT /api/users/{user-email}/legal-freeze](#put-apiusersuser-emaillegal-freeze)
+      - [DELETE /api/users/{user-email}/legal-freeze](#delete-apiusersuser-emaillegal-freeze)
+      - [PUT /api/users/{user-email}/trial-expiration-freeze](#put-apiusersuser-emailtrial-expiration-freeze)
+      - [DELETE /api/users/{user-email}/trial-expiration-freeze](#delete-apiusersuser-emailtrial-expiration-freeze)
+      - [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
+      - [GET /api/users/pending-deletion](#get-apiuserspending-deletion)
+      - [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
+      - [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
+      - [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
+      - [PATCH /api/users/{user-email}/trial-expiration](#patch-apiusersuser-emailtrial-expiration)
+    - [OAuth Client Management](#oauth-client-management)
+      - [POST /api/oauth/clients](#post-apioauthclients)
+      - [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
+      - [DELETE /api/oauth/clients/{id}](#delete-apioauthclientsid)
+    - [Project Management](#project-management)
+      - [POST /api/projects](#post-apiprojects)
+      - [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
+      - [PUT /api/projects/{project-id}](#put-apiprojectsproject-id)
+      - [DELETE /api/projects/{project-id}](#delete-apiprojectsproject-id)
+      - [GET /api/projects/{project}/apikeys](#get-apiprojectsprojectapikeys)
+      - [POST /api/projects/{project}/apikeys](#post-apiprojectsprojectapikeys)
+      - [DELETE /api/projects/{project}/apikeys?name={value}](#delete-apiprojectsprojectapikeysnamevalue)
+      - [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
+      - [GET /api/projects/{project-id}/limit](#get-apiprojectsproject-idlimit)
+      - [Update limits](#update-limits)
+        - [PUT /api/projects/{project-id}/limit?usage={value}](#put-apiprojectsproject-idlimitusagevalue)
+        - [PUT /api/projects/{project-id}/limit?bandwidth={value}](#put-apiprojectsproject-idlimitbandwidthvalue)
+        - [PUT /api/projects/{project-id}/limit?rate={value}](#put-apiprojectsproject-idlimitratevalue)
+        - [PUT /api/projects/{project-id}/limit?buckets={value}](#put-apiprojectsproject-idlimitbucketsvalue)
+        - [PUT /api/projects/{project-id}/limit?burst={value}](#put-apiprojectsproject-idlimitburstvalue)
+        - [PUT /api/projects/{project-id}/limit?segments={value}](#put-apiprojectsproject-idlimitsegmentsvalue)
+    - [Bucket Management](#bucket-management)
+      - [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
+      - [Geofencing](#geofencing)
+        - [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue)
+        - [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence](#delete-apiprojectsproject-idbucketsbucket-namegeofence)
+    - [Project API Keys Management](#project-api-keys-management)
+      - [GET /api/apikeys/{api-key}](#get-apiapikeysapi-key)
+      - [DELETE /api/apikeys/{api-key}](#delete-apiapikeysapi-key)
+    - [REST API Keys Management](#rest-api-keys-management)
+      - [POST /api/restkeys/{user-email}](#post-apirestkeysuser-email)
+      - [PUT /api/restkeys/{api-key}/revoke](#put-apirestkeysapi-keyrevoke)
 
 <!-- tocstop -->
 
@@ -79,8 +80,8 @@ requests can return a non-empty body for the resource that we're interacting wit
 
 When an API endpoint returns a client error (status code 4XX) it returns a JSON error response which contains 2 fields:
 
-* `error`: The error message.
-* `detail` (may be empty): Some detail about the returned error.
+- `error`: The error message.
+- `detail` (may be empty): Some detail about the returned error.
 
 Example:
 
@@ -92,6 +93,7 @@ Example:
 ```
 
 ## API Endpoints
+
 ### User Management
 
 #### POST /api/users
@@ -102,9 +104,9 @@ An example of a required request body:
 
 ```json
 {
-    "email": "alice@mail.test",
-    "fullName": "Alice Test",
-    "password": "password"
+  "email": "alice@mail.test",
+  "fullName": "Alice Test",
+  "password": "password"
 }
 ```
 
@@ -112,11 +114,11 @@ A successful response body:
 
 ```json
 {
-    "id":           "12345678-1234-1234-1234-123456789abc",
-    "email":        "alice@mail.test",
-    "fullName":     "Alice Test",
-    "shortName":    "",
-    "passwordHash": ""
+  "id": "12345678-1234-1234-1234-123456789abc",
+  "email": "alice@mail.test",
+  "fullName": "Alice Test",
+  "shortName": "",
+  "passwordHash": ""
 }
 ```
 
@@ -128,20 +130,20 @@ Some example request bodies:
 
 ```json
 {
-    "email": "alice+2@mail.test"
+  "email": "alice+2@mail.test"
 }
 ```
 
 ```json
 {
-    "email": "alice+2@mail.test",
-    "shortName": "myNickName"
+  "email": "alice+2@mail.test",
+  "shortName": "myNickName"
 }
 ```
 
 ```json
 {
-    "projectLimit": 200
+  "projectLimit": 200
 }
 ```
 
@@ -153,21 +155,21 @@ A successful response body:
 
 ```json
 {
-    "user":{
-        "id": "12345678-1234-1234-1234-123456789abc",
-        "fullName": "Alice Bob",
-        "email":"alice@example.test",
-        "projectLimit": 10
-    },
-    "projects":[
-        {
-            "id": "abcabcab-1234-abcd-abcd-abecdefedcab",
-            "publicId": "9551ffef-935c-4d62-9a3b-00d36c411182",
-            "name": "Project",
-            "description": "Project to store data.",
-            "ownerId": "12345678-1234-1234-1234-123456789abc"
-        }
-    ]
+  "user": {
+    "id": "12345678-1234-1234-1234-123456789abc",
+    "fullName": "Alice Bob",
+    "email": "alice@example.test",
+    "projectLimit": 10
+  },
+  "projects": [
+    {
+      "id": "abcabcab-1234-abcd-abcd-abecdefedcab",
+      "publicId": "9551ffef-935c-4d62-9a3b-00d36c411182",
+      "name": "Project",
+      "description": "Project to store data.",
+      "ownerId": "12345678-1234-1234-1234-123456789abc"
+    }
+  ]
 }
 ```
 
@@ -224,7 +226,6 @@ The user can exit this state when they upgrade to a paid tier.
 #### DELETE /api/users/{user-email}/trial-expiration-freeze
 
 Removes the trial expiration freeze on a user account, reinstating account limits.
-
 
 #### DELETE /api/users/{user-email}/billing-warning
 
@@ -325,8 +326,8 @@ An example of a required request body:
 
 ```json
 {
-    "ownerId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837",
-    "projectName": "My Second Project"
+  "ownerId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837",
+  "projectName": "My Second Project"
 }
 ```
 
@@ -334,7 +335,7 @@ A successful response body:
 
 ```json
 {
-    "projectId": "ca7aa0fb-442a-4d4e-aa36-a49abddae646"
+  "projectId": "ca7aa0fb-442a-4d4e-aa36-a49abddae646"
 }
 ```
 
@@ -348,8 +349,8 @@ Updates project name or description.
 
 ```json
 {
-    "projectName": "My new Project Name",
-    "description": "My new awesome description!"
+  "projectName": "My new Project Name",
+  "description": "My new awesome description!"
 }
 ```
 
@@ -365,20 +366,20 @@ A successful response body:
 
 ```json
 [
-    {
-        "id": "b6988bd2-8d21-4bee-91ac-a3445bf38180",
-        "ownerId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837",
-        "name": "mine",
-        "partnerID": "a9d3b7ee-17da-4848-bb0e-1f64cf45af18",
-        "createdAt": "2020-05-19T00:34:13.265761+02:00"
-    },
-    {
-        "id": "f9f887c1-b178-4eb8-b669-14379c5a97ca",
-        "ownerId": "3eb45ae9-822a-470e-a51a-9144dedda63e",
-        "name": "family",
-        "partnerID": "",
-        "createdAt": "2020-02-20T15:34:24.265761+02:00"
-    }
+  {
+    "id": "b6988bd2-8d21-4bee-91ac-a3445bf38180",
+    "ownerId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837",
+    "name": "mine",
+    "partnerID": "a9d3b7ee-17da-4848-bb0e-1f64cf45af18",
+    "createdAt": "2020-05-19T00:34:13.265761+02:00"
+  },
+  {
+    "id": "f9f887c1-b178-4eb8-b669-14379c5a97ca",
+    "ownerId": "3eb45ae9-822a-470e-a51a-9144dedda63e",
+    "name": "family",
+    "partnerID": "",
+    "createdAt": "2020-02-20T15:34:24.265761+02:00"
+  }
 ]
 ```
 
@@ -390,9 +391,10 @@ An example of a required request body:
 
 ```json
 {
-    "name": "My first API Key"
+  "name": "My first API Key"
 }
 ```
+
 **Note:** Additionally you can specify `partnerId` to associate it with the given apikey.
 If you specify it, it has to be a valid uuid and not an empty string.
 
@@ -400,7 +402,7 @@ A successful response body:
 
 ```json
 {
-    "apikey": "13YqdMKxAVBamFsS6Mj3sCQ35HySoA254xmXCCQGJqffLnqrBaQDoTcCiCfbkaFPNewHT79rrFC5XRm4Z2PENtRSBDVNz8zcjS28W5v"
+  "apikey": "13YqdMKxAVBamFsS6Mj3sCQ35HySoA254xmXCCQGJqffLnqrBaQDoTcCiCfbkaFPNewHT79rrFC5XRm4Z2PENtRSBDVNz8zcjS28W5v"
 }
 ```
 
@@ -505,7 +507,6 @@ values for the `region` parameter are:
 - `DE` - restricts placement to data nodes in Germany
 
 [European Union]: https://github.com/storj/common/blob/main/storj/location/region.go#L14
-
 [European Economic Area]: https://github.com/storj/common/blob/main/storj/location/region.go#L7
 
 ##### DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence
@@ -554,7 +555,7 @@ An example of a required request body:
 
 ```json
 {
-    "expiration": "30d20h"
+  "expiration": "30d20h"
 }
 ```
 

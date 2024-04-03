@@ -207,6 +207,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createFields.DefaultPlacement = dbx.Project_DefaultPlacement(int(project.DefaultPlacement))
 	// new projects should have default versioning of Unversioned
 	createFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(console.Unversioned))
+	createFields.PrevDaysUntilExpiration = dbx.Project_PrevDaysUntilExpiration(project.PrevDaysUntilExpiration)
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
@@ -269,6 +270,9 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	if project.DefaultVersioning > 0 {
 		updateFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(project.DefaultVersioning))
 	}
+	updateFields.CreatedAt = dbx.Project_CreatedAt(project.CreatedAt)
+	updateFields.PrevDaysUntilExpiration = dbx.Project_PrevDaysUntilExpiration(project.PrevDaysUntilExpiration)
+
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
 		updateFields)

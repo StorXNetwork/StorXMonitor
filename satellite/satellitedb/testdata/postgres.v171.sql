@@ -611,4 +611,3 @@ INSERT INTO "repair_queue" ("stream_id", "position", "attempted_at", "segment_he
 
 INSERT INTO "users"("id", "full_name", "email", "normalized_email", "password_hash", "status", "created_at", "mfa_enabled", "mfa_secret_key", "mfa_recovery_codes") VALUES (E'\\363\\311\\033w\\222\\303Ci\\266\\344U\\303\\312\\204",'::bytea, 'Noahson William', '101email1@mail.test', '101EMAIL1@MAIL.TEST', E'some_readable_hash'::bytea, 1, '2019-02-14 08:28:24.614594+00', true, 'mfa secret key', '["1a2b3c4d","e5f6g7h8"]');
 -- NEW DATA --
-

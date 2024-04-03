@@ -4,15 +4,15 @@
 
 <h2 id='list-of-endpoints'>List of Endpoints</h2>
 
-* Settings
-  * [Get settings](#settings-get-settings)
-* PlacementManagement
-  * [Get placements](#placementmanagement-get-placements)
-* UserManagement
-  * [Get user](#usermanagement-get-user)
-* ProjectManagement
-  * [Get project](#projectmanagement-get-project)
-  * [Update project limits](#projectmanagement-update-project-limits)
+- Settings
+  - [Get settings](#settings-get-settings)
+- PlacementManagement
+  - [Get placements](#placementmanagement-get-placements)
+- UserManagement
+  - [Get user](#usermanagement-get-user)
+- ProjectManagement
+  - [Get project](#projectmanagement-get-project)
+  - [Update project limits](#projectmanagement-update-project-limits)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -109,9 +109,9 @@ Gets user by email address
 
 **Path Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `email` | `string` |  |
+| name    | type     | elaboration |
+| ------- | -------- | ----------- |
+| `email` | `string` |             |
 
 **Response body:**
 
@@ -151,37 +151,36 @@ Gets project by ID
 
 **Path Params:**
 
-| name | type | elaboration |
-|---|---|---|
+| name       | type     | elaboration                                              |
+| ---------- | -------- | -------------------------------------------------------- |
 | `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
 
 **Response body:**
 
 ```typescript
 {
-	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
-	name: string
-	description: string
-	userAgent: string
-	owner: 	{
-		id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
-		fullName: string
-		email: string
-	}
+  id: string; // UUID formatted as `00000000-0000-0000-0000-000000000000`
+  name: string;
+  description: string;
+  userAgent: string;
+  owner: {
+    id: string; // UUID formatted as `00000000-0000-0000-0000-000000000000`
+    fullName: string;
+    email: string;
+  }
 
-	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
-	defaultPlacement: number
-	rateLimit: number
-	burstLimit: number
-	maxBuckets: number
-	bandwidthLimit: number
-	bandwidthUsed: number
-	storageLimit: number
-	storageUsed: number
-	segmentLimit: number
-	segmentUsed: number
+  createdAt: string; // Date timestamp formatted as `2006-01-02T15:00:00Z`
+  defaultPlacement: number;
+  rateLimit: number;
+  burstLimit: number;
+  maxBuckets: number;
+  bandwidthLimit: number;
+  bandwidthUsed: number;
+  storageLimit: number;
+  storageUsed: number;
+  segmentLimit: number;
+  segmentUsed: number;
 }
-
 ```
 
 <h3 id='projectmanagement-update-project-limits'>Update project limits (<a href='#list-of-endpoints'>go to full list</a>)</h3>
@@ -192,21 +191,19 @@ Updates project limits by ID
 
 **Path Params:**
 
-| name | type | elaboration |
-|---|---|---|
+| name       | type     | elaboration                                              |
+| ---------- | -------- | -------------------------------------------------------- |
 | `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
 
 **Request body:**
 
 ```typescript
 {
-	maxBuckets: number
-	storageLimit: number
-	bandwidthLimit: number
-	segmentLimit: number
-	rateLimit: number
-	burstLimit: number
+  maxBuckets: number;
+  storageLimit: number;
+  bandwidthLimit: number;
+  segmentLimit: number;
+  rateLimit: number;
+  burstLimit: number;
 }
-
 ```
-

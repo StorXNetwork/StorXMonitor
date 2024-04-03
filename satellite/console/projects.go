@@ -86,7 +86,7 @@ type StorageLimitConfig struct {
 
 // BandwidthLimitConfig is a configuration struct for default bandwidth per-project usage limits.
 type BandwidthLimitConfig struct {
-	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"25.00GB"  testDefault:"25.00 GB"`
+	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"2.00GB"  testDefault:"2.00 GB"`
 	Paid memory.Size `help:"the default paid-tier bandwidth usage limit" default:"100.00TB" testDefault:"25.00 GB"`
 }
 

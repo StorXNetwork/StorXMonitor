@@ -586,4 +586,3 @@ INSERT INTO "storagenode_paystubs"("period", "node_id", "created_at", "codes", "
 INSERT INTO "storagenode_payments"("id", "created_at", "period", "node_id", "amount") VALUES (1, '2020-04-07T20:14:21.479141Z', '2020-12', '\x1111111111111111111111111111111111111111111111111111111111111111', 117);
 
 -- NEW DATA --
-

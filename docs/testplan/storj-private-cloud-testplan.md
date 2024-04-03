@@ -1,9 +1,9 @@
-
 ## Storj Private Cloud - Test Plan
 
 ## Test Scenarios
 
 Some test ideas:
+
 - Upload and download some data
 - Server side copy and server side move
 - Multipart uploads
@@ -21,18 +21,18 @@ Some test ideas:
 - Node selection with geofencing, suspended nodes, disqualified nodes, offline nodes, nodes running outdated versions, nodes out of disk space
 
 Bonus section (technically out of scope but still interresting questions for other tickets)
+
 - Should a private satellite require a stripe account for the billing section? How does the UI look like without a stripe account? How can the customer upgrade to a pro account without having to add a credit card.
 - Does the satellite need to be able to send out emails? For signup we have a simulation mode but for other features like project member invite we can't skip the email currently. (Other features with similar issues: storage node notifications, account freeze, password reset)
 - What is the plan for the initial vetting period? A brand new satellite with brand new nodes will not be able to upload any date because not enough vetted nodes. -> config change to upload to unvetted nodes. -> risk about uploading too much data to unvetted nodes by keeping this setting longer than nessesary)
-&nbsp;
+  &nbsp;
 
 &nbsp;
 
 ## [Test Plan Table]
 
-
 | Test Scenario               | Test Case                                      | Description                                                                                                                                                                                                                                                                              | Comments                                                  |
-|-----------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
+| --------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | Upload                      | Small file                                     | Do the upload for 1 KiB, 5 KiB, 1 MiB, 64 MiB files.                                                                                                                                                                                                                                     |                                                           |
 |                             | Big file                                       | Do the upload 1024Mb files                                                                                                                                                                                                                                                               |                                                           |
 |                             | Multipart upload                               | Upload big file to check the multipart upload                                                                                                                                                                                                                                            |                                                           |
@@ -44,8 +44,8 @@ Bonus section (technically out of scope but still interresting questions for oth
 | Move                        | Move object                                    | Move object from one bucket to another bucket                                                                                                                                                                                                                                            |                                                           |
 | Versioning                  | Replace and existing file                      | User should be able to update existing file                                                                                                                                                                                                                                              |                                                           |
 | DB- Table Segment           | Expiration Date                                | If a user uses Server-side copy, then the source object and the destination object must have the same expiration date                                                                                                                                                                    | Might be redundant test because of segment table removing |
-| DB - Table `segment_copies` | Ancestor_stream_id negative                    | If a segment with `stream_id = S` hasn't been copied, then the `segment_copies` table has no row having  `ancestor_stream_id = S`                                                                                                                                                        | Might be redundant test because of segment table removing |
-|                             | Ancestor_stream_id positive                    | If a segment with `stream_id = S` has been copied, then the `segment_copies` table has at least one row having  `ancestor_stream_id = S`                                                                                                                                                 | Might be redundant test because of segment table removing |                                                          
+| DB - Table `segment_copies` | Ancestor_stream_id negative                    | If a segment with `stream_id = S` hasn't been copied, then the `segment_copies` table has no row having `ancestor_stream_id = S`                                                                                                                                                         | Might be redundant test because of segment table removing |
+|                             | Ancestor_stream_id positive                    | If a segment with `stream_id = S` has been copied, then the `segment_copies` table has at least one row having `ancestor_stream_id = S`                                                                                                                                                  | Might be redundant test because of segment table removing |
 | Repair                      | Data repair                                    | Upload some data then kill some nodes and disqualify 1 node(should be enough storage nodes to upload repaired segments). Repaired segment should not contain any piece in the killed and DQ nodes. Downloads the data from new nodes and check that it's the same than the uploaded one. | This test should be in the code                           |
 | Token payments              | Multiple Transactions                          | If a user has a pending transaction and then performs another transaction with a higher nonce using the same address, the new transaction has to wait until the previous transaction with the lower nonce is confirmed (standard behavior of geth, nothing to test for us)               |                                                           |
 |                             | Invoice Generation                             | When an invoice is generated and "paid", coupons should be used first, followed by storj balance and then lastly credit card                                                                                                                                                             |                                                           |

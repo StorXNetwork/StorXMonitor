@@ -1,12 +1,16 @@
-// Copyright (C) 2023 Storj Labs, Inc.
-// See LICENSE for copying information.
+// Copyright (C) 2023 Storj Labs, Inc. // See LICENSE for copying information.
 
 <template>
     <v-card :title="title" variant="flat" :border="true" rounded="xlg">
         <v-card-item class="pt-1">
             <v-row>
                 <v-col cols="12" class="pb-1">
-                    <v-progress-linear :color="color" :model-value="percentage" rounded height="6" />
+                    <v-progress-linear
+                        :color="color"
+                        :model-value="percentage"
+                        rounded
+                        height="6"
+                    />
                 </v-col>
 
                 <v-col cols="6">
@@ -14,12 +18,14 @@
                     <h4>{{ onlyLimit ? "---" : format(used || 0) }}</h4>
                     <v-divider class="my-3" />
                     <p class="text-medium-emphasis">Percentage</p>
-                    <h4 class="">{{ onlyLimit ? "---" : percentage+'%' }}</h4>
+                    <h4 class="">{{ onlyLimit ? "---" : percentage + "%" }}</h4>
                 </v-col>
 
                 <v-col cols="6">
                     <p class="text-right text-medium-emphasis">Available</p>
-                    <h4 class="text-right">{{ onlyLimit ? "---" : format(available) }}</h4>
+                    <h4 class="text-right">
+                        {{ onlyLimit ? "---" : format(available) }}
+                    </h4>
                     <v-divider class="my-3" />
                     <p class="text-right text-medium-emphasis">Limit</p>
                     <h4 class="text-right">{{ format(limit) }}</h4>
@@ -28,7 +34,13 @@
                 <template v-if="featureFlags.project.updateLimits">
                     <v-divider />
                     <v-col>
-                        <v-btn size="small" variant="outlined" color="default" class="mt-1 my-2">Change Limits</v-btn>
+                        <v-btn
+                            size="small"
+                            variant="outlined"
+                            color="default"
+                            class="mt-1 my-2"
+                            >Change Limits</v-btn
+                        >
                     </v-col>
                 </template>
             </v-row>
@@ -37,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed } from "vue";
 import {
     VCard,
     VCardItem,
@@ -46,13 +58,14 @@ import {
     VProgressLinear,
     VDivider,
     VBtn,
-} from 'vuetify/components';
+} from "vuetify/components";
 
-import { FeatureFlags } from '@/api/client.gen';
-import { useAppStore } from '@/store/app';
-import { Dimensions, Size } from '@/utils/bytesSize';
+import { FeatureFlags } from "@/api/client.gen";
+import { useAppStore } from "@/store/app";
+import { Dimensions, Size } from "@/utils/bytesSize";
 
-const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
+const featureFlags = useAppStore().state.settings.admin
+    .features as FeatureFlags;
 
 const props = defineProps<{
     title: string;
@@ -65,10 +78,10 @@ const props = defineProps<{
 
 const percentage = computed((): string => {
     if (props.onlyLimit || !props.used) {
-        return '0';
+        return "0";
     }
 
-    const p = props.used/props.limit * 100;
+    const p = (props.used / props.limit) * 100;
     return Math.round(p).toString();
 });
 
@@ -81,21 +94,21 @@ const available = computed((): number => {
 });
 
 /**
-* Returns a stringify val considering if val is expressed in bytes and it that case it returns the
-* value in the best human readable memory size unit rounding down to 0 when its expressed in bytes
-* and truncating the decimals when its expressed in other units.
-*/
+ * Returns a stringify val considering if val is expressed in bytes and it that case it returns the
+ * value in the best human readable memory size unit rounding down to 0 when its expressed in bytes
+ * and truncating the decimals when its expressed in other units.
+ */
 function format(val: number): string {
     if (!props.isBytes) {
         return val.toString();
     }
 
-    const valmem =  new Size(val, 2);
+    const valmem = new Size(val, 2);
     switch (valmem.label) {
-    case Dimensions.Bytes:
-        return '0';
-    default:
-        return `${valmem.formattedBytes.replace(/\.0+$/, '')}${valmem.label}`;
+        case Dimensions.Bytes:
+            return "0";
+        default:
+            return `${valmem.formattedBytes.replace(/\.0+$/, "")}${valmem.label}`;
     }
 }
 </script>

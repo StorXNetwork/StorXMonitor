@@ -556,4 +556,3 @@ INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email"
 
 INSERT INTO "storagenode_bandwidth_rollup_archives" ("storagenode_id", "interval_start", "interval_seconds", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 1024, 2024);
 INSERT INTO "bucket_bandwidth_rollup_archives" ("bucket_name", "project_id", "interval_start", "interval_seconds", "action", "inline", "allocated", "settled") VALUES (E'testbucket'::bytea, E'\\170\\160\\157\\370\\274\\366\\113\\364\\272\\235\\301\\243\\321\\102\\321\\136'::bytea,'2019-03-06 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 1024, 2024, 3024);
-

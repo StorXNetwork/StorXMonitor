@@ -661,6 +661,3 @@ INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email"
 INSERT INTO "repair_queue" ("stream_id", "position", "attempted_at", "segment_health", "updated_at", "inserted_at") VALUES ('\x01', 1, null, 1, '2020-09-01 00:00:00.000000+00', '2021-09-01 00:00:00.000000+00');
 
 -- NEW DATA --
-
-
-

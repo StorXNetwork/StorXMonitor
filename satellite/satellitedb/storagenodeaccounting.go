@@ -442,7 +442,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	// accounting_rollups table are fully populated or back-filled with
 	// the start_time, and the interval_end_time is non-nullable
 	query := `
-		SELECT SUM(r1.at_rest_total) as at_rest_total, 
+		SELECT SUM(r1.at_rest_total) as at_rest_total,
 				(r1.start_time at time zone 'UTC')::date as start_time,
 				COALESCE(MAX(r1.interval_end_time), MAX(r1.start_time)) AS interval_end_time
 		FROM accounting_rollups r1

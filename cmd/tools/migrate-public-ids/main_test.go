@@ -168,8 +168,8 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 // * * * THIS IS ONLY FOR TESTING!!! * * *.
 func testNullifyPublicIDs(ctx context.Context, log *zap.Logger, conn *pgx.Conn, exclude uuid.UUID) error {
 	_, err := conn.Exec(ctx, `
-		UPDATE projects 
-		SET public_id = NULL 
+		UPDATE projects
+		SET public_id = NULL
 		WHERE id != $1;
 	`, exclude.Bytes())
 	return err
