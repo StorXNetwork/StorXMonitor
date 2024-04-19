@@ -440,6 +440,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 			paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}
+		paymentsRouter.HandleFunc("/upgradingModule", paymentController.UpgradingModuleReq).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
