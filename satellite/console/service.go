@@ -979,31 +979,34 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return err
 		}
 
-		verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
-		if err != nil {
-			return err
-		}
-
-		if verified != nil {
-			err = tx.Users().Delete(ctx, u.ID)
+		if !socialsign {
+			verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
 			if err != nil {
 				return err
 			}
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-			return ErrEmailUsed.New(emailUsedErrMsg)
-		}
 
-		for _, other := range unverified {
-			// We compare IDs because a parallel user creation transaction for the same
-			// email could have created a record at the same time as ours.
-			if other.CreatedAt.Before(u.CreatedAt) || other.ID.Less(u.ID) {
+			if verified != nil {
 				err = tx.Users().Delete(ctx, u.ID)
 				if err != nil {
 					return err
 				}
-				mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+				mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
 				return ErrEmailUsed.New(emailUsedErrMsg)
 			}
+
+			for _, other := range unverified {
+				// We compare IDs because a parallel user creation transaction for the same
+				// email could have created a record at the same time as ours.
+				if other.CreatedAt.Before(u.CreatedAt) || other.ID.Less(u.ID) {
+					err = tx.Users().Delete(ctx, u.ID)
+					if err != nil {
+						return err
+					}
+					mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+					return ErrEmailUsed.New(emailUsedErrMsg)
+				}
+			}
+
 		}
 
 		if registrationToken != nil {
