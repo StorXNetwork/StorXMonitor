@@ -372,8 +372,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/loginbutton_facebook", authController.InitFacebookLogin)
 	router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
 
-	router.Handle("/unstoppable_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleUnstoppableRegister))).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
-	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
+	router.Handle("/unstoppable_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleUnstoppableRegister))).Methods(http.MethodGet, http.MethodOptions)
+	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc("/registerbutton_linkedin", authController.InitLinkedInRegister)
 	router.HandleFunc("/linkedin_register", authController.HandleLinkedInRegister)
