@@ -799,7 +799,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 		_ = r.URL.Query().Get("state")
 		code_verifier := r.URL.Query().Get("code_verifier")
 		token, err := socialmedia.GetToken(code, code_verifier)
-		fmt.Println("THEURL", r.URL.String(), fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL))
+		
 		if err != nil {
 			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error code not present"+err.Error(), http.StatusTemporaryRedirect)
 			return
@@ -813,7 +813,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 		
 
 		verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, responseBody.Sub+"@ud.me")
-		fmt.Println("UNSTOPPABLE USER", verified, unverified, err)
+		
 		if err != nil && !console.ErrEmailNotFound.Has(err) {
 			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
 			return
