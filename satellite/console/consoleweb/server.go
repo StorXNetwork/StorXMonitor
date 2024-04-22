@@ -95,7 +95,9 @@ type Config struct {
 	LinkedinLoginRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
 
 	UnstoppableDomainClientID          string `help:"redirect url for unstoppable domain oauth" default:""`
-	UnstoppableDomainRedirectURLstring string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainClientSecret          string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainSignupRedirectURLstring string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainLoginRedirectURLstring string `help:"redirect url for unstoppable domain oauth" default:""`
 
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
@@ -351,7 +353,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring)
-	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainRedirectURLstring)
+	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID,config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
 
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
@@ -371,6 +373,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
 
 	router.Handle("/unstoppable_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleUnstoppableRegister))).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
+	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
 
 	router.HandleFunc("/registerbutton_linkedin", authController.InitLinkedInRegister)
 	router.HandleFunc("/linkedin_register", authController.HandleLinkedInRegister)

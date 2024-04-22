@@ -68,14 +68,66 @@ func ParseToken(tokenStr string) (*TokenDetails, error) {
 
 	return &tokenDetails, nil
 }
-func GetToken(code, codeVerifier string) (*UnstoppableResponse, error) {
+func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	// Define request body
 	body := url.Values{}
 	body.Set("client_id", configVal.UnstoppableDomainClientSecret)
 	body.Set("grant_type", "authorization_code")
 	body.Set("code", code)
 	body.Set("code_verifier", codeVerifier)
-	body.Set("redirect_uri", configVal.UnstoppableDomainRedirectUrl)
+	body.Set("redirect_uri", configVal.UnstoppableDomainRedirectUrl_register)
+
+	// Create a new HTTP request
+	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
+	if err != nil {
+		return nil, err
+	}
+
+	// Set Basic Authentication header
+	req.SetBasicAuth(configVal.UnstoppableDomainClientID, configVal.UnstoppableDomainClientSecret)
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Sec-Fetch-Dest", "empty")
+	req.Header.Set("Sec-Fetch-Mode", "cors")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+
+	// Perform the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Check the status code
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var response UnstoppableResponse
+	err = json.Unmarshal(bodyBytes, &response)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+func GetLoginToken(code, codeVerifier string) (*UnstoppableResponse, error) {
+	// Define request body
+	body := url.Values{}
+	body.Set("client_id", configVal.UnstoppableDomainClientSecret)
+	body.Set("grant_type", "authorization_code")
+	body.Set("code", code)
+	body.Set("code_verifier", codeVerifier)
+	body.Set("redirect_uri", configVal.UnstoppableDomainRedirectUrl_login)
 
 	// Create a new HTTP request
 	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
