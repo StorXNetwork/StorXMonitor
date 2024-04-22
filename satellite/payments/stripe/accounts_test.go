@@ -131,7 +131,7 @@ func TestSignupCouponCodes(t *testing.T) {
 				regToken, err := service.CreateRegToken(ctx, 1)
 				require.NoError(t, err)
 
-				rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
+				rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, false)
 				require.NoError(t, err)
 
 				couponType, err := paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email, rootUser.SignupPromoCode)

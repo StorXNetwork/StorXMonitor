@@ -709,6 +709,327 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
 }
 
+// **** Unstipabble register ****//
+func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var responseBody struct {
+		Authorization struct {
+			AccessToken string `json:"accessToken"`
+			ExpiresAt   int64  `json:"expiresAt"`
+			IDToken     struct {
+				Acr              string   `json:"acr"`
+				Amr              []string `json:"amr"`
+				AtHash           string   `json:"at_hash"`
+				Aud              []string `json:"aud"`
+				AuthTime         int      `json:"auth_time"`
+				DomainLive       bool     `json:"domain_live"`
+				Eip4361Message   string   `json:"eip4361_message"`
+				Eip4361Signature string   `json:"eip4361_signature"`
+				Exp              int      `json:"exp"`
+				Iat              int      `json:"iat"`
+				Iss              string   `json:"iss"`
+				Jti              string   `json:"jti"`
+				Nonce            string   `json:"nonce"`
+				Proof            struct {
+					V1SigEthereum0xE83752268f117dEdA5a66119Ba92fbA3ab1b0f06 struct {
+						Message   string `json:"message"`
+						Signature string `json:"signature"`
+						Template  struct {
+							Format string `json:"format"`
+							Params struct {
+								Address   string `json:"address"`
+								ChainID   string `json:"chainId"`
+								ChainName string `json:"chainName"`
+								Domain    string `json:"domain"`
+								IssuedAt  string `json:"issuedAt"`
+								Nonce     string `json:"nonce"`
+								Statement string `json:"statement"`
+								URI       string `json:"uri"`
+								Version   string `json:"version"`
+							} `json:"params"`
+						} `json:"template"`
+						Type string `json:"type"`
+					} `json:"v1.sig.ethereum.0xE83752268f117dEdA5a66119Ba92fbA3ab1b0f06"`
+				} `json:"proof"`
+				Rat               int    `json:"rat"`
+				Sid               string `json:"sid"`
+				Sub               string `json:"sub"`
+				VerifiedAddresses []struct {
+					Address string `json:"address"`
+					Proof   struct {
+						Type      string `json:"type"`
+						Message   string `json:"message"`
+						Signature string `json:"signature"`
+						Template  struct {
+							Format string `json:"format"`
+							Params struct {
+								Address   string `json:"address"`
+								ChainID   string `json:"chainId"`
+								ChainName string `json:"chainName"`
+								Domain    string `json:"domain"`
+								IssuedAt  string `json:"issuedAt"`
+								Nonce     string `json:"nonce"`
+								Statement string `json:"statement"`
+								URI       string `json:"uri"`
+								Version   string `json:"version"`
+							} `json:"params"`
+						} `json:"template"`
+						//Type string `json:"type"`
+					} `json:"proof"`
+					Symbol string `json:"symbol"`
+				} `json:"verified_addresses"`
+				WalletAddress  string `json:"wallet_address"`
+				WalletTypeHint string `json:"wallet_type_hint"`
+				Raw            string `json:"__raw"`
+			} `json:"idToken"`
+			Scope string `json:"scope"`
+		} `json:"authorization"`
+		// Add more fields as needed
+		State string `json:"state"`
+	}
+	
+	if r.Method != http.MethodPost && r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+	} else if r.Method == http.MethodGet {
+		code := r.URL.Query().Get("code")
+		_ = r.URL.Query().Get("state")
+		code_verifier := r.URL.Query().Get("code_verifier")
+		token, err := socialmedia.GetToken(code, code_verifier)
+		fmt.Println("THEURL", r.URL.String(), fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL))
+		if err != nil {
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error code not present"+err.Error(), http.StatusTemporaryRedirect)
+			return
+		}	
+		
+		responseBody, err := socialmedia.ParseToken(token.IDToken)
+		if err != nil {
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error reading body!", http.StatusTemporaryRedirect)
+			return
+		}		
+		
+
+		verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, responseBody.Sub+"@ud.me")
+		fmt.Println("UNSTOPPABLE USER", verified, unverified, err)
+		if err != nil && !console.ErrEmailNotFound.Has(err) {
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
+			return
+		}
+
+		var user *console.User
+		if verified != nil {
+			a.TokenGoogleWrapper(r.Context(), responseBody.Sub + "@ud.me", w, r)
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, mainPageURL), http.StatusTemporaryRedirect)
+			return
+		} else {
+			if len(unverified) > 0 {
+				user = &unverified[0]
+			} else {
+				ip, err := web.GetRequestIP(r)
+				if err != nil {
+					http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error getting IP!", http.StatusTemporaryRedirect)
+					return
+				}
+				secret, err := console.RegistrationSecretFromBase64("")
+				if err != nil {
+					http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating secret!", http.StatusTemporaryRedirect)
+					return
+				}
+
+				user, err = a.service.CreateUser(ctx,
+					console.CreateUser{
+						FullName:  responseBody.Sub,
+						ShortName: responseBody.Sub,
+						Email:     responseBody.Sub + "@ud.me",
+						//UserAgent:        registerData.UserAgent,
+						//Password:         registerData.Password,
+						Status: 1,
+						//IsProfessional:   registerData.IsProfessional,
+						//Position:         registerData.Position,
+						//CompanyName:      registerData.CompanyName,
+						//EmployeeCount:    registerData.EmployeeCount,
+						//HaveSalesContact: registerData.HaveSalesContact,
+						IP: ip,
+						//SignupPromoCode:  registerData.SignupPromoCode,
+					},
+					secret, true,
+				)
+
+				if err != nil {
+					http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
+					return
+				}
+
+				referrer := r.URL.Query().Get("referrer")
+				if referrer == "" {
+					referrer = r.Referer()
+				}
+				hubspotUTK := ""
+				hubspotCookie, err := r.Cookie("hubspotutk")
+				if err == nil {
+					hubspotUTK = hubspotCookie.Value
+				}
+
+				trackCreateUserFields := analytics.TrackCreateUserFields{
+					ID:           user.ID,
+					AnonymousID:  loadSession(r),
+					FullName:     user.FullName,
+					Email:        user.Email,
+					Type:         analytics.Personal,
+					OriginHeader: r.Header.Get("Origin"),
+					Referrer:     referrer,
+					HubspotUTK:   hubspotUTK,
+					UserAgent:    string(user.UserAgent),
+				}
+				if user.IsProfessional {
+					trackCreateUserFields.Type = analytics.Professional
+					trackCreateUserFields.EmployeeCount = user.EmployeeCount
+					trackCreateUserFields.CompanyName = user.CompanyName
+					//trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+					trackCreateUserFields.JobTitle = user.Position
+					trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+				}
+				a.analytics.TrackCreateUser(trackCreateUserFields)
+			}
+		}
+
+		a.TokenGoogleWrapper(ctx, responseBody.Sub+"@ud.me", w, r)
+		// Set up a test project and bucket
+
+		authed := console.WithUser(ctx, user)
+
+		project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+			Name: "My Project",
+		})
+		if err != nil {
+			a.log.Error("Error in Default Project:")
+			a.log.Error(err.Error())
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating default project!", http.StatusTemporaryRedirect)
+		}
+
+		a.log.Info("Default Project Name: " + project.Name)
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
+
+	} else {
+		body, err := io.ReadAll(r.Body)
+
+		if err != nil {
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error reading body!", http.StatusTemporaryRedirect)
+			return
+		}
+
+		//var responseBody ResponseBody
+		if err := json.Unmarshal(body, &responseBody); err != nil {
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error reading body!", http.StatusTemporaryRedirect)
+			return
+
+		}
+
+		verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, responseBody.Authorization.IDToken.Sub+"@ud.me")
+		fmt.Println("UNSTOPPABLE USER", verified, unverified, err)
+		if err != nil && !console.ErrEmailNotFound.Has(err) {
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
+			return
+		}
+
+		var user *console.User
+		if verified != nil {
+			http.Redirect(w, r, fmt.Sprint(r.Host, loginPageURL), http.StatusSeeOther)
+			return
+		} else {
+			if len(unverified) > 0 {
+				user = &unverified[0]
+			} else {
+				ip, err := web.GetRequestIP(r)
+				if err != nil {
+					http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error getting IP!", http.StatusTemporaryRedirect)
+					return
+				}
+				secret, err := console.RegistrationSecretFromBase64("")
+				if err != nil {
+					http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating secret!", http.StatusTemporaryRedirect)
+					return
+				}
+
+				user, err = a.service.CreateUser(ctx,
+					console.CreateUser{
+						FullName:  responseBody.Authorization.IDToken.Sub,
+						ShortName: responseBody.Authorization.IDToken.Sub,
+						Email:     responseBody.Authorization.IDToken.Sub + "@ud.me",
+						//UserAgent:        registerData.UserAgent,
+						//Password:         registerData.Password,
+						Status: 1,
+						//IsProfessional:   registerData.IsProfessional,
+						//Position:         registerData.Position,
+						//CompanyName:      registerData.CompanyName,
+						//EmployeeCount:    registerData.EmployeeCount,
+						//HaveSalesContact: registerData.HaveSalesContact,
+						IP: ip,
+						//SignupPromoCode:  registerData.SignupPromoCode,
+					},
+					secret, true,
+				)
+
+				if err != nil {
+					http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
+					return
+				}
+
+				referrer := r.URL.Query().Get("referrer")
+				if referrer == "" {
+					referrer = r.Referer()
+				}
+				hubspotUTK := ""
+				hubspotCookie, err := r.Cookie("hubspotutk")
+				if err == nil {
+					hubspotUTK = hubspotCookie.Value
+				}
+
+				trackCreateUserFields := analytics.TrackCreateUserFields{
+					ID:           user.ID,
+					AnonymousID:  loadSession(r),
+					FullName:     user.FullName,
+					Email:        user.Email,
+					Type:         analytics.Personal,
+					OriginHeader: r.Header.Get("Origin"),
+					Referrer:     referrer,
+					HubspotUTK:   hubspotUTK,
+					UserAgent:    string(user.UserAgent),
+				}
+				if user.IsProfessional {
+					trackCreateUserFields.Type = analytics.Professional
+					trackCreateUserFields.EmployeeCount = user.EmployeeCount
+					trackCreateUserFields.CompanyName = user.CompanyName
+					//trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+					trackCreateUserFields.JobTitle = user.Position
+					trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+				}
+				a.analytics.TrackCreateUser(trackCreateUserFields)
+			}
+		}
+
+		a.TokenGoogleWrapper(ctx, responseBody.Authorization.IDToken.Sub+"@ud.me", w, r)
+		// Set up a test project and bucket
+
+		authed := console.WithUser(ctx, user)
+
+		project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+			Name: "My Project",
+		})
+		if err != nil {
+			a.log.Error("Error in Default Project:")
+			a.log.Error(err.Error())
+			http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating default project!", http.StatusTemporaryRedirect)
+		}
+
+		a.log.Info("Default Project Name: " + project.Name)
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
+	}
+}
+
 func (a *Auth) LoginUserConfirm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

@@ -2815,7 +2815,7 @@ func TestProjectInvitations(t *testing.T) {
 				FullName: "test user",
 				Email:    "test-unverified-email@test",
 				Password: "password",
-			}, regToken.Secret)
+			}, regToken.Secret, false)
 			require.NoError(t, err)
 			require.Zero(t, unverified.Status)
 
