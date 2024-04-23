@@ -1,11 +1,15 @@
 package socialmedia
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
+	"sync"
 
 	"bytes"
 
@@ -71,11 +75,11 @@ func ParseToken(tokenStr string) (*TokenDetails, error) {
 func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	// Define request body
 	body := url.Values{}
-	body.Set("client_id", configVal.UnstoppableDomainClientSecret)
+	body.Set("client_id", UnstoppableDomainClientID)
 	body.Set("grant_type", "authorization_code")
 	body.Set("code", code)
 	body.Set("code_verifier", codeVerifier)
-	body.Set("redirect_uri", configVal.UnstoppableDomainRedirectUrl_register)
+	body.Set("redirect_uri", fmt.Sprint("http://localhost:10002", "/unstoppable_register"))
 
 	// Create a new HTTP request
 	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
@@ -84,7 +88,7 @@ func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	}
 
 	// Set Basic Authentication header
-	req.SetBasicAuth(configVal.UnstoppableDomainClientID, configVal.UnstoppableDomainClientSecret)
+	req.SetBasicAuth(UnstoppableDomainClientID, UnstoppableDomainClientSecret)
 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
@@ -123,11 +127,11 @@ func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 func GetLoginToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	// Define request body
 	body := url.Values{}
-	body.Set("client_id", configVal.UnstoppableDomainClientSecret)
+	body.Set("client_id", UnstoppableDomainClientID)
 	body.Set("grant_type", "authorization_code")
 	body.Set("code", code)
 	body.Set("code_verifier", codeVerifier)
-	body.Set("redirect_uri", configVal.UnstoppableDomainRedirectUrl_login)
+	body.Set("redirect_uri", fmt.Sprint("http://localhost:10002", "/unstoppable_login"))
 
 	// Create a new HTTP request
 	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
@@ -136,7 +140,7 @@ func GetLoginToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	}
 
 	// Set Basic Authentication header
-	req.SetBasicAuth(configVal.UnstoppableDomainClientID, configVal.UnstoppableDomainClientSecret)
+	req.SetBasicAuth(UnstoppableDomainClientID, UnstoppableDomainClientSecret)
 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
@@ -178,4 +182,187 @@ type UnstoppableResponse struct {
 	IDToken     string `json:"id_token"`
 	Scope       string `json:"scope"`
 	TokenType   string `json:"token_type"`
+}
+
+var pkceMask = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_~."
+
+func GetRandomBytes(length int) ([]byte, error) {
+	bytes := make([]byte, length)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
+// getRandomBytes generates random bytes of the specified length
+func getRandomBytes(length int) ([]byte, error) {
+	bytes := make([]byte, length)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
+// generateCodeVerifier generates a code verifier of the specified length using PKCE mask
+func generateCodeVerifier(length int) (string, error) {
+	pkceMask := "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_.~"
+	randomBytes, err := getRandomBytes(length)
+	if err != nil {
+		return "", err
+	}
+	verifier := make([]byte, length)
+	for i, b := range randomBytes {
+		verifier[i] = pkceMask[int(b)%len(pkceMask)]
+	}
+	return string(verifier), nil
+}
+
+func GenerateCodeVerifier(length int) (string, error) {
+	bytes, err := GetRandomBytes(length)
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	for _, b := range bytes {
+		sb.WriteByte(pkceMask[int(b)%len(pkceMask)])
+	}
+	return sb.String(), nil
+}
+
+func GenerateCodeChallengeAndVerifier(length int, method string) (string, string, error) {
+	verifier, err := generateCodeVerifier(length)
+	if err != nil {
+		return "", "", err
+	}
+	switch method {
+	case "plain":
+		return verifier, verifier, nil
+	case "S256":
+		h := sha256.Sum256([]byte(verifier))
+		challenge := toUrlEncodedBase64(h[:])
+		return verifier, challenge, nil
+	default:
+		return "", "", fmt.Errorf("bad challenge method")
+	}
+}
+
+func Sha256Hash(s string) []byte {
+	h := sha256.Sum256([]byte(s))
+	return h[:]
+}
+
+func toBase64(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
+}
+
+func toUrlEncodedBase64(data []byte) string {
+	base64Str := toBase64(data)
+	encoded := strings.ReplaceAll(base64Str, "=", "")
+	encoded = strings.ReplaceAll(encoded, "+", "-")
+	encoded = strings.ReplaceAll(encoded, "/", "_")
+	return encoded
+}
+
+func GetSortedScope(scope string) string {
+	scopes := strings.Fields(scope)
+	sort.Strings(scopes)
+	return strings.Join(scopes, " ")
+}
+
+func RecordCacheKey(record map[string]string) string {
+	keys := make([]string, 0, len(record))
+	for k, v := range record {
+		if v != "" {
+			keys = append(keys, k+"="+v)
+		}
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, "&")
+}
+
+func EncodeState(state interface{}) (string, error) {
+	randomBytes, _ := GetRandomBytes(32)
+	randomBase64 := toUrlEncodedBase64(randomBytes)
+	var encodedState string
+	if state != nil {
+		stateJSON, err := json.Marshal(state)
+		if err != nil {
+			return "", err
+		}
+		escapedState := url.QueryEscape(string(stateJSON))
+		encodedState = toUrlEncodedBase64([]byte(escapedState))
+	}
+	return randomBase64 + "." + encodedState, nil
+}
+
+func GenerateNonce() (string, error) {
+	// Generate 32 random bytes
+	randomBytes := make([]byte, 32)
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert bytes to base64 string
+	nonce := base64.StdEncoding.EncodeToString(randomBytes)
+	return nonce, nil
+}
+
+var (
+	ReqStore                      sync.Map
+	UnstoppableDomainClientID     = "51ae3958-1c89-478b-9cb4-0f28f205aa07"
+	UnstoppableDomainScope        = "openid wallet messaging:notifications:optional"
+	UnstoppableDomainClientSecret = "n7UDXuxFtftDCY9C8Qc1gBC_VV"
+)
+
+
+// ReqOptions contains request parameters and headers
+type ReqOptions struct {
+	BaseURL     string
+	QueryParams QueryParams
+	Headers     map[string]string
+}
+
+// QueryParams contains query parameters
+type QueryParams struct {
+	CodeChallenge       string `url:"code_challenge"`
+	Nonce               string `url:"nonce"`
+	State               string `url:"state"`
+	FlowID              string `url:"flow_id"`
+	ClientID            string `url:"client_id"`
+	ClientSecret        string `url:"client_secret"`
+	ClientAuthMethod    string `url:"client_auth_method"`
+	MaxAge              string `url:"max_age"`
+	Prompt              string `url:"prompt"`
+	RedirectURI         string `url:"redirect_uri"`
+	ResponseMode        string `url:"response_mode"`
+	Scope               string `url:"scope"`
+	CodeChallengeMethod string `url:"code_challenge_method"`
+	ResponseType        string `url:"response_type"`
+	PackageName         string `url:"package_name"`
+	PackageVersion      string `url:"package_version"`
+}
+
+// toMap converts QueryParams struct to a map
+func (qp QueryParams) ToMap() map[string]string {
+	params := make(map[string]string)
+	params["code_challenge"] = qp.CodeChallenge
+	params["nonce"] = qp.Nonce
+	params["state"] = qp.State
+	params["flow_id"] = qp.FlowID
+	params["client_id"] = qp.ClientID
+	params["client_secret"] = qp.ClientSecret
+	params["client_auth_method"] = qp.ClientAuthMethod
+	params["max_age"] = qp.MaxAge
+	params["prompt"] = qp.Prompt
+	params["redirect_uri"] = qp.RedirectURI
+	params["response_mode"] = qp.ResponseMode
+	params["scope"] = qp.Scope
+	params["code_challenge_method"] = qp.CodeChallengeMethod
+	params["response_type"] = qp.ResponseType
+	params["package_name"] = qp.PackageName
+	params["package_version"] = qp.PackageVersion
+	return params
 }

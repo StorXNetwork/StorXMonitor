@@ -13,6 +13,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -709,6 +710,153 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
 }
 
+func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("CALLED")
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	// Create Unstoppable Request Instance
+	state, err := socialmedia.EncodeState(nil)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	nonce, err := socialmedia.GenerateNonce()
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating none! "+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	verifier, challenge, err := socialmedia.GenerateCodeChallengeAndVerifier(43, "S256")
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating verifer and challenge!"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+
+	socialmedia.ReqStore.Store(state, verifier)
+	options := socialmedia.ReqOptions{
+		BaseURL: "https://auth.unstoppabledomains.com/oauth2/auth",
+		QueryParams: socialmedia.QueryParams{
+			CodeChallenge:       challenge,
+			Nonce:               nonce,
+			State:               state,
+			FlowID:              "login",
+			ClientID:            socialmedia.UnstoppableDomainClientID,
+			ClientSecret:        socialmedia.UnstoppableDomainClientSecret,
+			ClientAuthMethod:    "client_secret_basic",
+			MaxAge:              "300000",
+			Prompt:              "login",
+			RedirectURI:         fmt.Sprint("http://localhost:10002", "/unstoppable_register"),
+			ResponseMode:        "query",
+			Scope:               "openid wallet messaging:notifications:optional",
+			CodeChallengeMethod: "S256",
+			ResponseType:        "code",
+			PackageName:         "@uauth/js",
+			PackageVersion:      "3.0.1",
+		},
+		Headers: map[string]string{
+			"User-Agent":                "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
+			"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+			"Accept-Language":           "en-US,en;q=0.5",
+			"Upgrade-Insecure-Requests": "1",
+			"Sec-Fetch-Dest":            "document",
+			"Sec-Fetch-Mode":            "navigate",
+			"Sec-Fetch-Site":            "cross-site",
+			"Sec-Fetch-User":            "?1",
+		},
+	}
+	// Parse the base URL
+	parsedURL, err := url.Parse(options.BaseURL)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating parsing url !"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+
+	params, err := url.ParseQuery(parsedURL.RawQuery)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating parsing url !"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	for key, value := range options.QueryParams.ToMap() {
+		params.Set(key, value)
+		//return
+	}
+	parsedURL.RawQuery = params.Encode()
+	http.Redirect(w, r, parsedURL.String(), http.StatusTemporaryRedirect)
+}
+
+func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("CALLED")
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	// Create Unstoppable Request Instance
+	state, err := socialmedia.EncodeState(nil)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	nonce, err := socialmedia.GenerateNonce()
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating none! "+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	verifier, challenge, err := socialmedia.GenerateCodeChallengeAndVerifier(43, "S256")
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating verifer and challenge!"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+
+	socialmedia.ReqStore.Store(state, verifier)
+	options := socialmedia.ReqOptions{
+		BaseURL: "https://auth.unstoppabledomains.com/oauth2/auth",
+		QueryParams: socialmedia.QueryParams{
+			CodeChallenge:       challenge,
+			Nonce:               nonce,
+			State:               state,
+			FlowID:              "login",
+			ClientID:            socialmedia.UnstoppableDomainClientID,
+			ClientSecret:        socialmedia.UnstoppableDomainClientSecret,
+			ClientAuthMethod:    "client_secret_basic",
+			MaxAge:              "300000",
+			Prompt:              "login",
+			RedirectURI:         fmt.Sprint("http://localhost:10002", "/unstoppable_login"),
+			ResponseMode:        "query",
+			Scope:               "openid wallet messaging:notifications:optional",
+			CodeChallengeMethod: "S256",
+			ResponseType:        "code",
+			PackageName:         "@uauth/js",
+			PackageVersion:      "3.0.1",
+		},
+		Headers: map[string]string{
+			"User-Agent":                "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
+			"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+			"Accept-Language":           "en-US,en;q=0.5",
+			"Upgrade-Insecure-Requests": "1",
+			"Sec-Fetch-Dest":            "document",
+			"Sec-Fetch-Mode":            "navigate",
+			"Sec-Fetch-Site":            "cross-site",
+			"Sec-Fetch-User":            "?1",
+		},
+	}
+	// Parse the base URL
+	parsedURL, err := url.Parse(options.BaseURL)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating parsing url !"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+
+	params, err := url.ParseQuery(parsedURL.RawQuery)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error creating parsing url !"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	for key, value := range options.QueryParams.ToMap() {
+		params.Set(key, value)
+		//return
+	}
+	parsedURL.RawQuery = params.Encode()
+	http.Redirect(w, r, parsedURL.String(), http.StatusTemporaryRedirect)
+}
 // **** Unstipabble register ****//
 func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request) {
 
@@ -717,9 +865,13 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	defer mon.Task()(&ctx)(&err)
 
 	code := r.URL.Query().Get("code")
-	_ = r.URL.Query().Get("state")
-	code_verifier := r.URL.Query().Get("code_verifier")
-	token, err := socialmedia.GetRegisterToken(code, code_verifier)
+	state := r.URL.Query().Get("state")
+	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
+	if !ok {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	token, err := socialmedia.GetRegisterToken(code, code_verifier.(string))
 
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error code not present"+err.Error(), http.StatusTemporaryRedirect)
@@ -840,9 +992,13 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	code := r.URL.Query().Get("code")
-	_ = r.URL.Query().Get("state")
-	code_verifier := r.URL.Query().Get("code_verifier")
-	token, err := socialmedia.GetLoginToken(code, code_verifier)
+	state := r.URL.Query().Get("state")
+	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
+	if !ok {
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	token, err := socialmedia.GetLoginToken(code, code_verifier.(string))
 
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, signupPageURL)+"?error=Error code not present"+err.Error(), http.StatusTemporaryRedirect)
