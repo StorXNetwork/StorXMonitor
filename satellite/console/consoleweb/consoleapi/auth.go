@@ -821,7 +821,7 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 			ClientAuthMethod:    "client_secret_basic",
 			MaxAge:              "300000",
 			Prompt:              "login",
-			RedirectURI:         fmt.Sprint("http://localhost:10002", "/unstoppable_login"),
+			RedirectURI:         cnf.UnstoppableDomainRedirectUrl_login,
 			ResponseMode:        "query",
 			Scope:               "openid wallet messaging:notifications:optional",
 			CodeChallengeMethod: "S256",

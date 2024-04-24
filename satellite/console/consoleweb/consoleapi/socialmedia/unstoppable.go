@@ -81,7 +81,7 @@ func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	body.Set("grant_type", "authorization_code")
 	body.Set("code", code)
 	body.Set("code_verifier", codeVerifier)
-	body.Set("redirect_uri", fmt.Sprint("http://localhost:10002", "/unstoppable_register"))
+	body.Set("redirect_uri", cnf.UnstoppableDomainRedirectUrl_register)
 
 	// Create a new HTTP request
 	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
@@ -135,7 +135,7 @@ func GetLoginToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	body.Set("grant_type", "authorization_code")
 	body.Set("code", code)
 	body.Set("code_verifier", codeVerifier)
-	body.Set("redirect_uri", fmt.Sprint("http://localhost:10002", "/unstoppable_login"))
+	body.Set("redirect_uri", cnf.UnstoppableDomainRedirectUrl_login)
 
 	// Create a new HTTP request
 	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
