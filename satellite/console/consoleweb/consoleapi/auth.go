@@ -823,7 +823,7 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 			Prompt:              "login",
 			RedirectURI:         cnf.UnstoppableDomainRedirectUrl_login,
 			ResponseMode:        "query",
-			Scope:               "openid wallet messaging:notifications:optional",
+			Scope:               socialmedia.UnstoppableDomainScope,
 			CodeChallengeMethod: "S256",
 			ResponseType:        "code",
 			PackageName:         "@uauth/js",

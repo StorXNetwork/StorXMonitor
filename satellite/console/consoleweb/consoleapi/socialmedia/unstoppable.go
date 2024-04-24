@@ -316,7 +316,7 @@ func GenerateNonce() (string, error) {
 
 var (
 	ReqStore               sync.Map
-	UnstoppableDomainScope = "openid wallet messaging:notifications:optional"
+	UnstoppableDomainScope = "openid email:optional wallet messaging:notifications:optional"
 )
 
 // ReqOptions contains request parameters and headers
