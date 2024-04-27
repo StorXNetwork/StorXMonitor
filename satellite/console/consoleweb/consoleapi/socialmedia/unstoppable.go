@@ -73,13 +73,15 @@ func ParseToken(tokenStr string) (*TokenDetails, error) {
 	return &tokenDetails, nil
 }
 func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
+	cnf := GetConfig()
+
 	// Define request body
 	body := url.Values{}
-	body.Set("client_id", UnstoppableDomainClientID)
+	body.Set("client_id", cnf.UnstoppableDomainClientID)
 	body.Set("grant_type", "authorization_code")
 	body.Set("code", code)
 	body.Set("code_verifier", codeVerifier)
-	body.Set("redirect_uri", fmt.Sprint("http://localhost:10002", "/unstoppable_register"))
+	body.Set("redirect_uri", cnf.UnstoppableDomainRedirectUrl_register)
 
 	// Create a new HTTP request
 	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
@@ -88,7 +90,7 @@ func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	}
 
 	// Set Basic Authentication header
-	req.SetBasicAuth(UnstoppableDomainClientID, UnstoppableDomainClientSecret)
+	req.SetBasicAuth(cnf.UnstoppableDomainClientID, cnf.UnstoppableDomainClientSecret)
 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
@@ -125,13 +127,15 @@ func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 }
 
 func GetLoginToken(code, codeVerifier string) (*UnstoppableResponse, error) {
+	cnf := GetConfig()
+
 	// Define request body
 	body := url.Values{}
-	body.Set("client_id", UnstoppableDomainClientID)
+	body.Set("client_id", cnf.UnstoppableDomainClientID)
 	body.Set("grant_type", "authorization_code")
 	body.Set("code", code)
 	body.Set("code_verifier", codeVerifier)
-	body.Set("redirect_uri", fmt.Sprint("http://localhost:10002", "/unstoppable_login"))
+	body.Set("redirect_uri", cnf.UnstoppableDomainRedirectUrl_login)
 
 	// Create a new HTTP request
 	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
@@ -140,7 +144,7 @@ func GetLoginToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	}
 
 	// Set Basic Authentication header
-	req.SetBasicAuth(UnstoppableDomainClientID, UnstoppableDomainClientSecret)
+	req.SetBasicAuth(cnf.UnstoppableDomainClientID, cnf.UnstoppableDomainClientSecret)
 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
@@ -311,12 +315,9 @@ func GenerateNonce() (string, error) {
 }
 
 var (
-	ReqStore                      sync.Map
-	UnstoppableDomainClientID     = "51ae3958-1c89-478b-9cb4-0f28f205aa07"
-	UnstoppableDomainScope        = "openid wallet messaging:notifications:optional"
-	UnstoppableDomainClientSecret = "n7UDXuxFtftDCY9C8Qc1gBC_VV"
+	ReqStore               sync.Map
+	UnstoppableDomainScope = "openid email:optional wallet messaging:notifications:optional"
 )
-
 
 // ReqOptions contains request parameters and headers
 type ReqOptions struct {

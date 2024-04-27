@@ -36,6 +36,9 @@ type Flags struct {
 	Postgres string
 	Redis    string
 
+	ConsoleLocaiton              string // if we wanted to run the console in a different location
+	GatewayCredenticalRequestURL string // if we wanted to set gateway url manually
+
 	// Value of first redis db
 	RedisStartDB int
 }
@@ -60,7 +63,7 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", configDir, "base project directory")
-	rootCmd.PersistentFlags().StringVarP(&flags.Host, "host", "", "127.0.0.1", "host to use for network")
+	rootCmd.PersistentFlags().StringVarP(&flags.Host, "host", "", "", "host to use for network")
 
 	rootCmd.PersistentFlags().IntVarP(&flags.SatelliteCount, "satellites", "", 1, "number of satellites to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")
@@ -75,6 +78,9 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
 	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", os.Getenv("STORJ_SIM_REDIS"), "connection string for redis e.g. 127.0.0.1:6379 (defaults to STORJ_SIM_REDIS)")
 	rootCmd.PersistentFlags().IntVarP(&flags.RedisStartDB, "redis-startdb", "", 0, "value of first redis db (defaults to 0)")
+
+	rootCmd.PersistentFlags().StringVarP(&flags.ConsoleLocaiton, "console-location", "l", "", "satellite web location if we wanted to connect UI from some other location")
+	rootCmd.PersistentFlags().StringVarP(&flags.GatewayCredenticalRequestURL, "gateway-credentials-request-url", "g", "to override gateway credentical url in satellite config")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
