@@ -357,6 +357,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.auth-token-secret", "my-suppa-secret-key",
 				"--console.open-registration-enabled",
 				"--console.rate-limit.burst", "100",
+				"--console.gateway-credentials-request-url", flags.GatewayCredenticalRequestURL,
 
 				"--server.address", apiProcess.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),
