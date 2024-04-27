@@ -615,6 +615,8 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 				CreateAccountLink: satelliteAddress + "signup",
 			},
 		)
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL), http.StatusTemporaryRedirect)
+		return
 	} else {
 		if len(unverified) > 0 {
 			user = &unverified[0]
