@@ -301,11 +301,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			})
 			redisServers = append(redisServers, process)
 
+			bindHost := host
+			if bindHost == "" {
+				bindHost = "localhost"
+			}
 			process.ExecBefore["setup"] = func(process *Process) error {
 				confpath := filepath.Join(process.Directory, "redis.conf")
 				arguments := []string{
 					"daemonize no",
-					"bind " + host,
+					"bind " + bindHost,
 					"port " + rp,
 					"timeout 0",
 					"databases 2",
