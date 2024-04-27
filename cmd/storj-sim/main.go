@@ -80,7 +80,7 @@ func main() {
 	rootCmd.PersistentFlags().IntVarP(&flags.RedisStartDB, "redis-startdb", "", 0, "value of first redis db (defaults to 0)")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.ConsoleLocaiton, "console-location", "l", "", "satellite web location if we wanted to connect UI from some other location")
-	rootCmd.PersistentFlags().StringVarP(&flags.GatewayCredenticalRequestURL, "gateway-credentials-request-url", "g", "to override gateway credentical url in satellite config")
+	rootCmd.PersistentFlags().StringVarP(&flags.GatewayCredenticalRequestURL, "gateway-credentials-request-url", "g", "", "to override gateway credentical url in satellite config")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
