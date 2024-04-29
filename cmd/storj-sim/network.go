@@ -358,6 +358,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.open-registration-enabled",
 				"--console.rate-limit.burst", "100",
 				"--console.gateway-credentials-request-url", flags.GatewayCredenticalRequestURL,
+				"--console.public-linksharing-url", flags.LinkSharingURL,
+				"--console.linksharing-url", flags.LinkSharingURL,
 
 				"--server.address", apiProcess.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),

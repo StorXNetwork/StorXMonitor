@@ -38,6 +38,7 @@ type Flags struct {
 
 	ConsoleLocaiton              string // if we wanted to run the console in a different location
 	GatewayCredenticalRequestURL string // if we wanted to set gateway url manually
+	LinkSharingURL               string // if we are deploying setup on any server
 
 	// Value of first redis db
 	RedisStartDB int
@@ -81,6 +82,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVarP(&flags.ConsoleLocaiton, "console-location", "l", "", "satellite web location if we wanted to connect UI from some other location")
 	rootCmd.PersistentFlags().StringVarP(&flags.GatewayCredenticalRequestURL, "gateway-credentials-request-url", "g", "", "to override gateway credentical url in satellite config")
+	rootCmd.PersistentFlags().StringVarP(&flags.LinkSharingURL, "link-sharing-url", "s", "", "to override link sharing url in satellite config")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
