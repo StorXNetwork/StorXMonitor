@@ -649,7 +649,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return err
 				}
 
-				whitelisted = append(whitelisted, peer.ID.String()+"@[::]"+satellite.Address)
+				whitelisted = append(whitelisted, peer.ID.String()+"@"+satellite.Address)
 			}
 
 			process.Arguments["setup"] = append(process.Arguments["setup"],
