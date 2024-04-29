@@ -707,6 +707,7 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("Error in Default Project:")
 		a.log.Error(err.Error())
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating default project!", http.StatusTemporaryRedirect)
+		return
 	}
 
 	a.log.Info("Default Project Name: " + project.Name)
