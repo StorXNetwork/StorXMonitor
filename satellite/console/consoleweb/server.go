@@ -94,10 +94,10 @@ type Config struct {
 	LinkedinSigupRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
 	LinkedinLoginRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
 
-	UnstoppableDomainClientID          string `help:"redirect url for unstoppable domain oauth" default:""`
-	UnstoppableDomainClientSecret          string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainClientID                string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainClientSecret            string `help:"redirect url for unstoppable domain oauth" default:""`
 	UnstoppableDomainSignupRedirectURLstring string `help:"redirect url for unstoppable domain oauth" default:""`
-	UnstoppableDomainLoginRedirectURLstring string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainLoginRedirectURLstring  string `help:"redirect url for unstoppable domain oauth" default:""`
 
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
@@ -319,7 +319,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
-	projectsController := consoleapi.NewProjects(logger, service)
+	projectsController := consoleapi.NewProjects(logger, service, server.nodeURL.String())
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
 	projectsRouter.Use(server.withCORS)
 	projectsRouter.Use(server.withAuth)
@@ -330,6 +330,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.DeleteMembersAndInvitations)).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/salt", http.HandlerFunc(projectsController.GetSalt)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/access-grant", http.HandlerFunc(projectsController.GetAccessGrant)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.GetMembersAndInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite/{email}", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers))).Methods(http.MethodPost, http.MethodOptions)
@@ -353,7 +354,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring)
-	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID,config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
+	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
 
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
