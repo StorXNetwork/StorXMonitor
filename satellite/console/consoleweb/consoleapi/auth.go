@@ -2005,6 +2005,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
 		&console.ForgotPasswordEmail{
+			UserName:                   userName,
 			Origin:                     a.ExternalAddress,
 			ResetLink:                  passwordRecoveryLink,
 			CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
@@ -2049,6 +2050,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			ctx,
 			[]post.Address{{Address: verified.Email, Name: userName}},
 			&console.ForgotPasswordEmail{
+				UserName:                   userName,
 				Origin:                     a.ExternalAddress,
 				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
 				CancelPasswordRecoveryLink: a.CancelPasswordRecoveryURL + "?token=" + recoveryToken,
