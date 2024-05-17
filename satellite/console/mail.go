@@ -62,6 +62,7 @@ func (*AccountActivationCodeEmail) Subject() string { return "Activate your emai
 
 // ForgotPasswordEmail is mailservice template with reset password data.
 type ForgotPasswordEmail struct {
+	UserName                   string
 	Origin                     string
 	ResetLink                  string
 	CancelPasswordRecoveryLink string
