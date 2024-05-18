@@ -159,6 +159,8 @@ type Config struct {
 	ConnectSrcSuffix string `help:"additional values for Content Security Policy connect-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io"`
 	MediaSrcSuffix   string `help:"additional values for Content Security Policy media-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
 
+	DeveloperAPIEnabled bool `help:"indicates if developer API is enabled" default:"false"`
+
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
 	ABTesting abtesting.Config
@@ -178,13 +180,14 @@ type Server struct {
 	analytics   *analytics.Service
 	abTesting   *abtesting.Service
 
-	listener          net.Listener
-	server            http.Server
-	router            *mux.Router
-	cookieAuth        *consolewebauth.CookieAuth
-	ipRateLimiter     *web.RateLimiter
-	userIDRateLimiter *web.RateLimiter
-	nodeURL           storj.NodeURL
+	listener            net.Listener
+	server              http.Server
+	router              *mux.Router
+	cookieAuth          *consolewebauth.CookieAuth
+	developerCookieAuth *consolewebauth.CookieAuth
+	ipRateLimiter       *web.RateLimiter
+	userIDRateLimiter   *web.RateLimiter
+	nodeURL             storj.NodeURL
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
@@ -280,6 +283,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
+		Path: "/",
+	}, server.config.AuthCookieDomain)
+
+	server.developerCookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
+		Name: "_developer_tokenKey",
 		Path: "/",
 	}, server.config.AuthCookieDomain)
 
@@ -409,6 +417,26 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
+
+	if config.DeveloperAPIEnabled {
+		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, accountFreezeService, mailService, server.developerCookieAuth,
+			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
+			config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
+		developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
+		developerAuthRouter.Use(server.withCORS)
+
+		developerAuthRouter.Handle("/account", server.withAuth(http.HandlerFunc(developerAuthController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
+		developerAuthRouter.Handle("/account", server.withAuth(http.HandlerFunc(developerAuthController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+		developerAuthRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/logout", server.withAuth(http.HandlerFunc(developerAuthController.Logout))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Register))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/create-user", server.withAutDeveloper(server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.CreateUser)))).Methods(http.MethodPost, http.MethodOptions)
+
+		developerAuthRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+		developerAuthRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(developerAuthController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
+	}
 
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)
@@ -856,6 +884,36 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 		}
 
 		newCtx, err := server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+		if err != nil {
+			return
+		}
+		ctx = newCtx
+
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
+}
+
+// withAuth performs initial authorization before every request.
+func (server *Server) withAutDeveloper(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		ctx := r.Context()
+
+		defer mon.Task()(&ctx)(&err)
+
+		defer func() {
+			if err != nil {
+				web.ServeJSONError(ctx, server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
+				server.developerCookieAuth.RemoveTokenCookie(w)
+			}
+		}()
+
+		tokenInfo, err := server.developerCookieAuth.GetToken(r)
+		if err != nil {
+			return
+		}
+
+		newCtx, err := server.service.TokenAuthForDeveloper(ctx, tokenInfo.Token, time.Now())
 		if err != nil {
 			return
 		}

@@ -93,6 +93,27 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE developers (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	normalized_email text NOT NULL,
+	full_name text NOT NULL,
+	password_hash bytea NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	company_name text,
+	failed_login_count integer,
+	login_lockout_expiration timestamp with time zone,
+	activation_code text,
+	signup_id text,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE developer_user_mappings (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -262,6 +283,14 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE registration_token_developers (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	project_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE repair_queue (
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -293,6 +322,13 @@ CREATE TABLE reputations (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE reset_password_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE reset_password_token_developers (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -516,6 +552,14 @@ CREATE TABLE webapp_sessions (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE webapp_session_developers (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -578,6 +622,8 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
+CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
+CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -605,6 +651,7 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;

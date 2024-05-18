@@ -406,6 +406,27 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE developers (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	normalized_email text NOT NULL,
+	full_name text NOT NULL,
+	password_hash bytea NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	company_name text,
+	failed_login_count integer,
+	login_lockout_expiration timestamp with time zone,
+	activation_code text,
+	signup_id text,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE developer_user_mappings (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -575,6 +596,14 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE registration_token_developers (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	project_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE repair_queue (
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -606,6 +635,13 @@ CREATE TABLE reputations (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE reset_password_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE reset_password_token_developers (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -829,6 +865,14 @@ CREATE TABLE webapp_sessions (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE webapp_session_developers (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -891,6 +935,8 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
+CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
+CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -918,6 +964,7 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;`
@@ -1113,6 +1160,27 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE developers (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	normalized_email text NOT NULL,
+	full_name text NOT NULL,
+	password_hash bytea NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	company_name text,
+	failed_login_count integer,
+	login_lockout_expiration timestamp with time zone,
+	activation_code text,
+	signup_id text,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE developer_user_mappings (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -1282,6 +1350,14 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE registration_token_developers (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	project_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE repair_queue (
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -1313,6 +1389,13 @@ CREATE TABLE reputations (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE reset_password_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE reset_password_token_developers (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -1536,6 +1619,14 @@ CREATE TABLE webapp_sessions (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE webapp_session_developers (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -1598,6 +1689,8 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
+CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
+CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -1625,6 +1718,7 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;`
@@ -3155,6 +3249,407 @@ func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
 }
 
 func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Developer struct {
+	Id                     []byte
+	Email                  string
+	NormalizedEmail        string
+	FullName               string
+	PasswordHash           []byte
+	Status                 int
+	CreatedAt              time.Time
+	CompanyName            *string
+	FailedLoginCount       *int
+	LoginLockoutExpiration *time.Time
+	ActivationCode         *string
+	SignupId               *string
+}
+
+func (Developer) _Table() string { return "developers" }
+
+type Developer_Create_Fields struct {
+	CompanyName            Developer_CompanyName_Field
+	FailedLoginCount       Developer_FailedLoginCount_Field
+	LoginLockoutExpiration Developer_LoginLockoutExpiration_Field
+	ActivationCode         Developer_ActivationCode_Field
+	SignupId               Developer_SignupId_Field
+}
+
+type Developer_Update_Fields struct {
+	Email                  Developer_Email_Field
+	NormalizedEmail        Developer_NormalizedEmail_Field
+	FullName               Developer_FullName_Field
+	PasswordHash           Developer_PasswordHash_Field
+	Status                 Developer_Status_Field
+	CompanyName            Developer_CompanyName_Field
+	FailedLoginCount       Developer_FailedLoginCount_Field
+	LoginLockoutExpiration Developer_LoginLockoutExpiration_Field
+	ActivationCode         Developer_ActivationCode_Field
+	SignupId               Developer_SignupId_Field
+}
+
+type Developer_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Developer_Id(v []byte) Developer_Id_Field {
+	return Developer_Id_Field{_set: true, _value: v}
+}
+
+func (f Developer_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_Id_Field) _Column() string { return "id" }
+
+type Developer_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Developer_Email(v string) Developer_Email_Field {
+	return Developer_Email_Field{_set: true, _value: v}
+}
+
+func (f Developer_Email_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_Email_Field) _Column() string { return "email" }
+
+type Developer_NormalizedEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Developer_NormalizedEmail(v string) Developer_NormalizedEmail_Field {
+	return Developer_NormalizedEmail_Field{_set: true, _value: v}
+}
+
+func (f Developer_NormalizedEmail_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_NormalizedEmail_Field) _Column() string { return "normalized_email" }
+
+type Developer_FullName_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Developer_FullName(v string) Developer_FullName_Field {
+	return Developer_FullName_Field{_set: true, _value: v}
+}
+
+func (f Developer_FullName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_FullName_Field) _Column() string { return "full_name" }
+
+type Developer_PasswordHash_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Developer_PasswordHash(v []byte) Developer_PasswordHash_Field {
+	return Developer_PasswordHash_Field{_set: true, _value: v}
+}
+
+func (f Developer_PasswordHash_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_PasswordHash_Field) _Column() string { return "password_hash" }
+
+type Developer_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Developer_Status(v int) Developer_Status_Field {
+	return Developer_Status_Field{_set: true, _value: v}
+}
+
+func (f Developer_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_Status_Field) _Column() string { return "status" }
+
+type Developer_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Developer_CreatedAt(v time.Time) Developer_CreatedAt_Field {
+	return Developer_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Developer_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Developer_CompanyName_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Developer_CompanyName(v string) Developer_CompanyName_Field {
+	return Developer_CompanyName_Field{_set: true, _value: &v}
+}
+
+func Developer_CompanyName_Raw(v *string) Developer_CompanyName_Field {
+	if v == nil {
+		return Developer_CompanyName_Null()
+	}
+	return Developer_CompanyName(*v)
+}
+
+func Developer_CompanyName_Null() Developer_CompanyName_Field {
+	return Developer_CompanyName_Field{_set: true, _null: true}
+}
+
+func (f Developer_CompanyName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Developer_CompanyName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_CompanyName_Field) _Column() string { return "company_name" }
+
+type Developer_FailedLoginCount_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func Developer_FailedLoginCount(v int) Developer_FailedLoginCount_Field {
+	return Developer_FailedLoginCount_Field{_set: true, _value: &v}
+}
+
+func Developer_FailedLoginCount_Raw(v *int) Developer_FailedLoginCount_Field {
+	if v == nil {
+		return Developer_FailedLoginCount_Null()
+	}
+	return Developer_FailedLoginCount(*v)
+}
+
+func Developer_FailedLoginCount_Null() Developer_FailedLoginCount_Field {
+	return Developer_FailedLoginCount_Field{_set: true, _null: true}
+}
+
+func (f Developer_FailedLoginCount_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Developer_FailedLoginCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_FailedLoginCount_Field) _Column() string { return "failed_login_count" }
+
+type Developer_LoginLockoutExpiration_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Developer_LoginLockoutExpiration(v time.Time) Developer_LoginLockoutExpiration_Field {
+	return Developer_LoginLockoutExpiration_Field{_set: true, _value: &v}
+}
+
+func Developer_LoginLockoutExpiration_Raw(v *time.Time) Developer_LoginLockoutExpiration_Field {
+	if v == nil {
+		return Developer_LoginLockoutExpiration_Null()
+	}
+	return Developer_LoginLockoutExpiration(*v)
+}
+
+func Developer_LoginLockoutExpiration_Null() Developer_LoginLockoutExpiration_Field {
+	return Developer_LoginLockoutExpiration_Field{_set: true, _null: true}
+}
+
+func (f Developer_LoginLockoutExpiration_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f Developer_LoginLockoutExpiration_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_LoginLockoutExpiration_Field) _Column() string { return "login_lockout_expiration" }
+
+type Developer_ActivationCode_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Developer_ActivationCode(v string) Developer_ActivationCode_Field {
+	return Developer_ActivationCode_Field{_set: true, _value: &v}
+}
+
+func Developer_ActivationCode_Raw(v *string) Developer_ActivationCode_Field {
+	if v == nil {
+		return Developer_ActivationCode_Null()
+	}
+	return Developer_ActivationCode(*v)
+}
+
+func Developer_ActivationCode_Null() Developer_ActivationCode_Field {
+	return Developer_ActivationCode_Field{_set: true, _null: true}
+}
+
+func (f Developer_ActivationCode_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Developer_ActivationCode_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_ActivationCode_Field) _Column() string { return "activation_code" }
+
+type Developer_SignupId_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Developer_SignupId(v string) Developer_SignupId_Field {
+	return Developer_SignupId_Field{_set: true, _value: &v}
+}
+
+func Developer_SignupId_Raw(v *string) Developer_SignupId_Field {
+	if v == nil {
+		return Developer_SignupId_Null()
+	}
+	return Developer_SignupId(*v)
+}
+
+func Developer_SignupId_Null() Developer_SignupId_Field {
+	return Developer_SignupId_Field{_set: true, _null: true}
+}
+
+func (f Developer_SignupId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Developer_SignupId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Developer_SignupId_Field) _Column() string { return "signup_id" }
+
+type DeveloperUserMapping struct {
+	Id          []byte
+	DeveloperId []byte
+	UserId      []byte
+}
+
+func (DeveloperUserMapping) _Table() string { return "developer_user_mappings" }
+
+type DeveloperUserMapping_Update_Fields struct {
+}
+
+type DeveloperUserMapping_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func DeveloperUserMapping_Id(v []byte) DeveloperUserMapping_Id_Field {
+	return DeveloperUserMapping_Id_Field{_set: true, _value: v}
+}
+
+func (f DeveloperUserMapping_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperUserMapping_Id_Field) _Column() string { return "id" }
+
+type DeveloperUserMapping_DeveloperId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func DeveloperUserMapping_DeveloperId(v []byte) DeveloperUserMapping_DeveloperId_Field {
+	return DeveloperUserMapping_DeveloperId_Field{_set: true, _value: v}
+}
+
+func (f DeveloperUserMapping_DeveloperId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperUserMapping_DeveloperId_Field) _Column() string { return "developer_id" }
+
+type DeveloperUserMapping_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func DeveloperUserMapping_UserId(v []byte) DeveloperUserMapping_UserId_Field {
+	return DeveloperUserMapping_UserId_Field{_set: true, _value: v}
+}
+
+func (f DeveloperUserMapping_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperUserMapping_UserId_Field) _Column() string { return "user_id" }
 
 type GracefulExitProgress struct {
 	NodeId            []byte
@@ -6544,6 +7039,114 @@ func (f RegistrationToken_CreatedAt_Field) value() interface{} {
 
 func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
 
+type RegistrationTokenDeveloper struct {
+	Secret       []byte
+	OwnerId      []byte
+	ProjectLimit int
+	CreatedAt    time.Time
+}
+
+func (RegistrationTokenDeveloper) _Table() string { return "registration_token_developers" }
+
+type RegistrationTokenDeveloper_Create_Fields struct {
+	OwnerId RegistrationTokenDeveloper_OwnerId_Field
+}
+
+type RegistrationTokenDeveloper_Update_Fields struct {
+	OwnerId RegistrationTokenDeveloper_OwnerId_Field
+}
+
+type RegistrationTokenDeveloper_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RegistrationTokenDeveloper_Secret(v []byte) RegistrationTokenDeveloper_Secret_Field {
+	return RegistrationTokenDeveloper_Secret_Field{_set: true, _value: v}
+}
+
+func (f RegistrationTokenDeveloper_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationTokenDeveloper_Secret_Field) _Column() string { return "secret" }
+
+type RegistrationTokenDeveloper_OwnerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RegistrationTokenDeveloper_OwnerId(v []byte) RegistrationTokenDeveloper_OwnerId_Field {
+	return RegistrationTokenDeveloper_OwnerId_Field{_set: true, _value: v}
+}
+
+func RegistrationTokenDeveloper_OwnerId_Raw(v []byte) RegistrationTokenDeveloper_OwnerId_Field {
+	if v == nil {
+		return RegistrationTokenDeveloper_OwnerId_Null()
+	}
+	return RegistrationTokenDeveloper_OwnerId(v)
+}
+
+func RegistrationTokenDeveloper_OwnerId_Null() RegistrationTokenDeveloper_OwnerId_Field {
+	return RegistrationTokenDeveloper_OwnerId_Field{_set: true, _null: true}
+}
+
+func (f RegistrationTokenDeveloper_OwnerId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f RegistrationTokenDeveloper_OwnerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationTokenDeveloper_OwnerId_Field) _Column() string { return "owner_id" }
+
+type RegistrationTokenDeveloper_ProjectLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func RegistrationTokenDeveloper_ProjectLimit(v int) RegistrationTokenDeveloper_ProjectLimit_Field {
+	return RegistrationTokenDeveloper_ProjectLimit_Field{_set: true, _value: v}
+}
+
+func (f RegistrationTokenDeveloper_ProjectLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationTokenDeveloper_ProjectLimit_Field) _Column() string { return "project_limit" }
+
+type RegistrationTokenDeveloper_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RegistrationTokenDeveloper_CreatedAt(v time.Time) RegistrationTokenDeveloper_CreatedAt_Field {
+	return RegistrationTokenDeveloper_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f RegistrationTokenDeveloper_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationTokenDeveloper_CreatedAt_Field) _Column() string { return "created_at" }
+
 type RepairQueue struct {
 	StreamId      []byte
 	Position      uint64
@@ -7263,6 +7866,75 @@ func (f ResetPasswordToken_CreatedAt_Field) value() interface{} {
 }
 
 func (ResetPasswordToken_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ResetPasswordTokenDeveloper struct {
+	Secret    []byte
+	OwnerId   []byte
+	CreatedAt time.Time
+}
+
+func (ResetPasswordTokenDeveloper) _Table() string { return "reset_password_token_developers" }
+
+type ResetPasswordTokenDeveloper_Update_Fields struct {
+	OwnerId ResetPasswordTokenDeveloper_OwnerId_Field
+}
+
+type ResetPasswordTokenDeveloper_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResetPasswordTokenDeveloper_Secret(v []byte) ResetPasswordTokenDeveloper_Secret_Field {
+	return ResetPasswordTokenDeveloper_Secret_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordTokenDeveloper_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ResetPasswordTokenDeveloper_Secret_Field) _Column() string { return "secret" }
+
+type ResetPasswordTokenDeveloper_OwnerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResetPasswordTokenDeveloper_OwnerId(v []byte) ResetPasswordTokenDeveloper_OwnerId_Field {
+	return ResetPasswordTokenDeveloper_OwnerId_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordTokenDeveloper_OwnerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ResetPasswordTokenDeveloper_OwnerId_Field) _Column() string { return "owner_id" }
+
+type ResetPasswordTokenDeveloper_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResetPasswordTokenDeveloper_CreatedAt(v time.Time) ResetPasswordTokenDeveloper_CreatedAt_Field {
+	return ResetPasswordTokenDeveloper_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordTokenDeveloper_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ResetPasswordTokenDeveloper_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ReverificationAudits struct {
 	NodeId        []byte
@@ -11203,6 +11875,116 @@ func (f WebappSession_ExpiresAt_Field) value() interface{} {
 
 func (WebappSession_ExpiresAt_Field) _Column() string { return "expires_at" }
 
+type WebappSessionDeveloper struct {
+	Id          []byte
+	DeveloperId []byte
+	IpAddress   string
+	Status      int
+	ExpiresAt   time.Time
+}
+
+func (WebappSessionDeveloper) _Table() string { return "webapp_session_developers" }
+
+type WebappSessionDeveloper_Update_Fields struct {
+	Status    WebappSessionDeveloper_Status_Field
+	ExpiresAt WebappSessionDeveloper_ExpiresAt_Field
+}
+
+type WebappSessionDeveloper_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func WebappSessionDeveloper_Id(v []byte) WebappSessionDeveloper_Id_Field {
+	return WebappSessionDeveloper_Id_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionDeveloper_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSessionDeveloper_Id_Field) _Column() string { return "id" }
+
+type WebappSessionDeveloper_DeveloperId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func WebappSessionDeveloper_DeveloperId(v []byte) WebappSessionDeveloper_DeveloperId_Field {
+	return WebappSessionDeveloper_DeveloperId_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionDeveloper_DeveloperId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSessionDeveloper_DeveloperId_Field) _Column() string { return "developer_id" }
+
+type WebappSessionDeveloper_IpAddress_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func WebappSessionDeveloper_IpAddress(v string) WebappSessionDeveloper_IpAddress_Field {
+	return WebappSessionDeveloper_IpAddress_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionDeveloper_IpAddress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSessionDeveloper_IpAddress_Field) _Column() string { return "ip_address" }
+
+type WebappSessionDeveloper_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func WebappSessionDeveloper_Status(v int) WebappSessionDeveloper_Status_Field {
+	return WebappSessionDeveloper_Status_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionDeveloper_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSessionDeveloper_Status_Field) _Column() string { return "status" }
+
+type WebappSessionDeveloper_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func WebappSessionDeveloper_ExpiresAt(v time.Time) WebappSessionDeveloper_ExpiresAt_Field {
+	return WebappSessionDeveloper_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionDeveloper_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSessionDeveloper_ExpiresAt_Field) _Column() string { return "expires_at" }
+
 type ApiKey struct {
 	Id        []byte
 	ProjectId []byte
@@ -13040,6 +13822,162 @@ func (obj *pgxImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxImpl) Create_Developer(ctx context.Context,
+	developer_id Developer_Id_Field,
+	developer_email Developer_Email_Field,
+	developer_normalized_email Developer_NormalizedEmail_Field,
+	developer_full_name Developer_FullName_Field,
+	developer_password_hash Developer_PasswordHash_Field,
+	optional Developer_Create_Fields) (
+	developer *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := developer_id.value()
+	__email_val := developer_email.value()
+	__normalized_email_val := developer_normalized_email.value()
+	__full_name_val := developer_full_name.value()
+	__password_hash_val := developer_password_hash.value()
+	__status_val := int(0)
+	__created_at_val := __now
+	__company_name_val := optional.CompanyName.value()
+	__failed_login_count_val := optional.FailedLoginCount.value()
+	__login_lockout_expiration_val := optional.LoginLockoutExpiration.value()
+	__activation_code_val := optional.ActivationCode.value()
+	__signup_id_val := optional.SignupId.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developers ( id, email, normalized_email, full_name, password_hash, status, created_at, company_name, failed_login_count, login_lockout_expiration, activation_code, signup_id ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __password_hash_val, __status_val, __created_at_val, __company_name_val, __failed_login_count_val, __login_lockout_expiration_val, __activation_code_val, __signup_id_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer = &Developer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer, nil
+
+}
+
+func (obj *pgxImpl) Create_DeveloperUserMapping(ctx context.Context,
+	developer_user_mapping_id DeveloperUserMapping_Id_Field,
+	developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
+	developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+	developer_user_mapping *DeveloperUserMapping, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := developer_user_mapping_id.value()
+	__developer_id_val := developer_user_mapping_developer_id.value()
+	__user_id_val := developer_user_mapping_user_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developer_user_mappings ( id, developer_id, user_id ) VALUES ( ?, ?, ? ) RETURNING developer_user_mappings.id, developer_user_mappings.developer_id, developer_user_mappings.user_id")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __developer_id_val, __user_id_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer_user_mapping = &DeveloperUserMapping{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_user_mapping.Id, &developer_user_mapping.DeveloperId, &developer_user_mapping.UserId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer_user_mapping, nil
+
+}
+
+func (obj *pgxImpl) Create_WebappSessionDeveloper(ctx context.Context,
+	webapp_session_developer_id WebappSessionDeveloper_Id_Field,
+	webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field,
+	webapp_session_developer_ip_address WebappSessionDeveloper_IpAddress_Field,
+	webapp_session_developer_expires_at WebappSessionDeveloper_ExpiresAt_Field) (
+	webapp_session_developer *WebappSessionDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := webapp_session_developer_id.value()
+	__developer_id_val := webapp_session_developer_developer_id.value()
+	__ip_address_val := webapp_session_developer_ip_address.value()
+	__status_val := int(0)
+	__expires_at_val := webapp_session_developer_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_session_developers ( id, developer_id, ip_address, status, expires_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING webapp_session_developers.id, webapp_session_developers.developer_id, webapp_session_developers.ip_address, webapp_session_developers.status, webapp_session_developers.expires_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __developer_id_val, __ip_address_val, __status_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_developer = &WebappSessionDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_developer.Id, &webapp_session_developer.DeveloperId, &webapp_session_developer.IpAddress, &webapp_session_developer.Status, &webapp_session_developer.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_developer, nil
+
+}
+
+func (obj *pgxImpl) Create_RegistrationTokenDeveloper(ctx context.Context,
+	registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field,
+	registration_token_developer_project_limit RegistrationTokenDeveloper_ProjectLimit_Field,
+	optional RegistrationTokenDeveloper_Create_Fields) (
+	registration_token_developer *RegistrationTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := registration_token_developer_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__project_limit_val := registration_token_developer_project_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_token_developers ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING registration_token_developers.secret, registration_token_developers.owner_id, registration_token_developers.project_limit, registration_token_developers.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token_developer = &RegistrationTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token_developer.Secret, &registration_token_developer.OwnerId, &registration_token_developer.ProjectLimit, &registration_token_developer.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token_developer, nil
+
+}
+
+func (obj *pgxImpl) Create_ResetPasswordTokenDeveloper(ctx context.Context,
+	reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field,
+	reset_password_token_developer_owner_id ResetPasswordTokenDeveloper_OwnerId_Field) (
+	reset_password_token_developer *ResetPasswordTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := reset_password_token_developer_secret.value()
+	__owner_id_val := reset_password_token_developer_owner_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_token_developers ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) RETURNING reset_password_token_developers.secret, reset_password_token_developers.owner_id, reset_password_token_developers.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_developer = &ResetPasswordTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_developer.Secret, &reset_password_token_developer.OwnerId, &reset_password_token_developer.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token_developer, nil
 
 }
 
@@ -15465,6 +16403,554 @@ func (obj *pgxImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_Ord
 		}
 		return row, nil
 	}
+
+}
+
+func (obj *pgxImpl) All_Developer(ctx context.Context) (
+	rows []*Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id FROM developers")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Developer, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer := &Developer{}
+				err = __rows.Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_Developer_By_NormalizedEmail(ctx context.Context,
+	developer_normalized_email Developer_NormalizedEmail_Field) (
+	rows []*Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id FROM developers WHERE developers.normalized_email = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_normalized_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Developer, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer := &Developer{}
+				err = __rows.Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_Developer_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	developer_normalized_email Developer_NormalizedEmail_Field) (
+	developer *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id FROM developers WHERE developers.normalized_email = ? AND developers.status != 0 LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, developer_normalized_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		developer, err = func() (developer *Developer, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			developer = &Developer{}
+			err = __rows.Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return developer, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("Developer_By_NormalizedEmail_And_Status_Not_Number")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return developer, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_Developer_By_Id(ctx context.Context,
+	developer_id Developer_Id_Field) (
+	developer *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id FROM developers WHERE developers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer = &Developer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+	if err != nil {
+		return (*Developer)(nil), obj.makeErr(err)
+	}
+	return developer, nil
+
+}
+
+func (obj *pgxImpl) Count_Developer_By_Status(ctx context.Context,
+	developer_status Developer_Status_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM developers WHERE developers.status = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Limited_Developer_Id_Developer_Email_Developer_FullName_By_Status(ctx context.Context,
+	developer_status Developer_Status_Field,
+	limit int, offset int64) (
+	rows []*Id_Email_FullName_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.full_name FROM developers WHERE developers.status = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_FullName_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &Id_Email_FullName_Row{}
+				err = __rows.Scan(&row.Id, &row.Email, &row.FullName)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_DeveloperUserMapping_By_DeveloperId(ctx context.Context,
+	developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field) (
+	rows []*DeveloperUserMapping, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_user_mappings.id, developer_user_mappings.developer_id, developer_user_mappings.user_id FROM developer_user_mappings WHERE developer_user_mappings.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeveloperUserMapping, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer_user_mapping := &DeveloperUserMapping{}
+				err = __rows.Scan(&developer_user_mapping.Id, &developer_user_mapping.DeveloperId, &developer_user_mapping.UserId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer_user_mapping)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_DeveloperUserMapping_By_DeveloperId_And_UserId(ctx context.Context,
+	developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
+	developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+	developer_user_mapping *DeveloperUserMapping, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_user_mappings.id, developer_user_mappings.developer_id, developer_user_mappings.user_id FROM developer_user_mappings WHERE developer_user_mappings.developer_id = ? AND developer_user_mappings.user_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_developer_id.value(), developer_user_mapping_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		developer_user_mapping, err = func() (developer_user_mapping *DeveloperUserMapping, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			developer_user_mapping = &DeveloperUserMapping{}
+			err = __rows.Scan(&developer_user_mapping.Id, &developer_user_mapping.DeveloperId, &developer_user_mapping.UserId)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return developer_user_mapping, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("DeveloperUserMapping_By_DeveloperId_And_UserId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return developer_user_mapping, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_DeveloperUserMapping_By_UserId(ctx context.Context,
+	developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+	rows []*DeveloperUserMapping, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_user_mappings.id, developer_user_mappings.developer_id, developer_user_mappings.user_id FROM developer_user_mappings WHERE developer_user_mappings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeveloperUserMapping, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer_user_mapping := &DeveloperUserMapping{}
+				err = __rows.Scan(&developer_user_mapping.Id, &developer_user_mapping.DeveloperId, &developer_user_mapping.UserId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer_user_mapping)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_WebappSessionDeveloper_By_DeveloperId(ctx context.Context,
+	webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field) (
+	rows []*WebappSessionDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_developers.id, webapp_session_developers.developer_id, webapp_session_developers.ip_address, webapp_session_developers.status, webapp_session_developers.expires_at FROM webapp_session_developers WHERE webapp_session_developers.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_developer_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*WebappSessionDeveloper, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				webapp_session_developer := &WebappSessionDeveloper{}
+				err = __rows.Scan(&webapp_session_developer.Id, &webapp_session_developer.DeveloperId, &webapp_session_developer.IpAddress, &webapp_session_developer.Status, &webapp_session_developer.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, webapp_session_developer)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_WebappSessionDeveloper_By_Id(ctx context.Context,
+	webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
+	webapp_session_developer *WebappSessionDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_developers.id, webapp_session_developers.developer_id, webapp_session_developers.ip_address, webapp_session_developers.status, webapp_session_developers.expires_at FROM webapp_session_developers WHERE webapp_session_developers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_developer = &WebappSessionDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_developer.Id, &webapp_session_developer.DeveloperId, &webapp_session_developer.IpAddress, &webapp_session_developer.Status, &webapp_session_developer.ExpiresAt)
+	if err != nil {
+		return (*WebappSessionDeveloper)(nil), obj.makeErr(err)
+	}
+	return webapp_session_developer, nil
+
+}
+
+func (obj *pgxImpl) Get_RegistrationTokenDeveloper_By_Secret(ctx context.Context,
+	registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field) (
+	registration_token_developer *RegistrationTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_token_developers.secret, registration_token_developers.owner_id, registration_token_developers.project_limit, registration_token_developers.created_at FROM registration_token_developers WHERE registration_token_developers.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, registration_token_developer_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token_developer = &RegistrationTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token_developer.Secret, &registration_token_developer.OwnerId, &registration_token_developer.ProjectLimit, &registration_token_developer.CreatedAt)
+	if err != nil {
+		return (*RegistrationTokenDeveloper)(nil), obj.makeErr(err)
+	}
+	return registration_token_developer, nil
+
+}
+
+func (obj *pgxImpl) Get_RegistrationTokenDeveloper_By_OwnerId(ctx context.Context,
+	registration_token_developer_owner_id RegistrationTokenDeveloper_OwnerId_Field) (
+	registration_token_developer *RegistrationTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_token_developers.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_token_developers.secret, registration_token_developers.owner_id, registration_token_developers.project_limit, registration_token_developers.created_at FROM registration_token_developers WHERE "), __cond_0}}
+
+	var __values []interface{}
+	if !registration_token_developer_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, registration_token_developer_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token_developer = &RegistrationTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token_developer.Secret, &registration_token_developer.OwnerId, &registration_token_developer.ProjectLimit, &registration_token_developer.CreatedAt)
+	if err != nil {
+		return (*RegistrationTokenDeveloper)(nil), obj.makeErr(err)
+	}
+	return registration_token_developer, nil
+
+}
+
+func (obj *pgxImpl) Get_ResetPasswordTokenDeveloper_By_Secret(ctx context.Context,
+	reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field) (
+	reset_password_token_developer *ResetPasswordTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_developers.secret, reset_password_token_developers.owner_id, reset_password_token_developers.created_at FROM reset_password_token_developers WHERE reset_password_token_developers.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_developer_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_developer = &ResetPasswordTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_developer.Secret, &reset_password_token_developer.OwnerId, &reset_password_token_developer.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenDeveloper)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_developer, nil
+
+}
+
+func (obj *pgxImpl) Get_ResetPasswordTokenDeveloper_By_OwnerId(ctx context.Context,
+	reset_password_token_developer_owner_id ResetPasswordTokenDeveloper_OwnerId_Field) (
+	reset_password_token_developer *ResetPasswordTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_developers.secret, reset_password_token_developers.owner_id, reset_password_token_developers.created_at FROM reset_password_token_developers WHERE reset_password_token_developers.owner_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_developer_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_developer = &ResetPasswordTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_developer.Secret, &reset_password_token_developer.OwnerId, &reset_password_token_developer.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenDeveloper)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_developer, nil
 
 }
 
@@ -18255,6 +19741,179 @@ func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx cont
 	return stripecoinpayments_invoice_project_record, nil
 }
 
+func (obj *pgxImpl) Update_Developer_By_Id(ctx context.Context,
+	developer_id Developer_Id_Field,
+	update Developer_Update_Fields) (
+	developer *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE developers SET "), __sets, __sqlbundle_Literal(" WHERE developers.id = ? RETURNING developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.NormalizedEmail._set {
+		__values = append(__values, update.NormalizedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
+	}
+
+	if update.FullName._set {
+		__values = append(__values, update.FullName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.CompanyName._set {
+		__values = append(__values, update.CompanyName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_name = ?"))
+	}
+
+	if update.FailedLoginCount._set {
+		__values = append(__values, update.FailedLoginCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
+	}
+
+	if update.LoginLockoutExpiration._set {
+		__values = append(__values, update.LoginLockoutExpiration.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("login_lockout_expiration = ?"))
+	}
+
+	if update.ActivationCode._set {
+		__values = append(__values, update.ActivationCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("activation_code = ?"))
+	}
+
+	if update.SignupId._set {
+		__values = append(__values, update.SignupId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, developer_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer = &Developer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer, nil
+}
+
+func (obj *pgxImpl) Update_WebappSessionDeveloper_By_Id(ctx context.Context,
+	webapp_session_developer_id WebappSessionDeveloper_Id_Field,
+	update WebappSessionDeveloper_Update_Fields) (
+	webapp_session_developer *WebappSessionDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_session_developers SET "), __sets, __sqlbundle_Literal(" WHERE webapp_session_developers.id = ? RETURNING webapp_session_developers.id, webapp_session_developers.developer_id, webapp_session_developers.ip_address, webapp_session_developers.status, webapp_session_developers.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, webapp_session_developer_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_developer = &WebappSessionDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_developer.Id, &webapp_session_developer.DeveloperId, &webapp_session_developer.IpAddress, &webapp_session_developer.Status, &webapp_session_developer.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_developer, nil
+}
+
+func (obj *pgxImpl) Update_RegistrationTokenDeveloper_By_Secret(ctx context.Context,
+	registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field,
+	update RegistrationTokenDeveloper_Update_Fields) (
+	registration_token_developer *RegistrationTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_token_developers SET "), __sets, __sqlbundle_Literal(" WHERE registration_token_developers.secret = ? RETURNING registration_token_developers.secret, registration_token_developers.owner_id, registration_token_developers.project_limit, registration_token_developers.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, registration_token_developer_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token_developer = &RegistrationTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token_developer.Secret, &registration_token_developer.OwnerId, &registration_token_developer.ProjectLimit, &registration_token_developer.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token_developer, nil
+}
+
 func (obj *pgxImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
 	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
@@ -20380,6 +22039,195 @@ func (obj *pgxImpl) Delete_StorjscanPayment_By_Status(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_Developer_By_Id(ctx context.Context,
+	developer_id Developer_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developers WHERE developers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_DeveloperUserMapping_By_Id(ctx context.Context,
+	developer_user_mapping_id DeveloperUserMapping_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_user_mappings WHERE developer_user_mappings.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_DeveloperUserMapping_By_DeveloperId(ctx context.Context,
+	developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_user_mappings WHERE developer_user_mappings.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_DeveloperUserMapping_By_UserId(ctx context.Context,
+	developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_user_mappings WHERE developer_user_mappings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_WebappSessionDeveloper_By_Id(ctx context.Context,
+	webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_developers WHERE webapp_session_developers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_WebappSessionDeveloper_By_DeveloperId(ctx context.Context,
+	webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_developers WHERE webapp_session_developers.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_developer_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_ResetPasswordTokenDeveloper_By_Secret(ctx context.Context,
+	reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_token_developers WHERE reset_password_token_developers.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_developer_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -20910,6 +22758,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_session_developers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_sessions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -21100,6 +22958,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_token_developers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -21121,6 +22989,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_token_developers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -21251,6 +23129,26 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developer_user_mappings;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -21789,6 +23687,162 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanPayment(ctx context.Context
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_Developer(ctx context.Context,
+	developer_id Developer_Id_Field,
+	developer_email Developer_Email_Field,
+	developer_normalized_email Developer_NormalizedEmail_Field,
+	developer_full_name Developer_FullName_Field,
+	developer_password_hash Developer_PasswordHash_Field,
+	optional Developer_Create_Fields) (
+	developer *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := developer_id.value()
+	__email_val := developer_email.value()
+	__normalized_email_val := developer_normalized_email.value()
+	__full_name_val := developer_full_name.value()
+	__password_hash_val := developer_password_hash.value()
+	__status_val := int(0)
+	__created_at_val := __now
+	__company_name_val := optional.CompanyName.value()
+	__failed_login_count_val := optional.FailedLoginCount.value()
+	__login_lockout_expiration_val := optional.LoginLockoutExpiration.value()
+	__activation_code_val := optional.ActivationCode.value()
+	__signup_id_val := optional.SignupId.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developers ( id, email, normalized_email, full_name, password_hash, status, created_at, company_name, failed_login_count, login_lockout_expiration, activation_code, signup_id ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __password_hash_val, __status_val, __created_at_val, __company_name_val, __failed_login_count_val, __login_lockout_expiration_val, __activation_code_val, __signup_id_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer = &Developer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_DeveloperUserMapping(ctx context.Context,
+	developer_user_mapping_id DeveloperUserMapping_Id_Field,
+	developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
+	developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+	developer_user_mapping *DeveloperUserMapping, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := developer_user_mapping_id.value()
+	__developer_id_val := developer_user_mapping_developer_id.value()
+	__user_id_val := developer_user_mapping_user_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developer_user_mappings ( id, developer_id, user_id ) VALUES ( ?, ?, ? ) RETURNING developer_user_mappings.id, developer_user_mappings.developer_id, developer_user_mappings.user_id")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __developer_id_val, __user_id_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer_user_mapping = &DeveloperUserMapping{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_user_mapping.Id, &developer_user_mapping.DeveloperId, &developer_user_mapping.UserId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer_user_mapping, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_WebappSessionDeveloper(ctx context.Context,
+	webapp_session_developer_id WebappSessionDeveloper_Id_Field,
+	webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field,
+	webapp_session_developer_ip_address WebappSessionDeveloper_IpAddress_Field,
+	webapp_session_developer_expires_at WebappSessionDeveloper_ExpiresAt_Field) (
+	webapp_session_developer *WebappSessionDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := webapp_session_developer_id.value()
+	__developer_id_val := webapp_session_developer_developer_id.value()
+	__ip_address_val := webapp_session_developer_ip_address.value()
+	__status_val := int(0)
+	__expires_at_val := webapp_session_developer_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_session_developers ( id, developer_id, ip_address, status, expires_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING webapp_session_developers.id, webapp_session_developers.developer_id, webapp_session_developers.ip_address, webapp_session_developers.status, webapp_session_developers.expires_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __developer_id_val, __ip_address_val, __status_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_developer = &WebappSessionDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_developer.Id, &webapp_session_developer.DeveloperId, &webapp_session_developer.IpAddress, &webapp_session_developer.Status, &webapp_session_developer.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_RegistrationTokenDeveloper(ctx context.Context,
+	registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field,
+	registration_token_developer_project_limit RegistrationTokenDeveloper_ProjectLimit_Field,
+	optional RegistrationTokenDeveloper_Create_Fields) (
+	registration_token_developer *RegistrationTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := registration_token_developer_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__project_limit_val := registration_token_developer_project_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_token_developers ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING registration_token_developers.secret, registration_token_developers.owner_id, registration_token_developers.project_limit, registration_token_developers.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token_developer = &RegistrationTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token_developer.Secret, &registration_token_developer.OwnerId, &registration_token_developer.ProjectLimit, &registration_token_developer.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token_developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ResetPasswordTokenDeveloper(ctx context.Context,
+	reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field,
+	reset_password_token_developer_owner_id ResetPasswordTokenDeveloper_OwnerId_Field) (
+	reset_password_token_developer *ResetPasswordTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := reset_password_token_developer_secret.value()
+	__owner_id_val := reset_password_token_developer_owner_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_token_developers ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) RETURNING reset_password_token_developers.secret, reset_password_token_developers.owner_id, reset_password_token_developers.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_developer = &ResetPasswordTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_developer.Secret, &reset_password_token_developer.OwnerId, &reset_password_token_developer.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token_developer, nil
 
 }
 
@@ -24214,6 +26268,554 @@ func (obj *pgxcockroachImpl) First_StorjscanPayment_BlockNumber_By_Status_And_Ch
 		}
 		return row, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) All_Developer(ctx context.Context) (
+	rows []*Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id FROM developers")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Developer, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer := &Developer{}
+				err = __rows.Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_Developer_By_NormalizedEmail(ctx context.Context,
+	developer_normalized_email Developer_NormalizedEmail_Field) (
+	rows []*Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id FROM developers WHERE developers.normalized_email = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_normalized_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Developer, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer := &Developer{}
+				err = __rows.Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_Developer_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	developer_normalized_email Developer_NormalizedEmail_Field) (
+	developer *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id FROM developers WHERE developers.normalized_email = ? AND developers.status != 0 LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, developer_normalized_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		developer, err = func() (developer *Developer, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			developer = &Developer{}
+			err = __rows.Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return developer, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("Developer_By_NormalizedEmail_And_Status_Not_Number")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return developer, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_Developer_By_Id(ctx context.Context,
+	developer_id Developer_Id_Field) (
+	developer *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id FROM developers WHERE developers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer = &Developer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+	if err != nil {
+		return (*Developer)(nil), obj.makeErr(err)
+	}
+	return developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Count_Developer_By_Status(ctx context.Context,
+	developer_status Developer_Status_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM developers WHERE developers.status = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Limited_Developer_Id_Developer_Email_Developer_FullName_By_Status(ctx context.Context,
+	developer_status Developer_Status_Field,
+	limit int, offset int64) (
+	rows []*Id_Email_FullName_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developers.id, developers.email, developers.full_name FROM developers WHERE developers.status = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_FullName_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &Id_Email_FullName_Row{}
+				err = __rows.Scan(&row.Id, &row.Email, &row.FullName)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_DeveloperUserMapping_By_DeveloperId(ctx context.Context,
+	developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field) (
+	rows []*DeveloperUserMapping, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_user_mappings.id, developer_user_mappings.developer_id, developer_user_mappings.user_id FROM developer_user_mappings WHERE developer_user_mappings.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeveloperUserMapping, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer_user_mapping := &DeveloperUserMapping{}
+				err = __rows.Scan(&developer_user_mapping.Id, &developer_user_mapping.DeveloperId, &developer_user_mapping.UserId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer_user_mapping)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_DeveloperUserMapping_By_DeveloperId_And_UserId(ctx context.Context,
+	developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
+	developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+	developer_user_mapping *DeveloperUserMapping, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_user_mappings.id, developer_user_mappings.developer_id, developer_user_mappings.user_id FROM developer_user_mappings WHERE developer_user_mappings.developer_id = ? AND developer_user_mappings.user_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_developer_id.value(), developer_user_mapping_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		developer_user_mapping, err = func() (developer_user_mapping *DeveloperUserMapping, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			developer_user_mapping = &DeveloperUserMapping{}
+			err = __rows.Scan(&developer_user_mapping.Id, &developer_user_mapping.DeveloperId, &developer_user_mapping.UserId)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return developer_user_mapping, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("DeveloperUserMapping_By_DeveloperId_And_UserId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return developer_user_mapping, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_DeveloperUserMapping_By_UserId(ctx context.Context,
+	developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+	rows []*DeveloperUserMapping, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_user_mappings.id, developer_user_mappings.developer_id, developer_user_mappings.user_id FROM developer_user_mappings WHERE developer_user_mappings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeveloperUserMapping, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer_user_mapping := &DeveloperUserMapping{}
+				err = __rows.Scan(&developer_user_mapping.Id, &developer_user_mapping.DeveloperId, &developer_user_mapping.UserId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer_user_mapping)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_WebappSessionDeveloper_By_DeveloperId(ctx context.Context,
+	webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field) (
+	rows []*WebappSessionDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_developers.id, webapp_session_developers.developer_id, webapp_session_developers.ip_address, webapp_session_developers.status, webapp_session_developers.expires_at FROM webapp_session_developers WHERE webapp_session_developers.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_developer_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*WebappSessionDeveloper, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				webapp_session_developer := &WebappSessionDeveloper{}
+				err = __rows.Scan(&webapp_session_developer.Id, &webapp_session_developer.DeveloperId, &webapp_session_developer.IpAddress, &webapp_session_developer.Status, &webapp_session_developer.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, webapp_session_developer)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_WebappSessionDeveloper_By_Id(ctx context.Context,
+	webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
+	webapp_session_developer *WebappSessionDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_developers.id, webapp_session_developers.developer_id, webapp_session_developers.ip_address, webapp_session_developers.status, webapp_session_developers.expires_at FROM webapp_session_developers WHERE webapp_session_developers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_developer = &WebappSessionDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_developer.Id, &webapp_session_developer.DeveloperId, &webapp_session_developer.IpAddress, &webapp_session_developer.Status, &webapp_session_developer.ExpiresAt)
+	if err != nil {
+		return (*WebappSessionDeveloper)(nil), obj.makeErr(err)
+	}
+	return webapp_session_developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_RegistrationTokenDeveloper_By_Secret(ctx context.Context,
+	registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field) (
+	registration_token_developer *RegistrationTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_token_developers.secret, registration_token_developers.owner_id, registration_token_developers.project_limit, registration_token_developers.created_at FROM registration_token_developers WHERE registration_token_developers.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, registration_token_developer_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token_developer = &RegistrationTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token_developer.Secret, &registration_token_developer.OwnerId, &registration_token_developer.ProjectLimit, &registration_token_developer.CreatedAt)
+	if err != nil {
+		return (*RegistrationTokenDeveloper)(nil), obj.makeErr(err)
+	}
+	return registration_token_developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_RegistrationTokenDeveloper_By_OwnerId(ctx context.Context,
+	registration_token_developer_owner_id RegistrationTokenDeveloper_OwnerId_Field) (
+	registration_token_developer *RegistrationTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_token_developers.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_token_developers.secret, registration_token_developers.owner_id, registration_token_developers.project_limit, registration_token_developers.created_at FROM registration_token_developers WHERE "), __cond_0}}
+
+	var __values []interface{}
+	if !registration_token_developer_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, registration_token_developer_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token_developer = &RegistrationTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token_developer.Secret, &registration_token_developer.OwnerId, &registration_token_developer.ProjectLimit, &registration_token_developer.CreatedAt)
+	if err != nil {
+		return (*RegistrationTokenDeveloper)(nil), obj.makeErr(err)
+	}
+	return registration_token_developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResetPasswordTokenDeveloper_By_Secret(ctx context.Context,
+	reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field) (
+	reset_password_token_developer *ResetPasswordTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_developers.secret, reset_password_token_developers.owner_id, reset_password_token_developers.created_at FROM reset_password_token_developers WHERE reset_password_token_developers.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_developer_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_developer = &ResetPasswordTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_developer.Secret, &reset_password_token_developer.OwnerId, &reset_password_token_developer.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenDeveloper)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResetPasswordTokenDeveloper_By_OwnerId(ctx context.Context,
+	reset_password_token_developer_owner_id ResetPasswordTokenDeveloper_OwnerId_Field) (
+	reset_password_token_developer *ResetPasswordTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_developers.secret, reset_password_token_developers.owner_id, reset_password_token_developers.created_at FROM reset_password_token_developers WHERE reset_password_token_developers.owner_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_developer_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_developer = &ResetPasswordTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_developer.Secret, &reset_password_token_developer.OwnerId, &reset_password_token_developer.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenDeveloper)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_developer, nil
 
 }
 
@@ -27004,6 +29606,179 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id
 	return stripecoinpayments_invoice_project_record, nil
 }
 
+func (obj *pgxcockroachImpl) Update_Developer_By_Id(ctx context.Context,
+	developer_id Developer_Id_Field,
+	update Developer_Update_Fields) (
+	developer *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE developers SET "), __sets, __sqlbundle_Literal(" WHERE developers.id = ? RETURNING developers.id, developers.email, developers.normalized_email, developers.full_name, developers.password_hash, developers.status, developers.created_at, developers.company_name, developers.failed_login_count, developers.login_lockout_expiration, developers.activation_code, developers.signup_id")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.NormalizedEmail._set {
+		__values = append(__values, update.NormalizedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
+	}
+
+	if update.FullName._set {
+		__values = append(__values, update.FullName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.CompanyName._set {
+		__values = append(__values, update.CompanyName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_name = ?"))
+	}
+
+	if update.FailedLoginCount._set {
+		__values = append(__values, update.FailedLoginCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
+	}
+
+	if update.LoginLockoutExpiration._set {
+		__values = append(__values, update.LoginLockoutExpiration.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("login_lockout_expiration = ?"))
+	}
+
+	if update.ActivationCode._set {
+		__values = append(__values, update.ActivationCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("activation_code = ?"))
+	}
+
+	if update.SignupId._set {
+		__values = append(__values, update.SignupId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, developer_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer = &Developer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer.Id, &developer.Email, &developer.NormalizedEmail, &developer.FullName, &developer.PasswordHash, &developer.Status, &developer.CreatedAt, &developer.CompanyName, &developer.FailedLoginCount, &developer.LoginLockoutExpiration, &developer.ActivationCode, &developer.SignupId)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer, nil
+}
+
+func (obj *pgxcockroachImpl) Update_WebappSessionDeveloper_By_Id(ctx context.Context,
+	webapp_session_developer_id WebappSessionDeveloper_Id_Field,
+	update WebappSessionDeveloper_Update_Fields) (
+	webapp_session_developer *WebappSessionDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_session_developers SET "), __sets, __sqlbundle_Literal(" WHERE webapp_session_developers.id = ? RETURNING webapp_session_developers.id, webapp_session_developers.developer_id, webapp_session_developers.ip_address, webapp_session_developers.status, webapp_session_developers.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, webapp_session_developer_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_developer = &WebappSessionDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_developer.Id, &webapp_session_developer.DeveloperId, &webapp_session_developer.IpAddress, &webapp_session_developer.Status, &webapp_session_developer.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_developer, nil
+}
+
+func (obj *pgxcockroachImpl) Update_RegistrationTokenDeveloper_By_Secret(ctx context.Context,
+	registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field,
+	update RegistrationTokenDeveloper_Update_Fields) (
+	registration_token_developer *RegistrationTokenDeveloper, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_token_developers SET "), __sets, __sqlbundle_Literal(" WHERE registration_token_developers.secret = ? RETURNING registration_token_developers.secret, registration_token_developers.owner_id, registration_token_developers.project_limit, registration_token_developers.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, registration_token_developer_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token_developer = &RegistrationTokenDeveloper{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token_developer.Secret, &registration_token_developer.OwnerId, &registration_token_developer.ProjectLimit, &registration_token_developer.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token_developer, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
 	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
@@ -29129,6 +31904,195 @@ func (obj *pgxcockroachImpl) Delete_StorjscanPayment_By_Status(ctx context.Conte
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Developer_By_Id(ctx context.Context,
+	developer_id Developer_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developers WHERE developers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_DeveloperUserMapping_By_Id(ctx context.Context,
+	developer_user_mapping_id DeveloperUserMapping_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_user_mappings WHERE developer_user_mappings.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_DeveloperUserMapping_By_DeveloperId(ctx context.Context,
+	developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_user_mappings WHERE developer_user_mappings.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_DeveloperUserMapping_By_UserId(ctx context.Context,
+	developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_user_mappings WHERE developer_user_mappings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_user_mapping_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_WebappSessionDeveloper_By_Id(ctx context.Context,
+	webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_developers WHERE webapp_session_developers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_WebappSessionDeveloper_By_DeveloperId(ctx context.Context,
+	webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_developers WHERE webapp_session_developers.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_developer_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_ResetPasswordTokenDeveloper_By_Secret(ctx context.Context,
+	reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_token_developers WHERE reset_password_token_developers.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_developer_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -29659,6 +32623,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_session_developers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_sessions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -29849,6 +32823,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_token_developers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -29870,6 +32854,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_token_developers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -30009,6 +33003,26 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developer_user_mappings;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -30132,6 +33146,21 @@ type Methods interface {
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
 
+	All_Developer(ctx context.Context) (
+		rows []*Developer, err error)
+
+	All_DeveloperUserMapping_By_DeveloperId(ctx context.Context,
+		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field) (
+		rows []*DeveloperUserMapping, err error)
+
+	All_DeveloperUserMapping_By_UserId(ctx context.Context,
+		developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+		rows []*DeveloperUserMapping, err error)
+
+	All_Developer_By_NormalizedEmail(ctx context.Context,
+		developer_normalized_email Developer_NormalizedEmail_Field) (
+		rows []*Developer, err error)
+
 	All_NodeTags(ctx context.Context) (
 		rows []*NodeTags, err error)
 
@@ -30210,12 +33239,20 @@ type Methods interface {
 		user_normalized_email User_NormalizedEmail_Field) (
 		rows []*User, err error)
 
+	All_WebappSessionDeveloper_By_DeveloperId(ctx context.Context,
+		webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field) (
+		rows []*WebappSessionDeveloper, err error)
+
 	All_WebappSession_By_UserId(ctx context.Context,
 		webapp_session_user_id WebappSession_UserId_Field) (
 		rows []*WebappSession, err error)
 
 	Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+		count int64, err error)
+
+	Count_Developer_By_Status(ctx context.Context,
+		developer_status Developer_Status_Field) (
 		count int64, err error)
 
 	Count_User_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx context.Context,
@@ -30354,6 +33391,21 @@ type Methods interface {
 		coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
+	Create_Developer(ctx context.Context,
+		developer_id Developer_Id_Field,
+		developer_email Developer_Email_Field,
+		developer_normalized_email Developer_NormalizedEmail_Field,
+		developer_full_name Developer_FullName_Field,
+		developer_password_hash Developer_PasswordHash_Field,
+		optional Developer_Create_Fields) (
+		developer *Developer, err error)
+
+	Create_DeveloperUserMapping(ctx context.Context,
+		developer_user_mapping_id DeveloperUserMapping_Id_Field,
+		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
+		developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+		developer_user_mapping *DeveloperUserMapping, err error)
+
 	Create_NodeEvent(ctx context.Context,
 		node_event_id NodeEvent_Id_Field,
 		node_event_email NodeEvent_Email_Field,
@@ -30381,6 +33433,12 @@ type Methods interface {
 		optional RegistrationToken_Create_Fields) (
 		registration_token *RegistrationToken, err error)
 
+	Create_RegistrationTokenDeveloper(ctx context.Context,
+		registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field,
+		registration_token_developer_project_limit RegistrationTokenDeveloper_ProjectLimit_Field,
+		optional RegistrationTokenDeveloper_Create_Fields) (
+		registration_token_developer *RegistrationTokenDeveloper, err error)
+
 	Create_Reputation(ctx context.Context,
 		reputation_id Reputation_Id_Field,
 		reputation_audit_history Reputation_AuditHistory_Field,
@@ -30391,6 +33449,11 @@ type Methods interface {
 		reset_password_token_secret ResetPasswordToken_Secret_Field,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Create_ResetPasswordTokenDeveloper(ctx context.Context,
+		reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field,
+		reset_password_token_developer_owner_id ResetPasswordTokenDeveloper_OwnerId_Field) (
+		reset_password_token_developer *ResetPasswordTokenDeveloper, err error)
 
 	Create_ReverificationAudits(ctx context.Context,
 		reverification_audits_node_id ReverificationAudits_NodeId_Field,
@@ -30454,6 +33517,13 @@ type Methods interface {
 		webapp_session_expires_at WebappSession_ExpiresAt_Field) (
 		webapp_session *WebappSession, err error)
 
+	Create_WebappSessionDeveloper(ctx context.Context,
+		webapp_session_developer_id WebappSessionDeveloper_Id_Field,
+		webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field,
+		webapp_session_developer_ip_address WebappSessionDeveloper_IpAddress_Field,
+		webapp_session_developer_expires_at WebappSessionDeveloper_ExpiresAt_Field) (
+		webapp_session_developer *WebappSessionDeveloper, err error)
+
 	Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
 		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
 		count int64, err error)
@@ -30470,6 +33540,22 @@ type Methods interface {
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		deleted bool, err error)
+
+	Delete_DeveloperUserMapping_By_DeveloperId(ctx context.Context,
+		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field) (
+		count int64, err error)
+
+	Delete_DeveloperUserMapping_By_Id(ctx context.Context,
+		developer_user_mapping_id DeveloperUserMapping_Id_Field) (
+		deleted bool, err error)
+
+	Delete_DeveloperUserMapping_By_UserId(ctx context.Context,
+		developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+		count int64, err error)
+
+	Delete_Developer_By_Id(ctx context.Context,
+		developer_id Developer_Id_Field) (
 		deleted bool, err error)
 
 	Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
@@ -30513,6 +33599,10 @@ type Methods interface {
 		repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 		count int64, err error)
 
+	Delete_ResetPasswordTokenDeveloper_By_Secret(ctx context.Context,
+		reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field) (
+		deleted bool, err error)
+
 	Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		deleted bool, err error)
@@ -30529,6 +33619,14 @@ type Methods interface {
 
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
+		deleted bool, err error)
+
+	Delete_WebappSessionDeveloper_By_DeveloperId(ctx context.Context,
+		webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field) (
+		count int64, err error)
+
+	Delete_WebappSessionDeveloper_By_Id(ctx context.Context,
+		webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
 		deleted bool, err error)
 
 	Delete_WebappSession_By_Id(ctx context.Context,
@@ -30616,6 +33714,19 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Versioning_Row, err error)
+
+	Get_DeveloperUserMapping_By_DeveloperId_And_UserId(ctx context.Context,
+		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
+		developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
+		developer_user_mapping *DeveloperUserMapping, err error)
+
+	Get_Developer_By_Id(ctx context.Context,
+		developer_id Developer_Id_Field) (
+		developer *Developer, err error)
+
+	Get_Developer_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+		developer_normalized_email Developer_NormalizedEmail_Field) (
+		developer *Developer, err error)
 
 	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
@@ -30718,6 +33829,14 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		row *UserSpecifiedUsageLimit_Row, err error)
 
+	Get_RegistrationTokenDeveloper_By_OwnerId(ctx context.Context,
+		registration_token_developer_owner_id RegistrationTokenDeveloper_OwnerId_Field) (
+		registration_token_developer *RegistrationTokenDeveloper, err error)
+
+	Get_RegistrationTokenDeveloper_By_Secret(ctx context.Context,
+		registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field) (
+		registration_token_developer *RegistrationTokenDeveloper, err error)
+
 	Get_RegistrationToken_By_OwnerId(ctx context.Context,
 		registration_token_owner_id RegistrationToken_OwnerId_Field) (
 		registration_token *RegistrationToken, err error)
@@ -30729,6 +33848,14 @@ type Methods interface {
 	Get_Reputation_By_Id(ctx context.Context,
 		reputation_id Reputation_Id_Field) (
 		reputation *Reputation, err error)
+
+	Get_ResetPasswordTokenDeveloper_By_OwnerId(ctx context.Context,
+		reset_password_token_developer_owner_id ResetPasswordTokenDeveloper_OwnerId_Field) (
+		reset_password_token_developer *ResetPasswordTokenDeveloper, err error)
+
+	Get_ResetPasswordTokenDeveloper_By_Secret(ctx context.Context,
+		reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field) (
+		reset_password_token_developer *ResetPasswordTokenDeveloper, err error)
 
 	Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
@@ -30810,6 +33937,10 @@ type Methods interface {
 		value_attribution_bucket_name ValueAttribution_BucketName_Field) (
 		value_attribution *ValueAttribution, err error)
 
+	Get_WebappSessionDeveloper_By_Id(ctx context.Context,
+		webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
+		webapp_session_developer *WebappSessionDeveloper, err error)
+
 	Get_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field) (
 		webapp_session *WebappSession, err error)
@@ -30835,6 +33966,11 @@ type Methods interface {
 		bucket_metainfo_name_greater BucketMetainfo_Name_Field,
 		limit int, offset int64) (
 		rows []*BucketMetainfo, err error)
+
+	Limited_Developer_Id_Developer_Email_Developer_FullName_By_Status(ctx context.Context,
+		developer_status Developer_Status_Field,
+		limit int, offset int64) (
+		rows []*Id_Email_FullName_Row, err error)
 
 	Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field,
@@ -31052,6 +34188,11 @@ type Methods interface {
 		update CoinpaymentsTransaction_Update_Fields) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
+	Update_Developer_By_Id(ctx context.Context,
+		developer_id Developer_Id_Field,
+		update Developer_Update_Fields) (
+		developer *Developer, err error)
+
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
@@ -31067,6 +34208,11 @@ type Methods interface {
 		project_id Project_Id_Field,
 		update Project_Update_Fields) (
 		project *Project, err error)
+
+	Update_RegistrationTokenDeveloper_By_Secret(ctx context.Context,
+		registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field,
+		update RegistrationTokenDeveloper_Update_Fields) (
+		registration_token_developer *RegistrationTokenDeveloper, err error)
 
 	Update_RegistrationToken_By_Secret(ctx context.Context,
 		registration_token_secret RegistrationToken_Secret_Field,
@@ -31109,6 +34255,11 @@ type Methods interface {
 		value_attribution_bucket_name ValueAttribution_BucketName_Field,
 		update ValueAttribution_Update_Fields) (
 		value_attribution *ValueAttribution, err error)
+
+	Update_WebappSessionDeveloper_By_Id(ctx context.Context,
+		webapp_session_developer_id WebappSessionDeveloper_Id_Field,
+		update WebappSessionDeveloper_Update_Fields) (
+		webapp_session_developer *WebappSessionDeveloper, err error)
 
 	Update_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field,

@@ -15,6 +15,8 @@ import (
 type DB interface {
 	// Users is a getter for Users repository.
 	Users() Users
+	// Developers is getter for Developers repository.
+	Developers() Developers
 	// Projects is a getter for Projects repository.
 	Projects() Projects
 	// ProjectMembers is a getter for ProjectMembers repository.

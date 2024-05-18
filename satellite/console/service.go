@@ -365,6 +365,25 @@ func (s *Service) getUserAndAuditLog(ctx context.Context, operation string, extr
 	return user, nil
 }
 
+func (s *Service) getDeveloperAndAuditLog(ctx context.Context, operation string, extra ...zap.Field) (*Developer, error) {
+	developer, err := GetDeveloper(ctx)
+	if err != nil {
+		sourceIP, forwardedForIP := getRequestingIP(ctx)
+		s.auditLogger.Info("console activity unauthorized",
+			append(append(
+				make([]zap.Field, 0, len(extra)+4),
+				zap.String("developer", "true"),
+				zap.String("operation", operation),
+				zap.Error(err),
+				zap.String("source-ip", sourceIP),
+				zap.String("forwarded-for-ip", forwardedForIP),
+			), extra...)...)
+		return nil, err
+	}
+	s.auditLog(ctx, operation, &developer.ID, developer.Email, extra...)
+	return developer, nil
+}
+
 // boris
 func (s *Service) GetUserAndAuditLog(ctx context.Context, operation string, extra ...zap.Field) (*User, error) {
 	user, err := GetUser(ctx)
@@ -1029,6 +1048,169 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+// CreateUser creates User without password and active state.
+func (s *Service) CreateUserFromDeveloper(ctx context.Context, user CreateUser, developerID uuid.UUID, tokenSecret RegistrationSecret) (u *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var captchaScore *float64
+
+	mon.Counter("create_user_attempt").Inc(1) //mon:locked
+
+	registrationToken, err := s.checkRegistrationSecret(ctx, tokenSecret)
+	if err != nil {
+		return nil, ErrRegToken.Wrap(err)
+	}
+
+	// store data
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		userID, err := uuid.New()
+		if err != nil {
+			return err
+		}
+
+		newUser := &User{
+			ID:               userID,
+			Email:            user.Email,
+			FullName:         user.FullName,
+			ShortName:        user.ShortName,
+			Status:           Active,
+			IsProfessional:   user.IsProfessional,
+			PasswordHash:     []byte{},
+			Position:         user.Position,
+			CompanyName:      user.CompanyName,
+			EmployeeCount:    user.EmployeeCount,
+			HaveSalesContact: user.HaveSalesContact,
+			SignupPromoCode:  user.SignupPromoCode,
+			SignupCaptcha:    captchaScore,
+			ActivationCode:   user.ActivationCode,
+			SignupId:         user.SignupId,
+		}
+
+		if user.UserAgent != nil {
+			newUser.UserAgent = user.UserAgent
+		}
+
+		if registrationToken != nil {
+			newUser.ProjectLimit = registrationToken.ProjectLimit
+		} else {
+			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
+		}
+
+		if s.config.FreeTrialDuration != 0 {
+			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
+			newUser.TrialExpiration = &expiration
+		}
+
+		// TODO: move the project limits into the registration token.
+		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
+		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
+
+		u, err = tx.Users().Insert(ctx,
+			newUser,
+		)
+		if err != nil {
+			return err
+		}
+
+		err = tx.Developers().AddDeveloperUserMapping(ctx, developerID, u.ID)
+		if err != nil {
+			return err
+		}
+
+		if registrationToken != nil {
+			err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	s.auditLog(ctx, "create user", nil, user.Email)
+	mon.Counter("create_user_success").Inc(1) //mon:locked
+
+	return u, nil
+}
+
+// CreateDeveloper gets password hash value and creates new inactive developer.
+func (s *Service) CreateDeveloper(ctx context.Context, developer CreateDeveloper, tokenSecret RegistrationSecret) (u *Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	mon.Counter("create_developer_attempt").Inc(1) //mon:locked
+
+	registrationToken, err := s.checkRegistrationSecret(ctx, tokenSecret)
+	if err != nil {
+		return nil, ErrRegToken.Wrap(err)
+	}
+
+	verified, unverified, err := s.store.Developers().GetByEmailWithUnverified(ctx, developer.Email)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if verified != nil {
+		mon.Counter("create_developer_duplicate_verified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
+	} else if len(unverified) != 0 {
+		mon.Counter("create_developer_duplicate_unverified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(developer.Password), s.config.PasswordCost)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// store data
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		developerID, err := uuid.New()
+		if err != nil {
+			return err
+		}
+
+		newDeveloper := &Developer{
+			ID:             developerID,
+			Email:          developer.Email,
+			FullName:       developer.FullName,
+			PasswordHash:   hash,
+			Status:         Active,
+			CompanyName:    developer.CompanyName,
+			ActivationCode: developer.ActivationCode,
+			SignupId:       developer.SignupId,
+		}
+
+		u, err = tx.Developers().Insert(ctx,
+			newDeveloper,
+		)
+		if err != nil {
+			return err
+		}
+
+		if registrationToken != nil {
+			err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	s.auditLog(ctx, "create developer", nil, developer.Email)
+	mon.Counter("create_developer_success").Inc(1) //mon:locked
+
+	return u, nil
+}
+
 // TestSwapCaptchaHandler replaces the existing handler for captchas with
 // the one specified for use in testing.
 func (s *Service) TestSwapCaptchaHandler(h CaptchaHandler) {
@@ -1188,6 +1370,25 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 	return nil
 }
 
+// SetAccountActiveDeveloper - is a method for setting developer account status to Active and sending
+// event to hubspot.
+func (s *Service) SetAccountActiveDeveloper(ctx context.Context, developer *Developer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	activeStatus := Active
+	err = s.store.Developers().Update(ctx, developer.ID, UpdateDeveloperRequest{
+		Status: &activeStatus,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.auditLog(ctx, "activate account", &developer.ID, developer.Email)
+	s.analytics.TrackAccountVerified(developer.ID, developer.Email)
+
+	return nil
+}
+
 // SetActivationCodeAndSignupID - generates and updates a new code for user's signup verification.
 // It updates the request ID associated with the signup as well.
 func (s *Service) SetActivationCodeAndSignupID(ctx context.Context, user User) (_ User, err error) {
@@ -1213,6 +1414,33 @@ func (s *Service) SetActivationCodeAndSignupID(ctx context.Context, user User) (
 	user.ActivationCode = code
 
 	return user, nil
+}
+
+// SetActivationCodeAndSignupIDForDeveloper - generates and updates a new code for developer's signup verification.
+// It updates the request ID associated with the signup as well.
+func (s *Service) SetActivationCodeAndSignupIDForDeveloper(ctx context.Context, developer Developer) (_ Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return Developer{}, Error.Wrap(err)
+	}
+	randNum = randNum.Add(randNum, big.NewInt(100000))
+	code := randNum.String()
+
+	requestID := requestid.FromContext(ctx)
+	err = s.store.Developers().Update(ctx, developer.ID, UpdateDeveloperRequest{
+		ActivationCode: &code,
+		SignupId:       &requestID,
+	})
+	if err != nil {
+		return Developer{}, Error.Wrap(err)
+	}
+
+	developer.SignupId = requestID
+	developer.ActivationCode = code
+
+	return developer, nil
 }
 
 // ResetPassword - is a method for resetting user password.
@@ -1501,6 +1729,118 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	return response, nil
 }
 
+// TokenDeveloper authenticates Developer by credentials and returns session token.
+func (s *Service) TokenDeveloper(ctx context.Context, request AuthDeveloper) (response *TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	mon.Counter("login_attempt_developer").Inc(1) //mon:locked
+
+	developer, nonActiveDevelopers, err := s.store.Developers().GetByEmailWithUnverified(ctx, request.Email)
+	if developer == nil {
+		shouldProceed := false
+		for _, usr := range nonActiveDevelopers {
+			if usr.Status == PendingBotVerification || usr.Status == LegalHold {
+				shouldProceed = true
+				botAccount := usr
+				developer = &botAccount
+				break
+			}
+		}
+
+		if !shouldProceed {
+			if len(nonActiveDevelopers) > 0 {
+				mon.Counter("login_email_unverified_developer").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
+			} else {
+				mon.Counter("login_email_invalid_developer").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
+			}
+			return nil, ErrLoginCredentials.New(credentialsErrMsg)
+		}
+	}
+
+	now := time.Now()
+
+	if developer.LoginLockoutExpiration.After(now) {
+		mon.Counter("login_locked_out_developer").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed account locked out", &developer.ID, request.Email)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
+	handleLockAccount := func() error {
+		lockoutDuration, err := s.UpdateDevelopersFailedLoginState(ctx, developer)
+		if err != nil {
+			return err
+		}
+		if lockoutDuration > 0 {
+			// address := s.satelliteAddress
+			// if !strings.HasSuffix(address, "/") {
+			// 	address += "/"
+			// }
+
+			// s.mailService.SendRenderedAsync(
+			// 	ctx,
+			// 	[]post.Address{{Address: developer.Email, Name: developer.FullName}},
+			// 	&LoginLockAccountEmail{
+			// 		LockoutDuration:   lockoutDuration,
+			// 		ResetPasswordLink: address + "forgot-password",
+			// 	},
+			// )
+		}
+
+		mon.Counter("login_failed_developer").Inc(1)                                                    //mon:locked
+		mon.IntVal("login_developer_failed_count_developer").Observe(int64(developer.FailedLoginCount)) //mon:locked
+
+		if developer.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+			mon.Counter("login_lockout_initiated_developer").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed login count reached maximum attempts", &developer.ID, request.Email)
+		}
+
+		if developer.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+			mon.Counter("login_lockout_reinitiated_developer").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed locked account", &developer.ID, request.Email)
+		}
+
+		return nil
+	}
+
+	err = bcrypt.CompareHashAndPassword(developer.PasswordHash, []byte(request.Password))
+	if err != nil {
+		err = handleLockAccount()
+		if err != nil {
+			return nil, err
+		}
+		mon.Counter("login_invalid_password_developer").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed password invalid", &developer.ID, developer.Email)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
+	if developer.FailedLoginCount != 0 {
+		err = s.ResetAccountLockDeveloper(ctx, developer)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if developer.Status == PendingBotVerification || developer.Status == LegalHold {
+		return nil, ErrLoginRestricted.New("")
+	}
+
+	var customDurationPtr *time.Duration
+	if request.RememberForOneWeek {
+		weekDuration := 7 * 24 * time.Hour
+		customDurationPtr = &weekDuration
+	}
+	response, err = s.GenerateSessionToken(ctx, developer.ID, developer.Email, request.IP, request.UserAgent, customDurationPtr)
+	if err != nil {
+		return nil, err
+	}
+
+	mon.Counter("login_success_developer").Inc(1) //mon:locked
+
+	return response, nil
+}
+
 func (s *Service) Token_google(ctx context.Context, request AuthUser) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1586,6 +1926,19 @@ func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (
 	return lockoutDuration, s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
 }
 
+// UpdateDevelopersFailedLoginState updates Developer's failed login state.
+func (s *Service) UpdateDevelopersFailedLoginState(ctx context.Context, developer *Developer) (lockoutDuration time.Duration, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var failedLoginPenalty *float64
+	if developer.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
+		lockoutDuration = time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(developer.FailedLoginCount-1))) * time.Minute
+		failedLoginPenalty = &s.config.FailedLoginPenalty
+	}
+
+	return lockoutDuration, s.store.Developers().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, developer.ID)
+}
+
 // GetLoginAttemptsWithoutPenalty returns LoginAttemptsWithoutPenalty config value.
 func (s *Service) GetLoginAttemptsWithoutPenalty() int {
 	return s.config.LoginAttemptsWithoutPenalty
@@ -1599,6 +1952,18 @@ func (s *Service) ResetAccountLock(ctx context.Context, user *User) (err error) 
 	loginLockoutExpirationPtr := &time.Time{}
 	return s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		FailedLoginCount:       &user.FailedLoginCount,
+		LoginLockoutExpiration: &loginLockoutExpirationPtr,
+	})
+}
+
+// ResetAccountLockDeveloper resets a developer's failed login count and lockout duration.
+func (s *Service) ResetAccountLockDeveloper(ctx context.Context, developer *Developer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	developer.FailedLoginCount = 0
+	loginLockoutExpirationPtr := &time.Time{}
+	return s.store.Developers().Update(ctx, developer.ID, UpdateDeveloperRequest{
+		FailedLoginCount:       &developer.FailedLoginCount,
 		LoginLockoutExpiration: &loginLockoutExpirationPtr,
 	})
 }
@@ -1675,6 +2040,22 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 	return verified, unverified, err
 }
 
+// GetDeveloperByEmailWithUnverified returns Developer by email.
+func (s *Service) GetDeveloperByEmailWithUnverified(ctx context.Context, email string) (verified *Developer, unverified []Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	verified, unverified, err = s.store.Developers().GetByEmailWithUnverified(ctx, email)
+	if err != nil {
+		return verified, unverified, err
+	}
+
+	if verified == nil && len(unverified) == 0 {
+		err = ErrEmailNotFound.New(emailNotFoundErrMsg)
+	}
+
+	return verified, unverified, err
+}
+
 func (s *Service) GetUserByEmailWithUnverified_google(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1724,6 +2105,31 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		FullName:  &user.FullName,
 		ShortName: &shortNamePtr,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// UpdateAccount updates Developer.
+func (s *Service) UpdateAccountDeveloper(ctx context.Context, fullName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	developer, err := s.getDeveloperAndAuditLog(ctx, "update account developer")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// validate fullName
+	err = ValidateFullName(fullName)
+	if err != nil {
+		return ErrValidation.Wrap(err)
+	}
+
+	developer.FullName = fullName
+	err = s.store.Developers().Update(ctx, developer.ID, UpdateDeveloperRequest{
+		FullName: &developer.FullName,
 	})
 	if err != nil {
 		return Error.Wrap(err)
@@ -1833,6 +2239,52 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	}
 
 	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// ChangePasswordDeveloper updates password for a given developer.
+func (s *Service) ChangePasswordDeveloper(ctx context.Context, pass, newPass string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	developer, err := s.getDeveloperAndAuditLog(ctx, "change password developer")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = bcrypt.CompareHashAndPassword(developer.PasswordHash, []byte(pass))
+	if err != nil {
+		return ErrChangePassword.New(changePasswordErrMsg)
+	}
+
+	if err := ValidateNewPassword(newPass); err != nil {
+		return ErrValidation.Wrap(err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.config.PasswordCost)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	developer.PasswordHash = hash
+	err = s.store.Developers().Update(ctx, developer.ID, UpdateDeveloperRequest{
+		PasswordHash: hash,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, developer.ID)
+	if err == nil {
+		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, developer.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -3601,6 +4053,40 @@ func (s *Service) TokenAuth(ctx context.Context, token consoleauth.Token, authTi
 	return ctx, nil
 }
 
+// TokenAuthForDeveloper returns an authenticated context by session token.
+func (s *Service) TokenAuthForDeveloper(ctx context.Context, token consoleauth.Token, authTime time.Time) (_ context.Context, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	valid, err := s.tokens.ValidateToken(token)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if !valid {
+		return nil, Error.New("incorrect signature")
+	}
+
+	sessionID, err := uuid.FromBytes(token.Payload)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	ctx, err = s.authorizeDeveloper(ctx, session.UserID, session.ExpiresAt, authTime)
+	if err != nil {
+		err := errs.Combine(err, s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		return nil, err
+	}
+
+	return ctx, nil
+}
+
 // KeyAuth returns an authenticated context by api key.
 func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time) (_ context.Context, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -3739,6 +4225,24 @@ func (s *Service) authorize(ctx context.Context, userID uuid.UUID, expiration ti
 	// 	return nil, Error.New("authorization failed. no active user with id: %s", userID.String())
 	// }
 	return WithUser(ctx, user), nil
+}
+
+// authorize returns an authorized context by user ID.
+func (s *Service) authorizeDeveloper(ctx context.Context, developerID uuid.UUID, expiration time.Time, authTime time.Time) (_ context.Context, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !expiration.IsZero() && expiration.Before(authTime) {
+		return nil, ErrTokenExpiration.New("authorization failed. expiration reached.")
+	}
+
+	developer, err := s.store.Developers().Get(ctx, developerID)
+	if err != nil {
+		return nil, Error.New("authorization failed. no user with id: %s", developerID.String())
+	}
+
+	// if user.Status != Active && user.Status != PendingBotVerification {
+	// 	return nil, Error.New("authorization failed. no active user with id: %s", userID.String())
+	// }
+	return WithDeveloper(ctx, developer), nil
 }
 
 // isProjectMember is return type of isProjectMember service method.
@@ -4141,6 +4645,26 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 	if settings != nil && settings.SessionDuration != nil {
 		duration = *settings.SessionDuration
 	}
+	expiresAt = time.Now().Add(duration)
+
+	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return expiresAt, nil
+}
+
+// RefreshSessionDeveloper resets the expiration time of the session.
+func (s *Service) RefreshSessionDeveloper(ctx context.Context, sessionID uuid.UUID) (expiresAt time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.getDeveloperAndAuditLog(ctx, "refresh session developer")
+	if err != nil {
+		return time.Time{}, Error.Wrap(err)
+	}
+
+	duration := time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
 	expiresAt = time.Now().Add(duration)
 
 	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
