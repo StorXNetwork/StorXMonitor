@@ -5058,7 +5058,6 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			[]post.Address{{Address: invited.Email, Name: userName}},
 			&ExistingUserProjectInvitationEmail{
 				InviterEmail: sender.Email,
-				Region:       s.satelliteName,
 				SignInLink:   inviteLink,
 			},
 		)
