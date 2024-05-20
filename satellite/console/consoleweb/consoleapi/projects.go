@@ -16,10 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/encryption"
-	"storj.io/common/grant"
-	"storj.io/common/macaroon"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
@@ -28,9 +24,8 @@ import (
 
 // Projects is an api controller that exposes projects related functionality.
 type Projects struct {
-	log             *zap.Logger
-	service         *console.Service
-	sateliteNodeURL string
+	log     *zap.Logger
+	service *console.Service
 }
 
 // ProjectMembersPage contains information about a page of project members and invitations.
@@ -64,11 +59,10 @@ type Invitation struct {
 }
 
 // NewProjects is a constructor for api analytics controller.
-func NewProjects(log *zap.Logger, service *console.Service, satelliteNodeURL string) *Projects {
+func NewProjects(log *zap.Logger, service *console.Service) *Projects {
 	return &Projects{
-		log:             log,
-		service:         service,
-		sateliteNodeURL: satelliteNodeURL,
+		log:     log,
+		service: service,
 	}
 }
 
@@ -467,75 +461,6 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	b64SaltString := base64.StdEncoding.EncodeToString(salt)
 
 	err = json.NewEncoder(w).Encode(b64SaltString)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-	}
-}
-
-// GetAccessGrantFromAPIKeyAndPassphrase give access grant for a project using API key and passphrase.
-func (p *Projects) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	apiKey := r.URL.Query().Get("api-key")
-	if apiKey == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing api-key query param"))
-		return
-	}
-
-	passphrase := r.URL.Query().Get("passphrase")
-	if passphrase == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing passphrase query param"))
-		return
-	}
-
-	projectID, ok := mux.Vars(r)["id"]
-	if !ok {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
-		return
-	}
-
-	id, err := uuid.FromString(projectID)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
-		return
-	}
-
-	salt, err := p.service.GetSalt(ctx, id)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	parsedAPIKey, err := macaroon.ParseAPIKey(apiKey)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
-		return
-	}
-
-	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", 8)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-
-	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
-	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
-	// if config.disableObjectKeyEncryption {
-	// 	encAccess.SetDefaultPathCipher(storj.EncNull)
-	// }
-	encAccess.LimitTo(parsedAPIKey)
-
-	accessGrantStr, err := (&grant.Access{
-		SatelliteAddress: p.sateliteNodeURL,
-		APIKey:           parsedAPIKey,
-		EncAccess:        encAccess,
-	}).Serialize()
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(accessGrantStr)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}

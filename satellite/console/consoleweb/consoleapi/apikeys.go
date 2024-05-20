@@ -6,17 +6,24 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/encryption"
+	"storj.io/common/grant"
+	"storj.io/common/macaroon"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
 
 var (
@@ -28,13 +35,16 @@ var (
 type APIKeys struct {
 	log     *zap.Logger
 	service *console.Service
+
+	satelliteNodeURL string
 }
 
 // NewAPIKeys is a constructor for api api keys controller.
-func NewAPIKeys(log *zap.Logger, service *console.Service) *APIKeys {
+func NewAPIKeys(log *zap.Logger, service *console.Service, satelliteNodeURL string) *APIKeys {
 	return &APIKeys{
-		log:     log,
-		service: service,
+		log:              log,
+		service:          service,
+		satelliteNodeURL: satelliteNodeURL,
 	}
 }
 
@@ -179,6 +189,148 @@ func (keys *APIKeys) GetProjectAPIKeys(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(apiKeys)
 	if err != nil {
 		keys.log.Error("failed to write json all api keys response", zap.Error(ErrAPIKeysAPI.Wrap(err)))
+	}
+}
+
+// GetAccessGrant give access grant for a project using API key and passphrase.
+func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	apiKey := r.URL.Query().Get("api-key")
+	if apiKey == "" {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing api-key query param"))
+		return
+	}
+
+	passphrase := r.URL.Query().Get("passphrase")
+	if passphrase == "" {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing passphrase query param"))
+		return
+	}
+
+	projectID, ok := mux.Vars(r)["project_id"]
+	if !ok {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(projectID)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	parsedAPIKey, err := macaroon.ParseAPIKey(apiKey)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	accessGrantStr, err := keys.createAccessGrantForProject(ctx, id, passphrase, parsedAPIKey)
+	err = json.NewEncoder(w).Encode(accessGrantStr)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string, apiKey *macaroon.APIKey) (string, error) {
+
+	salt, err := keys.service.GetSalt(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", 8)
+	if err != nil {
+		return "", err
+	}
+
+	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
+	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+	// if config.disableObjectKeyEncryption {
+	// 	encAccess.SetDefaultPathCipher(storj.EncNull)
+	// }
+	encAccess.LimitTo(apiKey)
+
+	return (&grant.Access{
+		SatelliteAddress: keys.satelliteNodeURL,
+		APIKey:           apiKey,
+		EncAccess:        encAccess,
+	}).Serialize()
+}
+
+// GetAccessGrantForDeveloper give access grant for a project using API key and passphrase.
+func (keys *APIKeys) GetAccessGrantForDeveloper(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	type accessCreateRequest struct {
+		Email      string `json:"email"`
+		Passphrase string `json:"passphrase"`
+	}
+
+	var registerData accessCreateRequest
+	err := json.NewDecoder(r.Body).Decode(&registerData)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	fmt.Println("access grant API")
+
+	// trim leading and trailing spaces of email address.
+	registerData.Email = strings.TrimSpace(registerData.Email)
+
+	isValidEmail := utils.ValidateEmail(registerData.Email)
+	if !isValidEmail {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid email address"))
+		return
+	}
+
+	// get user from email id
+	user, err := keys.service.GetUsers().GetByEmail(ctx, registerData.Email)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	// creaet context with user same we do at registration
+	ctxWithUser := console.WithUser(ctx, user)
+
+	// get project
+	projects, err := keys.service.GetUsersProjects(ctxWithUser)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	if len(projects) == 0 {
+		keys.serveJSONError(ctx, w, http.StatusUnauthorized, errs.New("No project found for this user."))
+		return
+	}
+
+	project := projects[0]
+	name := "API_KEY_FOR_DEVELOPER_FOR_DATA_SYNC"
+
+	_, apiKey, err := keys.service.CreateAPIKey(ctxWithUser, project.ID, name)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	accessGrantStr, err := keys.createAccessGrantForProject(ctxWithUser, project.ID, registerData.Passphrase, apiKey)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(accessGrantStr)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
 

@@ -327,7 +327,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
-	projectsController := consoleapi.NewProjects(logger, service, server.nodeURL.String())
+	projectsController := consoleapi.NewProjects(logger, service)
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
 	projectsRouter.Use(server.withCORS)
 	projectsRouter.Use(server.withAuth)
@@ -338,7 +338,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.DeleteMembersAndInvitations)).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/salt", http.HandlerFunc(projectsController.GetSalt)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/{id}/access-grant", http.HandlerFunc(projectsController.GetAccessGrant)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.GetMembersAndInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite/{email}", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers))).Methods(http.MethodPost, http.MethodOptions)
@@ -423,14 +422,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
 			config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
 		developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
-		developerAuthRouter.Use(server.withCORS)
+		authRouter.Use(server.withCORS)
+
+		developerAuthRouter.Handle("/user-token", server.withAutDeveloper(server.ipRateLimiter.Limit(http.HandlerFunc(authController.UsersToken)))).Methods(http.MethodPost, http.MethodOptions)
 
 		developerAuthRouter.Handle("/account", server.withAuth(http.HandlerFunc(developerAuthController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 		developerAuthRouter.Handle("/account", server.withAuth(http.HandlerFunc(developerAuthController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 		developerAuthRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/logout", server.withAuth(http.HandlerFunc(developerAuthController.Logout))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
+		// developerAuthRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Register))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/create-user", server.withAutDeveloper(server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.CreateUser)))).Methods(http.MethodPost, http.MethodOptions)
 
@@ -493,7 +494,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
-	apiKeysController := consoleapi.NewAPIKeys(logger, service)
+	apiKeysController := consoleapi.NewAPIKeys(logger, service, server.nodeURL.String())
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
 	apiKeysRouter.Use(server.withCORS)
 	apiKeysRouter.Use(server.withAuth)
@@ -502,6 +503,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/delete-by-ids", apiKeysController.DeleteByIDs).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
+	apiKeysRouter.Handle("/{project_id}/access-grant", http.HandlerFunc(apiKeysController.GetAccessGrant)).Methods(http.MethodGet, http.MethodOptions)
+
+	// apiKeysDeveloperRouter := router.PathPrefix("/api/v0/api-keys/developer").Subrouter()
+	// apiKeysDeveloperRouter.Use(server.withCORS)
+	// apiKeysDeveloperRouter.Use(server.withAutDeveloper)
+	// apiKeysDeveloperRouter.Handle("/access-grant", http.HandlerFunc(apiKeysController.GetAccessGrantForDeveloper)).Methods(http.MethodPost, http.MethodOptions)
 
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
 	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()

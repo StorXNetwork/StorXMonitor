@@ -166,6 +166,50 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UsersToken authenticate users without password for developers.
+func (a *Auth) UsersToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenRequest := console.AuthWithoutPassword{}
+	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	tokenRequest.UserAgent = r.UserAgent()
+	tokenRequest.IP, err = web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.TokenWithoutPassword(ctx, tokenRequest)
+	if err != nil {
+		if console.ErrMFAMissing.Has(err) {
+			web.ServeCustomJSONError(ctx, a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
+		} else {
+			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
+			a.serveJSONError(ctx, w, err)
+		}
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()})
+	if err != nil {
+		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
 // TokenByAPIKey authenticates user by API key and returns auth token.
 func (a *Auth) TokenByAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

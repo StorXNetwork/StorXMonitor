@@ -562,10 +562,28 @@ func (a *DeveloperAuth) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// as this token is not required after a minute.
+	customeExpiry := time.Minute
+
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", &customeExpiry)
+	a.log.Error("Token Info:")
+	a.log.Error(tokenInfo.Token.String())
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
 	type userResposne struct {
 		ID        uuid.UUID `json:"id"`
 		FullName  string    `json:"fullName"`
 		Email     string    `json:"email"`
+		ProjectID uuid.UUID `json:"projectId"`
 		CreatedAt time.Time `json:"createdAt"`
 	}
 
@@ -578,6 +596,7 @@ func (a *DeveloperAuth) CreateUser(w http.ResponseWriter, r *http.Request) {
 		FullName:  user.FullName,
 		Email:     user.Email,
 		CreatedAt: user.CreatedAt,
+		ProjectID: project.ID,
 	}})
 	if err != nil {
 		a.log.Error("could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))

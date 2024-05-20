@@ -1729,6 +1729,35 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	return response, nil
 }
 
+// TokenWithoutPassword authenticates User without credentials and returns session token.
+func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutPassword) (response *TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	mon.Counter("login_attempt").Inc(1) //mon:locked
+
+	user, err := s.store.Users().GetByEmail(ctx, request.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+
+	if user.LoginLockoutExpiration.After(now) {
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
+	if user.Status == PendingBotVerification || user.Status == LegalHold {
+		return nil, ErrLoginRestricted.New("")
+	}
+
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
 // TokenDeveloper authenticates Developer by credentials and returns session token.
 func (s *Service) TokenDeveloper(ctx context.Context, request AuthDeveloper) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
