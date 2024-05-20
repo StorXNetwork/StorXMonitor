@@ -79,12 +79,8 @@ func (*ForgotPasswordEmail) Subject() string { return "Password recovery request
 
 // ProjectInvitationEmail is mailservice template for project invitation email.
 type ProjectInvitationEmail struct {
-	Origin                string
-	InviterEmail          string
-	SignInLink            string
-	LetUsKnowURL          string
-	ContactInfoURL        string
-	TermsAndConditionsURL string
+	InviterEmail string
+	SignInLink   string
 }
 
 // Template returns email template name.
@@ -98,7 +94,6 @@ func (email *ProjectInvitationEmail) Subject() string {
 // ExistingUserProjectInvitationEmail is mailservice template for project invitation email for existing users.
 type ExistingUserProjectInvitationEmail struct {
 	InviterEmail string
-	Region       string
 	SignInLink   string
 }
 
