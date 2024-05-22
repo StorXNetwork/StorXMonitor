@@ -2694,6 +2694,67 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN prevDays_UntilExpiration int NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add developer table",
+				Version:     267,
+				Action: migrate.SQL{
+					`CREATE TABLE developers (
+						id bytea NOT NULL,
+						email text NOT NULL,
+						normalized_email text NOT NULL,
+						full_name text NOT NULL,
+						password_hash bytea NOT NULL,
+						status integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						company_name text,
+						failed_login_count integer,
+						login_lockout_expiration timestamp with time zone,
+						activation_code text,
+						signup_id text,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE TABLE registration_token_developers (
+						secret bytea NOT NULL,
+						owner_id bytea,
+						project_limit integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret ),
+						UNIQUE ( owner_id )
+					);`,
+					`CREATE TABLE reset_password_token_developers (
+						secret bytea NOT NULL,
+						owner_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret ),
+						UNIQUE ( owner_id )
+					);`,
+					`CREATE TABLE webapp_session_developers (
+						id bytea NOT NULL,
+						developer_id bytea NOT NULL,
+						ip_address text NOT NULL,
+						status integer NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX developer_email_status_index ON developers ( normalized_email, status );`,
+					`CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create Mapping for developer and user to store which users are created by which developer",
+				Version:     268,
+				Action: migrate.SQL{
+					`CREATE TABLE developer_user_mappings (
+						id bytea NOT NULL,
+						developer_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

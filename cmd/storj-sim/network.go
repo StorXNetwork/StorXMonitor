@@ -301,11 +301,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			})
 			redisServers = append(redisServers, process)
 
+			bindHost := host
+			if bindHost == "" {
+				bindHost = "localhost"
+			}
 			process.ExecBefore["setup"] = func(process *Process) error {
 				confpath := filepath.Join(process.Directory, "redis.conf")
 				arguments := []string{
 					"daemonize no",
-					"bind " + host,
+					"bind " + bindHost,
 					"port " + rp,
 					"timeout 0",
 					"databases 2",
@@ -340,15 +344,22 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			apiProcess.WaitForStart(redisServers[i])
 		}
 
+		if flags.ConsoleLocaiton == "" {
+			flags.ConsoleLocaiton = filepath.Join(storjRoot, "web/satellite/")
+		}
+
 		apiProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"setup": {
 				"--identity-dir", apiProcess.Directory,
 
 				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
-				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
+				"--console.static-dir", flags.ConsoleLocaiton,
 				"--console.auth-token-secret", "my-suppa-secret-key",
 				"--console.open-registration-enabled",
 				"--console.rate-limit.burst", "100",
+				"--console.gateway-credentials-request-url", flags.GatewayCredenticalRequestURL,
+				"--console.public-linksharing-url", flags.LinkSharingURL,
+				"--console.linksharing-url", flags.LinkSharingURL,
 
 				"--server.address", apiProcess.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),
@@ -362,7 +373,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
-				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
+				"--version.server-address", getHttpHost(versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 
 				"--admin.address", net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
@@ -620,7 +631,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
 
-				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
+				"--version.server-address", getHttpHost(versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(storagenodePeer, i, debugHTTP)),
 
 				"--tracing.app", fmt.Sprintf("storagenode/%d", i),
@@ -790,4 +801,12 @@ func namespacedDatabaseURL(dbURL, namespace string) (string, error) {
 	default:
 		return "", errs.New("unable to namespace db url: %q", dbURL)
 	}
+}
+
+func getHttpHost(address string) string {
+	if strings.HasPrefix(address, ":") {
+		return fmt.Sprintf("http://localhost%s/", address)
+	}
+
+	return fmt.Sprintf("http://%s/", address)
 }

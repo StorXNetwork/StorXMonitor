@@ -17,6 +17,11 @@ type Config struct {
 	LinkedinClientSecret              string `mapstructure:"LINKEDIN_CLIENT_SECRET"`
 	LinkedinOAuthRedirectUrl_register string `mapstructure:"LINKEDIN_REDIRECT_URL_REGISTER"`
 	LinkedinOAuthRedirectUrl_login    string `mapstructure:"LINKEDIN_REDIRECT_URL_LOGIN"`
+
+	UnstoppableDomainClientID             string `mapstructure:"UNSTOPPABLE_DOMAIN_CLIENT_ID"`
+	UnstoppableDomainRedirectUrl_register string `mapstructure:"UNSTOPPABLE_DOMAIN_REDIRECT_URL_REGISTER"`
+	UnstoppableDomainRedirectUrl_login    string `mapstructure:"UNSTOPPABLE_DOMAIN_REDIRECT_URL_LOGIN"`
+	UnstoppableDomainClientSecret         string `mapstructure:"UNSTOPPABLE_DOMAIN_CLIENT_SECRET"`
 }
 
 var configVal = &Config{}
@@ -48,6 +53,13 @@ func SetLinkedinSocialMediaConfig(clientID string, clientSecret string, redirect
 	configVal.LinkedinClientSecret = clientSecret
 	configVal.LinkedinOAuthRedirectUrl_register = redirectUrl_register
 	configVal.LinkedinOAuthRedirectUrl_login = redirectUrl_login
+}
+
+func SetUnstoppableDomainSocialMediaConfig(clientID, clientSecret, redirectUrl_register, redirectUrl_login string) {
+	configVal.UnstoppableDomainClientID = clientID
+	configVal.UnstoppableDomainRedirectUrl_register = redirectUrl_register
+	configVal.UnstoppableDomainRedirectUrl_login = redirectUrl_login
+	configVal.UnstoppableDomainClientSecret = clientSecret
 }
 
 func SetConfig(config *Config) {

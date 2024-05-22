@@ -53,7 +53,7 @@ func TestRegistrationRecaptcha(t *testing.T) {
 			Email:           "u@mail.test",
 			Password:        "password",
 			CaptchaResponse: validResponseToken,
-		}, regToken1.Secret)
+		}, regToken1.Secret, false)
 
 		require.NotNil(t, user)
 		require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestRegistrationRecaptcha(t *testing.T) {
 			Email:           "u2@mail.test",
 			Password:        "password",
 			CaptchaResponse: "wrong",
-		}, regToken2.Secret)
+		}, regToken2.Secret, false)
 
 		require.Nil(t, user)
 		require.True(t, console.ErrCaptcha.Has(err))
@@ -101,7 +101,7 @@ func TestLoginRecaptcha(t *testing.T) {
 			FullName: "User",
 			Email:    email,
 			Password: password,
-		}, regToken.Secret)
+		}, regToken.Secret, false)
 
 		require.NotNil(t, user)
 		require.NoError(t, err)

@@ -94,6 +94,11 @@ type Config struct {
 	LinkedinSigupRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
 	LinkedinLoginRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
 
+	UnstoppableDomainClientID                string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainClientSecret            string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainSignupRedirectURLstring string `help:"redirect url for unstoppable domain oauth" default:""`
+	UnstoppableDomainLoginRedirectURLstring  string `help:"redirect url for unstoppable domain oauth" default:""`
+
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 
@@ -154,6 +159,8 @@ type Config struct {
 	ConnectSrcSuffix string `help:"additional values for Content Security Policy connect-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io"`
 	MediaSrcSuffix   string `help:"additional values for Content Security Policy media-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
 
+	DeveloperAPIEnabled bool `help:"indicates if developer API is enabled" default:"false"`
+
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
 	ABTesting abtesting.Config
@@ -173,13 +180,14 @@ type Server struct {
 	analytics   *analytics.Service
 	abTesting   *abtesting.Service
 
-	listener          net.Listener
-	server            http.Server
-	router            *mux.Router
-	cookieAuth        *consolewebauth.CookieAuth
-	ipRateLimiter     *web.RateLimiter
-	userIDRateLimiter *web.RateLimiter
-	nodeURL           storj.NodeURL
+	listener            net.Listener
+	server              http.Server
+	router              *mux.Router
+	cookieAuth          *consolewebauth.CookieAuth
+	developerCookieAuth *consolewebauth.CookieAuth
+	ipRateLimiter       *web.RateLimiter
+	userIDRateLimiter   *web.RateLimiter
+	nodeURL             storj.NodeURL
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
@@ -278,6 +286,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		Path: "/",
 	}, server.config.AuthCookieDomain)
 
+	server.developerCookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
+		Name: "_developer_tokenKey",
+		Path: "/",
+	}, server.config.AuthCookieDomain)
+
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
 			server.config.ExternalAddress += "/"
@@ -348,6 +361,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring)
+	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
 
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
@@ -365,6 +379,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/facebook_register", authController.HandleFacebookRegister)
 	router.HandleFunc("/loginbutton_facebook", authController.InitFacebookLogin)
 	router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
+
+	router.Handle("/unstoppable_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleUnstoppableRegister))).Methods(http.MethodGet, http.MethodOptions)
+	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/registerbutton_unstoppabledomain", authController.InitUnstoppableDomainRegister)
+	router.HandleFunc("/loginbutton_unstoppabledomain", authController.InitUnstoppableDomainLogin)
 
 	router.HandleFunc("/registerbutton_linkedin", authController.InitLinkedInRegister)
 	router.HandleFunc("/linkedin_register", authController.HandleLinkedInRegister)
@@ -397,6 +416,28 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
+
+	if config.DeveloperAPIEnabled {
+		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, accountFreezeService, mailService, server.developerCookieAuth,
+			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
+			config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
+		developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
+		authRouter.Use(server.withCORS)
+
+		developerAuthRouter.Handle("/user-token", server.withAutDeveloper(server.ipRateLimiter.Limit(http.HandlerFunc(authController.UsersToken)))).Methods(http.MethodPost, http.MethodOptions)
+
+		developerAuthRouter.Handle("/account", server.withAuth(http.HandlerFunc(developerAuthController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
+		developerAuthRouter.Handle("/account", server.withAuth(http.HandlerFunc(developerAuthController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+		developerAuthRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/logout", server.withAuth(http.HandlerFunc(developerAuthController.Logout))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
+		// developerAuthRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Register))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/create-user", server.withAutDeveloper(server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.CreateUser)))).Methods(http.MethodPost, http.MethodOptions)
+
+		developerAuthRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+		developerAuthRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(developerAuthController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
+	}
 
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)
@@ -432,7 +473,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/wallet/payments", paymentController.WalletPayments).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet/payments-with-confirmations", paymentController.WalletPaymentsWithConfirmations).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet, http.MethodOptions)
-		paymentsRouter.HandleFunc("/invoice-history", paymentController.InvoiceHistory).Methods(http.MethodGet, http.MethodOptions)
+		// paymentsRouter.HandleFunc("/invoice-history", paymentController.InvoiceHistory).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
@@ -440,6 +481,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 			paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}
+		paymentsRouter.HandleFunc("/upgradingModule", paymentController.UpgradingModuleReq).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/invoice-history", paymentController.BillingTransactionHistory).Methods(http.MethodGet, http.MethodOptions)
 	}
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
@@ -451,7 +494,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
-	apiKeysController := consoleapi.NewAPIKeys(logger, service)
+	apiKeysController := consoleapi.NewAPIKeys(logger, service, server.nodeURL.String())
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
 	apiKeysRouter.Use(server.withCORS)
 	apiKeysRouter.Use(server.withAuth)
@@ -460,6 +503,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/delete-by-ids", apiKeysController.DeleteByIDs).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
+	apiKeysRouter.Handle("/{project_id}/access-grant", http.HandlerFunc(apiKeysController.GetAccessGrant)).Methods(http.MethodGet, http.MethodOptions)
+
+	// apiKeysDeveloperRouter := router.PathPrefix("/api/v0/api-keys/developer").Subrouter()
+	// apiKeysDeveloperRouter.Use(server.withCORS)
+	// apiKeysDeveloperRouter.Use(server.withAutDeveloper)
+	// apiKeysDeveloperRouter.Handle("/access-grant", http.HandlerFunc(apiKeysController.GetAccessGrantForDeveloper)).Methods(http.MethodPost, http.MethodOptions)
 
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
 	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
@@ -842,6 +891,36 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 		}
 
 		newCtx, err := server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+		if err != nil {
+			return
+		}
+		ctx = newCtx
+
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
+}
+
+// withAuth performs initial authorization before every request.
+func (server *Server) withAutDeveloper(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		ctx := r.Context()
+
+		defer mon.Task()(&ctx)(&err)
+
+		defer func() {
+			if err != nil {
+				web.ServeJSONError(ctx, server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
+				server.developerCookieAuth.RemoveTokenCookie(w)
+			}
+		}()
+
+		tokenInfo, err := server.developerCookieAuth.GetToken(r)
+		if err != nil {
+			return
+		}
+
+		newCtx, err := server.service.TokenAuthForDeveloper(ctx, tokenInfo.Token, time.Now())
 		if err != nil {
 			return
 		}

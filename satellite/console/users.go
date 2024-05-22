@@ -173,6 +173,13 @@ type AuthUser struct {
 	UserAgent          string `json:"-"`
 }
 
+// AuthWithoutPassword holds info for user authentication token requests.
+type AuthWithoutPassword struct {
+	Email     string `json:"email"`
+	IP        string `json:"-"`
+	UserAgent string `json:"-"`
+}
+
 // TokenInfo holds info for user authentication token responses.
 type TokenInfo struct {
 	consoleauth.Token `json:"token"`

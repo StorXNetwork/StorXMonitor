@@ -449,6 +449,7 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.FromString(idParam)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
 	}
 
 	salt, err := p.service.GetSalt(ctx, id)

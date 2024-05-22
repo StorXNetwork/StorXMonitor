@@ -1111,7 +1111,7 @@ func TestAuth_SetupAccount(t *testing.T) {
 				FullName: "should be overwritten by setup",
 				Email:    fmt.Sprintf("test%d@storj.test", i),
 				Password: "password",
-			}, regToken.Secret)
+			}, regToken.Secret, false)
 			require.NoError(t, err)
 			activationToken, err := sat.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
 			require.NoError(t, err)
