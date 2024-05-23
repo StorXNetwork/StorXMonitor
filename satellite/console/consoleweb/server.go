@@ -159,7 +159,8 @@ type Config struct {
 	ConnectSrcSuffix string `help:"additional values for Content Security Policy connect-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io"`
 	MediaSrcSuffix   string `help:"additional values for Content Security Policy media-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
 
-	DeveloperAPIEnabled bool `help:"indicates if developer API is enabled" default:"false"`
+	DeveloperAPIEnabled     bool   `help:"indicates if developer API is enabled" default:"false"`
+	DeveloperRegisterAPIKey string `help:"developer register API key" default:""`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -420,7 +421,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	if config.DeveloperAPIEnabled {
 		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, accountFreezeService, mailService, server.developerCookieAuth,
 			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
-			config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
+			config.ContactInfoURL, config.GeneralRequestURL, config.DeveloperRegisterAPIKey, config.SignupActivationCodeEnabled, badPasswords)
 		developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
 		developerAuthRouter.Use(server.withCORS)
 

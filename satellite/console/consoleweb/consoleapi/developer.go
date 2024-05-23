@@ -50,6 +50,7 @@ type DeveloperAuth struct {
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	cookieAuth                *consolewebauth.CookieAuth
+	developerRegisterAPIKey   string
 }
 
 // DeveloperDetails is struct used for developer details
@@ -60,7 +61,10 @@ type DeveloperDetails struct {
 }
 
 // NewDeveloperAuth is a constructor for api auth controller.
-func NewDeveloperAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *DeveloperAuth {
+func NewDeveloperAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService,
+	mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName,
+	externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL, developerRegisterAPIKey string,
+	activationCodeEnabled bool, badPasswords map[string]struct{}) *DeveloperAuth {
 	return &DeveloperAuth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -79,6 +83,7 @@ func NewDeveloperAuth(log *zap.Logger, service *console.Service, accountFreezeSe
 		cookieAuth:                cookieAuth,
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
+		developerRegisterAPIKey:   developerRegisterAPIKey,
 	}
 }
 
@@ -212,6 +217,11 @@ func (a *DeveloperAuth) Register(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if a.developerRegisterAPIKey != "" && r.Header.Get("API-KEY") != a.developerRegisterAPIKey {
+		a.serveJSONError(ctx, w, console.ErrUnauthorized.Wrap(errs.New("Invalid API key.")))
+		return
+	}
 
 	var registerData struct {
 		FullName    string `json:"fullName"`
