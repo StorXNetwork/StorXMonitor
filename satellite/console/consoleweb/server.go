@@ -422,7 +422,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
 			config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
 		developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
-		authRouter.Use(server.withCORS)
+		developerAuthRouter.Use(server.withCORS)
 
 		developerAuthRouter.Handle("/user-token", server.withAutDeveloper(server.ipRateLimiter.Limit(http.HandlerFunc(authController.UsersToken)))).Methods(http.MethodPost, http.MethodOptions)
 
