@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -264,25 +263,27 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
 
 	{ // setup standard output with logging into file
-		outfile, err1 := os.OpenFile(filepath.Join(process.Directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err1 != nil {
-			return fmt.Errorf("open stdout: %w", err1)
-		}
-		defer func() { err = errs.Combine(err, outfile.Close()) }()
+		// removing log wrinting in files as we dont need that for now.
+		// outfile, err1 := os.OpenFile(filepath.Join(process.Directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		// if err1 != nil {
+		// 	return fmt.Errorf("open stdout: %w", err1)
+		// }
+		// defer func() { err = errs.Combine(err, outfile.Close()) }()
 
-		cmd.Stdout = io.MultiWriter(process.stdout, outfile)
+		cmd.Stdout = process.stdout // io.MultiWriter(process.stdout, outfile)
 	}
 
 	{ // setup standard error with logging into file
-		errfile, err2 := os.OpenFile(filepath.Join(process.Directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err2 != nil {
-			return fmt.Errorf("open stderr: %w", err2)
-		}
-		defer func() {
-			err = errs.Combine(err, errfile.Close())
-		}()
+		// removing log wrinting in files as we dont need that for now.
+		// errfile, err2 := os.OpenFile(filepath.Join(process.Directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		// if err2 != nil {
+		// 	return fmt.Errorf("open stderr: %w", err2)
+		// }
+		// defer func() {
+		// 	err = errs.Combine(err, errfile.Close())
+		// }()
 
-		cmd.Stderr = io.MultiWriter(process.stderr, errfile)
+		cmd.Stderr = process.stderr // io.MultiWriter(process.stderr, errfile)
 	}
 
 	// ensure that it is part of this process group
