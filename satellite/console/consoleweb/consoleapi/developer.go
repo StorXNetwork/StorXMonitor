@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 	"strings"
@@ -18,7 +19,6 @@ import (
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
@@ -281,9 +281,10 @@ func (a *DeveloperAuth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var developer *console.Developer
+	// var developer *console.Developer
 	if len(unverified) > 0 {
-		developer = &unverified[0]
+		// developer = &unverified[0]
+		a.serveJSONError(ctx, w, fmt.Errorf("unverfied developer found"))
 	} else {
 		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 		if err != nil {
@@ -305,7 +306,7 @@ func (a *DeveloperAuth) Register(w http.ResponseWriter, r *http.Request) {
 			requestID = requestid.FromContext(ctx)
 		}
 
-		developer, err = a.service.CreateDeveloper(ctx,
+		_, err = a.service.CreateDeveloper(ctx,
 			console.CreateDeveloper{
 				FullName:       registerData.FullName,
 				Email:          registerData.Email,
@@ -324,39 +325,39 @@ func (a *DeveloperAuth) Register(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if a.ActivationCodeEnabled {
-		*developer, err = a.service.SetActivationCodeAndSignupIDForDeveloper(ctx, *developer)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
+	// if a.ActivationCodeEnabled {
+	// 	*developer, err = a.service.SetActivationCodeAndSignupIDForDeveloper(ctx, *developer)
+	// 	if err != nil {
+	// 		a.serveJSONError(ctx, w, err)
+	// 		return
+	// 	}
 
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: developer.Email}},
-			&console.AccountActivationCodeEmail{
-				ActivationCode: developer.ActivationCode,
-			},
-		)
+	// 	a.mailService.SendRenderedAsync(
+	// 		ctx,
+	// 		[]post.Address{{Address: developer.Email}},
+	// 		&console.AccountActivationCodeEmail{
+	// 			ActivationCode: developer.ActivationCode,
+	// 		},
+	// 	)
 
-		return
-	}
-	token, err := a.service.GenerateActivationToken(ctx, developer.ID, developer.Email)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
+	// 	return
+	// }
+	// token, err := a.service.GenerateActivationToken(ctx, developer.ID, developer.Email)
+	// if err != nil {
+	// 	a.serveJSONError(ctx, w, err)
+	// 	return
+	// }
 
-	link := a.ActivateAccountURL + "?token=" + token
+	// link := a.ActivateAccountURL + "?token=" + token
 
-	a.mailService.SendRenderedAsync(
-		ctx,
-		[]post.Address{{Address: developer.Email}},
-		&console.AccountActivationEmail{
-			ActivationLink: link,
-			Origin:         a.ExternalAddress,
-		},
-	)
+	// a.mailService.SendRenderedAsync(
+	// 	ctx,
+	// 	[]post.Address{{Address: developer.Email}},
+	// 	&console.AccountActivationEmail{
+	// 		ActivationLink: link,
+	// 		Origin:         a.ExternalAddress,
+	// 	},
+	// )
 
 }
 

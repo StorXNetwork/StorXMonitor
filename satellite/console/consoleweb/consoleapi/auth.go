@@ -529,6 +529,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		ctx,
 		[]post.Address{{Address: user.Email}},
 		&console.AccountActivationEmail{
+			Username:       user.FullName,
 			ActivationLink: link,
 			Origin:         a.ExternalAddress,
 		},
@@ -2140,6 +2141,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		ctx,
 		[]post.Address{{Address: user.Email}},
 		&console.AccountActivationEmail{
+			Username:              user.FullName,
 			Origin:                a.ExternalAddress,
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,

@@ -37,6 +37,7 @@ func (*TrialExpiredEmail) Subject() string {
 
 // AccountActivationEmail is mailservice template with activation data.
 type AccountActivationEmail struct {
+	Username              string
 	Origin                string
 	ActivationLink        string
 	ContactInfoURL        string
