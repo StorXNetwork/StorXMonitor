@@ -1,0 +1,3 @@
+[submodule "storagenodeweb"]
+	path = storagenodeweb
+	url = https://github.com/storx2-0/storagenodeweb
