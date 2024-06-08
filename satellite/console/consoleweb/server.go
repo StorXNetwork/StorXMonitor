@@ -33,6 +33,7 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
@@ -385,6 +386,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/registerbutton_unstoppabledomain", authController.InitUnstoppableDomainRegister)
 	router.HandleFunc("/loginbutton_unstoppabledomain", authController.InitUnstoppableDomainLogin)
+
+	router.Handle("/x_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegister))).Methods(http.MethodGet, http.MethodOptions)
+	router.Handle("/x_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXLogin))).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/registerbutton_x", authController.InitXRegister)
+	router.HandleFunc("/loginbutton_x", authController.InitXLogin)
 
 	router.HandleFunc("/registerbutton_linkedin", authController.InitLinkedInRegister)
 	router.HandleFunc("/linkedin_register", authController.HandleLinkedInRegister)

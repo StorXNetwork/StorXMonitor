@@ -26,6 +26,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
@@ -833,6 +834,7 @@ func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Requ
 	http.Redirect(w, r, parsedURL.String(), http.StatusTemporaryRedirect)
 }
 
+
 func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
@@ -907,8 +909,201 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 	parsedURL.RawQuery = params.Encode()
 	http.Redirect(w, r, parsedURL.String(), http.StatusTemporaryRedirect)
 }
+func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
 
-// **** Unstipabble register ****//
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	//  Uncomment
+	// requestUrl, err := socialmedia.TwitterClient.GetXAuthURL(socialmedia.GetConfig().TwitterRedirectUrl_register)
+	// Remove the following line
+	requestUrl, err := socialmedia.TwitterClient.GetXAuthURL("http://localhost:10002/x_register")
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
+}
+
+func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	// Uncomment
+	// requestUrl, err := socialmedia.TwitterClient.GetXAuthURL(socialmedia.GetConfig().TwitterRedirectUrl_login)
+	// Remove the following line
+	requestUrl, err := socialmedia.TwitterClient.GetXAuthURL("http://localhost:10002/x_login")
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
+}
+func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	oauthToken := r.URL.Query().Get("oauth_token")
+    oauthVerifier := r.URL.Query().Get("oauth_verifier")
+
+    _, err = socialmedia.TwitterClient.GetAccessToken(oauthToken, oauthVerifier)
+    if err != nil {
+        http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+        return
+    }
+
+    xuser, err := socialmedia.TwitterClient.Verify()
+    if err != nil {
+        http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+        return
+    }
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, xuser.Email)
+
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
+		return
+	}
+
+	var user *console.User
+	if verified != nil {
+		//a.TokenGoogleWrapper(r.Context(), responseBody.Sub+"@ud.me", w, r)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL), http.StatusTemporaryRedirect)
+		return
+	} else {
+		if len(unverified) > 0 {
+			user = &unverified[0]
+		} else {
+			ip, err := web.GetRequestIP(r)
+			if err != nil {
+				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting IP!", http.StatusTemporaryRedirect)
+				return
+			}
+			secret, err := console.RegistrationSecretFromBase64("")
+			if err != nil {
+				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating secret!", http.StatusTemporaryRedirect)
+				return
+			}
+
+			user, err = a.service.CreateUser(ctx,
+				console.CreateUser{
+					FullName:  xuser.Name,
+					ShortName: xuser.ScreenName,
+					Email:     xuser.Email,
+					//UserAgent:        registerData.UserAgent,
+					//Password:         registerData.Password,
+					Status: 1,
+					//IsProfessional:   registerData.IsProfessional,
+					//Position:         registerData.Position,
+					//CompanyName:      registerData.CompanyName,
+					//EmployeeCount:    registerData.EmployeeCount,
+					//HaveSalesContact: registerData.HaveSalesContact,
+					IP: ip,
+					//SignupPromoCode:  registerData.SignupPromoCode,
+				},
+				secret, true,
+			)
+
+			if err != nil {
+				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
+				return
+			}
+
+			referrer := r.URL.Query().Get("referrer")
+			if referrer == "" {
+				referrer = r.Referer()
+			}
+			hubspotUTK := ""
+			hubspotCookie, err := r.Cookie("hubspotutk")
+			if err == nil {
+				hubspotUTK = hubspotCookie.Value
+			}
+
+			trackCreateUserFields := analytics.TrackCreateUserFields{
+				ID:           user.ID,
+				AnonymousID:  loadSession(r),
+				FullName:     user.FullName,
+				Email:        user.Email,
+				Type:         analytics.Personal,
+				OriginHeader: r.Header.Get("Origin"),
+				Referrer:     referrer,
+				HubspotUTK:   hubspotUTK,
+				UserAgent:    string(user.UserAgent),
+			}
+			if user.IsProfessional {
+				trackCreateUserFields.Type = analytics.Professional
+				trackCreateUserFields.EmployeeCount = user.EmployeeCount
+				trackCreateUserFields.CompanyName = user.CompanyName
+				//trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+				trackCreateUserFields.JobTitle = user.Position
+				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+			}
+			a.analytics.TrackCreateUser(trackCreateUserFields)
+		}
+	}
+
+	a.TokenGoogleWrapper(ctx, xuser.Email, w, r)
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	if err != nil {
+		a.log.Error("Error in Default Project:")
+		a.log.Error(err.Error())
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating default project!", http.StatusTemporaryRedirect)
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+	http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
+
+}
+
+func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	oauthToken := r.URL.Query().Get("oauth_token")
+    oauthVerifier := r.URL.Query().Get("oauth_verifier")
+
+    _, err = socialmedia.TwitterClient.GetAccessToken(oauthToken, oauthVerifier)
+    if err != nil {
+        http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+        return
+    }
+
+    xuser, err := socialmedia.TwitterClient.Verify()
+    if err != nil {
+        http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+        return
+    }
+
+	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, xuser.Email)
+
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
+		return
+	}
+
+	if verified == nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Your email id is not registered", http.StatusTemporaryRedirect)
+		return
+	}
+
+	a.TokenGoogleWrapper(r.Context(), xuser.Email, w, r)
+	http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, mainPageURL), http.StatusTemporaryRedirect)
+
+}
+
+// **** Unstopabble register ****//
 func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 	ctx := r.Context()
