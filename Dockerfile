@@ -3,7 +3,7 @@ ARG DOCKER_ARCH
 # Satellite UI static asset generation
 FROM node:18.17.0 as ui
 WORKDIR /app
-COPY web/storagenode /app
+COPY storagenodeweb /app
 # Need to clean up (or ignore) local folders like node_modules, etc...
 RUN npm install
 RUN npm run build
@@ -13,7 +13,7 @@ RUN npm run build
 FROM --platform=amd64 golang:latest AS storx-node-setup
 WORKDIR /app
 COPY . .
-COPY --from=ui /app/dist /app/web/storagenode/dist
+COPY --from=ui /app/dist /app/storagenodeweb/dist
 RUN go build -o /go/bin/storagenode ./cmd/storagenode
 
 
