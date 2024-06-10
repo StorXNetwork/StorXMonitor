@@ -915,10 +915,7 @@ func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	//  Uncomment
-	// requestUrl, err := socialmedia.TwitterClient.GetXAuthURL(socialmedia.GetConfig().TwitterRedirectUrl_register)
-	// Remove the following line
-	requestUrl, err := socialmedia.TwitterClient.GetXAuthURL("http://localhost:10002/x_register")
+	requestUrl, err := socialmedia.TwitterClient.GetXAuthURL(socialmedia.GetConfig().TwitterRedirectUrl_register)
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
 		return
@@ -932,10 +929,7 @@ func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	// Uncomment
-	// requestUrl, err := socialmedia.TwitterClient.GetXAuthURL(socialmedia.GetConfig().TwitterRedirectUrl_login)
-	// Remove the following line
-	requestUrl, err := socialmedia.TwitterClient.GetXAuthURL("http://localhost:10002/x_login")
+	requestUrl, err := socialmedia.TwitterClient.GetXAuthURL(socialmedia.GetConfig().TwitterRedirectUrl_login)
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
 		return

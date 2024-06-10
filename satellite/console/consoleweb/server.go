@@ -100,6 +100,11 @@ type Config struct {
 	UnstoppableDomainSignupRedirectURLstring string `help:"redirect url for unstoppable domain oauth" default:""`
 	UnstoppableDomainLoginRedirectURLstring  string `help:"redirect url for unstoppable domain oauth" default:""`
 
+	XAPIKEY                       string `help:"redirect url for x oauth" default:""`
+	XAPISecret                    string `help:"redirect url for x oauth" default:""`
+	XSignupRedirectURLstring      string `help:"redirect url for x oauth" default:""`
+	XLoginRedirectURLstring string `help:"redirect url for x oauth" default:""`
+
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 
@@ -364,7 +369,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
-
+	socialmedia.SetTwitterSocialMediaConfig(config.XAPIKEY,config.XAPISecret, config.XSignupRedirectURLstring, config.XLoginRedirectURLstring)
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
 		server.log.Error("unable to load bad passwords list", zap.Error(err))

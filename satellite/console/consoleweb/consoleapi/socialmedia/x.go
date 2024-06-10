@@ -158,7 +158,7 @@ func (e *ErrorWrapper) Error() string {
 var TwitterClient *XClient
 func init(){
 	// Shoule be removed
-	TwitterClient = New("IeLmLAAzAOxDvuL77ovt1vBvG", "T4yyfkHRkqAhAkYn1qUAMWJEYJeCVcAxOZNSApNVOGZVdiq6cp")
+	//TwitterClient = New("IeLmLAAzAOxDvuL77ovt1vBvG", "T4yyfkHRkqAhAkYn1qUAMWJEYJeCVcAxOZNSApNVOGZVdiq6cp")
 	// Uncomment
-	// TwitterClient = New(configVal.TwitterAPIKey, configVal.TwitterAPISecret)
+	TwitterClient = New(configVal.TwitterAPIKey, configVal.TwitterAPISecret)
 }

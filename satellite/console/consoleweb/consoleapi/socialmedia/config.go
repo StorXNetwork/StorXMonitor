@@ -73,7 +73,7 @@ func SetTwitterSocialMediaConfig(apiKey, apiSecret, redirectUrl_register, redire
 	configVal.TwitterRedirectUrl_login = redirectUrl_login
 	configVal.TwitterAPISecret = apiSecret
 	// Restart the client after these are set. Uncomment
-	//TwitterClient = New(configVal.TwitterAPIKey, configVal.TwitterAPISecret)
+	TwitterClient = New(configVal.TwitterAPIKey, configVal.TwitterAPISecret)
 }
 func SetConfig(config *Config) {
 	configVal = config
