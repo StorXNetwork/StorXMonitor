@@ -369,7 +369,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
-	socialmedia.SetTwitterSocialMediaConfig(config.XClientID,config.XClientSecret, config.XSignupRedirectURLstring, config.XLoginRedirectURLstring)
+	socialmedia.SetXSocialMediaConfig(config.XClientID,config.XClientSecret, config.XSignupRedirectURLstring, config.XLoginRedirectURLstring)
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
@@ -391,6 +391,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/registerbutton_unstoppabledomain", authController.InitUnstoppableDomainRegister)
 	router.HandleFunc("/loginbutton_unstoppabledomain", authController.InitUnstoppableDomainLogin)
+
+	router.Handle("/twitter_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleTwitterRegister))).Methods(http.MethodGet, http.MethodOptions)
+	router.Handle("/twitter_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleTwitterLogin))).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/registerbutton_twitter", authController.InitTwitterRegister)
+	router.HandleFunc("/loginbutton_twitter", authController.InitTwitterLogin)
 
 	router.Handle("/x_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegister))).Methods(http.MethodGet, http.MethodOptions)
 	router.Handle("/x_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXLogin))).Methods(http.MethodGet, http.MethodOptions)
@@ -723,7 +728,7 @@ func cacheNoStoreMiddleware(handler http.Handler) http.Handler {
 }
 
 // setAppHeaders sets the necessary headers for requests to the app.
-func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
+func (server *Server) setAppHeaders(w http.ResponseWriter, _ *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {

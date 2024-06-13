@@ -27,6 +27,11 @@ type Config struct {
 	TwitterAPISecret            string `mapstructure:"TWITTER_API_SECRET"`
 	TwitterRedirectUrl_register string `mapstructure:"TWITTER_REDIRECT_URL_REGISTER"`
 	TwitterRedirectUrl_login    string `mapstructure:"TWITTER_REDIRECT_URL_LOGIN"`
+
+	XClientID          string `mapstrcuture:"X_CLIENT_ID"`
+	XClientSecret      string `mapstructure:"X_CLIENT_SECRET"`
+	XSignupRedirectURL string `mapstructure:"X_SIGNUP_REDIRECT_URL"`
+	XLoginRedirectURL  string `mapstructure:"X_LOGIN_REDIRECT_URL"`
 }
 
 var configVal = &Config{}
@@ -67,13 +72,21 @@ func SetUnstoppableDomainSocialMediaConfig(clientID, clientSecret, redirectUrl_r
 	configVal.UnstoppableDomainClientSecret = clientSecret
 }
 
-func SetTwitterSocialMediaConfig(apiKey, apiSecret, redirectUrl_register, redirectUrl_login string){
+func SetTwitterSocialMediaConfig(apiKey, apiSecret, redirectUrl_register, redirectUrl_login string) {
 	configVal.TwitterAPIKey = apiKey
-	configVal.TwitterRedirectUrl_register= redirectUrl_register
+	configVal.TwitterRedirectUrl_register = redirectUrl_register
 	configVal.TwitterRedirectUrl_login = redirectUrl_login
 	configVal.TwitterAPISecret = apiSecret
 	// Restart the client after these are set. Uncomment
 	TwitterClient = New(configVal.TwitterAPIKey, configVal.TwitterAPISecret)
+}
+
+
+func SetXSocialMediaConfig(clientID, clientSecret, sru, lru string){
+	configVal.XClientID = clientID
+	configVal.XClientSecret = clientSecret
+	configVal.XSignupRedirectURL = sru
+	configVal.XLoginRedirectURL = lru
 }
 func SetConfig(config *Config) {
 	configVal = config

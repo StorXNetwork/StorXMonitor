@@ -53,7 +53,7 @@ require (
 	golang.org/x/crypto v0.19.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/net v0.21.0
-	golang.org/x/oauth2 v0.17.0
+	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.17.0
 	golang.org/x/term v0.17.0
@@ -73,7 +73,7 @@ require (
 	cloud.google.com/go v0.112.0 // indirect
 	cloud.google.com/go/bigquery v1.59.1 // indirect
 	cloud.google.com/go/compute v1.23.4 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.6 // indirect
 	cloud.google.com/go/profiler v0.4.0 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
@@ -123,6 +123,7 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/nirasan/go-oauth-pkce-code-verifier v0.0.0-20220510032225-4f9f17eaec4c // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
