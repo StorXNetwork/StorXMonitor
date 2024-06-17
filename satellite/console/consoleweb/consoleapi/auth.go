@@ -26,6 +26,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
@@ -908,7 +909,181 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, parsedURL.String(), http.StatusTemporaryRedirect)
 }
 
-// **** Unstipabble register ****//
+
+func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	requestUrl, err := socialmedia.RedirectURL("r")
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
+}
+
+func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	requestUrl, err := socialmedia.RedirectURL("login")
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
+}
+
+func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
+	if !ok {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
+		return
+	}
+	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "login")
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+
+	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
+
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
+		return
+	}
+
+	if verified == nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Your email id is not registered", http.StatusTemporaryRedirect)
+		return
+	}
+
+	a.TokenGoogleWrapper(r.Context(), userI.Data.Username+"@no-email.com", w, r)
+	http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, mainPageURL), http.StatusTemporaryRedirect)
+}
+
+func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
+	if !ok {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
+		return
+	}
+	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "r")
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		return
+	}
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
+
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
+		return
+	}
+
+	var user *console.User
+	if verified != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL), http.StatusTemporaryRedirect)
+		return
+	} else {
+		if len(unverified) > 0 {
+			user = &unverified[0]
+		} else {
+			ip, err := web.GetRequestIP(r)
+			if err != nil {
+				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting IP!", http.StatusTemporaryRedirect)
+				return
+			}
+			secret, err := console.RegistrationSecretFromBase64("")
+			if err != nil {
+				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating secret!", http.StatusTemporaryRedirect)
+				return
+			}
+
+			user, err = a.service.CreateUser(ctx,
+				console.CreateUser{
+					FullName:  userI.Data.Name,
+					ShortName: userI.Data.Username,
+					Email:     userI.Data.Username + "@no-email.com",
+					Status:    1,
+					IP:        ip,
+				},
+				secret, true,
+			)
+
+			if err != nil {
+				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
+				return
+			}
+
+			referrer := r.URL.Query().Get("referrer")
+			if referrer == "" {
+				referrer = r.Referer()
+			}
+			hubspotUTK := ""
+			hubspotCookie, err := r.Cookie("hubspotutk")
+			if err == nil {
+				hubspotUTK = hubspotCookie.Value
+			}
+
+			trackCreateUserFields := analytics.TrackCreateUserFields{
+				ID:           user.ID,
+				AnonymousID:  loadSession(r),
+				FullName:     user.FullName,
+				Email:        user.Email,
+				Type:         analytics.Personal,
+				OriginHeader: r.Header.Get("Origin"),
+				Referrer:     referrer,
+				HubspotUTK:   hubspotUTK,
+				UserAgent:    string(user.UserAgent),
+			}
+			if user.IsProfessional {
+				trackCreateUserFields.Type = analytics.Professional
+				trackCreateUserFields.EmployeeCount = user.EmployeeCount
+				trackCreateUserFields.CompanyName = user.CompanyName
+				//trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+				trackCreateUserFields.JobTitle = user.Position
+				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+			}
+			a.analytics.TrackCreateUser(trackCreateUserFields)
+		}
+	}
+
+	a.TokenGoogleWrapper(ctx, userI.Data.Username+"@no-email.com", w, r)
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	if err != nil {
+		a.log.Error("Error in Default Project:")
+		a.log.Error(err.Error())
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating default project!", http.StatusTemporaryRedirect)
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+	http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
+
+}
+
+// **** Unstopabble register ****//
 func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 	ctx := r.Context()
@@ -919,7 +1094,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	state := r.URL.Query().Get("state")
 	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
 	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
 	token, err := socialmedia.GetRegisterToken(code, code_verifier.(string))
@@ -1047,7 +1222,7 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
 	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
 	token, err := socialmedia.GetLoginToken(code, code_verifier.(string))

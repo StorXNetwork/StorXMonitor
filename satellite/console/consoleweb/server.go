@@ -33,6 +33,7 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
@@ -98,6 +99,11 @@ type Config struct {
 	UnstoppableDomainClientSecret            string `help:"redirect url for unstoppable domain oauth" default:""`
 	UnstoppableDomainSignupRedirectURLstring string `help:"redirect url for unstoppable domain oauth" default:""`
 	UnstoppableDomainLoginRedirectURLstring  string `help:"redirect url for unstoppable domain oauth" default:""`
+
+	XClientID                       string `help:"redirect url for x oauth" default:""`
+	XClientSecret                    string `help:"redirect url for x oauth" default:""`
+	XSignupRedirectURLstring      string `help:"redirect url for x oauth" default:""`
+	XLoginRedirectURLstring string `help:"redirect url for x oauth" default:""`
 
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
@@ -363,7 +369,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
-
+	socialmedia.SetXSocialMediaConfig(config.XClientID,config.XClientSecret, config.XSignupRedirectURLstring, config.XLoginRedirectURLstring)
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
@@ -385,6 +391,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/registerbutton_unstoppabledomain", authController.InitUnstoppableDomainRegister)
 	router.HandleFunc("/loginbutton_unstoppabledomain", authController.InitUnstoppableDomainLogin)
+
+	router.Handle("/x_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegister))).Methods(http.MethodGet, http.MethodOptions)
+	router.Handle("/x_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXLogin))).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/registerbutton_x", authController.InitXRegister)
+	router.HandleFunc("/loginbutton_x", authController.InitXLogin)
 
 	router.HandleFunc("/registerbutton_linkedin", authController.InitLinkedInRegister)
 	router.HandleFunc("/linkedin_register", authController.HandleLinkedInRegister)
@@ -712,7 +723,7 @@ func cacheNoStoreMiddleware(handler http.Handler) http.Handler {
 }
 
 // setAppHeaders sets the necessary headers for requests to the app.
-func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
+func (server *Server) setAppHeaders(w http.ResponseWriter, _ *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {

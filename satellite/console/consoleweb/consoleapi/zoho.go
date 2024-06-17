@@ -61,7 +61,7 @@ func zohoRefreshToken(ctx context.Context, clientID, clientSecret, refreshToken 
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest(http.MethodPost, zoho_RefreshTokenURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, zoho_RefreshTokenURL, nil)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest(http.MethodPost, "https://www.zohoapis.in/crm/v2/Leads", bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://www.zohoapis.in/crm/v2/Leads", bytes.NewReader(b))
 	if err != nil {
 		log.Error("zohoInsertLead: http.NewRequest", zap.Error(err))
 		return
