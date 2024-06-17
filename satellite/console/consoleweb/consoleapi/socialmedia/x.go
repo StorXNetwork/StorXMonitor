@@ -1,7 +1,7 @@
 package socialmedia
 
-
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"net/url"
 
 	"github.com/gomodule/oauth1/oauth"
+	pcke "github.com/nirasan/go-oauth-pkce-code-verifier"
+	"golang.org/x/oauth2"
 )
 
 func New(apiKey, apiSecret string) *XClient {
@@ -156,9 +158,77 @@ func (e *ErrorWrapper) Error() string {
 }
 
 var TwitterClient *XClient
-func init(){
+
+func init() {
 	// Shoule be removed
 	//TwitterClient = New("IeLmLAAzAOxDvuL77ovt1vBvG", "T4yyfkHRkqAhAkYn1qUAMWJEYJeCVcAxOZNSApNVOGZVdiq6cp")
 	// Uncomment
 	TwitterClient = New(configVal.TwitterAPIKey, configVal.TwitterAPISecret)
+}
+
+type XUser struct {
+	Data struct {
+		Name     string `json:"name"`
+		Username string `json:"username"`
+	} `json:"data"`
+}
+
+func GetXUser(ctx context.Context, code string, codeVerifier string, t string) (*XUser, error) {
+	cnf := GetConfig()
+	conf := &oauth2.Config{
+		ClientID:     cnf.XClientID,
+		ClientSecret: cnf.XClientSecret,
+		RedirectURL:  cnf.XSignupRedirectURL,
+		Scopes:       []string{"users.read", "offline.access", "tweet.read"},
+		Endpoint:     oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token", AuthURL: "https://twitter.com/i/oauth2/authorize", AuthStyle: oauth2.AuthStyleAutoDetect},
+	}
+	if t == "login"{
+		conf.RedirectURL = cnf.XLoginRedirectURL
+	}
+	token, err := conf.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
+	if err != nil {
+		return nil, err
+	}
+
+	client := conf.Client(ctx, token)
+
+	userInfo, err := client.Get("https://api.twitter.com/2/users/me")
+	if err != nil {
+		return nil, err
+	}
+	var user XUser
+	if err := json.NewDecoder(userInfo.Body).Decode(&user); err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func RedirectURL(t string) (string, error) {
+	cnf := GetConfig()
+	state, err := EncodeState(nil)
+	if err != nil {
+		return "", err
+	}
+	codeVerifier, err := pcke.CreateCodeVerifier()
+	if err != nil {
+		return "", err
+	}
+	codeChallenge := codeVerifier.CodeChallengeS256()
+	ReqStore.Store(state, codeVerifier.String())
+	conf := &oauth2.Config{
+		ClientID:     cnf.XClientID,
+		ClientSecret: cnf.XClientSecret,
+		RedirectURL:  cnf.XSignupRedirectURL,
+		Scopes:       []string{"users.read", "offline.access", "tweet.read"},
+		Endpoint:     oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token", AuthURL: "https://twitter.com/i/oauth2/authorize", AuthStyle: oauth2.AuthStyleAutoDetect},
+	}
+	if t == "login"{
+		conf.RedirectURL = cnf.XLoginRedirectURL
+	}
+	requestUrl := conf.AuthCodeURL(state,
+		oauth2.AccessTypeOffline,
+		oauth2.SetAuthURLParam("redirect_url", cnf.XSignupRedirectURL),
+		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
+	return requestUrl, nil
 }

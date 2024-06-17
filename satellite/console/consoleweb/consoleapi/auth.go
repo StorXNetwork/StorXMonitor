@@ -27,8 +27,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 
-	pcke "github.com/nirasan/go-oauth-pkce-code-verifier"
-	"golang.org/x/oauth2"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
@@ -926,69 +924,27 @@ func (a *Auth) InitTwitterRegister(w http.ResponseWriter, r *http.Request) {
 
 func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
-
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	state, err := socialmedia.EncodeState(nil)
+	requestUrl, err := socialmedia.RedirectURL("r")
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-	codeVerifier, err := pcke.CreateCodeVerifier()
-	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
-		return
-	}
-	codeChallenge := codeVerifier.CodeChallengeS256()
-	socialmedia.ReqStore.Store(state, codeVerifier.String())
-	conf := &oauth2.Config{
-		ClientID:     cnf.XClientID,
-		ClientSecret: cnf.XClientSecret,
-		RedirectURL:  cnf.XSignupRedirectURL,
-		Scopes:       []string{"users.read", "offline.access", "tweet.read"},
-		Endpoint:     oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token", AuthURL: "https://twitter.com/i/oauth2/authorize", AuthStyle: oauth2.AuthStyleAutoDetect},
-	}
-
-	requestUrl := conf.AuthCodeURL(state, 
-		oauth2.AccessTypeOffline, 
-		oauth2.SetAuthURLParam("redirect_url", cnf.XSignupRedirectURL), 
-		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
-	oauth2.SetAuthURLParam("code_challenge_method", "S256"))
 	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
 }
 
 func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
-
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	state, err := socialmedia.EncodeState(nil)
+	requestUrl, err := socialmedia.RedirectURL("login")
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-	codeVerifier, err := pcke.CreateCodeVerifier()
-	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
-		return
-	}
-	codeChallenge := codeVerifier.CodeChallengeS256()
-	socialmedia.ReqStore.Store(state, codeVerifier.String())
-	conf := &oauth2.Config{
-		ClientID:     cnf.XClientID,
-		ClientSecret: cnf.XClientSecret,
-		RedirectURL:  cnf.XLoginRedirectURL,
-		Scopes:       []string{"users.read", "offline.access", "tweet.read"},
-		Endpoint:     oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token", AuthURL: "https://twitter.com/i/oauth2/authorize", AuthStyle: oauth2.AuthStyleAutoDetect},
-	}
-
-	requestUrl := conf.AuthCodeURL(state, 
-		oauth2.AccessTypeOffline, 
-		oauth2.SetAuthURLParam("redirect_url", cnf.XLoginRedirectURL), 
-		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
-	oauth2.SetAuthURLParam("code_challenge_method", "S256"))
 	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
 }
 
@@ -1058,8 +1014,8 @@ func (a *Auth) HandleTwitterRegister(w http.ResponseWriter, r *http.Request) {
 					FullName:  xuser.Name,
 					ShortName: xuser.ScreenName,
 					Email:     xuser.Email,
-					Status: 1,
-					IP: ip,
+					Status:    1,
+					IP:        ip,
 				},
 				secret, true,
 			)
@@ -1134,39 +1090,13 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-	conf := &oauth2.Config{
-		ClientID:     cnf.XClientID,
-		ClientSecret: cnf.XClientSecret,
-		RedirectURL:  cnf.XLoginRedirectURL,
-		Scopes:       []string{"users.read", "offline.access", "tweet.read"},
-		Endpoint:     oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token", AuthURL: "https://twitter.com/i/oauth2/authorize", AuthStyle: oauth2.AuthStyleAutoDetect},
-	}
-
-	token, err := conf.Exchange(ctx,code,oauth2.SetAuthURLParam("code_verifier", code_verifier.(string)))
-
+	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "login")
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code not present"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
 
-	client := conf.Client(ctx, token)
-
-	userInfo, err := client.Get("https://api.twitter.com/2/users/me")
-	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting user! "+err.Error(), http.StatusTemporaryRedirect)
-		return
-	}
-
-	var userI struct{
-		Name string `json:"name"`
-		Username string `json:"username"`
-	}
-	if err := json.NewDecoder(userInfo.Body).Decode(&userI); err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error decoding user! "+err.Error(), http.StatusTemporaryRedirect)
-		return
-	}
-	
-	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Username + "@no-email.com")
+	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
 
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
@@ -1178,7 +1108,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.TokenGoogleWrapper(r.Context(), userI.Username + "@no-email.com", w, r)
+	a.TokenGoogleWrapper(r.Context(), userI.Data.Username+"@no-email.com", w, r)
 	http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, mainPageURL), http.StatusTemporaryRedirect)
 }
 
@@ -1195,39 +1125,12 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-
-	conf := &oauth2.Config{
-		ClientID:     cnf.XClientID,
-		ClientSecret: cnf.XClientSecret,
-		RedirectURL:  cnf.XSignupRedirectURL,
-		Scopes:       []string{"users.read", "offline.access", "tweet.read"},
-		Endpoint:     oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token", AuthURL: "https://twitter.com/i/oauth2/authorize", AuthStyle: oauth2.AuthStyleAutoDetect},
-	}
-
-	token, err := conf.Exchange(ctx,code,oauth2.SetAuthURLParam("code_verifier", code_verifier.(string)))
+	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "r")
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting token! "+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-
-	client := conf.Client(ctx, token)
-
-	userInfo, err := client.Get("https://api.twitter.com/2/users/me")
-	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user! "+err.Error(), http.StatusTemporaryRedirect)
-		return
-	}
-
-	var userI struct{
-		Name string `json:"name"`
-		Username string `json:"username"`
-	}
-	if err := json.NewDecoder(userInfo.Body).Decode(&userI); err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error decoding user! "+err.Error(), http.StatusTemporaryRedirect)
-		return
-	}
-	
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Username + "@no-email.com")
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
 
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
@@ -1255,11 +1158,11 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
-					FullName:  userI.Name,
-					ShortName: userI.Username,
-					Email:     userI.Username + "@no-email.com",
-					Status: 1,
-					IP: ip,
+					FullName:  userI.Data.Name,
+					ShortName: userI.Data.Username,
+					Email:     userI.Data.Username + "@no-email.com",
+					Status:    1,
+					IP:        ip,
 				},
 				secret, true,
 			)
@@ -1302,7 +1205,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	a.TokenGoogleWrapper(ctx, userI.Username + "@no-email.com", w, r)
+	a.TokenGoogleWrapper(ctx, userI.Data.Username+"@no-email.com", w, r)
 
 	authed := console.WithUser(ctx, user)
 
