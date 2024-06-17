@@ -1087,7 +1087,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
 	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
 	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "login")
@@ -1122,7 +1122,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
 	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
 	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "r")
@@ -1272,7 +1272,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	state := r.URL.Query().Get("state")
 	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
 	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
 	token, err := socialmedia.GetRegisterToken(code, code_verifier.(string))
@@ -1400,7 +1400,7 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
 	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
 	token, err := socialmedia.GetLoginToken(code, code_verifier.(string))
