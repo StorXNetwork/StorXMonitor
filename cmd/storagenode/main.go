@@ -11,7 +11,6 @@ import (
 	"storj.io/common/process"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	_ "storj.io/storj/web/storagenode" // This embeds storagenode assets.
 )
 
 func main() {
