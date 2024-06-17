@@ -392,11 +392,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/registerbutton_unstoppabledomain", authController.InitUnstoppableDomainRegister)
 	router.HandleFunc("/loginbutton_unstoppabledomain", authController.InitUnstoppableDomainLogin)
 
-	router.Handle("/twitter_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleTwitterRegister))).Methods(http.MethodGet, http.MethodOptions)
-	router.Handle("/twitter_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleTwitterLogin))).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/registerbutton_twitter", authController.InitTwitterRegister)
-	router.HandleFunc("/loginbutton_twitter", authController.InitTwitterLogin)
-
 	router.Handle("/x_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegister))).Methods(http.MethodGet, http.MethodOptions)
 	router.Handle("/x_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXLogin))).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/registerbutton_x", authController.InitXRegister)
