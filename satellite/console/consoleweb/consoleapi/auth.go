@@ -327,7 +327,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(ctx, registerData.FullName, registerData.Email, a.log)
+		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, r)
 	}
 
 	// trim leading and trailing spaces of email address.
@@ -908,7 +908,6 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 	parsedURL.RawQuery = params.Encode()
 	http.Redirect(w, r, parsedURL.String(), http.StatusTemporaryRedirect)
 }
-
 
 func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()

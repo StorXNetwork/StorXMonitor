@@ -97,7 +97,7 @@ func zohoRefreshToken(ctx context.Context, clientID, clientSecret, refreshToken 
 	return nil
 }
 
-func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger) {
+func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger, r *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("zohoInsertLead: panic", zap.Any("panic", r))
@@ -119,10 +119,15 @@ func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger
 	log.Info("zohoInsertLead", zap.String("firstname", firstname), zap.String("lastname", lastname), zap.String("email", email))
 
 	type zohoLeadInsertData struct {
-		LeadSource string `json:"Lead_Source"`
-		LastName   string `json:"Last_Name"`
-		FirstName  string `json:"First_Name"`
-		Email      string `json:"Email"`
+		LeadSource  string `json:"Lead_Source"`
+		LastName    string `json:"Last_Name"`
+		FirstName   string `json:"First_Name"`
+		Email       string `json:"Email"`
+		UTMSource   string `json:"utm_source,omitempty"`
+		UTMMedium   string `json:"utm_medium,omitempty"`
+		UTMCampaign string `json:"utm_campaign,omitempty"`
+		UTMTerm     string `json:"utm_term,omitempty"`
+		UTMContent  string `json:"utm_content,omitempty"`
 	}
 
 	type zohoLeadInsertRequest struct {
@@ -132,10 +137,15 @@ func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger
 	reqBody := &zohoLeadInsertRequest{
 		Data: []zohoLeadInsertData{
 			{
-				LeadSource: zoho_DefaultLeadSource,
-				LastName:   lastname,
-				FirstName:  firstname,
-				Email:      email,
+				LeadSource:  zoho_DefaultLeadSource,
+				LastName:    lastname,
+				FirstName:   firstname,
+				Email:       email,
+				UTMSource:   r.URL.Query().Get("utm_source"),
+				UTMMedium:   r.URL.Query().Get("utm_medium"),
+				UTMCampaign: r.URL.Query().Get("utm_campaign"),
+				UTMTerm:     r.URL.Query().Get("utm_term"),
+				UTMContent:  r.URL.Query().Get("utm_content"),
 			},
 		},
 	}
