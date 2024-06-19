@@ -385,6 +385,13 @@ type Audits struct {
 	SuspensionScore float64 `json:"suspensionScore"`
 	OnlineScore     float64 `json:"onlineScore"`
 	SatelliteName   string  `json:"satelliteName"`
+	Alpha           float64 `json:"alpha"`
+}
+
+// Function to Round a float value up to 'n' precision
+func roundFloat(val float64, precision uint) float64 {
+	ratio := math.Pow(10, float64(precision))
+	return math.Round(val*ratio) / ratio
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -446,6 +453,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 			SuspensionScore: stats.Audit.UnknownScore,
 			OnlineScore:     stats.OnlineScore,
 			SatelliteName:   url.Address,
+			Alpha:           roundFloat(stats.Audit.Alpha/10, 2),
 		})
 		if !stats.JoinedAt.IsZero() && stats.JoinedAt.Before(joinedAt) {
 			joinedAt = stats.JoinedAt
