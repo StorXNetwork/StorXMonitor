@@ -327,7 +327,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, r)
+		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, r.URL.Query())
 	}
 
 	// trim leading and trailing spaces of email address.
@@ -622,7 +622,7 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, r)
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, r.URL.Query())
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
@@ -978,7 +978,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), userI.Data.Name, userI.Data.Username+"@no-email.com", a.log, r)
+		go zohoInsertLead(context.Background(), userI.Data.Name, userI.Data.Username+"@no-email.com", a.log, r.URL.Query())
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
@@ -1103,7 +1103,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), responseBody.Sub, responseBody.Sub+"@ud.me", a.log, r)
+		go zohoInsertLead(context.Background(), responseBody.Sub, responseBody.Sub+"@ud.me", a.log, r.URL.Query())
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, responseBody.Sub+"@ud.me")
@@ -1370,7 +1370,7 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), fbUserDetails.Name, fbUserDetails.Email, a.log, r)
+		go zohoInsertLead(context.Background(), fbUserDetails.Name, fbUserDetails.Email, a.log, r.URL.Query())
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, fbUserDetails.Email)
@@ -1592,7 +1592,7 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), LinkedinUserDetails.Name, LinkedinUserDetails.Email, a.log, r)
+		go zohoInsertLead(context.Background(), LinkedinUserDetails.Name, LinkedinUserDetails.Email, a.log, r.URL.Query())
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, LinkedinUserDetails.Email)
