@@ -599,26 +599,6 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var registerData struct {
-		FullName         string `json:"fullName"`
-		ShortName        string `json:"shortName"`
-		Email            string `json:"email"`
-		Partner          string `json:"partner"`
-		UserAgent        []byte `json:"userAgent"`
-		Password         string `json:"password"`
-		Status           int    `json:"status"`
-		SecretInput      string `json:"secret"`
-		ReferrerUserID   string `json:"referrerUserId"`
-		IsProfessional   bool   `json:"isProfessional"`
-		Position         string `json:"position"`
-		CompanyName      string `json:"companyName"`
-		StorageNeeds     string `json:"storageNeeds"`
-		EmployeeCount    string `json:"employeeCount"`
-		HaveSalesContact bool   `json:"haveSalesContact"`
-		CaptchaResponse  string `json:"captchaResponse"`
-		SignupPromoCode  string `json:"signupPromoCode"`
-	}
-
 	code := r.URL.Query().Get("code")
 
 	if code == "" {
@@ -637,6 +617,12 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
 		return
+	}
+
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		// Inserting lead in Zoho CRM
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, r)
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
@@ -668,14 +654,10 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 		if len(unverified) > 0 {
 			user = &unverified[0]
 		} else {
-			secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
+			secret, err := console.RegistrationSecretFromBase64("")
 			if err != nil {
 				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating secret!", http.StatusTemporaryRedirect)
 				return
-			}
-
-			if registerData.Partner != "" {
-				registerData.UserAgent = []byte(registerData.Partner)
 			}
 
 			ip, err := web.GetRequestIP(r)
@@ -683,22 +665,13 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting IP!", http.StatusTemporaryRedirect)
 				return
 			}
-			registerData.Status = 1
+
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
-					FullName:         googleuser.Name,
-					ShortName:        registerData.ShortName,
-					Email:            googleuser.Email,
-					UserAgent:        registerData.UserAgent,
-					Password:         registerData.Password,
-					Status:           registerData.Status,
-					IsProfessional:   registerData.IsProfessional,
-					Position:         registerData.Position,
-					CompanyName:      registerData.CompanyName,
-					EmployeeCount:    registerData.EmployeeCount,
-					HaveSalesContact: registerData.HaveSalesContact,
-					IP:               ip,
-					SignupPromoCode:  registerData.SignupPromoCode,
+					FullName: googleuser.Name,
+					Email:    googleuser.Email,
+					Status:   1,
+					IP:       ip,
 				},
 				secret, true,
 			)
@@ -733,7 +706,7 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 				trackCreateUserFields.Type = analytics.Professional
 				trackCreateUserFields.EmployeeCount = user.EmployeeCount
 				trackCreateUserFields.CompanyName = user.CompanyName
-				trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+				// trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
 				trackCreateUserFields.JobTitle = user.Position
 				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 			}
@@ -783,6 +756,11 @@ func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Requ
 	}
 
 	socialmedia.ReqStore.Store(state, verifier)
+	redirectURL := cnf.UnstoppableDomainRedirectUrl_register
+	if r.URL.Query().Has("zoho-insert") {
+		redirectURL += "?zoho-insert=true"
+	}
+
 	options := socialmedia.ReqOptions{
 		BaseURL: "https://auth.unstoppabledomains.com/oauth2/auth",
 		QueryParams: socialmedia.QueryParams{
@@ -795,7 +773,7 @@ func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Requ
 			ClientAuthMethod:    "client_secret_basic",
 			MaxAge:              "300000",
 			Prompt:              "login",
-			RedirectURI:         cnf.UnstoppableDomainRedirectUrl_register,
+			RedirectURI:         redirectURL,
 			ResponseMode:        "query",
 			Scope:               socialmedia.UnstoppableDomainScope,
 			CodeChallengeMethod: "S256",
@@ -914,7 +892,7 @@ func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	requestUrl, err := socialmedia.RedirectURL("r")
+	requestUrl, err := socialmedia.RedirectURL("r", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
 		return
@@ -927,7 +905,7 @@ func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	requestUrl, err := socialmedia.RedirectURL("login")
+	requestUrl, err := socialmedia.RedirectURL("login", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
 		return
@@ -989,6 +967,13 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
+
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		// Inserting lead in Zoho CRM
+		go zohoInsertLead(context.Background(), userI.Data.Name, userI.Data.Username+"@no-email.com", a.log, r)
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
 
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
@@ -1106,6 +1091,12 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error reading body!", http.StatusTemporaryRedirect)
 		return
+	}
+
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		// Inserting lead in Zoho CRM
+		go zohoInsertLead(context.Background(), responseBody.Sub, responseBody.Sub+"@ud.me", a.log, r)
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, responseBody.Sub+"@ud.me")
@@ -1331,6 +1322,11 @@ func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail string, w http.
 
 func (a *Auth) InitFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	var OAuth2Config = socialmedia.GetFacebookOAuthConfig_Register()
+
+	if r.URL.Query().Has("zoho-insert") {
+		OAuth2Config.RedirectURL += "?zoho-insert=true"
+	}
+
 	url := OAuth2Config.AuthCodeURL(socialmedia.GetRandomOAuthStateString())
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
@@ -1347,26 +1343,6 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var registerData struct {
-		FullName         string `json:"fullName"`
-		ShortName        string `json:"shortName"`
-		Email            string `json:"email"`
-		Partner          string `json:"partner"`
-		UserAgent        []byte `json:"userAgent"`
-		Password         string `json:"password"`
-		Status           int    `json:"status"`
-		SecretInput      string `json:"secret"`
-		ReferrerUserID   string `json:"referrerUserId"`
-		IsProfessional   bool   `json:"isProfessional"`
-		Position         string `json:"position"`
-		CompanyName      string `json:"companyName"`
-		StorageNeeds     string `json:"storageNeeds"`
-		EmployeeCount    string `json:"employeeCount"`
-		HaveSalesContact bool   `json:"haveSalesContact"`
-		CaptchaResponse  string `json:"captchaResponse"`
-		SignupPromoCode  string `json:"signupPromoCode"`
-	}
-
 	var code = r.FormValue("code")
 
 	var OAuth2Config = socialmedia.GetFacebookOAuthConfig_Register()
@@ -1382,6 +1358,12 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	if fbUserDetailsError != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Facebook", http.StatusTemporaryRedirect)
 		return
+	}
+
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		// Inserting lead in Zoho CRM
+		go zohoInsertLead(context.Background(), fbUserDetails.Name, fbUserDetails.Email, a.log, r)
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, fbUserDetails.Email)
@@ -1412,14 +1394,10 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 		if len(unverified) > 0 {
 			user = &unverified[0]
 		} else {
-			secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
+			secret, err := console.RegistrationSecretFromBase64("")
 			if err != nil {
 				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating secret", http.StatusTemporaryRedirect)
 				return
-			}
-
-			if registerData.Partner != "" {
-				registerData.UserAgent = []byte(registerData.Partner)
 			}
 
 			ip, err := web.GetRequestIP(r)
@@ -1427,23 +1405,13 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting IP", http.StatusTemporaryRedirect)
 				return
 			}
-			registerData.Status = 1
 
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
-					FullName:         fbUserDetails.Name,
-					ShortName:        registerData.ShortName,
-					Email:            fbUserDetails.Email,
-					UserAgent:        registerData.UserAgent,
-					Password:         registerData.Password,
-					Status:           registerData.Status,
-					IsProfessional:   registerData.IsProfessional,
-					Position:         registerData.Position,
-					CompanyName:      registerData.CompanyName,
-					EmployeeCount:    registerData.EmployeeCount,
-					HaveSalesContact: registerData.HaveSalesContact,
-					IP:               ip,
-					SignupPromoCode:  registerData.SignupPromoCode,
+					FullName: fbUserDetails.Name,
+					Email:    fbUserDetails.Email,
+					Status:   1,
+					IP:       ip,
 				},
 				secret, true,
 			)
@@ -1478,7 +1446,7 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 				trackCreateUserFields.Type = analytics.Professional
 				trackCreateUserFields.EmployeeCount = user.EmployeeCount
 				trackCreateUserFields.CompanyName = user.CompanyName
-				trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+				// trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
 				trackCreateUserFields.JobTitle = user.Position
 				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 			}
@@ -1554,6 +1522,11 @@ func (a *Auth) HandleFacebookLogin(w http.ResponseWriter, r *http.Request) {
 
 func (a *Auth) InitLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
+
+	if r.URL.Query().Has("zoho-insert") {
+		OAuth2Config.RedirectURL += "?zoho-insert=true"
+	}
+
 	url := OAuth2Config.AuthCodeURL(socialmedia.GetRandomOAuthStateString())
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
@@ -1569,26 +1542,6 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-
-	var registerData struct {
-		FullName         string `json:"fullName"`
-		ShortName        string `json:"shortName"`
-		Email            string `json:"email"`
-		Partner          string `json:"partner"`
-		UserAgent        []byte `json:"userAgent"`
-		Password         string `json:"password"`
-		Status           int    `json:"status"`
-		SecretInput      string `json:"secret"`
-		ReferrerUserID   string `json:"referrerUserId"`
-		IsProfessional   bool   `json:"isProfessional"`
-		Position         string `json:"position"`
-		CompanyName      string `json:"companyName"`
-		StorageNeeds     string `json:"storageNeeds"`
-		EmployeeCount    string `json:"employeeCount"`
-		HaveSalesContact bool   `json:"haveSalesContact"`
-		CaptchaResponse  string `json:"captchaResponse"`
-		SignupPromoCode  string `json:"signupPromoCode"`
-	}
 
 	var code = r.FormValue("code")
 
@@ -1629,6 +1582,12 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		// Inserting lead in Zoho CRM
+		go zohoInsertLead(context.Background(), LinkedinUserDetails.Name, LinkedinUserDetails.Email, a.log, r)
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, LinkedinUserDetails.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system", http.StatusTemporaryRedirect)
@@ -1659,14 +1618,10 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 		if len(unverified) > 0 {
 			user = &unverified[0]
 		} else {
-			secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
+			secret, err := console.RegistrationSecretFromBase64("")
 			if err != nil {
 				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating secret", http.StatusTemporaryRedirect)
 				return
-			}
-
-			if registerData.Partner != "" {
-				registerData.UserAgent = []byte(registerData.Partner)
 			}
 
 			ip, err := web.GetRequestIP(r)
@@ -1674,23 +1629,14 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting IP", http.StatusTemporaryRedirect)
 				return
 			}
-			registerData.Status = 1
 
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
-					FullName:         LinkedinUserDetails.Name,
-					ShortName:        LinkedinUserDetails.GivenName,
-					Email:            LinkedinUserDetails.Email,
-					UserAgent:        registerData.UserAgent,
-					Password:         registerData.Password,
-					Status:           registerData.Status,
-					IsProfessional:   registerData.IsProfessional,
-					Position:         registerData.Position,
-					CompanyName:      registerData.CompanyName,
-					EmployeeCount:    registerData.EmployeeCount,
-					HaveSalesContact: registerData.HaveSalesContact,
-					IP:               ip,
-					SignupPromoCode:  registerData.SignupPromoCode,
+					FullName:  LinkedinUserDetails.Name,
+					ShortName: LinkedinUserDetails.GivenName,
+					Email:     LinkedinUserDetails.Email,
+					Status:    1,
+					IP:        ip,
 				},
 				secret, true,
 			)
@@ -1724,7 +1670,7 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 				trackCreateUserFields.Type = analytics.Professional
 				trackCreateUserFields.EmployeeCount = user.EmployeeCount
 				trackCreateUserFields.CompanyName = user.CompanyName
-				trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+				// trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
 				trackCreateUserFields.JobTitle = user.Position
 				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 			}

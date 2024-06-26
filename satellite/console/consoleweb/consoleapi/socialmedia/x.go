@@ -45,7 +45,7 @@ func GetXUser(ctx context.Context, code string, codeVerifier string, t string) (
 	return &user, nil
 }
 
-func RedirectURL(t string) (string, error) {
+func RedirectURL(t string, zohoInsert bool) (string, error) {
 	cnf := GetConfig()
 	state, err := EncodeState(nil)
 	if err != nil {
@@ -67,9 +67,14 @@ func RedirectURL(t string) (string, error) {
 	if t == "login" {
 		conf.RedirectURL = cnf.XLoginRedirectURL
 	}
+
+	if zohoInsert {
+		conf.RedirectURL += "?zoho-insert=true"
+	}
+
 	requestUrl := conf.AuthCodeURL(state,
 		oauth2.AccessTypeOffline,
-		oauth2.SetAuthURLParam("redirect_url", cnf.XSignupRedirectURL),
+		oauth2.SetAuthURLParam("redirect_url", conf.RedirectURL),
 		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
 	return requestUrl, nil
