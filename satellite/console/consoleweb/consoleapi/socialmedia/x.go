@@ -15,7 +15,7 @@ type XUser struct {
 	} `json:"data"`
 }
 
-func GetXUser(ctx context.Context, code string, codeVerifier string, t string) (*XUser, error) {
+func GetXUser(ctx context.Context, code string, codeVerifier string, t string, zohoInsert bool) (*XUser, error) {
 	cnf := GetConfig()
 	conf := &oauth2.Config{
 		ClientID:     cnf.XClientID,
@@ -26,6 +26,10 @@ func GetXUser(ctx context.Context, code string, codeVerifier string, t string) (
 	}
 	if t == "login" {
 		conf.RedirectURL = cnf.XLoginRedirectURL
+	}
+
+	if zohoInsert {
+		conf.RedirectURL += "/zoho"
 	}
 	token, err := conf.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 	if err != nil {

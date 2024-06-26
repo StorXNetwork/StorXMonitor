@@ -26,7 +26,7 @@ type GoogleUserResult struct {
 	Locale         string
 }
 
-func GetGoogleOauthToken(code string, mode string) (*GoogleOauthToken, error) {
+func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOauthToken, error) {
 
 	if mode != "signup" && mode != "signin" {
 		return nil, errors.New("invalid mode")
@@ -43,10 +43,13 @@ func GetGoogleOauthToken(code string, mode string) (*GoogleOauthToken, error) {
 	values.Add("code", code)
 	values.Add("client_id", configVal.GoogleClientID)
 	values.Add("client_secret", configVal.GoogleClientSecret)
+	redirectURL := configVal.GoogleOAuthRedirectUrl_login
 	if mode == "signup" {
-		values.Add("redirect_uri", configVal.GoogleOAuthRedirectUrl_register)
-	} else if mode == "signin" {
-		values.Add("redirect_uri", configVal.GoogleOAuthRedirectUrl_login)
+		redirectURL = configVal.GoogleOAuthRedirectUrl_register
+	}
+
+	if zohoInsert {
+		redirectURL += "?zoho_insert"
 	}
 
 	query := values.Encode()

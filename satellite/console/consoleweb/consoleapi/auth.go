@@ -607,7 +607,7 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use the code to get the id and access tokens
-	tokenRes, err := socialmedia.GetGoogleOauthToken(code, mode)
+	tokenRes, err := socialmedia.GetGoogleOauthToken(code, mode, r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting token from Google!", http.StatusTemporaryRedirect)
 		return
@@ -927,7 +927,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
-	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "login")
+	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "login", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
 		return
@@ -969,7 +969,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
-	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "r")
+	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "r", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
 		return
@@ -1088,7 +1088,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
 		return
 	}
-	token, err := socialmedia.GetRegisterToken(code, code_verifier.(string))
+	token, err := socialmedia.GetRegisterToken(code, code_verifier.(string), r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code not present "+err.Error(), http.StatusTemporaryRedirect)
 		return
@@ -1267,7 +1267,7 @@ func (a *Auth) LoginUserConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use the code to get the id and access tokens
-	tokenRes, err := socialmedia.GetGoogleOauthToken(code, mode)
+	tokenRes, err := socialmedia.GetGoogleOauthToken(code, mode, false)
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from Google", http.StatusTemporaryRedirect)
 		return
@@ -1353,7 +1353,9 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	var code = r.FormValue("code")
 
 	var OAuth2Config = socialmedia.GetFacebookOAuthConfig_Register()
-
+	if r.URL.Query().Has("zoho-insert") {
+		OAuth2Config.RedirectURL += "?zoho-insert"
+	}
 	token, err := OAuth2Config.Exchange(context.TODO(), code)
 
 	if err != nil || token == nil {
@@ -1553,6 +1555,9 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	var code = r.FormValue("code")
 
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
+	if r.URL.Query().Has("zoho-insert") {
+		OAuth2Config.RedirectURL += "?zoho-insert"
+	}
 
 	token, err := OAuth2Config.Exchange(context.TODO(), code)
 

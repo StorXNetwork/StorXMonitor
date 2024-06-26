@@ -72,8 +72,13 @@ func ParseToken(tokenStr string) (*TokenDetails, error) {
 
 	return &tokenDetails, nil
 }
-func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
+func GetRegisterToken(code, codeVerifier string, zohoInsert bool) (*UnstoppableResponse, error) {
 	cnf := GetConfig()
+
+	redirectURL := cnf.UnstoppableDomainRedirectUrl_register
+	if zohoInsert {
+		redirectURL += "?zoho-insert"
+	}
 
 	// Define request body
 	body := url.Values{}
@@ -81,7 +86,7 @@ func GetRegisterToken(code, codeVerifier string) (*UnstoppableResponse, error) {
 	body.Set("grant_type", "authorization_code")
 	body.Set("code", code)
 	body.Set("code_verifier", codeVerifier)
-	body.Set("redirect_uri", cnf.UnstoppableDomainRedirectUrl_register)
+	body.Set("redirect_uri", redirectURL)
 
 	// Create a new HTTP request
 	req, err := http.NewRequest("POST", "https://auth.unstoppabledomains.com/oauth2/token", bytes.NewBufferString(body.Encode()))
