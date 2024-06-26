@@ -69,7 +69,7 @@ func RedirectURL(t string, zohoInsert bool) (string, error) {
 	}
 
 	if zohoInsert {
-		conf.RedirectURL += "?zoho-insert=true"
+		conf.RedirectURL += "?zoho-insert"
 	}
 
 	requestUrl := conf.AuthCodeURL(state,

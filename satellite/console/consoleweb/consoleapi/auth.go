@@ -758,7 +758,7 @@ func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Requ
 	socialmedia.ReqStore.Store(state, verifier)
 	redirectURL := cnf.UnstoppableDomainRedirectUrl_register
 	if r.URL.Query().Has("zoho-insert") {
-		redirectURL += "?zoho-insert=true"
+		redirectURL += "?zoho-insert"
 	}
 
 	options := socialmedia.ReqOptions{
@@ -1324,7 +1324,7 @@ func (a *Auth) InitFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	var OAuth2Config = socialmedia.GetFacebookOAuthConfig_Register()
 
 	if r.URL.Query().Has("zoho-insert") {
-		OAuth2Config.RedirectURL += "?zoho-insert=true"
+		OAuth2Config.RedirectURL += "?zoho-insert"
 	}
 
 	url := OAuth2Config.AuthCodeURL(socialmedia.GetRandomOAuthStateString())
@@ -1524,7 +1524,7 @@ func (a *Auth) InitLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
 
 	if r.URL.Query().Has("zoho-insert") {
-		OAuth2Config.RedirectURL += "?zoho-insert=true"
+		OAuth2Config.RedirectURL += "?zoho-insert"
 	}
 
 	url := OAuth2Config.AuthCodeURL(socialmedia.GetRandomOAuthStateString())
