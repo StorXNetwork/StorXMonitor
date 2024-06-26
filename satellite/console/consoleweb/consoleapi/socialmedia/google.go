@@ -52,6 +52,8 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 		redirectURL += "?zoho_insert"
 	}
 
+	values.Add("redirect_uri", redirectURL)
+
 	query := values.Encode()
 
 	fmt.Println("GOOGLE Query: "+query, "mode: "+mode)
