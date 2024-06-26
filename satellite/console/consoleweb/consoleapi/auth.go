@@ -949,6 +949,13 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, mainPageURL), http.StatusTemporaryRedirect)
 }
 
+func (a *Auth) HandleXRegisterZoho(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	q.Set("zoho-insert", "true")
+	r.URL.RawQuery = q.Encode()
+	a.HandleXRegister(w, r)
+}
+
 func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 	ctx := r.Context()
