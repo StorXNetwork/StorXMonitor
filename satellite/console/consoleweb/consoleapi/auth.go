@@ -991,7 +991,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 
 	var user *console.User
 	if verified != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL)+"?error=You are already registerted!", http.StatusTemporaryRedirect)
 		return
 	} else {
 		if len(unverified) > 0 {
@@ -1117,7 +1117,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	var user *console.User
 	if verified != nil {
 		//a.TokenGoogleWrapper(r.Context(), responseBody.Sub+"@ud.me", w, r)
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL)+"?error=You are already registerted!", http.StatusTemporaryRedirect)
 		return
 	} else {
 		if len(unverified) > 0 {
