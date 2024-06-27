@@ -49,7 +49,7 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 	}
 
 	if zohoInsert {
-		redirectURL += "?zoho_insert"
+		redirectURL += "?zoho-insert"
 	}
 
 	values.Add("redirect_uri", redirectURL)

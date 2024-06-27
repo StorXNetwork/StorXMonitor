@@ -741,17 +741,17 @@ func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Requ
 	// Create Unstoppable Request Instance
 	state, err := socialmedia.EncodeState(nil)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! ", http.StatusTemporaryRedirect)
 		return
 	}
 	nonce, err := socialmedia.GenerateNonce()
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating none! "+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating none! ", http.StatusTemporaryRedirect)
 		return
 	}
 	verifier, challenge, err := socialmedia.GenerateCodeChallengeAndVerifier(43, "S256")
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating verifer and challenge!"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating verifer and challenge!", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -795,13 +795,13 @@ func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Requ
 	// Parse the base URL
 	parsedURL, err := url.Parse(options.BaseURL)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating parsing url !"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating parsing url !", http.StatusTemporaryRedirect)
 		return
 	}
 
 	params, err := url.ParseQuery(parsedURL.RawQuery)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating parsing url !"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating parsing url !", http.StatusTemporaryRedirect)
 		return
 	}
 	for key, value := range options.QueryParams.ToMap() {
@@ -821,17 +821,17 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 	// Create Unstoppable Request Instance
 	state, err := socialmedia.EncodeState(nil)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! ", http.StatusTemporaryRedirect)
 		return
 	}
 	nonce, err := socialmedia.GenerateNonce()
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating none! "+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating none!", http.StatusTemporaryRedirect)
 		return
 	}
 	verifier, challenge, err := socialmedia.GenerateCodeChallengeAndVerifier(43, "S256")
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating verifer and challenge!"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating verifer and challenge!", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -870,13 +870,13 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 	// Parse the base URL
 	parsedURL, err := url.Parse(options.BaseURL)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating parsing url !"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating parsing url !", http.StatusTemporaryRedirect)
 		return
 	}
 
 	params, err := url.ParseQuery(parsedURL.RawQuery)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating parsing url !"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating parsing url !", http.StatusTemporaryRedirect)
 		return
 	}
 	for key, value := range options.QueryParams.ToMap() {
@@ -894,7 +894,8 @@ func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 	requestUrl, err := socialmedia.RedirectURL("r", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state!", http.StatusTemporaryRedirect)
+
 		return
 	}
 	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
@@ -907,7 +908,7 @@ func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 	requestUrl, err := socialmedia.RedirectURL("login", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state! "+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state!", http.StatusTemporaryRedirect)
 		return
 	}
 	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
@@ -929,7 +930,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "login", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -971,7 +972,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "r", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -1090,7 +1091,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	}
 	token, err := socialmedia.GetRegisterToken(code, code_verifier.(string), r.URL.Query().Has("zoho-insert"))
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code not present "+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code not present ", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -1225,7 +1226,7 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 	token, err := socialmedia.GetLoginToken(code, code_verifier.(string))
 
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code not present"+err.Error(), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code not present", http.StatusTemporaryRedirect)
 		return
 	}
 
