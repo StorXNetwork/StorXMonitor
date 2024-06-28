@@ -15,7 +15,7 @@ type XUser struct {
 	} `json:"data"`
 }
 
-func GetXUser(ctx context.Context, code string, codeVerifier string, t string) (*XUser, error) {
+func GetXUser(ctx context.Context, code string, codeVerifier string, t string, zohoInsert bool) (*XUser, error) {
 	cnf := GetConfig()
 	conf := &oauth2.Config{
 		ClientID:     cnf.XClientID,
@@ -26,6 +26,10 @@ func GetXUser(ctx context.Context, code string, codeVerifier string, t string) (
 	}
 	if t == "login" {
 		conf.RedirectURL = cnf.XLoginRedirectURL
+	}
+
+	if zohoInsert {
+		conf.RedirectURL += "/zoho"
 	}
 	token, err := conf.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 	if err != nil {
@@ -45,7 +49,7 @@ func GetXUser(ctx context.Context, code string, codeVerifier string, t string) (
 	return &user, nil
 }
 
-func RedirectURL(t string) (string, error) {
+func RedirectURL(t string, zohoInsert bool) (string, error) {
 	cnf := GetConfig()
 	state, err := EncodeState(nil)
 	if err != nil {
@@ -67,9 +71,14 @@ func RedirectURL(t string) (string, error) {
 	if t == "login" {
 		conf.RedirectURL = cnf.XLoginRedirectURL
 	}
+
+	if zohoInsert {
+		conf.RedirectURL += "/zoho"
+	}
+
 	requestUrl := conf.AuthCodeURL(state,
 		oauth2.AccessTypeOffline,
-		oauth2.SetAuthURLParam("redirect_url", cnf.XSignupRedirectURL),
+		oauth2.SetAuthURLParam("redirect_url", conf.RedirectURL),
 		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
 	return requestUrl, nil

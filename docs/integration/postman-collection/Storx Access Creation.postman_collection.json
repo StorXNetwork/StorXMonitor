@@ -334,7 +334,7 @@
 	"variable": [
 		{
 			"key": "storxHost",
-			"value": "https://b2.storx.io",
+			"value": "https://storx.io",
 			"type": "string"
 		},
 		{

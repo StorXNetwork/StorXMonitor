@@ -171,6 +171,21 @@ func (*AccountAlreadyExistsEmail) Subject() string {
 	return "Are you trying to sign in?"
 }
 
+// AccountAlreadyExistsEmail is mailservice template for email where user tries to create account, but one already exists.
+type ContactUsForm struct {
+	Email   string
+	Name    string
+	Message string
+}
+
+// Template returns email template name.
+func (*ContactUsForm) Template() string { return "ContactUsAdminEmail" }
+
+// Subject gets email subject.
+func (*ContactUsForm) Subject() string {
+	return "Contact Us form on Storx"
+}
+
 // LoginLockAccountEmail is mailservice template with login lock account data.
 type LoginLockAccountEmail struct {
 	LockoutDuration   time.Duration

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -97,7 +98,7 @@ func zohoRefreshToken(ctx context.Context, clientID, clientSecret, refreshToken 
 	return nil
 }
 
-func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger, r *http.Request) {
+func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger, query url.Values) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("zohoInsertLead: panic", zap.Any("panic", r))
@@ -141,11 +142,11 @@ func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger
 				LastName:    lastname,
 				FirstName:   firstname,
 				Email:       email,
-				UTMSource:   r.URL.Query().Get("utm_source"),
-				UTMMedium:   r.URL.Query().Get("utm_medium"),
-				UTMCampaign: r.URL.Query().Get("utm_campaign"),
-				UTMTerm:     r.URL.Query().Get("utm_term"),
-				UTMContent:  r.URL.Query().Get("utm_content"),
+				UTMSource:   query.Get("utm_source"),
+				UTMMedium:   query.Get("utm_medium"),
+				UTMCampaign: query.Get("utm_campaign"),
+				UTMTerm:     query.Get("utm_term"),
+				UTMContent:  query.Get("utm_content"),
 			},
 		},
 	}
