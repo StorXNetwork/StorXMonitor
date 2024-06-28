@@ -34,6 +34,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 
+	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
@@ -167,6 +168,8 @@ type Config struct {
 
 	DeveloperAPIEnabled     bool   `help:"indicates if developer API is enabled" default:"false"`
 	DeveloperRegisterAPIKey string `help:"developer register API key" default:""`
+
+	SupportEmail string `help:"support email address"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -565,6 +568,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/invited", server.handleInvited)
 	router.HandleFunc("/activation", server.accountActivationHandler)
 	router.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
+	router.HandleFunc("/contactus", server.handleContactUs)
 
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
@@ -1273,6 +1277,41 @@ func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
 	}
 
 	return server.errorTemplate, nil
+}
+
+func (server *Server) handleContactUs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	if server.config.SupportEmail == "" {
+		web.ServeCustomJSONError(ctx, server.log, w, http.StatusInternalServerError, nil, "support email is not configured")
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		web.ServeCustomJSONError(ctx, server.log, w, http.StatusBadRequest, err, "failed to parse form")
+		return
+	}
+
+	name := r.FormValue("name")
+	email := r.FormValue("email")
+	message := r.FormValue("message")
+
+	if name == "" || email == "" {
+		web.ServeCustomJSONError(ctx, server.log, w, http.StatusBadRequest, nil, "name and email are required")
+		return
+	}
+
+	server.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: server.config.SupportEmail}},
+		&console.ContactUsForm{
+			Name:    name,
+			Email:   email,
+			Message: message,
+		},
+	)
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
