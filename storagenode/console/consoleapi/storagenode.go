@@ -74,6 +74,26 @@ func (dashboard *StorageNode) Satellites(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// Satellites handles satellites API request to get data along with only offline audit history.
+func (dashboard *StorageNode) SatellitesOffline(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
+
+	data, err := dashboard.service.GetAllSatellitesDataOffline(ctx)
+	if err != nil {
+		dashboard.serveJSONError(w, http.StatusInternalServerError, ErrStorageNodeAPI.Wrap(err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		dashboard.log.Error("failed to encode json response", zap.Error(ErrStorageNodeAPI.Wrap(err)))
+		return
+	}
+}
+
 // Satellite handles satellite API requests.
 func (dashboard *StorageNode) Satellite(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

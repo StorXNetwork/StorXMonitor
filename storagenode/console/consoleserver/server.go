@@ -71,6 +71,8 @@ func NewServer(logger *zap.Logger, assets fs.FS, notifications *notifications.Se
 	storageNodeRouter.StrictSlash(true)
 	storageNodeRouter.HandleFunc("/", storageNodeController.StorageNode).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellites", storageNodeController.Satellites).Methods(http.MethodGet)
+	// To Get Node Stats with Offline Audit History
+	storageNodeRouter.HandleFunc("/satellitesOffline", storageNodeController.SatellitesOffline).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellite/{id}", storageNodeController.Satellite).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellites/{id}/pricing", storageNodeController.Pricing).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/estimated-payout", storageNodeController.EstimatedPayout).Methods(http.MethodGet)
