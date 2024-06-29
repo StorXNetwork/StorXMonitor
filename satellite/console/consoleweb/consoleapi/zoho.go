@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	zoho_DefaultLeadSource = "register"
-	zoho_RefreshTokenFreq  = 45 * time.Minute
+	zoho_RefreshTokenFreq = 45 * time.Minute
 
 	zoho_RefreshTokenURL = "https://accounts.zoho.in/oauth/v2/token"
 	zoho_GrantType       = "refresh_token"
@@ -120,15 +119,12 @@ func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger
 	log.Info("zohoInsertLead", zap.String("firstname", firstname), zap.String("lastname", lastname), zap.String("email", email))
 
 	type zohoLeadInsertData struct {
-		LeadSource  string `json:"Lead_Source"`
-		LastName    string `json:"Last_Name"`
-		FirstName   string `json:"First_Name"`
-		Email       string `json:"Email"`
-		UTMSource   string `json:"utm_source,omitempty"`
-		UTMMedium   string `json:"utm_medium,omitempty"`
-		UTMCampaign string `json:"utm_campaign,omitempty"`
-		UTMTerm     string `json:"utm_term,omitempty"`
-		UTMContent  string `json:"utm_content,omitempty"`
+		LeadSource string `json:"Lead_Source"`
+		LastName   string `json:"Last_Name"`
+		FirstName  string `json:"First_Name"`
+		Email      string `json:"Email"`
+		Phone      string `json:"Phone"`
+		Company    string `json:"Company,omitempty"`
 	}
 
 	type zohoLeadInsertRequest struct {
@@ -138,15 +134,12 @@ func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger
 	reqBody := &zohoLeadInsertRequest{
 		Data: []zohoLeadInsertData{
 			{
-				LeadSource:  zoho_DefaultLeadSource,
-				LastName:    lastname,
-				FirstName:   firstname,
-				Email:       email,
-				UTMSource:   query.Get("utm_source"),
-				UTMMedium:   query.Get("utm_medium"),
-				UTMCampaign: query.Get("utm_campaign"),
-				UTMTerm:     query.Get("utm_term"),
-				UTMContent:  query.Get("utm_content"),
+				LeadSource: query.Get("utm_source"),
+				LastName:   lastname,
+				FirstName:  firstname,
+				Email:      email,
+				Phone:      query.Get("utm_campaign"),
+				Company:    query.Get("utm_medium"),
 			},
 		},
 	}
