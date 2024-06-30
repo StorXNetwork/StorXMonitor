@@ -62,7 +62,7 @@ func (dashboard *StorageNode) Satellites(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set(contentType, applicationJSON)
 
-	data, err := dashboard.service.GetAllSatellitesData(ctx)
+	data, err := dashboard.service.GetAllSatellitesData(ctx, "A")
 	if err != nil {
 		dashboard.serveJSONError(w, http.StatusInternalServerError, ErrStorageNodeAPI.Wrap(err))
 		return
@@ -82,7 +82,7 @@ func (dashboard *StorageNode) SatellitesOffline(w http.ResponseWriter, r *http.R
 
 	w.Header().Set(contentType, applicationJSON)
 
-	data, err := dashboard.service.GetAllSatellitesDataOffline(ctx)
+	data, err := dashboard.service.GetAllSatellitesData(ctx, "O")
 	if err != nil {
 		dashboard.serveJSONError(w, http.StatusInternalServerError, ErrStorageNodeAPI.Wrap(err))
 		return

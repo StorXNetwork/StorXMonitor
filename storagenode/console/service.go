@@ -397,7 +397,7 @@ func roundFloat(val float64, precision uint) float64 {
 
 // GetAllSatellitesData returns bandwidth, storage daily usage and audit score and complete audit history consolidate
 // among all satellites from the node's trust pool.
-func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err error) {
+func (s *Service) GetAllSatellitesData(ctx context.Context, auditHistoryType string) (_ *Satellites, err error) {
 	defer mon.Task()(&ctx)(nil)
 	from, to := date.MonthBoundary(time.Now().UTC())
 
@@ -460,91 +460,16 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 
 		auditHistory = reputation.GetAuditHistoryFromPB(stats.AuditHistory)
 
-		if !stats.JoinedAt.IsZero() && stats.JoinedAt.Before(joinedAt) {
-			joinedAt = stats.JoinedAt
+		switch auditHistoryType {
+		case "O":
+			auditHistory.Windows = filterAhw(auditHistory.Windows, auditHistoryType)
+		case "N":
+			auditHistory.Windows = filterAhw(auditHistory.Windows, auditHistoryType)
+		case "A":
+			auditHistory.Windows = auditHistory.Windows
+		default:
+			auditHistory.Windows = auditHistory.Windows
 		}
-	}
-
-	return &Satellites{
-		StorageDaily:      storageDaily,
-		BandwidthDaily:    bandwidthDaily,
-		StorageSummary:    storageSummary,
-		AverageUsageBytes: averageUsageInBytes,
-		BandwidthSummary:  bandwidthSummary.Total(),
-		EgressSummary:     egressSummary.Total(),
-		IngressSummary:    ingressSummary.Total(),
-		EarliestJoinedAt:  joinedAt,
-		Audits:            audits,
-		AuditHistory:      auditHistory,
-	}, nil
-}
-
-// GetAllSatellitesDataOffline returns bandwidth, storage daily usage and audit score and offline audit history consolidate
-// among all satellites from the node's trust pool.
-func (s *Service) GetAllSatellitesDataOffline(ctx context.Context) (_ *Satellites, err error) {
-	defer mon.Task()(&ctx)(nil)
-	from, to := date.MonthBoundary(time.Now().UTC())
-
-	var audits []Audits
-	var auditHistory reputation.AuditHistory
-
-	bandwidthDaily, err := s.bandwidthDB.GetDailyRollups(ctx, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	storageDaily, err := s.storageUsageDB.GetDailyTotal(ctx, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	bandwidthSummary, err := s.bandwidthDB.Summary(ctx, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	egressSummary, err := s.bandwidthDB.EgressSummary(ctx, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	ingressSummary, err := s.bandwidthDB.IngressSummary(ctx, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	storageSummary, averageUsageInBytes, err := s.storageUsageDB.Summary(ctx, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	satellitesIDs := s.trust.GetSatellites(ctx)
-	joinedAt := time.Now().UTC()
-
-	for i := 0; i < len(satellitesIDs); i++ {
-		stats, err := s.reputationDB.Get(ctx, satellitesIDs[i])
-		if err != nil {
-			return nil, SNOServiceErr.Wrap(err)
-		}
-
-		url, err := s.trust.GetNodeURL(ctx, satellitesIDs[i])
-		if err != nil {
-			s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", satellitesIDs[i].String()),
-				zap.Error(SNOServiceErr.Wrap(err)))
-			continue
-		}
-
-		audits = append(audits, Audits{
-			AuditScore:      stats.Audit.Score,
-			SuspensionScore: stats.Audit.UnknownScore,
-			OnlineScore:     stats.OnlineScore,
-			SatelliteName:   url.Address,
-			Alpha:           roundFloat(stats.Audit.Alpha/10, 2),
-		})
-
-		auditHistory = reputation.GetAuditHistoryFromPB(stats.AuditHistory)
-
-		auditHistory.Windows = filterOffline(auditHistory.Windows)
 
 		if !stats.JoinedAt.IsZero() && stats.JoinedAt.Before(joinedAt) {
 			joinedAt = stats.JoinedAt
@@ -565,15 +490,25 @@ func (s *Service) GetAllSatellitesDataOffline(ctx context.Context) (_ *Satellite
 	}, nil
 }
 
-func filterOffline(auditHistryWindow []reputation.AuditHistoryWindow) []reputation.AuditHistoryWindow {
+func filterAhw(auditHistryWindow []reputation.AuditHistoryWindow, filterType string) []reputation.AuditHistoryWindow {
 	var ahw []reputation.AuditHistoryWindow
 
-	for _, value := range auditHistryWindow {
-		if value.TotalCount != value.OnlineCount {
-			ahw = append(ahw, value)
+	switch filterType {
+	case "O":
+		for _, value := range auditHistryWindow {
+			if value.TotalCount != value.OnlineCount {
+				ahw = append(ahw, value)
+			}
 		}
+	case "N":
+		for _, value := range auditHistryWindow {
+			if value.TotalCount == value.OnlineCount {
+				ahw = append(ahw, value)
+			}
+		}
+	default:
+		ahw = auditHistryWindow
 	}
-
 	return ahw
 }
 
