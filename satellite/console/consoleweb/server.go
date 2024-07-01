@@ -568,7 +568,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/invited", server.handleInvited)
 	router.HandleFunc("/activation", server.accountActivationHandler)
 	router.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
-	router.HandleFunc("/contactus", server.handleContactUs)
+	router.Handle("/contactus", server.withCORS(http.HandlerFunc(server.handleContactUs)))
 
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))

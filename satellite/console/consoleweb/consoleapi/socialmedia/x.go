@@ -3,6 +3,7 @@ package socialmedia
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	pcke "github.com/nirasan/go-oauth-pkce-code-verifier"
 	"golang.org/x/oauth2"
@@ -49,7 +50,7 @@ func GetXUser(ctx context.Context, code string, codeVerifier string, t string, z
 	return &user, nil
 }
 
-func RedirectURL(t string, zohoInsert bool) (string, error) {
+func RedirectURL(t string, r *http.Request) (string, error) {
 	cnf := GetConfig()
 	state, err := EncodeState(nil)
 	if err != nil {
@@ -72,9 +73,12 @@ func RedirectURL(t string, zohoInsert bool) (string, error) {
 		conf.RedirectURL = cnf.XLoginRedirectURL
 	}
 
-	if zohoInsert {
+	if r.URL.Query().Has("zoho-insert") {
 		conf.RedirectURL += "/zoho"
 	}
+
+	conf.RedirectURL = conf.RedirectURL + "?utm_source=" + r.URL.Query().Get("utm_source") +
+		"&utm_medium=" + r.URL.Query().Get("utm_medium") + "&utm_campaign=" + r.URL.Query().Get("utm_campaign")
 
 	requestUrl := conf.AuthCodeURL(state,
 		oauth2.AccessTypeOffline,

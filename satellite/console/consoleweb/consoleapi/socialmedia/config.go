@@ -79,8 +79,7 @@ func SetTwitterSocialMediaConfig(apiKey, apiSecret, redirectUrl_register, redire
 	configVal.TwitterAPISecret = apiSecret
 }
 
-
-func SetXSocialMediaConfig(clientID, clientSecret, sru, lru string){
+func SetXSocialMediaConfig(clientID, clientSecret, sru, lru string) {
 	configVal.XClientID = clientID
 	configVal.XClientSecret = clientSecret
 	configVal.XSignupRedirectURL = sru

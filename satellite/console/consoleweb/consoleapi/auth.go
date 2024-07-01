@@ -892,7 +892,7 @@ func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	requestUrl, err := socialmedia.RedirectURL("r", r.URL.Query().Has("zoho-insert"))
+	requestUrl, err := socialmedia.RedirectURL("r", r)
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state!", http.StatusTemporaryRedirect)
 
@@ -906,7 +906,7 @@ func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	requestUrl, err := socialmedia.RedirectURL("login", r.URL.Query().Has("zoho-insert"))
+	requestUrl, err := socialmedia.RedirectURL("login", r)
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state!", http.StatusTemporaryRedirect)
 		return
