@@ -437,6 +437,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				SignupId:         requestID,
 				// the minimal signup from the v2 app doesn't require name.
 				AllowNoName: registerData.IsMinimal,
+				Source:      "Register",
 			},
 			secret, false,
 		)
@@ -672,6 +673,7 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 					Email:    googleuser.Email,
 					Status:   1,
 					IP:       ip,
+					Source:   "Google",
 				},
 				secret, true,
 			)
@@ -1015,6 +1017,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 					Email:     userI.Data.Username + "@no-email.com",
 					Status:    1,
 					IP:        ip,
+					Source:    "Twitter",
 				},
 				secret, true,
 			)
@@ -1149,6 +1152,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 					//HaveSalesContact: registerData.HaveSalesContact,
 					IP: ip,
 					//SignupPromoCode:  registerData.SignupPromoCode,
+					Source: "Unstoppabble",
 				},
 				secret, true,
 			)
@@ -1422,6 +1426,7 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 					Email:    fbUserDetails.Email,
 					Status:   1,
 					IP:       ip,
+					Source:   "Facebook",
 				},
 				secret, true,
 			)
@@ -1650,6 +1655,7 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 					Email:     LinkedinUserDetails.Email,
 					Status:    1,
 					IP:        ip,
+					Source:    "Linkedin",
 				},
 				secret, true,
 			)

@@ -130,6 +130,7 @@ type CreateUser struct {
 	ActivationCode   string `json:"-"`
 	SignupId         string `json:"-"`
 	AllowNoName      bool   `json:"-"`
+	Source           string `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -274,6 +275,8 @@ type User struct {
 
 	TrialExpiration *time.Time `json:"trialExpiration"`
 	UpgradeTime     *time.Time `json:"upgradeTime"`
+
+	Source string `json:"source"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.

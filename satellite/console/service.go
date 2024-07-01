@@ -969,6 +969,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			SignupCaptcha:    captchaScore,
 			ActivationCode:   user.ActivationCode,
 			SignupId:         user.SignupId,
+			Source:           user.Source,
 		}
 
 		if user.UserAgent != nil {

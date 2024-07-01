@@ -393,6 +393,10 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.TrialExpiration = dbx.User_TrialExpiration(*user.TrialExpiration)
 	}
 
+	if user.Source != "" {
+		optional.Source = dbx.User_Source(user.Source)
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),

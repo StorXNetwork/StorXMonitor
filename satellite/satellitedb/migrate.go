@@ -2755,6 +2755,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add source column to user table to track from where that user got created",
+				Version:     269,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN source text;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

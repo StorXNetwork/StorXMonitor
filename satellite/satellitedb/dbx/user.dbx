@@ -91,6 +91,9 @@ model user (
     field trial_expiration timestamp ( updatable, nullable )
     // upgrade_time is used to track when user upgraded to paid tier.
     field upgrade_time timestamp ( updatable, nullable )
+
+    // source is the registration source from which the user was created.
+    field source text ( nullable )
 )
 
 create user ( )

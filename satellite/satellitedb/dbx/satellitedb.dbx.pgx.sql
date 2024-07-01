@@ -516,6 +516,7 @@ CREATE TABLE users (
 	signup_id text,
 	trial_expiration timestamp with time zone,
 	upgrade_time timestamp with time zone,
+	source text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE user_settings (
