@@ -77,9 +77,6 @@ func RedirectURL(t string, r *http.Request) (string, error) {
 		conf.RedirectURL += "/zoho"
 	}
 
-	conf.RedirectURL = conf.RedirectURL + "?utm_source=" + r.URL.Query().Get("utm_source") +
-		"&utm_medium=" + r.URL.Query().Get("utm_medium") + "&utm_campaign=" + r.URL.Query().Get("utm_campaign")
-
 	requestUrl := conf.AuthCodeURL(state,
 		oauth2.AccessTypeOffline,
 		oauth2.SetAuthURLParam("redirect_url", conf.RedirectURL),
