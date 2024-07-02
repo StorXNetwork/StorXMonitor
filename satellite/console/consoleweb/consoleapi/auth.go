@@ -327,7 +327,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, r.URL.Query())
+		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, socialmedia.NewVerifierData(r))
 	}
 
 	// trim leading and trailing spaces of email address.
@@ -623,7 +623,9 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, r.URL.Query())
+		state := r.URL.Query().Get("state")
+
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, socialmedia.NewVerifierDataFromString(state))
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
@@ -757,7 +759,7 @@ func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	socialmedia.ReqStore.Store(state, verifier)
+	socialmedia.SaveReqOptions(state, socialmedia.NewVerifierData(r).SetVerifier(verifier))
 	redirectURL := cnf.UnstoppableDomainRedirectUrl_register
 	if r.URL.Query().Has("zoho-insert") {
 		redirectURL += "?zoho-insert"
@@ -837,7 +839,7 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	socialmedia.ReqStore.Store(state, verifier)
+	socialmedia.SaveReqOptions(state, socialmedia.NewVerifierData(r).SetVerifier(verifier))
 	options := socialmedia.ReqOptions{
 		BaseURL: "https://auth.unstoppabledomains.com/oauth2/auth",
 		QueryParams: socialmedia.QueryParams{
@@ -925,12 +927,12 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
-	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
-	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
+	reqOps, err := socialmedia.GetReqOptions(state)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error="+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "login", r.URL.Query().Has("zoho-insert"))
+	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "login", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code virifier loading failed", http.StatusTemporaryRedirect)
 		return
@@ -967,12 +969,12 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
-	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
-	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
+	reqOps, err := socialmedia.GetReqOptions(state)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error="+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-	userI, err := socialmedia.GetXUser(ctx, code, code_verifier.(string), "r", r.URL.Query().Has("zoho-insert"))
+	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "r", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed", http.StatusTemporaryRedirect)
 		return
@@ -981,7 +983,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), userI.Data.Name, userI.Data.Username+"@no-email.com", a.log, r.URL.Query())
+		go zohoInsertLead(context.Background(), userI.Data.Name, userI.Data.Username+"@no-email.com", a.log, reqOps)
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
@@ -1087,12 +1089,12 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
-	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
-	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
+	reqOps, err := socialmedia.GetReqOptions(state)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error="+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-	token, err := socialmedia.GetRegisterToken(code, code_verifier.(string), r.URL.Query().Has("zoho-insert"))
+	token, err := socialmedia.GetRegisterToken(code, reqOps.Verifier, r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code not present ", http.StatusTemporaryRedirect)
 		return
@@ -1107,7 +1109,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), responseBody.Sub, responseBody.Sub+"@ud.me", a.log, r.URL.Query())
+		go zohoInsertLead(context.Background(), responseBody.Sub, responseBody.Sub+"@ud.me", a.log, reqOps)
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, responseBody.Sub+"@ud.me")
@@ -1222,13 +1224,12 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
-	code_verifier, ok := socialmedia.ReqStore.LoadAndDelete(state)
-	if !ok {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code virifier loading failed: state and code verifiers do not exist", http.StatusTemporaryRedirect)
+	reqOps, err := socialmedia.GetReqOptions(state)
+	if err != nil {
+		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error="+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-	token, err := socialmedia.GetLoginToken(code, code_verifier.(string))
-
+	token, err := socialmedia.GetLoginToken(code, reqOps.Verifier)
 	if err != nil {
 		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error code not present", http.StatusTemporaryRedirect)
 		return
@@ -1335,11 +1336,17 @@ func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail string, w http.
 func (a *Auth) InitFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	var OAuth2Config = socialmedia.GetFacebookOAuthConfig_Register()
 
+	state := socialmedia.GetRandomOAuthStateString()
 	if r.URL.Query().Has("zoho-insert") {
 		OAuth2Config.RedirectURL += "?zoho-insert"
+
+		uuid, _ := uuid.New()
+		state = uuid.String()
+
+		socialmedia.SaveReqOptions(state, socialmedia.NewVerifierData(r))
 	}
 
-	url := OAuth2Config.AuthCodeURL(socialmedia.GetRandomOAuthStateString())
+	url := OAuth2Config.AuthCodeURL(state)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -1356,6 +1363,7 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var code = r.FormValue("code")
+	var state = r.FormValue("state")
 
 	var OAuth2Config = socialmedia.GetFacebookOAuthConfig_Register()
 	if r.URL.Query().Has("zoho-insert") {
@@ -1377,7 +1385,11 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), fbUserDetails.Name, fbUserDetails.Email, a.log, r.URL.Query())
+		reqOps, err := socialmedia.GetReqOptions(state)
+		if err != nil {
+			a.log.Error("Error getting request options", zap.Error(err))
+		}
+		go zohoInsertLead(context.Background(), fbUserDetails.Name, fbUserDetails.Email, a.log, reqOps)
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, fbUserDetails.Email)
@@ -1538,11 +1550,15 @@ func (a *Auth) HandleFacebookLogin(w http.ResponseWriter, r *http.Request) {
 func (a *Auth) InitLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
 
+	state := socialmedia.GetRandomOAuthStateString()
 	if r.URL.Query().Has("zoho-insert") {
 		OAuth2Config.RedirectURL += "?zoho-insert"
+		uid, _ := uuid.New()
+		socialmedia.SaveReqOptions(uid.String(), socialmedia.NewVerifierData(r))
+		state = uid.String()
 	}
 
-	url := OAuth2Config.AuthCodeURL(socialmedia.GetRandomOAuthStateString())
+	url := OAuth2Config.AuthCodeURL(state)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -1559,6 +1575,7 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var code = r.FormValue("code")
+	var state = r.FormValue("state")
 
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
 	if r.URL.Query().Has("zoho-insert") {
@@ -1601,9 +1618,14 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Has("zoho-insert") {
+		reqOps, err := socialmedia.GetReqOptions(state)
+		if err != nil {
+			a.log.Error("Error getting request options", zap.Error(err))
+		}
+
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), LinkedinUserDetails.Name, LinkedinUserDetails.Email, a.log, r.URL.Query())
+		go zohoInsertLead(context.Background(), LinkedinUserDetails.Name, LinkedinUserDetails.Email, a.log, reqOps)
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, LinkedinUserDetails.Email)

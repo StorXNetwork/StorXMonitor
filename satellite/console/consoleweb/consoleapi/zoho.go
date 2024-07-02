@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 )
 
 const (
@@ -97,7 +97,7 @@ func zohoRefreshToken(ctx context.Context, clientID, clientSecret, refreshToken 
 	return nil
 }
 
-func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger, query url.Values) {
+func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger, verifier *socialmedia.VerifierData) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("zohoInsertLead: panic", zap.Any("panic", r))
@@ -123,7 +123,6 @@ func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger
 		LastName   string `json:"Last_Name"`
 		FirstName  string `json:"First_Name"`
 		Email      string `json:"Email"`
-		Phone      string `json:"Phone"`
 		Company    string `json:"Company,omitempty"`
 	}
 
@@ -134,14 +133,18 @@ func zohoInsertLead(ctx context.Context, fullname, email string, log *zap.Logger
 	reqBody := &zohoLeadInsertRequest{
 		Data: []zohoLeadInsertData{
 			{
-				LeadSource: query.Get("utm_source"),
-				LastName:   lastname,
-				FirstName:  firstname,
-				Email:      email,
-				Phone:      query.Get("utm_campaign"),
-				Company:    query.Get("utm_medium"),
+				LastName:  lastname,
+				FirstName: firstname,
+				Email:     email,
 			},
 		},
+	}
+
+	if verifier != nil {
+		log.Info("zohoInsertLead", zap.String("UTMSource", verifier.UTMSource), zap.String("UTMCampaign", verifier.UTMCampaign), zap.String("UTMMedium", verifier.UTMMedium))
+
+		reqBody.Data[0].LeadSource = fmt.Sprint(verifier.UTMSource, " - ", verifier.UTMMedium)
+		reqBody.Data[0].Company = verifier.UTMCampaign
 	}
 
 	b, err := json.Marshal(reqBody)

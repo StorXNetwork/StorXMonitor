@@ -257,6 +257,34 @@ func GenerateCodeChallengeAndVerifier(length int, method string) (string, string
 	}
 }
 
+type VerifierData struct {
+	UTMSource   string `json:"utm_source"`
+	UTMMedium   string `json:"utm_medium"`
+	UTMCampaign string `json:"utm_campaign"`
+	Verifier    string `json:"-"`
+}
+
+func NewVerifierData(r *http.Request) *VerifierData {
+	return &VerifierData{
+		UTMSource:   r.URL.Query().Get("utm_source"),
+		UTMMedium:   r.URL.Query().Get("utm_medium"),
+		UTMCampaign: r.URL.Query().Get("utm_campaign"),
+	}
+}
+
+func NewVerifierDataFromString(s string) *VerifierData {
+	out := &VerifierData{}
+	_ = json.Unmarshal([]byte(s), out)
+
+	fmt.Println("out", out, "s", s)
+	return out
+}
+
+func (v *VerifierData) SetVerifier(verifier string) *VerifierData {
+	v.Verifier = verifier
+	return v
+}
+
 func Sha256Hash(s string) []byte {
 	h := sha256.Sum256([]byte(s))
 	return h[:]
@@ -320,9 +348,27 @@ func GenerateNonce() (string, error) {
 }
 
 var (
-	ReqStore               sync.Map
+	reqStore               sync.Map
 	UnstoppableDomainScope = "openid email:optional wallet messaging:notifications:optional"
 )
+
+func SaveReqOptions(flowID string, reqOps *VerifierData) {
+	reqStore.Store(flowID, reqOps)
+}
+
+func GetReqOptions(flowID string) (*VerifierData, error) {
+	r, ok := reqStore.Load(flowID)
+	if !ok {
+		return nil, fmt.Errorf("invalid code verifier")
+	}
+
+	reqOps, ok := r.(*VerifierData)
+	if !ok {
+		return nil, fmt.Errorf("invalid code verifier")
+	}
+
+	return reqOps, nil
+}
 
 // ReqOptions contains request parameters and headers
 type ReqOptions struct {

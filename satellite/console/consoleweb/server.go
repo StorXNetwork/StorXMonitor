@@ -1287,16 +1287,18 @@ func (server *Server) handleContactUs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
-		web.ServeCustomJSONError(ctx, server.log, w, http.StatusBadRequest, err, "failed to parse form")
+	var contactUsRequest struct {
+		Name    string `json:"name"`
+		Email   string `json:"email"`
+		Message string `json:"message"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&contactUsRequest); err != nil {
+		web.ServeCustomJSONError(ctx, server.log, w, http.StatusBadRequest, nil, "invalid request body")
 		return
 	}
 
-	name := r.FormValue("name")
-	email := r.FormValue("email")
-	message := r.FormValue("message")
-
-	if name == "" || email == "" {
+	if contactUsRequest.Name == "" || contactUsRequest.Email == "" {
 		web.ServeCustomJSONError(ctx, server.log, w, http.StatusBadRequest, nil, "name and email are required")
 		return
 	}
@@ -1305,9 +1307,9 @@ func (server *Server) handleContactUs(w http.ResponseWriter, r *http.Request) {
 		ctx,
 		[]post.Address{{Address: server.config.SupportEmail}},
 		&console.ContactUsForm{
-			Name:    name,
-			Email:   email,
-			Message: message,
+			Name:    contactUsRequest.Name,
+			Email:   contactUsRequest.Email,
+			Message: contactUsRequest.Message,
 		},
 	)
 

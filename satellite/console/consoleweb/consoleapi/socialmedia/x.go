@@ -61,7 +61,7 @@ func RedirectURL(t string, r *http.Request) (string, error) {
 		return "", err
 	}
 	codeChallenge := codeVerifier.CodeChallengeS256()
-	ReqStore.Store(state, codeVerifier.String())
+	SaveReqOptions(state, NewVerifierData(r).SetVerifier(codeVerifier.String()))
 	conf := &oauth2.Config{
 		ClientID:     cnf.XClientID,
 		ClientSecret: cnf.XClientSecret,
