@@ -567,6 +567,7 @@ func (a *DeveloperAuth) CreateUser(w http.ResponseWriter, r *http.Request) {
 		FullName:    userRequest.FullName,
 		Email:       userRequest.Email,
 		CompanyName: consoleDeveloper.CompanyName,
+		Source:      "developer",
 	}, consoleDeveloper.ID, secret)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)

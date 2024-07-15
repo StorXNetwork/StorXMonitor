@@ -1085,6 +1085,7 @@ func (s *Service) CreateUserFromDeveloper(ctx context.Context, user CreateUser, 
 			SignupCaptcha:    captchaScore,
 			ActivationCode:   user.ActivationCode,
 			SignupId:         user.SignupId,
+			Source:           user.Source,
 		}
 
 		if user.UserAgent != nil {
