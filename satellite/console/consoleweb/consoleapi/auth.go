@@ -592,7 +592,7 @@ func CreateToken(ttl time.Duration, payload interface{}, privateKey string) (str
 	return token, nil
 }
 
-const clientID = "220941885214-p16i99v8gnj099mmlnte9kjnc3i4uink.apps.googleusercontent.com" // Replace with your actual client ID
+const clientID = "220941885214-rt7kivio7m2qgqi9g1642ralke8cu7gb.apps.googleusercontent.com" // Replace with your actual client ID
 
 type UserInfo struct {
 	Email         string `json:"email"`
