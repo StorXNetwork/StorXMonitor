@@ -594,10 +594,6 @@ func CreateToken(ttl time.Duration, payload interface{}, privateKey string) (str
 
 const clientID = "220941885214-p16i99v8gnj099mmlnte9kjnc3i4uink.apps.googleusercontent.com" // Replace with your actual client ID
 
-type SignupRequest struct {
-	IDToken string `json:"id_token"`
-}
-
 type UserInfo struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified"`
@@ -608,14 +604,14 @@ type UserInfo struct {
 func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var req SignupRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+	idToken := r.URL.Query().Get("id_token")
+	if idToken == "" {
+		http.Error(w, "Missing ID token", http.StatusBadRequest)
 		return
 	}
 
 	// Verify the ID token
-	payload, err := idtoken.Validate(context.Background(), req.IDToken, clientID)
+	payload, err := idtoken.Validate(context.Background(), idToken, clientID)
 	if err != nil {
 		http.Error(w, "Invalid ID token", http.StatusUnauthorized)
 		return
