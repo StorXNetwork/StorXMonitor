@@ -101,10 +101,6 @@ func GetGoogleUser(access_token string, id_token string) (*GoogleUserResult, err
 		return nil, errors.New("invalid token")
 	}
 
-	if configVal.GoogleClientID == "" || configVal.GoogleClientSecret == "" {
-		return nil, errors.New("invalid google client id or secret")
-	}
-
 	rootUrl := fmt.Sprintf("https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=%s", access_token)
 
 	req, err := http.NewRequest("GET", rootUrl, nil)
