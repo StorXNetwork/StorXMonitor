@@ -613,7 +613,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	// Verify the ID token
 	payload, err := idtoken.Validate(context.Background(), idToken, clientID)
 	if err != nil {
-		http.Error(w, "Invalid ID token "+err.Error(), http.StatusUnauthorized)
+		http.Error(w, "Invalid ID token "+err.Error()+" "+idToken, http.StatusUnauthorized)
 		return
 	}
 
