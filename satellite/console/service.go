@@ -2090,6 +2090,10 @@ func (s *Service) GetDeveloperByEmailWithUnverified(ctx context.Context, email s
 func (s *Service) GetUserByEmailWithUnverified_google(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if email == "" {
+		return nil, nil, ErrEmailNotFound.New("email is empty")
+	}
+
 	verified, unverified, err = s.store.Users().GetByEmailWithUnverified_google(ctx, email)
 	if err != nil {
 		return verified, unverified, err

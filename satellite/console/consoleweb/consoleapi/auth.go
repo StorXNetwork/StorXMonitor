@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/api/idtoken"
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/storj"
@@ -614,27 +615,35 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	googleuser, err := socialmedia.GetGoogleUser(b.AccessToken, b.IDToken)
-	if err != nil {
-		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(signupPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
-		return
+	var googleuser *UserInfo
+	if b.AccessToken == "" {
+		// Verify the ID token
+		payload, err := idtoken.Validate(context.Background(), b.IDToken, clientID)
+		if err != nil {
+			http.Error(w, "Invalid ID token "+err.Error()+" "+b.IDToken, http.StatusUnauthorized)
+			return
+		}
+
+		// Extract user information from the payload
+		googleuser = &UserInfo{
+			Email:         payload.Claims["email"].(string),
+			EmailVerified: payload.Claims["email_verified"].(bool),
+			Name:          payload.Claims["name"].(string),
+			Picture:       payload.Claims["picture"].(string),
+		}
+	} else {
+		g, err := socialmedia.GetGoogleUser(b.AccessToken, b.IDToken)
+		if err != nil {
+			a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(signupPageURL))
+			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
+			return
+		}
+		googleuser = &UserInfo{
+			Email:   g.Email,
+			Name:    g.Name,
+			Picture: g.Picture,
+		}
 	}
-
-	// // Verify the ID token
-	// payload, err := idtoken.Validate(context.Background(), idToken, clientID)
-	// if err != nil {
-	// 	http.Error(w, "Invalid ID token "+err.Error()+" "+idToken, http.StatusUnauthorized)
-	// 	return
-	// }
-
-	// // Extract user information from the payload
-	// googleuser := UserInfo{
-	// 	Email:         payload.Claims["email"].(string),
-	// 	EmailVerified: payload.Claims["email_verified"].(bool),
-	// 	Name:          payload.Claims["name"].(string),
-	// 	Picture:       payload.Claims["picture"].(string),
-	// }
 
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
