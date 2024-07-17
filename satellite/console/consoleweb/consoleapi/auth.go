@@ -21,7 +21,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/api/idtoken"
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/storj"
@@ -604,26 +603,38 @@ type UserInfo struct {
 func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	idToken := r.URL.Query().Get("id_token")
-	if idToken == "" {
-		http.Error(w, "Missing ID token", http.StatusBadRequest)
+	type body struct {
+		IDToken     string `json:"id_token"`
+		AccessToken string `json:"access_token"`
+	}
+
+	var b body
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	// Verify the ID token
-	payload, err := idtoken.Validate(context.Background(), idToken, clientID)
+	googleuser, err := socialmedia.GetGoogleUser(b.AccessToken, b.IDToken)
 	if err != nil {
-		http.Error(w, "Invalid ID token "+err.Error()+" "+idToken, http.StatusUnauthorized)
+		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(signupPageURL))
+		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
 		return
 	}
 
-	// Extract user information from the payload
-	googleuser := UserInfo{
-		Email:         payload.Claims["email"].(string),
-		EmailVerified: payload.Claims["email_verified"].(bool),
-		Name:          payload.Claims["name"].(string),
-		Picture:       payload.Claims["picture"].(string),
-	}
+	// // Verify the ID token
+	// payload, err := idtoken.Validate(context.Background(), idToken, clientID)
+	// if err != nil {
+	// 	http.Error(w, "Invalid ID token "+err.Error()+" "+idToken, http.StatusUnauthorized)
+	// 	return
+	// }
+
+	// // Extract user information from the payload
+	// googleuser := UserInfo{
+	// 	Email:         payload.Claims["email"].(string),
+	// 	EmailVerified: payload.Claims["email_verified"].(bool),
+	// 	Name:          payload.Claims["name"].(string),
+	// 	Picture:       payload.Claims["picture"].(string),
+	// }
 
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
