@@ -1348,7 +1348,7 @@ func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.registerUserByIDTokenFromGoogle(w, r, body.IDToken, body.AccessToken)
+	a.loginUserConfirmFromIdtokeAndAccessToken(w, r, body.IDToken, body.AccessToken)
 }
 
 func (a *Auth) LoginUserConfirm(w http.ResponseWriter, r *http.Request) {
