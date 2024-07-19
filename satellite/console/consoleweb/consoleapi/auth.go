@@ -1421,7 +1421,7 @@ func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail string, w http.
 			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from system", http.StatusTemporaryRedirect)
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
-			a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+			a.SendResponse(w, r, "Error getting token from system "+err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from system", http.StatusTemporaryRedirect)
 		}
 		return
