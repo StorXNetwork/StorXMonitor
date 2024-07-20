@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -208,6 +209,25 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var expiry time.Time
+	if expiryStr := r.URL.Query().Get("expiry"); expiryStr != "" {
+		var err error
+		expiry, err = time.Parse(time.DateTime, expiryStr)
+		if err != nil {
+			keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid expiry query param"))
+			return
+		}
+	}
+	var prefix *grant.SharePrefix
+	if prefixStr := r.URL.Query().Get("prefix"); prefixStr != "" {
+		bucketStr := r.URL.Query().Get("bucket")
+		if bucketStr == "" {
+			keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing bucket query param"))
+			return
+		}
+		prefix = &grant.SharePrefix{Prefix: prefixStr, Bucket: bucketStr}
+	}
+
 	projectID, ok := mux.Vars(r)["project_id"]
 	if !ok {
 		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
@@ -226,14 +246,15 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessGrantStr, err := keys.createAccessGrantForProject(ctx, id, passphrase, parsedAPIKey)
+	accessGrantStr, err := keys.createAccessGrantForProject(ctx, id, passphrase, prefix, expiry, parsedAPIKey)
 	err = json.NewEncoder(w).Encode(accessGrantStr)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
 
-func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string, apiKey *macaroon.APIKey) (string, error) {
+func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string,
+	prefix *grant.SharePrefix, expiry time.Time, apiKey *macaroon.APIKey) (string, error) {
 
 	salt, err := keys.service.GetSalt(ctx, projectID)
 	if err != nil {
@@ -252,11 +273,40 @@ func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID 
 	// }
 	encAccess.LimitTo(apiKey)
 
-	return (&grant.Access{
+	g := &grant.Access{
 		SatelliteAddress: keys.satelliteNodeURL,
 		APIKey:           apiKey,
 		EncAccess:        encAccess,
-	}).Serialize()
+	}
+
+	if prefix == nil {
+		if !expiry.IsZero() {
+			return "", errs.New("expiry can't be set without prefix")
+		}
+		return g.Serialize()
+	}
+
+	permission := grant.Permission{
+		AllowDownload: true,
+		AllowUpload:   false,
+		AllowList:     true,
+		AllowDelete:   false,
+		NotBefore:     time.Now(),
+	}
+
+	if !expiry.IsZero() {
+		permission.NotAfter = expiry
+	}
+
+	restricted, err := g.Restrict(
+		permission,
+		*prefix,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return restricted.Serialize()
 }
 
 // GetAccessGrantForDeveloper give access grant for a project using API key and passphrase.
@@ -322,7 +372,7 @@ func (keys *APIKeys) GetAccessGrantForDeveloper(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	accessGrantStr, err := keys.createAccessGrantForProject(ctxWithUser, project.ID, registerData.Passphrase, apiKey)
+	accessGrantStr, err := keys.createAccessGrantForProject(ctxWithUser, project.ID, registerData.Passphrase, nil, time.Time{}, apiKey)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
