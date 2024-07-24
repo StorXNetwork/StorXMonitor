@@ -21,11 +21,11 @@ type NodeReputationEntry struct {
 	// &reputation.ExitInitiatedAt, &reputation.ExitFinishedAt, &reputation.ExitSuccess,
 	// &reputation.UnderReview, &reputation.AuditReputationAlpha
 	Wallet               string
-	Disqualified         *bool
+	Disqualified         *time.Time
 	ExitInitiatedAt      *time.Time
 	ExitFinishedAt       *time.Time
 	ExitSuccess          *bool
-	UnderReview          *bool
+	UnderReview          *time.Time
 	AuditReputationAlpha float64
 }
 
