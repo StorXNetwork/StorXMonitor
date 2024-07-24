@@ -87,7 +87,7 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 		var isStaker bool
 
 		reputationVal := int64(reputation.AuditReputationAlpha) * 5
-		if reputation.Disqualified != nil && *reputation.Disqualified {
+		if reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero() {
 			reputationVal = 0
 		}
 
