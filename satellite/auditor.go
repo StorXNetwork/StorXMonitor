@@ -63,13 +63,14 @@ type Auditor struct {
 	}
 
 	Audit struct {
-		Verifier       *audit.Verifier
-		Reverifier     *audit.Reverifier
-		VerifyQueue    audit.VerifyQueue
-		ReverifyQueue  audit.ReverifyQueue
-		Reporter       audit.Reporter
-		Worker         *audit.Worker
-		ReverifyWorker *audit.ReverifyWorker
+		Verifier             *audit.Verifier
+		Reverifier           *audit.Reverifier
+		VerifyQueue          audit.VerifyQueue
+		ReverifyQueue        audit.ReverifyQueue
+		Reporter             audit.Reporter
+		Worker               *audit.Worker
+		ReverifyWorker       *audit.ReverifyWorker
+		ReputationPushWorker *audit.ReputationPushWorker
 	}
 }
 
@@ -83,6 +84,8 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 	nodeEvents nodeevents.DB,
 	reputationdb reputation.DB,
 	containmentDB audit.Containment,
+	nodeReputationDB audit.NodeReputation,
+	smartContractConnector audit.ReputationConnector,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel,
 ) (*Auditor, error) {
 	peer := &Auditor{
@@ -259,6 +262,20 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 			Run:   peer.Audit.ReverifyWorker.Run,
 			Close: peer.Audit.ReverifyWorker.Close,
 		})
+
+		if nodeReputationDB != nil && smartContractConnector != nil {
+			peer.Audit.ReputationPushWorker = audit.NewReputationPushWorker(peer.Log.Named("audit:reputation-push-worker"),
+				nodeReputationDB,
+				smartContractConnector)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "audit:reputation-push-worker",
+				Run:   peer.Audit.ReputationPushWorker.Run,
+				Close: peer.Audit.ReputationPushWorker.Close,
+			})
+		} else {
+			peer.Log.Warn("Reputation push worker is disabled")
+		}
+
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Audit Reverify Worker", peer.Audit.ReverifyWorker.Loop))
 	}

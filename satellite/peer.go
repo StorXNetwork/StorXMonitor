@@ -126,6 +126,8 @@ type DB interface {
 	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
 	Billing() billing.TransactionsDB
+
+	NodeReputation() audit.NodeReputation
 	// Wallets returns storjscan wallets database.
 	Wallets() storjscan.WalletsDB
 	// SNOPayouts returns database for payouts.

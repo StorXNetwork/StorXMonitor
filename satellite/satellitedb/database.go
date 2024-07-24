@@ -292,6 +292,11 @@ func (dbc *satelliteDBCollection) Compensation() compensation.DB {
 	return &compensationDB{db: dbc.getByName("compensation")}
 }
 
+// NodeReputation returns database for reputation with node details
+func (dbc *satelliteDBCollection) NodeReputation() audit.NodeReputation {
+	return &nodeReputation{db: dbc.getByName("nodereputation")}
+}
+
 // NodeAPIVersion returns database for storage node api version lower bounds.
 func (dbc *satelliteDBCollection) NodeAPIVersion() nodeapiversion.DB {
 	return &nodeAPIVersionDB{db: dbc.getByName("nodeapiversion")}

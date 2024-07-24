@@ -724,7 +724,7 @@ func (planet *Planet) newAuditor(ctx context.Context, index int, identity *ident
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	return satellite.NewAuditor(log, identity, metabaseDB, revocationDB, db.VerifyQueue(), db.ReverifyQueue(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
+	return satellite.NewAuditor(log, identity, metabaseDB, revocationDB, db.VerifyQueue(), db.ReverifyQueue(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), nil, nil, versionInfo, &config, nil)
 }
 
 type rollupsWriteCacheCloser struct {
