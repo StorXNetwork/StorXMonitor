@@ -3,6 +3,7 @@ package smartcontract
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -90,7 +91,7 @@ func (w *web3Helper) GeneralContractMethod(ctx context.Context, addr common.Addr
 		return fmt.Errorf("error getting nonce: %v", err)
 	}
 
-	tx := types.NewTransaction(nonceCount, addr, big.NewInt(0), uint64(300000), gasPrice, data)
+	tx := types.NewTransaction(nonceCount, addr, big.NewInt(0), uint64(50000000), gasPrice, data)
 
 	chainID, err := w.client.NetworkID(ctx)
 	if err != nil {
@@ -111,6 +112,9 @@ func (w *web3Helper) GeneralContractMethod(ctx context.Context, addr common.Addr
 	if err != nil {
 		return fmt.Errorf("error waiting for transaction to be mined: %v", err)
 	}
+
+	b, _ := json.Marshal(receipt)
+	fmt.Println(string(b))
 
 	if receipt.Status == types.ReceiptStatusFailed {
 		return fmt.Errorf("transaction failed with status %v", receipt.Status)

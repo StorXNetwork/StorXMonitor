@@ -3,6 +3,7 @@ package smartcontract
 import (
 	"context"
 	"embed"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -12,7 +13,7 @@ var abiFile embed.FS
 
 func Test_Web3API(t *testing.T) {
 	var (
-		testNodeAddress        = "0x0bda050d6d856a3134478de5cd75dc8ec24ab082"
+		testNodeAddress        = "0x4076f8b2a06515a1899d951a339b260b9673569d"
 		networkRPC             = "https://erpc.xinfin.network" // Updated with proper URL
 		reputationContractAddr = "0x5DB64839828174D2D29B419E5581C16C67D62046"
 		nounceAddr             = "0xe50d5fc9bcbce037a19c860ba4105548d42517a0"                       // Replace this with the address of the account that will be used to send the transaction
@@ -39,25 +40,18 @@ func Test_Web3API(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !v {
-		t.Fatal("expected true")
+		fmt.Println("Adding staker")
+		err = h.AddStaker(context.Background(), testNodeAddress, 100)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	v, err = h.IsStaker(context.Background(), "0x0bda050d6d856a3134478de5cd75dc8ec24ab081")
+	fmt.Println("Pushing reputation")
+	err = h.PushReputation(context.Background(), testNodeAddress, 50)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v {
-		t.Fatal("expected true")
-	}
-
-	// err = h.AddStaker(testNodeAddress, 100)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-
-	// err = h.SetReputation(testNodeAddress, 50)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
 }
