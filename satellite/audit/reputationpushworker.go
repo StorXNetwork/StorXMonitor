@@ -78,19 +78,24 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 		}
 	}()
 
+	worker.log.Info("fetch list of nodes with reputation")
 	reputations, err := worker.db.GetAll(ctx)
 	if err != nil {
+		worker.log.Error("failed to get all reputations", zap.Error(err))
 		return err
 	}
 
 	for _, reputation := range reputations {
 		var isStaker bool
 
+		worker.log.Info("processing reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
 		reputationVal := int64(reputation.AuditReputationAlpha) * 5
 		if reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero() {
+			worker.log.Info("disqualified node", zap.String("wallet", reputation.Wallet), zap.Time("disqualified", *reputation.Disqualified))
 			reputationVal = 0
 		}
 
+		worker.log.Info("checking if wallet is staker", zap.String("wallet", reputation.Wallet))
 		isStaker, err = worker.connector.IsStaker(ctx, reputation.Wallet)
 		if err != nil {
 			worker.log.Error("failed to check if wallet is staker", zap.Error(err))
@@ -98,18 +103,24 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 		}
 
 		if isStaker {
+			worker.log.Info("pushing reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
 			err = worker.connector.PushReputation(ctx, reputation.Wallet, reputationVal)
 			if err != nil {
 				worker.log.Error("failed to push reputation", zap.Error(err))
 				continue
 			}
+			worker.log.Info("pushed reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
 		} else {
+			worker.log.Info("adding staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
 			err = worker.connector.AddStaker(ctx, reputation.Wallet, reputationVal)
 			if err != nil {
 				worker.log.Error("failed to add staker", zap.Error(err))
 				continue
 			}
+			worker.log.Info("added staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
 		}
+
+		worker.log.Info("processed reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
 	}
 
 	worker.log.Info("ReputationPushWorker processed reputations", zap.Int("count", len(reputations)))

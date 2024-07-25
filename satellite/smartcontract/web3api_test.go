@@ -12,13 +12,17 @@ import (
 var abiFile embed.FS
 
 func Test_Web3API(t *testing.T) {
+	fmt.Println("Running test for Web3API")
+
 	var (
-		testNodeAddress        = "0x4076f8b2a06515a1899d951a339b260b9673569d"
+		testNodeAddress        = "0x0123456789012345678901234567890123000002"
 		networkRPC             = "https://erpc.xinfin.network" // Updated with proper URL
 		reputationContractAddr = "0x5DB64839828174D2D29B419E5581C16C67D62046"
 		nounceAddr             = "0xe50d5fc9bcbce037a19c860ba4105548d42517a0"                       // Replace this with the address of the account that will be used to send the transaction
 		privateKey             = "1637a3827950e2b50b45a427d826cf4a36f099a42b825afeefb83ee99e0ee0e6" // Replace this with the private key
 	)
+
+	fmt.Println("Creating web3 helper")
 
 	h, err := NewWeb3Helper(Web3Config{
 		NetworkRPC:             networkRPC,
@@ -36,6 +40,7 @@ func Test_Web3API(t *testing.T) {
 	}
 	h.SetABI(f)
 
+	fmt.Println("Checking if staker")
 	v, err := h.IsStaker(context.Background(), testNodeAddress)
 	if err != nil {
 		t.Fatal(err)
