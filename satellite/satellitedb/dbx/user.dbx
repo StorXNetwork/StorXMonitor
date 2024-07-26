@@ -94,6 +94,13 @@ model user (
 
     // source is the registration source from which the user was created.
     field source text ( nullable )
+
+    // utm_source is the registration source from which the user was created.
+    field utm_source text ( nullable )
+    // utm_medium is the registration source from which the user was created.
+    field utm_medium text ( nullable )
+    // utm_campaign is the registration source from which the user was created.
+    field utm_campaign text ( nullable )
 )
 
 create user ( )

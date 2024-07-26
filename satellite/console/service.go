@@ -972,6 +972,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			Source:           user.Source,
 		}
 
+		if user.UtmParams != nil {
+			newUser.UtmSource = user.UtmParams.UtmSource
+			newUser.UtmMedium = user.UtmParams.UtmMedium
+			newUser.UtmCampaign = user.UtmParams.UtmCampaign
+		}
+
 		if user.UserAgent != nil {
 			newUser.UserAgent = user.UserAgent
 		}
