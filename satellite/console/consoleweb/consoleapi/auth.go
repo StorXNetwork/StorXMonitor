@@ -324,10 +324,11 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	verifier := socialmedia.NewVerifierData(r)
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, socialmedia.NewVerifierData(r))
+		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, verifier)
 	}
 
 	// trim leading and trailing spaces of email address.
@@ -418,6 +419,15 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			requestID = requestid.FromContext(ctx)
 		}
 
+		var utmParams *console.UtmParams
+		if verifier != nil {
+			utmParams = &console.UtmParams{
+				UtmSource:   verifier.UTMSource,
+				UtmMedium:   verifier.UTMMedium,
+				UtmCampaign: verifier.UTMCampaign,
+			}
+		}
+
 		user, err = a.service.CreateUser(ctx,
 			console.CreateUser{
 				FullName:         registerData.FullName,
@@ -438,6 +448,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				// the minimal signup from the v2 app doesn't require name.
 				AllowNoName: registerData.IsMinimal,
 				Source:      "Register",
+				UtmParams:   utmParams,
 			},
 			secret, false,
 		)
@@ -623,12 +634,13 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	state := r.URL.Query().Get("state")
+	verifier := socialmedia.NewVerifierDataFromString(state)
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
-		state := r.URL.Query().Get("state")
 
-		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, socialmedia.NewVerifierDataFromString(state))
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, verifier)
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
@@ -676,13 +688,23 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			var utmParams *console.UtmParams
+			if verifier != nil {
+				utmParams = &console.UtmParams{
+					UtmSource:   verifier.UTMSource,
+					UtmMedium:   verifier.UTMMedium,
+					UtmCampaign: verifier.UTMCampaign,
+				}
+			}
+
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
-					FullName: googleuser.Name,
-					Email:    googleuser.Email,
-					Status:   1,
-					IP:       ip,
-					Source:   "Google",
+					FullName:  googleuser.Name,
+					Email:     googleuser.Email,
+					Status:    1,
+					IP:        ip,
+					Source:    "Google",
+					UtmParams: utmParams,
 				},
 				secret, true,
 			)
@@ -1054,6 +1076,15 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			var utmParams *console.UtmParams
+			if reqOps != nil {
+				utmParams = &console.UtmParams{
+					UtmSource:   reqOps.UTMSource,
+					UtmMedium:   reqOps.UTMMedium,
+					UtmCampaign: reqOps.UTMCampaign,
+				}
+			}
+
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
 					FullName:  userI.Data.Name,
@@ -1062,6 +1093,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 					Status:    1,
 					IP:        ip,
 					Source:    "Twitter",
+					UtmParams: utmParams,
 				},
 				secret, true,
 			)
@@ -1179,7 +1211,14 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 				a.SendResponse(w, r, "Error creating secret", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				return
 			}
-
+			var utmParams *console.UtmParams
+			if reqOps != nil {
+				utmParams = &console.UtmParams{
+					UtmSource:   reqOps.UTMSource,
+					UtmMedium:   reqOps.UTMMedium,
+					UtmCampaign: reqOps.UTMCampaign,
+				}
+			}
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
 					FullName:  responseBody.Sub,
@@ -1195,7 +1234,8 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 					//HaveSalesContact: registerData.HaveSalesContact,
 					IP: ip,
 					//SignupPromoCode:  registerData.SignupPromoCode,
-					Source: "Unstoppabble",
+					Source:    "Unstoppabble",
+					UtmParams: utmParams,
 				},
 				secret, true,
 			)
@@ -1418,13 +1458,14 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	reqOps, err := socialmedia.GetReqOptions(state)
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
-		// Inserting lead in Zoho CRM
-		reqOps, err := socialmedia.GetReqOptions(state)
 		if err != nil {
 			a.log.Error("Error getting request options", zap.Error(err))
 		}
+
+		// Inserting lead in Zoho CRM
 		go zohoInsertLead(context.Background(), fbUserDetails.Name, fbUserDetails.Email, a.log, reqOps)
 	}
 
@@ -1467,14 +1508,22 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 				a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				return
 			}
-
+			var utmParams *console.UtmParams
+			if reqOps != nil {
+				utmParams = &console.UtmParams{
+					UtmSource:   reqOps.UTMSource,
+					UtmMedium:   reqOps.UTMMedium,
+					UtmCampaign: reqOps.UTMCampaign,
+				}
+			}
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
-					FullName: fbUserDetails.Name,
-					Email:    fbUserDetails.Email,
-					Status:   1,
-					IP:       ip,
-					Source:   "Facebook",
+					FullName:  fbUserDetails.Name,
+					Email:     fbUserDetails.Email,
+					Status:    1,
+					IP:        ip,
+					Source:    "Facebook",
+					UtmParams: utmParams,
 				},
 				secret, true,
 			)
@@ -1653,12 +1702,11 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	reqOps, err := socialmedia.GetReqOptions(state)
+	if err != nil {
+		a.log.Error("Error getting request options", zap.Error(err))
+	}
 	if r.URL.Query().Has("zoho-insert") {
-		reqOps, err := socialmedia.GetReqOptions(state)
-		if err != nil {
-			a.log.Error("Error getting request options", zap.Error(err))
-		}
-
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
 		go zohoInsertLead(context.Background(), LinkedinUserDetails.Name, LinkedinUserDetails.Email, a.log, reqOps)
@@ -1705,7 +1753,14 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 				a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				return
 			}
-
+			var utmParams *console.UtmParams
+			if reqOps != nil {
+				utmParams = &console.UtmParams{
+					UtmSource:   reqOps.UTMSource,
+					UtmMedium:   reqOps.UTMMedium,
+					UtmCampaign: reqOps.UTMCampaign,
+				}
+			}
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
 					FullName:  LinkedinUserDetails.Name,
@@ -1714,6 +1769,7 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 					Status:    1,
 					IP:        ip,
 					Source:    "Linkedin",
+					UtmParams: utmParams,
 				},
 				secret, true,
 			)

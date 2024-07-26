@@ -110,6 +110,12 @@ func (user *UserInfo) IsValid() error {
 	return nil
 }
 
+type UtmParams struct {
+	UtmSource   string `json:"utm_source"`
+	UtmMedium   string `json:"utm_medium"`
+	UtmCampaign string `json:"utm_campaign"`
+}
+
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
 	FullName         string `json:"fullName"`
@@ -131,6 +137,8 @@ type CreateUser struct {
 	SignupId         string `json:"-"`
 	AllowNoName      bool   `json:"-"`
 	Source           string `json:"-"`
+
+	UtmParams *UtmParams `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -277,6 +285,10 @@ type User struct {
 	UpgradeTime     *time.Time `json:"upgradeTime"`
 
 	Source string `json:"source"`
+
+	UtmSource   string `json:"utmSource"`
+	UtmMedium   string `json:"utmMedium"`
+	UtmCampaign string `json:"utmCampaign"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.

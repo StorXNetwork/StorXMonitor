@@ -397,6 +397,18 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.Source = dbx.User_Source(user.Source)
 	}
 
+	if user.UtmSource != "" {
+		optional.UtmSource = dbx.User_UtmSource(user.UtmSource)
+	}
+
+	if user.UtmMedium != "" {
+		optional.UtmMedium = dbx.User_UtmMedium(user.UtmMedium)
+	}
+
+	if user.UtmCampaign != "" {
+		optional.UtmCampaign = dbx.User_UtmCampaign(user.UtmCampaign)
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
