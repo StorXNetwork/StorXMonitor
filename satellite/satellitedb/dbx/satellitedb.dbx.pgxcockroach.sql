@@ -520,6 +520,8 @@ CREATE TABLE users (
 	utm_source text,
 	utm_medium text,
 	utm_campaign text,
+	utm_term text,
+	utm_content text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE user_settings (

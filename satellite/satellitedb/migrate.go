@@ -2773,6 +2773,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN utm_campaign text;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add utm_term and utm_content columns to user table to track from where that user got created",
+				Version:     271,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN utm_term text;`,
+					`ALTER TABLE users ADD COLUMN utm_content text;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

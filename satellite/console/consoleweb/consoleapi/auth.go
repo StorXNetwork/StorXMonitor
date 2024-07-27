@@ -422,6 +422,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		var utmParams *console.UtmParams
 		if verifier != nil {
 			utmParams = &console.UtmParams{
+				UtmTerm:     verifier.UTMTerm,
+				UtmContent:  verifier.UTMContent,
 				UtmSource:   verifier.UTMSource,
 				UtmMedium:   verifier.UTMMedium,
 				UtmCampaign: verifier.UTMCampaign,
@@ -728,6 +730,8 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 			var utmParams *console.UtmParams
 			if verifier != nil {
 				utmParams = &console.UtmParams{
+					UtmTerm:     verifier.UTMTerm,
+					UtmContent:  verifier.UTMContent,
 					UtmSource:   verifier.UTMSource,
 					UtmMedium:   verifier.UTMMedium,
 					UtmCampaign: verifier.UTMCampaign,
@@ -1116,6 +1120,8 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 			var utmParams *console.UtmParams
 			if reqOps != nil {
 				utmParams = &console.UtmParams{
+					UtmTerm:     reqOps.UTMTerm,
+					UtmContent:  reqOps.UTMContent,
 					UtmSource:   reqOps.UTMSource,
 					UtmMedium:   reqOps.UTMMedium,
 					UtmCampaign: reqOps.UTMCampaign,
@@ -1251,6 +1257,8 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 			var utmParams *console.UtmParams
 			if reqOps != nil {
 				utmParams = &console.UtmParams{
+					UtmTerm:     reqOps.UTMTerm,
+					UtmContent:  reqOps.UTMContent,
 					UtmSource:   reqOps.UTMSource,
 					UtmMedium:   reqOps.UTMMedium,
 					UtmCampaign: reqOps.UTMCampaign,
@@ -1572,6 +1580,8 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 			var utmParams *console.UtmParams
 			if reqOps != nil {
 				utmParams = &console.UtmParams{
+					UtmTerm:     reqOps.UTMTerm,
+					UtmContent:  reqOps.UTMContent,
 					UtmSource:   reqOps.UTMSource,
 					UtmMedium:   reqOps.UTMMedium,
 					UtmCampaign: reqOps.UTMCampaign,
@@ -1817,6 +1827,8 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 			var utmParams *console.UtmParams
 			if reqOps != nil {
 				utmParams = &console.UtmParams{
+					UtmTerm:     reqOps.UTMTerm,
+					UtmContent:  reqOps.UTMContent,
 					UtmSource:   reqOps.UTMSource,
 					UtmMedium:   reqOps.UTMMedium,
 					UtmCampaign: reqOps.UTMCampaign,

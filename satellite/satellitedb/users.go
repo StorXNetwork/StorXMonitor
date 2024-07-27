@@ -409,6 +409,14 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.UtmCampaign = dbx.User_UtmCampaign(user.UtmCampaign)
 	}
 
+	if user.UtmTerm != "" {
+		optional.UtmTerm = dbx.User_UtmTerm(user.UtmTerm)
+	}
+
+	if user.UtmContent != "" {
+		optional.UtmContent = dbx.User_UtmContent(user.UtmContent)
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),

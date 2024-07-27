@@ -261,6 +261,8 @@ type VerifierData struct {
 	UTMSource   string `json:"utm_source"`
 	UTMMedium   string `json:"utm_medium"`
 	UTMCampaign string `json:"utm_campaign"`
+	UTMTerm     string `json:"utm_term"`
+	UTMContent  string `json:"utm_content"`
 	Verifier    string `json:"-"`
 }
 
@@ -269,6 +271,8 @@ func NewVerifierData(r *http.Request) *VerifierData {
 		UTMSource:   r.URL.Query().Get("utm_source"),
 		UTMMedium:   r.URL.Query().Get("utm_medium"),
 		UTMCampaign: r.URL.Query().Get("utm_campaign"),
+		UTMTerm:     r.URL.Query().Get("utm_term"),
+		UTMContent:  r.URL.Query().Get("utm_content"),
 	}
 }
 

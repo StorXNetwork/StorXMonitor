@@ -114,6 +114,8 @@ type UtmParams struct {
 	UtmSource   string `json:"utm_source"`
 	UtmMedium   string `json:"utm_medium"`
 	UtmCampaign string `json:"utm_campaign"`
+	UtmTerm     string `json:"utm_term"`
+	UtmContent  string `json:"utm_content"`
 }
 
 // CreateUser struct holds info for User creation.
@@ -289,6 +291,8 @@ type User struct {
 	UtmSource   string `json:"utmSource"`
 	UtmMedium   string `json:"utmMedium"`
 	UtmCampaign string `json:"utmCampaign"`
+	UtmTerm     string `json:"utmTerm"`
+	UtmContent  string `json:"utmContent"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
