@@ -5,8 +5,11 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 const (
@@ -45,4 +48,23 @@ func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeR
 	}
 
 	return reputations, nil
+}
+
+func (nr *nodeReputation) NodeStmartContractStatus(ctx context.Context, wallet, msgType, msg string) (err error) {
+	id, err := uuid.New()
+	if err != nil {
+		return fmt.Errorf("failed to generate uuid: %v", err)
+	}
+
+	err = nr.db.CreateNoReturn_NodeSmartContractUpdates(ctx,
+		dbx.NodeSmartContractUpdates_Id(id[:]),
+		dbx.NodeSmartContractUpdates_Wallet(wallet),
+		dbx.NodeSmartContractUpdates_Message(msg),
+		dbx.NodeSmartContractUpdates_MessageType(msgType),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create node smart contract update: %v", err)
+	}
+
+	return nil
 }

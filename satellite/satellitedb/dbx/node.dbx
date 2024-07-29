@@ -278,3 +278,42 @@ read all (
 read all (
         select node_tags
 )
+
+
+model node_smart_contract_updates (
+
+    key id
+
+    index (
+        name node_smart_contract_updates_wallet_index
+        fields wallet
+    )
+
+    // id is a UUID for this event.
+    field id             blob
+
+    // wallet is the text version of the Ethereum (or other) wallet address.
+    field wallet          text  ( updatable )
+
+    // message is the message that the node sent
+    field message            text
+
+    // message type is the type of the message "error", "info", "warning"
+    field message_type       text
+
+    // created_at is the time the version was first added.
+    field created_at timestamp ( autoinsert )
+    // updated_at is the time the version was last updated.
+    field updated_at timestamp ( autoinsert, autoupdate )
+)
+
+create node_smart_contract_updates ( noreturn )
+
+read all (
+    select node_smart_contract_updates
+)
+
+read all (
+    select node_smart_contract_updates
+    where node_smart_contract_updates.wallet = ?
+)

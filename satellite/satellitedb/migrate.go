@@ -2782,6 +2782,22 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN utm_content text;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create node_smart_contract_updates table to store all the errors and updated from smart contract",
+				Version:     272,
+				Action: migrate.SQL{
+					`CREATE TABLE node_smart_contract_updates (
+						id bytea NOT NULL,
+						wallet text NOT NULL,
+						message text NOT NULL,
+						message_type text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+						);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

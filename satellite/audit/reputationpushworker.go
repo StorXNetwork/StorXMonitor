@@ -2,9 +2,11 @@ package audit
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-stack/stack"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -12,6 +14,7 @@ import (
 
 type NodeReputation interface {
 	GetAll(ctx context.Context) (reputations []NodeReputationEntry, err error)
+	NodeStmartContractStatus(ctx context.Context, wallet, msgType, msg string) (err error)
 }
 
 type NodeReputationEntry struct {
@@ -61,9 +64,12 @@ func (worker *ReputationPushWorker) Run(ctx context.Context) (err error) {
 
 	return worker.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		err = worker.process(ctx)
-		if err != nil {
-			worker.log.Error("failure processing reputation push", zap.Error(err))
+		if err == nil {
+			return nil
 		}
+
+		worker.log.Error("failure processing reputation push", zap.Error(err))
+
 		return nil
 	})
 }
@@ -85,12 +91,17 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 		return err
 	}
 
+	var smartContractErr errs.Group
 	for _, reputation := range reputations {
 		var isStaker bool
 
 		worker.log.Info("processing reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
 		reputationVal := int64(reputation.AuditReputationAlpha) * 5
-		if reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero() {
+		if (reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero()) ||
+			(reputation.ExitInitiatedAt != nil && reputation.ExitInitiatedAt.IsZero()) ||
+			(reputation.ExitFinishedAt != nil && reputation.ExitFinishedAt.IsZero()) ||
+			(reputation.ExitSuccess != nil && *reputation.ExitSuccess) ||
+			(reputation.UnderReview != nil && !(*reputation.UnderReview).IsZero()) {
 			worker.log.Info("disqualified node", zap.String("wallet", reputation.Wallet), zap.Time("disqualified", *reputation.Disqualified))
 			reputationVal = 0
 		}
@@ -99,6 +110,7 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 		isStaker, err = worker.connector.IsStaker(ctx, reputation.Wallet)
 		if err != nil {
 			worker.log.Error("failed to check if wallet is staker", zap.Error(err))
+			worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to check if wallet is staker: %v", err))
 			continue
 		}
 
@@ -107,17 +119,25 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 			err = worker.connector.PushReputation(ctx, reputation.Wallet, reputationVal)
 			if err != nil {
 				worker.log.Error("failed to push reputation", zap.Error(err))
+				err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to push reputation: %v", err))
+				smartContractErr.Add(err)
 				continue
 			}
 			worker.log.Info("pushed reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
+			err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("pushed reputation: %v", reputationVal))
+			smartContractErr.Add(err)
 		} else {
 			worker.log.Info("adding staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
 			err = worker.connector.AddStaker(ctx, reputation.Wallet, reputationVal)
 			if err != nil {
 				worker.log.Error("failed to add staker", zap.Error(err))
+				err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to add staker: %v", err))
+				smartContractErr.Add(err)
 				continue
 			}
 			worker.log.Info("added staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
+			err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("added staker: %v", reputationVal))
+			smartContractErr.Add(err)
 		}
 
 		worker.log.Info("processed reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
@@ -125,7 +145,7 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 
 	worker.log.Info("ReputationPushWorker processed reputations", zap.Int("count", len(reputations)))
 
-	return nil
+	return smartContractErr.Err()
 }
 
 // Close halts the worker.

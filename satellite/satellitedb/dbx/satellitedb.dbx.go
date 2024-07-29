@@ -511,6 +511,15 @@ CREATE TABLE node_events (
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE node_smart_contract_updates (
+	id bytea NOT NULL,
+	wallet text NOT NULL,
+	message text NOT NULL,
+	message_type text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE node_tags (
 	node_id bytea NOT NULL,
 	name text NOT NULL,
@@ -949,6 +958,7 @@ CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualifi
 CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
+CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -1271,6 +1281,15 @@ CREATE TABLE node_events (
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE node_smart_contract_updates (
+	id bytea NOT NULL,
+	wallet text NOT NULL,
+	message text NOT NULL,
+	message_type text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE node_tags (
 	node_id bytea NOT NULL,
 	name text NOT NULL,
@@ -1709,6 +1728,7 @@ CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualifi
 CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
+CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -5526,6 +5546,135 @@ func (f NodeEvent_EmailSent_Field) value() interface{} {
 }
 
 func (NodeEvent_EmailSent_Field) _Column() string { return "email_sent" }
+
+type NodeSmartContractUpdates struct {
+	Id          []byte
+	Wallet      string
+	Message     string
+	MessageType string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (NodeSmartContractUpdates) _Table() string { return "node_smart_contract_updates" }
+
+type NodeSmartContractUpdates_Update_Fields struct {
+	Wallet NodeSmartContractUpdates_Wallet_Field
+}
+
+type NodeSmartContractUpdates_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func NodeSmartContractUpdates_Id(v []byte) NodeSmartContractUpdates_Id_Field {
+	return NodeSmartContractUpdates_Id_Field{_set: true, _value: v}
+}
+
+func (f NodeSmartContractUpdates_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeSmartContractUpdates_Id_Field) _Column() string { return "id" }
+
+type NodeSmartContractUpdates_Wallet_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func NodeSmartContractUpdates_Wallet(v string) NodeSmartContractUpdates_Wallet_Field {
+	return NodeSmartContractUpdates_Wallet_Field{_set: true, _value: v}
+}
+
+func (f NodeSmartContractUpdates_Wallet_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeSmartContractUpdates_Wallet_Field) _Column() string { return "wallet" }
+
+type NodeSmartContractUpdates_Message_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func NodeSmartContractUpdates_Message(v string) NodeSmartContractUpdates_Message_Field {
+	return NodeSmartContractUpdates_Message_Field{_set: true, _value: v}
+}
+
+func (f NodeSmartContractUpdates_Message_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeSmartContractUpdates_Message_Field) _Column() string { return "message" }
+
+type NodeSmartContractUpdates_MessageType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func NodeSmartContractUpdates_MessageType(v string) NodeSmartContractUpdates_MessageType_Field {
+	return NodeSmartContractUpdates_MessageType_Field{_set: true, _value: v}
+}
+
+func (f NodeSmartContractUpdates_MessageType_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeSmartContractUpdates_MessageType_Field) _Column() string { return "message_type" }
+
+type NodeSmartContractUpdates_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func NodeSmartContractUpdates_CreatedAt(v time.Time) NodeSmartContractUpdates_CreatedAt_Field {
+	return NodeSmartContractUpdates_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f NodeSmartContractUpdates_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeSmartContractUpdates_CreatedAt_Field) _Column() string { return "created_at" }
+
+type NodeSmartContractUpdates_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func NodeSmartContractUpdates_UpdatedAt(v time.Time) NodeSmartContractUpdates_UpdatedAt_Field {
+	return NodeSmartContractUpdates_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f NodeSmartContractUpdates_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeSmartContractUpdates_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type NodeTags struct {
 	NodeId   []byte
@@ -14362,6 +14511,38 @@ func (obj *pgxImpl) ReplaceNoReturn_NodeTags(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) CreateNoReturn_NodeSmartContractUpdates(ctx context.Context,
+	node_smart_contract_updates_id NodeSmartContractUpdates_Id_Field,
+	node_smart_contract_updates_wallet NodeSmartContractUpdates_Wallet_Field,
+	node_smart_contract_updates_message NodeSmartContractUpdates_Message_Field,
+	node_smart_contract_updates_message_type NodeSmartContractUpdates_MessageType_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := node_smart_contract_updates_id.value()
+	__wallet_val := node_smart_contract_updates_wallet.value()
+	__message_val := node_smart_contract_updates_message.value()
+	__message_type_val := node_smart_contract_updates_message_type.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO node_smart_contract_updates ( id, wallet, message, message_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __wallet_val, __message_val, __message_type_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxImpl) ReplaceNoReturn_StoragenodePaystub(ctx context.Context,
 	storagenode_paystub_period StoragenodePaystub_Period_Field,
 	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
@@ -17597,6 +17778,94 @@ func (obj *pgxImpl) All_NodeTags(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, node_tags)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_NodeSmartContractUpdates(ctx context.Context) (
+	rows []*NodeSmartContractUpdates, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_smart_contract_updates.id, node_smart_contract_updates.wallet, node_smart_contract_updates.message, node_smart_contract_updates.message_type, node_smart_contract_updates.created_at, node_smart_contract_updates.updated_at FROM node_smart_contract_updates")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeSmartContractUpdates, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_smart_contract_updates := &NodeSmartContractUpdates{}
+				err = __rows.Scan(&node_smart_contract_updates.Id, &node_smart_contract_updates.Wallet, &node_smart_contract_updates.Message, &node_smart_contract_updates.MessageType, &node_smart_contract_updates.CreatedAt, &node_smart_contract_updates.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_smart_contract_updates)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_NodeSmartContractUpdates_By_Wallet(ctx context.Context,
+	node_smart_contract_updates_wallet NodeSmartContractUpdates_Wallet_Field) (
+	rows []*NodeSmartContractUpdates, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_smart_contract_updates.id, node_smart_contract_updates.wallet, node_smart_contract_updates.message, node_smart_contract_updates.message_type, node_smart_contract_updates.created_at, node_smart_contract_updates.updated_at FROM node_smart_contract_updates WHERE node_smart_contract_updates.wallet = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_smart_contract_updates_wallet.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeSmartContractUpdates, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_smart_contract_updates := &NodeSmartContractUpdates{}
+				err = __rows.Scan(&node_smart_contract_updates.Id, &node_smart_contract_updates.Wallet, &node_smart_contract_updates.Message, &node_smart_contract_updates.MessageType, &node_smart_contract_updates.CreatedAt, &node_smart_contract_updates.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_smart_contract_updates)
 			}
 			if err := __rows.Err(); err != nil {
 				return nil, err
@@ -23310,6 +23579,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_smart_contract_updates;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_events;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -24221,6 +24500,38 @@ func (obj *pgxcockroachImpl) ReplaceNoReturn_NodeTags(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __node_id_val, __name_val, __value_val, __signed_at_val, __signer_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_NodeSmartContractUpdates(ctx context.Context,
+	node_smart_contract_updates_id NodeSmartContractUpdates_Id_Field,
+	node_smart_contract_updates_wallet NodeSmartContractUpdates_Wallet_Field,
+	node_smart_contract_updates_message NodeSmartContractUpdates_Message_Field,
+	node_smart_contract_updates_message_type NodeSmartContractUpdates_MessageType_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := node_smart_contract_updates_id.value()
+	__wallet_val := node_smart_contract_updates_wallet.value()
+	__message_val := node_smart_contract_updates_message.value()
+	__message_type_val := node_smart_contract_updates_message_type.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO node_smart_contract_updates ( id, wallet, message, message_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __wallet_val, __message_val, __message_type_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -27468,6 +27779,94 @@ func (obj *pgxcockroachImpl) All_NodeTags(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, node_tags)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_NodeSmartContractUpdates(ctx context.Context) (
+	rows []*NodeSmartContractUpdates, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_smart_contract_updates.id, node_smart_contract_updates.wallet, node_smart_contract_updates.message, node_smart_contract_updates.message_type, node_smart_contract_updates.created_at, node_smart_contract_updates.updated_at FROM node_smart_contract_updates")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeSmartContractUpdates, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_smart_contract_updates := &NodeSmartContractUpdates{}
+				err = __rows.Scan(&node_smart_contract_updates.Id, &node_smart_contract_updates.Wallet, &node_smart_contract_updates.Message, &node_smart_contract_updates.MessageType, &node_smart_contract_updates.CreatedAt, &node_smart_contract_updates.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_smart_contract_updates)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_NodeSmartContractUpdates_By_Wallet(ctx context.Context,
+	node_smart_contract_updates_wallet NodeSmartContractUpdates_Wallet_Field) (
+	rows []*NodeSmartContractUpdates, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_smart_contract_updates.id, node_smart_contract_updates.wallet, node_smart_contract_updates.message, node_smart_contract_updates.message_type, node_smart_contract_updates.created_at, node_smart_contract_updates.updated_at FROM node_smart_contract_updates WHERE node_smart_contract_updates.wallet = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_smart_contract_updates_wallet.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeSmartContractUpdates, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_smart_contract_updates := &NodeSmartContractUpdates{}
+				err = __rows.Scan(&node_smart_contract_updates.Id, &node_smart_contract_updates.Wallet, &node_smart_contract_updates.Message, &node_smart_contract_updates.MessageType, &node_smart_contract_updates.CreatedAt, &node_smart_contract_updates.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_smart_contract_updates)
 			}
 			if err := __rows.Err(); err != nil {
 				return nil, err
@@ -33181,6 +33580,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_smart_contract_updates;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_events;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -33389,6 +33798,13 @@ type Methods interface {
 		developer_normalized_email Developer_NormalizedEmail_Field) (
 		rows []*Developer, err error)
 
+	All_NodeSmartContractUpdates(ctx context.Context) (
+		rows []*NodeSmartContractUpdates, err error)
+
+	All_NodeSmartContractUpdates_By_Wallet(ctx context.Context,
+		node_smart_contract_updates_wallet NodeSmartContractUpdates_Wallet_Field) (
+		rows []*NodeSmartContractUpdates, err error)
+
 	All_NodeTags(ctx context.Context) (
 		rows []*NodeTags, err error)
 
@@ -33494,6 +33910,13 @@ type Methods interface {
 	CreateNoReturn_BillingBalance(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field,
 		billing_balance_balance BillingBalance_Balance_Field) (
+		err error)
+
+	CreateNoReturn_NodeSmartContractUpdates(ctx context.Context,
+		node_smart_contract_updates_id NodeSmartContractUpdates_Id_Field,
+		node_smart_contract_updates_wallet NodeSmartContractUpdates_Wallet_Field,
+		node_smart_contract_updates_message NodeSmartContractUpdates_Message_Field,
+		node_smart_contract_updates_message_type NodeSmartContractUpdates_MessageType_Field) (
 		err error)
 
 	CreateNoReturn_OauthClient(ctx context.Context,
