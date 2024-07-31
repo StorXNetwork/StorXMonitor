@@ -209,23 +209,12 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var expiry time.Time
-	if expiryStr := r.URL.Query().Get("expiry"); expiryStr != "" {
-		var err error
-		expiry, err = time.Parse(time.DateTime, expiryStr)
-		if err != nil {
-			keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid expiry query param"))
-			return
-		}
-	}
 	var prefix *grant.SharePrefix
-	if prefixStr := r.URL.Query().Get("prefix"); prefixStr != "" {
-		bucketStr := r.URL.Query().Get("bucket")
-		if bucketStr == "" {
-			keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing bucket query param"))
-			return
-		}
+	var permission *grant.Permission
+	if bucketStr := r.URL.Query().Get("bucket"); bucketStr != "" {
+		prefixStr := r.URL.Query().Get("prefix")
 		prefix = &grant.SharePrefix{Prefix: prefixStr, Bucket: bucketStr}
+		permission = createPermissionFromRequest(r)
 	}
 
 	projectID, ok := mux.Vars(r)["project_id"]
@@ -246,15 +235,34 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessGrantStr, err := keys.createAccessGrantForProject(ctx, id, passphrase, prefix, expiry, parsedAPIKey)
+	accessGrantStr, err := keys.createAccessGrantForProject(ctx, id, passphrase, prefix, permission, parsedAPIKey)
 	err = json.NewEncoder(w).Encode(accessGrantStr)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
 
+func createPermissionFromRequest(r *http.Request) *grant.Permission {
+	out := &grant.Permission{}
+	out.AllowDownload = r.URL.Query().Has("allow_download")
+	out.AllowUpload = r.URL.Query().Has("allow_upload")
+	out.AllowList = r.URL.Query().Has("allow_list")
+	out.AllowDelete = r.URL.Query().Has("allow_delete")
+	out.NotBefore = time.Now()
+
+	if expiryStr := r.URL.Query().Get("expiry"); expiryStr != "" {
+		expiry, err := time.Parse(time.DateTime, expiryStr)
+		if err != nil {
+			return nil
+		}
+		out.NotAfter = expiry
+	}
+
+	return out
+}
+
 func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string,
-	prefix *grant.SharePrefix, expiry time.Time, apiKey *macaroon.APIKey) (string, error) {
+	prefix *grant.SharePrefix, permission *grant.Permission, apiKey *macaroon.APIKey) (string, error) {
 
 	salt, err := keys.service.GetSalt(ctx, projectID)
 	if err != nil {
@@ -280,26 +288,14 @@ func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID 
 	}
 
 	if prefix == nil {
-		if !expiry.IsZero() {
-			return "", errs.New("expiry can't be set without prefix")
+		if permission == nil {
+			return "", errs.New("prefix and permission are both nil")
 		}
 		return g.Serialize()
 	}
 
-	permission := grant.Permission{
-		AllowDownload: true,
-		AllowUpload:   false,
-		AllowList:     true,
-		AllowDelete:   false,
-		NotBefore:     time.Now(),
-	}
-
-	if !expiry.IsZero() {
-		permission.NotAfter = expiry
-	}
-
 	restricted, err := g.Restrict(
-		permission,
+		*permission,
 		*prefix,
 	)
 	if err != nil {
@@ -372,7 +368,7 @@ func (keys *APIKeys) GetAccessGrantForDeveloper(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	accessGrantStr, err := keys.createAccessGrantForProject(ctxWithUser, project.ID, registerData.Passphrase, nil, time.Time{}, apiKey)
+	accessGrantStr, err := keys.createAccessGrantForProject(ctxWithUser, project.ID, registerData.Passphrase, nil, nil, apiKey)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
