@@ -204,17 +204,27 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	passphrase := r.URL.Query().Get("passphrase")
-	if passphrase == "" {
-		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing passphrase query param"))
-		return
-	}
 
-	var prefix *grant.SharePrefix
+	var prefix []grant.SharePrefix
 	var permission *grant.Permission
 	if bucketStr := r.URL.Query().Get("bucket"); bucketStr != "" {
-		prefixStr := r.URL.Query().Get("prefix")
-		prefix = &grant.SharePrefix{Prefix: prefixStr, Bucket: bucketStr}
+		if strings.Contains(bucketStr, ",") {
+			bucketNames := strings.Split(bucketStr, ",")
+			for _, bucketName := range bucketNames {
+				prefix = append(prefix, grant.SharePrefix{Prefix: "", Bucket: bucketName})
+			}
+		} else if bucketStr == "all" {
+			prefix = []grant.SharePrefix{{Prefix: "", Bucket: ""}}
+		} else {
+			prefixStr := r.URL.Query().Get("prefix")
+			prefix = []grant.SharePrefix{{Prefix: prefixStr, Bucket: bucketStr}}
+		}
+
 		permission = createPermissionFromRequest(r)
+		if permission == nil {
+			keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing permission query param"))
+			return
+		}
 	}
 
 	projectID, ok := mux.Vars(r)["project_id"]
@@ -236,6 +246,10 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accessGrantStr, err := keys.createAccessGrantForProject(ctx, id, passphrase, prefix, permission, parsedAPIKey)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
 	err = json.NewEncoder(w).Encode(accessGrantStr)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
@@ -243,6 +257,11 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 }
 
 func createPermissionFromRequest(r *http.Request) *grant.Permission {
+	if !r.URL.Query().Has("allow_download") && !r.URL.Query().Has("allow_upload") &&
+		!r.URL.Query().Has("allow_list") && !r.URL.Query().Has("allow_delete") && r.URL.Query().Get("expiry") == "" {
+		return nil
+	}
+
 	out := &grant.Permission{}
 	out.AllowDownload = r.URL.Query().Has("allow_download")
 	out.AllowUpload = r.URL.Query().Has("allow_upload")
@@ -262,7 +281,7 @@ func createPermissionFromRequest(r *http.Request) *grant.Permission {
 }
 
 func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string,
-	prefix *grant.SharePrefix, permission *grant.Permission, apiKey *macaroon.APIKey) (string, error) {
+	prefix []grant.SharePrefix, permission *grant.Permission, apiKey *macaroon.APIKey) (string, error) {
 
 	salt, err := keys.service.GetSalt(ctx, projectID)
 	if err != nil {
@@ -287,19 +306,20 @@ func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID 
 		EncAccess:        encAccess,
 	}
 
-	if prefix == nil {
-		if permission == nil {
-			return "", errs.New("prefix and permission are both nil")
-		}
+	if len(prefix) == 0 && permission == nil {
 		return g.Serialize()
+	}
+
+	if permission == nil {
+		return "", fmt.Errorf("permission is required when prefix is provided")
 	}
 
 	restricted, err := g.Restrict(
 		*permission,
-		*prefix,
+		prefix...,
 	)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to restrict access: %v", err)
 	}
 
 	return restricted.Serialize()
