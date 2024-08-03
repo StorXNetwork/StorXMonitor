@@ -7,6 +7,8 @@ echo -n "Build timestamp: "
 TIMESTAMP=$(date +%s)
 echo $TIMESTAMP
 
+git config --global --add safe.directory /go/src/storj.io/storj
+
 echo -n "Git commit: "
 if [[ "$(git diff --stat)" != '' ]] || [[ -n "$(git status -s)" ]]; then
   echo "Changes detected, building a development version"
