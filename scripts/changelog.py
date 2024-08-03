@@ -18,7 +18,7 @@ class Section(Enum):
     UPLINK = "Uplink"
 
 
-GITHUB_LINK = "[{0}](https://github.com/storj/storj/commit/{0})"
+GITHUB_LINK = "[{0}](https://github.com/StorXNetwork/StorXMonitor/commit/{0})"
 
 
 def git_ref_field(from_ref, to_ref):

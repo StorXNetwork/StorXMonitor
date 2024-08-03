@@ -3,7 +3,8 @@
 
 set -euo pipefail
 
-apps="identity uplink storagenode multinode"
+# apps="identity uplink storagenode multinode"
+apps="identity" # for now we just need identity so we can comment out the rest
 
 TAG="${1-}"
 
@@ -20,7 +21,8 @@ echo "Drafting release"
 current_release_version=$(echo "$TAG" | cut -d '.' -f 1-2)
 previous_release_version=$(git describe --tags $(git rev-list --exclude='*rc*' --exclude=$current_release_version* --tags --max-count=1))
 changelog=$(python3 -W "ignore" scripts/changelog.py "$previous_release_version" "$TAG" 2>&1)
-github-release release --user princeparmar --repo StorXMonitor --tag "$TAG" --description "$changelog" --draft
+echo "creating release for $TAG with changelog: $changelog"
+github-release release --user StorXNetwork --repo StorXMonitor --tag "$TAG" --description "$changelog" --draft
 
 echo "Sleep 10 seconds in order to wait for release propagation"
 sleep 10
@@ -28,7 +30,7 @@ sleep 10
 echo "Uploading binaries to release draft"
 for app in $apps; do
   for file in "$FOLDER/$app"*.zip; do
-    github-release upload --user princeparmar --repo StorXMonitor --tag "$TAG" --name $(basename "$file") --file "$file"
+    github-release upload --user StorXNetwork --repo StorXMonitor --tag "$TAG" --name $(basename "$file") --file "$file"
   done
 done
 echo "Drafting release done"
