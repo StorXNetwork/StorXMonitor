@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -124,7 +125,7 @@ func (w *web3Helper) GeneralContractMethod(ctx context.Context, addr common.Addr
 }
 
 func (w *web3Helper) AddStaker(ctx context.Context, address string, reputation int64) error {
-
+	address = updateAddress(address)
 	err := w.GeneralContractMethod(ctx, w.reputationContractAddr, "addStaker", common.HexToAddress(address), big.NewInt(reputation))
 	if err != nil {
 		return fmt.Errorf("error in GeneralContractMethod with addStaker: %v", err)
@@ -134,6 +135,7 @@ func (w *web3Helper) AddStaker(ctx context.Context, address string, reputation i
 }
 
 func (w *web3Helper) PushReputation(ctx context.Context, address string, reputation int64) error {
+	address = updateAddress(address)
 	err := w.GeneralContractMethod(ctx, w.reputationContractAddr, "setReputation", common.HexToAddress(address), big.NewInt(reputation))
 	if err != nil {
 		return fmt.Errorf("error in GeneralContractMethod with setReputation: %v", err)
@@ -146,6 +148,8 @@ func (w *web3Helper) IsStaker(ctx context.Context, address string) (bool, error)
 	if w == nil {
 		return false, fmt.Errorf("web3Helper is nil")
 	}
+
+	address = updateAddress(address)
 
 	callData, err := w.abi.Pack("isStaker", common.HexToAddress(address))
 	if err != nil {
@@ -179,6 +183,18 @@ func (w *web3Helper) IsStaker(ctx context.Context, address string) (bool, error)
 
 	return isStaker, nil
 
+}
+
+func updateAddress(address string) string {
+	if strings.HasPrefix(address, "0x") {
+		return address
+	}
+
+	if strings.HasPrefix(address, "xdc") {
+		return "0x" + address[3:]
+	}
+
+	return "0x" + address
 }
 
 func getContractABI(abiFile io.Reader) (abi.ABI, error) {
