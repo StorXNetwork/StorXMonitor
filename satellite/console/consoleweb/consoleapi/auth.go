@@ -555,8 +555,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	// Create Default Project - Munjal - 1/Oct/2023
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", &customeExpiry)
 	//require.NoError(t, err)
-	a.log.Error("Token Info:")
-	a.log.Error(tokenInfo.Token.String())
+	a.log.Info("Token Info", zap.Any("TokenInfo", tokenInfo.Token.String()))
 
 	// Set up a test project and bucket
 
@@ -2477,26 +2476,27 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Create Default Project - Munjal - 1/Oct/2023
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
-	//require.NoError(t, err)
-	a.log.Error("Token Info:")
-	a.log.Error(tokenInfo.Token.String())
+	// tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+	// //require.NoError(t, err)
+	// a.log.Error("Token Info:")
+	// a.log.Error(tokenInfo.Token.String())
 
-	// Set up a test project and bucket
+	// // Set up a test project and bucket
 
-	authed := console.WithUser(ctx, &user)
+	// authed := console.WithUser(ctx, &user)
 
-	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
-	})
-	//require.NoError(t, err)
-	if err != nil {
-		a.log.Error("Error in Default Project:")
-		a.log.Error(err.Error())
-		a.serveJSONError(ctx, w, err)
-	}
+	// project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+	// 	Name: "My Project",
+	// })
+	// //require.NoError(t, err)
+	// if err != nil {
+	// 	a.log.Error("Error in Default Project:")
+	// 	a.log.Error(err.Error())
+	// 	a.serveJSONError(ctx, w, err)
+	// 	return
+	// }
 
-	a.log.Error("Default Project Name: " + project.Name)
+	// a.log.Error("Default Project Name: " + project.Name)
 	//a.log.Error(project.Name)
 	/*
 		bucketID, err := uuid.New()
