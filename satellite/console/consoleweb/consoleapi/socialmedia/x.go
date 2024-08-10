@@ -50,6 +50,23 @@ func GetXUser(ctx context.Context, code string, codeVerifier string, t string, z
 	return &user, nil
 }
 
+func GetXUserFromAuthCode(ctx context.Context, token string) (*XUser, error) {
+	client := (&oauth2.Config{}).Client(ctx, &oauth2.Token{
+		AccessToken: token,
+		TokenType:   "bearer",
+	})
+
+	userInfo, err := client.Get("https://api.twitter.com/2/users/me")
+	if err != nil {
+		return nil, err
+	}
+	var user XUser
+	if err := json.NewDecoder(userInfo.Body).Decode(&user); err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func RedirectURL(t string, r *http.Request) (string, error) {
 	cnf := GetConfig()
 	state, err := EncodeState(nil)

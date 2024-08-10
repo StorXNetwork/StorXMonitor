@@ -455,7 +455,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context, auditHistoryType str
 			SuspensionScore: stats.Audit.UnknownScore,
 			OnlineScore:     stats.OnlineScore,
 			SatelliteName:   url.Address,
-			Alpha:           roundFloat(stats.Audit.Alpha/10, 2),
+			Alpha:           roundFloat(stats.Audit.Alpha*5, 2), // multiply reputation by 5 to match it with smart contract.
 		})
 
 		auditHistory = reputation.GetAuditHistoryFromPB(stats.AuditHistory)
