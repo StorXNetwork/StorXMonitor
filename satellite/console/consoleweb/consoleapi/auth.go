@@ -27,6 +27,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 
+	"golang.org/x/oauth2"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
@@ -2048,6 +2049,175 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 }
 
+func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	authToken := r.URL.Query().Get("auth_token")
+
+	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
+	if r.URL.Query().Has("zoho-insert") {
+		OAuth2Config.RedirectURL += "?zoho-insert"
+	}
+
+	client := OAuth2Config.Client(context.TODO(), &oauth2.Token{
+		AccessToken: authToken,
+		TokenType:   "bearer",
+	})
+	req, err := http.NewRequest("GET", "https://api.linkedin.com/v2/userinfo", nil)
+
+	if err != nil {
+		a.SendResponse(w, r, "Error creating request to LinkedIn", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+	req.Header.Set("Bearer", authToken)
+	response, err := client.Do(req)
+
+	if err != nil {
+		a.SendResponse(w, r, "Error getting user details from LinkedIn", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+	defer response.Body.Close()
+	str, err := io.ReadAll(response.Body)
+	if err != nil {
+		a.SendResponse(w, r, "Error reading LinkedIn response body", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	var LinkedinUserDetails socialmedia.LinkedinUserDetails
+	err = json.Unmarshal(str, &LinkedinUserDetails)
+	if err != nil {
+		a.SendResponse(w, r, "Error unmarshalling LinkedIn response", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	// reqOps, err := socialmedia.GetReqOptions(state)
+	// if err != nil {
+	// 	a.log.Error("Error getting request options", zap.Error(err))
+	// }
+	// if r.URL.Query().Has("zoho-insert") {
+	// 	a.log.Debug("inserting lead in Zoho CRM")
+	// 	// Inserting lead in Zoho CRM
+	// 	go zohoInsertLead(context.Background(), LinkedinUserDetails.Name, LinkedinUserDetails.Email, a.log, reqOps)
+	// }
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, LinkedinUserDetails.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	var user *console.User
+	if verified != nil {
+		satelliteAddress := a.ExternalAddress
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: verified.Email}},
+			&console.AccountAlreadyExistsEmail{
+				Origin:            satelliteAddress,
+				SatelliteName:     a.SatelliteName,
+				SignInLink:        satelliteAddress + "login",
+				ResetPasswordLink: satelliteAddress + "forgot-password",
+				CreateAccountLink: satelliteAddress + "signup",
+			},
+		)
+
+		a.SendResponse(w, r, "You are already registered!", fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL))
+		return
+	} else {
+		if len(unverified) > 0 {
+			user = &unverified[0]
+		} else {
+			secret, err := console.RegistrationSecretFromBase64("")
+			if err != nil {
+				a.SendResponse(w, r, "Error creating secret", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				return
+			}
+
+			ip, err := web.GetRequestIP(r)
+			if err != nil {
+				a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				return
+			}
+
+			user, err = a.service.CreateUser(ctx,
+				console.CreateUser{
+					FullName:  LinkedinUserDetails.Name,
+					ShortName: LinkedinUserDetails.GivenName,
+					Email:     LinkedinUserDetails.Email,
+					Status:    1,
+					IP:        ip,
+					Source:    "Linkedin",
+				},
+				secret, true,
+			)
+
+			if err != nil {
+				a.SendResponse(w, r, "Error creating user", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				return
+			}
+			referrer := r.URL.Query().Get("referrer")
+			if referrer == "" {
+				referrer = r.Referer()
+			}
+			hubspotUTK := ""
+			hubspotCookie, err := r.Cookie("hubspotutk")
+			if err == nil {
+				hubspotUTK = hubspotCookie.Value
+			}
+
+			trackCreateUserFields := analytics.TrackCreateUserFields{
+				ID:           user.ID,
+				AnonymousID:  loadSession(r),
+				FullName:     user.FullName,
+				Email:        user.Email,
+				Type:         analytics.Personal,
+				OriginHeader: r.Header.Get("Origin"),
+				Referrer:     referrer,
+				HubspotUTK:   hubspotUTK,
+				UserAgent:    string(user.UserAgent),
+			}
+			if user.IsProfessional {
+				trackCreateUserFields.Type = analytics.Professional
+				trackCreateUserFields.EmployeeCount = user.EmployeeCount
+				trackCreateUserFields.CompanyName = user.CompanyName
+				// trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+				trackCreateUserFields.JobTitle = user.Position
+				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+			}
+			a.analytics.TrackCreateUser(trackCreateUserFields)
+		}
+	}
+
+	// a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
+
+	// Set up a test project and bucket
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+
+	if err != nil {
+		a.log.Error("Error in Default Project:")
+		a.log.Error(err.Error())
+		a.SendResponse(w, r, "Error creating default project", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+
+	// login
+	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
+	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
+}
+
 func (a *Auth) HandleLinkedInLogin(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
@@ -2079,6 +2249,64 @@ func (a *Auth) HandleLinkedInLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Header.Set("Bearer", token.AccessToken)
+	response, err := client.Do(req)
+
+	if err != nil {
+		a.SendResponse(w, r, "Error getting user details from LinkedIn", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+	defer response.Body.Close()
+	str, err := io.ReadAll(response.Body)
+	if err != nil {
+		a.SendResponse(w, r, "Error reading LinkedIn response body", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
+	var LinkedinUserDetails socialmedia.LinkedinUserDetails
+	err = json.Unmarshal(str, &LinkedinUserDetails)
+	if err != nil {
+		a.SendResponse(w, r, "Error unmarshalling LinkedIn response", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, LinkedinUserDetails.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+	fmt.Println(verified, unverified)
+
+	if verified == nil {
+		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
+
+	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
+}
+
+func (a *Auth) HandleLinkedInLoginWithAuthToken(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var authToken = r.FormValue("auth_token")
+
+	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Login()
+
+	client := OAuth2Config.Client(context.TODO(), &oauth2.Token{
+		AccessToken: authToken,
+		TokenType:   "bearer",
+	})
+	req, err := http.NewRequest("GET", "https://api.linkedin.com/v2/userinfo", nil)
+
+	if err != nil {
+		a.SendResponse(w, r, "Error creating request to LinkedIn", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+	req.Header.Set("Bearer", authToken)
 	response, err := client.Do(req)
 
 	if err != nil {
