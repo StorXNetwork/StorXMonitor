@@ -2327,6 +2327,11 @@ func (a *Auth) HandleLinkedInLoginWithAuthToken(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if LinkedinUserDetails.Email == "" {
+		a.SendResponse(w, r, "Email not found in LinkedIn response "+string(str), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, LinkedinUserDetails.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
