@@ -1067,6 +1067,11 @@ func (a *Auth) HandleXLoginWithAuthToken(w http.ResponseWriter, r *http.Request)
 	defer mon.Task()(&ctx)(&err)
 
 	authToken := r.URL.Query().Get("auth_token")
+	if authToken == "" {
+		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
 	userI, err := socialmedia.GetXUserFromAuthCode(ctx, authToken)
 	if err != nil {
 		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
@@ -1238,6 +1243,10 @@ func (a *Auth) HandleXRegisterWithAuthToken(w http.ResponseWriter, r *http.Reque
 	defer mon.Task()(&ctx)(&err)
 
 	authToken := r.URL.Query().Get("auth_token")
+	if authToken == "" {
+		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
 	userI, err := socialmedia.GetXUserFromAuthCode(ctx, authToken)
 	if err != nil {
 		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
@@ -2056,6 +2065,10 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	defer mon.Task()(&ctx)(&err)
 
 	authToken := r.URL.Query().Get("auth_token")
+	if authToken == "" {
+		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
 
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
 	if r.URL.Query().Has("zoho-insert") {
@@ -2292,7 +2305,11 @@ func (a *Auth) HandleLinkedInLoginWithAuthToken(w http.ResponseWriter, r *http.R
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var authToken = r.FormValue("auth_token")
+	var authToken = r.URL.Query().Get("auth_token")
+	if authToken == "" {
+		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
 
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Login()
 
