@@ -2335,7 +2335,7 @@ func (a *Auth) HandleLinkedInLoginWithAuthToken(w http.ResponseWriter, r *http.R
 	fmt.Println(verified, unverified)
 
 	if verified == nil {
-		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.SendResponse(w, r, "Your email id ("+LinkedinUserDetails.Email+") is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
