@@ -3,6 +3,7 @@ package socialmedia
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	pcke "github.com/nirasan/go-oauth-pkce-code-verifier"
@@ -64,6 +65,11 @@ func GetXUserFromAuthCode(ctx context.Context, token string) (*XUser, error) {
 	if err := json.NewDecoder(userInfo.Body).Decode(&user); err != nil {
 		return nil, err
 	}
+
+	if user.Data.Username == "" {
+		return nil, fmt.Errorf("something went wrong")
+	}
+
 	return &user, nil
 }
 
