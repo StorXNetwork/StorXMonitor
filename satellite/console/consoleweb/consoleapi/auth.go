@@ -1074,7 +1074,7 @@ func (a *Auth) HandleXLoginWithAuthToken(w http.ResponseWriter, r *http.Request)
 
 	userI, err := socialmedia.GetXUserFromAuthCode(ctx, authToken)
 	if err != nil {
-		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		a.SendResponse(w, r, "Error code verifier loading failed"+err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code verifier loading failed", http.StatusTemporaryRedirect)
 		return
 	}
