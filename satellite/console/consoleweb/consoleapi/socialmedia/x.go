@@ -48,6 +48,11 @@ func GetXUser(ctx context.Context, code string, codeVerifier string, t string, z
 	if err := json.NewDecoder(userInfo.Body).Decode(&user); err != nil {
 		return nil, err
 	}
+
+	if user.Data.Username == "" {
+		return nil, fmt.Errorf("something went wrong")
+	}
+
 	return &user, nil
 }
 

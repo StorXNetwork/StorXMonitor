@@ -134,6 +134,10 @@ func GetGoogleUser(access_token string, id_token string) (*GoogleUserResult, err
 		return nil, err
 	}
 
+	if GoogleUserRes.Email == "" {
+		return nil, errors.New("could not retrieve user details from google")
+	}
+
 	userBody := &GoogleUserResult{
 		Id:             GoogleUserRes.Id,
 		Email:          GoogleUserRes.Email,

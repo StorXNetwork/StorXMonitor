@@ -1923,6 +1923,11 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if LinkedinUserDetails.Email == "" {
+		a.SendResponse(w, r, "Email not found in LinkedIn response", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
 	reqOps, err := socialmedia.GetReqOptions(state)
 	if err != nil {
 		a.log.Error("Error getting request options", zap.Error(err))
@@ -2106,6 +2111,11 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 		return
 	}
 
+	if LinkedinUserDetails.Email == "" {
+		a.SendResponse(w, r, "Email not found in LinkedIn response "+string(str), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
 	// reqOps, err := socialmedia.GetReqOptions(state)
 	// if err != nil {
 	// 	a.log.Error("Error getting request options", zap.Error(err))
@@ -2238,13 +2248,7 @@ func (a *Auth) HandleLinkedInLogin(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var state = r.FormValue("state")
 	var code = r.FormValue("code")
-
-	if state != socialmedia.GetRandomOAuthStateString() {
-		a.SendResponse(w, r, "State mismatch", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-		return
-	}
 
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Login()
 	token, err := OAuth2Config.Exchange(context.TODO(), code)
@@ -2279,6 +2283,11 @@ func (a *Auth) HandleLinkedInLogin(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(str, &LinkedinUserDetails)
 	if err != nil {
 		a.SendResponse(w, r, "Error unmarshalling LinkedIn response", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
+	if LinkedinUserDetails.Email == "" {
+		a.SendResponse(w, r, "Email not found in LinkedIn response", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
 

@@ -70,6 +70,10 @@ func ParseToken(tokenStr string) (*TokenDetails, error) {
 		return nil, fmt.Errorf("error unmarshalling payload: %v", err)
 	}
 
+	if tokenDetails.Sub == "" {
+		return nil, fmt.Errorf("sub field is empty")
+	}
+
 	return &tokenDetails, nil
 }
 func GetRegisterToken(code, codeVerifier string, zohoInsert bool) (*UnstoppableResponse, error) {
