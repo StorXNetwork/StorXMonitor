@@ -2158,7 +2158,7 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 			)
 
 			if err != nil {
-				a.SendResponse(w, r, "Error creating user", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				a.SendResponse(w, r, "Error creating user "+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				return
 			}
 			referrer := r.URL.Query().Get("referrer")
