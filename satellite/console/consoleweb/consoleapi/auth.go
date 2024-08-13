@@ -998,11 +998,11 @@ func (a *Auth) InitXRegister(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 	requestUrl, err := socialmedia.RedirectURL("r", r)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating state!", http.StatusTemporaryRedirect)
-
+		a.SendResponse(w, r, "Error creating state!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
-	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
+
+	a.SendResponse(w, r, "", requestUrl)
 }
 
 func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
@@ -1012,10 +1012,10 @@ func (a *Auth) InitXLogin(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 	requestUrl, err := socialmedia.RedirectURL("login", r)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error creating state!", http.StatusTemporaryRedirect)
+		a.SendResponse(w, r, "Error creating state!", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
-	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
+	a.SendResponse(w, r, "", requestUrl)
 }
 
 func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
@@ -1036,45 +1036,6 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "login", r.URL.Query().Has("zoho-insert"))
 	if err != nil {
 		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code verifier loading failed", http.StatusTemporaryRedirect)
-		return
-	}
-
-	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
-
-	if err != nil && !console.ErrEmailNotFound.Has(err) {
-		a.SendResponse(w, r, "Error getting user details from system!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
-		return
-	}
-
-	if verified == nil {
-		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Your email id is not registered", http.StatusTemporaryRedirect)
-		return
-	}
-
-	a.TokenGoogleWrapper(r.Context(), userI.Data.Username+"@no-email.com", w, r)
-	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
-	// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, mainPageURL), http.StatusTemporaryRedirect)
-}
-
-func (a *Auth) HandleXLoginWithAuthToken(w http.ResponseWriter, r *http.Request) {
-	cnf := socialmedia.GetConfig()
-
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	authToken := r.URL.Query().Get("auth_token")
-	if authToken == "" {
-		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-		return
-	}
-
-	userI, err := socialmedia.GetXUserFromAuthCode(ctx, authToken)
-	if err != nil {
-		a.SendResponse(w, r, "Error code verifier loading failed"+err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code verifier loading failed", http.StatusTemporaryRedirect)
 		return
 	}
@@ -1176,117 +1137,6 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 					IP:        ip,
 					Source:    "Twitter",
 					UtmParams: utmParams,
-				},
-				secret, true,
-			)
-
-			if err != nil {
-				a.SendResponse(w, r, "Error creating user", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-				return
-			}
-
-			referrer := r.URL.Query().Get("referrer")
-			if referrer == "" {
-				referrer = r.Referer()
-			}
-			hubspotUTK := ""
-			hubspotCookie, err := r.Cookie("hubspotutk")
-			if err == nil {
-				hubspotUTK = hubspotCookie.Value
-			}
-
-			trackCreateUserFields := analytics.TrackCreateUserFields{
-				ID:           user.ID,
-				AnonymousID:  loadSession(r),
-				FullName:     user.FullName,
-				Email:        user.Email,
-				Type:         analytics.Personal,
-				OriginHeader: r.Header.Get("Origin"),
-				Referrer:     referrer,
-				HubspotUTK:   hubspotUTK,
-				UserAgent:    string(user.UserAgent),
-			}
-			if user.IsProfessional {
-				trackCreateUserFields.Type = analytics.Professional
-				trackCreateUserFields.EmployeeCount = user.EmployeeCount
-				trackCreateUserFields.CompanyName = user.CompanyName
-				//trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
-				trackCreateUserFields.JobTitle = user.Position
-				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
-			}
-			a.analytics.TrackCreateUser(trackCreateUserFields)
-		}
-	}
-
-	a.TokenGoogleWrapper(ctx, userI.Data.Username+"@no-email.com", w, r)
-
-	authed := console.WithUser(ctx, user)
-
-	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
-	})
-	if err != nil {
-		a.log.Error("Error in Default Project:")
-		a.log.Error(err.Error())
-		a.SendResponse(w, r, "Error creating default project", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-
-	a.log.Info("Default Project Name: " + project.Name)
-	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
-}
-
-func (a *Auth) HandleXRegisterWithAuthToken(w http.ResponseWriter, r *http.Request) {
-	cnf := socialmedia.GetConfig()
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	authToken := r.URL.Query().Get("auth_token")
-	if authToken == "" {
-		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-	userI, err := socialmedia.GetXUserFromAuthCode(ctx, authToken)
-	if err != nil {
-		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, userI.Data.Username+"@no-email.com")
-
-	if err != nil && !console.ErrEmailNotFound.Has(err) {
-		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-
-	var user *console.User
-	if verified != nil {
-		a.SendResponse(w, r, "You are already registered!", fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL))
-		return
-	} else {
-		if len(unverified) > 0 {
-			user = &unverified[0]
-		} else {
-			ip, err := web.GetRequestIP(r)
-			if err != nil {
-				a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-				return
-			}
-			secret, err := console.RegistrationSecretFromBase64("")
-			if err != nil {
-				a.SendResponse(w, r, "Error creating secret", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-				return
-			}
-
-			user, err = a.service.CreateUser(ctx,
-				console.CreateUser{
-					FullName:  userI.Data.Name,
-					ShortName: userI.Data.Username,
-					Email:     userI.Data.Username + "@no-email.com",
-					Status:    1,
-					IP:        ip,
-					Source:    "Twitter",
 				},
 				secret, true,
 			)

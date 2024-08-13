@@ -95,9 +95,13 @@ func RedirectURL(t string, r *http.Request) (string, error) {
 		ClientSecret: cnf.XClientSecret,
 		RedirectURL:  cnf.XSignupRedirectURL,
 		Scopes:       []string{"users.read", "offline.access", "tweet.read"},
-		Endpoint:     oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token", AuthURL: "https://twitter.com/i/oauth2/authorize", AuthStyle: oauth2.AuthStyleAutoDetect},
+		Endpoint: oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token",
+			AuthURL:   "https://twitter.com/i/oauth2/authorize",
+			AuthStyle: oauth2.AuthStyleAutoDetect},
 	}
-	if t == "login" {
+	if r.URL.Query().Has("mobile") {
+		conf.RedirectURL = "storx://"
+	} else if t == "login" {
 		conf.RedirectURL = cnf.XLoginRedirectURL
 	}
 

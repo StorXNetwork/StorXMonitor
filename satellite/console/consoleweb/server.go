@@ -396,10 +396,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/loginbutton_unstoppabledomain", authController.InitUnstoppableDomainLogin)
 
 	router.Handle("/x_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegister))).Methods(http.MethodGet, http.MethodOptions)
-	router.Handle("/x_register/mobile", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegisterWithAuthToken))).Methods(http.MethodGet, http.MethodOptions)
 	router.Handle("/x_register/zoho", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegisterZoho))).Methods(http.MethodGet, http.MethodOptions)
 	router.Handle("/x_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXLogin))).Methods(http.MethodGet, http.MethodOptions)
-	router.Handle("/x_login/mobile", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXLoginWithAuthToken))).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/registerbutton_x", authController.InitXRegister)
 	router.HandleFunc("/loginbutton_x", authController.InitXLogin)
 
