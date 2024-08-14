@@ -1035,7 +1035,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "login", r)
 	if err != nil {
-		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		a.SendResponse(w, r, "Error code verifier loading failed "+err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code verifier loading failed", http.StatusTemporaryRedirect)
 		return
 	}
@@ -1081,7 +1081,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "r", r)
 	if err != nil {
-		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.SendResponse(w, r, "Error code verifier loading failed "+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
