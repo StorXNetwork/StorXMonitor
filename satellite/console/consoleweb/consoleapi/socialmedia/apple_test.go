@@ -1,0 +1,17 @@
+package socialmedia
+
+import (
+	"context"
+	"testing"
+)
+
+func Test_GetAppleUser(t *testing.T) {
+	v, err := GetAppleUser(context.TODO(), "eyJraWQiOiJUOHRJSjF6U3JPIiwiYWxnIjoiUlMyNTYifQ.eyJpc3MiOiJodHRwczovL2FwcGxlaWQuYXBwbGUuY29tIiwiYXVkIjoiY29tLnN0b3J4aW8iLCJleHAiOjE3MjM3MDIzOTIsImlhdCI6MTcyMzYxNTk5Miwic3ViIjoiMDAwMDk5LmNjZDMyNDFjODkyZTRiZDM5Y2EyNjVmNDIzNTEzNzcxLjA2MTIiLCJjX2hhc2giOiJrZ2ttMXhFMDd3VkdPclRHS0l2QUtRIiwiZW1haWwiOiJjaXJrbGVzdHVkaW9hcHBsZUBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXV0aF90aW1lIjoxNzIzNjE1OTkyLCJub25jZV9zdXBwb3J0ZWQiOnRydWV9.DHLstp7vE9m41yYQqyvun-L0e79tRPhWjx0bsz8BAbbmDk9Euojwq0M4EAmMY94uNVVJhUvpaHIiXz2VPZtEfhB1X__ACnzw6FKO7IfyuLPrR5cV8h1oh0IK_uJYVYQHk4CBMp42V4Vy6roKOoduAtnPVaTIMn0IyCPoYa5lLKXZi-2sJnbgcxCIiw4gs3tdq6_4nFhkNwrDSgymu73OlMnTfSuUjvs-INnOpJ4C7F6-meND2UTNscvDixfw43RWQ7KtXX9BI54xIRglXAv7fVwPACM6PvjRNL6ftRmEHt5gn82blXyiCVaENasJkGrWflHlovBmpd1mEyDoQ2mAQ")
+
+	if err != nil {
+		t.Fatalf("failed to get Apple user: %v", err)
+	}
+
+	t.Logf("Apple user: %v", v)
+
+}

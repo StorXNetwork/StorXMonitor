@@ -1383,6 +1383,161 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
 
+func (a *Auth) HandleAppleRegister(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	idToken := r.URL.Query().Get("id_token")
+	if idToken == "" {
+		a.SendResponse(w, r, "Error reading body", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	responseBody, err := socialmedia.GetAppleUser(ctx, idToken)
+	if err != nil {
+		a.SendResponse(w, r, "Error reading body", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, responseBody.Email)
+
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	var user *console.User
+	if verified != nil {
+		a.SendResponse(w, r, "You are already registered!", fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL))
+		return
+	} else {
+		if len(unverified) > 0 {
+			user = &unverified[0]
+		} else {
+			ip, err := web.GetRequestIP(r)
+			if err != nil {
+				a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				return
+			}
+			secret, err := console.RegistrationSecretFromBase64("")
+			if err != nil {
+				a.SendResponse(w, r, "Error creating secret", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				return
+			}
+
+			user, err = a.service.CreateUser(ctx,
+				console.CreateUser{
+					FullName:  responseBody.Email,
+					ShortName: responseBody.Email,
+					Email:     responseBody.Email,
+					//UserAgent:        registerData.UserAgent,
+					//Password:         registerData.Password,
+					Status: 1,
+					//IsProfessional:   registerData.IsProfessional,
+					//Position:         registerData.Position,
+					//CompanyName:      registerData.CompanyName,
+					//EmployeeCount:    registerData.EmployeeCount,
+					//HaveSalesContact: registerData.HaveSalesContact,
+					IP: ip,
+					//SignupPromoCode:  registerData.SignupPromoCode,
+					Source: "Apple",
+				},
+				secret, true,
+			)
+
+			if err != nil {
+				a.SendResponse(w, r, "Error creating user", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				return
+			}
+
+			referrer := r.URL.Query().Get("referrer")
+			if referrer == "" {
+				referrer = r.Referer()
+			}
+			hubspotUTK := ""
+			hubspotCookie, err := r.Cookie("hubspotutk")
+			if err == nil {
+				hubspotUTK = hubspotCookie.Value
+			}
+
+			trackCreateUserFields := analytics.TrackCreateUserFields{
+				ID:           user.ID,
+				AnonymousID:  loadSession(r),
+				FullName:     user.FullName,
+				Email:        user.Email,
+				Type:         analytics.Personal,
+				OriginHeader: r.Header.Get("Origin"),
+				Referrer:     referrer,
+				HubspotUTK:   hubspotUTK,
+				UserAgent:    string(user.UserAgent),
+			}
+			if user.IsProfessional {
+				trackCreateUserFields.Type = analytics.Professional
+				trackCreateUserFields.EmployeeCount = user.EmployeeCount
+				trackCreateUserFields.CompanyName = user.CompanyName
+				//trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+				trackCreateUserFields.JobTitle = user.Position
+				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+			}
+			a.analytics.TrackCreateUser(trackCreateUserFields)
+		}
+	}
+
+	a.TokenGoogleWrapper(ctx, responseBody.Email, w, r)
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	if err != nil {
+		a.log.Error("Error in Default Project:")
+		a.log.Error(err.Error())
+		a.SendResponse(w, r, "Error creating default project", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
+}
+
+func (a *Auth) LoginUserApple(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	idToken := r.URL.Query().Get("id_token")
+	if idToken == "" {
+		a.SendResponse(w, r, "Invalid token", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	responseBody, err := socialmedia.GetAppleUser(ctx, idToken)
+	if err != nil {
+		a.SendResponse(w, r, "Error reading body", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, responseBody.Email)
+
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	if verified == nil {
+		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	a.TokenGoogleWrapper(r.Context(), responseBody.Email, w, r)
+	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
+}
+
 func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
