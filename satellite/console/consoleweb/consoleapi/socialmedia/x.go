@@ -17,7 +17,7 @@ type XUser struct {
 	} `json:"data"`
 }
 
-func GetXUser(ctx context.Context, code string, codeVerifier string, t string, zohoInsert bool) (*XUser, error) {
+func GetXUser(ctx context.Context, code string, codeVerifier string, t string, r *http.Request) (*XUser, error) {
 	cnf := GetConfig()
 	conf := &oauth2.Config{
 		ClientID:     cnf.XClientID,
@@ -26,12 +26,17 @@ func GetXUser(ctx context.Context, code string, codeVerifier string, t string, z
 		Scopes:       []string{"users.read", "offline.access", "tweet.read"},
 		Endpoint:     oauth2.Endpoint{TokenURL: "https://api.twitter.com/2/oauth2/token", AuthURL: "https://twitter.com/i/oauth2/authorize", AuthStyle: oauth2.AuthStyleAutoDetect},
 	}
-	if t == "login" {
-		conf.RedirectURL = cnf.XLoginRedirectURL
-	}
 
-	if zohoInsert {
-		conf.RedirectURL += "/zoho"
+	if r.URL.Query().Has("mobile") {
+		conf.RedirectURL = "storx://"
+	} else {
+		if t == "login" {
+			conf.RedirectURL = cnf.XLoginRedirectURL
+		}
+
+		if r.URL.Query().Has("zoho-insert") {
+			conf.RedirectURL += "/zoho"
+		}
 	}
 	token, err := conf.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 	if err != nil {
@@ -101,12 +106,13 @@ func RedirectURL(t string, r *http.Request) (string, error) {
 	}
 	if r.URL.Query().Has("mobile") {
 		conf.RedirectURL = "storx://"
-	} else if t == "login" {
-		conf.RedirectURL = cnf.XLoginRedirectURL
-	}
-
-	if r.URL.Query().Has("zoho-insert") {
-		conf.RedirectURL += "/zoho"
+	} else {
+		if t == "login" {
+			conf.RedirectURL = cnf.XLoginRedirectURL
+		}
+		if r.URL.Query().Has("zoho-insert") {
+			conf.RedirectURL += "/zoho"
+		}
 	}
 
 	requestUrl := conf.AuthCodeURL(state,

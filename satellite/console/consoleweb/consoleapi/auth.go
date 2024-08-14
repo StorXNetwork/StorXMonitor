@@ -1033,7 +1033,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error="+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
-	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "login", r.URL.Query().Has("zoho-insert"))
+	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "login", r)
 	if err != nil {
 		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code verifier loading failed", http.StatusTemporaryRedirect)
@@ -1079,7 +1079,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 		a.SendResponse(w, r, err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
-	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "r", r.URL.Query().Has("zoho-insert"))
+	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "r", r)
 	if err != nil {
 		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
