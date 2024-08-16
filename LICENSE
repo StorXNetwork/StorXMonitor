@@ -99,27 +99,6 @@ definition files associated with source files and the source code for shared
 libraries or dynamically linked subprograms specifically required by the
 work. For a work in source code form, Corresponding Source is the same work.
 
-                            Attribution
-  a. When redistributing the Software or derivative works, you must include
-a prominent notice that credits both the original repository and the forked
-version. The notice must include:
-    ● The name of the original repository located at
-    https://github.com/storj
-    ● The URL or reference to the original repository
-    https://github.com/storj
-    ● The name of this forked repository
-    ● The URL or reference to the forked repository
-    ● A statement that the Software is licensed under this License and
-    includes a copy of this License.
-
-  b. Licensee may make as many copies of the Source code as necessary for it
-to use the Source code as licensed. Each public copy of the Source code made
-by the Licensee must expressly mention the original and forked repository
-and contain the same copyright and other notices that appear on this
-repository.
-  c. Any public fork or modification must include an acknowledgement of the
-original and the forked repository.
-
                             Grant of License
   a. Upon continuous compliance with the terms and conditions of this License,
 the licensor hereby grants You a non-exclusive, non-transferable, royalty-
@@ -590,6 +569,27 @@ not limit the Licensor's right to enforce the same at a later time.
   c. All rights and remedies of the Licensor under this agreement are
 cumulative and are in addition to, and not in lieu of, any other rights and
 remedies available to the Licensor at law or in equity.
+
+                            Attribution
+  a. When redistributing the Software or derivative works, you must include
+a prominent notice that credits both the original repository and the forked
+version. The notice must include:
+    ● The name of the original repository located at
+    https://github.com/storj
+    ● The URL or reference to the original repository
+    https://github.com/storj
+    ● The name of this forked repository
+    ● The URL or reference to the forked repository
+    ● A statement that the Software is licensed under this License and
+    includes a copy of this License.
+
+  b. Licensee may make as many copies of the Source code as necessary for it
+to use the Source code as licensed. Each public copy of the Source code made
+by the Licensee must expressly mention the original and forked repository
+and contain the same copyright and other notices that appear on this
+repository.
+  c. Any public fork or modification must include an acknowledgement of the
+original and the forked repository.
 
                           Complete Agreement
   a. This agreement (including any addendum or amendment to this agreement
