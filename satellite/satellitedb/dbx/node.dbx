@@ -136,6 +136,18 @@ model node (
 
     // features is a bitmask of pb.NodeAddress_Feature values.
     field features int ( updatable, default 0 )
+
+    // isp show in which isp node is hosted
+    field isp text ( updatable, nullable )
+
+    // location is the location of the node.
+    field location text ( updatable, nullable )
+
+    // stack is the stack amount of the node.
+    field stack int ( updatable, default 0 )
+
+    // inactive is set then we will not send reputation data to smart contract.
+    field inactive bool ( updatable, default false )
 )
 
 update node ( where node.id = ? )

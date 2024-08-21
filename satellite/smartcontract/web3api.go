@@ -182,7 +182,50 @@ func (w *web3Helper) IsStaker(ctx context.Context, address string) (bool, error)
 	}
 
 	return isStaker, nil
+}
 
+func (w *web3Helper) GetReputation(ctx context.Context, address string) (int64, error) {
+	if w == nil {
+		return 0, fmt.Errorf("web3Helper is nil")
+	}
+
+	address = updateAddress(address)
+
+	callData, err := w.abi.Pack("getReputation", common.HexToAddress(address))
+	if err != nil {
+		return 0, fmt.Errorf("error packing method call: %v", err)
+	}
+
+	callMsg := ethereum.CallMsg{
+		To:   &w.reputationContractAddr,
+		Data: callData,
+	}
+
+	gasLimit, err := w.client.EstimateGas(ctx, callMsg)
+	if err != nil {
+		return 0, fmt.Errorf("error estimating gas: %v", err)
+	}
+	callMsg.Gas = gasLimit
+
+	// b, _ := json.Marshal(callMsg)
+	// fmt.Println(string(b))
+
+	result, err := w.client.CallContract(ctx, callMsg, nil)
+	if err != nil {
+		return 0, fmt.Errorf("error calling contract: %v and result (%s)", err, string(result))
+	}
+
+	var r *big.Int
+	err = w.abi.UnpackIntoInterface(&r, "getReputation", result)
+	if err != nil {
+		return 0, fmt.Errorf("failed to unpack result in get reputation: %v", err)
+	}
+
+	if r == nil {
+		return 0, fmt.Errorf("reputation is nil")
+	}
+
+	return r.Int64(), nil
 }
 
 func updateAddress(address string) string {

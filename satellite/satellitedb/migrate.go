@@ -2798,6 +2798,21 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						);`,
 				},
 			},
+			{
+				/* 	isp text,
+				location text,
+				stack integer NOT NULL DEFAULT 0,
+				inactive boolean NOT NULL DEFAULT false, */
+				DB:          &db.migrationDB,
+				Description: "add new columns isp, location, stack, inactive in node table",
+				Version:     273,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN isp text;`,
+					`ALTER TABLE nodes ADD COLUMN location text;`,
+					`ALTER TABLE nodes ADD COLUMN stack integer NOT NULL DEFAULT 0;`,
+					`ALTER TABLE nodes ADD COLUMN inactive boolean NOT NULL DEFAULT false;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

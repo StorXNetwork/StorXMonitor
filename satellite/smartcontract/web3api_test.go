@@ -15,7 +15,7 @@ func Test_Web3API(t *testing.T) {
 	fmt.Println("Running test for Web3API")
 
 	var (
-		testNodeAddress        = "0x0123456789012345678905555567890123000789"
+		testNodeAddress        = "0x40265b46f8da9a8071a69097595437e97972acf7"
 		networkRPC             = "https://erpc.xinfin.network" // Updated with proper URL
 		reputationContractAddr = "0x5DB64839828174D2D29B419E5581C16C67D62046"
 		nounceAddr             = "0xe50d5fc9bcbce037a19c860ba4105548d42517a0"                       // Replace this with the address of the account that will be used to send the transaction
@@ -59,4 +59,12 @@ func Test_Web3API(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	fmt.Println("Getting reputation")
+	reputation, err := h.GetReputation(context.Background(), testNodeAddress)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println("Reputation: ", reputation)
 }

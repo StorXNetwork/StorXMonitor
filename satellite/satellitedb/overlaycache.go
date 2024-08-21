@@ -472,7 +472,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 			(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
 			false AS disqualified,
 			exit_initiated_at IS NOT NULL AS exiting,
-			false AS exited, 
+			false AS exited,
 			vetted_at IS NOT NULL AS vetted
 		FROM nodes
 			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
@@ -1368,7 +1368,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				major, minor, patch, hash, timestamp, release,
 				last_ip_port, wallet_features, country_code,
 				noise_proto, noise_public_key, debounce_limit,
-				features
+				features, inactive
 			)
 			VALUES (
 				$1, $2, $3, $4,
@@ -1382,7 +1382,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				$9, $10, $11, $12, $13, $14,
 				$16, $17, $18,
 				$21, $22, $23,
-				$24
+				$24, true
 			)
 			ON CONFLICT (id)
 			DO UPDATE

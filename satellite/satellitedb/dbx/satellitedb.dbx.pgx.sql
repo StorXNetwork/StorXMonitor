@@ -178,6 +178,10 @@ CREATE TABLE nodes (
 	noise_public_key bytea,
 	debounce_limit integer NOT NULL DEFAULT 0,
 	features integer NOT NULL DEFAULT 0,
+	isp text,
+	location text,
+	stack integer NOT NULL DEFAULT 0,
+	inactive boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
