@@ -15,6 +15,7 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -174,6 +175,15 @@ var (
 
 	// ErrLoginRestricted occurs when a user with PendingBotVerification or LegalHold status tries to log in.
 	ErrLoginRestricted = errs.Class("user can't be authenticated")
+
+	// ErrInvalidUserDetails occurs when basic detail of the users are not as per expectation.
+	ErrInvalidUserDetails = errs.Class("invalid user details")
+)
+
+// Validation Regex
+var (
+	Regex_EmailValidation = regexp.MustCompile(`^([a-zA-Z0-9._%-+]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$`)
+	Regex_NameValidation  = regexp.MustCompile(`^(?:(?:[a-zA-z,\.-]+)\s*){2,6}$`)
 )
 
 // Service is handling accounts related logic.
@@ -939,6 +949,15 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+	}
+
+	// patern validation for user details
+	if !Regex_NameValidation.Match([]byte(user.FullName)) {
+		return nil, ErrInvalidUserDetails.New("invalid full name")
+	}
+
+	if !Regex_EmailValidation.Match([]byte(user.Email)) {
+		return nil, ErrInvalidUserDetails.New("invalid user email")
 	}
 
 	status := Inactive
