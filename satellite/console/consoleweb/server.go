@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
+	"storj.io/storj/satellite/console/consoleweb/staticapi"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -576,6 +577,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/activation", server.accountActivationHandler)
 	router.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 	router.Handle("/contactus", server.withCORS(http.HandlerFunc(server.handleContactUs)))
+	router.Handle("/payment-plans", server.withCORS(http.HandlerFunc(staticapi.HandlePaymentPlans)))
+	router.Handle("/blog-list", server.withCORS(http.HandlerFunc(staticapi.HandleBlogList)))
+	router.Handle("/user-guideline-html", server.withCORS(http.HandlerFunc(staticapi.HandleUserGuideline)))
 
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))

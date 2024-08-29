@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Basic",
+    "offer": "20",
+    "offer_unit": "GB",
+    "price": "9.99",
+    "price_unit": "USD /per month",
+    "benefit": [
+      "End to End Encryption",
+      "Private File Sharing",
+      "50 GB Bandwidth",
+      "Email Support"
+    ]
+  }
+]
