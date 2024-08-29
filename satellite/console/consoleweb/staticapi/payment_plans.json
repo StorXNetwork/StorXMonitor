@@ -1,5 +1,17 @@
 [
   {
+    "name": "Welcome",
+    "offer": "2",
+    "offer_unit": "GB",
+    "price": "0",
+    "price_unit": "Start For Free",
+    "benefit": [
+      "End to End Encryption",
+      "Private File Sharing",
+      "5 GB Bandwidth"
+    ]
+  },
+  {
     "name": "Basic",
     "offer": "20",
     "offer_unit": "GB",
@@ -9,6 +21,32 @@
       "End to End Encryption",
       "Private File Sharing",
       "50 GB Bandwidth",
+      "Email Support"
+    ]
+  },
+  {
+    "name": "Professional",
+    "offer": "50",
+    "offer_unit": "GB",
+    "price": "29.99",
+    "price_unit": "USD /per month",
+    "benefit": [
+      "End to End Encryption",
+      "Private File Sharing",
+      "250 GB Bandwidth",
+      "Email Support"
+    ]
+  },
+  {
+    "name": "Small Business",
+    "offer": "100",
+    "offer_unit": "GB",
+    "price": "49.99",
+    "price_unit": "USD /per month",
+    "benefit": [
+      "End to End Encryption",
+      "Private File Sharing",
+      "500 GB Bandwidth",
       "Email Support"
     ]
   }
