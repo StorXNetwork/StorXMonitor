@@ -1,53 +1,186 @@
-[
-  {
-    "name": "Welcome",
-    "offer": "2",
-    "offer_unit": "GB",
-    "price": "0",
-    "price_unit": "Start For Free",
-    "benefit": [
-      "End to End Encryption",
-      "Private File Sharing",
-      "5 GB Bandwidth"
-    ]
-  },
-  {
-    "name": "Basic",
-    "offer": "20",
-    "offer_unit": "GB",
-    "price": "9.99",
-    "price_unit": "USD /per month",
-    "benefit": [
-      "End to End Encryption",
-      "Private File Sharing",
-      "50 GB Bandwidth",
-      "Email Support"
-    ]
-  },
-  {
-    "name": "Professional",
-    "offer": "50",
-    "offer_unit": "GB",
-    "price": "29.99",
-    "price_unit": "USD /per month",
-    "benefit": [
-      "End to End Encryption",
-      "Private File Sharing",
-      "250 GB Bandwidth",
-      "Email Support"
-    ]
-  },
-  {
-    "name": "Small Business",
-    "offer": "100",
-    "offer_unit": "GB",
-    "price": "49.99",
-    "price_unit": "USD /per month",
-    "benefit": [
-      "End to End Encryption",
-      "Private File Sharing",
-      "500 GB Bandwidth",
-      "Email Support"
-    ]
-  }
-]
+{
+  "crypto_modes": [
+    "SRX",
+    "XDC",
+    "USDT"
+  ],
+  "group": [
+    {
+      "name": "Individual",
+      "plans": [
+        {
+          "name": "Welcome",
+          "storage": {
+            "value": 2,
+            "unit": "GB"
+          },
+          "price": {
+            "value": 0,
+            "unit": "USD"
+          },
+          "benefit": [
+            "End to End Encryption",
+            "Private File Sharing",
+            "5 GB Bandwidth"
+          ],
+          "validity": {
+            "value": -1,
+            "unit": "month"
+          }
+        },
+        {
+          "name": "Basic",
+          "storage": {
+            "value": 20,
+            "unit": "GB"
+          },
+          "price": {
+            "value": 9.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "End to End Encryption",
+            "Private File Sharing",
+            "50 GB Bandwidth",
+            "Email Support"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "month"
+          }
+        },
+        {
+          "name": "Professional",
+          "storage": {
+            "value": 50,
+            "unit": "GB"
+          },
+          "price": {
+            "value": 29.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "End to End Encryption",
+            "Private File Sharing",
+            "250 GB Bandwidth",
+            "Email Support"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "month"
+          }
+        },
+        {
+          "name": "Small Business",
+          "storage": {
+            "value": 100,
+            "unit": "GB"
+          },
+          "price": {
+            "value": 49.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "End to End Encryption",
+            "Private File Sharing",
+            "500 GB Bandwidth",
+            "Email Support"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "month"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Enterprise",
+      "plans": [
+        {
+          "name": "Starter",
+          "storage": {
+            "value": 500,
+            "unit": "GB"
+          },
+          "price": {
+            "value": 59.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "End to End Encryption",
+            "Private File Sharing",
+            "5 TB Bandwidth",
+            "Email Support"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "month"
+          }
+        },
+        {
+          "name": "Standard",
+          "storage": {
+            "value": 1,
+            "unit": "TB"
+          },
+          "price": {
+            "value": 79.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "End to End Encryption",
+            "Private File Sharing",
+            "10 TB Bandwidth",
+            "Email Support"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "month"
+          }
+        },
+        {
+          "name": "Professional",
+          "storage": {
+            "value": 5,
+            "unit": "TB"
+          },
+          "price": {
+            "value": 99.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "End to End Encryption",
+            "Private File Sharing",
+            "25 TB Bandwidth",
+            "Email Support"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "month"
+          }
+        },
+        {
+          "name": "Enterprise",
+          "storage": {
+            "value": 10,
+            "unit": "TB"
+          },
+          "price": {
+            "value": 149.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "End to End Encryption",
+            "Private File Sharing",
+            "100 TB Bandwidth",
+            "Email Support"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "month"
+          }
+        }
+      ]
+    }
+  ]
+}
