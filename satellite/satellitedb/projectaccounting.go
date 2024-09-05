@@ -1040,6 +1040,129 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	return page, nil
 }
 
+// GetBucketTotalsForReservedBuckets returns the bucket usage for the reserved buckets.
+func (db *ProjectAccounting) GetBucketTotalsForReservedBuckets(ctx context.Context, projectID uuid.UUID) (_ []accounting.BucketUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	reservedBuckets := []string{
+		"gmail",
+		"google-drive",
+		"google-cloud",
+		"google-photos",
+		"dropbox",
+		"aws-s3",
+		"github",
+		"shopify",
+		"quickbooks",
+	}
+
+	bucketsQuery := db.db.Rebind(`SELECT name, versioning, placement, created_at FROM bucket_metainfos
+	WHERE project_id = ? AND name IN (?) ORDER BY name ASC`)
+
+	args := []interface{}{
+		projectID[:],
+		reservedBuckets,
+	}
+
+	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
+
+	type bucketWithCreationDate struct {
+		name       string
+		versioning satbuckets.Versioning
+		placement  storj.PlacementConstraint
+		createdAt  time.Time
+	}
+
+	var buckets []bucketWithCreationDate
+	for bucketRows.Next() {
+		var (
+			bucket     string
+			versioning satbuckets.Versioning
+			placement  storj.PlacementConstraint
+			createdAt  time.Time
+		)
+		err = bucketRows.Scan(&bucket, &versioning, &placement, &createdAt)
+		if err != nil {
+			return nil, err
+		}
+
+		buckets = append(buckets, bucketWithCreationDate{
+			name:       bucket,
+			versioning: versioning,
+			placement:  placement,
+			createdAt:  createdAt,
+		})
+	}
+	if err := bucketRows.Err(); err != nil {
+		return nil, err
+	}
+
+	rollupsQuery := db.db.Rebind(`SELECT COALESCE(SUM(settled) + SUM(inline), 0)
+		FROM bucket_bandwidth_rollups
+		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ? AND action = ?`)
+
+	storageQuery := db.db.Rebind(`SELECT total_bytes, inline, remote, object_count, total_segments_count
+		FROM bucket_storage_tallies
+		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
+		ORDER BY interval_start DESC
+		LIMIT 1`)
+
+	before := time.Now()
+
+	var bucketUsages []accounting.BucketUsage
+	for _, bucket := range buckets {
+		bucketUsage := accounting.BucketUsage{
+			ProjectID:        projectID,
+			BucketName:       bucket.name,
+			Versioning:       bucket.versioning,
+			DefaultPlacement: bucket.placement,
+			Since:            bucket.createdAt,
+			Before:           before,
+		}
+
+		// get bucket_bandwidth_rollups
+		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucket.name), bucket.createdAt, before, pb.PieceAction_GET)
+
+		var egress int64
+		err = rollupRow.Scan(&egress)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return nil, err
+			}
+		}
+
+		bucketUsage.Egress = memory.Size(egress).GB()
+
+		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucket.name), bucket.createdAt, before)
+
+		var tally accounting.BucketStorageTally
+		var inline, remote int64
+		err = storageRow.Scan(&tally.TotalBytes, &inline, &remote, &tally.ObjectCount, &tally.TotalSegmentCount)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return nil, err
+			}
+		}
+
+		if tally.TotalBytes == 0 {
+			tally.TotalBytes = inline + remote
+		}
+
+		// fill storage and object count
+		bucketUsage.Storage = memory.Size(tally.Bytes()).GB()
+		bucketUsage.SegmentCount = tally.TotalSegmentCount
+		bucketUsage.ObjectCount = tally.ObjectCount
+
+		bucketUsages = append(bucketUsages, bucketUsage)
+	}
+
+	return bucketUsages, nil
+}
+
 // ArchiveRollupsBefore archives rollups older than a given time.
 func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (archivedCount int, err error) {
 	defer mon.Task()(&ctx)(&err)

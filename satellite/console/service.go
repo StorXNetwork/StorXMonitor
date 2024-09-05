@@ -3688,6 +3688,37 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 	return usage, nil
 }
 
+// GetBucketTotals retrieves paged bucket total usages since project creation.
+func (s *Service) GetBucketTotalsForReserveBucket(ctx context.Context, projectID uuid.UUID) (_ []accounting.BucketUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get bucket totals", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	usage, err := s.projectAccounting.GetBucketTotalsForReservedBuckets(ctx, isMember.project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if usage == nil {
+		return usage, nil
+	}
+
+	for i := range usage {
+		placementID := usage[i].DefaultPlacement
+		usage[i].Location = s.placements[placementID].Name
+	}
+
+	return usage, nil
+}
+
 // GetAllBucketNames retrieves all bucket names of a specific project.
 // projectID here may be Project.ID or Project.PublicID.
 func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {

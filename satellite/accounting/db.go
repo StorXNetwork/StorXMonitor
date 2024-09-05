@@ -292,6 +292,8 @@ type ProjectAccounting interface {
 	GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*BucketUsageRollup, error)
 	// GetBucketTotals returns per bucket total usage summary since bucket creation.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error)
+	// GetBucketTotalsForReservedBuckets returns per buckt total usage summary.
+	GetBucketTotalsForReservedBuckets(ctx context.Context, projectID uuid.UUID) ([]BucketUsage, error)
 	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.
 	ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (numArchivedBucketBW int, err error)
 	// GetRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
