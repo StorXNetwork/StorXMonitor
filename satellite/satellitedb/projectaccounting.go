@@ -1044,24 +1044,12 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 func (db *ProjectAccounting) GetBucketTotalsForReservedBuckets(ctx context.Context, projectID uuid.UUID) (_ []accounting.BucketUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	reservedBuckets := []string{
-		"gmail",
-		"google-drive",
-		"google-cloud",
-		"google-photos",
-		"dropbox",
-		"aws-s3",
-		"github",
-		"shopify",
-		"quickbooks",
-	}
-
 	bucketsQuery := db.db.Rebind(`SELECT name, versioning, placement, created_at FROM bucket_metainfos
-	WHERE project_id = ? AND name IN (?) ORDER BY name ASC`)
+	WHERE project_id = ? AND name IN ('gmail', 'google-drive', 'google-cloud', 'google-photos', 'dropbox', 'aws-s3', 'github', 'shopify', 'quickbooks')
+	ORDER BY name ASC`)
 
 	args := []interface{}{
 		projectID[:],
-		reservedBuckets,
 	}
 
 	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, args...)
