@@ -240,6 +240,10 @@ func (b *Buckets) GetBucketTotalsForReservedBucket(w http.ResponseWriter, r *htt
 		return
 	}
 
+	if totals == nil {
+		totals = []accounting.BucketUsage{}
+	}
+
 	err = json.NewEncoder(w).Encode(totals)
 	if err != nil {
 		b.log.Error("failed to write json bucket totals response", zap.Error(ErrBucketsAPI.Wrap(err)))
