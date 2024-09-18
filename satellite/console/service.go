@@ -2175,6 +2175,28 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	return nil
 }
 
+// UpdateAccountInfo updates User's basic infor'
+func (s *Service) UpdateAccountInfo(ctx context.Context, updateinfo *UpdateUserSocialMediaLinks) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "update account")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		SocialLinkedin: updateinfo.SocialLinkedin,
+		SocialTwitter:  updateinfo.SocialTwitter,
+		SocialFacebook: updateinfo.SocialFacebook,
+		SocialGithub:   updateinfo.SocialGithub,
+		WalletID:       updateinfo.WalletID,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // UpdateAccount updates Developer.
 func (s *Service) UpdateAccountDeveloper(ctx context.Context, fullName string) (err error) {
 	defer mon.Task()(&ctx)(&err)

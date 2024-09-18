@@ -293,6 +293,13 @@ type User struct {
 	UtmCampaign string `json:"utmCampaign"`
 	UtmTerm     string `json:"utmTerm"`
 	UtmContent  string `json:"utmContent"`
+
+	SocialLinkedin string `json:"socialLinkedin"`
+	SocialTwitter  string `json:"socialTwitter"`
+	SocialFacebook string `json:"socialFacebook"`
+	SocialGithub   string `json:"socialGithub"`
+
+	WalletId string `json:"walletId"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -374,6 +381,22 @@ type UpdateUserRequest struct {
 	TrialExpiration    **time.Time
 	TrialNotifications *TrialNotificationStatus
 	UpgradeTime        *time.Time
+
+	SocialLinkedin *string `json:"socialLinkedin"`
+	SocialTwitter  *string `json:"socialTwitter"`
+	SocialFacebook *string `json:"socialFacebook"`
+	SocialGithub   *string `json:"socialGithub"`
+
+	WalletID *string `json:"walletId"`
+}
+
+type UpdateUserSocialMediaLinks struct {
+	SocialLinkedin *string `json:"socialLinkedin"`
+	SocialTwitter  *string `json:"socialTwitter"`
+	SocialFacebook *string `json:"socialFacebook"`
+	SocialGithub   *string `json:"socialGithub"`
+
+	WalletID *string `json:"walletId"`
 }
 
 // UserSettings contains configurations for a user.

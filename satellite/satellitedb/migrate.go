@@ -2813,6 +2813,23 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN inactive boolean NOT NULL DEFAULT false;`,
 				},
 			},
+			{
+				// social_linkedin text,
+				// social_twitter text,
+				// social_facebook text,
+				// social_github text,
+				// wallet_id text,
+				DB:          &db.migrationDB,
+				Description: "add new columns social_linkedin, social_twitter, social_facebook, social_github, wallet_id in users table",
+				Version:     274,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN social_linkedin text;`,
+					`ALTER TABLE users ADD COLUMN social_twitter text;`,
+					`ALTER TABLE users ADD COLUMN social_facebook text;`,
+					`ALTER TABLE users ADD COLUMN social_github text;`,
+					`ALTER TABLE users ADD COLUMN wallet_id text;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

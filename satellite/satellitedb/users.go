@@ -870,6 +870,22 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 		update.UpgradeTime = dbx.User_UpgradeTime(*request.UpgradeTime)
 	}
 
+	if request.SocialLinkedin != nil {
+		update.SocialLinkedin = dbx.User_SocialLinkedin(*request.SocialLinkedin)
+	}
+	if request.SocialTwitter != nil {
+		update.SocialTwitter = dbx.User_SocialTwitter(*request.SocialTwitter)
+	}
+	if request.SocialFacebook != nil {
+		update.SocialFacebook = dbx.User_SocialFacebook(*request.SocialFacebook)
+	}
+	if request.SocialGithub != nil {
+		update.SocialGithub = dbx.User_SocialGithub(*request.SocialGithub)
+	}
+	if request.WalletID != nil {
+		update.WalletId = dbx.User_WalletId(*request.WalletID)
+	}
+
 	return &update, nil
 }
 
@@ -913,6 +929,26 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		SignupCaptcha:         user.SignupCaptcha,
 		TrialExpiration:       user.TrialExpiration,
 		UpgradeTime:           user.UpgradeTime,
+	}
+
+	if user.SocialLinkedin != nil {
+		result.SocialLinkedin = *user.SocialLinkedin
+	}
+
+	if user.SocialTwitter != nil {
+		result.SocialTwitter = *user.SocialTwitter
+	}
+
+	if user.SocialFacebook != nil {
+		result.SocialFacebook = *user.SocialFacebook
+	}
+
+	if user.SocialGithub != nil {
+		result.SocialGithub = *user.SocialGithub
+	}
+
+	if user.WalletId != nil {
+		result.WalletId = *user.WalletId
 	}
 
 	if user.DefaultPlacement != nil {

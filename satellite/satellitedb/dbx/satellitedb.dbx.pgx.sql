@@ -535,6 +535,11 @@ CREATE TABLE users (
 	utm_campaign text,
 	utm_term text,
 	utm_content text,
+	social_linkedin text,
+	social_twitter text,
+	social_facebook text,
+	social_github text,
+	wallet_id text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE user_settings (

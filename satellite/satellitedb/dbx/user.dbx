@@ -105,6 +105,13 @@ model user (
     field utm_term text ( nullable )
     // utm_content is the registration source from which the user was created.
     field utm_content text ( nullable )
+
+    field social_linkedin text ( updatable, nullable )
+    field social_twitter text ( updatable, nullable )
+    field social_facebook text ( updatable, nullable )
+    field social_github text ( updatable, nullable )
+
+    field wallet_id text ( updatable, nullable )
 )
 
 create user ( )

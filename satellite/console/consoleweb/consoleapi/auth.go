@@ -2578,6 +2578,38 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UpdateAccount updates user's full name and short name.
+func (a *Auth) UpdateAccountInfo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updatedInfo struct {
+		SocialLinkedin *string `json:"socialLinkedin"`
+		SocialTwitter  *string `json:"socialTwitter"`
+		SocialFacebook *string `json:"socialFacebook"`
+		SocialGithub   *string `json:"socialGithub"`
+
+		WalletID *string `json:"walletId"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&updatedInfo)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if err = a.service.UpdateAccountInfo(ctx, &console.UpdateUserSocialMediaLinks{
+		SocialLinkedin: updatedInfo.SocialLinkedin,
+		SocialTwitter:  updatedInfo.SocialTwitter,
+		SocialFacebook: updatedInfo.SocialFacebook,
+		SocialGithub:   updatedInfo.SocialGithub,
+		WalletID:       updatedInfo.WalletID,
+	}); err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+}
+
 // SetupAccount updates user's full name and short name.
 func (a *Auth) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -2625,6 +2657,13 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		PendingVerification   bool       `json:"pendingVerification"`
 		TrialExpiration       *time.Time `json:"trialExpiration"`
 		HasVarPartner         bool       `json:"hasVarPartner"`
+
+		SocialLinkedin string `json:"socialLinkedin"`
+		SocialTwitter  string `json:"socialTwitter"`
+		SocialFacebook string `json:"socialFacebook"`
+		SocialGithub   string `json:"socialGithub"`
+
+		WalletId string `json:"walletId"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -2655,6 +2694,13 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.CreatedAt = consoleUser.CreatedAt
 	user.PendingVerification = consoleUser.Status == console.PendingBotVerification
 	user.TrialExpiration = consoleUser.TrialExpiration
+
+	user.SocialLinkedin = consoleUser.SocialLinkedin
+	user.SocialTwitter = consoleUser.SocialTwitter
+	user.SocialFacebook = consoleUser.SocialFacebook
+	user.SocialGithub = consoleUser.SocialGithub
+	user.WalletId = consoleUser.WalletId
+
 	user.HasVarPartner, err = a.service.GetUserHasVarPartner(ctx)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
