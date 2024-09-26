@@ -2658,6 +2658,8 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		TrialExpiration       *time.Time `json:"trialExpiration"`
 		HasVarPartner         bool       `json:"hasVarPartner"`
 
+		LoginToken string `json:"loginToken"`
+
 		SocialLinkedin string `json:"socialLinkedin"`
 		SocialTwitter  string `json:"socialTwitter"`
 		SocialFacebook string `json:"socialFacebook"`
@@ -2705,6 +2707,11 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
+	}
+
+	token, err := r.Cookie("_tokenKey")
+	if err == nil {
+		user.LoginToken = token.Value
 	}
 
 	w.Header().Set("Content-Type", "application/json")
