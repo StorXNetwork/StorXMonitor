@@ -303,6 +303,21 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	}
 	process.Info.Pid = cmd.Process.Pid
 
+	f, err := os.Create(filepath.Join(process.Directory, process.Executable+"_pid.txt"))
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString(strconv.Itoa(process.Info.Pid) + "\n" +
+		process.Info.Address + "\n" +
+		process.Info.Directory + "\n" +
+		process.Info.Name + "\n" +
+		process.Info.ID + "\n" +
+		process.Info.Executable)
+	if err != nil {
+		return err
+	}
+
 	if command == "setup" || process.Address == "" {
 		// during setup we aren't starting the addresses, so we can release the dependencies immediately
 		process.Status.Started.Release()
