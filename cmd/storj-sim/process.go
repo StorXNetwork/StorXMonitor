@@ -318,6 +318,8 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		return err
 	}
 
+	_ = f.Close()
+
 	if command == "setup" || process.Address == "" {
 		// during setup we aren't starting the addresses, so we can release the dependencies immediately
 		process.Status.Started.Release()
