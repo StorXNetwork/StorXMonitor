@@ -303,7 +303,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	}
 	process.Info.Pid = cmd.Process.Pid
 
-	f, err := os.Create(filepath.Join(process.Directory, process.Name+"_pid.txt"))
+	f, err := os.Create(filepath.Join(process.Directory, "_pid.txt"))
 	if err != nil {
 		return err
 	}
