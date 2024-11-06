@@ -118,19 +118,20 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 		}
 
 		if isStaker {
-			if reputation.Inactive {
-				repValFromSmartContract, err := worker.connector.GetReputation(ctx, reputation.Wallet)
-				if err != nil {
-					worker.log.Error("failed to get reputation from smart contract", zap.Error(err))
-					worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to get reputation from smart contract: %v", err))
-					continue
-				}
+			// all nodes upgraded to mainnet should have their reputation updated on smart contract
+			// if reputation.Inactive {
+			// 	repValFromSmartContract, err := worker.connector.GetReputation(ctx, reputation.Wallet)
+			// 	if err != nil {
+			// 		worker.log.Error("failed to get reputation from smart contract", zap.Error(err))
+			// 		worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to get reputation from smart contract: %v", err))
+			// 		continue
+			// 	}
 
-				if repValFromSmartContract == 0 {
-					worker.log.Info("inactive node", zap.String("wallet", reputation.Wallet))
-					continue
-				}
-			}
+			// 	if repValFromSmartContract == 0 {
+			// 		worker.log.Info("inactive node", zap.String("wallet", reputation.Wallet))
+			// 		continue
+			// 	}
+			// }
 
 			worker.log.Info("pushing reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
 			err = worker.connector.PushReputation(ctx, reputation.Wallet, reputationVal)
