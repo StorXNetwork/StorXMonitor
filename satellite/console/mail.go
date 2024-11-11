@@ -108,7 +108,7 @@ type StorageUsageEmail struct {
 
 // Template returns the template name for storage usage reminder emails.
 func (e *StorageUsageEmail) Template() string {
-	return "storageUsageReminder"
+	return "StorageUsageReminder"
 }
 
 // Subject returns the storage usage reminder email subject.
