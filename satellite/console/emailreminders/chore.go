@@ -33,8 +33,6 @@ type Config struct {
 	ChoreInterval                  time.Duration `help:"how often to send reminders to users who need to verify their email" default:"24h"`
 	EnableTrialExpirationReminders bool          `help:"enable sending emails about trial expirations" default:"false"`
 	Enable                         bool          `help:"enable sending emails reminding users to verify their email" default:"true"`
-	StorageUsageReminder           time.Duration `help:"amount of time before sending storage usage reminder" default:"168h"`       // 7 days
-	StorageUsageThreshold          int64         `help:"storage usage threshold in bytes to trigger reminder" default:"1000000000"` // 1GB
 	EnableStorageUsageReminders    bool          `help:"enable sending emails about storage usage" default:"true"`
 }
 
