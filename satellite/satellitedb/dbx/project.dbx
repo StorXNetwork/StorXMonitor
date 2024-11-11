@@ -46,6 +46,9 @@ model project (
     // salt is used for salting the user passphrase for the content.
     field salt                              blob      ( nullable )
 
+    // storage_used_percentage is storage used percentage for the project
+    field storage_used_percentage  float64   ( updatable, default 0 )
+
     // created_at indicates when the project was created.
     field created_at                        timestamp ( autoinsert, updatable )
 

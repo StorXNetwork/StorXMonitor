@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/storj/private/post"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -32,6 +33,9 @@ type Config struct {
 	ChoreInterval                  time.Duration `help:"how often to send reminders to users who need to verify their email" default:"24h"`
 	EnableTrialExpirationReminders bool          `help:"enable sending emails about trial expirations" default:"false"`
 	Enable                         bool          `help:"enable sending emails reminding users to verify their email" default:"true"`
+	StorageUsageReminder           time.Duration `help:"amount of time before sending storage usage reminder" default:"168h"`       // 7 days
+	StorageUsageThreshold          int64         `help:"storage usage threshold in bytes to trigger reminder" default:"1000000000"` // 1GB
+	EnableStorageUsageReminders    bool          `help:"enable sending emails about storage usage" default:"true"`
 }
 
 // Chore checks whether any emails need to be re-sent.
@@ -49,10 +53,12 @@ type Chore struct {
 	supportURL         string
 	scheduleMeetingURL string
 	useBlockingSend    bool
+	liveAccounting     accounting.Cache
+	projectsDB         console.Projects
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.Users, mailservice *mailservice.Service, config Config, address, supportURL, scheduleMeetingURL string) *Chore {
+func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.Users, projectsDB console.Projects, liveAccounting accounting.Cache, mailservice *mailservice.Service, config Config, address, supportURL, scheduleMeetingURL string) *Chore {
 	if !strings.HasSuffix(address, "/") {
 		address += "/"
 	}
@@ -61,6 +67,8 @@ func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.User
 		Loop:               sync2.NewCycle(config.ChoreInterval),
 		tokens:             tokens,
 		usersDB:            usersDB,
+		projectsDB:         projectsDB,
+		liveAccounting:     liveAccounting,
 		config:             config,
 		mailService:        mailservice,
 		address:            address,
@@ -84,6 +92,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			err = chore.sendExpirationNotifications(ctx)
 			if err != nil {
 				chore.log.Error("sending trial expiration notices", zap.Error(err))
+			}
+		}
+		if chore.config.EnableStorageUsageReminders {
+			err = chore.sendStorageUsageReminders(ctx)
+			if err != nil {
+				chore.log.Error("sending storage usage reminders", zap.Error(err))
 			}
 		}
 		return nil
@@ -236,4 +250,82 @@ func (chore *Chore) TestSetLinkAddress(address string) {
 // potential race conditions.
 func (chore *Chore) TestUseBlockingSend() {
 	chore.useBlockingSend = true
+}
+
+// sendStorageUsageReminders sends reminders to users about their storage usage
+func (chore *Chore) sendStorageUsageReminders(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Get storage usage from live accounting
+	projectTotals, err := chore.liveAccounting.GetAllProjectTotals(ctx)
+	if err != nil {
+		return errs.New("error getting project totals: %w", err)
+	}
+
+	for projectID, usage := range projectTotals {
+
+		// Get project owner
+		project, err := chore.projectsDB.Get(ctx, projectID)
+		if err != nil {
+			chore.log.Error("error getting project", zap.Error(err))
+			continue
+		}
+
+		// Format storage size for email
+		storageUsed := (float64(usage.Storage) * 100) / float64(*project.StorageLimit)
+
+		if storageUsed == project.StorageUsedPercentage {
+			continue
+		}
+
+		currentLevel := getStorageUsedLevel(storageUsed)
+		levelInDatabase := getStorageUsedLevel(project.StorageUsedPercentage)
+
+		if currentLevel <= levelInDatabase {
+			err := chore.projectsDB.UpdateStorageUsedPercentage(ctx, projectID, storageUsed)
+			if err != nil {
+				chore.log.Error("error updating storage used percentage", zap.Error(err))
+			}
+			continue
+		}
+
+		user, err := chore.usersDB.Get(ctx, project.OwnerID)
+		if err != nil {
+			chore.log.Error("error getting user", zap.Error(err))
+			continue
+		}
+
+		// Send email
+		err = chore.sendEmail(ctx, user.Email, &console.StorageUsageEmail{
+			UserName:    user.FullName,
+			StorageUsed: storageUsed,
+			Percentage:  project.StorageUsedPercentage,
+			Limit:       project.StorageLimit.GiB(),
+			ProjectName: project.Name,
+			SignInLink:  chore.address + "login",
+			ContactLink: chore.supportURL,
+		})
+		if err != nil {
+			chore.log.Error("error sending storage usage reminder", zap.Error(err))
+			continue
+		}
+
+		err = chore.projectsDB.UpdateStorageUsedPercentage(ctx, projectID, storageUsed)
+		if err != nil {
+			chore.log.Error("error updating storage used percentage", zap.Error(err))
+		}
+	}
+
+	return nil
+}
+
+func getStorageUsedLevel(storageUsed float64) int {
+	if storageUsed < 50 {
+		return 0
+	} else if storageUsed < 70 {
+		return 1
+	} else if storageUsed < 90 {
+		return 2
+	}
+	return 3
 }

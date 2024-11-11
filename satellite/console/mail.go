@@ -3,7 +3,10 @@
 
 package console
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // TrialExpirationReminderEmail is mailservice template with trial expiration reminder data.
 type TrialExpirationReminderEmail struct {
@@ -90,6 +93,27 @@ func (*ProjectInvitationEmail) Template() string { return "Invite" }
 // Subject gets email subject.
 func (email *ProjectInvitationEmail) Subject() string {
 	return "You were invited to join a project on StorX"
+}
+
+// StorageUsageEmail is the email sent for storage usage reminders
+type StorageUsageEmail struct {
+	UserName    string
+	StorageUsed float64
+	Percentage  float64
+	Limit       float64
+	ProjectName string
+	SignInLink  string
+	ContactLink string
+}
+
+// Template returns the template name for storage usage reminder emails.
+func (e *StorageUsageEmail) Template() string {
+	return "storageUsageReminder"
+}
+
+// Subject returns the storage usage reminder email subject.
+func (e *StorageUsageEmail) Subject() string {
+	return fmt.Sprintf("Storage Usage Alert for Project %s", e.ProjectName)
 }
 
 // ExistingUserProjectInvitationEmail is mailservice template for project invitation email for existing users.

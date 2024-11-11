@@ -274,6 +274,7 @@ CREATE TABLE projects (
 	user_agent bytea,
 	owner_id bytea NOT NULL,
 	salt bytea,
+	storage_used_percentage double precision NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	default_placement integer,
 	default_versioning integer NOT NULL DEFAULT 1,

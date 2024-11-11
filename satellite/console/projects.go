@@ -68,6 +68,9 @@ type Projects interface {
 
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
+
+	// UpdateStorageUsedPercentage is a method for updating the storage used percentage for a project.
+	UpdateStorageUsedPercentage(ctx context.Context, id uuid.UUID, percentage float64) error
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
@@ -122,6 +125,7 @@ type Project struct {
 	BandwidthUsed               int64                     `json:"-"`
 	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
 	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
+	StorageUsedPercentage       float64                   `json:"storageUsedPercentage"`
 	SegmentLimit                *int64                    `json:"segmentLimit"`
 	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
 	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`

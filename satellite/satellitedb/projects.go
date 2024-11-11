@@ -63,6 +63,16 @@ func (projects *projects) GetCreatedBefore(ctx context.Context, before time.Time
 	return projectsFromDbxSlice(ctx, projectsDbx)
 }
 
+// UpdateStorageUsedPercentage is a method for updating the storage used percentage for a project.
+func (projects *projects) UpdateStorageUsedPercentage(ctx context.Context, id uuid.UUID, percentage float64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(ctx, dbx.Project_Id(id[:]), dbx.Project_Update_Fields{
+		StorageUsedPercentage: dbx.Project_StorageUsedPercentage(percentage),
+	})
+	return err
+}
+
 // GetByUserID is a method for querying all projects from the database by userID.
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -607,6 +617,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		CreatedAt:               project.CreatedAt,
 		StorageLimit:            (*memory.Size)(project.UsageLimit),
 		BandwidthLimit:          (*memory.Size)(project.BandwidthLimit),
+		StorageUsedPercentage:   project.StorageUsedPercentage,
 		SegmentLimit:            project.SegmentLimit,
 		DefaultPlacement:        placement,
 		DefaultVersioning:       console.DefaultVersioning(project.DefaultVersioning),
