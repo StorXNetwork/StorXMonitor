@@ -17,7 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/MicahParks/keyfunc/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -91,7 +92,7 @@ type SuccessResponse struct {
 // jwt.StandardClaims is an embedded type to provide expiry time
 type Claims struct {
 	Email string
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 // UserDetails is struct used for user details
@@ -121,6 +122,90 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		cookieAuth:                cookieAuth,
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
+	}
+}
+
+func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	type Web3AuthRequest struct {
+		Email         string `json:"email"`
+		IDToken       string `json:"idToken"`
+		PublicAddress string `json:"publicAddress"`
+	}
+
+	var request Web3AuthRequest
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Fetch JWKS from Web3Auth
+	jwksURL := "https://authjs.web3auth.io/jwks"
+	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{})
+	if err != nil {
+		http.Error(w, "Failed to fetch JWKs", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse and validate the JWT
+	token, err := jwt.Parse(request.IDToken, func(token *jwt.Token) (interface{}, error) {
+		return jwks.Keyfunc(token)
+	})
+	if err != nil {
+		http.Error(w, "Invalid JWT", http.StatusBadRequest)
+		return
+	}
+
+	// Extract payload from token
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		http.Error(w, "Invalid JWT claims", http.StatusBadRequest)
+		return
+	}
+
+	type Wallet struct {
+		Type    string `json:"type"`
+		Address string `json:"address"`
+	}
+
+	type Payload struct {
+		Wallets []Wallet `json:"wallets"`
+	}
+
+	// Decode payload and check publicAddress
+	payloadBytes, err := json.Marshal(claims)
+	if err != nil {
+		http.Error(w, "Failed to parse claims", http.StatusInternalServerError)
+		return
+	}
+
+	var payload Payload
+	err = json.Unmarshal(payloadBytes, &payload)
+	if err != nil {
+		http.Error(w, "Failed to decode payload", http.StatusInternalServerError)
+		return
+	}
+
+	// Verify wallet address
+	isVerified := false
+	for _, wallet := range payload.Wallets {
+		if wallet.Type == "ethereum" && strings.ToLower(wallet.Address) == request.PublicAddress {
+			isVerified = true
+			break
+		}
+	}
+
+	// Respond based on verification
+	if isVerified {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"name": "Verification Successful"})
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"name": "Verification Failed"})
 	}
 }
 
