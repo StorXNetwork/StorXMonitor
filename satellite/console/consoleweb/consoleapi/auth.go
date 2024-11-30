@@ -125,6 +125,174 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 	}
 }
 
+func (a *Auth) RegisterWeb3(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var body struct {
+		IDToken string `json:"id_token"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if body.IDToken == "" {
+		a.serveJSONError(ctx, w, errors.New("id_token is required"))
+		return
+	}
+
+	user, err := a.getUserFromWeb3IDToken(ctx, body.IDToken)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
+		return
+	}
+
+	state := r.URL.Query().Get("state")
+	verifier := socialmedia.NewVerifierDataFromString(state)
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		// Inserting lead in Zoho CRM
+
+		go zohoInsertLead(context.Background(), user.FullName, user.Email, a.log, verifier)
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, user.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.serveJSONError(ctx, w, err)
+		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
+		return
+	}
+
+	if verified != nil {
+		satelliteAddress := a.ExternalAddress
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: verified.Email}},
+			&console.AccountAlreadyExistsEmail{
+				Origin:            satelliteAddress,
+				SatelliteName:     a.SatelliteName,
+				SignInLink:        satelliteAddress + "login",
+				ResetPasswordLink: satelliteAddress + "forgot-password",
+				CreateAccountLink: satelliteAddress + "signup",
+			},
+		)
+		a.serveJSONError(ctx, w, errors.New("You are already registerted!"))
+		// http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL)+"?error=You are already registerted!", http.StatusTemporaryRedirect)
+		return
+	} else {
+		if len(unverified) > 0 {
+			user = &unverified[0]
+		} else {
+			secret, err := console.RegistrationSecretFromBase64("")
+			if err != nil {
+				a.serveJSONError(ctx, w, err)
+				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating secret!", http.StatusTemporaryRedirect)
+				return
+			}
+
+			ip, err := web.GetRequestIP(r)
+			if err != nil {
+				a.serveJSONError(ctx, w, err)
+				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting IP!", http.StatusTemporaryRedirect)
+				return
+			}
+
+			var utmParams *console.UtmParams
+			if verifier != nil {
+				utmParams = &console.UtmParams{
+					UtmTerm:     verifier.UTMTerm,
+					UtmContent:  verifier.UTMContent,
+					UtmSource:   verifier.UTMSource,
+					UtmMedium:   verifier.UTMMedium,
+					UtmCampaign: verifier.UTMCampaign,
+				}
+			}
+
+			user, err = a.service.CreateUser(ctx,
+				console.CreateUser{
+					FullName:  user.FullName,
+					Email:     user.Email,
+					Status:    1,
+					IP:        ip,
+					Source:    "Web3",
+					UtmParams: utmParams,
+				},
+				secret, true,
+			)
+
+			if err != nil {
+				a.serveJSONError(ctx, w, err)
+				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
+				return
+			}
+
+			referrer := r.URL.Query().Get("referrer")
+			if referrer == "" {
+				referrer = r.Referer()
+			}
+			hubspotUTK := ""
+			hubspotCookie, err := r.Cookie("hubspotutk")
+			if err == nil {
+				hubspotUTK = hubspotCookie.Value
+			}
+
+			trackCreateUserFields := analytics.TrackCreateUserFields{
+				ID:           user.ID,
+				AnonymousID:  loadSession(r),
+				FullName:     user.FullName,
+				Email:        user.Email,
+				Type:         analytics.Personal,
+				OriginHeader: r.Header.Get("Origin"),
+				Referrer:     referrer,
+				HubspotUTK:   hubspotUTK,
+				UserAgent:    string(user.UserAgent),
+			}
+			if user.IsProfessional {
+				trackCreateUserFields.Type = analytics.Professional
+				trackCreateUserFields.EmployeeCount = user.EmployeeCount
+				trackCreateUserFields.CompanyName = user.CompanyName
+				// trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+				trackCreateUserFields.JobTitle = user.Position
+				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+			}
+			a.analytics.TrackCreateUser(trackCreateUserFields)
+		}
+	}
+
+	customeExpiry := 24 * 7 * time.Hour
+
+	// Create Default Project - Munjal - 1/Oct/2023
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", &customeExpiry)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	//require.NoError(t, err)
+	a.log.Info("Token Info", zap.Any("TokenInfo", tokenInfo.Token.String()))
+
+	// Set up a test project and bucket
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	//require.NoError(t, err)
+	if err != nil {
+		a.log.Error("Error in Default Project:")
+		a.log.Error(err.Error())
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+}
+
 func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -134,9 +302,7 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 	a.log.Debug("Web3Auth request received")
 
 	type Web3AuthRequest struct {
-		Email         string `json:"email"`
-		IDToken       string `json:"idToken"`
-		PublicAddress string `json:"publicAddress"`
+		IDToken string `json:"id_token"`
 	}
 
 	var request Web3AuthRequest
@@ -147,22 +313,54 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log received data
-	a.log.Debug("Web3Auth request data",
-		zap.String("email", request.Email),
-		zap.String("publicAddress", request.PublicAddress))
-
 	// Validate required fields
 	if request.IDToken == "" {
 		a.serveJSONError(ctx, w, errs.New("idToken is required"))
 		return
 	}
 
-	if request.PublicAddress == "" {
-		a.serveJSONError(ctx, w, errs.New("publicAddress is required"))
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 		return
 	}
 
+	user, err := a.getUserFromWeb3IDToken(ctx, request.IDToken)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.TokenWithoutPassword(ctx, console.AuthWithoutPassword{
+		Email:     user.Email,
+		IP:        ip,
+		UserAgent: r.UserAgent(),
+	})
+	if err != nil {
+		if console.ErrMFAMissing.Has(err) {
+			web.ServeCustomJSONError(ctx, a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
+		} else {
+			a.log.Info("Error authenticating token request", zap.String("email", user.Email), zap.Error(ErrAuthAPI.Wrap(err)))
+			a.serveJSONError(ctx, w, err)
+		}
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()})
+	if err != nil {
+		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+
+}
+
+func (a *Auth) getUserFromWeb3IDToken(ctx context.Context, idToken string) (*console.User, error) {
 	// Fetch JWKS from Web3Auth with error handling
 	jwksURL := "https://api.openlogin.com/jwks" // Updated JWKS URL for Web3Auth
 	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{
@@ -173,87 +371,49 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 		RefreshRateLimit: time.Minute * 5,
 	})
 	if err != nil {
-		a.log.Error("Failed to fetch JWKs", zap.Error(err))
-		a.serveJSONError(ctx, w, errs.New("Failed to fetch JWKs: %v", err))
-		return
+		return nil, errs.New("Failed to fetch JWKs: %v", err)
 	}
 
 	// Parse and validate the JWT with more detailed error handling
-	token, err := jwt.Parse(request.IDToken, jwks.Keyfunc)
+	token, err := jwt.Parse(idToken, jwks.Keyfunc)
 	if err != nil {
-		a.log.Error("Failed to parse JWT", zap.Error(err))
-		a.serveJSONError(ctx, w, errs.New("Invalid JWT: %v", err))
-		return
+		return nil, errs.New("Invalid JWT: %v", err)
 	}
 
 	if !token.Valid {
-		a.log.Error("Token is invalid")
-		a.serveJSONError(ctx, w, errs.New("Token validation failed"))
-		return
+		return nil, errs.New("Token validation failed")
 	}
 
 	// Extract claims
 	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || claims == nil {
+		return nil, errs.New("Invalid JWT claims format")
+	}
+
+	exp, ok := claims["exp"].(float64)
 	if !ok {
-		a.log.Error("Failed to extract claims")
-		a.serveJSONError(ctx, w, errs.New("Invalid JWT claims format"))
-		return
+		return nil, errs.New("Expiration time is not set in the token")
 	}
 
-	// Log claims for debugging
-	a.log.Debug("Token claims", zap.Any("claims", claims))
-
-	type Wallet struct {
-		Type    string `json:"type"`
-		Address string `json:"address"`
+	expTime := time.Unix(int64(exp), 0)
+	if time.Now().After(expTime) {
+		return nil, errs.New("Token has expired")
 	}
 
-	type Payload struct {
-		Wallets []Wallet `json:"wallets"`
+	email, ok := claims["email"].(string)
+	if !ok {
+		return nil, errs.New("Email is not set in the token")
 	}
 
-	// Convert claims to JSON
-	payloadBytes, err := json.Marshal(claims)
-	if err != nil {
-		a.log.Error("Failed to marshal claims", zap.Error(err))
-		a.serveJSONError(ctx, w, errs.New("Failed to process token payload"))
-		return
+	name, ok := claims["name"].(string)
+	if !ok {
+		name = email
 	}
 
-	a.log.Debug("Token claims", zap.Any("claims", claims))
-
-	var payload Payload
-	err = json.Unmarshal(payloadBytes, &payload)
-	if err != nil {
-		a.log.Error("Failed to unmarshal payload", zap.Error(err))
-		a.serveJSONError(ctx, w, errs.New("Failed to decode token payload"))
-		return
-	}
-
-	// Verify wallet address with case-insensitive comparison
-	isVerified := false
-	requestAddr := strings.ToLower(request.PublicAddress)
-	for _, wallet := range payload.Wallets {
-		if wallet.Type == "ethereum" && strings.ToLower(wallet.Address) == requestAddr {
-			isVerified = true
-			break
-		}
-	}
-
-	if isVerified {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"status":  "success",
-			"message": "Verification successful"})
-	} else {
-		a.log.Error("Wallet verification failed",
-			zap.String("requestAddress", request.PublicAddress),
-			zap.Any("wallets", payload.Wallets))
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"status":  "error",
-			"message": "Wallet verification failed"})
-	}
+	return &console.User{
+		Email:    email,
+		FullName: name,
+	}, nil
 }
 
 // Token authenticates user by credentials and returns auth token.
