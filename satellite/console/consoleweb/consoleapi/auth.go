@@ -135,7 +135,7 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 
 	type Web3AuthRequest struct {
 		Email         string `json:"email"`
-		IDToken      string `json:"idToken"`
+		IDToken       string `json:"idToken"`
 		PublicAddress string `json:"publicAddress"`
 	}
 
@@ -148,7 +148,7 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log received data
-	a.log.Debug("Web3Auth request data", 
+	a.log.Debug("Web3Auth request data",
 		zap.String("email", request.Email),
 		zap.String("publicAddress", request.PublicAddress))
 
@@ -164,12 +164,12 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch JWKS from Web3Auth with error handling
-	jwksURL := "https://api.openlogin.com/jwks"  // Updated JWKS URL for Web3Auth
+	jwksURL := "https://api.openlogin.com/jwks" // Updated JWKS URL for Web3Auth
 	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{
 		RefreshErrorHandler: func(err error) {
 			a.log.Error("Failed to refresh JWKS", zap.Error(err))
 		},
-		RefreshInterval:   time.Hour,
+		RefreshInterval:  time.Hour,
 		RefreshRateLimit: time.Minute * 5,
 	})
 	if err != nil {
@@ -220,6 +220,8 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.log.Debug("Token claims", zap.Any("claims", claims))
+
 	var payload Payload
 	err = json.Unmarshal(payloadBytes, &payload)
 	if err != nil {
@@ -241,7 +243,7 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 	if isVerified {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{
-			"status": "success",
+			"status":  "success",
 			"message": "Verification successful"})
 	} else {
 		a.log.Error("Wallet verification failed",
@@ -249,7 +251,7 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 			zap.Any("wallets", payload.Wallets))
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{
-			"status": "error",
+			"status":  "error",
 			"message": "Wallet verification failed"})
 	}
 }
@@ -2937,7 +2939,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 				Satellite:           a.SatelliteName,
 				Email:               forgotPassword.Email,
 				DoubleCheckLink:     doubleCheckLink,
-				ResetPasswordLink: resetPasswordLink,
+				ResetPasswordLink:   resetPasswordLink,
 				CreateAnAccountLink: createAccountLink,
 				SupportTeamLink:     a.GeneralRequestURL,
 			},
