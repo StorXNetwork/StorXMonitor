@@ -130,42 +130,78 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	// Add logging to help debug
+	a.log.Debug("Web3Auth request received")
+
 	type Web3AuthRequest struct {
 		Email         string `json:"email"`
-		IDToken       string `json:"idToken"`
+		IDToken      string `json:"idToken"`
 		PublicAddress string `json:"publicAddress"`
 	}
 
 	var request Web3AuthRequest
 	err = json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
+		a.log.Error("Failed to decode request body", zap.Error(err))
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	// Fetch JWKS from Web3Auth
-	jwksURL := "https://authjs.web3auth.io/jwks"
-	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{})
-	if err != nil {
-		http.Error(w, "Failed to fetch JWKs", http.StatusInternalServerError)
+	// Log received data
+	a.log.Debug("Web3Auth request data", 
+		zap.String("email", request.Email),
+		zap.String("publicAddress", request.PublicAddress))
+
+	// Validate required fields
+	if request.IDToken == "" {
+		a.serveJSONError(ctx, w, errs.New("idToken is required"))
 		return
 	}
 
-	// Parse and validate the JWT
-	token, err := jwt.Parse(request.IDToken, func(token *jwt.Token) (interface{}, error) {
-		return jwks.Keyfunc(token)
+	if request.PublicAddress == "" {
+		a.serveJSONError(ctx, w, errs.New("publicAddress is required"))
+		return
+	}
+
+	// Fetch JWKS from Web3Auth with error handling
+	jwksURL := "https://api.openlogin.com/jwks"  // Updated JWKS URL for Web3Auth
+	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{
+		RefreshErrorHandler: func(err error) {
+			a.log.Error("Failed to refresh JWKS", zap.Error(err))
+		},
+		RefreshInterval:   time.Hour,
+		RefreshRateLimit: time.Minute * 5,
 	})
 	if err != nil {
-		http.Error(w, "Invalid JWT", http.StatusBadRequest)
+		a.log.Error("Failed to fetch JWKs", zap.Error(err))
+		a.serveJSONError(ctx, w, errs.New("Failed to fetch JWKs: %v", err))
 		return
 	}
 
-	// Extract payload from token
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		http.Error(w, "Invalid JWT claims", http.StatusBadRequest)
+	// Parse and validate the JWT with more detailed error handling
+	token, err := jwt.Parse(request.IDToken, jwks.Keyfunc)
+	if err != nil {
+		a.log.Error("Failed to parse JWT", zap.Error(err))
+		a.serveJSONError(ctx, w, errs.New("Invalid JWT: %v", err))
 		return
 	}
+
+	if !token.Valid {
+		a.log.Error("Token is invalid")
+		a.serveJSONError(ctx, w, errs.New("Token validation failed"))
+		return
+	}
+
+	// Extract claims
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		a.log.Error("Failed to extract claims")
+		a.serveJSONError(ctx, w, errs.New("Invalid JWT claims format"))
+		return
+	}
+
+	// Log claims for debugging
+	a.log.Debug("Token claims", zap.Any("claims", claims))
 
 	type Wallet struct {
 		Type    string `json:"type"`
@@ -176,36 +212,45 @@ func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
 		Wallets []Wallet `json:"wallets"`
 	}
 
-	// Decode payload and check publicAddress
+	// Convert claims to JSON
 	payloadBytes, err := json.Marshal(claims)
 	if err != nil {
-		http.Error(w, "Failed to parse claims", http.StatusInternalServerError)
+		a.log.Error("Failed to marshal claims", zap.Error(err))
+		a.serveJSONError(ctx, w, errs.New("Failed to process token payload"))
 		return
 	}
 
 	var payload Payload
 	err = json.Unmarshal(payloadBytes, &payload)
 	if err != nil {
-		http.Error(w, "Failed to decode payload", http.StatusInternalServerError)
+		a.log.Error("Failed to unmarshal payload", zap.Error(err))
+		a.serveJSONError(ctx, w, errs.New("Failed to decode token payload"))
 		return
 	}
 
-	// Verify wallet address
+	// Verify wallet address with case-insensitive comparison
 	isVerified := false
+	requestAddr := strings.ToLower(request.PublicAddress)
 	for _, wallet := range payload.Wallets {
-		if wallet.Type == "ethereum" && strings.ToLower(wallet.Address) == request.PublicAddress {
+		if wallet.Type == "ethereum" && strings.ToLower(wallet.Address) == requestAddr {
 			isVerified = true
 			break
 		}
 	}
 
-	// Respond based on verification
 	if isVerified {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"name": "Verification Successful"})
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "success",
+			"message": "Verification successful"})
 	} else {
+		a.log.Error("Wallet verification failed",
+			zap.String("requestAddress", request.PublicAddress),
+			zap.Any("wallets", payload.Wallets))
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"name": "Verification Failed"})
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "error",
+			"message": "Wallet verification failed"})
 	}
 }
 
@@ -1890,12 +1935,14 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("Error in Default Project:")
 		a.log.Error(err.Error())
 		a.SendResponse(w, r, "Error creating default project", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating default project!", http.StatusTemporaryRedirect)
 		return
 	}
 
 	a.log.Info("Default Project Name: " + project.Name)
 
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
+	// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
 }
 
 func (a *Auth) HandleFacebookLogin(w http.ResponseWriter, r *http.Request) {
@@ -2890,7 +2937,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 				Satellite:           a.SatelliteName,
 				Email:               forgotPassword.Email,
 				DoubleCheckLink:     doubleCheckLink,
-				ResetPasswordLink:   resetPasswordLink,
+				ResetPasswordLink: resetPasswordLink,
 				CreateAnAccountLink: createAccountLink,
 				SupportTeamLink:     a.GeneralRequestURL,
 			},
