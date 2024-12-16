@@ -55,7 +55,7 @@ func NewReputationPushWorker(log *zap.Logger, db NodeReputation, connector Reput
 	return &ReputationPushWorker{
 		log:       log,
 		db:        db,
-		Loop:      sync2.NewCycle(time.Hour * 4),
+		Loop:      sync2.NewCycle(time.Hour * 24),
 		connector: connector,
 	}
 }
@@ -97,7 +97,7 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 	var smartContractErr errs.Group
 	for _, reputation := range reputations {
 		func() {
-			ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 			defer cancel()
 
 			var isStaker bool
@@ -161,6 +161,8 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 
 			worker.log.Info("processed reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
 		}()
+
+		time.Sleep(1 * time.Minute)
 	}
 
 	worker.log.Info("ReputationPushWorker processed reputations", zap.Int("count", len(reputations)))
