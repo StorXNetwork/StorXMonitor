@@ -97,7 +97,7 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 	var smartContractErr errs.Group
 	for _, reputation := range reputations {
 		func() {
-			ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
+			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
 
 			var isStaker bool
@@ -148,6 +148,8 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 				smartContractErr.Add(err)
 			}
 
+			time.Sleep(time.Minute) // if we are calling smart contract, we need to wait for some time. just for safety
+
 			if reputation.Inactive {
 				// make this node active
 				err = worker.db.ActivateNode(ctx, reputation.NodeID)
@@ -162,7 +164,6 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 			worker.log.Info("processed reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
 		}()
 
-		time.Sleep(1 * time.Minute)
 	}
 
 	worker.log.Info("ReputationPushWorker processed reputations", zap.Int("count", len(reputations)))
