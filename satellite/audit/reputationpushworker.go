@@ -14,7 +14,7 @@ import (
 
 type NodeReputation interface {
 	GetAll(ctx context.Context) (reputations []NodeReputationEntry, err error)
-	NodeStmartContractStatus(ctx context.Context, wallet, msgType, msg string) (err error)
+	NodeSmartContractStatus(ctx context.Context, wallet, msgType, msg string) (err error)
 	ActivateNode(ctx context.Context, nodeID storj.NodeID) error
 }
 
@@ -96,6 +96,11 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 
 	var smartContractErr errs.Group
 	for _, reputation := range reputations {
+		if ctx.Err() != nil {
+			worker.log.Error("context cancelled", zap.Error(ctx.Err()))
+			return ctx.Err()
+		}
+
 		func() {
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
@@ -113,11 +118,22 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 				reputationVal = 0
 			}
 
+			reputationFromContract, err := worker.connector.GetReputation(ctx, reputation.Wallet)
+			if err != nil {
+				worker.log.Error("failed to get reputation from contract", zap.Error(err))
+				return
+			}
+
+			if reputationFromContract == reputationVal {
+				worker.log.Info("reputation already pushed", zap.String("wallet", reputation.Wallet), zap.Int64("reputationFromContract", reputationFromContract), zap.Int64("reputation", reputationVal))
+				return
+			}
+
 			worker.log.Info("checking if wallet is staker", zap.String("wallet", reputation.Wallet))
 			isStaker, err = worker.connector.IsStaker(ctx, reputation.Wallet)
 			if err != nil {
 				worker.log.Error("failed to check if wallet is staker", zap.Error(err))
-				worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to check if wallet is staker: %v", err))
+				worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to check if wallet is staker: %v", err))
 				return
 			}
 
@@ -127,24 +143,24 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 				err = worker.connector.PushReputation(ctx, reputation.Wallet, reputationVal)
 				if err != nil {
 					worker.log.Error("failed to push reputation", zap.Error(err))
-					err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to push reputation: %v", err))
+					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to push reputation: %v", err))
 					smartContractErr.Add(err)
 					return
 				}
 				worker.log.Info("pushed reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
-				err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("pushed reputation: %v", reputationVal))
+				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("pushed reputation: %v", reputationVal))
 				smartContractErr.Add(err)
 			} else {
 				worker.log.Info("adding staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
 				err = worker.connector.AddStaker(ctx, reputation.Wallet, reputationVal)
 				if err != nil {
 					worker.log.Error("failed to add staker", zap.Error(err))
-					err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to add staker: %v", err))
+					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to add staker: %v", err))
 					smartContractErr.Add(err)
 					return
 				}
 				worker.log.Info("added staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
-				err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("added staker: %v", reputationVal))
+				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("added staker: %v", reputationVal))
 				smartContractErr.Add(err)
 			}
 
@@ -155,7 +171,7 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 				err = worker.db.ActivateNode(ctx, reputation.NodeID)
 				if err != nil {
 					worker.log.Error("failed to activate node", zap.Error(err))
-					err = worker.db.NodeStmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to activate node: %v", err))
+					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to activate node: %v", err))
 					smartContractErr.Add(err)
 					return
 				}

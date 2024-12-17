@@ -53,7 +53,7 @@ func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeR
 	return reputations, nil
 }
 
-func (nr *nodeReputation) NodeStmartContractStatus(ctx context.Context, wallet, msgType, msg string) (err error) {
+func (nr *nodeReputation) NodeSmartContractStatus(ctx context.Context, wallet, msgType, msg string) (err error) {
 	id, err := uuid.New()
 	if err != nil {
 		return fmt.Errorf("failed to generate uuid: %v", err)
