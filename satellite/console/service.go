@@ -243,6 +243,10 @@ func (s *Service) GetPaymentPlans(ctx context.Context) (plans []billing.PaymentP
 	return s.billing.GetPaymentPlans(ctx)
 }
 
+func (s *Service) GetPaymentPlansByID(ctx context.Context, id int64) (plans *billing.PaymentPlans, err error) {
+	return s.billing.GetPaymentPlansByID(ctx, id)
+}
+
 func init() {
 	var c Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseTestDefaults())

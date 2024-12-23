@@ -147,6 +147,22 @@ func (db billingDB) GetPaymentPlans(ctx context.Context) (plans []billing.Paymen
 	return plans, Error.Wrap(err)
 }
 
+func (db billingDB) GetPaymentPlansByID(ctx context.Context, id int64) (plans *billing.PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxPlan, err := db.db.Get_PaymentPlans_By_Id(ctx, dbx.PaymentPlans_Id(id))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	plan, err := fromDBXPaymentPlans(dbxPlan)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &plan, nil
+}
+
 func (db billingDB) FailPendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -311,17 +327,21 @@ func fromDBXBillingTransactions(dbxTX *dbx.BillingTransaction) (billing.Transact
 
 // fromDBXPaymentPlans converts *dbx.PaymentPlans to *billing.PaymentPlans.
 func fromDBXPaymentPlans(dbxPlan *dbx.PaymentPlans) (billing.PaymentPlans, error) {
+	var benefit []string
+	err := json.Unmarshal(dbxPlan.Benefit, &benefit)
+	if err != nil {
+		return billing.PaymentPlans{}, err
+	}
+
 	return billing.PaymentPlans{
-		ID:           dbxPlan.Id,
-		Name:         dbxPlan.Name,
-		Storage:      dbxPlan.Storage,
-		StorageUnit:  dbxPlan.StorageUnit,
-		Price:        dbxPlan.Price,
-		PriceUnit:    dbxPlan.PriceUnit,
-		Validity:     dbxPlan.Validity,
-		ValidityUnit: dbxPlan.ValidityUnit,
-		Benefit:      dbxPlan.Benefit,
-		Group:        dbxPlan.Group,
+		ID:        dbxPlan.Id,
+		Name:      dbxPlan.Name,
+		Storage:   dbxPlan.Storage,
+		Bandwidth: dbxPlan.Bandwidth,
+		Price:     dbxPlan.Price,
+		Validity:  dbxPlan.Validity,
+		Benefit:   benefit,
+		Group:     dbxPlan.Group,
 	}, nil
 }
 

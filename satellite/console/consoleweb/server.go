@@ -504,7 +504,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		// 	paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
 		// 	paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		// }
-		paymentsRouter.HandleFunc("/upgradingModule", paymentController.UpgradingModuleReq).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/generate-payment-link", paymentController.GeneratePaymentLink).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/invoice-history", paymentController.BillingTransactionHistory).Methods(http.MethodGet, http.MethodOptions)
 		router.HandleFunc("/payment-plans", paymentController.HandlePaymentPlans).Methods(http.MethodGet, http.MethodOptions)
 	}

@@ -72,8 +72,12 @@ func NewGatewayConfig(apiKey, apiSecret, payReqUrl, payStatusUrl, paySuccessRedi
 	}
 }
 
-// boris
-type UpgradingRequest struct {
+type GeneratePaymentLinkRequest struct {
+	CryptoMode string `json:"cryptoMode"`
+	PlanID     int64  `json:"planId"`
+}
+
+type PaymentGatewayRequest struct {
 	Nonce        string `json:"nonce"`
 	RequestURL   string `json:"requestURL"`
 	Email        string `json:"userEmail"`
@@ -87,7 +91,7 @@ type UpgradingRequest struct {
 	Network      string `json:"network"`
 	FiatCurrency string `json:"fiatCurrency"`
 }
-type UpgradingResponse struct {
+type PaymentGatewayResponse struct {
 	Message    string       `json:"message"`
 	Status     bool         `json:"status"`
 	StatusCode int          `json:"statusCode"`
@@ -125,7 +129,7 @@ type UserEmail struct {
 	Email string `json:"email"`
 }
 
-type UpgradingErrResponse struct {
+type PaymentGatewayErrResponse struct {
 	Error      string `json:"error"`
 	Status     bool   `json:"status"`
 	StatusCode int    `json:"statusCode"`
@@ -837,55 +841,57 @@ func (p *Payments) serveJSONError(ctx context.Context, w http.ResponseWriter, st
 }
 
 // boris
-func (p *Payments) UpgradingModuleReq(w http.ResponseWriter, r *http.Request) {
+func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	PaymentGateway_PayReqUrl := p.gatewayConfig.Pay_ReqUrl
+	user, err := p.service.GetUserAndAuditLog(ctx, "generate payment link")
+	if err != nil {
+		fmt.Println("GetUserAndAuditLog err: ", err)
+		return
+	}
 
 	// Decode the JSON payload from the request body
-	var upgradingRequest UpgradingRequest
-	if err := json.NewDecoder(r.Body).Decode(&upgradingRequest); err != nil {
+	var generatePaymentLinkRequest GeneratePaymentLinkRequest
+	if err := json.NewDecoder(r.Body).Decode(&generatePaymentLinkRequest); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to decode request body: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	userEmail := upgradingRequest.Email
-	planGBsize := upgradingRequest.GBsize
-	planBandwidth := upgradingRequest.Bandwidth
-	planPrice := upgradingRequest.Amount
-	cryptoMode := upgradingRequest.Currency
+	if generatePaymentLinkRequest.PlanID == 0 {
+		http.Error(w, "Plan ID is required", http.StatusBadRequest)
+		return
+	}
 
-	fmt.Printf("************************Received upgrade request: userEmail: %s, planGBsize: %sGB, planBandwidth: %sGB, planPrice: %s, cryptoMode: %s\n", userEmail, planGBsize, planBandwidth, planPrice, cryptoMode)
+	plan, err := p.service.GetPaymentPlansByID(ctx, generatePaymentLinkRequest.PlanID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get payment plan: %v", err), http.StatusInternalServerError)
+		return
+	}
 
+	var network string
 	// Select the network based on the currency
-	switch upgradingRequest.Currency {
+	switch generatePaymentLinkRequest.CryptoMode {
 	case "USDT":
-		upgradingRequest.Network = "Ethereum"
+		network = "Ethereum"
 	case "XDC", "SRX":
-		upgradingRequest.Network = "Xinfin"
+		network = "Xinfin"
 	}
 
 	timestamp := strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
-	upgradingRequest.Nonce = timestamp
-	upgradingRequest.RequestURL = "/api/payment"
-	upgradingRequest.SuccessURL = p.gatewayConfig.Pay_Success_RedirectUrl
-	upgradingRequest.FailureURL = p.gatewayConfig.Pay_Failed_RedirectUrl
-	upgradingRequest.Description = "payment is for the new transfer"
-	upgradingRequest.FiatCurrency = "usd"
 
 	requestData := map[string]interface{}{
-		"nonce":        upgradingRequest.Nonce,
-		"requestURL":   upgradingRequest.RequestURL,
-		"email":        upgradingRequest.Email,
-		"amount":       upgradingRequest.Amount,
-		"currency":     upgradingRequest.Currency,
-		"successUrl":   upgradingRequest.SuccessURL,
-		"description":  upgradingRequest.Description,
-		"failureUrl":   upgradingRequest.FailureURL,
-		"network":      upgradingRequest.Network,
-		"fiatCurrency": upgradingRequest.FiatCurrency,
+		"nonce":        timestamp,
+		"requestURL":   "/api/payment",
+		"email":        user.Email,
+		"amount":       plan.Price,
+		"currency":     "usd",
+		"successUrl":   p.gatewayConfig.Pay_Success_RedirectUrl,
+		"description":  "payment is for the new transfer",
+		"failureUrl":   p.gatewayConfig.Pay_Failed_RedirectUrl,
+		"network":      network,
+		"fiatCurrency": "usd",
 	}
 
 	requestBody, err := json.Marshal(requestData)
@@ -909,7 +915,7 @@ func (p *Payments) UpgradingModuleReq(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", PaymentGateway_PayReqUrl, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("POST", p.gatewayConfig.Pay_ReqUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
 		fmt.Println("********************Error creating request:", err)
 		return
@@ -933,14 +939,14 @@ func (p *Payments) UpgradingModuleReq(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decode the JSON response
-	var upgradingResponse UpgradingResponse
-	var upgradingErrResponse UpgradingErrResponse
+	var upgradingResponse PaymentGatewayResponse
+	var upgradingErrResponse PaymentGatewayErrResponse
 
 	if err := json.Unmarshal(respBody, &upgradingResponse); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to decode response body: %v", err), http.StatusInternalServerError)
 		return
 	}
-	user, err := p.service.GetUsers().GetByEmail(ctx, userEmail)
+
 	// Handle the response from the Payment gateway
 	if upgradingResponse.Status {
 		fmt.Printf("Received successful response:\nMessage: %s\nStatus: %t\nStatusCode: %d\nData: %+v\n",
@@ -968,29 +974,29 @@ func (p *Payments) UpgradingModuleReq(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Periodically check the payment status
-		go func(paymentID, gbsize, bandwidth, planPrice string, user *console.User) {
+		go func(paymentID string, gbsize int64, bandwidth int64, planPrice int64, user *console.User) {
 			for {
 				time.Sleep(30 * time.Second)
 				paymentStatus := p.getPaymentdetail(paymentID)
 				// if paymentStatus == "COMPLETED" {
 				if paymentStatus == "COMPLETED" {
 					newCtx := context.Background()
-					p.updateLimits(newCtx, user.Email, gbsize, bandwidth)
+					p.updateLimits(newCtx, user.Email, "gbsize", "bandwidth")
 					p.mailService.SendRenderedAsync(
 						newCtx,
 						[]post.Address{{Address: user.Email}},
 						&console.UpgradeSuccessfullEmail{
 							UserName:  user.ShortName,
 							Signature: "Storx Team",
-							GBsize:    gbsize,
-							Bandwidth: bandwidth,
+							GBsize:    "gbsize",
+							Bandwidth: "bandwidth",
 						},
 					)
-					p.stripe.CreateTokenPaymentBillingTransaction(newCtx, user, planPrice)
+					p.stripe.CreateTokenPaymentBillingTransaction(newCtx, user, "planPrice")
 					return
 				}
 			}
-		}(upgradingResponse.Data.PaymentID, upgradingRequest.GBsize, upgradingRequest.Bandwidth, planPrice, user)
+		}(upgradingResponse.Data.PaymentID, plan.Storage, plan.Bandwidth, plan.Price, user)
 
 		// p.updateLimits(ctx, userEmail, upgradingRequest.GBsize, upgradingRequest.Bandwidth)
 		// sendEmail(userEmail, sendBody)

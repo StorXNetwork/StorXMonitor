@@ -77,6 +77,8 @@ type TransactionsDB interface {
 	GetBalance(ctx context.Context, userID uuid.UUID) (currency.Amount, error)
 
 	GetPaymentPlans(ctx context.Context) ([]PaymentPlans, error)
+
+	GetPaymentPlansByID(ctx context.Context, id int64) (*PaymentPlans, error)
 }
 
 // PaymentType is an interface which defines functionality required for all billing payment types. Payment types can
@@ -135,17 +137,15 @@ type Transactions struct {
 }
 
 type PaymentPlans struct {
-	ID           int64     `json:"id"`
-	Name         string    `json:"name"`
-	Storage      int64     `json:"storage"`
-	StorageUnit  string    `json:"storage_unit"`
-	Price        int64     `json:"price"`
-	PriceUnit    string    `json:"price_unit"`
-	Benefit      []byte    `json:"benefit"`
-	Validity     int64     `json:"validity"`
-	ValidityUnit string    `json:"validity_unit"`
-	Group        string    `json:"group"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Storage   int64     `json:"storage"`
+	Price     int64     `json:"price"`
+	Bandwidth int64     `json:"bandwidth"`
+	Benefit   []string  `json:"benefit"`
+	Validity  int64     `json:"validity"`
+	Group     string    `json:"group"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // CalculateBonusAmount calculates bonus for given currency amount and bonus rate.

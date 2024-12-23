@@ -109,26 +109,20 @@ model payment_plans (
 	// name is the name of the plan.
  	field name text ( updatable )
 
-	// storage is the storage of the plan.
+	// storage is the storage of the plan in GB
 	field storage int64 ( updatable )
 
-	// storage_unit is the unit of the storage.
-	field storage_unit text ( updatable )
-
-	// price is the price of the plan.
+	// price is the price of the plan in USD
 	field price int64 ( updatable )
-
-	// price_unit is the unit of the price.
-	field price_unit text ( updatable )
 
 	// benefit is the benefit of the plan.
 	field benefit json ( updatable )
 
+	// bandwidth is the bandwidth in bytes
+	field bandwidth int64 ( updatable )
+
 	// validity is the validity of the plan.
 	field validity int64 ( updatable )
-
-	// validity_unit is the unit of the validity.
-	field validity_unit text ( updatable )
 
 	// group is the group of the plan.
 	field group text ( updatable )
