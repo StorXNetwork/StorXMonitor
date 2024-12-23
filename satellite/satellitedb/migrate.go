@@ -2845,7 +2845,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     276,
 				Action: migrate.SQL{
 					`CREATE TABLE payment_plans (
-						id serial64 NOT NULL,
+						id bigserial NOT NULL,
 						name text NOT NULL,
 						storage bigint NOT NULL,
 						storage_unit text NOT NULL,
