@@ -2839,6 +2839,67 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN storage_used_percentage double precision NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add payment_plans table",
+				Version:     276,
+				Action: migrate.SQL{
+					`CREATE TABLE payment_plans (
+						id serial64 NOT NULL,
+						name text NOT NULL,
+						storage bigint NOT NULL,
+						storage_unit text NOT NULL,
+						price bigint NOT NULL,
+						price_unit text NOT NULL,
+						benefit jsonb NOT NULL,
+						validity bigint NOT NULL,
+						validity_unit text NOT NULL,
+						group text NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "insert default payment plans",
+				Version:     277,
+				Action: migrate.SQL{
+					`INSERT INTO payment_plans (name, storage, storage_unit, price, price_unit, benefit, validity, validity_unit, "group") VALUES
+					-- Individual Plans
+					('Welcome', 2000000000, 'B', 0, 'USD', 
+					 '["End to End Encryption", "Private File Sharing", "5 GB Bandwidth"]'::jsonb, 
+					 -1, 'month', 'Individual'),
+					
+					('Basic', 20000000000, 'B', 999, 'USD', 
+					 '["End to End Encryption", "Private File Sharing", "50 GB Bandwidth", "Email Support"]'::jsonb,
+					 1, 'month', 'Individual'),
+					
+					('Professional', 50000000000, 'B', 2999, 'USD',
+					 '["End to End Encryption", "Private File Sharing", "250 GB Bandwidth", "Email Support"]'::jsonb,
+					 1, 'month', 'Individual'),
+					
+					('Small Business', 100000000000, 'B', 4999, 'USD',
+					 '["End to End Encryption", "Private File Sharing", "500 GB Bandwidth", "Email Support"]'::jsonb,
+					 1, 'month', 'Individual'),
+
+					-- Enterprise Plans
+					('Starter', 500000000000, 'B', 5999, 'USD',
+					 '["End to End Encryption", "Private File Sharing", "5 TB Bandwidth", "Email Support"]'::jsonb,
+					 1, 'month', 'Enterprise'),
+					
+					('Standard', 1000000000000, 'B', 7999, 'USD',
+					 '["End to End Encryption", "Private File Sharing", "10 TB Bandwidth", "Email Support"]'::jsonb,
+					 1, 'month', 'Enterprise'),
+					
+					('Professional', 5000000000000, 'B', 9999, 'USD',
+					 '["End to End Encryption", "Private File Sharing", "25 TB Bandwidth", "Email Support"]'::jsonb,
+					 1, 'month', 'Enterprise'),
+					
+					('Enterprise', 10000000000000, 'B', 14999, 'USD',
+					 '["End to End Encryption", "Private File Sharing", "100 TB Bandwidth", "Email Support"]'::jsonb,
+					 1, 'month', 'Enterprise');`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

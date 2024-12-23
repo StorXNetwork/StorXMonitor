@@ -239,6 +239,10 @@ func (s *Service) UpdatingProjects(ctx context.Context, user User, projectID uui
 	return s.UpdatingProject(ctx, user, projectID, updatedProject)
 }
 
+func (s *Service) GetPaymentPlans(ctx context.Context) (plans []billing.PaymentPlans, err error) {
+	return s.billing.GetPaymentPlans(ctx)
+}
+
 func init() {
 	var c Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseTestDefaults())

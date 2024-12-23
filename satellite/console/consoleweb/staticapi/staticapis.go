@@ -5,9 +5,6 @@ import (
 	"net/http"
 )
 
-//go:embed payment_plans.json
-var paymentPlansFile []byte
-
 //go:embed blog-list.json
 var blogList []byte
 
@@ -25,11 +22,6 @@ func HandleUserGuideline(w http.ResponseWriter, r *http.Request) {
 func HandleResources(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resources)
-}
-
-func HandlePaymentPlans(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(paymentPlansFile)
 }
 
 func HandleBlogList(w http.ResponseWriter, r *http.Request) {

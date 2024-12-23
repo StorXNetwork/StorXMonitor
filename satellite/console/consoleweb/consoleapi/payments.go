@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -1271,6 +1272,37 @@ func (p *Payments) StartMonitoringUserProjects(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+func (p *Payments) HandlePaymentPlans(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	plans, err := p.service.GetPaymentPlans(ctx)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get payment plans: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	planMap := make(map[string]interface{})
+	for _, plan := range plans {
+		planMap[plan.Name] = plan
+	}
+
+	output := map[string]interface{}{
+		"crypto_modes": []string{"SRX", "XDC", "USDT"},
+	}
+
+	group := []map[string]interface{}{}
+
+	for name, plan := range planMap {
+		group = append(group, map[string]interface{}{
+			"name":  name,
+			"plans": plan,
+		})
+	}
+
+	output["group"] = group
+
+	json.NewEncoder(w).Encode(output)
 }
 
 // payment history request and response

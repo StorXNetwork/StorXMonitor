@@ -135,95 +135,17 @@ func (db billingDB) tryInserts(ctx context.Context, primaryTx billing.Transactio
 	return err
 }
 
-/////boris end  ////
+func (db billingDB) GetPaymentPlans(ctx context.Context) (plans []billing.PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-// func (db billingDB) tryInsert(ctx context.Context, primaryTx billing.Transaction, supplementalTxs []billing.Transaction) (_ []int64, err error) {
-// 	defer mon.Task()(&ctx)(&err)
+	dbxPlans, err := db.db.All_PaymentPlans_By_Group(ctx, dbx.PaymentPlans_Group(""))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-// 	convertToUSDMicro := func(amount currency.Amount) currency.Amount {
-// 		return currency.AmountFromDecimal(amount.AsDecimal().Truncate(currency.USDollarsMicro.DecimalPlaces()), currency.USDollarsMicro)
-// 	}
-
-// 	type balanceUpdate struct {
-// 		OldBalance currency.Amount
-// 		NewBalance currency.Amount
-// 	}
-
-// 	createTransaction := func(ctx context.Context, tx *dbx.Tx, billingTX *billing.Transaction) (int64, error) {
-// 		amount := convertToUSDMicro(billingTX.Amount)
-// 		dbxTX, err := tx.Create_BillingTransaction(ctx,
-// 			dbx.BillingTransaction_UserId(billingTX.UserID[:]),
-// 			dbx.BillingTransaction_Amount(amount.BaseUnits()),
-// 			dbx.BillingTransaction_Currency(amount.Currency().Symbol()),
-// 			dbx.BillingTransaction_Description(billingTX.Description),
-// 			dbx.BillingTransaction_Source(billingTX.Source),
-// 			dbx.BillingTransaction_Status(string(billingTX.Status)),
-// 			dbx.BillingTransaction_Type(string(billingTX.Type)),
-// 			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
-// 			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
-// 		if err != nil {
-// 			return 0, Error.Wrap(err)
-// 		}
-// 		return dbxTX.Id, nil
-// 	}
-
-// 	balances := make(map[uuid.UUID]*balanceUpdate)
-
-// 	adjustBalance := func(userID uuid.UUID, amount currency.Amount) error {
-// 		balance, ok := balances[userID]
-// 		if !ok {
-// 			oldBalance, err := db.GetBalance(ctx, userID)
-// 			if err != nil {
-// 				return Error.Wrap(err)
-// 			}
-// 			balance = &balanceUpdate{OldBalance: oldBalance, NewBalance: oldBalance}
-// 			balances[userID] = balance
-// 		}
-// 		newBalance, err := currency.Add(balance.NewBalance, convertToUSDMicro(amount))
-// 		switch {
-// 		case err != nil:
-// 			return Error.Wrap(err)
-// 		case newBalance.IsNegative():
-// 			return billing.ErrInsufficientFunds
-// 		}
-// 		balance.NewBalance = newBalance
-// 		return nil
-// 	}
-
-// 	if err := adjustBalance(primaryTx.UserID, primaryTx.Amount); err != nil {
-// 		return nil, err
-// 	}
-// 	for _, supplementalTx := range supplementalTxs {
-// 		if err := adjustBalance(supplementalTx.UserID, supplementalTx.Amount); err != nil {
-// 			return nil, err
-// 		}
-// 	}
-
-// 	var txIDs []int64
-// 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-// 		for userID, update := range balances {
-// 			if err := updateBalance(ctx, tx, userID, update.OldBalance, update.NewBalance); err != nil {
-// 				return err
-// 			}
-// 		}
-
-// 		txID, err := createTransaction(ctx, tx, &primaryTx)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		txIDs = append(txIDs, txID)
-
-// 		for _, supplementalTx := range supplementalTxs {
-// 			txID, err := createTransaction(ctx, tx, &supplementalTx)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			txIDs = append(txIDs, txID)
-// 		}
-// 		return nil
-// 	})
-// 	return txIDs, err
-// }
+	plans, err = convertSlice(dbxPlans, fromDBXPaymentPlans)
+	return plans, Error.Wrap(err)
+}
 
 func (db billingDB) FailPendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -384,6 +306,22 @@ func fromDBXBillingTransactions(dbxTX *dbx.BillingTransaction) (billing.Transact
 		Metadata:    dbxTX.Metadata,
 		Timestamp:   dbxTX.Timestamp,
 		CreatedAt:   dbxTX.CreatedAt,
+	}, nil
+}
+
+// fromDBXPaymentPlans converts *dbx.PaymentPlans to *billing.PaymentPlans.
+func fromDBXPaymentPlans(dbxPlan *dbx.PaymentPlans) (billing.PaymentPlans, error) {
+	return billing.PaymentPlans{
+		ID:           dbxPlan.Id,
+		Name:         dbxPlan.Name,
+		Storage:      dbxPlan.Storage,
+		StorageUnit:  dbxPlan.StorageUnit,
+		Price:        dbxPlan.Price,
+		PriceUnit:    dbxPlan.PriceUnit,
+		Validity:     dbxPlan.Validity,
+		ValidityUnit: dbxPlan.ValidityUnit,
+		Benefit:      dbxPlan.Benefit,
+		Group:        dbxPlan.Group,
 	}, nil
 }
 

@@ -506,6 +506,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		// }
 		paymentsRouter.HandleFunc("/upgradingModule", paymentController.UpgradingModuleReq).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/invoice-history", paymentController.BillingTransactionHistory).Methods(http.MethodGet, http.MethodOptions)
+		router.HandleFunc("/payment-plans", paymentController.HandlePaymentPlans).Methods(http.MethodGet, http.MethodOptions)
 	}
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
@@ -577,7 +578,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/activation", server.accountActivationHandler)
 	router.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 	router.Handle("/contactus", server.withCORS(http.HandlerFunc(server.handleContactUs)))
-	router.Handle("/payment-plans", server.withCORS(http.HandlerFunc(staticapi.HandlePaymentPlans)))
 	router.Handle("/blog-list", server.withCORS(http.HandlerFunc(staticapi.HandleBlogList)))
 	router.Handle("/user-guideline-html", server.withCORS(http.HandlerFunc(staticapi.HandleUserGuideline)))
 	router.Handle("/resources-list", server.withCORS(http.HandlerFunc(staticapi.HandleResources)))

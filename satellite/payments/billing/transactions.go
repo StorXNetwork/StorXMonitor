@@ -75,6 +75,8 @@ type TransactionsDB interface {
 	ListSource(ctx context.Context, userID uuid.UUID, txSource string) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
 	GetBalance(ctx context.Context, userID uuid.UUID) (currency.Amount, error)
+
+	GetPaymentPlans(ctx context.Context) ([]PaymentPlans, error)
 }
 
 // PaymentType is an interface which defines functionality required for all billing payment types. Payment types can
@@ -130,6 +132,20 @@ type Transactions struct {
 	Metadata    []byte
 	Timestamp   time.Time
 	CreatedAt   time.Time
+}
+
+type PaymentPlans struct {
+	ID           int64
+	Name         string
+	Storage      int64
+	StorageUnit  string
+	Price        int64
+	PriceUnit    string
+	Benefit      []byte
+	Validity     int64
+	ValidityUnit string
+	Group        string
+	CreatedAt    time.Time
 }
 
 // CalculateBonusAmount calculates bonus for given currency amount and bonus rate.

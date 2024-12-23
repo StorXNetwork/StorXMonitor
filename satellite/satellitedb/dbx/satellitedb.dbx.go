@@ -564,6 +564,19 @@ CREATE TABLE oauth_tokens (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
 );
+CREATE TABLE payment_plans (
+	id bigserial NOT NULL,
+	name text NOT NULL,
+	storage bigint NOT NULL,
+	storage_unit text NOT NULL,
+	price bigint NOT NULL,
+	price_unit text NOT NULL,
+	benefit jsonb NOT NULL,
+	validity bigint NOT NULL,
+	validity_unit text NOT NULL,
+	group text NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	leaf_serial_number bytea NOT NULL,
@@ -1343,6 +1356,19 @@ CREATE TABLE oauth_tokens (
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
+);
+CREATE TABLE payment_plans (
+	id bigserial NOT NULL,
+	name text NOT NULL,
+	storage bigint NOT NULL,
+	storage_unit text NOT NULL,
+	price bigint NOT NULL,
+	price_unit text NOT NULL,
+	benefit jsonb NOT NULL,
+	validity bigint NOT NULL,
+	validity_unit text NOT NULL,
+	group text NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
@@ -6424,6 +6450,223 @@ func (f OauthToken_ExpiresAt_Field) value() interface{} {
 }
 
 func (OauthToken_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type PaymentPlans struct {
+	Id           int64
+	Name         string
+	Storage      int64
+	StorageUnit  string
+	Price        int64
+	PriceUnit    string
+	Benefit      []byte
+	Validity     int64
+	ValidityUnit string
+	Group        string
+}
+
+func (PaymentPlans) _Table() string { return "payment_plans" }
+
+type PaymentPlans_Update_Fields struct {
+	Name         PaymentPlans_Name_Field
+	Storage      PaymentPlans_Storage_Field
+	StorageUnit  PaymentPlans_StorageUnit_Field
+	Price        PaymentPlans_Price_Field
+	PriceUnit    PaymentPlans_PriceUnit_Field
+	Benefit      PaymentPlans_Benefit_Field
+	Validity     PaymentPlans_Validity_Field
+	ValidityUnit PaymentPlans_ValidityUnit_Field
+	Group        PaymentPlans_Group_Field
+}
+
+type PaymentPlans_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PaymentPlans_Id(v int64) PaymentPlans_Id_Field {
+	return PaymentPlans_Id_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_Id_Field) _Column() string { return "id" }
+
+type PaymentPlans_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentPlans_Name(v string) PaymentPlans_Name_Field {
+	return PaymentPlans_Name_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_Name_Field) _Column() string { return "name" }
+
+type PaymentPlans_Storage_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PaymentPlans_Storage(v int64) PaymentPlans_Storage_Field {
+	return PaymentPlans_Storage_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_Storage_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_Storage_Field) _Column() string { return "storage" }
+
+type PaymentPlans_StorageUnit_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentPlans_StorageUnit(v string) PaymentPlans_StorageUnit_Field {
+	return PaymentPlans_StorageUnit_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_StorageUnit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_StorageUnit_Field) _Column() string { return "storage_unit" }
+
+type PaymentPlans_Price_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PaymentPlans_Price(v int64) PaymentPlans_Price_Field {
+	return PaymentPlans_Price_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_Price_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_Price_Field) _Column() string { return "price" }
+
+type PaymentPlans_PriceUnit_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentPlans_PriceUnit(v string) PaymentPlans_PriceUnit_Field {
+	return PaymentPlans_PriceUnit_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_PriceUnit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_PriceUnit_Field) _Column() string { return "price_unit" }
+
+type PaymentPlans_Benefit_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentPlans_Benefit(v []byte) PaymentPlans_Benefit_Field {
+	return PaymentPlans_Benefit_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_Benefit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_Benefit_Field) _Column() string { return "benefit" }
+
+type PaymentPlans_Validity_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PaymentPlans_Validity(v int64) PaymentPlans_Validity_Field {
+	return PaymentPlans_Validity_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_Validity_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_Validity_Field) _Column() string { return "validity" }
+
+type PaymentPlans_ValidityUnit_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentPlans_ValidityUnit(v string) PaymentPlans_ValidityUnit_Field {
+	return PaymentPlans_ValidityUnit_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_ValidityUnit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_ValidityUnit_Field) _Column() string { return "validity_unit" }
+
+type PaymentPlans_Group_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentPlans_Group(v string) PaymentPlans_Group_Field {
+	return PaymentPlans_Group_Field{_set: true, _value: v}
+}
+
+func (f PaymentPlans_Group_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PaymentPlans_Group_Field) _Column() string { return "group" }
 
 type PeerIdentity struct {
 	NodeId           []byte
@@ -14320,6 +14563,45 @@ func (obj *pgxImpl) Create_BillingTransaction(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_PaymentPlans(ctx context.Context,
+	payment_plans_name PaymentPlans_Name_Field,
+	payment_plans_storage PaymentPlans_Storage_Field,
+	payment_plans_storage_unit PaymentPlans_StorageUnit_Field,
+	payment_plans_price PaymentPlans_Price_Field,
+	payment_plans_price_unit PaymentPlans_PriceUnit_Field,
+	payment_plans_benefit PaymentPlans_Benefit_Field,
+	payment_plans_validity PaymentPlans_Validity_Field,
+	payment_plans_validity_unit PaymentPlans_ValidityUnit_Field,
+	payment_plans_group PaymentPlans_Group_Field) (
+	payment_plans *PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__name_val := payment_plans_name.value()
+	__storage_val := payment_plans_storage.value()
+	__storage_unit_val := payment_plans_storage_unit.value()
+	__price_val := payment_plans_price.value()
+	__price_unit_val := payment_plans_price_unit.value()
+	__benefit_val := payment_plans_benefit.value()
+	__validity_val := payment_plans_validity.value()
+	__validity_unit_val := payment_plans_validity_unit.value()
+	__group_val := payment_plans_group.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_plans ( name, storage, storage_unit, price, price_unit, benefit, validity, validity_unit, group ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")
+
+	var __values []interface{}
+	__values = append(__values, __name_val, __storage_val, __storage_unit_val, __price_val, __price_unit_val, __benefit_val, __validity_val, __validity_unit_val, __group_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_plans = &PaymentPlans{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_plans, nil
+
+}
+
 func (obj *pgxImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
 	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
 	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
@@ -16575,6 +16857,116 @@ func (obj *pgxImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 		return (*Balance_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_PaymentPlans_By_Id(ctx context.Context,
+	payment_plans_id PaymentPlans_Id_Field) (
+	payment_plans *PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, payment_plans_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_plans = &PaymentPlans{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	if err != nil {
+		return (*PaymentPlans)(nil), obj.makeErr(err)
+	}
+	return payment_plans, nil
+
+}
+
+func (obj *pgxImpl) All_PaymentPlans(ctx context.Context) (
+	rows []*PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentPlans, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				payment_plans := &PaymentPlans{}
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_plans)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_PaymentPlans_By_Group(ctx context.Context,
+	payment_plans_group PaymentPlans_Group_Field) (
+	rows []*PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
+
+	var __values []interface{}
+	__values = append(__values, payment_plans_group.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentPlans, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				payment_plans := &PaymentPlans{}
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_plans)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -20444,6 +20836,87 @@ func (obj *pgxImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.Cont
 	return billing_balance, nil
 }
 
+func (obj *pgxImpl) Update_PaymentPlans_By_Id(ctx context.Context,
+	payment_plans_id PaymentPlans_Id_Field,
+	update PaymentPlans_Update_Fields) (
+	payment_plans *PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_plans SET "), __sets, __sqlbundle_Literal(" WHERE payment_plans.id = ? RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Storage._set {
+		__values = append(__values, update.Storage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("storage = ?"))
+	}
+
+	if update.StorageUnit._set {
+		__values = append(__values, update.StorageUnit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("storage_unit = ?"))
+	}
+
+	if update.Price._set {
+		__values = append(__values, update.Price.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("price = ?"))
+	}
+
+	if update.PriceUnit._set {
+		__values = append(__values, update.PriceUnit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("price_unit = ?"))
+	}
+
+	if update.Benefit._set {
+		__values = append(__values, update.Benefit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("benefit = ?"))
+	}
+
+	if update.Validity._set {
+		__values = append(__values, update.Validity.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("validity = ?"))
+	}
+
+	if update.ValidityUnit._set {
+		__values = append(__values, update.ValidityUnit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("validity_unit = ?"))
+	}
+
+	if update.Group._set {
+		__values = append(__values, update.Group.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("group = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, payment_plans_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_plans = &PaymentPlans{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_plans, nil
+}
+
 func (obj *pgxImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
 	billing_transaction_id BillingTransaction_Id_Field,
 	billing_transaction_status BillingTransaction_Status_Field,
@@ -23971,6 +24444,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_plans;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -24419,6 +24902,45 @@ func (obj *pgxcockroachImpl) Create_BillingTransaction(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return billing_transaction, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_PaymentPlans(ctx context.Context,
+	payment_plans_name PaymentPlans_Name_Field,
+	payment_plans_storage PaymentPlans_Storage_Field,
+	payment_plans_storage_unit PaymentPlans_StorageUnit_Field,
+	payment_plans_price PaymentPlans_Price_Field,
+	payment_plans_price_unit PaymentPlans_PriceUnit_Field,
+	payment_plans_benefit PaymentPlans_Benefit_Field,
+	payment_plans_validity PaymentPlans_Validity_Field,
+	payment_plans_validity_unit PaymentPlans_ValidityUnit_Field,
+	payment_plans_group PaymentPlans_Group_Field) (
+	payment_plans *PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__name_val := payment_plans_name.value()
+	__storage_val := payment_plans_storage.value()
+	__storage_unit_val := payment_plans_storage_unit.value()
+	__price_val := payment_plans_price.value()
+	__price_unit_val := payment_plans_price_unit.value()
+	__benefit_val := payment_plans_benefit.value()
+	__validity_val := payment_plans_validity.value()
+	__validity_unit_val := payment_plans_validity_unit.value()
+	__group_val := payment_plans_group.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_plans ( name, storage, storage_unit, price, price_unit, benefit, validity, validity_unit, group ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")
+
+	var __values []interface{}
+	__values = append(__values, __name_val, __storage_val, __storage_unit_val, __price_val, __price_unit_val, __benefit_val, __validity_val, __validity_unit_val, __group_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_plans = &PaymentPlans{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_plans, nil
 
 }
 
@@ -26677,6 +27199,116 @@ func (obj *pgxcockroachImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Co
 		return (*Balance_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentPlans_By_Id(ctx context.Context,
+	payment_plans_id PaymentPlans_Id_Field) (
+	payment_plans *PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, payment_plans_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_plans = &PaymentPlans{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	if err != nil {
+		return (*PaymentPlans)(nil), obj.makeErr(err)
+	}
+	return payment_plans, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_PaymentPlans(ctx context.Context) (
+	rows []*PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentPlans, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				payment_plans := &PaymentPlans{}
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_plans)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_PaymentPlans_By_Group(ctx context.Context,
+	payment_plans_group PaymentPlans_Group_Field) (
+	rows []*PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
+
+	var __values []interface{}
+	__values = append(__values, payment_plans_group.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentPlans, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				payment_plans := &PaymentPlans{}
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_plans)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -30546,6 +31178,87 @@ func (obj *pgxcockroachImpl) Update_BillingBalance_By_UserId_And_Balance(ctx con
 	return billing_balance, nil
 }
 
+func (obj *pgxcockroachImpl) Update_PaymentPlans_By_Id(ctx context.Context,
+	payment_plans_id PaymentPlans_Id_Field,
+	update PaymentPlans_Update_Fields) (
+	payment_plans *PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_plans SET "), __sets, __sqlbundle_Literal(" WHERE payment_plans.id = ? RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.storage_unit, payment_plans.price, payment_plans.price_unit, payment_plans.benefit, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Storage._set {
+		__values = append(__values, update.Storage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("storage = ?"))
+	}
+
+	if update.StorageUnit._set {
+		__values = append(__values, update.StorageUnit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("storage_unit = ?"))
+	}
+
+	if update.Price._set {
+		__values = append(__values, update.Price.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("price = ?"))
+	}
+
+	if update.PriceUnit._set {
+		__values = append(__values, update.PriceUnit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("price_unit = ?"))
+	}
+
+	if update.Benefit._set {
+		__values = append(__values, update.Benefit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("benefit = ?"))
+	}
+
+	if update.Validity._set {
+		__values = append(__values, update.Validity.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("validity = ?"))
+	}
+
+	if update.ValidityUnit._set {
+		__values = append(__values, update.ValidityUnit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("validity_unit = ?"))
+	}
+
+	if update.Group._set {
+		__values = append(__values, update.Group.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("group = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, payment_plans_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_plans = &PaymentPlans{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.StorageUnit, &payment_plans.Price, &payment_plans.PriceUnit, &payment_plans.Benefit, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_plans, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
 	billing_transaction_id BillingTransaction_Id_Field,
 	billing_transaction_status BillingTransaction_Status_Field,
@@ -34073,6 +34786,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_plans;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -34351,6 +35074,13 @@ type Methods interface {
 	All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx context.Context) (
 		rows []*Id_PieceCount_Row, err error)
 
+	All_PaymentPlans(ctx context.Context) (
+		rows []*PaymentPlans, err error)
+
+	All_PaymentPlans_By_Group(ctx context.Context,
+		payment_plans_group PaymentPlans_Group_Field) (
+		rows []*PaymentPlans, err error)
+
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
@@ -34597,6 +35327,18 @@ type Methods interface {
 		node_event_event NodeEvent_Event_Field,
 		optional NodeEvent_Create_Fields) (
 		node_event *NodeEvent, err error)
+
+	Create_PaymentPlans(ctx context.Context,
+		payment_plans_name PaymentPlans_Name_Field,
+		payment_plans_storage PaymentPlans_Storage_Field,
+		payment_plans_storage_unit PaymentPlans_StorageUnit_Field,
+		payment_plans_price PaymentPlans_Price_Field,
+		payment_plans_price_unit PaymentPlans_PriceUnit_Field,
+		payment_plans_benefit PaymentPlans_Benefit_Field,
+		payment_plans_validity PaymentPlans_Validity_Field,
+		payment_plans_validity_unit PaymentPlans_ValidityUnit_Field,
+		payment_plans_group PaymentPlans_Group_Field) (
+		payment_plans *PaymentPlans, err error)
 
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
@@ -34943,6 +35685,10 @@ type Methods interface {
 		oauth_token_kind OauthToken_Kind_Field,
 		oauth_token_token OauthToken_Token_Field) (
 		oauth_token *OauthToken, err error)
+
+	Get_PaymentPlans_By_Id(ctx context.Context,
+		payment_plans_id PaymentPlans_Id_Field) (
+		payment_plans *PaymentPlans, err error)
 
 	Get_PeerIdentity_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
@@ -35381,6 +36127,11 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
+
+	Update_PaymentPlans_By_Id(ctx context.Context,
+		payment_plans_id PaymentPlans_Id_Field,
+		update PaymentPlans_Update_Fields) (
+		payment_plans *PaymentPlans, err error)
 
 	Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,

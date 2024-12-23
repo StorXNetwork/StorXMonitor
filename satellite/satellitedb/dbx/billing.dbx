@@ -100,6 +100,61 @@ model billing_transaction (
 
 create billing_transaction ( )
 
+// payment_plans contains the payment plans for the user.
+model payment_plans (
+	key id
+
+	field id serial64
+
+	// name is the name of the plan.
+ 	field name text ( updatable )
+
+	// storage is the storage of the plan.
+	field storage int64 ( updatable )
+
+	// storage_unit is the unit of the storage.
+	field storage_unit text ( updatable )
+
+	// price is the price of the plan.
+	field price int64 ( updatable )
+
+	// price_unit is the unit of the price.
+	field price_unit text ( updatable )
+
+	// benefit is the benefit of the plan.
+	field benefit json ( updatable )
+
+	// validity is the validity of the plan.
+	field validity int64 ( updatable )
+
+	// validity_unit is the unit of the validity.
+	field validity_unit text ( updatable )
+
+	// group is the group of the plan.
+	field group text ( updatable )
+)
+
+
+create payment_plans ( )
+
+update payment_plans (
+	where payment_plans.id = ?
+)
+
+read one (
+	select payment_plans
+	where payment_plans.id = ?
+)
+
+read all (
+	select payment_plans
+)
+
+read all (
+	select payment_plans
+	where payment_plans.group = ?
+)
+
 update billing_transaction (
 	where billing_transaction.id = ?
 	where billing_transaction.status = ?

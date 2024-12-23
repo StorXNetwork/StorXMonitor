@@ -251,6 +251,19 @@ CREATE TABLE oauth_tokens (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
 );
+CREATE TABLE payment_plans (
+	id bigserial NOT NULL,
+	name text NOT NULL,
+	storage bigint NOT NULL,
+	storage_unit text NOT NULL,
+	price bigint NOT NULL,
+	price_unit text NOT NULL,
+	benefit jsonb NOT NULL,
+	validity bigint NOT NULL,
+	validity_unit text NOT NULL,
+	group text NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	leaf_serial_number bytea NOT NULL,
