@@ -1288,9 +1288,9 @@ func (p *Payments) HandlePaymentPlans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	planMap := make(map[string]interface{})
+	planMap := make(map[string][]interface{})
 	for _, plan := range plans {
-		planMap[plan.Name] = plan
+		planMap[plan.Group] = append(planMap[plan.Group], plan)
 	}
 
 	output := map[string]interface{}{
@@ -1299,10 +1299,10 @@ func (p *Payments) HandlePaymentPlans(w http.ResponseWriter, r *http.Request) {
 
 	group := []map[string]interface{}{}
 
-	for name, plan := range planMap {
+	for name, plans := range planMap {
 		group = append(group, map[string]interface{}{
 			"name":  name,
-			"plans": plan,
+			"plans": plans,
 		})
 	}
 
