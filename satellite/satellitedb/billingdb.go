@@ -138,7 +138,7 @@ func (db billingDB) tryInserts(ctx context.Context, primaryTx billing.Transactio
 func (db billingDB) GetPaymentPlans(ctx context.Context) (plans []billing.PaymentPlans, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxPlans, err := db.db.All_PaymentPlans_By_Group(ctx, dbx.PaymentPlans_Group(""))
+	dbxPlans, err := db.db.All_PaymentPlans(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
