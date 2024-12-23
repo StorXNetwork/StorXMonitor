@@ -2854,7 +2854,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						benefit jsonb NOT NULL,
 						validity bigint NOT NULL,
 						validity_unit text NOT NULL,
-						group text NOT NULL,
+						"group" text NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
 				},
