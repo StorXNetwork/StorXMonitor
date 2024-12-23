@@ -334,14 +334,15 @@ func fromDBXPaymentPlans(dbxPlan *dbx.PaymentPlans) (billing.PaymentPlans, error
 	}
 
 	return billing.PaymentPlans{
-		ID:        dbxPlan.Id,
-		Name:      dbxPlan.Name,
-		Storage:   dbxPlan.Storage,
-		Bandwidth: dbxPlan.Bandwidth,
-		Price:     dbxPlan.Price,
-		Validity:  dbxPlan.Validity,
-		Benefit:   benefit,
-		Group:     dbxPlan.Group,
+		ID:           dbxPlan.Id,
+		Name:         dbxPlan.Name,
+		Storage:      dbxPlan.Storage,
+		Bandwidth:    dbxPlan.Bandwidth,
+		Price:        dbxPlan.Price,
+		Validity:     dbxPlan.Validity,
+		ValidityUnit: dbxPlan.ValidityUnit,
+		Benefit:      benefit,
+		Group:        dbxPlan.Group,
 	}, nil
 }
 

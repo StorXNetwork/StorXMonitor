@@ -124,6 +124,9 @@ model payment_plans (
 	// validity is the validity of the plan.
 	field validity int64 ( updatable )
 
+	// validity_unit is the unit of the validity.
+	field validity_unit text ( updatable )
+
 	// group is the group of the plan.
 	field group text ( updatable )
 )

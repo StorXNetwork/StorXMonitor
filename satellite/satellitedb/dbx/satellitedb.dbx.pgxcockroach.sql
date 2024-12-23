@@ -259,6 +259,7 @@ CREATE TABLE payment_plans (
 	benefit jsonb NOT NULL,
 	bandwidth bigint NOT NULL,
 	validity bigint NOT NULL,
+	validity_unit text NOT NULL,
 	group text NOT NULL,
 	PRIMARY KEY ( id )
 );

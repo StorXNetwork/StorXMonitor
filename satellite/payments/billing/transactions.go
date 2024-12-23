@@ -137,15 +137,16 @@ type Transactions struct {
 }
 
 type PaymentPlans struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	Storage   int64     `json:"storage"`
-	Price     int64     `json:"price"`
-	Bandwidth int64     `json:"bandwidth"`
-	Benefit   []string  `json:"benefit"`
-	Validity  int64     `json:"validity"`
-	Group     string    `json:"group"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	Storage      int64     `json:"storage"`
+	Price        int64     `json:"price"`
+	Bandwidth    int64     `json:"bandwidth"`
+	Benefit      []string  `json:"benefit"`
+	Validity     int64     `json:"validity"`
+	ValidityUnit string    `json:"validity_unit"`
+	Group        string    `json:"group"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // CalculateBonusAmount calculates bonus for given currency amount and bonus rate.

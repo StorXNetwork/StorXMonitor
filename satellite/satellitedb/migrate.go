@@ -2852,6 +2852,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						bandwidth bigint NOT NULL,
 						benefit jsonb NOT NULL,
 						validity bigint NOT NULL,
+						validity_unit text NOT NULL,
 						"group" text NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
@@ -2862,7 +2863,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "insert default payment plans",
 				Version:     277,
 				Action: migrate.SQL{
-					`INSERT INTO payment_plans (name, storage, bandwidth, price, benefit, validity, "group") VALUES
+					`INSERT INTO payment_plans (name, storage, bandwidth, price, benefit, validity, validity_unit, "group") VALUES
 					-- Individual Plans
 					('Welcome', 2000000000, 5000000000, 0, 
 					 '["End to End Encryption", "Private File Sharing", "5 GB Bandwidth"]'::jsonb, 
