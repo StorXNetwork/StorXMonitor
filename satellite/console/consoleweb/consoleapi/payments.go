@@ -918,7 +918,7 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", p.gatewayConfig.Pay_ReqUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
-		fmt.Println("********************Error creating request:", err)
+		http.Error(w, fmt.Sprintf("Failed to create request: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -928,14 +928,14 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("****************Error sending request:", err)
+		http.Error(w, fmt.Sprintf("Failed to send request: %v", err), http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("****************Error reading response body:", err)
+		http.Error(w, fmt.Sprintf("Failed to read response body: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -970,7 +970,7 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 		// Send the response to the frontend
 		_, err = w.Write(jsonResponse)
 		if err != nil {
-			fmt.Println("****************Error sending response:", err)
+			http.Error(w, fmt.Sprintf("Failed to send response: %v", err), http.StatusInternalServerError)
 			return
 		}
 
