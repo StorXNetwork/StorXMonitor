@@ -568,7 +568,7 @@ CREATE TABLE payment_plans (
 	id bigserial NOT NULL,
 	name text NOT NULL,
 	storage bigint NOT NULL,
-	price bigint NOT NULL,
+	price double precision NOT NULL,
 	benefit jsonb NOT NULL,
 	bandwidth bigint NOT NULL,
 	validity bigint NOT NULL,
@@ -1360,7 +1360,7 @@ CREATE TABLE payment_plans (
 	id bigserial NOT NULL,
 	name text NOT NULL,
 	storage bigint NOT NULL,
-	price bigint NOT NULL,
+	price double precision NOT NULL,
 	benefit jsonb NOT NULL,
 	bandwidth bigint NOT NULL,
 	validity bigint NOT NULL,
@@ -6453,7 +6453,7 @@ type PaymentPlans struct {
 	Id           int64
 	Name         string
 	Storage      int64
-	Price        int64
+	Price        float64
 	Benefit      []byte
 	Bandwidth    int64
 	Validity     int64
@@ -6534,10 +6534,10 @@ func (PaymentPlans_Storage_Field) _Column() string { return "storage" }
 type PaymentPlans_Price_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value float64
 }
 
-func PaymentPlans_Price(v int64) PaymentPlans_Price_Field {
+func PaymentPlans_Price(v float64) PaymentPlans_Price_Field {
 	return PaymentPlans_Price_Field{_set: true, _value: v}
 }
 

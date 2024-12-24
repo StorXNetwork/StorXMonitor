@@ -2848,7 +2848,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						id bigserial NOT NULL,
 						name text NOT NULL,
 						storage bigint NOT NULL,
-						price bigint NOT NULL,
+						price double NOT NULL,
 						bandwidth bigint NOT NULL,
 						benefit jsonb NOT NULL,
 						validity bigint NOT NULL,
@@ -2869,32 +2869,32 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					 '["End to End Encryption", "Private File Sharing", "5 GB Bandwidth"]'::jsonb, 
 					 -1, 'month', 'Individual'),
 					
-					('Basic', 20000000000, 50000000000, 999, 
+					('Basic', 20000000000, 50000000000, 9.99, 
 					 '["End to End Encryption", "Private File Sharing", "50 GB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Individual'),
 					
-					('Professional', 50000000000, 250000000000, 2999, 
+					('Professional', 50000000000, 250000000000, 29.99, 
 					 '["End to End Encryption", "Private File Sharing", "250 GB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Individual'),
 					
-					('Small Business', 100000000000, 500000000000, 4999, 
+					('Small Business', 100000000000, 500000000000, 49.99, 
 					 '["End to End Encryption", "Private File Sharing", "500 GB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Individual'),
 
 					-- Enterprise Plans
-					('Starter', 500000000000, 5000000000000, 5999, 
+					('Starter', 500000000000, 5000000000000, 59.99, 
 					 '["End to End Encryption", "Private File Sharing", "5 TB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Enterprise'),
 					
-					('Standard', 1000000000000, 10000000000000, 7999, 
+					('Standard', 1000000000000, 10000000000000, 79.99, 
 					 '["End to End Encryption", "Private File Sharing", "10 TB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Enterprise'),
 					
-					('Professional', 5000000000000, 25000000000000, 9999, 
+					('Professional', 5000000000000, 25000000000000, 99.99, 
 					 '["End to End Encryption", "Private File Sharing", "25 TB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Enterprise'),
 					
-					('Enterprise', 10000000000000, 100000000000000, 14999, 
+					('Enterprise', 10000000000000, 100000000000000, 149.99, 
 					 '["End to End Encryption", "Private File Sharing", "100 TB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Enterprise');`,
 				},

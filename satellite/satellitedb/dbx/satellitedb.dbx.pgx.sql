@@ -255,7 +255,7 @@ CREATE TABLE payment_plans (
 	id bigserial NOT NULL,
 	name text NOT NULL,
 	storage bigint NOT NULL,
-	price bigint NOT NULL,
+	price double precision NOT NULL,
 	benefit jsonb NOT NULL,
 	bandwidth bigint NOT NULL,
 	validity bigint NOT NULL,

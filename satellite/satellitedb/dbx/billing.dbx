@@ -113,7 +113,7 @@ model payment_plans (
 	field storage int64 ( updatable )
 
 	// price is the price of the plan in USD
-	field price int64 ( updatable )
+	field price float64 ( updatable )
 
 	// benefit is the benefit of the plan.
 	field benefit json ( updatable )

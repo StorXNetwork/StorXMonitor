@@ -140,7 +140,7 @@ type PaymentPlans struct {
 	ID           int64     `json:"id"`
 	Name         string    `json:"name"`
 	Storage      int64     `json:"storage"`
-	Price        int64     `json:"price"`
+	Price        float64   `json:"price"`
 	Bandwidth    int64     `json:"bandwidth"`
 	Benefit      []string  `json:"benefit"`
 	Validity     int64     `json:"validity"`
