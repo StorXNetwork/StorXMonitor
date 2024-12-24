@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
@@ -974,29 +975,34 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Periodically check the payment status
-		go func(paymentID string, gbsize int64, bandwidth int64, planPrice int64, user *console.User) {
-			for {
+		go func(paymentID string, plan *billing.PaymentPlans, user *console.User) {
+
+			for i := 0; i < 20; i++ {
 				time.Sleep(30 * time.Second)
 				paymentStatus := p.getPaymentdetail(paymentID)
 				// if paymentStatus == "COMPLETED" {
 				if paymentStatus == "COMPLETED" {
 					newCtx := context.Background()
-					p.updateLimits(newCtx, user.Email, "gbsize", "bandwidth")
+					p.updateLimits(newCtx, user.ID, plan.Storage, plan.Bandwidth)
+
+					gbSize := fmt.Sprintf("%0.2f GB", float64(plan.Storage)/float64(memory.GB))
+					bandwidth := fmt.Sprintf("%0.2f GB", float64(plan.Bandwidth)/float64(memory.GB))
+
 					p.mailService.SendRenderedAsync(
 						newCtx,
 						[]post.Address{{Address: user.Email}},
 						&console.UpgradeSuccessfullEmail{
 							UserName:  user.ShortName,
 							Signature: "Storx Team",
-							GBsize:    "gbsize",
-							Bandwidth: "bandwidth",
+							GBsize:    gbSize,
+							Bandwidth: bandwidth,
 						},
 					)
 					p.stripe.CreateTokenPaymentBillingTransaction(newCtx, user, "planPrice")
 					return
 				}
 			}
-		}(upgradingResponse.Data.PaymentID, plan.Storage, plan.Bandwidth, plan.Price, user)
+		}(upgradingResponse.Data.PaymentID, plan, user)
 
 		// p.updateLimits(ctx, userEmail, upgradingRequest.GBsize, upgradingRequest.Bandwidth)
 		// sendEmail(userEmail, sendBody)
@@ -1100,31 +1106,11 @@ func (p *Payments) getPaymentdetail(paidPaymentID string) (paymentStatus string)
 }
 
 // updateLimits updates user limits and all project limits for that user (future and existing).
-func (p *Payments) updateLimits(ctx context.Context, userEmail string, storageTemp string, bandwidthTemp string) {
-
-	storageInt, err := strconv.Atoi(storageTemp)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-	storage := int64(storageInt) * 1000000000
-
-	bandwidthInt, err := strconv.Atoi(bandwidthTemp)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-	bandwidth := int64(bandwidthInt) * 1000000000
-
-	user, err := p.service.GetUsers().GetByEmail(ctx, userEmail)
-	if err != nil {
-		fmt.Println("***************************** user get fail: ", err)
-		return
-	}
+func (p *Payments) updateLimits(ctx context.Context, userID uuid.UUID, storage, bandwidth int64) {
 
 	newLimits := console.UsageLimits{
-		Storage:   user.ProjectStorageLimit,
-		Bandwidth: user.ProjectBandwidthLimit,
+		Storage:   storage,
+		Bandwidth: bandwidth,
 	}
 
 	if storage > 0 {
@@ -1134,21 +1120,20 @@ func (p *Payments) updateLimits(ctx context.Context, userEmail string, storageTe
 		newLimits.Bandwidth = bandwidth
 	}
 
-	err = p.service.GetUsers().UpdateUserProjectLimits(ctx, user.ID, newLimits)
-
+	err := p.service.GetUsers().UpdateUserProjectLimits(ctx, userID, newLimits)
 	if err != nil {
 		fmt.Println("********************************** failed to update user limits", err)
 		return
 	}
 
-	userProjects, err := p.service.GetProjects().GetOwn(ctx, user.ID)
+	userProjects, err := p.service.GetProjects().GetOwn(ctx, userID)
 	if err != nil {
 		fmt.Println("********************************** failed to get user projects: ", err)
 		return
 	}
 
 	// free->paid Update function->DB
-	err = p.service.GetUsers().UpdatePaidTiers(ctx, user.ID, true)
+	err = p.service.GetUsers().UpdatePaidTiers(ctx, userID, true)
 	if err != nil {
 		fmt.Println("********************************** failed to update user Paid tier: ", err)
 		return
@@ -1169,7 +1154,7 @@ func (p *Payments) updateLimits(ctx context.Context, userEmail string, storageTe
 		updateProjectInfo.CreatedAt = time.Now().UTC()
 		updateProjectInfo.PrevDaysUntilExpiration = int(0)
 
-		_, err = p.service.UpdatingProjects(ctx, *user, project.ID, updateProjectInfo)
+		_, err = p.service.UpdatingProjects(ctx, userID, project.ID, updateProjectInfo)
 		if err != nil {
 			fmt.Println("********************************** failed to update p.service.UpdateProjects : ", err)
 		}
@@ -1210,7 +1195,7 @@ func (p *Payments) MonitorUserProjects(ctx context.Context) error {
 							PrevDaysUntilExpiration: project.PrevDaysUntilExpiration,
 						}
 						updateProjectInfo.PrevDaysUntilExpiration = daysUntilExpiration
-						_, err = p.service.UpdatingProjects(ctx, user, project.ID, updateProjectInfo)
+						_, err = p.service.UpdatingProjects(ctx, user.ID, project.ID, updateProjectInfo)
 						if err != nil {
 							fmt.Println("failed to update project:", err)
 							continue
@@ -1231,7 +1216,7 @@ func (p *Payments) MonitorUserProjects(ctx context.Context) error {
 						UserName:  user.ShortName,
 					})
 
-					p.updateLimits(ctx, user.Email, "2", "2")
+					p.updateLimits(ctx, user.ID, 2*int64(memory.GB), 2*int64(memory.GB))
 					err = p.service.GetUsers().UpdatePaidTiers(ctx, user.ID, false)
 					if err != nil {
 						fmt.Println("failed to update user Paid tier:", err)

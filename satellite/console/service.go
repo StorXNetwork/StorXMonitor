@@ -235,8 +235,8 @@ func (s *Service) GetProjects() Projects {
 func (s *Service) IsProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (isOwner bool, project *Project, err error) {
 	return s.isProjectOwner(ctx, userID, projectID)
 }
-func (s *Service) UpdatingProjects(ctx context.Context, user User, projectID uuid.UUID, updatedProject UpsertProjectInfo) (p *Project, err error) {
-	return s.UpdatingProject(ctx, user, projectID, updatedProject)
+func (s *Service) UpdatingProjects(ctx context.Context, userID uuid.UUID, projectID uuid.UUID, updatedProject UpsertProjectInfo) (p *Project, err error) {
+	return s.UpdatingProject(ctx, userID, projectID, updatedProject)
 }
 
 func (s *Service) GetPaymentPlans(ctx context.Context) (plans []billing.PaymentPlans, err error) {
@@ -2794,7 +2794,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 // projectID here may be project.PublicID or project.ID.
 
 // boris --userID added as parameter.
-func (s *Service) UpdatingProject(ctx context.Context, user User, projectID uuid.UUID, updatedProject UpsertProjectInfo) (p *Project, err error) {
+func (s *Service) UpdatingProject(ctx context.Context, userID, projectID uuid.UUID, updatedProject UpsertProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = ValidateNameAndDescription(updatedProject.Name, updatedProject.Description)
@@ -2802,13 +2802,13 @@ func (s *Service) UpdatingProject(ctx context.Context, user User, projectID uuid
 		return nil, Error.Wrap(err)
 	}
 
-	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
+	_, project, err := s.isProjectOwner(ctx, userID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	if updatedProject.Name != project.Name {
-		passesNameCheck, err := s.checkProjectName(ctx, updatedProject, user.ID)
+		passesNameCheck, err := s.checkProjectName(ctx, updatedProject, userID)
 		if err != nil || !passesNameCheck {
 			return nil, ErrProjName.Wrap(err)
 		}
