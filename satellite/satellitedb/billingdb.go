@@ -163,6 +163,47 @@ func (db billingDB) GetPaymentPlansByID(ctx context.Context, id int64) (plans *b
 	return &plan, nil
 }
 
+func (db billingDB) GetCoupons(ctx context.Context) (coupons []billing.Coupons, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxCoupons, err := db.db.All_Coupon(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	coupons, err = convertSlice(dbxCoupons, fromDBXCoupon)
+	return coupons, Error.Wrap(err)
+}
+
+func (db billingDB) GetActiveCoupons(ctx context.Context) (coupons []billing.Coupons, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxCoupons, err := db.db.All_Coupon_By_ValidFrom_LessOrEqual_And_ValidTo_GreaterOrEqual(ctx,
+		dbx.Coupon_ValidFrom(time.Now().UTC()), dbx.Coupon_ValidTo(time.Now().UTC()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	coupons, err = convertSlice(dbxCoupons, fromDBXCoupon)
+	return coupons, Error.Wrap(err)
+}
+
+func (db billingDB) GetCouponByCode(ctx context.Context, code string) (coupon *billing.Coupons, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxCoupon, err := db.db.Get_Coupon_By_Code(ctx, dbx.Coupon_Code(code))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	c, err := fromDBXCoupon(dbxCoupon)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &c, nil
+}
+
 func (db billingDB) FailPendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -343,6 +384,19 @@ func fromDBXPaymentPlans(dbxPlan *dbx.PaymentPlans) (billing.PaymentPlans, error
 		ValidityUnit: dbxPlan.ValidityUnit,
 		Benefit:      benefit,
 		Group:        dbxPlan.Group,
+	}, nil
+}
+
+func fromDBXCoupon(dbxCoupon *dbx.Coupon) (billing.Coupons, error) {
+	return billing.Coupons{
+		Code:           dbxCoupon.Code,
+		Discount:       dbxCoupon.Discount,
+		DiscountType:   dbxCoupon.DiscountType,
+		MaxDiscount:    dbxCoupon.MaxDiscount,
+		MinOrderAmount: dbxCoupon.MinOrderAmount,
+		ValidFrom:      dbxCoupon.ValidFrom,
+		ValidTo:        dbxCoupon.ValidTo,
+		CreatedAt:      dbxCoupon.CreatedAt,
 	}, nil
 }
 

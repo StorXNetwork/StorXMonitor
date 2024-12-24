@@ -93,6 +93,17 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coupons (
+	code text NOT NULL,
+	discount double precision NOT NULL,
+	discount_type text NOT NULL,
+	max_discount double precision NOT NULL,
+	min_order_amount double precision NOT NULL,
+	valid_from timestamp with time zone NOT NULL,
+	valid_to timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( code )
+);
 CREATE TABLE developers (
 	id bytea NOT NULL,
 	email text NOT NULL,

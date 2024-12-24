@@ -79,6 +79,12 @@ type TransactionsDB interface {
 	GetPaymentPlans(ctx context.Context) ([]PaymentPlans, error)
 
 	GetPaymentPlansByID(ctx context.Context, id int64) (*PaymentPlans, error)
+
+	GetActiveCoupons(ctx context.Context) ([]Coupons, error)
+
+	GetCouponByCode(ctx context.Context, code string) (*Coupons, error)
+
+	GetCoupons(ctx context.Context) ([]Coupons, error)
 }
 
 // PaymentType is an interface which defines functionality required for all billing payment types. Payment types can
@@ -147,6 +153,17 @@ type PaymentPlans struct {
 	ValidityUnit string    `json:"validity_unit"`
 	Group        string    `json:"group"`
 	CreatedAt    time.Time `json:"created_at"`
+}
+
+type Coupons struct {
+	Code           string    `json:"code"`
+	Discount       float64   `json:"discount"`
+	DiscountType   string    `json:"discount_type"`
+	MaxDiscount    float64   `json:"max_discount"`
+	MinOrderAmount float64   `json:"min_order_amount"`
+	ValidFrom      time.Time `json:"valid_from"`
+	ValidTo        time.Time `json:"valid_to"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // CalculateBonusAmount calculates bonus for given currency amount and bonus rate.

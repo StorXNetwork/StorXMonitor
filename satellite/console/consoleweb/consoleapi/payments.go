@@ -76,6 +76,7 @@ func NewGatewayConfig(apiKey, apiSecret, payReqUrl, payStatusUrl, paySuccessRedi
 type GeneratePaymentLinkRequest struct {
 	CryptoMode string `json:"cryptoMode"`
 	PlanID     int64  `json:"planId"`
+	CouponCode string `json:"couponCode"`
 }
 
 type PaymentGatewayRequest struct {
@@ -869,6 +870,39 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get payment plan: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	if generatePaymentLinkRequest.CouponCode != "" {
+		coupon, err := p.service.GetCouponByCode(ctx, generatePaymentLinkRequest.CouponCode)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get coupon: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		if coupon.ValidFrom.After(time.Now().UTC()) || coupon.ValidTo.Before(time.Now().UTC()) {
+			http.Error(w, fmt.Sprintf("Coupon is not valid: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		if coupon.MinOrderAmount <= plan.Price {
+			discountAmount := float64(0)
+			if coupon.DiscountType == "percentage" {
+				discountAmount = plan.Price * (coupon.Discount / 100)
+			} else if coupon.DiscountType == "fixed" {
+				discountAmount = coupon.Discount
+			}
+
+			if discountAmount > coupon.MaxDiscount {
+				discountAmount = coupon.MaxDiscount
+			}
+
+			plan.Price = plan.Price - discountAmount
+
+			if plan.Price < 0 {
+				plan.Price = 0
+			}
+		}
+
 	}
 
 	var network string

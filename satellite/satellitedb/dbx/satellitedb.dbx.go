@@ -406,6 +406,17 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coupons (
+	code text NOT NULL,
+	discount double precision NOT NULL,
+	discount_type text NOT NULL,
+	max_discount double precision NOT NULL,
+	min_order_amount double precision NOT NULL,
+	valid_from timestamp with time zone NOT NULL,
+	valid_to timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( code )
+);
 CREATE TABLE developers (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -1197,6 +1208,17 @@ CREATE TABLE coinpayments_transactions (
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE coupons (
+	code text NOT NULL,
+	discount double precision NOT NULL,
+	discount_type text NOT NULL,
+	max_discount double precision NOT NULL,
+	min_order_amount double precision NOT NULL,
+	valid_from timestamp with time zone NOT NULL,
+	valid_to timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( code )
 );
 CREATE TABLE developers (
 	id bytea NOT NULL,
@@ -3325,6 +3347,180 @@ func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
 }
 
 func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Coupon struct {
+	Code           string
+	Discount       float64
+	DiscountType   string
+	MaxDiscount    float64
+	MinOrderAmount float64
+	ValidFrom      time.Time
+	ValidTo        time.Time
+	CreatedAt      time.Time
+}
+
+func (Coupon) _Table() string { return "coupons" }
+
+type Coupon_Update_Fields struct {
+	Discount       Coupon_Discount_Field
+	DiscountType   Coupon_DiscountType_Field
+	MaxDiscount    Coupon_MaxDiscount_Field
+	MinOrderAmount Coupon_MinOrderAmount_Field
+	ValidFrom      Coupon_ValidFrom_Field
+	ValidTo        Coupon_ValidTo_Field
+}
+
+type Coupon_Code_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Coupon_Code(v string) Coupon_Code_Field {
+	return Coupon_Code_Field{_set: true, _value: v}
+}
+
+func (f Coupon_Code_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_Code_Field) _Column() string { return "code" }
+
+type Coupon_Discount_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Coupon_Discount(v float64) Coupon_Discount_Field {
+	return Coupon_Discount_Field{_set: true, _value: v}
+}
+
+func (f Coupon_Discount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_Discount_Field) _Column() string { return "discount" }
+
+type Coupon_DiscountType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Coupon_DiscountType(v string) Coupon_DiscountType_Field {
+	return Coupon_DiscountType_Field{_set: true, _value: v}
+}
+
+func (f Coupon_DiscountType_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_DiscountType_Field) _Column() string { return "discount_type" }
+
+type Coupon_MaxDiscount_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Coupon_MaxDiscount(v float64) Coupon_MaxDiscount_Field {
+	return Coupon_MaxDiscount_Field{_set: true, _value: v}
+}
+
+func (f Coupon_MaxDiscount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_MaxDiscount_Field) _Column() string { return "max_discount" }
+
+type Coupon_MinOrderAmount_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Coupon_MinOrderAmount(v float64) Coupon_MinOrderAmount_Field {
+	return Coupon_MinOrderAmount_Field{_set: true, _value: v}
+}
+
+func (f Coupon_MinOrderAmount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_MinOrderAmount_Field) _Column() string { return "min_order_amount" }
+
+type Coupon_ValidFrom_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Coupon_ValidFrom(v time.Time) Coupon_ValidFrom_Field {
+	return Coupon_ValidFrom_Field{_set: true, _value: v}
+}
+
+func (f Coupon_ValidFrom_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_ValidFrom_Field) _Column() string { return "valid_from" }
+
+type Coupon_ValidTo_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Coupon_ValidTo(v time.Time) Coupon_ValidTo_Field {
+	return Coupon_ValidTo_Field{_set: true, _value: v}
+}
+
+func (f Coupon_ValidTo_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_ValidTo_Field) _Column() string { return "valid_to" }
+
+type Coupon_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Coupon_CreatedAt(v time.Time) Coupon_CreatedAt_Field {
+	return Coupon_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Coupon_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Developer struct {
 	Id                     []byte
@@ -14577,6 +14773,44 @@ func (obj *pgxImpl) Create_PaymentPlans(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_Coupon(ctx context.Context,
+	coupon_code Coupon_Code_Field,
+	coupon_discount Coupon_Discount_Field,
+	coupon_discount_type Coupon_DiscountType_Field,
+	coupon_max_discount Coupon_MaxDiscount_Field,
+	coupon_min_order_amount Coupon_MinOrderAmount_Field,
+	coupon_valid_from Coupon_ValidFrom_Field,
+	coupon_valid_to Coupon_ValidTo_Field) (
+	coupon *Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__code_val := coupon_code.value()
+	__discount_val := coupon_discount.value()
+	__discount_type_val := coupon_discount_type.value()
+	__max_discount_val := coupon_max_discount.value()
+	__min_order_amount_val := coupon_min_order_amount.value()
+	__valid_from_val := coupon_valid_from.value()
+	__valid_to_val := coupon_valid_to.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( code, discount, discount_type, max_discount, min_order_amount, valid_from, valid_to, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __code_val, __discount_val, __discount_type_val, __max_discount_val, __min_order_amount_val, __valid_from_val, __valid_to_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon = &Coupon{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon, nil
+
+}
+
 func (obj *pgxImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
 	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
 	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
@@ -16835,116 +17069,6 @@ func (obj *pgxImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_PaymentPlans_By_Id(ctx context.Context,
-	payment_plans_id PaymentPlans_Id_Field) (
-	payment_plans *PaymentPlans, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, payment_plans_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
-	if err != nil {
-		return (*PaymentPlans)(nil), obj.makeErr(err)
-	}
-	return payment_plans, nil
-
-}
-
-func (obj *pgxImpl) All_PaymentPlans(ctx context.Context) (
-	rows []*PaymentPlans, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
-
-	var __values []interface{}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*PaymentPlans, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, payment_plans)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxImpl) All_PaymentPlans_By_Group(ctx context.Context,
-	payment_plans_group PaymentPlans_Group_Field) (
-	rows []*PaymentPlans, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
-
-	var __values []interface{}
-	__values = append(__values, payment_plans_group.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*PaymentPlans, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, payment_plans)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
 func (obj *pgxImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 	billing_transaction_id BillingTransaction_Id_Field) (
 	billing_transaction *BillingTransaction, err error) {
@@ -17124,6 +17248,227 @@ func (obj *pgxImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Cre
 			return nil, obj.makeErr(err)
 		}
 		return billing_transaction, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_PaymentPlans_By_Id(ctx context.Context,
+	payment_plans_id PaymentPlans_Id_Field) (
+	payment_plans *PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, payment_plans_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_plans = &PaymentPlans{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	if err != nil {
+		return (*PaymentPlans)(nil), obj.makeErr(err)
+	}
+	return payment_plans, nil
+
+}
+
+func (obj *pgxImpl) All_PaymentPlans(ctx context.Context) (
+	rows []*PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentPlans, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				payment_plans := &PaymentPlans{}
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_plans)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_PaymentPlans_By_Group(ctx context.Context,
+	payment_plans_group PaymentPlans_Group_Field) (
+	rows []*PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
+
+	var __values []interface{}
+	__values = append(__values, payment_plans_group.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentPlans, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				payment_plans := &PaymentPlans{}
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_plans)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_Coupon_By_Code(ctx context.Context,
+	coupon_code Coupon_Code_Field) (
+	coupon *Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at FROM coupons WHERE coupons.code = ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_code.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon = &Coupon{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+	if err != nil {
+		return (*Coupon)(nil), obj.makeErr(err)
+	}
+	return coupon, nil
+
+}
+
+func (obj *pgxImpl) All_Coupon(ctx context.Context) (
+	rows []*Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at FROM coupons")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Coupon, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				coupon := &Coupon{}
+				err = __rows.Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, coupon)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_Coupon_By_ValidFrom_LessOrEqual_And_ValidTo_GreaterOrEqual(ctx context.Context,
+	coupon_valid_from_less_or_equal Coupon_ValidFrom_Field,
+	coupon_valid_to_greater_or_equal Coupon_ValidTo_Field) (
+	rows []*Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at FROM coupons WHERE coupons.valid_from <= ? AND coupons.valid_to >= ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_valid_from_less_or_equal.value(), coupon_valid_to_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Coupon, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				coupon := &Coupon{}
+				err = __rows.Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, coupon)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -20811,6 +21156,49 @@ func (obj *pgxImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.Cont
 	return billing_balance, nil
 }
 
+func (obj *pgxImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
+	billing_transaction_id BillingTransaction_Id_Field,
+	billing_transaction_status BillingTransaction_Status_Field,
+	update BillingTransaction_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Metadata._set {
+		__values = append(__values, update.Metadata.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, billing_transaction_id.value(), billing_transaction_status.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 	payment_plans_id PaymentPlans_Id_Field,
 	update PaymentPlans_Update_Fields) (
@@ -20887,35 +21275,54 @@ func (obj *pgxImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 	return payment_plans, nil
 }
 
-func (obj *pgxImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
-	billing_transaction_id BillingTransaction_Id_Field,
-	billing_transaction_status BillingTransaction_Status_Field,
-	update BillingTransaction_Update_Fields) (
-	err error) {
+func (obj *pgxImpl) Update_Coupon_By_Code(ctx context.Context,
+	coupon_code Coupon_Code_Field,
+	update Coupon_Update_Fields) (
+	coupon *Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.code = ? RETURNING coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
 
-	if update.Status._set {
-		__values = append(__values, update.Status.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	if update.Discount._set {
+		__values = append(__values, update.Discount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("discount = ?"))
 	}
 
-	if update.Metadata._set {
-		__values = append(__values, update.Metadata.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
+	if update.DiscountType._set {
+		__values = append(__values, update.DiscountType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("discount_type = ?"))
+	}
+
+	if update.MaxDiscount._set {
+		__values = append(__values, update.MaxDiscount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_discount = ?"))
+	}
+
+	if update.MinOrderAmount._set {
+		__values = append(__values, update.MinOrderAmount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("min_order_amount = ?"))
+	}
+
+	if update.ValidFrom._set {
+		__values = append(__values, update.ValidFrom.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("valid_from = ?"))
+	}
+
+	if update.ValidTo._set {
+		__values = append(__values, update.ValidTo.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("valid_to = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
+		return nil, emptyUpdate()
 	}
 
-	__args = append(__args, billing_transaction_id.value(), billing_transaction_status.value())
+	__args = append(__args, coupon_code.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -20923,11 +21330,15 @@ func (obj *pgxImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
+	coupon = &Coupon{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
 	}
-	return nil
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon, nil
 }
 
 func (obj *pgxImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
@@ -24544,6 +24955,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupons;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -24909,6 +25330,44 @@ func (obj *pgxcockroachImpl) Create_PaymentPlans(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return payment_plans, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_Coupon(ctx context.Context,
+	coupon_code Coupon_Code_Field,
+	coupon_discount Coupon_Discount_Field,
+	coupon_discount_type Coupon_DiscountType_Field,
+	coupon_max_discount Coupon_MaxDiscount_Field,
+	coupon_min_order_amount Coupon_MinOrderAmount_Field,
+	coupon_valid_from Coupon_ValidFrom_Field,
+	coupon_valid_to Coupon_ValidTo_Field) (
+	coupon *Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__code_val := coupon_code.value()
+	__discount_val := coupon_discount.value()
+	__discount_type_val := coupon_discount_type.value()
+	__max_discount_val := coupon_max_discount.value()
+	__min_order_amount_val := coupon_min_order_amount.value()
+	__valid_from_val := coupon_valid_from.value()
+	__valid_to_val := coupon_valid_to.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( code, discount, discount_type, max_discount, min_order_amount, valid_from, valid_to, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __code_val, __discount_val, __discount_type_val, __max_discount_val, __min_order_amount_val, __valid_from_val, __valid_to_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon = &Coupon{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon, nil
 
 }
 
@@ -27170,116 +27629,6 @@ func (obj *pgxcockroachImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Co
 
 }
 
-func (obj *pgxcockroachImpl) Get_PaymentPlans_By_Id(ctx context.Context,
-	payment_plans_id PaymentPlans_Id_Field) (
-	payment_plans *PaymentPlans, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, payment_plans_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
-	if err != nil {
-		return (*PaymentPlans)(nil), obj.makeErr(err)
-	}
-	return payment_plans, nil
-
-}
-
-func (obj *pgxcockroachImpl) All_PaymentPlans(ctx context.Context) (
-	rows []*PaymentPlans, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
-
-	var __values []interface{}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*PaymentPlans, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, payment_plans)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) All_PaymentPlans_By_Group(ctx context.Context,
-	payment_plans_group PaymentPlans_Group_Field) (
-	rows []*PaymentPlans, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
-
-	var __values []interface{}
-	__values = append(__values, payment_plans_group.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*PaymentPlans, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, payment_plans)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
 func (obj *pgxcockroachImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 	billing_transaction_id BillingTransaction_Id_Field) (
 	billing_transaction *BillingTransaction, err error) {
@@ -27459,6 +27808,227 @@ func (obj *pgxcockroachImpl) First_BillingTransaction_By_Source_And_Type_OrderBy
 			return nil, obj.makeErr(err)
 		}
 		return billing_transaction, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentPlans_By_Id(ctx context.Context,
+	payment_plans_id PaymentPlans_Id_Field) (
+	payment_plans *PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, payment_plans_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_plans = &PaymentPlans{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	if err != nil {
+		return (*PaymentPlans)(nil), obj.makeErr(err)
+	}
+	return payment_plans, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_PaymentPlans(ctx context.Context) (
+	rows []*PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentPlans, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				payment_plans := &PaymentPlans{}
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_plans)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_PaymentPlans_By_Group(ctx context.Context,
+	payment_plans_group PaymentPlans_Group_Field) (
+	rows []*PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
+
+	var __values []interface{}
+	__values = append(__values, payment_plans_group.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentPlans, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				payment_plans := &PaymentPlans{}
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_plans)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_Coupon_By_Code(ctx context.Context,
+	coupon_code Coupon_Code_Field) (
+	coupon *Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at FROM coupons WHERE coupons.code = ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_code.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon = &Coupon{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+	if err != nil {
+		return (*Coupon)(nil), obj.makeErr(err)
+	}
+	return coupon, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_Coupon(ctx context.Context) (
+	rows []*Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at FROM coupons")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Coupon, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				coupon := &Coupon{}
+				err = __rows.Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, coupon)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_Coupon_By_ValidFrom_LessOrEqual_And_ValidTo_GreaterOrEqual(ctx context.Context,
+	coupon_valid_from_less_or_equal Coupon_ValidFrom_Field,
+	coupon_valid_to_greater_or_equal Coupon_ValidTo_Field) (
+	rows []*Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at FROM coupons WHERE coupons.valid_from <= ? AND coupons.valid_to >= ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_valid_from_less_or_equal.value(), coupon_valid_to_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Coupon, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				coupon := &Coupon{}
+				err = __rows.Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, coupon)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -31146,6 +31716,49 @@ func (obj *pgxcockroachImpl) Update_BillingBalance_By_UserId_And_Balance(ctx con
 	return billing_balance, nil
 }
 
+func (obj *pgxcockroachImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
+	billing_transaction_id BillingTransaction_Id_Field,
+	billing_transaction_status BillingTransaction_Status_Field,
+	update BillingTransaction_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Metadata._set {
+		__values = append(__values, update.Metadata.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, billing_transaction_id.value(), billing_transaction_status.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxcockroachImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 	payment_plans_id PaymentPlans_Id_Field,
 	update PaymentPlans_Update_Fields) (
@@ -31222,35 +31835,54 @@ func (obj *pgxcockroachImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 	return payment_plans, nil
 }
 
-func (obj *pgxcockroachImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
-	billing_transaction_id BillingTransaction_Id_Field,
-	billing_transaction_status BillingTransaction_Status_Field,
-	update BillingTransaction_Update_Fields) (
-	err error) {
+func (obj *pgxcockroachImpl) Update_Coupon_By_Code(ctx context.Context,
+	coupon_code Coupon_Code_Field,
+	update Coupon_Update_Fields) (
+	coupon *Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.code = ? RETURNING coupons.code, coupons.discount, coupons.discount_type, coupons.max_discount, coupons.min_order_amount, coupons.valid_from, coupons.valid_to, coupons.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
 
-	if update.Status._set {
-		__values = append(__values, update.Status.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	if update.Discount._set {
+		__values = append(__values, update.Discount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("discount = ?"))
 	}
 
-	if update.Metadata._set {
-		__values = append(__values, update.Metadata.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
+	if update.DiscountType._set {
+		__values = append(__values, update.DiscountType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("discount_type = ?"))
+	}
+
+	if update.MaxDiscount._set {
+		__values = append(__values, update.MaxDiscount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_discount = ?"))
+	}
+
+	if update.MinOrderAmount._set {
+		__values = append(__values, update.MinOrderAmount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("min_order_amount = ?"))
+	}
+
+	if update.ValidFrom._set {
+		__values = append(__values, update.ValidFrom.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("valid_from = ?"))
+	}
+
+	if update.ValidTo._set {
+		__values = append(__values, update.ValidTo.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("valid_to = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
+		return nil, emptyUpdate()
 	}
 
-	__args = append(__args, billing_transaction_id.value(), billing_transaction_status.value())
+	__args = append(__args, coupon_code.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -31258,11 +31890,15 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
+	coupon = &Coupon{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Code, &coupon.Discount, &coupon.DiscountType, &coupon.MaxDiscount, &coupon.MinOrderAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
 	}
-	return nil
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon, nil
 }
 
 func (obj *pgxcockroachImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
@@ -34879,6 +35515,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupons;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -35001,6 +35647,14 @@ type Methods interface {
 	All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
+
+	All_Coupon(ctx context.Context) (
+		rows []*Coupon, err error)
+
+	All_Coupon_By_ValidFrom_LessOrEqual_And_ValidTo_GreaterOrEqual(ctx context.Context,
+		coupon_valid_from_less_or_equal Coupon_ValidFrom_Field,
+		coupon_valid_to_greater_or_equal Coupon_ValidTo_Field) (
+		rows []*Coupon, err error)
 
 	All_Developer(ctx context.Context) (
 		rows []*Developer, err error)
@@ -35267,6 +35921,16 @@ type Methods interface {
 		coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
 		coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
+
+	Create_Coupon(ctx context.Context,
+		coupon_code Coupon_Code_Field,
+		coupon_discount Coupon_Discount_Field,
+		coupon_discount_type Coupon_DiscountType_Field,
+		coupon_max_discount Coupon_MaxDiscount_Field,
+		coupon_min_order_amount Coupon_MinOrderAmount_Field,
+		coupon_valid_from Coupon_ValidFrom_Field,
+		coupon_valid_to Coupon_ValidTo_Field) (
+		coupon *Coupon, err error)
 
 	Create_Developer(ctx context.Context,
 		developer_id Developer_Id_Field,
@@ -35602,6 +36266,10 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Versioning_Row, err error)
+
+	Get_Coupon_By_Code(ctx context.Context,
+		coupon_code Coupon_Code_Field) (
+		coupon *Coupon, err error)
 
 	Get_DeveloperUserMapping_By_DeveloperId_And_UserId(ctx context.Context,
 		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
@@ -36079,6 +36747,11 @@ type Methods interface {
 		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 		update CoinpaymentsTransaction_Update_Fields) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
+
+	Update_Coupon_By_Code(ctx context.Context,
+		coupon_code Coupon_Code_Field,
+		update Coupon_Update_Fields) (
+		coupon *Coupon, err error)
 
 	Update_Developer_By_Id(ctx context.Context,
 		developer_id Developer_Id_Field,

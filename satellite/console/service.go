@@ -247,6 +247,18 @@ func (s *Service) GetPaymentPlansByID(ctx context.Context, id int64) (plans *bil
 	return s.billing.GetPaymentPlansByID(ctx, id)
 }
 
+func (s *Service) GetActiveCoupons(ctx context.Context) (coupons []billing.Coupons, err error) {
+	return s.billing.GetActiveCoupons(ctx)
+}
+
+func (s *Service) GetCouponByCode(ctx context.Context, code string) (coupon *billing.Coupons, err error) {
+	return s.billing.GetCouponByCode(ctx, code)
+}
+
+func (s *Service) GetCoupons(ctx context.Context) (coupons []billing.Coupons, err error) {
+	return s.billing.GetCoupons(ctx)
+}
+
 func init() {
 	var c Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseTestDefaults())

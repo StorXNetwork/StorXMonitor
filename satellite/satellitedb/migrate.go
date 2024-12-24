@@ -2856,13 +2856,6 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						"group" text NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
-				},
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "insert default payment plans",
-				Version:     277,
-				Action: migrate.SQL{
 					`INSERT INTO payment_plans (name, storage, bandwidth, price, benefit, validity, validity_unit, "group") VALUES
 					-- Individual Plans
 					('Welcome', 2000000000, 5000000000, 0, 
@@ -2897,6 +2890,30 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					('Enterprise', 10000000000000, 100000000000000, 149.99, 
 					 '["End to End Encryption", "Private File Sharing", "100 TB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Enterprise');`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add coupons table",
+				Version:     277,
+				Action: migrate.SQL{
+					`CREATE TABLE coupons (
+						code text NOT NULL,
+						discount double precision NOT NULL,
+						discount_type text NOT NULL,
+						max_discount double precision NOT NULL,
+						min_order_amount double precision NOT NULL,
+						valid_from timestamp with time zone NOT NULL,
+						valid_to timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( code )
+					);`,
+					`INSERT INTO coupons (code, discount, discount_type, max_discount, min_order_amount, valid_from, valid_to) VALUES
+					('WELCOME10', 10, 'percentage', 100, 0, '2024-01-01', '2024-01-01'),
+					('WELCOME20', 20, 'percentage', 100, 0, '2024-01-01', '2024-01-01'),
+					('WELCOME30', 30, 'percentage', 100, 0, '2024-01-01', '2024-01-01'),
+					('WELCOME40', 40, 'percentage', 100, 0, '2024-01-01', '2024-01-01'),
+					('WELCOME50', 50, 'percentage', 100, 0, '2024-01-01', '2024-01-01');`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

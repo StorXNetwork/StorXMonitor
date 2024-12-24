@@ -100,6 +100,43 @@ model billing_transaction (
 
 create billing_transaction ( )
 
+update billing_transaction (
+	where billing_transaction.id = ?
+	where billing_transaction.status = ?
+	noreturn
+)
+
+read one (
+	select billing_transaction
+	where billing_transaction.id = ?
+)
+
+read one (
+	select billing_transaction.metadata
+	where billing_transaction.id = ?
+)
+
+read all (
+	select billing_transaction
+	where billing_transaction.user_id = ?
+	orderby desc billing_transaction.timestamp
+)
+
+read all (
+	select billing_transaction
+	where billing_transaction.user_id = ?
+	where billing_transaction.source = ?
+	orderby desc billing_transaction.timestamp
+)
+
+read first (
+	select billing_transaction
+	where billing_transaction.source = ?
+	where billing_transaction.type = ?
+	orderby ( desc billing_transaction.created_at)
+)
+
+
 // payment_plans contains the payment plans for the user.
 model payment_plans (
 	key id
@@ -152,40 +189,53 @@ read all (
 	where payment_plans.group = ?
 )
 
-update billing_transaction (
-	where billing_transaction.id = ?
-	where billing_transaction.status = ?
-	noreturn
+model coupon (
+	key code
+
+	// code is the code of the coupon
+	field code text
+
+	// discount is the discount amount in USD or percentage
+	field discount float64 ( updatable )
+
+	// discount_type is the type of discount. It can be "percentage" or "fixed"
+	field discount_type text ( updatable )
+
+	// max_discount is the maximum discount amount in USD
+	field max_discount float64 ( updatable )
+
+	// min_order_amount is the minimum order amount in USD
+	field min_order_amount float64 ( updatable )
+
+	// valid_from is the start date of the coupon
+	field valid_from timestamp ( updatable )
+
+	// valid_to is the end date of the coupon
+	field valid_to timestamp ( updatable )
+
+	// created_at is the time the coupon was created
+	field created_at timestamp ( autoinsert )
+)
+
+create coupon ( )
+
+update coupon (
+	where coupon.code = ?
 )
 
 read one (
-	select billing_transaction
-	where billing_transaction.id = ?
-)
-
-read one (
-	select billing_transaction.metadata
-	where billing_transaction.id = ?
+	select coupon
+	where coupon.code = ?
 )
 
 read all (
-	select billing_transaction
-	where billing_transaction.user_id = ?
-	orderby desc billing_transaction.timestamp
+	select coupon
 )
 
 read all (
-	select billing_transaction
-	where billing_transaction.user_id = ?
-	where billing_transaction.source = ?
-	orderby desc billing_transaction.timestamp
-)
-
-read first (
-	select billing_transaction
-	where billing_transaction.source = ?
-	where billing_transaction.type = ?
-	orderby ( desc billing_transaction.created_at)
+	select coupon
+	where coupon.valid_from <= ?
+	where coupon.valid_to >= ?
 )
 
 // storjscan_wallet contains user wallet addresses.
