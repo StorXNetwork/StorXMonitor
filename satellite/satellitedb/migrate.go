@@ -2848,7 +2848,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						id bigserial NOT NULL,
 						name text NOT NULL,
 						storage bigint NOT NULL,
-						price double NOT NULL,
+						price double precision NOT NULL,
 						bandwidth bigint NOT NULL,
 						benefit jsonb NOT NULL,
 						validity bigint NOT NULL,
