@@ -849,7 +849,7 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 
 	user, err := p.service.GetUserAndAuditLog(ctx, "generate payment link")
 	if err != nil {
-		fmt.Println("GetUserAndAuditLog err: ", err)
+		http.Error(w, fmt.Sprintf("Failed to get user: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -941,7 +941,6 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 
 	// Decode the JSON response
 	var upgradingResponse PaymentGatewayResponse
-	var upgradingErrResponse PaymentGatewayErrResponse
 
 	if err := json.Unmarshal(respBody, &upgradingResponse); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to decode response body: %v", err), http.StatusInternalServerError)
@@ -1008,8 +1007,7 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 		// sendEmail(userEmail, sendBody)
 		// p.stripe.CreateTokenPaymentBillingTransaction(ctx, user, planPrice)
 	} else {
-		fmt.Printf("Received error response:\nError: %s\nStatus: %t\nStatusCode: %d\n",
-			upgradingErrResponse.Error, upgradingErrResponse.Status, upgradingErrResponse.StatusCode)
+		http.Error(w, fmt.Sprintf("Failed to get user: %v", err), http.StatusInternalServerError)
 	}
 }
 
