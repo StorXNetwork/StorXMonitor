@@ -2908,12 +2908,12 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( code )
 					);`,
-					`INSERT INTO coupons (code, discount, discount_type, max_discount, min_order_amount, valid_from, valid_to) VALUES
-					('WELCOME10', 10, 'percentage', 100, 0, '2024-01-01', '2024-01-01'),
-					('WELCOME20', 20, 'percentage', 100, 0, '2024-01-01', '2024-01-01'),
-					('WELCOME30', 30, 'percentage', 100, 0, '2024-01-01', '2024-01-01'),
-					('WELCOME40', 40, 'percentage', 100, 0, '2024-01-01', '2024-01-01'),
-					('WELCOME50', 50, 'percentage', 100, 0, '2024-01-01', '2024-01-01');`,
+					`INSERT INTO coupons (code, discount, discount_type, max_discount, min_order_amount, valid_from, valid_to, created_at) VALUES
+					('WELCOME10', 10, 'percentage', 100, 0, '2024-01-01', '2024-01-01', '2024-01-01'),
+					('WELCOME20', 20, 'percentage', 100, 0, '2024-01-01', '2024-01-01', '2024-01-01'),
+					('WELCOME30', 30, 'percentage', 100, 0, '2024-01-01', '2024-01-01', '2024-01-01'),
+					('WELCOME40', 40, 'percentage', 100, 0, '2024-01-01', '2024-01-01', '2024-01-01'),
+					('WELCOME50', 50, 'percentage', 100, 0, '2024-01-01', '2024-01-01', '2024-01-01');`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
