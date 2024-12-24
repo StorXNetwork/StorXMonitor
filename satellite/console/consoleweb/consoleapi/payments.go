@@ -1007,7 +1007,7 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 		// sendEmail(userEmail, sendBody)
 		// p.stripe.CreateTokenPaymentBillingTransaction(ctx, user, planPrice)
 	} else {
-		http.Error(w, fmt.Sprintf("Failed to get user: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("link generation failed from payment gateway: %v", string(respBody)), http.StatusInternalServerError)
 	}
 }
 
