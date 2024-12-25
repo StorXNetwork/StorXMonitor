@@ -842,6 +842,22 @@ func (p *Payments) serveJSONError(ctx context.Context, w http.ResponseWriter, st
 	web.ServeJSONError(ctx, p.log, w, status, err)
 }
 
+func (p *Payments) GetCoupons(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	coupons, err := p.service.GetActiveCoupons(ctx)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get coupons: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(coupons); err != nil {
+		p.log.Error("failed to encode coupons", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // boris
 func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -880,7 +896,7 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if coupon.ValidFrom.After(time.Now().UTC()) || coupon.ValidTo.Before(time.Now().UTC()) {
-			http.Error(w, fmt.Sprintf("Coupon is not valid: %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Coupon is not valid"), http.StatusBadRequest)
 			return
 		}
 
