@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"database/sql"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
@@ -849,6 +850,10 @@ func (p *Payments) GetCoupons(w http.ResponseWriter, r *http.Request) {
 
 	coupons, err := p.service.GetActiveCoupons(ctx)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, fmt.Sprintf("No coupons found"), http.StatusNotFound)
+			return
+		}
 		http.Error(w, fmt.Sprintf("Failed to get coupons: %v", err), http.StatusInternalServerError)
 		return
 	}
