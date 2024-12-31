@@ -2922,7 +2922,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     278,
 				Action: migrate.SQL{
 					`CREATE TABLE user_delete_requests (
-						id bigint NOT NULL,
+						id bytea NOT NULL,
 						user_id bytea NOT NULL,
 						status text NOT NULL,
 						error text,
