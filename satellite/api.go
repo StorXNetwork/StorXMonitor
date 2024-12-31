@@ -54,6 +54,7 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/userworker"
 )
 
 // API is the satellite API process.
@@ -93,6 +94,10 @@ type API struct {
 
 	Reputation struct {
 		Service *reputation.Service
+	}
+
+	DeleteUser struct {
+		Service *userworker.DeleteUserWorker
 	}
 
 	Orders struct {
@@ -311,6 +316,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Services.Add(lifecycle.Item{
 			Name:  "reputation",
 			Close: peer.Reputation.Service.Close,
+		})
+	}
+
+	{
+		peer.DeleteUser.Service = userworker.NewDeleteUserWorker(peer.Log.Named("delete-user"), peer.DB.DeleteUserQueue(),
+			peer.DB.Console().Projects(), peer.DB.Console().APIKeys(), peer.DB.Buckets(), peer.DB.Console().Users())
+		peer.Services.Add(lifecycle.Item{
+			Name: "delete-user",
+			Run:  peer.DeleteUser.Service.Run,
 		})
 	}
 

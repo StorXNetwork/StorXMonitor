@@ -1,4 +1,4 @@
-package users
+package userworker
 
 import (
 	"context"

@@ -7,11 +7,14 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/userworker"
 )
 
 type deleteUserQueue struct {
 	db *satelliteDB
 }
+
+var _ userworker.DeleteUserQueue = (*deleteUserQueue)(nil)
 
 // GetNextUser retrieves a user from the queue. The user will be the
 // user which has been in the queue the longest, except those which

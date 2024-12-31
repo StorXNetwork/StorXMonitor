@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/userworker"
 )
 
 // Error is the default satellitedb errs class.
@@ -190,6 +191,11 @@ func (dbc *satelliteDBCollection) NodeEvents() nodeevents.DB {
 // Reputation is a getter for overlay cache repository.
 func (dbc *satelliteDBCollection) Reputation() reputation.DB {
 	return &reputations{db: dbc.getByName("reputations")}
+}
+
+// DeleteUserQueue is a getter for DeleteUserQueue repository.
+func (dbc *satelliteDBCollection) DeleteUserQueue() userworker.DeleteUserQueue {
+	return &deleteUserQueue{db: dbc.getByName("deleteuserqueue")}
 }
 
 // RepairQueue is a getter for RepairQueue repository.

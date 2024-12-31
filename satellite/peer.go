@@ -73,6 +73,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/userworker"
 )
 
 var mon = monkit.Package()
@@ -122,6 +123,8 @@ type DB interface {
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
 	Buckets() buckets.DB
+	// DeleteUserQueue returns the database for delete user queue
+	DeleteUserQueue() userworker.DeleteUserQueue
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
