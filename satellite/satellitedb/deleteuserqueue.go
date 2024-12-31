@@ -29,7 +29,7 @@ func (duq *deleteUserQueue) GetNextUser(ctx context.Context) (user *uuid.UUID, e
 		WITH next_entry AS (
 			SELECT *
 			FROM user_delete_requests
-			WHERE status = 'pending'
+			WHERE status = 'INIT'
 			LIMIT 1
 		)
 		UPDATE user_delete_requests
