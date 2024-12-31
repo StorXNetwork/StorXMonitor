@@ -73,6 +73,8 @@ type Users interface {
 	GetUpgradeTime(ctx context.Context, userID uuid.UUID) (*time.Time, error)
 	// UpsertSettings is a method for updating a user's set of configurations if it exists and inserting it otherwise.
 	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
+	// CreateDeleteRequest is a method for creating a delete request for a user.
+	CreateDeleteRequest(ctx context.Context, userID uuid.UUID, deleteAt time.Time) error
 }
 
 // UserInfo holds User updatable data.

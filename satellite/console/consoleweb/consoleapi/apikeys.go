@@ -17,10 +17,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/encryption"
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
@@ -36,16 +34,13 @@ var (
 type APIKeys struct {
 	log     *zap.Logger
 	service *console.Service
-
-	satelliteNodeURL string
 }
 
 // NewAPIKeys is a constructor for api api keys controller.
-func NewAPIKeys(log *zap.Logger, service *console.Service, satelliteNodeURL string) *APIKeys {
+func NewAPIKeys(log *zap.Logger, service *console.Service) *APIKeys {
 	return &APIKeys{
-		log:              log,
-		service:          service,
-		satelliteNodeURL: satelliteNodeURL,
+		log:     log,
+		service: service,
 	}
 }
 
@@ -245,7 +240,7 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessGrantStr, err := keys.createAccessGrantForProject(ctx, id, passphrase, prefix, permission, parsedAPIKey)
+	accessGrantStr, err := keys.service.CreateAccessGrantForProject(ctx, id, passphrase, prefix, permission, parsedAPIKey)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
@@ -278,51 +273,6 @@ func createPermissionFromRequest(r *http.Request) *grant.Permission {
 	}
 
 	return out
-}
-
-func (keys *APIKeys) createAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string,
-	prefix []grant.SharePrefix, permission *grant.Permission, apiKey *macaroon.APIKey) (string, error) {
-
-	salt, err := keys.service.GetSalt(ctx, projectID)
-	if err != nil {
-		return "", err
-	}
-
-	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", 8)
-	if err != nil {
-		return "", err
-	}
-
-	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
-	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
-	// if config.disableObjectKeyEncryption {
-	// 	encAccess.SetDefaultPathCipher(storj.EncNull)
-	// }
-	encAccess.LimitTo(apiKey)
-
-	g := &grant.Access{
-		SatelliteAddress: keys.satelliteNodeURL,
-		APIKey:           apiKey,
-		EncAccess:        encAccess,
-	}
-
-	if len(prefix) == 0 && permission == nil {
-		return g.Serialize()
-	}
-
-	if permission == nil {
-		return "", fmt.Errorf("permission is required when prefix is provided")
-	}
-
-	restricted, err := g.Restrict(
-		*permission,
-		prefix...,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to restrict access: %v", err)
-	}
-
-	return restricted.Serialize()
 }
 
 // GetAccessGrantForDeveloper give access grant for a project using API key and passphrase.
@@ -388,7 +338,7 @@ func (keys *APIKeys) GetAccessGrantForDeveloper(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	accessGrantStr, err := keys.createAccessGrantForProject(ctxWithUser, project.ID, registerData.Passphrase, nil, nil, apiKey)
+	accessGrantStr, err := keys.service.CreateAccessGrantForProject(ctxWithUser, project.ID, registerData.Passphrase, nil, nil, apiKey)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return

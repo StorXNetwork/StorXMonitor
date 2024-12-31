@@ -413,6 +413,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/account/delete-request", server.withAuth(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
@@ -520,7 +521,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals-for-reserved", bucketsController.GetBucketTotalsForReservedBucket).Methods(http.MethodGet, http.MethodOptions)
 
-	apiKeysController := consoleapi.NewAPIKeys(logger, service, server.nodeURL.String())
+	apiKeysController := consoleapi.NewAPIKeys(logger, service)
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
 	apiKeysRouter.Use(server.withCORS)
 	apiKeysRouter.Use(server.withAuth)

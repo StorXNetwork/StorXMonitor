@@ -175,6 +175,25 @@ read limitoffset (
 	where user.trial_expiration < ?
 )
 
+model user_delete_request (
+    key id
+    index ( fields user_id )
+
+    field id            blob
+    field user_id       blob
+    field status        text     ( updatable )
+    field error         text     ( updatable, nullable )
+    field delete_at     timestamp ( updatable )
+    field created_at    timestamp  ( autoinsert )
+)
+
+create user_delete_request ( )
+
+read one (
+    select user_delete_request
+    where user_delete_request.user_id = ?
+)
+
 model webapp_session (
     key id
     index ( fields user_id )

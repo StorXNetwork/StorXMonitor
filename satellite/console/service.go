@@ -29,9 +29,12 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/currency"
+	"storj.io/common/encryption"
+	"storj.io/common/grant"
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/blockchain"
@@ -257,6 +260,52 @@ func (s *Service) GetCouponByCode(ctx context.Context, code string) (coupon *bil
 
 func (s *Service) GetCoupons(ctx context.Context) (coupons []billing.Coupons, err error) {
 	return s.billing.GetCoupons(ctx)
+}
+
+func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string,
+	prefix []grant.SharePrefix, permission *grant.Permission, apiKey *macaroon.APIKey) (string, error) {
+
+	salt, err := s.GetSalt(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", 8)
+	if err != nil {
+		return "", err
+	}
+
+	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
+	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+	// if config.disableObjectKeyEncryption {
+	// 	encAccess.SetDefaultPathCipher(storj.EncNull)
+	// }
+	encAccess.LimitTo(apiKey)
+
+	g := &grant.Access{
+		SatelliteAddress: s.satelliteAddress,
+		APIKey:           apiKey,
+		EncAccess:        encAccess,
+	}
+
+	if len(prefix) == 0 && permission == nil {
+		return g.Serialize()
+	}
+
+	if permission == nil {
+		return "", fmt.Errorf("permission is required when prefix is provided")
+	}
+
+	restricted, err := g.Restrict(
+		*permission,
+		prefix...,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to restrict access: %v", err)
+	}
+
+	return restricted.Serialize()
+
 }
 
 func init() {
@@ -2300,6 +2349,24 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 		onboardingFields.Type = analytics.Personal
 	}
 	s.analytics.TrackUserOnboardingInfo(onboardingFields)
+
+	return nil
+}
+
+func (s *Service) DeleteAccountRequest(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "delete account request")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	deleteAt := time.Now().AddDate(0, 3, 0)
+
+	err = s.store.Users().CreateDeleteRequest(ctx, user.ID, deleteAt)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	return nil
 }

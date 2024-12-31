@@ -566,6 +566,15 @@ CREATE TABLE users (
 	wallet_id text,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_delete_requests (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	status text NOT NULL,
+	error text,
+	delete_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
@@ -699,6 +708,7 @@ CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_ta
 CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
+CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;

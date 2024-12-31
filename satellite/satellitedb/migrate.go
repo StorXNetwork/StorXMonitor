@@ -2916,6 +2916,22 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					('WELCOME50', 50, 'percentage', 100, 0, '2024-01-01', '2024-01-01', '2024-01-01');`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_delete_request table",
+				Version:     278,
+				Action: migrate.SQL{
+					`CREATE TABLE user_delete_requests (
+						id bigint NOT NULL,
+						user_id bytea NOT NULL,
+						status text NOT NULL,
+						error text,
+						delete_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

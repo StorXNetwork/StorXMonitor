@@ -2904,6 +2904,19 @@ func (a *Auth) UpdateAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (a *Auth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = a.service.DeleteAccountRequest(ctx)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
 // SetupAccount updates user's full name and short name.
 func (a *Auth) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

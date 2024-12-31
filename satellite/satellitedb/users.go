@@ -557,6 +557,27 @@ func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier b
 	return err
 }
 
+func (users *users) CreateDeleteRequest(ctx context.Context, userID uuid.UUID, deleteAt time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	id, err := uuid.New()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = users.db.Create_UserDeleteRequest(ctx,
+		dbx.UserDeleteRequest_Id(id[:]),
+		dbx.UserDeleteRequest_UserId(userID[:]),
+		dbx.UserDeleteRequest_Status("INIT"),
+		dbx.UserDeleteRequest_DeleteAt(deleteAt),
+		dbx.UserDeleteRequest_Create_Fields{
+			Error: dbx.UserDeleteRequest_Error_Null(),
+		},
+	)
+
+	return err
+}
+
 // boris
 func (users *users) UpdatePaidTiers(ctx context.Context, id uuid.UUID, paidTier bool) (err error) {
 	defer mon.Task()(&ctx)(&err)

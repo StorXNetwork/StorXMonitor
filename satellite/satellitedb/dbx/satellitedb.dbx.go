@@ -879,6 +879,15 @@ CREATE TABLE users (
 	wallet_id text,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_delete_requests (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	status text NOT NULL,
+	error text,
+	delete_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
@@ -1012,6 +1021,7 @@ CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_ta
 CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
+CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
@@ -1682,6 +1692,15 @@ CREATE TABLE users (
 	wallet_id text,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_delete_requests (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	status text NOT NULL,
+	error text,
+	delete_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
@@ -1815,6 +1834,7 @@ CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_ta
 CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
+CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
@@ -12415,6 +12435,154 @@ func (f User_WalletId_Field) value() interface{} {
 
 func (User_WalletId_Field) _Column() string { return "wallet_id" }
 
+type UserDeleteRequest struct {
+	Id        []byte
+	UserId    []byte
+	Status    string
+	Error     *string
+	DeleteAt  time.Time
+	CreatedAt time.Time
+}
+
+func (UserDeleteRequest) _Table() string { return "user_delete_requests" }
+
+type UserDeleteRequest_Create_Fields struct {
+	Error UserDeleteRequest_Error_Field
+}
+
+type UserDeleteRequest_Update_Fields struct {
+	Status   UserDeleteRequest_Status_Field
+	Error    UserDeleteRequest_Error_Field
+	DeleteAt UserDeleteRequest_DeleteAt_Field
+}
+
+type UserDeleteRequest_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserDeleteRequest_Id(v []byte) UserDeleteRequest_Id_Field {
+	return UserDeleteRequest_Id_Field{_set: true, _value: v}
+}
+
+func (f UserDeleteRequest_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserDeleteRequest_Id_Field) _Column() string { return "id" }
+
+type UserDeleteRequest_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserDeleteRequest_UserId(v []byte) UserDeleteRequest_UserId_Field {
+	return UserDeleteRequest_UserId_Field{_set: true, _value: v}
+}
+
+func (f UserDeleteRequest_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserDeleteRequest_UserId_Field) _Column() string { return "user_id" }
+
+type UserDeleteRequest_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func UserDeleteRequest_Status(v string) UserDeleteRequest_Status_Field {
+	return UserDeleteRequest_Status_Field{_set: true, _value: v}
+}
+
+func (f UserDeleteRequest_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserDeleteRequest_Status_Field) _Column() string { return "status" }
+
+type UserDeleteRequest_Error_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func UserDeleteRequest_Error(v string) UserDeleteRequest_Error_Field {
+	return UserDeleteRequest_Error_Field{_set: true, _value: &v}
+}
+
+func UserDeleteRequest_Error_Raw(v *string) UserDeleteRequest_Error_Field {
+	if v == nil {
+		return UserDeleteRequest_Error_Null()
+	}
+	return UserDeleteRequest_Error(*v)
+}
+
+func UserDeleteRequest_Error_Null() UserDeleteRequest_Error_Field {
+	return UserDeleteRequest_Error_Field{_set: true, _null: true}
+}
+
+func (f UserDeleteRequest_Error_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f UserDeleteRequest_Error_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserDeleteRequest_Error_Field) _Column() string { return "error" }
+
+type UserDeleteRequest_DeleteAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func UserDeleteRequest_DeleteAt(v time.Time) UserDeleteRequest_DeleteAt_Field {
+	return UserDeleteRequest_DeleteAt_Field{_set: true, _value: v}
+}
+
+func (f UserDeleteRequest_DeleteAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserDeleteRequest_DeleteAt_Field) _Column() string { return "delete_at" }
+
+type UserDeleteRequest_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func UserDeleteRequest_CreatedAt(v time.Time) UserDeleteRequest_CreatedAt_Field {
+	return UserDeleteRequest_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f UserDeleteRequest_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserDeleteRequest_CreatedAt_Field) _Column() string { return "created_at" }
+
 type UserSettings struct {
 	UserId           []byte
 	SessionMinutes   *uint
@@ -16093,6 +16261,40 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return user, nil
+
+}
+
+func (obj *pgxImpl) Create_UserDeleteRequest(ctx context.Context,
+	user_delete_request_id UserDeleteRequest_Id_Field,
+	user_delete_request_user_id UserDeleteRequest_UserId_Field,
+	user_delete_request_status UserDeleteRequest_Status_Field,
+	user_delete_request_delete_at UserDeleteRequest_DeleteAt_Field,
+	optional UserDeleteRequest_Create_Fields) (
+	user_delete_request *UserDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := user_delete_request_id.value()
+	__user_id_val := user_delete_request_user_id.value()
+	__status_val := user_delete_request_status.value()
+	__error_val := optional.Error.value()
+	__delete_at_val := user_delete_request_delete_at.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_delete_requests ( id, user_id, status, error, delete_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING user_delete_requests.id, user_delete_requests.user_id, user_delete_requests.status, user_delete_requests.error, user_delete_requests.delete_at, user_delete_requests.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __status_val, __error_val, __delete_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_delete_request = &UserDeleteRequest{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_delete_request.Id, &user_delete_request.UserId, &user_delete_request.Status, &user_delete_request.Error, &user_delete_request.DeleteAt, &user_delete_request.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_delete_request, nil
 
 }
 
@@ -20775,6 +20977,64 @@ func (obj *pgxImpl) Limited_User_Id_User_Email_By_PaidTier_Equal_False_And_Trial
 
 }
 
+func (obj *pgxImpl) Get_UserDeleteRequest_By_UserId(ctx context.Context,
+	user_delete_request_user_id UserDeleteRequest_UserId_Field) (
+	user_delete_request *UserDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_delete_requests.id, user_delete_requests.user_id, user_delete_requests.status, user_delete_requests.error, user_delete_requests.delete_at, user_delete_requests.created_at FROM user_delete_requests WHERE user_delete_requests.user_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, user_delete_request_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user_delete_request, err = func() (user_delete_request *UserDeleteRequest, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			user_delete_request = &UserDeleteRequest{}
+			err = __rows.Scan(&user_delete_request.Id, &user_delete_request.UserId, &user_delete_request.Status, &user_delete_request.Error, &user_delete_request.DeleteAt, &user_delete_request.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return user_delete_request, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("UserDeleteRequest_By_UserId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user_delete_request, nil
+	}
+
+}
+
 func (obj *pgxImpl) All_WebappSession_By_UserId(ctx context.Context,
 	webapp_session_user_id WebappSession_UserId_Field) (
 	rows []*WebappSession, err error) {
@@ -24585,6 +24845,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_delete_requests;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -26653,6 +26923,40 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return user, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_UserDeleteRequest(ctx context.Context,
+	user_delete_request_id UserDeleteRequest_Id_Field,
+	user_delete_request_user_id UserDeleteRequest_UserId_Field,
+	user_delete_request_status UserDeleteRequest_Status_Field,
+	user_delete_request_delete_at UserDeleteRequest_DeleteAt_Field,
+	optional UserDeleteRequest_Create_Fields) (
+	user_delete_request *UserDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := user_delete_request_id.value()
+	__user_id_val := user_delete_request_user_id.value()
+	__status_val := user_delete_request_status.value()
+	__error_val := optional.Error.value()
+	__delete_at_val := user_delete_request_delete_at.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_delete_requests ( id, user_id, status, error, delete_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING user_delete_requests.id, user_delete_requests.user_id, user_delete_requests.status, user_delete_requests.error, user_delete_requests.delete_at, user_delete_requests.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __status_val, __error_val, __delete_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_delete_request = &UserDeleteRequest{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_delete_request.Id, &user_delete_request.UserId, &user_delete_request.Status, &user_delete_request.Error, &user_delete_request.DeleteAt, &user_delete_request.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_delete_request, nil
 
 }
 
@@ -31335,6 +31639,64 @@ func (obj *pgxcockroachImpl) Limited_User_Id_User_Email_By_PaidTier_Equal_False_
 
 }
 
+func (obj *pgxcockroachImpl) Get_UserDeleteRequest_By_UserId(ctx context.Context,
+	user_delete_request_user_id UserDeleteRequest_UserId_Field) (
+	user_delete_request *UserDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_delete_requests.id, user_delete_requests.user_id, user_delete_requests.status, user_delete_requests.error, user_delete_requests.delete_at, user_delete_requests.created_at FROM user_delete_requests WHERE user_delete_requests.user_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, user_delete_request_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user_delete_request, err = func() (user_delete_request *UserDeleteRequest, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			user_delete_request = &UserDeleteRequest{}
+			err = __rows.Scan(&user_delete_request.Id, &user_delete_request.UserId, &user_delete_request.Status, &user_delete_request.Error, &user_delete_request.DeleteAt, &user_delete_request.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return user_delete_request, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("UserDeleteRequest_By_UserId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user_delete_request, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) All_WebappSession_By_UserId(ctx context.Context,
 	webapp_session_user_id WebappSession_UserId_Field) (
 	rows []*WebappSession, err error) {
@@ -35145,6 +35507,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_delete_requests;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -36055,6 +36427,14 @@ type Methods interface {
 		optional User_Create_Fields) (
 		user *User, err error)
 
+	Create_UserDeleteRequest(ctx context.Context,
+		user_delete_request_id UserDeleteRequest_Id_Field,
+		user_delete_request_user_id UserDeleteRequest_UserId_Field,
+		user_delete_request_status UserDeleteRequest_Status_Field,
+		user_delete_request_delete_at UserDeleteRequest_DeleteAt_Field,
+		optional UserDeleteRequest_Create_Fields) (
+		user_delete_request *UserDeleteRequest, err error)
+
 	Create_ValueAttribution(ctx context.Context,
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
 		value_attribution_bucket_name ValueAttribution_BucketName_Field,
@@ -36463,6 +36843,10 @@ type Methods interface {
 	Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context,
 		stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
 		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
+
+	Get_UserDeleteRequest_By_UserId(ctx context.Context,
+		user_delete_request_user_id UserDeleteRequest_UserId_Field) (
+		user_delete_request *UserDeleteRequest, err error)
 
 	Get_UserSettings_By_UserId(ctx context.Context,
 		user_settings_user_id UserSettings_UserId_Field) (
