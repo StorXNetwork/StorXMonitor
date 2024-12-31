@@ -576,7 +576,7 @@ func (users *users) CreateDeleteRequest(ctx context.Context, userID uuid.UUID, d
 	)
 
 	if err != nil {
-		fmt.Println("error creating delete request", err)
+		fmt.Println("error creating delete request", err, id.String(), userID.String())
 		return Error.Wrap(err)
 	}
 
