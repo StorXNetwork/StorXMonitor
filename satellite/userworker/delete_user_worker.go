@@ -122,7 +122,9 @@ func (worker *DeleteUserWorker) deleteAllData(ctx context.Context, userID uuid.U
 
 		for {
 			// delete all api keys
-			apiKeys, err := worker.apiKeys.GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{})
+			apiKeys, err := worker.apiKeys.GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{
+				Limit: 100,
+			})
 			if err != nil {
 				return err
 			}
