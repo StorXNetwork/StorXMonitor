@@ -2361,7 +2361,7 @@ func (s *Service) DeleteAccountRequest(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	deleteAt := time.Now().AddDate(0, 3, 0)
+	deleteAt := time.Now().AddDate(0, 1, 0)
 
 	err = s.store.Users().CreateDeleteRequest(ctx, user.ID, deleteAt)
 	if err != nil {
