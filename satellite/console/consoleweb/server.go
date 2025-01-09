@@ -47,6 +47,7 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/smartcontract"
 )
 
 const (
@@ -388,9 +389,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/loginbutton_facebook", authController.InitFacebookLogin)
 	router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
 
-	web3AuthController := consoleapi.NewWeb3Auth(logger, service)
+	web3AuthController := consoleapi.NewWeb3Auth(logger, service, smartcontract.NewWeb3AuthSocialShareHelper(&smartcontract.Web3Config{}))
 	router.HandleFunc("/upload_backup_share", web3AuthController.UploadBackupShare)
 	router.HandleFunc("/get_backup_share", web3AuthController.GetBackupShare)
+	router.HandleFunc("/upload_social_share", web3AuthController.UploadSocialShare)
+	router.HandleFunc("/get_social_share", web3AuthController.GetSocialShare)
 	router.Handle("/unstoppable_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleUnstoppableRegister))).Methods(http.MethodGet, http.MethodOptions)
 	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/registerbutton_unstoppabledomain", authController.InitUnstoppableDomainRegister)

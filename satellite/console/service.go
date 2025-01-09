@@ -262,11 +262,11 @@ func (s *Service) GetCoupons(ctx context.Context) (coupons []billing.Coupons, er
 	return s.billing.GetCoupons(ctx)
 }
 
-func (s *Service) GetBackupShare(ctx context.Context, backupID uuid.UUID) (share []byte, err error) {
+func (s *Service) GetBackupShare(ctx context.Context, backupID string) (share []byte, err error) {
 	return s.store.Web3Auth().GetBackupShare(ctx, backupID)
 }
 
-func (s *Service) UploadBackupShare(ctx context.Context, backupID uuid.UUID, share []byte) (err error) {
+func (s *Service) UploadBackupShare(ctx context.Context, backupID string, share []byte) (err error) {
 	return s.store.Web3Auth().UploadBackupShare(ctx, backupID, share)
 }
 

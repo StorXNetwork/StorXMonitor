@@ -1,6 +1,9 @@
 model web3_backup_share (
     key backup_id
+
+    // backup_id is the ID of the backup.
     field backup_id blob
+    // share is the share of the backup.
     field share blob
 )
 
