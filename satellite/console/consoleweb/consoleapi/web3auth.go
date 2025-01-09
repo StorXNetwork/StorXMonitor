@@ -139,7 +139,7 @@ func (a *Web3Auth) GetSignMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, email)
+	user, err := a.service.GetUsers().GetByEmail(ctx, email)
 	if err != nil {
 		a.sendError(w, "Error getting user: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -147,6 +147,11 @@ func (a *Web3Auth) GetSignMessage(w http.ResponseWriter, r *http.Request) {
 
 	if user == nil {
 		a.sendError(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	if user.Status != console.Active {
+		a.sendError(w, "User not active", http.StatusUnauthorized)
 		return
 	}
 
