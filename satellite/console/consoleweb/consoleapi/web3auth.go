@@ -141,7 +141,7 @@ func (a *Web3Auth) GetSignMessage(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, email)
 	if err != nil {
-		a.sendError(w, "Error getting user", http.StatusInternalServerError)
+		a.sendError(w, "Error getting user: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
