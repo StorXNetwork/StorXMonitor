@@ -31,6 +31,11 @@ type ConsoleDB struct {
 	apikeys     *apikeys
 }
 
+// Web3Auth is a getter for Web3Auth repository.
+func (db *ConsoleDB) Web3Auth() console.Web3Auth {
+	return &web3Auth{db.db}
+}
+
 // Users is getter a for Users repository.
 func (db *ConsoleDB) Users() console.Users {
 	return &users{db.db}

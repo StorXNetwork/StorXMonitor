@@ -600,6 +600,11 @@ CREATE TABLE verification_audits (
 	encrypted_size integer NOT NULL,
 	PRIMARY KEY ( inserted_at, stream_id, position )
 );
+CREATE TABLE web3_backup_shares (
+	backup_id bytea NOT NULL,
+	share bytea NOT NULL,
+	PRIMARY KEY ( backup_id )
+);
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,

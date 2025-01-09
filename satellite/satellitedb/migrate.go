@@ -2932,6 +2932,18 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add web3_backup_shares table",
+				Version:     279,
+				Action: migrate.SQL{
+					`CREATE TABLE web3_backup_shares (
+						backup_id bytea NOT NULL,
+						share bytea NOT NULL,
+						PRIMARY KEY ( backup_id )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

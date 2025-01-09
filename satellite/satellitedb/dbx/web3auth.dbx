@@ -1,0 +1,12 @@
+model web3_backup_share (
+    key backup_id
+    field backup_id blob
+    field share blob
+)
+
+create web3_backup_share ( noreturn )
+
+read one (
+    select web3_backup_share.share
+    where web3_backup_share.backup_id = ?
+)

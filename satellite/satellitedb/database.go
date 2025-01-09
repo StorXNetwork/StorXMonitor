@@ -255,6 +255,11 @@ func (dbc *satelliteDBCollection) Console() console.DB {
 	return db.consoleDB
 }
 
+// Web3Auth returns database for web3 auth.
+func (dbc *satelliteDBCollection) Web3Auth() console.Web3Auth {
+	return &web3Auth{db: dbc.getByName("web3_auth")}
+}
+
 // OIDC returns the database for storing OAuth and OIDC information.
 func (dbc *satelliteDBCollection) OIDC() oidc.DB {
 	db := dbc.getByName("oidc")

@@ -15,6 +15,10 @@ import (
 type DB interface {
 	// Users is a getter for Users repository.
 	Users() Users
+
+	// Web3Auth is a getter for Web3Auth repository.
+	Web3Auth() Web3Auth
+
 	// Developers is getter for Developers repository.
 	Developers() Developers
 	// Projects is a getter for Projects repository.

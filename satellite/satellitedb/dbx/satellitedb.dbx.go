@@ -913,6 +913,11 @@ CREATE TABLE verification_audits (
 	encrypted_size integer NOT NULL,
 	PRIMARY KEY ( inserted_at, stream_id, position )
 );
+CREATE TABLE web3_backup_shares (
+	backup_id bytea NOT NULL,
+	share bytea NOT NULL,
+	PRIMARY KEY ( backup_id )
+);
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -1725,6 +1730,11 @@ CREATE TABLE verification_audits (
 	expires_at timestamp with time zone,
 	encrypted_size integer NOT NULL,
 	PRIMARY KEY ( inserted_at, stream_id, position )
+);
+CREATE TABLE web3_backup_shares (
+	backup_id bytea NOT NULL,
+	share bytea NOT NULL,
+	PRIMARY KEY ( backup_id )
 );
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
@@ -13025,6 +13035,54 @@ func (f VerificationAudits_EncryptedSize_Field) value() interface{} {
 
 func (VerificationAudits_EncryptedSize_Field) _Column() string { return "encrypted_size" }
 
+type Web3BackupShare struct {
+	BackupId []byte
+	Share    []byte
+}
+
+func (Web3BackupShare) _Table() string { return "web3_backup_shares" }
+
+type Web3BackupShare_Update_Fields struct {
+}
+
+type Web3BackupShare_BackupId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Web3BackupShare_BackupId(v []byte) Web3BackupShare_BackupId_Field {
+	return Web3BackupShare_BackupId_Field{_set: true, _value: v}
+}
+
+func (f Web3BackupShare_BackupId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Web3BackupShare_BackupId_Field) _Column() string { return "backup_id" }
+
+type Web3BackupShare_Share_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Web3BackupShare_Share(v []byte) Web3BackupShare_Share_Field {
+	return Web3BackupShare_Share_Field{_set: true, _value: v}
+}
+
+func (f Web3BackupShare_Share_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Web3BackupShare_Share_Field) _Column() string { return "share" }
+
 type WebappSession struct {
 	Id        []byte
 	UserId    []byte
@@ -14630,6 +14688,10 @@ type Salt_Row struct {
 
 type SegmentLimit_Row struct {
 	SegmentLimit *int64
+}
+
+type Share_Row struct {
+	Share []byte
 }
 
 type UpgradeTime_Row struct {
@@ -16485,6 +16547,30 @@ func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
 		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
 		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
 	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxImpl) CreateNoReturn_Web3BackupShare(ctx context.Context,
+	web3_backup_share_backup_id Web3BackupShare_BackupId_Field,
+	web3_backup_share_share Web3BackupShare_Share_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__backup_id_val := web3_backup_share_backup_id.value()
+	__share_val := web3_backup_share_share.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO web3_backup_shares ( backup_id, share ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __backup_id_val, __share_val)
+
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -21285,6 +21371,28 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_Web3BackupShare_Share_By_BackupId(ctx context.Context,
+	web3_backup_share_backup_id Web3BackupShare_BackupId_Field) (
+	row *Share_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT web3_backup_shares.share FROM web3_backup_shares WHERE web3_backup_shares.backup_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, web3_backup_share_backup_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Share_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Share)
+	if err != nil {
+		return (*Share_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -24815,6 +24923,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM web3_backup_shares;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM verification_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -27147,6 +27265,30 @@ func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
 		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
 		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
 	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_Web3BackupShare(ctx context.Context,
+	web3_backup_share_backup_id Web3BackupShare_BackupId_Field,
+	web3_backup_share_share Web3BackupShare_Share_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__backup_id_val := web3_backup_share_backup_id.value()
+	__share_val := web3_backup_share_share.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO web3_backup_shares ( backup_id, share ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __backup_id_val, __share_val)
+
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -31947,6 +32089,28 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_Web3BackupShare_Share_By_BackupId(ctx context.Context,
+	web3_backup_share_backup_id Web3BackupShare_BackupId_Field) (
+	row *Share_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT web3_backup_shares.share FROM web3_backup_shares WHERE web3_backup_shares.backup_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, web3_backup_share_backup_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Share_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Share)
+	if err != nil {
+		return (*Share_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -35477,6 +35641,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM web3_backup_shares;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM verification_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -36245,6 +36419,11 @@ type Methods interface {
 		optional UserSettings_Create_Fields) (
 		err error)
 
+	CreateNoReturn_Web3BackupShare(ctx context.Context,
+		web3_backup_share_backup_id Web3BackupShare_BackupId_Field,
+		web3_backup_share_share Web3BackupShare_Share_Field) (
+		err error)
+
 	Create_ApiKey(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
 		api_key_project_id ApiKey_ProjectId_Field,
@@ -36880,6 +37059,10 @@ type Methods interface {
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
 		value_attribution_bucket_name ValueAttribution_BucketName_Field) (
 		value_attribution *ValueAttribution, err error)
+
+	Get_Web3BackupShare_Share_By_BackupId(ctx context.Context,
+		web3_backup_share_backup_id Web3BackupShare_BackupId_Field) (
+		row *Share_Row, err error)
 
 	Get_WebappSessionDeveloper_By_Id(ctx context.Context,
 		webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
