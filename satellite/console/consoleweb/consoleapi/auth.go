@@ -293,73 +293,6 @@ func (a *Auth) RegisterWeb3(w http.ResponseWriter, r *http.Request) {
 	a.log.Info("Default Project Name: " + project.Name)
 }
 
-func (a *Auth) Web3Auth(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	// Add logging to help debug
-	a.log.Debug("Web3Auth request received")
-
-	type Web3AuthRequest struct {
-		IDToken string `json:"id_token"`
-	}
-
-	var request Web3AuthRequest
-	err = json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		a.log.Error("Failed to decode request body", zap.Error(err))
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	// Validate required fields
-	if request.IDToken == "" {
-		a.serveJSONError(ctx, w, errs.New("idToken is required"))
-		return
-	}
-
-	ip, err := web.GetRequestIP(r)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	user, err := a.getUserFromWeb3IDToken(ctx, request.IDToken)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	tokenInfo, err := a.service.TokenWithoutPassword(ctx, console.AuthWithoutPassword{
-		Email:     user.Email,
-		IP:        ip,
-		UserAgent: r.UserAgent(),
-	})
-	if err != nil {
-		if console.ErrMFAMissing.Has(err) {
-			web.ServeCustomJSONError(ctx, a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
-		} else {
-			a.log.Info("Error authenticating token request", zap.String("email", user.Email), zap.Error(ErrAuthAPI.Wrap(err)))
-			a.serveJSONError(ctx, w, err)
-		}
-		return
-	}
-
-	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(struct {
-		console.TokenInfo
-		Token string `json:"token"`
-	}{*tokenInfo, tokenInfo.Token.String()})
-	if err != nil {
-		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
-		return
-	}
-
-}
-
 func (a *Auth) getUserFromWeb3IDToken(ctx context.Context, idToken string) (*console.User, error) {
 	// Fetch JWKS from Web3Auth with error handling
 	jwksURL := "https://api.openlogin.com/jwks" // Updated JWKS URL for Web3Auth
@@ -911,6 +844,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		IDToken     string `json:"id_token"`
 		AccessToken string `json:"access_token"`
+		WalletID    string `json:"wallet_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -918,7 +852,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.registerUserByIDTokenFromGoogle(w, r, body.IDToken, body.AccessToken)
+	a.registerUserByIDTokenFromGoogle(w, r, body.IDToken, body.AccessToken, body.WalletID)
 }
 
 // **** Google sign ****//
@@ -946,10 +880,10 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.registerUserByIDTokenFromGoogle(w, r, tokenRes.Id_token, tokenRes.Access_token)
+	a.registerUserByIDTokenFromGoogle(w, r, tokenRes.Id_token, tokenRes.Access_token, "")
 }
 
-func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Request, idToken, accessToken string) {
+func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Request, idToken, accessToken, walletID string) {
 	ctx := r.Context()
 	cnf := socialmedia.GetConfig()
 
@@ -1037,6 +971,7 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 					Status:    1,
 					IP:        ip,
 					Source:    "Google",
+					WalletId:  walletID,
 					UtmParams: utmParams,
 				},
 				secret, true,
@@ -1366,6 +1301,13 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
+
+	walletId := r.URL.Query().Get("wallet_id")
+	if walletId == "" {
+		a.SendResponse(w, r, "Wallet id is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
 	reqOps, err := socialmedia.GetReqOptions(state)
 	if err != nil {
 		a.SendResponse(w, r, err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
@@ -1427,6 +1369,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 					Email:     userI.Data.Username + "@no-email.com",
 					Status:    1,
 					IP:        ip,
+					WalletId:  walletId,
 					Source:    "Twitter",
 					UtmParams: utmParams,
 				},
@@ -1498,6 +1441,13 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
+
+	walletId := r.URL.Query().Get("wallet_id")
+	if walletId == "" {
+		a.SendResponse(w, r, "Wallet id is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
 	reqOps, err := socialmedia.GetReqOptions(state)
 	if err != nil {
 		a.SendResponse(w, r, err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
@@ -1561,16 +1511,9 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 					FullName:  responseBody.Sub,
 					ShortName: responseBody.Sub,
 					Email:     responseBody.Sub + "@ud.me",
-					//UserAgent:        registerData.UserAgent,
-					//Password:         registerData.Password,
-					Status: 1,
-					//IsProfessional:   registerData.IsProfessional,
-					//Position:         registerData.Position,
-					//CompanyName:      registerData.CompanyName,
-					//EmployeeCount:    registerData.EmployeeCount,
-					//HaveSalesContact: registerData.HaveSalesContact,
-					IP: ip,
-					//SignupPromoCode:  registerData.SignupPromoCode,
+					Status:    1,
+					IP:        ip,
+					WalletId:  walletId,
 					Source:    "Unstoppabble",
 					UtmParams: utmParams,
 				},
@@ -1687,6 +1630,12 @@ func (a *Auth) HandleAppleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	walletId := r.URL.Query().Get("wallet_id")
+	if walletId == "" {
+		a.SendResponse(w, r, "Wallet id is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
 	responseBody, err := socialmedia.GetAppleUser(ctx, idToken)
 	if err != nil {
 		a.SendResponse(w, r, "Error reading body", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
@@ -1724,6 +1673,7 @@ func (a *Auth) HandleAppleRegister(w http.ResponseWriter, r *http.Request) {
 					FullName:  responseBody.Email,
 					ShortName: responseBody.Email,
 					Email:     responseBody.Email,
+					WalletId:  walletId,
 					//UserAgent:        registerData.UserAgent,
 					//Password:         registerData.Password,
 					Status: 1,
@@ -2374,6 +2324,12 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 		return
 	}
 
+	walletId := r.URL.Query().Get("wallet_id")
+	if walletId == "" {
+		a.SendResponse(w, r, "Wallet id is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
 	if r.URL.Query().Has("zoho-insert") {
 		OAuth2Config.RedirectURL += "?zoho-insert"
@@ -2475,6 +2431,7 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 					Status:    1,
 					IP:        ip,
 					Source:    "Linkedin",
+					WalletId:  walletId,
 				},
 				secret, true,
 			)

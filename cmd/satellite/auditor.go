@@ -5,7 +5,6 @@ package main
 
 import (
 	"encoding/json"
-	"os"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
@@ -65,27 +64,17 @@ func cmdAuditorRun(cmd *cobra.Command, args []string) (err error) {
 
 	var connector audit.ReputationConnector
 
-	smartContractConnector, err := smartcontract.NewWeb3Helper(smartcontract.Web3Config{
-		NetworkRPC:             runCfg.Audit.SmartContractNetworkRPC,
-		ReputationContractAddr: runCfg.Audit.SmartContractReputationContractAddr,
-		NounceAddr:             runCfg.Audit.SmartContractNounceAddr,
-		PrivateKey:             runCfg.Audit.SmartContractPrivateKey,
+	smartContractConnector, err := smartcontract.NewReputationWeb3Helper(smartcontract.Web3Config{
+		NetworkRPC:   runCfg.Audit.SmartContractNetworkRPC,
+		ContractAddr: runCfg.Audit.SmartContractReputationContractAddr,
+		Address:      runCfg.Audit.SmartContractNounceAddr,
+		PrivateKey:   runCfg.Audit.SmartContractPrivateKey,
 	})
 	if err != nil {
 		b, _ := json.MarshalIndent(runCfg.Audit, "", "  ")
 		log.Error("Failed to create smart contract connector.", zap.Error(err), zap.String("connector", string(b)))
 	} else {
-		f, err := os.Open(runCfg.Audit.SmartContractAbiPath)
-		if err != nil {
-			log.Error("Failed to open smart contract abi file.", zap.Error(err), zap.String("path", runCfg.Audit.SmartContractAbiPath))
-		} else {
-			err = smartContractConnector.SetABI(f)
-			if err != nil {
-				log.Error("Failed to load smart contract abi.", zap.Error(err))
-			} else {
-				connector = smartContractConnector
-			}
-		}
+		connector = smartContractConnector
 	}
 
 	peer, err := satellite.NewAuditor(

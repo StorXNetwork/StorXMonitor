@@ -350,6 +350,7 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		ShortName:       dbx.User_ShortName(user.ShortName),
 		IsProfessional:  dbx.User_IsProfessional(user.IsProfessional),
 		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
+		WalletId:        dbx.User_WalletId(user.WalletId),
 	}
 	if user.UserAgent != nil {
 		optional.UserAgent = dbx.User_UserAgent(user.UserAgent)

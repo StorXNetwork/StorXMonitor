@@ -41,7 +41,6 @@ type Config struct {
 	SmartContractReputationContractAddr string `help:"reputation contract address for smart contract" default:""`
 	SmartContractNounceAddr             string `help:"nounce address for smart contract" default:""`
 	SmartContractPrivateKey             string `help:"private key for smart contract" default:""`
-	SmartContractAbiPath                string `help:"path to the abi file for smart contract" default:""`
 }
 
 // Worker contains information for populating audit queue and processing audits.

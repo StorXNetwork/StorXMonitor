@@ -122,27 +122,27 @@ type UtmParams struct {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	FullName         string `json:"fullName"`
-	ShortName        string `json:"shortName"`
-	Email            string `json:"email"`
-	UserAgent        []byte `json:"userAgent"`
-	Password         string `json:"password"`
-	Status           int    `json:"status"`
-	IsProfessional   bool   `json:"isProfessional"`
-	Position         string `json:"position"`
-	CompanyName      string `json:"companyName"`
-	WorkingOn        string `json:"workingOn"`
-	EmployeeCount    string `json:"employeeCount"`
-	HaveSalesContact bool   `json:"haveSalesContact"`
-	CaptchaResponse  string `json:"captchaResponse"`
-	IP               string `json:"ip"`
-	SignupPromoCode  string `json:"signupPromoCode"`
-	ActivationCode   string `json:"-"`
-	SignupId         string `json:"-"`
-	AllowNoName      bool   `json:"-"`
-	Source           string `json:"-"`
-
-	UtmParams *UtmParams `json:"-"`
+	FullName         string     `json:"fullName"`
+	ShortName        string     `json:"shortName"`
+	Email            string     `json:"email"`
+	UserAgent        []byte     `json:"userAgent"`
+	Password         string     `json:"password"`
+	Status           int        `json:"status"`
+	IsProfessional   bool       `json:"isProfessional"`
+	Position         string     `json:"position"`
+	CompanyName      string     `json:"companyName"`
+	WorkingOn        string     `json:"workingOn"`
+	EmployeeCount    string     `json:"employeeCount"`
+	HaveSalesContact bool       `json:"haveSalesContact"`
+	CaptchaResponse  string     `json:"captchaResponse"`
+	IP               string     `json:"ip"`
+	SignupPromoCode  string     `json:"signupPromoCode"`
+	ActivationCode   string     `json:"-"`
+	SignupId         string     `json:"-"`
+	AllowNoName      bool       `json:"-"`
+	Source           string     `json:"-"`
+	WalletId         string     `json:"-"`
+	UtmParams        *UtmParams `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.

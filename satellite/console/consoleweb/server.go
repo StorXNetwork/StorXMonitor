@@ -108,6 +108,11 @@ type Config struct {
 	XSignupRedirectURLstring string `help:"redirect url for x oauth" default:""`
 	XLoginRedirectURLstring  string `help:"redirect url for x oauth" default:""`
 
+	Web3AuthContractAddress string `help:"contract address for web3 auth" default:""`
+	Web3AuthAddress         string `help:"address for web3 auth" default:""`
+	Web3AuthNetworkRPC      string `help:"network rpc for web3 auth" default:""`
+	Web3AuthPrivateKey      string `help:"private key for web3 auth" default:""`
+
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 
@@ -384,17 +389,31 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
-	router.HandleFunc("/registerbutton_facebook", authController.InitFacebookRegister)
-	router.HandleFunc("/facebook_register", authController.HandleFacebookRegister)
-	router.HandleFunc("/loginbutton_facebook", authController.InitFacebookLogin)
-	router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
+	// removing this as we are not supporting this as of now.
+	// router.HandleFunc("/registerbutton_facebook", authController.InitFacebookRegister)
+	// router.HandleFunc("/facebook_register", authController.HandleFacebookRegister)
+	// router.HandleFunc("/loginbutton_facebook", authController.InitFacebookLogin)
+	// router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
 
-	web3AuthController := consoleapi.NewWeb3Auth(logger, service, smartcontract.NewWeb3AuthSocialShareHelper(&smartcontract.Web3Config{}), "secret")
+	smartcontractConfig := smartcontract.Web3Config{
+		Address:      config.Web3AuthAddress,
+		NetworkRPC:   config.Web3AuthNetworkRPC,
+		PrivateKey:   config.Web3AuthPrivateKey,
+		ContractAddr: config.Web3AuthContractAddress,
+	}
+
+	helper, err := smartcontract.NewKeyValueWeb3Helper(smartcontractConfig)
+	if err != nil {
+		server.log.Error("failed to create key value web3 helper", zap.Error(err))
+	}
+
+	web3AuthController := consoleapi.NewWeb3Auth(logger, service, helper, server.cookieAuth, "secret")
 	router.HandleFunc("/upload_backup_share", web3AuthController.UploadBackupShare)
 	router.HandleFunc("/get_backup_share", web3AuthController.GetBackupShare)
 	router.HandleFunc("/upload_social_share", web3AuthController.UploadSocialShare)
 	router.HandleFunc("/get_social_share", web3AuthController.GetSocialShare)
 	router.HandleFunc("/get_sign_message_web3auth", web3AuthController.GetSignMessage)
+	authRouter.Handle("/web3auth", server.ipRateLimiter.Limit(http.HandlerFunc(web3AuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
 
 	router.Handle("/unstoppable_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleUnstoppableRegister))).Methods(http.MethodGet, http.MethodOptions)
 	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)
@@ -411,11 +430,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/loginbutton_x", authController.InitXLogin)
 
 	router.HandleFunc("/registerbutton_linkedin", authController.InitLinkedInRegister)
-	router.HandleFunc("/linkedin_register/mobile", authController.HandleLinkedInRegisterWithAuthToken)
 	router.HandleFunc("/linkedin_register", authController.HandleLinkedInRegister)
 	router.HandleFunc("/loginbutton_linkedin", authController.InitLinkedInLogin)
-	router.HandleFunc("/linkedin_login/mobile", authController.HandleLinkedInLoginWithAuthToken)
 	router.HandleFunc("/linkedin_login", authController.HandleLinkedInLogin)
+	router.HandleFunc("/linkedin_register/mobile", authController.HandleLinkedInRegisterWithAuthToken)
+	router.HandleFunc("/linkedin_login/mobile", authController.HandleLinkedInLoginWithAuthToken)
+
+	authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/register-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogleForApp))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/login-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirmForApp))).Methods(http.MethodPost, http.MethodOptions)
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
@@ -434,13 +458,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/mfa/regenerate-recovery-codes", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.RegenerateMFARecoveryCodes)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/web3auth", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Web3Auth))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
-	authRouter.Handle("/register-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogleForApp))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
-	authRouter.Handle("/login-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirmForApp))).Methods(http.MethodPost, http.MethodOptions)
 
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost, http.MethodOptions)
