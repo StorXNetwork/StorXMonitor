@@ -48,7 +48,7 @@ func (w *keyValueWeb3Helper) UploadSocialShare(ctx context.Context, id string, s
 
 	err := w.web3Helper.SubmitTransaction(ctx, "createKeyValue", id, share)
 	if err != nil {
-		return fmt.Errorf("error storing social share: %v", err)
+		return w.web3Helper.SubmitTransaction(ctx, "createKeyValue", id, share)
 	}
 
 	return nil
