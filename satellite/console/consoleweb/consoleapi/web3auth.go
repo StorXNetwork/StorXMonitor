@@ -232,7 +232,7 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 
 	err = a.web3AuthSocialShareHelper.UploadSocialShare(ctx, id, string(share))
 	if err != nil {
-		a.sendError(w, "Error uploading social share", http.StatusInternalServerError)
+		a.sendError(w, "Error uploading social share: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 

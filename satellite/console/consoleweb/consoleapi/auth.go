@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MicahParks/keyfunc/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -125,11 +124,14 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 	}
 }
 
-func (a *Auth) RegisterWeb3(w http.ResponseWriter, r *http.Request) {
+func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	cnf := socialmedia.GetConfig()
 
 	var body struct {
-		IDToken string `json:"id_token"`
+		IDToken     string `json:"id_token"`
+		AccessToken string `json:"access_token"`
+		WalletID    string `json:"wallet_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -137,14 +139,14 @@ func (a *Auth) RegisterWeb3(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if body.IDToken == "" {
-		a.serveJSONError(ctx, w, errors.New("id_token is required"))
+	if body.IDToken == "" || body.AccessToken == "" {
+		a.serveJSONError(ctx, w, errors.New("id_token and access_token are required"))
 		return
 	}
 
-	user, err := a.getUserFromWeb3IDToken(ctx, body.IDToken)
+	googleuser, err := socialmedia.GetGoogleUser(body.AccessToken, body.IDToken)
 	if err != nil {
-		a.serveJSONError(ctx, w, err)
+		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
 		return
 	}
@@ -155,198 +157,35 @@ func (a *Auth) RegisterWeb3(w http.ResponseWriter, r *http.Request) {
 		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
 
-		go zohoInsertLead(context.Background(), user.FullName, user.Email, a.log, verifier)
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, verifier)
 	}
 
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, user.Email)
+	userFromDB, err := a.service.GetUsers().GetByEmail(ctx, googleuser.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
-		a.serveJSONError(ctx, w, err)
+		a.SendResponse(w, r, "Error getting user details from system!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
 		return
 	}
-
-	if verified != nil {
-		satelliteAddress := a.ExternalAddress
-		if !strings.HasSuffix(satelliteAddress, "/") {
-			satelliteAddress += "/"
-		}
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: verified.Email}},
-			&console.AccountAlreadyExistsEmail{
-				Origin:            satelliteAddress,
-				SatelliteName:     a.SatelliteName,
-				SignInLink:        satelliteAddress + "login",
-				ResetPasswordLink: satelliteAddress + "forgot-password",
-				CreateAccountLink: satelliteAddress + "signup",
-			},
-		)
-		a.serveJSONError(ctx, w, errors.New("You are already registerted!"))
-		// http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL)+"?error=You are already registerted!", http.StatusTemporaryRedirect)
+	if userFromDB == nil {
+		a.SendResponse(w, r, "User not found!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=User not found!", http.StatusTemporaryRedirect)
 		return
-	} else {
-		if len(unverified) > 0 {
-			user = &unverified[0]
-		} else {
-			secret, err := console.RegistrationSecretFromBase64("")
-			if err != nil {
-				a.serveJSONError(ctx, w, err)
-				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating secret!", http.StatusTemporaryRedirect)
-				return
-			}
-
-			ip, err := web.GetRequestIP(r)
-			if err != nil {
-				a.serveJSONError(ctx, w, err)
-				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting IP!", http.StatusTemporaryRedirect)
-				return
-			}
-
-			var utmParams *console.UtmParams
-			if verifier != nil {
-				utmParams = &console.UtmParams{
-					UtmTerm:     verifier.UTMTerm,
-					UtmContent:  verifier.UTMContent,
-					UtmSource:   verifier.UTMSource,
-					UtmMedium:   verifier.UTMMedium,
-					UtmCampaign: verifier.UTMCampaign,
-				}
-			}
-
-			user, err = a.service.CreateUser(ctx,
-				console.CreateUser{
-					FullName:  user.FullName,
-					Email:     user.Email,
-					Status:    1,
-					IP:        ip,
-					Source:    "Web3",
-					UtmParams: utmParams,
-				},
-				secret, true,
-			)
-
-			if err != nil {
-				a.serveJSONError(ctx, w, err)
-				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
-				return
-			}
-
-			referrer := r.URL.Query().Get("referrer")
-			if referrer == "" {
-				referrer = r.Referer()
-			}
-			hubspotUTK := ""
-			hubspotCookie, err := r.Cookie("hubspotutk")
-			if err == nil {
-				hubspotUTK = hubspotCookie.Value
-			}
-
-			trackCreateUserFields := analytics.TrackCreateUserFields{
-				ID:           user.ID,
-				AnonymousID:  loadSession(r),
-				FullName:     user.FullName,
-				Email:        user.Email,
-				Type:         analytics.Personal,
-				OriginHeader: r.Header.Get("Origin"),
-				Referrer:     referrer,
-				HubspotUTK:   hubspotUTK,
-				UserAgent:    string(user.UserAgent),
-			}
-			if user.IsProfessional {
-				trackCreateUserFields.Type = analytics.Professional
-				trackCreateUserFields.EmployeeCount = user.EmployeeCount
-				trackCreateUserFields.CompanyName = user.CompanyName
-				// trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
-				trackCreateUserFields.JobTitle = user.Position
-				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
-			}
-			a.analytics.TrackCreateUser(trackCreateUserFields)
-		}
 	}
 
-	customeExpiry := 24 * 7 * time.Hour
-
-	// Create Default Project - Munjal - 1/Oct/2023
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", &customeExpiry)
+	err = a.service.GetUsers().Update(ctx, userFromDB.ID, console.UpdateUserRequest{
+		WalletID: &body.WalletID,
+	})
 	if err != nil {
-		a.serveJSONError(ctx, w, err)
+		a.SendResponse(w, r, "Error creating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
 		return
 	}
-	//require.NoError(t, err)
-	a.log.Info("Token Info", zap.Any("TokenInfo", tokenInfo.Token.String()))
 
+	a.TokenGoogleWrapper(ctx, googleuser.Email, w, r)
 	// Set up a test project and bucket
 
-	authed := console.WithUser(ctx, user)
-
-	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
-	})
-	//require.NoError(t, err)
-	if err != nil {
-		a.log.Error("Error in Default Project:")
-		a.log.Error(err.Error())
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	a.log.Info("Default Project Name: " + project.Name)
-}
-
-func (a *Auth) getUserFromWeb3IDToken(ctx context.Context, idToken string) (*console.User, error) {
-	// Fetch JWKS from Web3Auth with error handling
-	jwksURL := "https://api.openlogin.com/jwks" // Updated JWKS URL for Web3Auth
-	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{
-		RefreshErrorHandler: func(err error) {
-			a.log.Error("Failed to refresh JWKS", zap.Error(err))
-		},
-		RefreshInterval:  time.Hour,
-		RefreshRateLimit: time.Minute * 5,
-	})
-	if err != nil {
-		return nil, errs.New("Failed to fetch JWKs: %v", err)
-	}
-
-	// Parse and validate the JWT with more detailed error handling
-	token, err := jwt.Parse(idToken, jwks.Keyfunc)
-	if err != nil {
-		return nil, errs.New("Invalid JWT: %v", err)
-	}
-
-	if !token.Valid {
-		return nil, errs.New("Token validation failed")
-	}
-
-	// Extract claims
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || claims == nil {
-		return nil, errs.New("Invalid JWT claims format")
-	}
-
-	exp, ok := claims["exp"].(float64)
-	if !ok {
-		return nil, errs.New("Expiration time is not set in the token")
-	}
-
-	expTime := time.Unix(int64(exp), 0)
-	if time.Now().After(expTime) {
-		return nil, errs.New("Token has expired")
-	}
-
-	email, ok := claims["email"].(string)
-	if !ok {
-		return nil, errs.New("Email is not set in the token")
-	}
-
-	name, ok := claims["name"].(string)
-	if !ok {
-		name = email
-	}
-
-	return &console.User{
-		Email:    email,
-		FullName: name,
-	}, nil
+	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
+	// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
 }
 
 // Token authenticates user by credentials and returns auth token.

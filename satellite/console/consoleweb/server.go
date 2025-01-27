@@ -414,6 +414,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/get_social_share", web3AuthController.GetSocialShare)
 	router.HandleFunc("/get_sign_message_web3auth", web3AuthController.GetSignMessage)
 	authRouter.Handle("/web3auth", server.ipRateLimiter.Limit(http.HandlerFunc(web3AuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/migrate-to-web3", server.ipRateLimiter.Limit(http.HandlerFunc(authController.MigrateToWeb3))).Methods(http.MethodPost, http.MethodOptions)
 
 	router.Handle("/unstoppable_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleUnstoppableRegister))).Methods(http.MethodGet, http.MethodOptions)
 	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)

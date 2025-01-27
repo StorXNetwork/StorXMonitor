@@ -115,6 +115,7 @@ func (w *web3Helper) GetMethodCallData(ctx context.Context, method string, outpu
 	callMsg := ethereum.CallMsg{
 		To:   &w.contractAddr,
 		Data: callData,
+		From: w.address,
 	}
 
 	gasLimit, err := w.client.EstimateGas(ctx, callMsg)
