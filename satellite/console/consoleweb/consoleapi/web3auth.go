@@ -197,7 +197,7 @@ func (a *Web3Auth) GetBackupShare(w http.ResponseWriter, r *http.Request) {
 
 	share, err := a.service.GetBackupShare(r.Context(), backupIDStr)
 	if err != nil {
-		a.sendError(w, "Error getting backup share", http.StatusInternalServerError)
+		a.sendError(w, "Error getting backup share: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
