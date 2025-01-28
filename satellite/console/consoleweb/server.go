@@ -108,6 +108,10 @@ type Config struct {
 	XSignupRedirectURLstring string `help:"redirect url for x oauth" default:""`
 	XLoginRedirectURLstring  string `help:"redirect url for x oauth" default:""`
 
+	PipeDriveClientID     string `help:"redirect url for x oauth" default:""`
+	PipeDriveClientSecret string `help:"redirect url for x oauth" default:""`
+	PipeDriveRedirectUrl  string `help:"redirect url for x oauth" default:""`
+
 	Web3AuthContractAddress string `help:"contract address for web3 auth" default:""`
 	Web3AuthAddress         string `help:"address for web3 auth" default:""`
 	Web3AuthNetworkRPC      string `help:"network rpc for web3 auth" default:""`
@@ -380,6 +384,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
 	socialmedia.SetXSocialMediaConfig(config.XClientID, config.XClientSecret, config.XSignupRedirectURLstring, config.XLoginRedirectURLstring)
+	socialmedia.SetPipeDriveSocialMediaConfig(config.PipeDriveClientID, config.PipeDriveClientSecret, config.PipeDriveRedirectUrl)
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
 		server.log.Error("unable to load bad passwords list", zap.Error(err))

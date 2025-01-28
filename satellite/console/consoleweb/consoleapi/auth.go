@@ -3547,3 +3547,77 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "There was an error processing your request" + err.Error()
 	}
 }
+
+// RegisterPipedriveForApp registers user in storj.io who came from Pipedrive OAuth mobile app.
+func (a *Auth) RegisterPipedriveForApp(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var body struct {
+		AccessToken string `json:"accessToken"`
+		Wallet      string `json:"wallet"`
+	}
+
+	if err = json.NewDecoder(r.Body).Decode(&body); err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if body.AccessToken == "" {
+		a.serveJSONError(ctx, w, errors.New("access token is required"))
+		return
+	}
+
+	// Get user info using the token
+	pipedriveUser, err := socialmedia.GetPipedriveUser(body.AccessToken)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Check if user already exists
+	user, err := a.service.GetUsers().GetByEmail(ctx, pipedriveUser.Data.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if user == nil {
+		secret, err := console.RegistrationSecretFromBase64("")
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		status := console.Active
+
+		user, err = a.service.CreateUser(ctx, console.CreateUser{
+			Email:           pipedriveUser.Data.Email,
+			FullName:        pipedriveUser.Data.Name,
+			ShortName:       "",
+			Password:        "",
+			Status:          int(status),
+			SignupPromoCode: "",
+			IsProfessional:  true,
+			Source:          "",
+			WalletId:        body.Wallet,
+		}, secret, true)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+	}
+
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(tokenInfo)
+	if err != nil {
+		a.log.Error("could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+}

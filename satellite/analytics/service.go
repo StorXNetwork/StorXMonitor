@@ -117,6 +117,7 @@ const (
 	eventUserUpgraded                 = "User Upgraded"
 	eventUpgradeClicked               = "Upgrade Clicked"
 	eventArrivedFromSource            = "Arrived From Source"
+	PipeDrive                         = "pipedrive"
 )
 
 var (

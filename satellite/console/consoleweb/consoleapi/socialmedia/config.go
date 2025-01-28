@@ -32,6 +32,10 @@ type Config struct {
 	XClientSecret      string `mapstructure:"X_CLIENT_SECRET"`
 	XSignupRedirectURL string `mapstructure:"X_SIGNUP_REDIRECT_URL"`
 	XLoginRedirectURL  string `mapstructure:"X_LOGIN_REDIRECT_URL"`
+
+	PipeDriveClientID     string `mapstructure:"PIPEDRIVE_CLIENT_ID"`
+	PipeDriveClientSecret string `mapstructure:"PIPEDRIVE_CLIENT_SECRET"`
+	PipeDriveRedirectUrl  string `mapstructure:"PIPEDRIVE_REDIRECT_URL"`
 }
 
 var configVal = &Config{}
@@ -85,6 +89,13 @@ func SetXSocialMediaConfig(clientID, clientSecret, sru, lru string) {
 	configVal.XSignupRedirectURL = sru
 	configVal.XLoginRedirectURL = lru
 }
+
+func SetPipeDriveSocialMediaConfig(clientID, clientSecret, redirectUrl string) {
+	configVal.PipeDriveClientID = clientID
+	configVal.PipeDriveClientSecret = clientSecret
+	configVal.PipeDriveRedirectUrl = redirectUrl
+}
+
 func SetConfig(config *Config) {
 	configVal = config
 }
