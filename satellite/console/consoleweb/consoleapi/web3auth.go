@@ -141,7 +141,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return []byte(a.secreteKey), nil
 	})
 	if err != nil {
-		a.sendError(w, "Failed to parse jwt", http.StatusBadRequest)
+		a.sendError(w, "Failed to parse jwt"+err.Error(), http.StatusBadRequest)
 		return
 	}
 
