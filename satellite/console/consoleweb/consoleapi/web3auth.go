@@ -293,7 +293,7 @@ func (a *Web3Auth) GetSignMessage(w http.ResponseWriter, r *http.Request) {
 		"email":     email,
 		"wallet_id": user.WalletId,
 		"nonce":     strconv.FormatInt(time.Now().Unix(), 10),
-		"exp":       strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10),
+		"exp":       time.Now().Add(time.Minute).Unix(),
 	})
 	tokenString, err := token.SignedString([]byte(a.secreteKey))
 	if err != nil {
