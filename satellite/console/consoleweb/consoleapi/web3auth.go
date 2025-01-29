@@ -1,16 +1,16 @@
 package consoleapi
 
 import (
-	"crypto"
-	"crypto/rsa"
-	"crypto/x509"
+	"bytes"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
@@ -77,9 +77,9 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 	a.log.Debug("Web3Auth Token request received")
 
 	type Web3AuthRequest struct {
-		Email       string `json:"email"`
-		Payload     string `json:"payload"`
-		SignMessage string `json:"sign_message"`
+		Email     string `json:"email"`
+		Payload   string `json:"payload"`
+		Signature string `json:"signature"`
 	}
 
 	var request Web3AuthRequest
@@ -96,8 +96,8 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.SignMessage == "" {
-		a.sendError(w, "Sign message is required", http.StatusBadRequest)
+	if request.Signature == "" {
+		a.sendError(w, "Signature is required", http.StatusBadRequest)
 		return
 	}
 
@@ -123,15 +123,14 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	publicKey, err := ParsePublicKeyFromString(user.WalletId)
+	pubKey, err := getPublicKey(request.Payload, request.Signature)
 	if err != nil {
-		a.sendError(w, "Failed to parse public key", http.StatusBadRequest)
+		a.sendError(w, "Failed to get public key", http.StatusBadRequest)
 		return
 	}
 
-	err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, []byte(request.Payload), []byte(request.SignMessage))
-	if err != nil {
-		a.sendError(w, "Failed to verify signature", http.StatusBadRequest)
+	if bytes.Equal([]byte(pubKey), []byte(user.WalletId)) {
+		a.sendError(w, "invalid signature", http.StatusBadRequest)
 		return
 	}
 
@@ -320,22 +319,37 @@ func (a *Web3Auth) sendError(w http.ResponseWriter, err string, status int) {
 	})
 }
 
-// Function to convert PEM encoded public key string to *rsa.PublicKey
-func ParsePublicKeyFromString(publicKeyStr string) (*rsa.PublicKey, error) {
-	block, _ := pem.Decode([]byte(publicKeyStr))
-	if block == nil || block.Type != "PUBLIC KEY" {
-		return nil, fmt.Errorf("failed to parse PEM block containing the public key")
-	}
+func getPublicKey(payload, signature string) (string, error) {
+	// Step 1: Ethereum Signed Message Hash
+	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(payload), payload)
+	hash := crypto.Keccak256Hash([]byte(prefixedMessage))
+	fmt.Println("Hash:", hash.Hex())
 
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	// Step 2: Decode Signature
+	sigBytes, err := hexutil.Decode(signature)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("invalid signature format: %w", err)
 	}
 
-	rsaPub, ok := pub.(*rsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("not an RSA public key")
+	// Step 3: Fix V value (Ethereum adds 27 to v)
+	if sigBytes[64] < 27 {
+		sigBytes[64] += 27
+	} else {
+		sigBytes[64] -= 27 // Ensure v is in the correct range
+	}
+	// Step 4: Recover Public Key
+	publicKey, err := crypto.Ecrecover(hash.Bytes(), sigBytes)
+	if err != nil {
+		return "", fmt.Errorf("ecrecover failed: %w", err)
 	}
 
-	return rsaPub, nil
+	// Step 5: Convert Public Key to Address
+	pubKey, err := crypto.UnmarshalPubkey(publicKey)
+	if err != nil {
+		return "", fmt.Errorf("invalid public key: %w", err)
+	}
+
+	recoveredAddress := crypto.PubkeyToAddress(*pubKey)
+	return recoveredAddress.Hex(), nil
+
 }
