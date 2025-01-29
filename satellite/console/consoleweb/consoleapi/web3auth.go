@@ -129,7 +129,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if bytes.Equal([]byte(pubKey), []byte(user.WalletId)) {
+	if !bytes.Equal([]byte(pubKey), []byte(user.WalletId)) {
 		a.sendError(w, "invalid signature", http.StatusBadRequest)
 		return
 	}
