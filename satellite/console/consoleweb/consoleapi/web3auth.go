@@ -123,7 +123,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	publicKey, err := ParsePublicKeyFromString(request.SignMessage)
+	publicKey, err := ParsePublicKeyFromString(user.WalletId)
 	if err != nil {
 		a.sendError(w, "Failed to parse public key", http.StatusBadRequest)
 		return
