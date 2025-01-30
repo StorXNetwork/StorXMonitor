@@ -61,7 +61,7 @@ func (a *Web3Auth) UploadBackupShare(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.UploadBackupShare(r.Context(), backupIDStr, share)
 	if err != nil {
-		a.sendError(w, "Error uploading backup share", http.StatusInternalServerError)
+		a.sendError(w, "Error uploading backup share: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
