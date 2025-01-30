@@ -135,18 +135,18 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		a.serveJSONError(ctx, w, err)
+		a.sendJsonResponse(w, err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
 	if body.IDToken == "" || body.AccessToken == "" {
-		a.serveJSONError(ctx, w, errors.New("id_token and access_token are required"))
+		a.sendJsonResponse(w, "id_token and access_token are required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
 	googleuser, err := socialmedia.GetGoogleUser(body.AccessToken, body.IDToken)
 	if err != nil {
-		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.sendJsonResponse(w, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
 		return
 	}
@@ -162,12 +162,12 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 
 	userFromDB, err := a.service.GetUsers().GetByEmail(ctx, googleuser.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
-		a.SendResponse(w, r, "Error getting user details from system!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.sendJsonResponse(w, "Error getting user details from system!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
 		return
 	}
 	if userFromDB == nil {
-		a.SendResponse(w, r, "User not found!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.sendJsonResponse(w, "User not found!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=User not found!", http.StatusTemporaryRedirect)
 		return
 	}
@@ -176,7 +176,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 		WalletID: &body.WalletID,
 	})
 	if err != nil {
-		a.SendResponse(w, r, "Error creating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.sendJsonResponse(w, "Error creating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
 		return
 	}
@@ -184,7 +184,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 	a.TokenGoogleWrapper(ctx, googleuser.Email, w, r)
 	// Set up a test project and bucket
 
-	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
+	a.sendJsonResponse(w, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 	// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
 }
 
@@ -885,6 +885,11 @@ func (a *Auth) SendResponse(w http.ResponseWriter, r *http.Request, errorMessage
 		return
 	}
 
+	a.sendJsonResponse(w, errorMessage, redirectUri)
+}
+
+// sendJsonResponse is a helper function to send a JSON response with a given status code
+func (a *Auth) sendJsonResponse(w http.ResponseWriter, errorMessage, redirectUri string) {
 	w.Header().Set("Content-Type", "application/json")
 	if errorMessage != "" {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -900,7 +905,6 @@ func (a *Auth) SendResponse(w http.ResponseWriter, r *http.Request, errorMessage
 		"redirect_url": redirectUri,
 		"succes":       true,
 	})
-
 }
 
 func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Request) {
