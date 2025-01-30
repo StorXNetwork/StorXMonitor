@@ -4,10 +4,11 @@ model web3_backup_share (
     // backup_id is the ID of the backup.
     field backup_id blob
     // share is the share of the backup.
-    field share blob
+    field share blob ( updatable )
 )
 
 create web3_backup_share ( noreturn )
+update web3_backup_share ( where web3_backup_share.backup_id = ? )
 
 read one (
     select web3_backup_share.share

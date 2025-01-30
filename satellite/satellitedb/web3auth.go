@@ -30,6 +30,14 @@ func (b *web3Auth) UploadBackupShare(ctx context.Context, backupID string, share
 		dbx.Web3BackupShare_Share(share),
 	)
 	if err != nil {
+		if err.Error() == "UNIQUE constraint failed: web3_backup_share.backup_id" {
+			_, err = b.db.Update_Web3BackupShare_By_BackupId(ctx,
+				dbx.Web3BackupShare_BackupId([]byte(backupID)),
+				dbx.Web3BackupShare_Update_Fields{
+					Share: dbx.Web3BackupShare_Share(share),
+				},
+			)
+		}
 		return err
 	}
 	return nil

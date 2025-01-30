@@ -13043,6 +13043,7 @@ type Web3BackupShare struct {
 func (Web3BackupShare) _Table() string { return "web3_backup_shares" }
 
 type Web3BackupShare_Update_Fields struct {
+	Share Web3BackupShare_Share_Field
 }
 
 type Web3BackupShare_BackupId_Field struct {
@@ -24128,6 +24129,47 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxImpl) Update_Web3BackupShare_By_BackupId(ctx context.Context,
+	web3_backup_share_backup_id Web3BackupShare_BackupId_Field,
+	update Web3BackupShare_Update_Fields) (
+	web3_backup_share *Web3BackupShare, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE web3_backup_shares SET "), __sets, __sqlbundle_Literal(" WHERE web3_backup_shares.backup_id = ? RETURNING web3_backup_shares.backup_id, web3_backup_shares.share")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Share._set {
+		__values = append(__values, update.Share.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("share = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, web3_backup_share_backup_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	web3_backup_share = &Web3BackupShare{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&web3_backup_share.BackupId, &web3_backup_share.Share)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return web3_backup_share, nil
+}
+
 func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -34846,6 +34888,47 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxcockroachImpl) Update_Web3BackupShare_By_BackupId(ctx context.Context,
+	web3_backup_share_backup_id Web3BackupShare_BackupId_Field,
+	update Web3BackupShare_Update_Fields) (
+	web3_backup_share *Web3BackupShare, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE web3_backup_shares SET "), __sets, __sqlbundle_Literal(" WHERE web3_backup_shares.backup_id = ? RETURNING web3_backup_shares.backup_id, web3_backup_shares.share")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Share._set {
+		__values = append(__values, update.Share.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("share = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, web3_backup_share_backup_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	web3_backup_share = &Web3BackupShare{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&web3_backup_share.BackupId, &web3_backup_share.Share)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return web3_backup_share, nil
+}
+
 func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -37392,6 +37475,11 @@ type Methods interface {
 		value_attribution_bucket_name ValueAttribution_BucketName_Field,
 		update ValueAttribution_Update_Fields) (
 		value_attribution *ValueAttribution, err error)
+
+	Update_Web3BackupShare_By_BackupId(ctx context.Context,
+		web3_backup_share_backup_id Web3BackupShare_BackupId_Field,
+		update Web3BackupShare_Update_Fields) (
+		web3_backup_share *Web3BackupShare, err error)
 
 	Update_WebappSessionDeveloper_By_Id(ctx context.Context,
 		webapp_session_developer_id WebappSessionDeveloper_Id_Field,
