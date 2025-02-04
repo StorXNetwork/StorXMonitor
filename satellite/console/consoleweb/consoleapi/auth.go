@@ -139,12 +139,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if body.IDToken == "" || body.AccessToken == "" {
-		a.sendJsonResponse(w, "id_token and access_token are required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-
-	googleuser, err := socialmedia.GetGoogleUser(body.AccessToken, body.IDToken)
+	googleuser, err := socialmedia.GetGoogleUserByAccessToken(body.AccessToken)
 	if err != nil {
 		a.sendJsonResponse(w, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
