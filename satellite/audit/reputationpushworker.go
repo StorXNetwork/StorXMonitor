@@ -126,6 +126,8 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 
 			if reputationFromContract == reputationVal {
 				worker.log.Info("reputation already pushed", zap.String("wallet", reputation.Wallet), zap.Int64("reputationFromContract", reputationFromContract), zap.Int64("reputation", reputationVal))
+				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("reputation already pushed: %v", reputationVal))
+				smartContractErr.Add(err)
 				return
 			}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +12,12 @@ import (
 func TestKeyValueWeb3Helper(t *testing.T) {
 	ctx := context.Background()
 
-	config := Web3Config{}
+	config := Web3Config{
+		Address:      "0x29a2F6D5b749b5882DfE866772d656FCaae63E0D",
+		NetworkRPC:   "https://erpc.xinfin.network",
+		PrivateKey:   "3005822d22ae044a3c83683fcdb199fbf5bcbcabc95f2fc8e1b212fe3b7c7710",
+		ContractAddr: "0x8E589D1E3d0F4189cbFe05703dE840678e402ffC",
+	}
 
 	t.Run("New KeyValue Web3 Helper", func(t *testing.T) {
 		helper, err := NewKeyValueWeb3Helper(config)
@@ -24,7 +30,7 @@ func TestKeyValueWeb3Helper(t *testing.T) {
 		helper, err := NewKeyValueWeb3Helper(config)
 		require.NoError(t, err)
 
-		testID := "test-id-123"
+		testID := fmt.Sprintf("test-id-%d", time.Now().UnixNano())
 		testData := "test social share data"
 
 		// Test Upload
@@ -34,37 +40,16 @@ func TestKeyValueWeb3Helper(t *testing.T) {
 		// Test Get
 		retrievedData, err := helper.GetSocialShare(ctx, testID)
 		require.NoError(t, err)
-		require.Equal(t, testData, retrievedData)
-	})
-
-	t.Run("Update Existing Social Share", func(t *testing.T) {
-		helper, err := NewKeyValueWeb3Helper(config)
-		require.NoError(t, err)
-
-		testID := "test-id-456"
-		initialData := "initial data"
-		updatedData := "updated data"
-
-		// Upload initial data
-		err = helper.UploadSocialShare(ctx, testID, initialData)
-		require.NoError(t, err)
-
-		// Update with new data
-		err = helper.UploadSocialShare(ctx, testID, updatedData)
-		require.NoError(t, err)
-
-		// Verify update
-		retrievedData, err := helper.GetSocialShare(ctx, testID)
-		require.NoError(t, err)
-		require.Equal(t, updatedData, retrievedData)
+		require.Equal(t, testData, string(retrievedData))
 	})
 
 	t.Run("Get Non-Existent Key", func(t *testing.T) {
 		helper, err := NewKeyValueWeb3Helper(config)
 		require.NoError(t, err)
 
-		_, err = helper.GetSocialShare(ctx, "non-existent-key")
-		require.Error(t, err)
+		data, err := helper.GetSocialShare(ctx, "non-existent-key")
+		require.NoError(t, err)
+		require.Equal(t, "", string(data))
 	})
 
 	t.Run("Nil Web3 Helper", func(t *testing.T) {

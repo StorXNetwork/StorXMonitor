@@ -138,15 +138,44 @@ func GetGoogleUser(access_token string, id_token string) (*GoogleUserResult, err
 		return nil, errors.New("could not retrieve user details from google")
 	}
 
-	userBody := &GoogleUserResult{
-		Id:             GoogleUserRes.Id,
-		Email:          GoogleUserRes.Email,
-		Verified_email: GoogleUserRes.Verified_email,
-		Name:           GoogleUserRes.Name,
-		Given_name:     GoogleUserRes.Given_name,
-		Picture:        GoogleUserRes.Picture,
-		Locale:         GoogleUserRes.Locale,
+	return &GoogleUserRes, nil
+}
+
+func GetGoogleUserByAccessToken(access_token string) (*GoogleUserResult, error) {
+	if access_token == "" {
+		return nil, errors.New("invalid access token")
 	}
 
-	return userBody, nil
+	rootUrl := fmt.Sprintf("https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=%s", access_token)
+
+	req, err := http.NewRequest("GET", rootUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := http.Client{
+		Timeout: time.Second * 30,
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.New("could not retrieve user")
+	}
+
+	resBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var GoogleUserRes GoogleUserResult
+
+	if err := json.Unmarshal(resBody, &GoogleUserRes); err != nil {
+		return nil, err
+	}
+
+	return &GoogleUserRes, nil
 }

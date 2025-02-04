@@ -731,7 +731,7 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	googleuser, err := socialmedia.GetGoogleUser(accessToken, idToken)
+	googleuser, err := socialmedia.GetGoogleUserByAccessToken(accessToken)
 	if err != nil {
 		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
@@ -771,7 +771,7 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 				CreateAccountLink: satelliteAddress + "signup",
 			},
 		)
-		a.SendResponse(w, r, "You are already registerted!", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		a.SendResponse(w, r, "You are already registered!", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		// http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL)+"?error=You are already registerted!", http.StatusTemporaryRedirect)
 		return
 	} else {
@@ -903,7 +903,7 @@ func (a *Auth) sendJsonResponse(w http.ResponseWriter, errorMessage, redirectUri
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"redirect_url": redirectUri,
-		"succes":       true,
+		"success":      true,
 	})
 }
 
