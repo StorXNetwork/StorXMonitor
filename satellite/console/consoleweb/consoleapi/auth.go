@@ -5,13 +5,11 @@ package consoleapi
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,7 +20,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/http/requestid"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -34,7 +31,6 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 )
@@ -129,7 +125,6 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
 	var body struct {
-		IDToken     string `json:"id_token"`
 		AccessToken string `json:"access_token"`
 		WalletID    string `json:"wallet_id"`
 	}
@@ -351,290 +346,6 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	a.cookieAuth.RemoveTokenCookie(w)
 }
 
-// Register creates new user, sends activation e-mail.
-// If a user with the given e-mail address already exists, a password reset e-mail is sent instead.
-func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var registerData struct {
-		FullName         string `json:"fullName"`
-		ShortName        string `json:"shortName"`
-		Email            string `json:"email"`
-		Partner          string `json:"partner"`
-		UserAgent        []byte `json:"userAgent"`
-		Password         string `json:"password"`
-		SecretInput      string `json:"secret"`
-		ReferrerUserID   string `json:"referrerUserId"`
-		IsProfessional   bool   `json:"isProfessional"`
-		Position         string `json:"position"`
-		CompanyName      string `json:"companyName"`
-		StorageNeeds     string `json:"storageNeeds"`
-		EmployeeCount    string `json:"employeeCount"`
-		HaveSalesContact bool   `json:"haveSalesContact"`
-		CaptchaResponse  string `json:"captchaResponse"`
-		SignupPromoCode  string `json:"signupPromoCode"`
-		IsMinimal        bool   `json:"isMinimal"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&registerData)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	verifier := socialmedia.NewVerifierData(r)
-	if r.URL.Query().Has("zoho-insert") {
-		a.log.Debug("inserting lead in Zoho CRM")
-		// Inserting lead in Zoho CRM
-		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, verifier)
-	}
-
-	// trim leading and trailing spaces of email address.
-	registerData.Email = strings.TrimSpace(registerData.Email)
-
-	isValidEmail := utils.ValidateEmail(registerData.Email)
-	if !isValidEmail {
-		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
-		return
-	}
-
-	if a.badPasswords != nil {
-		_, exists := a.badPasswords[registerData.Password]
-		if exists {
-			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
-			return
-		}
-	}
-
-	if len([]rune(registerData.Partner)) > 100 {
-		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
-		return
-	}
-
-	if len([]rune(registerData.SignupPromoCode)) > 100 {
-		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Promo code must be less than or equal to 100 characters")))
-		return
-	}
-
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
-	if err != nil && !console.ErrEmailNotFound.Has(err) {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	if verified != nil {
-		satelliteAddress := a.ExternalAddress
-		if !strings.HasSuffix(satelliteAddress, "/") {
-			satelliteAddress += "/"
-		}
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: verified.Email}},
-			&console.AccountAlreadyExistsEmail{
-				Origin:            satelliteAddress,
-				SatelliteName:     a.SatelliteName,
-				SignInLink:        satelliteAddress + "login",
-				ResetPasswordLink: satelliteAddress + "forgot-password",
-				CreateAccountLink: satelliteAddress + "signup",
-			},
-		)
-
-		a.serveJSONError(ctx, w, console.ErrAlreadyMember.Wrap(errs.New("The requested Email ID is already registered. Please try again using a different email address.")))
-		return
-	}
-
-	var user *console.User
-	if len(unverified) > 0 {
-		user = &unverified[0]
-	} else {
-		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		if registerData.Partner != "" {
-			registerData.UserAgent = []byte(registerData.Partner)
-		}
-
-		ip, err := web.GetRequestIP(r)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		var code string
-		var requestID string
-		if a.ActivationCodeEnabled {
-			randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
-			if err != nil {
-				a.serveJSONError(ctx, w, console.Error.Wrap(err))
-				return
-			}
-			randNum = randNum.Add(randNum, big.NewInt(100000))
-			code = randNum.String()
-
-			requestID = requestid.FromContext(ctx)
-		}
-
-		var utmParams *console.UtmParams
-		if verifier != nil {
-			utmParams = &console.UtmParams{
-				UtmTerm:     verifier.UTMTerm,
-				UtmContent:  verifier.UTMContent,
-				UtmSource:   verifier.UTMSource,
-				UtmMedium:   verifier.UTMMedium,
-				UtmCampaign: verifier.UTMCampaign,
-			}
-		}
-
-		user, err = a.service.CreateUser(ctx,
-			console.CreateUser{
-				FullName:         registerData.FullName,
-				ShortName:        registerData.ShortName,
-				Email:            registerData.Email,
-				UserAgent:        registerData.UserAgent,
-				Password:         registerData.Password,
-				IsProfessional:   registerData.IsProfessional,
-				Position:         registerData.Position,
-				CompanyName:      registerData.CompanyName,
-				EmployeeCount:    registerData.EmployeeCount,
-				HaveSalesContact: registerData.HaveSalesContact,
-				CaptchaResponse:  registerData.CaptchaResponse,
-				IP:               ip,
-				SignupPromoCode:  registerData.SignupPromoCode,
-				ActivationCode:   code,
-				SignupId:         requestID,
-				// the minimal signup from the v2 app doesn't require name.
-				AllowNoName: registerData.IsMinimal,
-				Source:      "Register",
-				UtmParams:   utmParams,
-			},
-			secret, false,
-		)
-		if err != nil {
-			if !console.ErrEmailUsed.Has(err) {
-				a.serveJSONError(ctx, w, err)
-			}
-			return
-		}
-
-		invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
-		if err != nil {
-			a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
-		} else if len(invites) > 0 {
-			var firstInvite console.ProjectInvitation
-			for _, inv := range invites {
-				if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
-					firstInvite = inv
-				}
-			}
-			if firstInvite.InviterID != nil {
-				inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
-				if err != nil {
-					a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
-				} else {
-					a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
-				}
-			}
-		}
-
-		// see if referrer was provided in URL query, otherwise use the Referer header in the request.
-		referrer := r.URL.Query().Get("referrer")
-		if referrer == "" {
-			referrer = r.Referer()
-		}
-		hubspotUTK := ""
-		hubspotCookie, err := r.Cookie("hubspotutk")
-		if err == nil {
-			hubspotUTK = hubspotCookie.Value
-		}
-
-		trackCreateUserFields := analytics.TrackCreateUserFields{
-			ID:            user.ID,
-			AnonymousID:   loadSession(r),
-			FullName:      user.FullName,
-			Email:         user.Email,
-			Type:          analytics.Personal,
-			OriginHeader:  r.Header.Get("Origin"),
-			Referrer:      referrer,
-			HubspotUTK:    hubspotUTK,
-			UserAgent:     string(user.UserAgent),
-			SignupCaptcha: user.SignupCaptcha,
-		}
-		if user.IsProfessional {
-			trackCreateUserFields.Type = analytics.Professional
-			trackCreateUserFields.EmployeeCount = user.EmployeeCount
-			trackCreateUserFields.CompanyName = user.CompanyName
-			trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
-			trackCreateUserFields.JobTitle = user.Position
-			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
-		}
-		a.analytics.TrackCreateUser(trackCreateUserFields)
-	}
-
-	if a.ActivationCodeEnabled {
-		*user, err = a.service.SetActivationCodeAndSignupID(ctx, *user)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: user.Email}},
-			&console.AccountActivationCodeEmail{
-				ActivationCode: user.ActivationCode,
-			},
-		)
-
-		return
-	}
-	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	link := a.ActivateAccountURL + "?token=" + token
-
-	a.mailService.SendRenderedAsync(
-		ctx,
-		[]post.Address{{Address: user.Email}},
-		&console.AccountActivationEmail{
-			Username:       user.FullName,
-			ActivationLink: link,
-			Origin:         a.ExternalAddress,
-		},
-	)
-
-	customeExpiry := 24 * 7 * time.Hour
-
-	// Create Default Project - Munjal - 1/Oct/2023
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", &customeExpiry)
-	//require.NoError(t, err)
-	a.log.Info("Token Info", zap.Any("TokenInfo", tokenInfo.Token.String()))
-
-	// Set up a test project and bucket
-
-	authed := console.WithUser(ctx, user)
-
-	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
-	})
-	//require.NoError(t, err)
-	if err != nil {
-		a.log.Error("Error in Default Project:")
-		a.log.Error(err.Error())
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	a.log.Info("Default Project Name: " + project.Name)
-}
-
 func CreateToken(ttl time.Duration, payload interface{}, privateKey string) (string, error) {
 	decodedPrivateKey, err := base64.StdEncoding.DecodeString(privateKey)
 	if err != nil {
@@ -676,7 +387,6 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var body struct {
-		IDToken     string `json:"id_token"`
 		AccessToken string `json:"access_token"`
 		WalletID    string `json:"wallet_id"`
 	}
@@ -686,42 +396,9 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.registerUserByIDTokenFromGoogle(w, r, body.IDToken, body.AccessToken, body.WalletID)
-}
-
-// **** Google sign ****//
-func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
-	var mode string = "signup"
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	code := r.URL.Query().Get("code")
-
-	if code == "" {
-		a.SendResponse(w, r, "Authorization code not provided!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Authorization code not provided!", http.StatusTemporaryRedirect)
-		return
-	}
-
-	// Use the code to get the id and access tokens
-	tokenRes, err := socialmedia.GetGoogleOauthToken(code, mode, r.URL.Query().Has("zoho-insert"))
-	if err != nil {
-		a.SendResponse(w, r, "Error getting token from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting token from Google!", http.StatusTemporaryRedirect)
-		return
-	}
-
-	a.registerUserByIDTokenFromGoogle(w, r, tokenRes.Id_token, tokenRes.Access_token, "")
-}
-
-func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Request, idToken, accessToken, walletID string) {
-	ctx := r.Context()
-	cnf := socialmedia.GetConfig()
-
-	googleuser, err := socialmedia.GetGoogleUserByAccessToken(accessToken)
+	googleuser, err := socialmedia.GetGoogleUserByAccessToken(body.AccessToken)
 	if err != nil {
 		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
@@ -800,7 +477,7 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 					Status:    1,
 					IP:        ip,
 					Source:    "Google",
-					WalletId:  walletID,
+					WalletId:  body.WalletID,
 					UtmParams: utmParams,
 				},
 				secret, true,
