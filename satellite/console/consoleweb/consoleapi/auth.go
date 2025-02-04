@@ -726,11 +726,6 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	cnf := socialmedia.GetConfig()
 
-	if idToken == "" || accessToken == "" {
-		a.serveJSONError(ctx, w, errors.New("id_token and access_token are required"))
-		return
-	}
-
 	googleuser, err := socialmedia.GetGoogleUserByAccessToken(accessToken)
 	if err != nil {
 		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
