@@ -26,11 +26,13 @@ type NodeReputationEntry struct {
 	// &reputation.UnderReview, &reputation.AuditReputationAlpha
 	Wallet               string
 	Disqualified         *time.Time
+	LastContactSuccess   *time.Time
 	ExitInitiatedAt      *time.Time
 	ExitFinishedAt       *time.Time
 	ExitSuccess          *bool
 	UnderReview          *time.Time
 	AuditReputationAlpha float64
+	PieceCount           int64
 	Inactive             bool
 }
 
@@ -99,6 +101,15 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 		if ctx.Err() != nil {
 			worker.log.Error("context cancelled", zap.Error(ctx.Err()))
 			return ctx.Err()
+		}
+
+		if reputation.LastContactSuccess == nil ||
+			reputation.PieceCount == 0 ||
+			reputation.LastContactSuccess.Before(time.Now().Add(-time.Hour*24*30)) {
+			worker.log.Info("skipping node", zap.String("wallet", reputation.Wallet), zap.Time("lastContactSuccess", *reputation.LastContactSuccess))
+			err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("skipping node: %v", reputation.Wallet))
+			smartContractErr.Add(err)
+			continue
 		}
 
 		func() {

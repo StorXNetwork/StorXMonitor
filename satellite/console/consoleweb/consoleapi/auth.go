@@ -3235,7 +3235,7 @@ func (a *Auth) RegisterPipedriveForApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if body.AccessToken == "" {
+	if body.AccessToken == "" && body.Wallet == "" {
 		a.serveJSONError(ctx, w, errors.New("access token is required"))
 		return
 	}
