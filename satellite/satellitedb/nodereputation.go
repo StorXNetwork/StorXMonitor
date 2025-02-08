@@ -30,7 +30,8 @@ var _ audit.NodeReputation = (*nodeReputation)(nil)
 func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeReputationEntry, err error) {
 
 	rows, err := nr.db.Query(ctx, `SELECT n.id, n.wallet, n.disqualified, n.exit_initiated_at, n.exit_finished_at,
-										n.exit_success, n.under_review, n.inactive, r.audit_reputation_alpha, r.disqualified
+										n.exit_success, n.under_review, n.inactive, r.audit_reputation_alpha, r.disqualified,
+										n.piece_count, n.last_contact_success
                                     FROM reputations r
                                     INNER JOIN nodes n on n.id = r.id;`)
 	if err != nil {
@@ -43,7 +44,7 @@ func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeR
 		err = rows.Scan(&reputation.NodeID, &reputation.Wallet, &reputation.Disqualified,
 			&reputation.ExitInitiatedAt, &reputation.ExitFinishedAt, &reputation.ExitSuccess,
 			&reputation.UnderReview, &reputation.Inactive, &reputation.AuditReputationAlpha,
-			&reputation.Disqualified)
+			&reputation.Disqualified, &reputation.PieceCount, &reputation.LastContactSuccess)
 		if err != nil {
 			return nil, err
 		}
