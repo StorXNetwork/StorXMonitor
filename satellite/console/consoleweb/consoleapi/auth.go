@@ -1848,8 +1848,9 @@ func (a *Auth) HandleLinkedInIdTokenFromCode(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(struct {
-		IDToken string `json:"id_token"`
-	}{idToken.(string)})
+		IDToken     string `json:"id_token"`
+		AccessToken string `json:"access_token"`
+	}{idToken.(string), token.AccessToken})
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
