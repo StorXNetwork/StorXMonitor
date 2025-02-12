@@ -1861,13 +1861,13 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	authToken := r.URL.Query().Get("auth_token")
+	authToken := r.FormValue("auth_token")
 	if authToken == "" {
 		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
-	walletId := r.URL.Query().Get("wallet_id")
+	walletId := r.FormValue("wallet_id")
 	if walletId == "" {
 		a.SendResponse(w, r, "Wallet id is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
