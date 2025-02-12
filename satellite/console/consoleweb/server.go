@@ -411,6 +411,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/loginbutton_linkedin", authController.InitLinkedInLogin)
 	router.HandleFunc("/linkedin_login/mobile", authController.HandleLinkedInLoginWithAuthToken)
 	router.HandleFunc("/linkedin_login", authController.HandleLinkedInLogin)
+	router.HandleFunc("/linkedin_id_token", authController.HandleLinkedInIdTokenFromCode)
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
