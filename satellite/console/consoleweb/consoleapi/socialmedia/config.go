@@ -63,10 +63,11 @@ func SetFacebookSocialMediaConfig(clientID string, clientSecret string, redirect
 	configVal.FacebookOAuthRedirectUrl_login = redirectUrl_login
 }
 
-func SetLinkedinSocialMediaConfig(clientID string, clientSecret string, redirectUrl_register string, redirectUrl_login string) {
+func SetLinkedinSocialMediaConfig(clientID string, clientSecret string, redirectUrl_register string, redirectUrl_login string, redirectUrl_idToken string) {
 	configVal.LinkedinClientID = clientID
 	configVal.LinkedinClientSecret = clientSecret
 	configVal.LinkedinOAuthRedirectUrl_register = redirectUrl_register
+	configVal.LinkedinOAuthRedirectUrl_idToken = redirectUrl_idToken
 	configVal.LinkedinOAuthRedirectUrl_login = redirectUrl_login
 }
 
