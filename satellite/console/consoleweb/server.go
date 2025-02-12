@@ -446,7 +446,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogleForApp))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/login-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirmForApp))).Methods(http.MethodPost, http.MethodOptions)
-	router.HandleFunc("/linkedin_id_token", authController.HandleLinkedInIdTokenFromCode)
+	authRouter.Handle("/linkedin_id_token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleLinkedInIdTokenFromCode))).Methods(http.MethodGet, http.MethodOptions)
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
