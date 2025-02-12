@@ -1832,24 +1832,22 @@ func (a *Auth) HandleLinkedInIdTokenFromCode(w http.ResponseWriter, r *http.Requ
 
 	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_IdToken()
 
-	fmt.Println(OAuth2Config.RedirectURL)
-
 	token, err := OAuth2Config.Exchange(context.TODO(), code)
 	if err != nil || token == nil {
-		a.SendResponse(w, r, "Error getting token from LinkedIn"+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.SendResponse(w, r, "Error getting token from LinkedIn", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
 
 	idToken := token.Extra("id_token")
 	if idToken == nil {
-		a.SendResponse(w, r, "No id token found", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.SendResponse(w, r, "No id token found", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(struct {
 		IDToken     string `json:"id_token"`
-		AccessToken string `json:"access_token"`
+		AccessToken string `json:"auth_token"`
 	}{idToken.(string), token.AccessToken})
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
