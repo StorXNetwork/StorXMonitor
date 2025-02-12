@@ -26,6 +26,16 @@ func GetLinkedinOAuthConfig_Register() *oauth2.Config {
 		Scopes:       []string{"openid", "profile", "email"},
 	}
 }
+
+func GetLinkedinOAuthConfig_IdToken() *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     configVal.LinkedinClientID,
+		ClientSecret: configVal.LinkedinClientSecret,
+		RedirectURL:  configVal.LinkedinOAuthRedirectUrl_idToken,
+		Endpoint:     linkedin.Endpoint,
+	}
+}
+
 func GetLinkedinOAuthConfig_Login() *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     configVal.LinkedinClientID,

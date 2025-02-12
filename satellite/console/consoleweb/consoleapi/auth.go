@@ -1830,7 +1830,7 @@ func (a *Auth) HandleLinkedInIdTokenFromCode(w http.ResponseWriter, r *http.Requ
 
 	var code = r.FormValue("code")
 
-	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
+	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_IdToken()
 
 	token, err := OAuth2Config.Exchange(context.TODO(), code)
 	if err != nil || token == nil {

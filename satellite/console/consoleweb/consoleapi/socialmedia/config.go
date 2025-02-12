@@ -16,6 +16,7 @@ type Config struct {
 	LinkedinClientID                  string `mapstructure:"LINKEDIN_CLIENT_ID"`
 	LinkedinClientSecret              string `mapstructure:"LINKEDIN_CLIENT_SECRET"`
 	LinkedinOAuthRedirectUrl_register string `mapstructure:"LINKEDIN_REDIRECT_URL_REGISTER"`
+	LinkedinOAuthRedirectUrl_idToken  string `mapstructure:"LINKEDIN_REDIRECT_URL_ID_TOKEN"`
 	LinkedinOAuthRedirectUrl_login    string `mapstructure:"LINKEDIN_REDIRECT_URL_LOGIN"`
 
 	UnstoppableDomainClientID             string `mapstructure:"UNSTOPPABLE_DOMAIN_CLIENT_ID"`
