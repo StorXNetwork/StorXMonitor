@@ -1836,7 +1836,7 @@ func (a *Auth) HandleLinkedInIdTokenFromCode(w http.ResponseWriter, r *http.Requ
 
 	token, err := OAuth2Config.Exchange(context.TODO(), code)
 	if err != nil || token == nil {
-		a.SendResponse(w, r, "Error getting token from LinkedIn", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.SendResponse(w, r, "Error getting token from LinkedIn"+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
