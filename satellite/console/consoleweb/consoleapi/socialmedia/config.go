@@ -13,11 +13,12 @@ type Config struct {
 	FacebookOAuthRedirectUrl_register string `mapstructure:"FACEBOOK_REDIRECT_URL_REGISTER"`
 	FacebookOAuthRedirectUrl_login    string `mapstructure:"FACEBOOK_REDIRECT_URL_LOGIN"`
 
-	LinkedinClientID                  string `mapstructure:"LINKEDIN_CLIENT_ID"`
-	LinkedinClientSecret              string `mapstructure:"LINKEDIN_CLIENT_SECRET"`
-	LinkedinOAuthRedirectUrl_register string `mapstructure:"LINKEDIN_REDIRECT_URL_REGISTER"`
-	LinkedinOAuthRedirectUrl_idToken  string `mapstructure:"LINKEDIN_REDIRECT_URL_ID_TOKEN"`
-	LinkedinOAuthRedirectUrl_login    string `mapstructure:"LINKEDIN_REDIRECT_URL_LOGIN"`
+	LinkedinClientID                          string `mapstructure:"LINKEDIN_CLIENT_ID"`
+	LinkedinClientSecret                      string `mapstructure:"LINKEDIN_CLIENT_SECRET"`
+	LinkedinOAuthRedirectUrl_login            string `mapstructure:"LINKEDIN_REDIRECT_URL_LOGIN"`
+	LinkedinOAuthRedirectUrl_register         string `mapstructure:"LINKEDIN_REDIRECT_URL_REGISTER"`
+	LinkedinOAuthRedirectUrl_idToken_register string `mapstructure:"LINKEDIN_REDIRECT_URL_ID_TOKEN_REGISTER"`
+	LinkedinOAuthRedirectUrl_idToken_login    string `mapstructure:"LINKEDIN_REDIRECT_URL_ID_TOKEN_LOGIN"`
 
 	UnstoppableDomainClientID             string `mapstructure:"UNSTOPPABLE_DOMAIN_CLIENT_ID"`
 	UnstoppableDomainRedirectUrl_register string `mapstructure:"UNSTOPPABLE_DOMAIN_REDIRECT_URL_REGISTER"`
@@ -63,11 +64,12 @@ func SetFacebookSocialMediaConfig(clientID string, clientSecret string, redirect
 	configVal.FacebookOAuthRedirectUrl_login = redirectUrl_login
 }
 
-func SetLinkedinSocialMediaConfig(clientID string, clientSecret string, redirectUrl_register string, redirectUrl_login string, redirectUrl_idToken string) {
+func SetLinkedinSocialMediaConfig(clientID string, clientSecret string, redirectUrl_register string, redirectUrl_login string, redirectUrl_idToken_register string, redirectUrl_idToken_login string) {
 	configVal.LinkedinClientID = clientID
 	configVal.LinkedinClientSecret = clientSecret
 	configVal.LinkedinOAuthRedirectUrl_register = redirectUrl_register
-	configVal.LinkedinOAuthRedirectUrl_idToken = redirectUrl_idToken
+	configVal.LinkedinOAuthRedirectUrl_idToken_register = redirectUrl_idToken_register
+	configVal.LinkedinOAuthRedirectUrl_idToken_login = redirectUrl_idToken_login
 	configVal.LinkedinOAuthRedirectUrl_login = redirectUrl_login
 }
 

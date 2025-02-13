@@ -93,11 +93,12 @@ type Config struct {
 	FacebookSigupRedirectURLstring string `help:"redirect url for facebook oauth" default:""`
 	FacebookLoginRedirectURLstring string `help:"redirect url for facebook oauth" default:""`
 
-	LinkedinClientID                 string `help:"client id for linkedin oauth" default:""`
-	LinkedinClientSecret             string `help:"client secret for linkedin oauth" default:""`
-	LinkedinSigupRedirectURLstring   string `help:"redirect url for linkedin oauth" default:""`
-	LinkedinLoginRedirectURLstring   string `help:"redirect url for linkedin oauth" default:""`
-	LinkedinIdTokenRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
+	LinkedinClientID                         string `help:"client id for linkedin oauth" default:""`
+	LinkedinClientSecret                     string `help:"client secret for linkedin oauth" default:""`
+	LinkedinSigupRedirectURLstring           string `help:"redirect url for linkedin oauth" default:""`
+	LinkedinLoginRedirectURLstring           string `help:"redirect url for linkedin oauth" default:""`
+	LinkedinLoginIdTokenRedirectURLstring    string `help:"redirect url for linkedin oauth" default:""`
+	LinkedinRegisterIdTokenRedirectURLstring string `help:"redirect url for linkedin oauth" default:""`
 
 	UnstoppableDomainClientID                string `help:"redirect url for unstoppable domain oauth" default:""`
 	UnstoppableDomainClientSecret            string `help:"redirect url for unstoppable domain oauth" default:""`
@@ -382,7 +383,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	socialmedia.SetClientOrigin(config.ClientOrigin)
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
-	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring, config.LinkedinIdTokenRedirectURLstring)
+	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring, config.LinkedinRegisterIdTokenRedirectURLstring, config.LinkedinLoginIdTokenRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
 	socialmedia.SetXSocialMediaConfig(config.XClientID, config.XClientSecret, config.XSignupRedirectURLstring, config.XLoginRedirectURLstring)
 	socialmedia.SetPipeDriveSocialMediaConfig(config.PipeDriveClientID, config.PipeDriveClientSecret, config.PipeDriveRedirectUrl)
