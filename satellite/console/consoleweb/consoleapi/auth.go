@@ -484,7 +484,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 			)
 
 			if err != nil {
-				a.SendResponse(w, r, "Error creating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				a.SendResponse(w, r, "Error creating user!"+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
 				return
 			}
