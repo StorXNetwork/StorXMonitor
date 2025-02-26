@@ -166,7 +166,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 		WalletID: &body.WalletID,
 	})
 	if err != nil {
-		a.sendJsonResponse(w, "Error creating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.sendJsonResponse(w, "Error creating user!"+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
 		return
 	}
