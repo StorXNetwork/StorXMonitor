@@ -1030,7 +1030,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	// patern validation for user details
 	if !Regex_NameValidation.Match([]byte(user.FullName)) {
-		return nil, ErrInvalidUserDetails.New("invalid full name")
+		return nil, ErrInvalidUserDetails.New("invalid full name " + user.FullName)
 	}
 
 	if !Regex_EmailValidation.Match([]byte(user.Email)) {
