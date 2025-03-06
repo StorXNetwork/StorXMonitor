@@ -35,13 +35,13 @@ func (t Token) String() string {
 
 // FromBase64URLString creates Token instance from base64URLEncoded string representation.
 func FromBase64URLString(token string) (Token, error) {
-	i := strings.Index(token, ".")
-	if i < 0 {
+	i := strings.Split(token, ".")
+	if len(i) < 2 {
 		return Token{}, errs.New("invalid token format")
 	}
 
-	payload := token[:i]
-	signature := token[i+1:]
+	payload := i[0]
+	signature := i[1]
 
 	payloadDecoder := base64.NewDecoder(base64.URLEncoding, bytes.NewReader([]byte(payload)))
 	signatureDecoder := base64.NewDecoder(base64.URLEncoding, bytes.NewReader([]byte(signature)))
