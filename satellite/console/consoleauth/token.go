@@ -18,12 +18,17 @@ import (
 type Token struct {
 	Payload   []byte
 	Signature []byte
+	Key       string
 }
 
 // String returns base64URLEncoded data joined with .
 func (t Token) String() string {
 	payload := base64.URLEncoding.EncodeToString(t.Payload)
 	signature := base64.URLEncoding.EncodeToString(t.Signature)
+	if t.Key != "" {
+		key := base64.URLEncoding.EncodeToString([]byte(t.Key))
+		return strings.Join([]string{payload, signature, key}, ".")
+	}
 
 	return strings.Join([]string{payload, signature}, ".")
 }

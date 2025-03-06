@@ -80,6 +80,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		Email     string `json:"email"`
 		Payload   string `json:"payload"`
 		Signature string `json:"signature"`
+		Key       string `json:"key"`
 	}
 
 	var request Web3AuthRequest
@@ -176,6 +177,8 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	tokenInfo.Token.Key = request.Key
 
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
