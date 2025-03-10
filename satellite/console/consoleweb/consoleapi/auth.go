@@ -134,10 +134,32 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	googleuser, err := socialmedia.GetGoogleUserByAccessToken(body.AccessToken)
-	if err != nil {
-		a.sendJsonResponse(w, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
+	migrationType := r.URL.Query().Get("migration_type")
+
+	var email string
+	var name string
+
+	if migrationType == "google" {
+		googleuser, err := socialmedia.GetGoogleUserByAccessToken(body.AccessToken)
+		if err != nil {
+			a.sendJsonResponse(w, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from Google!", http.StatusTemporaryRedirect)
+			return
+		}
+
+		email = googleuser.Email
+		name = googleuser.Name
+	} else if migrationType == "linkedin" {
+		linkedinuser, err := socialmedia.GetLinkedinUserByAccessToken(ctx, body.AccessToken, true)
+		if err != nil {
+			a.sendJsonResponse(w, "Error getting user details from LinkedIn!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			return
+		}
+
+		email = linkedinuser.Email
+		name = linkedinuser.Name
+	} else {
+		a.sendJsonResponse(w, "Invalid migration type!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
@@ -145,12 +167,11 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 	verifier := socialmedia.NewVerifierDataFromString(state)
 	if r.URL.Query().Has("zoho-insert") {
 		a.log.Debug("inserting lead in Zoho CRM")
-		// Inserting lead in Zoho CRM
 
-		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, verifier)
+		go zohoInsertLead(context.Background(), name, email, a.log, verifier)
 	}
 
-	userFromDB, err := a.service.GetUsers().GetByEmail(ctx, googleuser.Email)
+	userFromDB, err := a.service.GetUsers().GetByEmail(ctx, email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.sendJsonResponse(w, "Error getting user details from system!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
@@ -171,7 +192,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.TokenGoogleWrapper(ctx, googleuser.Email, w, r)
+	a.TokenGoogleWrapper(ctx, email, w, r)
 	// Set up a test project and bucket
 
 	a.sendJsonResponse(w, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
@@ -1880,44 +1901,9 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 		return
 	}
 
-	var OAuth2Config = socialmedia.GetLinkedinOAuthConfig_Register()
-	if r.URL.Query().Has("zoho-insert") {
-		OAuth2Config.RedirectURL += "?zoho-insert"
-	}
-
-	client := OAuth2Config.Client(context.TODO(), &oauth2.Token{
-		AccessToken: authToken,
-		TokenType:   "bearer",
-	})
-	req, err := http.NewRequest("GET", "https://api.linkedin.com/v2/userinfo", nil)
-
-	if err != nil {
-		a.SendResponse(w, r, "Error creating request to LinkedIn", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-	req.Header.Set("Bearer", authToken)
-	response, err := client.Do(req)
-
+	LinkedinUserDetails, err := socialmedia.GetLinkedinUserByAccessToken(ctx, authToken, true)
 	if err != nil {
 		a.SendResponse(w, r, "Error getting user details from LinkedIn", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-	defer response.Body.Close()
-	str, err := io.ReadAll(response.Body)
-	if err != nil {
-		a.SendResponse(w, r, "Error reading LinkedIn response body", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-
-	var LinkedinUserDetails socialmedia.LinkedinUserDetails
-	err = json.Unmarshal(str, &LinkedinUserDetails)
-	if err != nil {
-		a.SendResponse(w, r, "Error unmarshalling LinkedIn response", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-
-	if LinkedinUserDetails.Email == "" {
-		a.SendResponse(w, r, "Email not found in LinkedIn response "+string(str), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 

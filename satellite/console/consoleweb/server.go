@@ -423,19 +423,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/web3auth", server.ipRateLimiter.Limit(http.HandlerFunc(web3AuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/migrate-to-web3", server.ipRateLimiter.Limit(http.HandlerFunc(authController.MigrateToWeb3))).Methods(http.MethodPost, http.MethodOptions)
 
-	router.Handle("/unstoppable_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleUnstoppableRegister))).Methods(http.MethodGet, http.MethodOptions)
-	router.Handle("/unstoppable_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserUnstoppable))).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/registerbutton_unstoppabledomain", authController.InitUnstoppableDomainRegister)
-	router.HandleFunc("/loginbutton_unstoppabledomain", authController.InitUnstoppableDomainLogin)
-
 	router.Handle("/apple_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleAppleRegister))).Methods(http.MethodGet, http.MethodOptions)
 	router.Handle("/apple_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserApple))).Methods(http.MethodGet, http.MethodOptions)
-
-	router.Handle("/x_register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegister))).Methods(http.MethodGet, http.MethodOptions)
-	router.Handle("/x_register/zoho", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXRegisterZoho))).Methods(http.MethodGet, http.MethodOptions)
-	router.Handle("/x_login", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleXLogin))).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/registerbutton_x", authController.InitXRegister)
-	router.HandleFunc("/loginbutton_x", authController.InitXLogin)
 
 	router.HandleFunc("/registerbutton_linkedin", authController.InitLinkedInRegister)
 	router.HandleFunc("/linkedin_register", authController.HandleLinkedInRegister)
