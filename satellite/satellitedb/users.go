@@ -352,6 +352,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
 		WalletId:        dbx.User_WalletId(user.WalletId),
 	}
+
+	optional.MigrationDate = dbx.User_MigrationDate(time.Now())
+
 	if user.UserAgent != nil {
 		optional.UserAgent = dbx.User_UserAgent(user.UserAgent)
 	}
@@ -911,6 +914,7 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	}
 	if request.WalletID != nil {
 		update.WalletId = dbx.User_WalletId(*request.WalletID)
+		update.MigrationDate = dbx.User_MigrationDate(time.Now())
 	}
 
 	return &update, nil

@@ -2944,6 +2944,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add migration_date column to user table",
+				Version:     280,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN migration_date timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

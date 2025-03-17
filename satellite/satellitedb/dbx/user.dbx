@@ -112,6 +112,8 @@ model user (
     field social_github text ( updatable, nullable )
 
     field wallet_id text ( updatable, nullable )
+
+    field migration_date timestamp ( updatable, nullable )
 )
 
 create user ( )

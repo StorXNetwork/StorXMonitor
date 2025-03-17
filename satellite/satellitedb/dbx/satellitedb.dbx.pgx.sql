@@ -564,6 +564,7 @@ CREATE TABLE users (
 	social_facebook text,
 	social_github text,
 	wallet_id text,
+	migration_date timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE user_delete_requests (
