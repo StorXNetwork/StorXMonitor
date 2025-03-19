@@ -57,7 +57,7 @@ func (auth *CookieAuth) SetTokenCookie(w http.ResponseWriter, tokenInfo console.
 		Value:    tokenInfo.Token.String(),
 		Path:     auth.settings.Path,
 		Expires:  tokenInfo.ExpiresAt,
-		HttpOnly: true,
+		HttpOnly: false,
 		SameSite: http.SameSiteStrictMode,
 	})
 }
@@ -70,7 +70,7 @@ func (auth *CookieAuth) RemoveTokenCookie(w http.ResponseWriter) {
 		Value:    "",
 		Path:     auth.settings.Path,
 		Expires:  time.Unix(0, 0),
-		HttpOnly: true,
+		HttpOnly: false,
 		SameSite: http.SameSiteStrictMode,
 	})
 }
