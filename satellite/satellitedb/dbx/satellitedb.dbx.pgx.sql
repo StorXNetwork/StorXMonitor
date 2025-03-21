@@ -655,6 +655,7 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_optimal_shares integer NOT NULL,
 	default_redundancy_total_shares integer NOT NULL,
 	placement integer,
+	migration_status integer NOT NULL DEFAULT 0,
 	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( project_id, name )
 );

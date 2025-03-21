@@ -3837,6 +3837,28 @@ func (s *Service) GetBucketTotalsForReserveBucket(ctx context.Context, projectID
 	return usage, nil
 }
 
+// UpdateBucketMigrationStatus updates the migration status of a bucket.
+func (s *Service) UpdateBucketMigrationStatus(ctx context.Context, bucketName []byte, projectID uuid.UUID, status int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update bucket migration status", zap.String("bucketName", string(bucketName)), zap.String("projectID", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	err = s.buckets.UpdateBucketMigrationStatus(ctx, bucketName, isMember.project.ID, status)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // GetAllBucketNames retrieves all bucket names of a specific project.
 // projectID here may be Project.ID or Project.PublicID.
 func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {

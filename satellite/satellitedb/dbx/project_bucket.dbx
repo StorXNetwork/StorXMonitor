@@ -70,6 +70,14 @@ model bucket_metainfo (
 	//    6 - NR (no Russia, Belarus or other sanctioned country)
 	field placement int (nullable, updatable)
 
+	// migration_status is the status of the bucket migration.
+	//    0 - not migrated
+	//    1 - migration_started
+	// 	  2 - migration_partially_completed
+	//    3 - migration_completed
+	//    4 - migration_failed
+	field migration_status int (updatable, default 0)
+
 	// created_by is an UUID of the user created this bucket.
 	field created_by user.id restrict (nullable)
 )

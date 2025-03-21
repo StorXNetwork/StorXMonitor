@@ -2952,6 +2952,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN migration_date timestamp with time zone;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add migration_status column to bucket_metainfos table",
+				Version:     281,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN migration_status integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

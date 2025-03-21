@@ -129,6 +129,8 @@ type DB interface {
 	HasBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (exists bool, err error)
 	// UpdateBucket updates an existing bucket
 	UpdateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
+	// UpdateBucketMigrationStatus updates the migration status of a bucket.
+	UpdateBucketMigrationStatus(ctx context.Context, bucketName []byte, projectID uuid.UUID, status int) error
 	// UpdateUserAgent updates buckets user agent.
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
 	// DeleteBucket deletes a bucket

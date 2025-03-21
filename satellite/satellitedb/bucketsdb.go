@@ -215,6 +215,21 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	return convertDBXtoBucket(dbxBucket)
 }
 
+// UpdateBucketMigrationStatus updates the migration status of a bucket.
+func (db *bucketsDB) UpdateBucketMigrationStatus(ctx context.Context, bucketName []byte, projectID uuid.UUID, status int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		dbx.BucketMetainfo_Update_Fields{
+			MigrationStatus: dbx.BucketMetainfo_MigrationStatus(status),
+		},
+	)
+
+	return err
+}
+
 // UpdateUserAgent updates buckets user agent.
 func (db *bucketsDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)

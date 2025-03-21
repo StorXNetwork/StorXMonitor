@@ -135,6 +135,60 @@ func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "projectID"))
+		return
+	}
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, projectIDString, "projectID", err))
+		return
+	}
+
+	bucketName := r.URL.Query().Get("bucketName")
+	if bucketName == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "bucketName"))
+		return
+	}
+
+	status := r.URL.Query().Get("status")
+	if status == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "status"))
+		return
+	}
+
+	var statusInt int
+	switch status {
+	case "started":
+		statusInt = 1
+	case "partially_completed":
+		statusInt = 2
+	case "completed":
+		statusInt = 3
+	case "failed":
+		statusInt = 4
+	default:
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, status, "status", errs.New("invalid status")))
+		return
+	}
+
+	err = b.service.UpdateBucketMigrationStatus(ctx, []byte(bucketName), projectID, statusInt)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // GetBucketTotals returns a page of bucket usage totals since project creation.
 func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
