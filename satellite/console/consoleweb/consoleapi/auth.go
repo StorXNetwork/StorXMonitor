@@ -127,6 +127,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		AccessToken string `json:"access_token"`
 		WalletID    string `json:"wallet_id"`
+		Key         string `json:"key"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -192,7 +193,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.TokenGoogleWrapper(ctx, email, w, r)
+	a.TokenGoogleWrapper(ctx, email, body.Key, w, r)
 	// Set up a test project and bucket
 
 	a.sendJsonResponse(w, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
@@ -410,6 +411,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		AccessToken string `json:"access_token"`
 		WalletID    string `json:"wallet_id"`
+		Key         string `json:"key"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -418,6 +420,11 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cnf := socialmedia.GetConfig()
+
+	if body.Key == "" || body.WalletID == "" || body.AccessToken == "" {
+		a.SendResponse(w, r, "Key, wallet ID and access token are required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
 
 	googleuser, err := socialmedia.GetGoogleUserByAccessToken(body.AccessToken)
 	if err != nil {
@@ -543,7 +550,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	a.TokenGoogleWrapper(ctx, googleuser.Email, w, r)
+	a.TokenGoogleWrapper(ctx, googleuser.Email, body.Key, w, r)
 	// Set up a test project and bucket
 
 	authed := console.WithUser(ctx, user)
@@ -812,7 +819,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.TokenGoogleWrapper(r.Context(), userI.Data.Username+"@no-email.com", w, r)
+	a.TokenGoogleWrapper(r.Context(), userI.Data.Username+"@no-email.com", "", w, r)
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 	// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, mainPageURL), http.StatusTemporaryRedirect)
 }
@@ -945,7 +952,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	a.TokenGoogleWrapper(ctx, userI.Data.Username+"@no-email.com", w, r)
+	a.TokenGoogleWrapper(ctx, userI.Data.Username+"@no-email.com", "", w, r)
 
 	authed := console.WithUser(ctx, user)
 
@@ -1089,7 +1096,7 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	a.TokenGoogleWrapper(ctx, responseBody.Sub+"@ud.me", w, r)
+	a.TokenGoogleWrapper(ctx, responseBody.Sub+"@ud.me", "", w, r)
 
 	authed := console.WithUser(ctx, user)
 
@@ -1145,7 +1152,7 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.TokenGoogleWrapper(r.Context(), responseBody.Sub+"@ud.me", w, r)
+	a.TokenGoogleWrapper(r.Context(), responseBody.Sub+"@ud.me", "", w, r)
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
 
@@ -1258,7 +1265,7 @@ func (a *Auth) HandleAppleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	a.TokenGoogleWrapper(ctx, responseBody.Email, w, r)
+	a.TokenGoogleWrapper(ctx, responseBody.Email, "", w, r)
 
 	authed := console.WithUser(ctx, user)
 
@@ -1307,7 +1314,7 @@ func (a *Auth) LoginUserApple(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.TokenGoogleWrapper(r.Context(), responseBody.Email, w, r)
+	a.TokenGoogleWrapper(r.Context(), responseBody.Email, "", w, r)
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
 
@@ -1370,11 +1377,11 @@ func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r
 		return
 	}
 
-	a.TokenGoogleWrapper(r.Context(), googleuser.Email, w, r)
+	a.TokenGoogleWrapper(r.Context(), googleuser.Email, "", w, r)
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
 
-func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail string, w http.ResponseWriter, r *http.Request) {
+func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail, key string, w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 	var err error
 
@@ -1402,6 +1409,8 @@ func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail string, w http.
 		}
 		return
 	}
+
+	tokenInfo.Token.Key = key
 
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 }
@@ -1565,7 +1574,7 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	a.TokenGoogleWrapper(ctx, fbUserDetails.Email, w, r)
+	a.TokenGoogleWrapper(ctx, fbUserDetails.Email, "", w, r)
 
 	// Set up a test project and bucket
 	authed := console.WithUser(ctx, user)
@@ -1628,7 +1637,7 @@ func (a *Auth) HandleFacebookLogin(w http.ResponseWriter, r *http.Request) {
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
-	a.TokenGoogleWrapper(ctx, verified.Email, w, r)
+	a.TokenGoogleWrapper(ctx, verified.Email, "", w, r)
 
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
@@ -1819,10 +1828,6 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
-
-	// Set up a test project and bucket
-
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
@@ -1839,7 +1844,7 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	a.log.Info("Default Project Name: " + project.Name)
 
 	// login
-	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
+	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, "", w, r)
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 }
 
@@ -1898,6 +1903,12 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	walletId := r.FormValue("wallet_id")
 	if walletId == "" {
 		a.SendResponse(w, r, "Wallet id is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	key := r.FormValue("key")
+	if key == "" {
+		a.SendResponse(w, r, "Key is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
@@ -2029,7 +2040,7 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	a.log.Info("Default Project Name: " + project.Name)
 
 	// login
-	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
+	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, key, w, r)
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 }
 
@@ -2094,7 +2105,7 @@ func (a *Auth) HandleLinkedInLogin(w http.ResponseWriter, r *http.Request) {
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
-	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
+	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, "", w, r)
 
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
@@ -2109,6 +2120,12 @@ func (a *Auth) HandleLinkedInLoginWithAuthToken(w http.ResponseWriter, r *http.R
 	var authToken = r.URL.Query().Get("auth_token")
 	if authToken == "" {
 		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
+	key := r.FormValue("key")
+	if key == "" {
+		a.SendResponse(w, r, "Key is required", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
 
@@ -2161,7 +2178,7 @@ func (a *Auth) HandleLinkedInLoginWithAuthToken(w http.ResponseWriter, r *http.R
 		a.SendResponse(w, r, "Your email id ("+LinkedinUserDetails.Email+") is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
-	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
+	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, key, w, r)
 
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
