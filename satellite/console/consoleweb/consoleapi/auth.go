@@ -1894,25 +1894,18 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	authToken := r.FormValue("auth_token")
-	if authToken == "" {
-		a.SendResponse(w, r, "Invalid auth token", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+	var body struct {
+		AuthToken string `json:"auth_token"`
+		WalletId  string `json:"wallet_id"`
+		Key       string `json:"key"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		a.SendResponse(w, r, "Error decoding request body", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
-	walletId := r.FormValue("wallet_id")
-	if walletId == "" {
-		a.SendResponse(w, r, "Wallet id is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-
-	key := r.FormValue("key")
-	if key == "" {
-		a.SendResponse(w, r, "Key is required", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
-		return
-	}
-
-	LinkedinUserDetails, err := socialmedia.GetLinkedinUserByAccessToken(ctx, authToken, true)
+	LinkedinUserDetails, err := socialmedia.GetLinkedinUserByAccessToken(ctx, body.AuthToken, true)
 	if err != nil {
 		a.SendResponse(w, r, "Error getting user details from LinkedIn", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
@@ -1978,7 +1971,7 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 					Status:    1,
 					IP:        ip,
 					Source:    "Linkedin",
-					WalletId:  walletId,
+					WalletId:  body.WalletId,
 				},
 				secret, true,
 			)
@@ -2040,7 +2033,7 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	a.log.Info("Default Project Name: " + project.Name)
 
 	// login
-	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, key, w, r)
+	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, body.Key, w, r)
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 }
 
