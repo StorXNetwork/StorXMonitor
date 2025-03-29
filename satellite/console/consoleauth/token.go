@@ -42,11 +42,6 @@ func FromBase64URLString(token string) (Token, error) {
 
 	payload := i[0]
 	signature := i[1]
-	key := ""
-	if len(i) == 3 {
-		key = i[2]
-	}
-
 	payloadDecoder := base64.NewDecoder(base64.URLEncoding, bytes.NewReader([]byte(payload)))
 	signatureDecoder := base64.NewDecoder(base64.URLEncoding, bytes.NewReader([]byte(signature)))
 
@@ -60,5 +55,16 @@ func FromBase64URLString(token string) (Token, error) {
 		return Token{}, errs.New("decoding token's body failed: %s", err)
 	}
 
-	return Token{Payload: payloadBytes, Signature: signatureBytes, Key: key}, nil
+	if len(i) == 2 {
+		return Token{Payload: payloadBytes, Signature: signatureBytes}, nil
+	}
+
+	key := i[2]
+	keyDecoder := base64.NewDecoder(base64.URLEncoding, bytes.NewReader([]byte(key)))
+	keyBytes, err := io.ReadAll(keyDecoder)
+	if err != nil {
+		return Token{}, errs.New("decoding token's key failed: %s", err)
+	}
+
+	return Token{Payload: payloadBytes, Signature: signatureBytes, Key: string(keyBytes)}, nil
 }
