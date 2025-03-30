@@ -1038,6 +1038,10 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		result.SignupId = *user.SignupId
 	}
 
+	if user.Source != nil {
+		result.Source = *user.Source
+	}
+
 	return &result, nil
 }
 
