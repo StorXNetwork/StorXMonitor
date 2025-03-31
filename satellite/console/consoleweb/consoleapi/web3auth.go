@@ -102,10 +102,26 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.service.GetUsers().GetByEmail(ctx, request.Email)
+	user, unverified, err := a.service.GetUsers().GetByEmailWithUnverified(ctx, request.Email)
 	if err != nil {
 		a.sendError(w, "Failed to get user", http.StatusInternalServerError)
 		return
+	}
+
+	if len(unverified) > 0 {
+		// update verification status of user
+		status := console.Active
+		for _, u := range unverified {
+			err = a.service.GetUsers().Update(ctx, u.ID, console.UpdateUserRequest{
+				Status: &status,
+			})
+			if err != nil {
+				a.sendError(w, "Failed to update user", http.StatusInternalServerError)
+				return
+			}
+
+			user = &u
+		}
 	}
 
 	if user == nil {
