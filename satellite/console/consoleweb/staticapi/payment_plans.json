@@ -6,30 +6,10 @@
   ],
   "group": [
     {
-      "name": "Individual",
+      "name": "Pay Using SRX / XDC",
       "plans": [
         {
           "name": "Welcome",
-          "storage": {
-            "value": 2,
-            "unit": "GB"
-          },
-          "price": {
-            "value": 0,
-            "unit": "USD"
-          },
-          "benefit": [
-            "End to End Encryption",
-            "Private File Sharing",
-            "5 GB Bandwidth"
-          ],
-          "validity": {
-            "value": -1,
-            "unit": "month"
-          }
-        },
-        {
-          "name": "Basic",
           "storage": {
             "value": 20,
             "unit": "GB"
@@ -39,41 +19,23 @@
             "unit": "USD"
           },
           "benefit": [
-            "End to End Encryption",
-            "Private File Sharing",
-            "50 GB Bandwidth",
-            "Email Support"
+            "20 GB Encrypted Storage",
+            "Zero-knowledge encryption",
+            "Password-protected file sharing",
+            "Access your files from any device",
+            "Two-factor authentication (2FA)",
+            "Email Support",
+            "30-day money-back guarantee"
           ],
           "validity": {
-            "value": 1,
-            "unit": "month"
+            "value": -1,
+            "unit": "Per Month"
           }
         },
         {
-          "name": "Professional",
+          "name": "Basic",
           "storage": {
-            "value": 50,
-            "unit": "GB"
-          },
-          "price": {
-            "value": 29.99,
-            "unit": "USD"
-          },
-          "benefit": [
-            "End to End Encryption",
-            "Private File Sharing",
-            "250 GB Bandwidth",
-            "Email Support"
-          ],
-          "validity": {
-            "value": 1,
-            "unit": "month"
-          }
-        },
-        {
-          "name": "Small Business",
-          "storage": {
-            "value": 100,
+            "value": 250,
             "unit": "GB"
           },
           "price": {
@@ -81,88 +43,47 @@
             "unit": "USD"
           },
           "benefit": [
-            "End to End Encryption",
-            "Private File Sharing",
-            "500 GB Bandwidth",
-            "Email Support"
+            "250 GB Encrypted Storage",
+            "Zero-knowledge encryption",
+            "Password-protected file sharing",
+            "Access your files from any device",
+            "Two-factor authentication (2FA)",
+            "Email Support",
+            "30-day money-back guarantee"
           ],
           "validity": {
             "value": 1,
-            "unit": "month"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Enterprise",
-      "plans": [
-        {
-          "name": "Starter",
-          "storage": {
-            "value": 500,
-            "unit": "GB"
-          },
-          "price": {
-            "value": 59.99,
-            "unit": "USD"
-          },
-          "benefit": [
-            "End to End Encryption",
-            "Private File Sharing",
-            "5 TB Bandwidth",
-            "Email Support"
-          ],
-          "validity": {
-            "value": 1,
-            "unit": "month"
-          }
-        },
-        {
-          "name": "Standard",
-          "storage": {
-            "value": 1,
-            "unit": "TB"
-          },
-          "price": {
-            "value": 79.99,
-            "unit": "USD"
-          },
-          "benefit": [
-            "End to End Encryption",
-            "Private File Sharing",
-            "10 TB Bandwidth",
-            "Email Support"
-          ],
-          "validity": {
-            "value": 1,
-            "unit": "month"
+            "unit": "Per Month"
           }
         },
         {
           "name": "Professional",
           "storage": {
-            "value": 5,
-            "unit": "TB"
+            "value": 500,
+            "unit": "GB"
           },
           "price": {
             "value": 99.99,
             "unit": "USD"
           },
           "benefit": [
-            "End to End Encryption",
-            "Private File Sharing",
-            "25 TB Bandwidth",
-            "Email Support"
+            "500 GB Encrypted Storage",
+            "Zero-knowledge encryption",
+            "Password-protected file sharing",
+            "Access your files from any device",
+            "Two-factor authentication (2FA)",
+            "Email Support",
+            "30-day money-back guarantee"
           ],
           "validity": {
             "value": 1,
-            "unit": "month"
+            "unit": "Per Month"
           }
         },
         {
-          "name": "Enterprise",
+          "name": "Small Business",
           "storage": {
-            "value": 10,
+            "value": 1,
             "unit": "TB"
           },
           "price": {
@@ -170,14 +91,118 @@
             "unit": "USD"
           },
           "benefit": [
-            "End to End Encryption",
-            "Private File Sharing",
-            "100 TB Bandwidth",
-            "Email Support"
+            "1 TB Encrypted Storage",
+            "Zero-knowledge encryption",
+            "Password-protected file sharing",
+            "Access your files from any device",
+            "Two-factor authentication (2FA)",
+            "Email Support",
+            "30-day money-back guarantee"
           ],
           "validity": {
             "value": 1,
-            "unit": "month"
+            "unit": "Per Month"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pay Using Other Currencies",
+      "plans": [
+        {
+          "name": "Welcome",
+          "storage": {
+            "value": 20,
+            "unit": "GB"
+          },
+          "price": {
+            "value": 12.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "20 GB Encrypted Storage",
+            "Zero-knowledge encryption",
+            "Password-protected file sharing",
+            "Access your files from any device",
+            "Two-factor authentication (2FA)",
+            "Email Support",
+            "30-day money-back guarantee"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "Per Month"
+          }
+        },
+        {
+          "name": "Basic",
+          "storage": {
+            "value": 250,
+            "unit": "GB"
+          },
+          "price": {
+            "value": 69.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "250 GB Encrypted Storage",
+            "Zero-knowledge encryption",
+            "Password-protected file sharing",
+            "Access your files from any device",
+            "Two-factor authentication (2FA)",
+            "Email Support",
+            "30-day money-back guarantee"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "Per Month"
+          }
+        },
+        {
+          "name": "Professional",
+          "storage": {
+            "value": 500,
+            "unit": "GB"
+          },
+          "price": {
+            "value": 129.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "500 GB Encrypted Storage",
+            "Zero-knowledge encryption",
+            "Password-protected file sharing",
+            "Access your files from any device",
+            "Two-factor authentication (2FA)",
+            "Email Support",
+            "30-day money-back guarantee"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "Per Month"
+          }
+        },
+        {
+          "name": "Small Business",
+          "storage": {
+            "value": 1,
+            "unit": "TB"
+          },
+          "price": {
+            "value": 169.99,
+            "unit": "USD"
+          },
+          "benefit": [
+            "1 TB Encrypted Storage",
+            "Zero-knowledge encryption",
+            "Password-protected file sharing",
+            "Access your files from any device",
+            "Two-factor authentication (2FA)",
+            "Email Support",
+            "30-day money-back guarantee"
+          ],
+          "validity": {
+            "value": 1,
+            "unit": "Per Month"
           }
         }
       ]
