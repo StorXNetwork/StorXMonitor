@@ -2960,6 +2960,44 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE bucket_metainfos ADD COLUMN migration_status integer NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Update payment plans",
+				Version:     282,
+				Action: migrate.SQL{
+					`DELETE FROM payment_plans`,
+					`INSERT INTO payment_plans (
+						name, storage, bandwidth, price, benefit, validity, validity_unit, "group"
+					) VALUES
+					-- Pay Using SRX / XDC / USDT
+					('Welcome', 20000000000, 50000000000, 9.99,
+					'["20 GB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
+					-1, 'month', 'Pay Using SRX / XDC / USDT'),
+					('Basic', 250000000000, 1250000000000, 49.99,
+					'["250 GB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
+					1, 'month', 'Pay Using SRX / XDC / USDT'),
+					('Professional', 500000000000, 2500000000000, 99.99,
+					'["500 GB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
+					1, 'month', 'Pay Using SRX / XDC / USDT'),
+					('Small Business', 1000000000000, 5000000000000, 149.99,
+					'["1 TB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
+					1, 'month', 'Pay Using SRX / XDC / USDT'),
+
+					-- Pay Using Other Currencies
+					('Welcome', 20000000000, 100000000000, 12.99,
+					'["20 GB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
+					1, 'month', 'Pay Using Other Currencies'),
+					('Basic', 250000000000, 1250000000000, 69.99,
+					'["250 GB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
+					1, 'month', 'Pay Using Other Currencies'),
+					('Professional', 500000000000, 2500000000000, 129.99,
+					'["500 GB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
+					1, 'month', 'Pay Using Other Currencies'),
+					('Small Business', 1000000000000, 5000000000000, 169.99,
+					'["1 TB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
+					1, 'month', 'Pay Using Other Currencies');`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
