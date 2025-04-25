@@ -2972,7 +2972,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					-- Pay Using SRX / XDC / USDT
 					('Welcome', 20000000000, 50000000000, 9.99,
 					'["20 GB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
-					-1, 'month', 'Pay Using SRX / XDC / USDT'),
+					1, 'month', 'Pay Using SRX / XDC / USDT'),
 					('Basic', 250000000000, 1250000000000, 49.99,
 					'["250 GB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
 					1, 'month', 'Pay Using SRX / XDC / USDT'),
