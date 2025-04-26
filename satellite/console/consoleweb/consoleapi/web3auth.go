@@ -309,11 +309,12 @@ func (a *Web3Auth) GetSignMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email":     email,
-		"wallet_id": user.WalletId,
-		"nonce":     strconv.FormatInt(time.Now().Unix(), 10),
-		"exp":       time.Now().Add(time.Minute).Unix(),
-		"source":    user.Source,
+		"email":      email,
+		"wallet_id":  user.WalletId,
+		"nonce":      strconv.FormatInt(time.Now().Unix(), 10),
+		"exp":        time.Now().Add(time.Minute).Unix(),
+		"source":     user.Source,
+		"mfaEnabled": true,
 	})
 	tokenString, err := token.SignedString([]byte(a.secreteKey))
 	if err != nil {
