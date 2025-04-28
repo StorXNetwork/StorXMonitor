@@ -1857,6 +1857,109 @@ func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutP
 		return nil, ErrLoginRestricted.New("")
 	}
 
+	if user.MFAEnabled {
+		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
+			mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa conflict", &user.ID, user.Email)
+			return nil, ErrMFAConflict.New(mfaConflictErrMsg)
+		}
+
+		handleLockAccount := func() error {
+			lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
+			if err != nil {
+				return err
+			}
+			if lockoutDuration > 0 {
+				address := s.satelliteAddress
+				if !strings.HasSuffix(address, "/") {
+					address += "/"
+				}
+
+				s.mailService.SendRenderedAsync(
+					ctx,
+					[]post.Address{{Address: user.Email, Name: user.FullName}},
+					&LoginLockAccountEmail{
+						LockoutDuration:   lockoutDuration,
+						ResetPasswordLink: address + "forgot-password",
+					},
+				)
+			}
+
+			mon.Counter("login_failed").Inc(1)                                          //mon:locked
+			mon.IntVal("login_user_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+
+			if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+				mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed login count reached maximum attempts", &user.ID, request.Email)
+			}
+
+			if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+				mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed locked account", &user.ID, request.Email)
+			}
+
+			return nil
+		}
+
+		if request.MFARecoveryCode != "" {
+			found := false
+			codeIndex := -1
+
+			for i, code := range user.MFARecoveryCodes {
+				if code == request.MFARecoveryCode {
+					found = true
+					codeIndex = i
+					break
+				}
+			}
+			if !found {
+				err = handleLockAccount()
+				if err != nil {
+					return nil, err
+				}
+				mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed mfa recovery", &user.ID, user.Email)
+				return nil, ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
+			}
+
+			mon.Counter("login_mfa_recovery_success").Inc(1) //mon:locked
+
+			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
+
+			err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+				MFARecoveryCodes: &user.MFARecoveryCodes,
+			})
+			if err != nil {
+				return nil, err
+			}
+		} else if request.MFAPasscode != "" {
+
+			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, now)
+			if err != nil {
+				err = handleLockAccount()
+				if err != nil {
+					return nil, err
+				}
+
+				return nil, ErrMFAPasscode.Wrap(err)
+			}
+			if !valid {
+				err = handleLockAccount()
+				if err != nil {
+					return nil, err
+				}
+				mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed mfa passcode invalid", &user.ID, user.Email)
+				return nil, ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
+			}
+			mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
+		} else {
+			mon.Counter("login_mfa_missing").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa missing", &user.ID, user.Email)
+			return nil, ErrMFAMissing.New(mfaRequiredErrMsg)
+		}
+	}
+
 	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, nil)
 	if err != nil {
 		return nil, err

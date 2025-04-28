@@ -77,10 +77,12 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 	a.log.Debug("Web3Auth Token request received")
 
 	type Web3AuthRequest struct {
-		Email     string `json:"email"`
-		Payload   string `json:"payload"`
-		Signature string `json:"signature"`
-		Key       string `json:"key"`
+		Email           string `json:"email"`
+		Payload         string `json:"payload"`
+		Signature       string `json:"signature"`
+		Key             string `json:"key"`
+		MFAPasscode     string `json:"mfaPasscode"`
+		MFARecoveryCode string `json:"mfaRecoveryCode"`
 	}
 
 	var request Web3AuthRequest
@@ -180,9 +182,11 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenInfo, err := a.service.TokenWithoutPassword(ctx, console.AuthWithoutPassword{
-		Email:     request.Email,
-		IP:        ip,
-		UserAgent: r.UserAgent(),
+		Email:           request.Email,
+		IP:              ip,
+		UserAgent:       r.UserAgent(),
+		MFAPasscode:     request.MFAPasscode,
+		MFARecoveryCode: request.MFARecoveryCode,
 	})
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
@@ -314,7 +318,7 @@ func (a *Web3Auth) GetSignMessage(w http.ResponseWriter, r *http.Request) {
 		"nonce":      strconv.FormatInt(time.Now().Unix(), 10),
 		"exp":        time.Now().Add(time.Minute).Unix(),
 		"source":     user.Source,
-		"mfaEnabled": true,
+		"mfaEnabled": user.MFAEnabled,
 	})
 	tokenString, err := token.SignedString([]byte(a.secreteKey))
 	if err != nil {

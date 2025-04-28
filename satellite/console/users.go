@@ -188,9 +188,11 @@ type AuthUser struct {
 
 // AuthWithoutPassword holds info for user authentication token requests.
 type AuthWithoutPassword struct {
-	Email     string `json:"email"`
-	IP        string `json:"-"`
-	UserAgent string `json:"-"`
+	Email           string `json:"email"`
+	IP              string `json:"-"`
+	UserAgent       string `json:"-"`
+	MFAPasscode     string `json:"mfaPasscode"`
+	MFARecoveryCode string `json:"mfaRecoveryCode"`
 }
 
 // TokenInfo holds info for user authentication token responses.
