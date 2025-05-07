@@ -69,6 +69,10 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 		return fmt.Errorf("error suggesting gas price: %v", err)
 	}
 
+	if gasPrice.Cmp(big.NewInt(15000000000)) > 0 {
+		gasPrice = big.NewInt(15000000000)
+	}
+
 	nonceCount, err := w.getNonce(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting nonce: %v", err)
