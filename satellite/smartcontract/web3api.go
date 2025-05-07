@@ -74,7 +74,7 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 		return fmt.Errorf("error getting nonce: %v", err)
 	}
 
-	tx := types.NewTransaction(nonceCount, w.contractAddr, big.NewInt(0), uint64(0), gasPrice, data)
+	tx := types.NewTransaction(nonceCount, w.contractAddr, big.NewInt(0), uint64(5000000), gasPrice, data)
 
 	chainID, err := w.client.NetworkID(ctx)
 	if err != nil {
