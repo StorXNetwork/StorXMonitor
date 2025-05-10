@@ -296,6 +296,8 @@ func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uui
 		EncAccess:        encAccess,
 	}
 
+	fmt.Println("TESTING CODE FOR SATELLITE ADDRESS", g)
+
 	if len(prefix) == 0 && permission == nil {
 		return g.Serialize()
 	}
