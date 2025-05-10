@@ -581,6 +581,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress = "http://" + peer.Console.Listener.Addr().String()
 		}
 
+		fmt.Println("external address", externalAddress)
+
 		accountFreezeService := console.NewAccountFreezeService(
 			db.Console(),
 			peer.Analytics.Service,
@@ -603,7 +605,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			accountFreezeService,
 			emissionService,
 			externalAddress,
-			externalAddress,
+			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			placement,
 			console.VersioningConfig{
