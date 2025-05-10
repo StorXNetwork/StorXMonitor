@@ -603,7 +603,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			accountFreezeService,
 			emissionService,
 			externalAddress,
-			consoleConfig.SatelliteName,
+			externalAddress,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			placement,
 			console.VersioningConfig{
