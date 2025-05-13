@@ -214,6 +214,8 @@ type Service struct {
 	satelliteAddress string
 	satelliteName    string
 
+	SatelliteNodeAddress string
+
 	config            Config
 	maxProjectBuckets int
 
@@ -291,7 +293,7 @@ func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uui
 	encAccess.LimitTo(apiKey)
 
 	g := &grant.Access{
-		SatelliteAddress: s.satelliteAddress,
+		SatelliteAddress: s.SatelliteNodeAddress,
 		APIKey:           apiKey,
 		EncAccess:        encAccess,
 	}
@@ -336,7 +338,11 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting,
+	projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
+	billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
+	accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, satelliteNodeAddress string,
+	maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -398,6 +404,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		accountFreezeService:       accountFreezeService,
 		emission:                   emission,
 		satelliteAddress:           satelliteAddress,
+		SatelliteNodeAddress:       satelliteNodeAddress,
 		satelliteName:              satelliteName,
 		maxProjectBuckets:          maxProjectBuckets,
 		config:                     config,
