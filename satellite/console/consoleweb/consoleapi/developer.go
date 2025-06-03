@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -115,48 +116,6 @@ func (a *DeveloperAuth) Token(w http.ResponseWriter, r *http.Request) {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.serveJSONError(ctx, w, err)
 		}
-		return
-	}
-
-	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(struct {
-		console.TokenInfo
-		Token string `json:"token"`
-	}{*tokenInfo, tokenInfo.Token.String()})
-	if err != nil {
-		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
-		return
-	}
-}
-
-// TokenByAPIKey authenticates developer by API key and returns auth token.
-func (a *DeveloperAuth) TokenByAPIKey(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	authToken := r.Header.Get("Authorization")
-	if !(strings.HasPrefix(authToken, "Bearer ")) {
-		a.log.Info("authorization key format is incorrect. Should be 'Bearer <key>'")
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	apiKey := strings.TrimPrefix(authToken, "Bearer ")
-
-	userAgent := r.UserAgent()
-	ip, err := web.GetRequestIP(r)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	tokenInfo, err := a.service.TokenByAPIKey(ctx, userAgent, ip, apiKey)
-	if err != nil {
-		a.log.Info("Error authenticating token request", zap.Error(ErrAuthAPI.Wrap(err)))
-		a.serveJSONError(ctx, w, err)
 		return
 	}
 
@@ -511,111 +470,6 @@ func (a *DeveloperAuth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// CreateUser validates authorized developer and create user account for that user.
-func (a *DeveloperAuth) CreateUser(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var userRequest struct {
-		FullName string `json:"fullName"`
-		Email    string `json:"email"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&userRequest)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	consoleDeveloper, err := console.GetDeveloper(ctx)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, userRequest.Email)
-	if err != nil && !console.ErrEmailNotFound.Has(err) {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	if verified != nil || len(unverified) > 0 {
-		now := time.Now()
-
-		user := verified
-		if user == nil {
-			user = &unverified[0]
-		}
-
-		if user.LoginLockoutExpiration.After(now) {
-			a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code or account locked"))
-			return
-		}
-
-		a.serveJSONError(ctx, w, console.ErrUnauthorized.New("user already verified"))
-		return
-	}
-
-	secret, err := console.RegistrationSecretFromBase64("")
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	user, err := a.service.CreateUserFromDeveloper(ctx, console.CreateUser{
-		FullName:    userRequest.FullName,
-		Email:       userRequest.Email,
-		CompanyName: consoleDeveloper.CompanyName,
-		Source:      "developer",
-	}, consoleDeveloper.ID, secret)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	// as this token is not required after a minute.
-	customeExpiry := time.Minute
-
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", &customeExpiry)
-	a.log.Error("Token Info:")
-	a.log.Error(tokenInfo.Token.String())
-
-	authed := console.WithUser(ctx, user)
-
-	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
-	})
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	type userResposne struct {
-		ID        uuid.UUID `json:"id"`
-		FullName  string    `json:"fullName"`
-		Email     string    `json:"email"`
-		ProjectID uuid.UUID `json:"projectId"`
-		CreatedAt time.Time `json:"createdAt"`
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(struct {
-		Message string       `json:"message"`
-		Data    userResposne `json:"data"`
-	}{Message: "user created", Data: userResposne{
-		ID:        user.ID,
-		FullName:  user.FullName,
-		Email:     user.Email,
-		CreatedAt: user.CreatedAt,
-		ProjectID: project.ID,
-	}})
-	if err != nil {
-		a.log.Error("could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
-		return
-	}
-}
-
 // GetAccount gets authorized developer and take it's params.
 func (a *DeveloperAuth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -789,4 +643,76 @@ func (a *DeveloperAuth) getDeveloperErrorMessage(err error) string {
 	default:
 		return "There was an error processing your request" + err.Error()
 	}
+}
+
+func (a *DeveloperAuth) CreateOAuthClient(w http.ResponseWriter, r *http.Request) {
+	var req console.CreateOAuthClientRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	// TODO: Get developerID from auth context/session if needed
+	client, err := a.service.CreateDeveloperOAuthClient(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	resp := map[string]string{
+		"client_id":     client.ClientID,
+		"client_secret": client.ClientSecret,
+	}
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (a *DeveloperAuth) ListOAuthClients(w http.ResponseWriter, r *http.Request) {
+	// TODO: Get developerID from auth context/session
+	clients, err := a.service.ListDeveloperOAuthClients(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(clients)
+}
+
+func (a *DeveloperAuth) DeleteOAuthClient(w http.ResponseWriter, r *http.Request) {
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	if err := a.service.DeleteDeveloperOAuthClient(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *DeveloperAuth) UpdateOAuthClientStatus(w http.ResponseWriter, r *http.Request) {
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	var req struct{ Status int }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if err := a.service.UpdateDeveloperOAuthClientStatus(r.Context(), id, req.Status); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

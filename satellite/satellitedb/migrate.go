@@ -2998,6 +2998,26 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					1, 'month', 'Pay Using Other Currencies');`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create developer_oauth_clients table",
+				Version:     283,
+				Action: migrate.SQL{
+					`CREATE TABLE developer_oauth_clients (
+						id bytea NOT NULL,
+						developer_id bytea NOT NULL,
+						client_id text NOT NULL,
+						client_secret text NOT NULL,
+						name text NOT NULL,
+						status integer NOT NULL,
+						redirect_uris text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

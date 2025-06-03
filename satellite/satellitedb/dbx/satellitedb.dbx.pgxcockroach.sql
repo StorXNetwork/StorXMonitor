@@ -119,6 +119,18 @@ CREATE TABLE developers (
 	signup_id text,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE developer_oauth_clients (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	client_id text NOT NULL,
+	client_secret text NOT NULL,
+	name text NOT NULL,
+	redirect_uris text NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE developer_user_mappings (
 	id bytea NOT NULL,
 	developer_id bytea NOT NULL,
@@ -687,6 +699,7 @@ CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index O
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
+CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;

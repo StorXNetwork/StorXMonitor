@@ -5555,3 +5555,123 @@ func (s *Service) TestSetVersioningConfig(versioning VersioningConfig) error {
 func (s *Service) TestSetNow(now func() time.Time) {
 	s.nowFn = now
 }
+
+type CreateOAuthClientRequest struct {
+	Name         string
+	RedirectURIs string
+}
+
+type UpdateOAuthClientRequest struct {
+	Name         string
+	RedirectURIs string
+}
+
+func (s *Service) CreateDeveloperOAuthClient(ctx context.Context, req CreateOAuthClientRequest) (*DeveloperOAuthClient, error) {
+	clientID, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+	clientSecret, err := generateRandomSecret(32)
+	if err != nil {
+		return nil, err
+	}
+	hashedSecret, err := hashSecret(clientSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "create developer oauth client", zap.String("name", req.Name))
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
+	client := &DeveloperOAuthClient{
+		ID:           id,
+		DeveloperID:  developerID.ID,
+		ClientID:     clientID.String(),
+		ClientSecret: hashedSecret,
+		Name:         req.Name,
+		RedirectURIs: req.RedirectURIs,
+		Status:       1, // active
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+	}
+	created, err := s.store.DeveloperOAuthClients().Insert(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+	created.ClientSecret = clientSecret // Only return plaintext once
+	return created, nil
+}
+
+func (s *Service) ListDeveloperOAuthClients(ctx context.Context) ([]DeveloperOAuthClient, error) {
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "list developer oauth clients")
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.DeveloperOAuthClients().ListByDeveloperID(ctx, developerID.ID)
+}
+
+func (s *Service) DeleteDeveloperOAuthClient(ctx context.Context, id uuid.UUID) error {
+	isOwner, err := s.isCurrentDeveloperOAuthClientOwner(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !isOwner {
+		return errs.New("client does not belong to developer")
+	}
+
+	return s.store.DeveloperOAuthClients().Delete(ctx, id)
+}
+
+func (s *Service) UpdateDeveloperOAuthClientStatus(ctx context.Context, id uuid.UUID, status int) error {
+	isOwner, err := s.isCurrentDeveloperOAuthClientOwner(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if !isOwner {
+		return errs.New("client does not belong to developer")
+	}
+
+	return s.store.DeveloperOAuthClients().StatusUpdate(ctx, id, status, time.Now().UTC())
+}
+
+func (s *Service) isCurrentDeveloperOAuthClientOwner(ctx context.Context, clientID uuid.UUID) (isOwner bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "is current developer oauth client owner", zap.String("clientID", clientID.String()))
+	if err != nil {
+		return false, err
+	}
+
+	client, err := s.store.DeveloperOAuthClients().GetByID(ctx, clientID)
+	if err != nil {
+		return false, err
+	}
+
+	return client.DeveloperID == developerID.ID, nil
+}
+
+func generateRandomSecret(length int) (string, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", b), nil
+}
+
+func hashSecret(secret string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}

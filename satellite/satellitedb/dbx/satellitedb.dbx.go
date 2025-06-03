@@ -432,6 +432,18 @@ CREATE TABLE developers (
 	signup_id text,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE developer_oauth_clients (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	client_id text NOT NULL,
+	client_secret text NOT NULL,
+	name text NOT NULL,
+	redirect_uris text NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE developer_user_mappings (
 	id bytea NOT NULL,
 	developer_id bytea NOT NULL,
@@ -1000,6 +1012,7 @@ CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index O
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
+CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
@@ -1252,6 +1265,18 @@ CREATE TABLE developers (
 	signup_id text,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE developer_oauth_clients (
+	id bytea NOT NULL,
+	developer_id bytea NOT NULL,
+	client_id text NOT NULL,
+	client_secret text NOT NULL,
+	name text NOT NULL,
+	redirect_uris text NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE developer_user_mappings (
 	id bytea NOT NULL,
 	developer_id bytea NOT NULL,
@@ -1820,6 +1845,7 @@ CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index O
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
+CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
@@ -3888,6 +3914,196 @@ func (f Developer_SignupId_Field) value() interface{} {
 }
 
 func (Developer_SignupId_Field) _Column() string { return "signup_id" }
+
+type DeveloperOauthClient struct {
+	Id           []byte
+	DeveloperId  []byte
+	ClientId     string
+	ClientSecret string
+	Name         string
+	RedirectUris string
+	Status       int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (DeveloperOauthClient) _Table() string { return "developer_oauth_clients" }
+
+type DeveloperOauthClient_Update_Fields struct {
+	Status    DeveloperOauthClient_Status_Field
+	UpdatedAt DeveloperOauthClient_UpdatedAt_Field
+}
+
+type DeveloperOauthClient_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func DeveloperOauthClient_Id(v []byte) DeveloperOauthClient_Id_Field {
+	return DeveloperOauthClient_Id_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_Id_Field) _Column() string { return "id" }
+
+type DeveloperOauthClient_DeveloperId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func DeveloperOauthClient_DeveloperId(v []byte) DeveloperOauthClient_DeveloperId_Field {
+	return DeveloperOauthClient_DeveloperId_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_DeveloperId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_DeveloperId_Field) _Column() string { return "developer_id" }
+
+type DeveloperOauthClient_ClientId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func DeveloperOauthClient_ClientId(v string) DeveloperOauthClient_ClientId_Field {
+	return DeveloperOauthClient_ClientId_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_ClientId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_ClientId_Field) _Column() string { return "client_id" }
+
+type DeveloperOauthClient_ClientSecret_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func DeveloperOauthClient_ClientSecret(v string) DeveloperOauthClient_ClientSecret_Field {
+	return DeveloperOauthClient_ClientSecret_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_ClientSecret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_ClientSecret_Field) _Column() string { return "client_secret" }
+
+type DeveloperOauthClient_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func DeveloperOauthClient_Name(v string) DeveloperOauthClient_Name_Field {
+	return DeveloperOauthClient_Name_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_Name_Field) _Column() string { return "name" }
+
+type DeveloperOauthClient_RedirectUris_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func DeveloperOauthClient_RedirectUris(v string) DeveloperOauthClient_RedirectUris_Field {
+	return DeveloperOauthClient_RedirectUris_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_RedirectUris_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_RedirectUris_Field) _Column() string { return "redirect_uris" }
+
+type DeveloperOauthClient_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func DeveloperOauthClient_Status(v int) DeveloperOauthClient_Status_Field {
+	return DeveloperOauthClient_Status_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_Status_Field) _Column() string { return "status" }
+
+type DeveloperOauthClient_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func DeveloperOauthClient_CreatedAt(v time.Time) DeveloperOauthClient_CreatedAt_Field {
+	return DeveloperOauthClient_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_CreatedAt_Field) _Column() string { return "created_at" }
+
+type DeveloperOauthClient_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func DeveloperOauthClient_UpdatedAt(v time.Time) DeveloperOauthClient_UpdatedAt_Field {
+	return DeveloperOauthClient_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type DeveloperUserMapping struct {
 	Id          []byte
@@ -15460,6 +15676,46 @@ func (obj *pgxImpl) Create_ResetPasswordTokenDeveloper(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_DeveloperOauthClient(ctx context.Context,
+	developer_oauth_client_id DeveloperOauthClient_Id_Field,
+	developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field,
+	developer_oauth_client_client_id DeveloperOauthClient_ClientId_Field,
+	developer_oauth_client_client_secret DeveloperOauthClient_ClientSecret_Field,
+	developer_oauth_client_name DeveloperOauthClient_Name_Field,
+	developer_oauth_client_redirect_uris DeveloperOauthClient_RedirectUris_Field,
+	developer_oauth_client_status DeveloperOauthClient_Status_Field,
+	developer_oauth_client_updated_at DeveloperOauthClient_UpdatedAt_Field) (
+	developer_oauth_client *DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := developer_oauth_client_id.value()
+	__developer_id_val := developer_oauth_client_developer_id.value()
+	__client_id_val := developer_oauth_client_client_id.value()
+	__client_secret_val := developer_oauth_client_client_secret.value()
+	__name_val := developer_oauth_client_name.value()
+	__redirect_uris_val := developer_oauth_client_redirect_uris.value()
+	__status_val := developer_oauth_client_status.value()
+	__created_at_val := __now
+	__updated_at_val := developer_oauth_client_updated_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developer_oauth_clients ( id, developer_id, client_id, client_secret, name, redirect_uris, status, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __developer_id_val, __client_id_val, __client_secret_val, __name_val, __redirect_uris_val, __status_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer_oauth_client = &DeveloperOauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer_oauth_client, nil
+
+}
+
 func (obj *pgxImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
@@ -18768,6 +19024,73 @@ func (obj *pgxImpl) Get_ResetPasswordTokenDeveloper_By_OwnerId(ctx context.Conte
 
 }
 
+func (obj *pgxImpl) All_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
+	developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field) (
+	rows []*DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeveloperOauthClient, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer_oauth_client := &DeveloperOauthClient{}
+				err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer_oauth_client)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
+	developer_oauth_client_id DeveloperOauthClient_Id_Field) (
+	developer_oauth_client *DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer_oauth_client = &DeveloperOauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	if err != nil {
+		return (*DeveloperOauthClient)(nil), obj.makeErr(err)
+	}
+	return developer_oauth_client, nil
+
+}
+
 func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -22038,6 +22361,52 @@ func (obj *pgxImpl) Update_RegistrationTokenDeveloper_By_Secret(ctx context.Cont
 	return registration_token_developer, nil
 }
 
+func (obj *pgxImpl) Update_DeveloperOauthClient_By_Id(ctx context.Context,
+	developer_oauth_client_id DeveloperOauthClient_Id_Field,
+	update DeveloperOauthClient_Update_Fields) (
+	developer_oauth_client *DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE developer_oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE developer_oauth_clients.id = ? RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, developer_oauth_client_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer_oauth_client = &DeveloperOauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer_oauth_client, nil
+}
+
 func (obj *pgxImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
 	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
@@ -24498,6 +24867,60 @@ func (obj *pgxImpl) Delete_ResetPasswordTokenDeveloper_By_Secret(ctx context.Con
 
 }
 
+func (obj *pgxImpl) Delete_DeveloperOauthClient_By_Id(ctx context.Context,
+	developer_oauth_client_id DeveloperOauthClient_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_oauth_clients WHERE developer_oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
+	developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_oauth_clients WHERE developer_oauth_clients.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -25458,6 +25881,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developer_oauth_clients;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -26238,6 +26671,46 @@ func (obj *pgxcockroachImpl) Create_ResetPasswordTokenDeveloper(ctx context.Cont
 		return nil, obj.makeErr(err)
 	}
 	return reset_password_token_developer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_DeveloperOauthClient(ctx context.Context,
+	developer_oauth_client_id DeveloperOauthClient_Id_Field,
+	developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field,
+	developer_oauth_client_client_id DeveloperOauthClient_ClientId_Field,
+	developer_oauth_client_client_secret DeveloperOauthClient_ClientSecret_Field,
+	developer_oauth_client_name DeveloperOauthClient_Name_Field,
+	developer_oauth_client_redirect_uris DeveloperOauthClient_RedirectUris_Field,
+	developer_oauth_client_status DeveloperOauthClient_Status_Field,
+	developer_oauth_client_updated_at DeveloperOauthClient_UpdatedAt_Field) (
+	developer_oauth_client *DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := developer_oauth_client_id.value()
+	__developer_id_val := developer_oauth_client_developer_id.value()
+	__client_id_val := developer_oauth_client_client_id.value()
+	__client_secret_val := developer_oauth_client_client_secret.value()
+	__name_val := developer_oauth_client_name.value()
+	__redirect_uris_val := developer_oauth_client_redirect_uris.value()
+	__status_val := developer_oauth_client_status.value()
+	__created_at_val := __now
+	__updated_at_val := developer_oauth_client_updated_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developer_oauth_clients ( id, developer_id, client_id, client_secret, name, redirect_uris, status, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __developer_id_val, __client_id_val, __client_secret_val, __name_val, __redirect_uris_val, __status_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer_oauth_client = &DeveloperOauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer_oauth_client, nil
 
 }
 
@@ -29549,6 +30022,73 @@ func (obj *pgxcockroachImpl) Get_ResetPasswordTokenDeveloper_By_OwnerId(ctx cont
 
 }
 
+func (obj *pgxcockroachImpl) All_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
+	developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field) (
+	rows []*DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeveloperOauthClient, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				developer_oauth_client := &DeveloperOauthClient{}
+				err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, developer_oauth_client)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
+	developer_oauth_client_id DeveloperOauthClient_Id_Field) (
+	developer_oauth_client *DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer_oauth_client = &DeveloperOauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	if err != nil {
+		return (*DeveloperOauthClient)(nil), obj.makeErr(err)
+	}
+	return developer_oauth_client, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -32819,6 +33359,52 @@ func (obj *pgxcockroachImpl) Update_RegistrationTokenDeveloper_By_Secret(ctx con
 	return registration_token_developer, nil
 }
 
+func (obj *pgxcockroachImpl) Update_DeveloperOauthClient_By_Id(ctx context.Context,
+	developer_oauth_client_id DeveloperOauthClient_Id_Field,
+	update DeveloperOauthClient_Update_Fields) (
+	developer_oauth_client *DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE developer_oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE developer_oauth_clients.id = ? RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, developer_oauth_client_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	developer_oauth_client = &DeveloperOauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return developer_oauth_client, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
 	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
@@ -35279,6 +35865,60 @@ func (obj *pgxcockroachImpl) Delete_ResetPasswordTokenDeveloper_By_Secret(ctx co
 
 }
 
+func (obj *pgxcockroachImpl) Delete_DeveloperOauthClient_By_Id(ctx context.Context,
+	developer_oauth_client_id DeveloperOauthClient_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_oauth_clients WHERE developer_oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
+	developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM developer_oauth_clients WHERE developer_oauth_clients.developer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_developer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -36239,6 +36879,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developer_oauth_clients;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -36392,6 +37042,10 @@ type Methods interface {
 
 	All_Developer(ctx context.Context) (
 		rows []*Developer, err error)
+
+	All_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
+		developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field) (
+		rows []*DeveloperOauthClient, err error)
 
 	All_DeveloperUserMapping_By_DeveloperId(ctx context.Context,
 		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field) (
@@ -36680,6 +37334,17 @@ type Methods interface {
 		optional Developer_Create_Fields) (
 		developer *Developer, err error)
 
+	Create_DeveloperOauthClient(ctx context.Context,
+		developer_oauth_client_id DeveloperOauthClient_Id_Field,
+		developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field,
+		developer_oauth_client_client_id DeveloperOauthClient_ClientId_Field,
+		developer_oauth_client_client_secret DeveloperOauthClient_ClientSecret_Field,
+		developer_oauth_client_name DeveloperOauthClient_Name_Field,
+		developer_oauth_client_redirect_uris DeveloperOauthClient_RedirectUris_Field,
+		developer_oauth_client_status DeveloperOauthClient_Status_Field,
+		developer_oauth_client_updated_at DeveloperOauthClient_UpdatedAt_Field) (
+		developer_oauth_client *DeveloperOauthClient, err error)
+
 	Create_DeveloperUserMapping(ctx context.Context,
 		developer_user_mapping_id DeveloperUserMapping_Id_Field,
 		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
@@ -36839,6 +37504,14 @@ type Methods interface {
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		deleted bool, err error)
+
+	Delete_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
+		developer_oauth_client_developer_id DeveloperOauthClient_DeveloperId_Field) (
+		count int64, err error)
+
+	Delete_DeveloperOauthClient_By_Id(ctx context.Context,
+		developer_oauth_client_id DeveloperOauthClient_Id_Field) (
 		deleted bool, err error)
 
 	Delete_DeveloperUserMapping_By_DeveloperId(ctx context.Context,
@@ -37017,6 +37690,10 @@ type Methods interface {
 	Get_Coupon_By_Code(ctx context.Context,
 		coupon_code Coupon_Code_Field) (
 		coupon *Coupon, err error)
+
+	Get_DeveloperOauthClient_By_Id(ctx context.Context,
+		developer_oauth_client_id DeveloperOauthClient_Id_Field) (
+		developer_oauth_client *DeveloperOauthClient, err error)
 
 	Get_DeveloperUserMapping_By_DeveloperId_And_UserId(ctx context.Context,
 		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
@@ -37507,6 +38184,11 @@ type Methods interface {
 		coupon_code Coupon_Code_Field,
 		update Coupon_Update_Fields) (
 		coupon *Coupon, err error)
+
+	Update_DeveloperOauthClient_By_Id(ctx context.Context,
+		developer_oauth_client_id DeveloperOauthClient_Id_Field,
+		update DeveloperOauthClient_Update_Fields) (
+		developer_oauth_client *DeveloperOauthClient, err error)
 
 	Update_Developer_By_Id(ctx context.Context,
 		developer_id Developer_Id_Field,

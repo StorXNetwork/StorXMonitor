@@ -412,3 +412,8 @@ func (dbc *satelliteDBCollectionTesting) ProductionMigration() *migrate.Migratio
 func (dbc *satelliteDBCollectionTesting) TestMigration() *migrate.Migration {
 	return dbc.getByName("").TestMigration()
 }
+
+// DeveloperOAuthClients returns database for developer oauth clients.
+func (dbc *satelliteDBCollection) DeveloperOAuthClients() console.DeveloperOAuthClients {
+	return &developerOAuthClients{db: dbc.getByName("developer_oauth_clients")}
+}

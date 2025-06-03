@@ -46,6 +46,11 @@ func (db *ConsoleDB) Developers() console.Developers {
 	return &developers{db.db}
 }
 
+// DeveloperOAuthClients is a getter for DeveloperOAuthClients repository.
+func (db *ConsoleDB) DeveloperOAuthClients() console.DeveloperOAuthClients {
+	return &developerOAuthClients{db.db}
+}
+
 // Projects is a getter for Projects repository.
 func (db *ConsoleDB) Projects() console.Projects {
 	return &projects{db: db.methods, sdb: db.db}
