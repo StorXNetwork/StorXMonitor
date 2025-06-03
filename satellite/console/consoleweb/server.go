@@ -957,7 +957,7 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 }
 
 // withAuth performs initial authorization before every request.
-func (server *Server) withAutDeveloper(handler http.Handler) http.Handler {
+func (server *Server) withAuthDeveloper(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		ctx := r.Context()
