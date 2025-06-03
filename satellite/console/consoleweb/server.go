@@ -472,18 +472,18 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
 		developerAuthRouter.Use(server.withCORS)
 
-		developerAuthRouter.Handle("/account", server.withAuth(http.HandlerFunc(developerAuthController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
-		developerAuthRouter.Handle("/account", server.withAuth(http.HandlerFunc(developerAuthController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
-		developerAuthRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/logout", server.withAuth(http.HandlerFunc(developerAuthController.Logout))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/account", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
+		developerAuthRouter.Handle("/account", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+		developerAuthRouter.Handle("/account/change-password", server.withAuthDeveloper(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/logout", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.Logout))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Register))).Methods(http.MethodPost, http.MethodOptions)
 
 		developerAuthRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
-		developerAuthRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(developerAuthController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/oauth2/clients", server.withAuth(http.HandlerFunc(developerAuthController.CreateOAuthClient))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/oauth2/clients", server.withAuth(http.HandlerFunc(developerAuthController.ListOAuthClients))).Methods(http.MethodGet, http.MethodOptions)
-		developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuth(http.HandlerFunc(developerAuthController.DeleteOAuthClient))).Methods(http.MethodDelete, http.MethodOptions)
+		developerAuthRouter.Handle("/refresh-session", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.CreateOAuthClient))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.ListOAuthClients))).Methods(http.MethodGet, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.DeleteOAuthClient))).Methods(http.MethodDelete, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients/{id}/status", server.withAuth(http.HandlerFunc(developerAuthController.UpdateOAuthClientStatus))).Methods(http.MethodPatch, http.MethodOptions)
 	}
 
