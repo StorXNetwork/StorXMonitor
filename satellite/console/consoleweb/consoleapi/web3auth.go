@@ -269,7 +269,7 @@ func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	share, err := a.web3AuthSocialShareHelper.GetSocialShare(ctx, id)
 	if err != nil {
-		a.sendError(w, "Error getting social share", http.StatusInternalServerError)
+		a.sendError(w, "Error getting social share "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
