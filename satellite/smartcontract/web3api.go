@@ -78,7 +78,15 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 		return fmt.Errorf("error getting nonce: %v", err)
 	}
 
+	fmt.Println("SMART CONTRACT DEBUG nonceCount", nonceCount)
+	fmt.Println("SMART CONTRACT DEBUG gasPrice", gasPrice)
+	fmt.Println("SMART CONTRACT DEBUG data", data)
+	fmt.Println("SMART CONTRACT DEBUG contractAddr", w.contractAddr)
+	fmt.Println("SMART CONTRACT DEBUG address", w.address)
+
 	tx := types.NewTransaction(nonceCount, w.contractAddr, big.NewInt(0), uint64(5000000), gasPrice, data)
+
+	fmt.Println("SMART CONTRACT DEBUG tx", tx)
 
 	chainID, err := w.client.NetworkID(ctx)
 	if err != nil {
