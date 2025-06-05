@@ -16,7 +16,8 @@ This document details the implementation plan for the `/oauth2/token` endpoint, 
     "client_id": "string",
     "client_secret": "string",
     "redirect_uri": "string",
-    "code": "string"
+    "code": "string",
+    "passphrase": "string"
   }
   ```
 - **Output (success):**
@@ -60,7 +61,7 @@ This document details the implementation plan for the `/oauth2/token` endpoint, 
   2. Fetch all projects for the user.
      - If none, return an error.
   3. Use the first project (or apply business logic for selection).
-  4. Create a new API key for the project, with a name like `"OAUTH2_API_KEY_FOR_<client_id>"`.
+  4. Create a new API key for the project, with a name like `"OAUTH2_API_KEY_FOR_<client_id>_<request_id>"`.
      - Optionally, check for an existing key with this name to avoid duplicates.
 
 - **Access Grant:**
@@ -125,7 +126,8 @@ curl -X POST \
     "client_id": "your-client-id",
     "client_secret": "your-client-secret",
     "redirect_uri": "https://your-app/callback",
-    "code": "AUTH_CODE"
+    "code": "AUTH_CODE",
+    "passphrase": "your-passphrase"
   }'
 ```
 - **Response:**
@@ -173,3 +175,12 @@ curl -X POST \
 - **Inject** the correct user, project, and scopes.
 - **Do not** return raw S3 credentials; only the access grant.
 - **Audit log** all sensitive actions.
+
+---
+
+## 10. Current Status
+
+- **Service Layer:** ✅ Implemented
+- **Controller Layer:** ✅ Implemented
+- **Route Registration:** ✅ Implemented
+- **Testing:** ❌ Pending
