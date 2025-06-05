@@ -328,6 +328,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	router := mux.NewRouter()
 	server.router = router
+
+	// Add Swagger UI
+	router.PathPrefix("/swagger/").Handler()
+
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
