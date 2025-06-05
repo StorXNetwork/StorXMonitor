@@ -626,6 +626,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
+		router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler)
 		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}
 
@@ -736,6 +737,7 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	router.HandleFunc("/robots.txt", server.seoHandler)
+	router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler)
 	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
 	router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
@@ -879,6 +881,12 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeContent(w, r, path, info.ModTime(), file)
+}
+
+// googleVerificationHandler handles the google verification file.
+func (server *Server) googleVerificationHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(`google-site-verification: google665de0676f5e8d68.html`))
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
