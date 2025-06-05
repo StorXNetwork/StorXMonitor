@@ -91,3 +91,66 @@ func (a *OAuth2API) ConsentOAuth2Request(w http.ResponseWriter, r *http.Request)
 	}
 	json.NewEncoder(w).Encode(resp)
 }
+
+// ExchangeOAuth2CodeRequest represents the request body for token exchange
+type ExchangeOAuth2CodeRequest struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURI  string `json:"redirect_uri"`
+	Code         string `json:"code"`
+}
+
+// ExchangeOAuth2CodeResponse represents the response body for token exchange
+type ExchangeOAuth2CodeResponse struct {
+	AccessGrant string   `json:"access_grant"`
+	Scopes      []string `json:"scopes"`
+}
+
+// ExchangeOAuth2Code handles POST /api/v0/oauth2/token
+func (a *OAuth2API) ExchangeOAuth2Code(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req struct {
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+		RedirectURI  string `json:"redirect_uri"`
+		Code         string `json:"code"`
+		Passphrase   string `json:"passphrase"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid_request"}`, http.StatusBadRequest)
+		return
+	}
+	if req.ClientID == "" || req.ClientSecret == "" || req.RedirectURI == "" || req.Code == "" {
+		http.Error(w, `{"error":"invalid_request"}`, http.StatusBadRequest)
+		return
+	}
+
+	resp, err := a.Service.ExchangeOAuth2Code(ctx, console.ExchangeOAuth2CodeRequest{
+		ClientID:     req.ClientID,
+		ClientSecret: req.ClientSecret,
+		RedirectURI:  req.RedirectURI,
+		Code:         req.Code,
+		Passphrase:   req.Passphrase,
+	})
+	if err != nil {
+		status := http.StatusBadRequest
+		errMsg := err.Error()
+		switch errMsg {
+		case "invalid_client":
+			status = http.StatusUnauthorized
+		case "invalid_code", "code_expired", "code_already_used":
+			status = http.StatusBadRequest
+		case "invalid_redirect_uri":
+			status = http.StatusBadRequest
+		default:
+			status = http.StatusInternalServerError
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		json.NewEncoder(w).Encode(map[string]string{"error": errMsg})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}

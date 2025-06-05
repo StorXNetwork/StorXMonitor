@@ -64,6 +64,22 @@ func (repo *oauth2Requests) UpdateConsent(ctx context.Context, id uuid.UUID, sta
 	return err
 }
 
+func (repo *oauth2Requests) GetByCode(ctx context.Context, code string) (*console.OAuth2Request, error) {
+	dbxReq, err := repo.db.Get_Oauth2Request_By_Code(ctx, dbx.Oauth2Request_Code(code))
+	if err != nil {
+		return nil, err
+	}
+	return toConsoleOAuth2Request(dbxReq), nil
+}
+
+func (repo *oauth2Requests) MarkCodeUsed(ctx context.Context, id uuid.UUID) error {
+	fields := dbx.Oauth2Request_Update_Fields{
+		Status: dbx.Oauth2Request_Status(2), // 2 = used
+	}
+	_, err := repo.db.Update_Oauth2Request_By_Id(ctx, dbx.Oauth2Request_Id(id[:]), fields)
+	return err
+}
+
 // Conversion helper
 func toConsoleOAuth2Request(d *dbx.Oauth2Request) *console.OAuth2Request {
 	id, _ := uuid.FromBytes(d.Id)

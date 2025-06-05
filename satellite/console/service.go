@@ -5835,3 +5835,149 @@ func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Req
 
 	return &ConsentOAuth2Response{Code: code}, nil
 }
+
+// ExchangeOAuth2CodeRequest represents the request to exchange an OAuth2 code for an access grant.
+type ExchangeOAuth2CodeRequest struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURI  string `json:"redirect_uri"`
+	Code         string `json:"code"`
+	Passphrase   string `json:"passphrase"`
+}
+
+// ExchangeOAuth2CodeResponse represents the response from exchanging an OAuth2 code for an access grant.
+type ExchangeOAuth2CodeResponse struct {
+	AccessGrant string   `json:"access_grant"`
+	Scopes      []string `json:"scopes"`
+}
+
+// ExchangeOAuth2Code exchanges an authorization code for a Storj access grant.
+func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2CodeRequest) (*ExchangeOAuth2CodeResponse, error) {
+	// Validate client credentials
+	client, err := s.store.DeveloperOAuthClients().GetByClientID(ctx, req.ClientID)
+	if err != nil {
+		return nil, errs.New("invalid_client")
+	}
+
+	if client.ClientSecret != req.ClientSecret {
+		return nil, errs.New("invalid_client")
+	}
+
+	// Get OAuth2 request by code
+	oauthReq, err := s.store.OAuth2Requests().GetByCode(ctx, req.Code)
+	if err != nil {
+		return nil, errs.New("invalid_code")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "exchange oauth2 code", zap.String("code", req.Code))
+	if err != nil {
+		return nil, errs.New("invalid_user")
+	}
+
+	if oauthReq.UserID != user.ID {
+		return nil, errs.New("invalid_user")
+	}
+
+	// Validate code status (must be approved)
+	if oauthReq.Status != 1 { // 1 = approved
+		return nil, errs.New("invalid_code")
+	}
+
+	if oauthReq.ExpiresAt.Before(s.nowFn()) {
+		return nil, errs.New("code_expired")
+	}
+
+	if oauthReq.Code != req.Code {
+		return nil, errs.New("invalid_code")
+	}
+
+	// Validate redirect URI
+	uriMatch := false
+	if oauthReq.RedirectURI != "" {
+		uriMatch = (oauthReq.RedirectURI == req.RedirectURI)
+	} else {
+		for _, uri := range splitRedirectURIs(client.RedirectURIs) {
+			if uri == req.RedirectURI {
+				uriMatch = true
+				break
+			}
+		}
+	}
+	if !uriMatch {
+		return nil, errs.New("invalid_redirect_uri")
+	}
+
+	// Get user's projects
+	projects, err := s.store.Projects().GetByUserID(ctx, user.ID)
+	if err != nil {
+		return nil, errs.New("failed_to_get_projects")
+	}
+	if len(projects) == 0 {
+		return nil, errs.New("no_projects")
+	}
+	project := projects[0]
+
+	// Create API key for the project
+	apiKeyName := fmt.Sprintf("OAUTH2_API_KEY_FOR_%s_%s", req.ClientID, oauthReq.ID.String())
+	_, apiKey, err := s.CreateAPIKey(ctx, project.ID, apiKeyName)
+	if err != nil {
+		return nil, errs.New("failed_to_create_api_key")
+	}
+
+	// Parse approved scopes
+	approvedScopes := strings.Split(oauthReq.ApprovedScopes, ",")
+	if len(approvedScopes) == 1 && approvedScopes[0] == "" {
+		approvedScopes = nil
+	}
+
+	permissions := grant.Permission{
+		AllowDownload: false,
+		AllowUpload:   false,
+		AllowList:     false,
+		AllowDelete:   false,
+		AllowLock:     false,
+	}
+	prefixes := []grant.SharePrefix{}
+	for _, scope := range approvedScopes {
+		if scope == "read" {
+			permissions.AllowDownload = true
+		} else if scope == "write" {
+			permissions.AllowUpload = true
+		} else if scope == "list" {
+			permissions.AllowList = true
+		} else if scope == "delete" {
+			permissions.AllowDelete = true
+		} else if scope == "lock" {
+			permissions.AllowLock = true
+		} else if strings.HasPrefix(scope, "bucket:") {
+			// bucket:bucketName;prefix:prefix
+			parts := strings.Split(scope, ";")
+			prefix := grant.SharePrefix{Bucket: strings.TrimPrefix(parts[0], "bucket:") + "/"}
+			if len(parts) == 2 {
+				prefix.Prefix = parts[1]
+			}
+			prefixes = append(prefixes, prefix)
+		}
+	}
+
+	if len(prefixes) == 0 {
+		prefixes = []grant.SharePrefix{{}}
+	}
+
+	// Create access grant
+	accessGrant, err := s.CreateAccessGrantForProject(ctx, project.ID, req.Passphrase, prefixes, &permissions, apiKey)
+	if err != nil {
+		return nil, errs.New("failed_to_create_access_grant")
+	}
+
+	// Mark code as used
+	err = s.store.OAuth2Requests().MarkCodeUsed(ctx, oauthReq.ID)
+	if err != nil {
+		return nil, errs.New("failed_to_mark_code_used")
+	}
+
+	return &ExchangeOAuth2CodeResponse{
+		AccessGrant: accessGrant,
+		Scopes:      approvedScopes,
+	}, nil
+}
