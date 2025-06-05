@@ -5675,3 +5675,163 @@ func hashSecret(secret string) (string, error) {
 	}
 	return string(hash), nil
 }
+
+// --- OAuth2Request Service Layer ---
+
+type CreateOAuth2Request struct {
+	ClientID    string
+	RedirectURI string
+	Scopes      []string
+}
+
+type OAuth2RequestResponse struct {
+	RequestID      uuid.UUID
+	CurrentAccess  []string
+	NeededAccess   []string
+	RequiredScopes []string
+	OptionalScopes []string
+}
+
+func (s *Service) CreateOAuth2Request(ctx context.Context, req CreateOAuth2Request) (*OAuth2RequestResponse, error) {
+	// Validate client_id, redirect_uri, scopes (pseudo, expand as needed)
+	if req.ClientID == "" || req.RedirectURI == "" || len(req.Scopes) == 0 {
+		return nil, errs.New("invalid_request")
+	}
+
+	userID, err := s.getUserAndAuditLog(ctx, "create oauth2 request", zap.String("clientID", req.ClientID), zap.String("redirectURI", req.RedirectURI))
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate that the client_id exists and is active
+	client, err := s.store.DeveloperOAuthClients().GetByClientID(ctx, req.ClientID)
+	if err != nil {
+		return nil, errs.New("invalid_client_id")
+	}
+	if client.Status != 1 { // assuming 1 = active
+		return nil, errs.New("client_inactive")
+	}
+
+	// Validate that the redirect_uri matches one of the registered URIs for the client
+	uriMatch := false
+	for _, uri := range splitRedirectURIs(client.RedirectURIs) {
+		if uri == req.RedirectURI {
+			uriMatch = true
+			break
+		}
+	}
+	if !uriMatch {
+		return nil, errs.New("invalid_redirect_uri")
+	}
+
+	// TODO: Handle required/optional scopes, and fill CurrentAccess, NeededAccess, RequiredScopes, OptionalScopes in the response
+	// TODO: Implement security checks (rate limiting, audit logging, etc.)
+	// TODO: Consider PKCE and other OAuth2 best practices for security
+
+	id, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
+	oauthReq := &OAuth2Request{
+		ID:             id,
+		ClientID:       req.ClientID,
+		UserID:         userID.ID,
+		RedirectURI:    req.RedirectURI,
+		Scopes:         marshalScopes(req.Scopes),
+		Status:         0, // pending
+		ExpiresAt:      s.nowFn().Add(1 * time.Minute),
+		Code:           "",
+		ApprovedScopes: "",
+		RejectedScopes: "",
+	}
+	created, err := s.store.OAuth2Requests().Insert(ctx, oauthReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Fill CurrentAccess, NeededAccess, RequiredScopes, OptionalScopes as per business logic
+	resp := &OAuth2RequestResponse{
+		RequestID:      created.ID,
+		CurrentAccess:  []string{},
+		NeededAccess:   req.Scopes,
+		RequiredScopes: req.Scopes,
+		OptionalScopes: []string{},
+	}
+	return resp, nil
+}
+
+// splitRedirectURIs splits a comma- or space-separated list of URIs into a slice.
+func splitRedirectURIs(uris string) []string {
+	var out []string
+	for _, uri := range strings.FieldsFunc(uris, func(r rune) bool { return r == ',' || r == ' ' }) {
+		trimmed := strings.TrimSpace(uri)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+// marshalScopes joins a slice of scopes into a comma-separated string.
+func marshalScopes(scopes []string) string {
+	return strings.Join(scopes, ",")
+}
+
+// --- OAuth2 Consent Service Layer ---
+
+type ConsentOAuth2Request struct {
+	RequestID      uuid.UUID
+	Approve        bool
+	ApprovedScopes []string
+	RejectedScopes []string
+}
+
+type ConsentOAuth2Response struct {
+	Code string
+}
+
+func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Request) (*ConsentOAuth2Response, error) {
+	// Fetch the OAuth2 request
+	oauthReq, err := s.store.OAuth2Requests().Get(ctx, req.RequestID)
+	if err != nil {
+		return nil, errs.New("invalid_request_id")
+	}
+
+	// Validate request is pending (status == 0)
+	if oauthReq.Status != 0 {
+		return nil, errs.New("request_not_pending")
+	}
+
+	// Validate user matches oauthReq.UserID
+	user, err := s.getUserAndAuditLog(ctx, "consent oauth2 request", zap.String("requestID", req.RequestID.String()))
+	if err != nil {
+		return nil, errs.New("unauthorized")
+	}
+	if user.ID != oauthReq.UserID {
+		return nil, errs.New("forbidden")
+	}
+
+	var status int
+	var code string
+	if req.Approve {
+		status = 1 // e.g., STATUS_APPROVED
+		// TODO: Generate secure code (authorization code)
+		uuID, err := uuid.New()
+		if err != nil {
+			return nil, errs.New("consent_update_failed")
+		}
+
+		code = uuID.String()
+	} else {
+		status = 2 // e.g., STATUS_REJECTED
+		code = ""
+	}
+
+	err = s.store.OAuth2Requests().UpdateConsent(ctx, req.RequestID, status, code, marshalScopes(req.ApprovedScopes), marshalScopes(req.RejectedScopes))
+	if err != nil {
+		return nil, errs.New("consent_update_failed")
+	}
+
+	return &ConsentOAuth2Response{Code: code}, nil
+}

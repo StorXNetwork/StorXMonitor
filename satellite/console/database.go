@@ -40,6 +40,9 @@ type DB interface {
 	// DeveloperOAuthClients is a getter for DeveloperOAuthClients repository.
 	DeveloperOAuthClients() DeveloperOAuthClients
 
+	// OAuth2Requests is a getter for OAuth2Requests repository.
+	OAuth2Requests() OAuth2Requests
+
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error
 }

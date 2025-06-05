@@ -484,7 +484,15 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.CreateOAuthClient))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.ListOAuthClients))).Methods(http.MethodGet, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.DeleteOAuthClient))).Methods(http.MethodDelete, http.MethodOptions)
-		developerAuthRouter.Handle("/oauth2/clients/{id}/status", server.withAuth(http.HandlerFunc(developerAuthController.UpdateOAuthClientStatus))).Methods(http.MethodPatch, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients/{id}/status", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateOAuthClientStatus))).Methods(http.MethodPatch, http.MethodOptions)
+
+		oauth2API := consoleapi.NewOAuth2API(service)
+		oauth2Router := router.PathPrefix("/api/v0/oauth2").Subrouter()
+		oauth2Router.Use(server.withCORS)
+
+		// this endpoint will be accessed by users only so we need to use WithAuth middleware
+		oauth2Router.Handle("/request", server.withAuth(http.HandlerFunc(oauth2API.CreateOAuth2Request))).Methods(http.MethodPost, http.MethodOptions)
+		oauth2Router.Handle("/consent", server.withAuth(http.HandlerFunc(oauth2API.ConsentOAuth2Request))).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	if config.ABTesting.Enabled {
