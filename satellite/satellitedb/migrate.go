@@ -3018,6 +3018,29 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create oauth2_requests table",
+				Version:     284,
+				Action: migrate.SQL{
+					`CREATE TABLE oauth2_requests (
+						id bytea NOT NULL,
+						client_id text NOT NULL,
+						user_id bytea NOT NULL,
+						redirect_uri text NOT NULL,
+						scopes text NOT NULL,
+						status integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						code text NOT NULL,
+						approved_scopes text NOT NULL,
+						rejected_scopes text NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id );`,
+					`CREATE INDEX oauth2_requests_user_id_index ON oauth2_requests ( user_id );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

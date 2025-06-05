@@ -207,3 +207,33 @@ read one (
     select developer_oauth_client
     where developer_oauth_client.id = ?
 )
+
+model oauth2_request (
+    key id
+    index ( fields client_id )
+    index ( fields user_id )
+    field id blob
+    field client_id text
+    field user_id blob
+    field redirect_uri text
+    field scopes text
+    field status int ( updatable )
+    field created_at timestamp ( autoinsert )
+    field expires_at timestamp
+    field code text ( updatable )
+    field approved_scopes text ( updatable )
+    field rejected_scopes text ( updatable )
+)
+
+create oauth2_request ( )
+update oauth2_request ( where oauth2_request.id = ? )
+delete oauth2_request ( where oauth2_request.id = ? )
+
+read one (
+    select oauth2_request
+    where oauth2_request.id = ?
+)
+read one (
+    select oauth2_request
+    where oauth2_request.code = ?
+)

@@ -417,3 +417,11 @@ func (dbc *satelliteDBCollectionTesting) TestMigration() *migrate.Migration {
 func (dbc *satelliteDBCollection) DeveloperOAuthClients() console.DeveloperOAuthClients {
 	return &developerOAuthClients{db: dbc.getByName("developer_oauth_clients")}
 }
+
+func (db *satelliteDB) OAuth2Requests() console.OAuth2Requests {
+	return &oauth2Requests{db: db}
+}
+
+func (dbc *satelliteDBCollection) OAuth2Requests() console.OAuth2Requests {
+	return dbc.getByName("").OAuth2Requests()
+}

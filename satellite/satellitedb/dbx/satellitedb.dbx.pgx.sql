@@ -242,6 +242,20 @@ CREATE TABLE node_tags (
 	signer bytea NOT NULL,
 	PRIMARY KEY ( node_id, name, signer )
 );
+CREATE TABLE oauth2_requests (
+	id bytea NOT NULL,
+	client_id text NOT NULL,
+	user_id bytea NOT NULL,
+	redirect_uri text NOT NULL,
+	scopes text NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	code text NOT NULL,
+	approved_scopes text NOT NULL,
+	rejected_scopes text NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
@@ -708,6 +722,8 @@ CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index 
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
+CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;
+CREATE INDEX oauth2_requests_user_id_index ON oauth2_requests ( user_id ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;

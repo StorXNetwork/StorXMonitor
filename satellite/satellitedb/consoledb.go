@@ -101,6 +101,11 @@ func (db *ConsoleDB) AccountFreezeEvents() console.AccountFreezeEvents {
 	return &accountFreezeEvents{db.db}
 }
 
+// OAuth2Requests is a getter for OAuth2Requests repository.
+func (db *ConsoleDB) OAuth2Requests() console.OAuth2Requests {
+	return &oauth2Requests{db: db.db}
+}
+
 // WithTx is a method for executing and retrying transaction.
 func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.db == nil {

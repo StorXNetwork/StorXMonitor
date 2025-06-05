@@ -555,6 +555,20 @@ CREATE TABLE node_tags (
 	signer bytea NOT NULL,
 	PRIMARY KEY ( node_id, name, signer )
 );
+CREATE TABLE oauth2_requests (
+	id bytea NOT NULL,
+	client_id text NOT NULL,
+	user_id bytea NOT NULL,
+	redirect_uri text NOT NULL,
+	scopes text NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	code text NOT NULL,
+	approved_scopes text NOT NULL,
+	rejected_scopes text NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
@@ -1021,6 +1035,8 @@ CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index 
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
+CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;
+CREATE INDEX oauth2_requests_user_id_index ON oauth2_requests ( user_id ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -1388,6 +1404,20 @@ CREATE TABLE node_tags (
 	signer bytea NOT NULL,
 	PRIMARY KEY ( node_id, name, signer )
 );
+CREATE TABLE oauth2_requests (
+	id bytea NOT NULL,
+	client_id text NOT NULL,
+	user_id bytea NOT NULL,
+	redirect_uri text NOT NULL,
+	scopes text NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	code text NOT NULL,
+	approved_scopes text NOT NULL,
+	rejected_scopes text NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
@@ -1854,6 +1884,8 @@ CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index 
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
+CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;
+CREATE INDEX oauth2_requests_user_id_index ON oauth2_requests ( user_id ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -6387,6 +6419,238 @@ func (f NodeTags_Signer_Field) value() interface{} {
 }
 
 func (NodeTags_Signer_Field) _Column() string { return "signer" }
+
+type Oauth2Request struct {
+	Id             []byte
+	ClientId       string
+	UserId         []byte
+	RedirectUri    string
+	Scopes         string
+	Status         int
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
+	Code           string
+	ApprovedScopes string
+	RejectedScopes string
+}
+
+func (Oauth2Request) _Table() string { return "oauth2_requests" }
+
+type Oauth2Request_Update_Fields struct {
+	Status         Oauth2Request_Status_Field
+	Code           Oauth2Request_Code_Field
+	ApprovedScopes Oauth2Request_ApprovedScopes_Field
+	RejectedScopes Oauth2Request_RejectedScopes_Field
+}
+
+type Oauth2Request_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Oauth2Request_Id(v []byte) Oauth2Request_Id_Field {
+	return Oauth2Request_Id_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_Id_Field) _Column() string { return "id" }
+
+type Oauth2Request_ClientId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Oauth2Request_ClientId(v string) Oauth2Request_ClientId_Field {
+	return Oauth2Request_ClientId_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_ClientId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_ClientId_Field) _Column() string { return "client_id" }
+
+type Oauth2Request_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Oauth2Request_UserId(v []byte) Oauth2Request_UserId_Field {
+	return Oauth2Request_UserId_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_UserId_Field) _Column() string { return "user_id" }
+
+type Oauth2Request_RedirectUri_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Oauth2Request_RedirectUri(v string) Oauth2Request_RedirectUri_Field {
+	return Oauth2Request_RedirectUri_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_RedirectUri_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_RedirectUri_Field) _Column() string { return "redirect_uri" }
+
+type Oauth2Request_Scopes_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Oauth2Request_Scopes(v string) Oauth2Request_Scopes_Field {
+	return Oauth2Request_Scopes_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_Scopes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_Scopes_Field) _Column() string { return "scopes" }
+
+type Oauth2Request_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Oauth2Request_Status(v int) Oauth2Request_Status_Field {
+	return Oauth2Request_Status_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_Status_Field) _Column() string { return "status" }
+
+type Oauth2Request_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Oauth2Request_CreatedAt(v time.Time) Oauth2Request_CreatedAt_Field {
+	return Oauth2Request_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Oauth2Request_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Oauth2Request_ExpiresAt(v time.Time) Oauth2Request_ExpiresAt_Field {
+	return Oauth2Request_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type Oauth2Request_Code_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Oauth2Request_Code(v string) Oauth2Request_Code_Field {
+	return Oauth2Request_Code_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_Code_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_Code_Field) _Column() string { return "code" }
+
+type Oauth2Request_ApprovedScopes_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Oauth2Request_ApprovedScopes(v string) Oauth2Request_ApprovedScopes_Field {
+	return Oauth2Request_ApprovedScopes_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_ApprovedScopes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_ApprovedScopes_Field) _Column() string { return "approved_scopes" }
+
+type Oauth2Request_RejectedScopes_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Oauth2Request_RejectedScopes(v string) Oauth2Request_RejectedScopes_Field {
+	return Oauth2Request_RejectedScopes_Field{_set: true, _value: v}
+}
+
+func (f Oauth2Request_RejectedScopes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Oauth2Request_RejectedScopes_Field) _Column() string { return "rejected_scopes" }
 
 type OauthClient struct {
 	Id              []byte
@@ -15716,6 +15980,50 @@ func (obj *pgxImpl) Create_DeveloperOauthClient(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_Oauth2Request(ctx context.Context,
+	oauth2_request_id Oauth2Request_Id_Field,
+	oauth2_request_client_id Oauth2Request_ClientId_Field,
+	oauth2_request_user_id Oauth2Request_UserId_Field,
+	oauth2_request_redirect_uri Oauth2Request_RedirectUri_Field,
+	oauth2_request_scopes Oauth2Request_Scopes_Field,
+	oauth2_request_status Oauth2Request_Status_Field,
+	oauth2_request_expires_at Oauth2Request_ExpiresAt_Field,
+	oauth2_request_code Oauth2Request_Code_Field,
+	oauth2_request_approved_scopes Oauth2Request_ApprovedScopes_Field,
+	oauth2_request_rejected_scopes Oauth2Request_RejectedScopes_Field) (
+	oauth2_request *Oauth2Request, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := oauth2_request_id.value()
+	__client_id_val := oauth2_request_client_id.value()
+	__user_id_val := oauth2_request_user_id.value()
+	__redirect_uri_val := oauth2_request_redirect_uri.value()
+	__scopes_val := oauth2_request_scopes.value()
+	__status_val := oauth2_request_status.value()
+	__created_at_val := __now
+	__expires_at_val := oauth2_request_expires_at.value()
+	__code_val := oauth2_request_code.value()
+	__approved_scopes_val := oauth2_request_approved_scopes.value()
+	__rejected_scopes_val := oauth2_request_rejected_scopes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth2_requests ( id, client_id, user_id, redirect_uri, scopes, status, created_at, expires_at, code, approved_scopes, rejected_scopes ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status, oauth2_requests.created_at, oauth2_requests.expires_at, oauth2_requests.code, oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __client_id_val, __user_id_val, __redirect_uri_val, __scopes_val, __status_val, __created_at_val, __expires_at_val, __code_val, __approved_scopes_val, __rejected_scopes_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth2_request = &Oauth2Request{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth2_request.Id, &oauth2_request.ClientId, &oauth2_request.UserId, &oauth2_request.RedirectUri, &oauth2_request.Scopes, &oauth2_request.Status, &oauth2_request.CreatedAt, &oauth2_request.ExpiresAt, &oauth2_request.Code, &oauth2_request.ApprovedScopes, &oauth2_request.RejectedScopes)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth2_request, nil
+
+}
+
 func (obj *pgxImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
@@ -19091,6 +19399,86 @@ func (obj *pgxImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_Oauth2Request_By_Id(ctx context.Context,
+	oauth2_request_id Oauth2Request_Id_Field) (
+	oauth2_request *Oauth2Request, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status, oauth2_requests.created_at, oauth2_requests.expires_at, oauth2_requests.code, oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes FROM oauth2_requests WHERE oauth2_requests.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth2_request_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth2_request = &Oauth2Request{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth2_request.Id, &oauth2_request.ClientId, &oauth2_request.UserId, &oauth2_request.RedirectUri, &oauth2_request.Scopes, &oauth2_request.Status, &oauth2_request.CreatedAt, &oauth2_request.ExpiresAt, &oauth2_request.Code, &oauth2_request.ApprovedScopes, &oauth2_request.RejectedScopes)
+	if err != nil {
+		return (*Oauth2Request)(nil), obj.makeErr(err)
+	}
+	return oauth2_request, nil
+
+}
+
+func (obj *pgxImpl) Get_Oauth2Request_By_Code(ctx context.Context,
+	oauth2_request_code Oauth2Request_Code_Field) (
+	oauth2_request *Oauth2Request, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status, oauth2_requests.created_at, oauth2_requests.expires_at, oauth2_requests.code, oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes FROM oauth2_requests WHERE oauth2_requests.code = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, oauth2_request_code.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		oauth2_request, err = func() (oauth2_request *Oauth2Request, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			oauth2_request = &Oauth2Request{}
+			err = __rows.Scan(&oauth2_request.Id, &oauth2_request.ClientId, &oauth2_request.UserId, &oauth2_request.RedirectUri, &oauth2_request.Scopes, &oauth2_request.Status, &oauth2_request.CreatedAt, &oauth2_request.ExpiresAt, &oauth2_request.Code, &oauth2_request.ApprovedScopes, &oauth2_request.RejectedScopes)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return oauth2_request, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("Oauth2Request_By_Code")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return oauth2_request, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -22407,6 +22795,62 @@ func (obj *pgxImpl) Update_DeveloperOauthClient_By_Id(ctx context.Context,
 	return developer_oauth_client, nil
 }
 
+func (obj *pgxImpl) Update_Oauth2Request_By_Id(ctx context.Context,
+	oauth2_request_id Oauth2Request_Id_Field,
+	update Oauth2Request_Update_Fields) (
+	oauth2_request *Oauth2Request, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth2_requests SET "), __sets, __sqlbundle_Literal(" WHERE oauth2_requests.id = ? RETURNING oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status, oauth2_requests.created_at, oauth2_requests.expires_at, oauth2_requests.code, oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Code._set {
+		__values = append(__values, update.Code.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("code = ?"))
+	}
+
+	if update.ApprovedScopes._set {
+		__values = append(__values, update.ApprovedScopes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("approved_scopes = ?"))
+	}
+
+	if update.RejectedScopes._set {
+		__values = append(__values, update.RejectedScopes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rejected_scopes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, oauth2_request_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth2_request = &Oauth2Request{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth2_request.Id, &oauth2_request.ClientId, &oauth2_request.UserId, &oauth2_request.RedirectUri, &oauth2_request.Scopes, &oauth2_request.Status, &oauth2_request.CreatedAt, &oauth2_request.ExpiresAt, &oauth2_request.Code, &oauth2_request.ApprovedScopes, &oauth2_request.RejectedScopes)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth2_request, nil
+}
+
 func (obj *pgxImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
 	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
@@ -24921,6 +25365,33 @@ func (obj *pgxImpl) Delete_DeveloperOauthClient_By_DeveloperId(ctx context.Conte
 
 }
 
+func (obj *pgxImpl) Delete_Oauth2Request_By_Id(ctx context.Context,
+	oauth2_request_id Oauth2Request_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM oauth2_requests WHERE oauth2_requests.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth2_request_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -25792,6 +26263,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_clients;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth2_requests;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -26711,6 +27192,50 @@ func (obj *pgxcockroachImpl) Create_DeveloperOauthClient(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return developer_oauth_client, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_Oauth2Request(ctx context.Context,
+	oauth2_request_id Oauth2Request_Id_Field,
+	oauth2_request_client_id Oauth2Request_ClientId_Field,
+	oauth2_request_user_id Oauth2Request_UserId_Field,
+	oauth2_request_redirect_uri Oauth2Request_RedirectUri_Field,
+	oauth2_request_scopes Oauth2Request_Scopes_Field,
+	oauth2_request_status Oauth2Request_Status_Field,
+	oauth2_request_expires_at Oauth2Request_ExpiresAt_Field,
+	oauth2_request_code Oauth2Request_Code_Field,
+	oauth2_request_approved_scopes Oauth2Request_ApprovedScopes_Field,
+	oauth2_request_rejected_scopes Oauth2Request_RejectedScopes_Field) (
+	oauth2_request *Oauth2Request, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := oauth2_request_id.value()
+	__client_id_val := oauth2_request_client_id.value()
+	__user_id_val := oauth2_request_user_id.value()
+	__redirect_uri_val := oauth2_request_redirect_uri.value()
+	__scopes_val := oauth2_request_scopes.value()
+	__status_val := oauth2_request_status.value()
+	__created_at_val := __now
+	__expires_at_val := oauth2_request_expires_at.value()
+	__code_val := oauth2_request_code.value()
+	__approved_scopes_val := oauth2_request_approved_scopes.value()
+	__rejected_scopes_val := oauth2_request_rejected_scopes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth2_requests ( id, client_id, user_id, redirect_uri, scopes, status, created_at, expires_at, code, approved_scopes, rejected_scopes ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status, oauth2_requests.created_at, oauth2_requests.expires_at, oauth2_requests.code, oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __client_id_val, __user_id_val, __redirect_uri_val, __scopes_val, __status_val, __created_at_val, __expires_at_val, __code_val, __approved_scopes_val, __rejected_scopes_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth2_request = &Oauth2Request{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth2_request.Id, &oauth2_request.ClientId, &oauth2_request.UserId, &oauth2_request.RedirectUri, &oauth2_request.Scopes, &oauth2_request.Status, &oauth2_request.CreatedAt, &oauth2_request.ExpiresAt, &oauth2_request.Code, &oauth2_request.ApprovedScopes, &oauth2_request.RejectedScopes)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth2_request, nil
 
 }
 
@@ -30089,6 +30614,86 @@ func (obj *pgxcockroachImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_Oauth2Request_By_Id(ctx context.Context,
+	oauth2_request_id Oauth2Request_Id_Field) (
+	oauth2_request *Oauth2Request, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status, oauth2_requests.created_at, oauth2_requests.expires_at, oauth2_requests.code, oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes FROM oauth2_requests WHERE oauth2_requests.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth2_request_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth2_request = &Oauth2Request{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth2_request.Id, &oauth2_request.ClientId, &oauth2_request.UserId, &oauth2_request.RedirectUri, &oauth2_request.Scopes, &oauth2_request.Status, &oauth2_request.CreatedAt, &oauth2_request.ExpiresAt, &oauth2_request.Code, &oauth2_request.ApprovedScopes, &oauth2_request.RejectedScopes)
+	if err != nil {
+		return (*Oauth2Request)(nil), obj.makeErr(err)
+	}
+	return oauth2_request, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_Oauth2Request_By_Code(ctx context.Context,
+	oauth2_request_code Oauth2Request_Code_Field) (
+	oauth2_request *Oauth2Request, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status, oauth2_requests.created_at, oauth2_requests.expires_at, oauth2_requests.code, oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes FROM oauth2_requests WHERE oauth2_requests.code = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, oauth2_request_code.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		oauth2_request, err = func() (oauth2_request *Oauth2Request, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			oauth2_request = &Oauth2Request{}
+			err = __rows.Scan(&oauth2_request.Id, &oauth2_request.ClientId, &oauth2_request.UserId, &oauth2_request.RedirectUri, &oauth2_request.Scopes, &oauth2_request.Status, &oauth2_request.CreatedAt, &oauth2_request.ExpiresAt, &oauth2_request.Code, &oauth2_request.ApprovedScopes, &oauth2_request.RejectedScopes)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return oauth2_request, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("Oauth2Request_By_Code")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return oauth2_request, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -33405,6 +34010,62 @@ func (obj *pgxcockroachImpl) Update_DeveloperOauthClient_By_Id(ctx context.Conte
 	return developer_oauth_client, nil
 }
 
+func (obj *pgxcockroachImpl) Update_Oauth2Request_By_Id(ctx context.Context,
+	oauth2_request_id Oauth2Request_Id_Field,
+	update Oauth2Request_Update_Fields) (
+	oauth2_request *Oauth2Request, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth2_requests SET "), __sets, __sqlbundle_Literal(" WHERE oauth2_requests.id = ? RETURNING oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status, oauth2_requests.created_at, oauth2_requests.expires_at, oauth2_requests.code, oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Code._set {
+		__values = append(__values, update.Code.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("code = ?"))
+	}
+
+	if update.ApprovedScopes._set {
+		__values = append(__values, update.ApprovedScopes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("approved_scopes = ?"))
+	}
+
+	if update.RejectedScopes._set {
+		__values = append(__values, update.RejectedScopes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rejected_scopes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, oauth2_request_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth2_request = &Oauth2Request{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth2_request.Id, &oauth2_request.ClientId, &oauth2_request.UserId, &oauth2_request.RedirectUri, &oauth2_request.Scopes, &oauth2_request.Status, &oauth2_request.CreatedAt, &oauth2_request.ExpiresAt, &oauth2_request.Code, &oauth2_request.ApprovedScopes, &oauth2_request.RejectedScopes)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth2_request, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
 	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
@@ -35919,6 +36580,33 @@ func (obj *pgxcockroachImpl) Delete_DeveloperOauthClient_By_DeveloperId(ctx cont
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Oauth2Request_By_Id(ctx context.Context,
+	oauth2_request_id Oauth2Request_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM oauth2_requests WHERE oauth2_requests.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth2_request_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -36799,6 +37487,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth2_requests;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_tags;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -37359,6 +38057,19 @@ type Methods interface {
 		optional NodeEvent_Create_Fields) (
 		node_event *NodeEvent, err error)
 
+	Create_Oauth2Request(ctx context.Context,
+		oauth2_request_id Oauth2Request_Id_Field,
+		oauth2_request_client_id Oauth2Request_ClientId_Field,
+		oauth2_request_user_id Oauth2Request_UserId_Field,
+		oauth2_request_redirect_uri Oauth2Request_RedirectUri_Field,
+		oauth2_request_scopes Oauth2Request_Scopes_Field,
+		oauth2_request_status Oauth2Request_Status_Field,
+		oauth2_request_expires_at Oauth2Request_ExpiresAt_Field,
+		oauth2_request_code Oauth2Request_Code_Field,
+		oauth2_request_approved_scopes Oauth2Request_ApprovedScopes_Field,
+		oauth2_request_rejected_scopes Oauth2Request_RejectedScopes_Field) (
+		oauth2_request *Oauth2Request, err error)
+
 	Create_PaymentPlans(ctx context.Context,
 		payment_plans_name PaymentPlans_Name_Field,
 		payment_plans_storage PaymentPlans_Storage_Field,
@@ -37549,6 +38260,10 @@ type Methods interface {
 		node_event_created_at_less NodeEvent_CreatedAt_Field) (
 		count int64, err error)
 
+	Delete_Oauth2Request_By_Id(ctx context.Context,
+		oauth2_request_id Oauth2Request_Id_Field) (
+		deleted bool, err error)
+
 	Delete_OauthClient_By_Id(ctx context.Context,
 		oauth_client_id OauthClient_Id_Field) (
 		deleted bool, err error)
@@ -37726,6 +38441,14 @@ type Methods interface {
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
+
+	Get_Oauth2Request_By_Code(ctx context.Context,
+		oauth2_request_code Oauth2Request_Code_Field) (
+		oauth2_request *Oauth2Request, err error)
+
+	Get_Oauth2Request_By_Id(ctx context.Context,
+		oauth2_request_id Oauth2Request_Id_Field) (
+		oauth2_request *Oauth2Request, err error)
 
 	Get_OauthClient_By_Id(ctx context.Context,
 		oauth_client_id OauthClient_Id_Field) (
@@ -38199,6 +38922,11 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
+
+	Update_Oauth2Request_By_Id(ctx context.Context,
+		oauth2_request_id Oauth2Request_Id_Field,
+		update Oauth2Request_Update_Fields) (
+		oauth2_request *Oauth2Request, err error)
 
 	Update_PaymentPlans_By_Id(ctx context.Context,
 		payment_plans_id PaymentPlans_Id_Field,
