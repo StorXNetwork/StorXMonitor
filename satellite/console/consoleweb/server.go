@@ -612,7 +612,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
-		router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler)
+		router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler("google665de0676f5e8d68.html"))
+		router.HandleFunc("/googled09d42a140c27991.html", server.googleVerificationHandler("googled09d42a140c27991.html"))
 		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}
 
