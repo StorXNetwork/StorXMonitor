@@ -5692,6 +5692,7 @@ type CreateOAuth2Request struct {
 
 type OAuth2RequestResponse struct {
 	RequestID      uuid.UUID
+	ClientName     string
 	CurrentAccess  []string
 	NeededAccess   []string
 	RequiredScopes []string
@@ -5761,6 +5762,7 @@ func (s *Service) CreateOAuth2Request(ctx context.Context, req CreateOAuth2Reque
 	// TODO: Fill CurrentAccess, NeededAccess, RequiredScopes, OptionalScopes as per business logic
 	resp := &OAuth2RequestResponse{
 		RequestID:      created.ID,
+		ClientName:     client.Name,
 		CurrentAccess:  []string{},
 		NeededAccess:   req.Scopes,
 		RequiredScopes: req.Scopes,

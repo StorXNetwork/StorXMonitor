@@ -59,6 +59,7 @@ func (a *OAuth2API) CreateOAuth2Request(w http.ResponseWriter, r *http.Request) 
 		"needed_access":   resp.NeededAccess,
 		"required_scopes": resp.RequiredScopes,
 		"optional_scopes": resp.OptionalScopes,
+		"client_name":     resp.ClientName,
 	})
 }
 
