@@ -5743,16 +5743,16 @@ func (s *Service) CreateOAuth2Request(ctx context.Context, req CreateOAuth2Reque
 	}
 
 	oauthReq := &OAuth2Request{
-		ID:             id,
-		ClientID:       req.ClientID,
-		UserID:         userID.ID,
-		RedirectURI:    req.RedirectURI,
-		Scopes:         marshalScopes(req.Scopes),
-		Status:         0, // pending
-		ExpiresAt:      s.nowFn().Add(1 * time.Minute),
-		Code:           "",
-		ApprovedScopes: "",
-		RejectedScopes: "",
+		ID:               id,
+		ClientID:         req.ClientID,
+		UserID:           userID.ID,
+		RedirectURI:      req.RedirectURI,
+		Scopes:           strings.Join(req.Scopes, ","),
+		Status:           0, // pending
+		ConsentExpiresAt: s.nowFn().Add(1 * time.Minute),
+		Code:             "",
+		ApprovedScopes:   "",
+		RejectedScopes:   "",
 	}
 	created, err := s.store.OAuth2Requests().Insert(ctx, oauthReq)
 	if err != nil {
@@ -5769,23 +5769,6 @@ func (s *Service) CreateOAuth2Request(ctx context.Context, req CreateOAuth2Reque
 		OptionalScopes: []string{},
 	}
 	return resp, nil
-}
-
-// splitRedirectURIs splits a comma- or space-separated list of URIs into a slice.
-func splitRedirectURIs(uris string) []string {
-	var out []string
-	for _, uri := range strings.FieldsFunc(uris, func(r rune) bool { return r == ',' || r == ' ' }) {
-		trimmed := strings.TrimSpace(uri)
-		if trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
-}
-
-// marshalScopes joins a slice of scopes into a comma-separated string.
-func marshalScopes(scopes []string) string {
-	return strings.Join(scopes, ",")
 }
 
 // --- OAuth2 Consent Service Layer ---
@@ -5815,7 +5798,7 @@ func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Req
 	}
 
 	// check if the request is expired
-	if oauthReq.ExpiresAt.Before(s.nowFn()) {
+	if oauthReq.ConsentExpiresAt.Before(s.nowFn()) {
 		return nil, errs.New("request_expired")
 	}
 
@@ -5839,19 +5822,16 @@ func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Req
 		}
 
 		code = uuID.String()
-
-		fmt.Println("code", code)
 	} else {
 		status = 2 // e.g., STATUS_REJECTED
 		code = "REJECTED"
 	}
 
-	err = s.store.OAuth2Requests().UpdateConsent(ctx, req.RequestID, status, code, marshalScopes(req.ApprovedScopes), marshalScopes(req.RejectedScopes))
+	err = s.store.OAuth2Requests().UpdateConsent(ctx, req.RequestID,
+		status, code, strings.Join(req.ApprovedScopes, ","), strings.Join(req.RejectedScopes, ","), s.nowFn().Add(1*time.Minute))
 	if err != nil {
 		return nil, errs.New("consent_update_failed")
 	}
-
-	fmt.Printf("sending code %s\n", code)
 
 	return &ConsentOAuth2Response{Code: code, RedirectURI: oauthReq.RedirectURI}, nil
 }
@@ -5903,7 +5883,7 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 		return nil, errs.New("invalid_code")
 	}
 
-	if oauthReq.ExpiresAt.Before(s.nowFn()) {
+	if oauthReq.CodeExpiresAt.Before(s.nowFn()) {
 		return nil, errs.New("code_expired")
 	}
 

@@ -38,7 +38,8 @@ This document details the implementation plan for the `/oauth2/consent` endpoint
   }
   ```
 - **Timeout:**  
-  Consent must be given within 1 minute of request creation. Code expires after 30 seconds.
+  - Consent must be given before `consent_expires_at` (e.g., 1 minute after request creation)
+  - Code expires after `code_expires_at` (e.g., 30 seconds after code issuance)
 
 ---
 
@@ -46,13 +47,15 @@ This document details the implementation plan for the `/oauth2/consent` endpoint
 
 - **Table:** `oauth2_requests` (reuse from /request)
 - **Fields Used/Updated:**
-  - `id`, `status`, `code`, `expires_at`, `approved_scopes`, `rejected_scopes`
+  - `id`, `status`, `code`, `consent_expires_at`, `code_expires_at`, `approved_scopes`, `rejected_scopes`
 - **Schema Additions:**
-  - Add `approved_scopes` and `rejected_scopes` fields (TEXT, JSON array) if not present.
+  - Add `consent_expires_at` and `code_expires_at` fields (TIMESTAMP) if not present.
 - **DBX Model Example (additions):**
   ```
   model oauth2_request (
       ...
+      field consent_expires_at timestamp
+      field code_expires_at timestamp
       field approved_scopes text
       field rejected_scopes text
   )
@@ -81,9 +84,9 @@ This document details the implementation plan for the `/oauth2/consent` endpoint
         Insert(ctx context.Context, req *OAuth2Request) (*OAuth2Request, error)
         Get(ctx context.Context, id uuid.UUID) (*OAuth2Request, error)
         UpdateStatus(ctx context.Context, id uuid.UUID, status int, code string) error
-        UpdateConsent(ctx context.Context, id uuid.UUID, approvedScopes, rejectedScopes []string, code string, status int) error
-        GetByCode(ctx context.Context, code string) (*OAuth2Request, error)
-        DeleteExpired(ctx context.Context) error
+        UpdateConsentExpiry(ctx context.Context, id uuid.UUID, consentExpiresAt time.Time) error
+        UpdateCodeAndExpiry(ctx context.Context, id uuid.UUID, code string, codeExpiresAt time.Time) error
+        DeleteExpiredConsents(ctx context.Context) error
         // Add other methods as needed for consent/token flows
     }
     ```
@@ -97,8 +100,11 @@ This document details the implementation plan for the `/oauth2/consent` endpoint
 
 - **File:** `satellitedb/oauth2_requests.go`
 - **Methods:**
-  - `UpdateOAuth2Consent(ctx, id uuid.UUID, approvedScopes, rejectedScopes []string, code string, status int) error`
+  - `UpdateOAuth2Consent(ctx, id uuid.UUID, approvedScopes, rejectedScopes []string, code string, codeExpiresAt time.Time, status int) error`
   - `GetOAuth2Request(ctx, id uuid.UUID) (*console.OAuth2Request, error)`
+  - `UpdateConsentExpiry(ctx, id uuid.UUID, consentExpiresAt time.Time) error`
+  - `UpdateCodeAndExpiry(ctx, id uuid.UUID, code string, codeExpiresAt time.Time) error`
+  - `DeleteExpiredConsents(ctx) error`
 
 ---
 
@@ -107,8 +113,8 @@ This document details the implementation plan for the `/oauth2/consent` endpoint
 - **File:** `satellite/console/service.go`
 - **Methods:**
   - `ConsentOAuth2Request(ctx, req ConsentOAuth2Request) (*ConsentOAuth2Response, error)`
-    - Validate request_id, check expiry and status.
-    - If approved, generate code, update DB, set expiry (30s), return redirect URI with code.
+    - Validate request_id, check `consent_expires_at` and status.
+    - If approved, generate code, update DB, set `code_expires_at` (e.g., now + 30s), return redirect URI with code.
     - If rejected, update DB, return redirect URI with error.
 
 - **Structs:**
@@ -133,8 +139,8 @@ This document details the implementation plan for the `/oauth2/consent` endpoint
   func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Request) (*ConsentOAuth2Response, error)
   ```
   - Responsibilities:
-    - Validate `request_id`, check expiry and status.
-    - If approved, generate code, update DB, set expiry (30s), return redirect URI with code.
+    - Validate `request_id`, check `consent_expires_at` and status.
+    - If approved, generate code, update DB, set `code_expires_at`.
     - If rejected, update DB, return redirect URI with error.
 
 ---
@@ -187,4 +193,6 @@ This document details the implementation plan for the `/oauth2/consent` endpoint
 
 ## 7. Example curl Request
 
+```
+# Example curl for consent (see request workplan for full flow)
 ```

@@ -2,6 +2,7 @@ package satellitedb
 
 import (
 	"context"
+	"time"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
@@ -23,8 +24,9 @@ func (repo *oauth2Requests) Insert(ctx context.Context, req *console.OAuth2Reque
 		dbx.Oauth2Request_RedirectUri(req.RedirectURI),
 		dbx.Oauth2Request_Scopes(req.Scopes),
 		dbx.Oauth2Request_Status(req.Status),
-		dbx.Oauth2Request_ExpiresAt(req.ExpiresAt),
+		dbx.Oauth2Request_ConsentExpiresAt(req.ConsentExpiresAt),
 		dbx.Oauth2Request_Code(req.Code),
+		dbx.Oauth2Request_CodeExpiresAt(req.CodeExpiresAt),
 		dbx.Oauth2Request_ApprovedScopes(req.ApprovedScopes),
 		dbx.Oauth2Request_RejectedScopes(req.RejectedScopes),
 	)
@@ -51,7 +53,7 @@ func (repo *oauth2Requests) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 	return err
 }
 
-func (repo *oauth2Requests) UpdateConsent(ctx context.Context, id uuid.UUID, status int, code, approvedScopes, rejectedScopes string) error {
+func (repo *oauth2Requests) UpdateConsent(ctx context.Context, id uuid.UUID, status int, code, approvedScopes, rejectedScopes string, codeExpiresAt time.Time) error {
 	_, err := repo.db.Update_Oauth2Request_By_Id(ctx,
 		dbx.Oauth2Request_Id(id[:]),
 		dbx.Oauth2Request_Update_Fields{
@@ -59,8 +61,26 @@ func (repo *oauth2Requests) UpdateConsent(ctx context.Context, id uuid.UUID, sta
 			Code:           dbx.Oauth2Request_Code(code),
 			ApprovedScopes: dbx.Oauth2Request_ApprovedScopes(approvedScopes),
 			RejectedScopes: dbx.Oauth2Request_RejectedScopes(rejectedScopes),
+			CodeExpiresAt:  dbx.Oauth2Request_CodeExpiresAt(codeExpiresAt),
 		},
 	)
+	return err
+}
+
+func (repo *oauth2Requests) UpdateConsentExpiry(ctx context.Context, id uuid.UUID, consentExpiresAt time.Time) error {
+	fields := dbx.Oauth2Request_Update_Fields{
+		ConsentExpiresAt: dbx.Oauth2Request_ConsentExpiresAt(consentExpiresAt),
+	}
+	_, err := repo.db.Update_Oauth2Request_By_Id(ctx, dbx.Oauth2Request_Id(id[:]), fields)
+	return err
+}
+
+func (repo *oauth2Requests) UpdateCodeAndExpiry(ctx context.Context, id uuid.UUID, code string, codeExpiresAt time.Time) error {
+	fields := dbx.Oauth2Request_Update_Fields{
+		Code:          dbx.Oauth2Request_Code(code),
+		CodeExpiresAt: dbx.Oauth2Request_CodeExpiresAt(codeExpiresAt),
+	}
+	_, err := repo.db.Update_Oauth2Request_By_Id(ctx, dbx.Oauth2Request_Id(id[:]), fields)
 	return err
 }
 
@@ -85,16 +105,17 @@ func toConsoleOAuth2Request(d *dbx.Oauth2Request) *console.OAuth2Request {
 	id, _ := uuid.FromBytes(d.Id)
 	userID, _ := uuid.FromBytes(d.UserId)
 	return &console.OAuth2Request{
-		ID:             id,
-		ClientID:       d.ClientId,
-		UserID:         userID,
-		RedirectURI:    d.RedirectUri,
-		Scopes:         d.Scopes,
-		Status:         d.Status,
-		CreatedAt:      d.CreatedAt,
-		ExpiresAt:      d.ExpiresAt,
-		Code:           d.Code,
-		ApprovedScopes: d.ApprovedScopes,
-		RejectedScopes: d.RejectedScopes,
+		ID:               id,
+		ClientID:         d.ClientId,
+		UserID:           userID,
+		RedirectURI:      d.RedirectUri,
+		Scopes:           d.Scopes,
+		Status:           d.Status,
+		CreatedAt:        d.CreatedAt,
+		ConsentExpiresAt: d.ConsentExpiresAt,
+		Code:             d.Code,
+		CodeExpiresAt:    d.CodeExpiresAt,
+		ApprovedScopes:   d.ApprovedScopes,
+		RejectedScopes:   d.RejectedScopes,
 	}
 }

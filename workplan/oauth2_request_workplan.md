@@ -46,7 +46,9 @@ This document details the implementation plan for the `/oauth2/request` endpoint
   }
   ```
 - **Timeout:**  
-  Request expires after 1 minute.
+  Request has two expiry fields:
+  - `consent_expires_at`: Consent must be given before this time (e.g., 1 minute after request creation)
+  - `code_expires_at`: Authorization code (issued after consent) must be used before this time (e.g., 30 seconds after code issuance)
 
 ---
 
@@ -54,19 +56,20 @@ This document details the implementation plan for the `/oauth2/request` endpoint
 
 - **Table:** `oauth2_requests`
 - **Schema:**
-  | Field         | Type    | Description                        |
-  |---------------|---------|------------------------------------|
-  | id            | UUID PK | Request ID                         |
-  | client_id     | TEXT    | FK to developer_oauth_clients      |
-  | user_id       | UUID    | FK to users                        |
-  | redirect_uri  | TEXT    | Redirect URI                       |
-  | scopes        | TEXT    | JSON array of requested scopes     |
-  | status        | INT     | (pending, approved, rejected, etc) |
-  | created_at    | TIMESTAMP | Creation time                    |
-  | expires_at    | TIMESTAMP | Expiry time (created_at + 1 min) |
-  | code          | TEXT    | Authorization code (nullable)      |
-  | approved_scopes | TEXT  | JSON array of approved scopes      |
-  | rejected_scopes | TEXT  | JSON array of rejected scopes      |
+  | Field             | Type      | Description                                 |
+  |-------------------|-----------|---------------------------------------------|
+  | id                | UUID PK   | Request ID                                  |
+  | client_id         | TEXT      | FK to developer_oauth_clients               |
+  | user_id           | UUID      | FK to users                                 |
+  | redirect_uri      | TEXT      | Redirect URI                                |
+  | scopes            | TEXT      | JSON array of requested scopes              |
+  | status            | INT       | (pending, approved, rejected, etc)          |
+  | created_at        | TIMESTAMP | Creation time                               |
+  | consent_expires_at| TIMESTAMP | Expiry time for consent (created_at + 1 min)|
+  | code              | TEXT      | Authorization code (nullable)               |
+  | code_expires_at   | TIMESTAMP | Expiry time for code (set on consent)       |
+  | approved_scopes   | TEXT      | JSON array of approved scopes               |
+  | rejected_scopes   | TEXT      | JSON array of rejected scopes               |
 
 - **DBX Model Example:**
   ```
@@ -81,36 +84,20 @@ This document details the implementation plan for the `/oauth2/request` endpoint
       field scopes text
       field status int
       field created_at timestamp ( autoinsert )
-      field expires_at timestamp
+      field consent_expires_at timestamp
       field code text
+      field code_expires_at timestamp
+      field approved_scopes text
+      field rejected_scopes text
   )
   ```
 - **DBX Methods:**
   - `create oauth2_request ( )`
   - `update oauth2_request ( where oauth2_request.id = ? )`
   - `read one ( select oauth2_request where oauth2_request.id = ? )`
-  - `delete oauth2_request ( where oauth2_request.expires_at < now() )` (for cleanup)
 
 - **Migration:**  
-  Migration for this table has been added to `satellitedb/migrate.go` as version 284:
-  ```sql
-  CREATE TABLE oauth2_requests (
-    id bytea NOT NULL,
-    client_id text NOT NULL,
-    user_id bytea NOT NULL,
-    redirect_uri text NOT NULL,
-    scopes text NOT NULL,
-    status integer NOT NULL,
-    created_at timestamp with time zone NOT NULL,
-    expires_at timestamp with time zone NOT NULL,
-    code text NOT NULL,
-    approved_scopes text NOT NULL,
-    rejected_scopes text NOT NULL,
-    PRIMARY KEY ( id )
-  );
-  ```
-
-**Status:** ✅ Complete (schema and migration defined)
+  Migration for this table should include both `consent_expires_at` and `code_expires_at` fields.
 
 ---
 
@@ -129,7 +116,8 @@ This document details the implementation plan for the `/oauth2/request` endpoint
         Insert(ctx context.Context, req *OAuth2Request) (*OAuth2Request, error)
         Get(ctx context.Context, id uuid.UUID) (*OAuth2Request, error)
         UpdateStatus(ctx context.Context, id uuid.UUID, status int, code string) error
-        DeleteExpired(ctx context.Context) error
+        UpdateConsentExpiry(ctx context.Context, id uuid.UUID, consentExpiresAt time.Time) error
+        UpdateCodeAndExpiry(ctx context.Context, id uuid.UUID, code string, codeExpiresAt time.Time) error
         // Add other methods as needed for consent/token flows
     }
     ```
@@ -146,7 +134,8 @@ This document details the implementation plan for the `/oauth2/request` endpoint
   - `InsertOAuth2Request(ctx, *console.OAuth2Request) (*console.OAuth2Request, error)`
   - `GetOAuth2Request(ctx, id uuid.UUID) (*console.OAuth2Request, error)`
   - `UpdateOAuth2RequestStatus(ctx, id uuid.UUID, status int, code string) error`
-  - `DeleteExpiredOAuth2Requests(ctx) error`
+  - `UpdateConsentExpiry(ctx, id uuid.UUID, consentExpiresAt time.Time) error`
+  - `UpdateCodeAndExpiry(ctx, id uuid.UUID, code string, codeExpiresAt time.Time) error`
 - **Conversion helpers** for DBX <-> domain structs.
 
 ---
@@ -158,9 +147,18 @@ This document details the implementation plan for the `/oauth2/request` endpoint
   - `CreateOAuth2Request(ctx, req CreateOAuth2Request) (*OAuth2RequestResponse, error)`
     - Validate client_id, redirect_uri, scopes.
     - Check for existing access.
-    - Create DB entry, set expiry.
+    - Create DB entry, set `consent_expires_at` (now + 1 min), status = pending.
     - Return contract response.
   - `ExpireOAuth2Requests(ctx)` (background cleanup, optional)
+
+- **Consent API:**
+  - On consent, check `consent_expires_at` (must not be expired).
+  - If approved, generate code, set `code_expires_at` (now + 30s), update DB.
+  - If rejected, update status.
+
+- **Token Exchange API:**
+  - On code exchange, check `code_expires_at` (must not be expired).
+  - Mark code as used.
 
 - **Structs:**
   ```go
@@ -189,10 +187,16 @@ This document details the implementation plan for the `/oauth2/request` endpoint
   ```
   - Responsibilities:
     - Validate `client_id`, `redirect_uri`, and `scopes`.
-    - Check for existing access.
-    - Create a new OAuth2 request in the repository.
+    - Create a new OAuth2 request in the repository with `consent_expires_at`.
     - Set expiry and status.
     - Return the contract response.
+
+- **Consent API:**
+  - Check `consent_expires_at` before allowing consent.
+  - If approved, generate code, set `code_expires_at`.
+
+- **Token Exchange API:**
+  - Check `code_expires_at` before allowing code exchange.
 
 ---
 

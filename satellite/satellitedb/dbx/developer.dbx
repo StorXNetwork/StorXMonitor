@@ -224,8 +224,9 @@ model oauth2_request (
     field scopes text
     field status int ( updatable )
     field created_at timestamp ( autoinsert )
-    field expires_at timestamp
+    field consent_expires_at timestamp ( updatable )
     field code text ( updatable )
+    field code_expires_at timestamp ( updatable )
     field approved_scopes text ( updatable )
     field rejected_scopes text ( updatable )
 )
