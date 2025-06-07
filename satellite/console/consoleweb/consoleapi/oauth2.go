@@ -66,6 +66,7 @@ func (a *OAuth2API) CreateOAuth2Request(w http.ResponseWriter, r *http.Request) 
 func (a *OAuth2API) ConsentOAuth2Request(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req struct {
+		Approve        bool     `json:"approve"`
 		RequestID      string   `json:"request_id"`
 		ApprovedScopes []string `json:"approved_scopes"`
 		RejectedScopes []string `json:"rejected_scopes"`
@@ -81,6 +82,7 @@ func (a *OAuth2API) ConsentOAuth2Request(w http.ResponseWriter, r *http.Request)
 	}
 	resp, err := a.Service.ConsentOAuth2Request(ctx, console.ConsentOAuth2Request{
 		RequestID:      requestID,
+		Approve:        req.Approve,
 		ApprovedScopes: req.ApprovedScopes,
 		RejectedScopes: req.RejectedScopes,
 	})
@@ -89,6 +91,8 @@ func (a *OAuth2API) ConsentOAuth2Request(w http.ResponseWriter, r *http.Request)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
 

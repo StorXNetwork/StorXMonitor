@@ -5557,8 +5557,8 @@ func (s *Service) TestSetNow(now func() time.Time) {
 }
 
 type CreateOAuthClientRequest struct {
-	Name         string
-	RedirectURIs string
+	Name         string   `json:"name"`
+	RedirectURIs []string `json:"redirect_uris"`
 }
 
 type UpdateOAuthClientRequest struct {
@@ -5567,6 +5567,12 @@ type UpdateOAuthClientRequest struct {
 }
 
 func (s *Service) CreateDeveloperOAuthClient(ctx context.Context, req CreateOAuthClientRequest) (*DeveloperOAuthClient, error) {
+
+	// if redirect_uris or name is empty, return an error
+	if req.Name == "" || len(req.RedirectURIs) == 0 {
+		return nil, errs.New("invalid_request")
+	}
+
 	clientID, err := uuid.New()
 	if err != nil {
 		return nil, err
@@ -5679,9 +5685,9 @@ func hashSecret(secret string) (string, error) {
 // --- OAuth2Request Service Layer ---
 
 type CreateOAuth2Request struct {
-	ClientID    string
-	RedirectURI string
-	Scopes      []string
+	ClientID    string   `json:"client_id"`
+	RedirectURI string   `json:"redirect_uri"`
+	Scopes      []string `json:"scopes"`
 }
 
 type OAuth2RequestResponse struct {
@@ -5714,7 +5720,9 @@ func (s *Service) CreateOAuth2Request(ctx context.Context, req CreateOAuth2Reque
 
 	// Validate that the redirect_uri matches one of the registered URIs for the client
 	uriMatch := false
-	for _, uri := range splitRedirectURIs(client.RedirectURIs) {
+	for _, uri := range client.RedirectURIs {
+		fmt.Println("uri", uri)
+		fmt.Println("req.RedirectURI", req.RedirectURI)
 		if uri == req.RedirectURI {
 			uriMatch = true
 			break
@@ -5781,14 +5789,15 @@ func marshalScopes(scopes []string) string {
 // --- OAuth2 Consent Service Layer ---
 
 type ConsentOAuth2Request struct {
-	RequestID      uuid.UUID
-	Approve        bool
-	ApprovedScopes []string
-	RejectedScopes []string
+	RequestID      uuid.UUID `json:"request_id"`
+	Approve        bool      `json:"approve"`
+	ApprovedScopes []string  `json:"approved_scopes"`
+	RejectedScopes []string  `json:"rejected_scopes"`
 }
 
 type ConsentOAuth2Response struct {
-	Code string
+	Code        string `json:"code"`
+	RedirectURI string `json:"redirect_uri"`
 }
 
 func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Request) (*ConsentOAuth2Response, error) {
@@ -5801,6 +5810,11 @@ func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Req
 	// Validate request is pending (status == 0)
 	if oauthReq.Status != 0 {
 		return nil, errs.New("request_not_pending")
+	}
+
+	// check if the request is expired
+	if oauthReq.ExpiresAt.Before(s.nowFn()) {
+		return nil, errs.New("request_expired")
 	}
 
 	// Validate user matches oauthReq.UserID
@@ -5823,9 +5837,11 @@ func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Req
 		}
 
 		code = uuID.String()
+
+		fmt.Println("code", code)
 	} else {
 		status = 2 // e.g., STATUS_REJECTED
-		code = ""
+		code = "REJECTED"
 	}
 
 	err = s.store.OAuth2Requests().UpdateConsent(ctx, req.RequestID, status, code, marshalScopes(req.ApprovedScopes), marshalScopes(req.RejectedScopes))
@@ -5833,7 +5849,9 @@ func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Req
 		return nil, errs.New("consent_update_failed")
 	}
 
-	return &ConsentOAuth2Response{Code: code}, nil
+	fmt.Printf("sending code %s\n", code)
+
+	return &ConsentOAuth2Response{Code: code, RedirectURI: oauthReq.RedirectURI}, nil
 }
 
 // ExchangeOAuth2CodeRequest represents the request to exchange an OAuth2 code for an access grant.
@@ -5896,7 +5914,7 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 	if oauthReq.RedirectURI != "" {
 		uriMatch = (oauthReq.RedirectURI == req.RedirectURI)
 	} else {
-		for _, uri := range splitRedirectURIs(client.RedirectURIs) {
+		for _, uri := range client.RedirectURIs {
 			if uri == req.RedirectURI {
 				uriMatch = true
 				break

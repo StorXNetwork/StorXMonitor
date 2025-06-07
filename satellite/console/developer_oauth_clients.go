@@ -9,15 +9,15 @@ import (
 
 // DeveloperOAuthClient represents the OAuth client entity for a developer.
 type DeveloperOAuthClient struct {
-	ID           uuid.UUID
-	DeveloperID  uuid.UUID
-	ClientID     string
-	ClientSecret string
-	Name         string
-	RedirectURIs string
-	Status       int
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           uuid.UUID `json:"id"`
+	DeveloperID  uuid.UUID `json:"developer_id"`
+	ClientID     string    `json:"client_id"`
+	ClientSecret string    `json:"client_secret"`
+	Name         string    `json:"name"`
+	RedirectURIs []string  `json:"redirect_uris"`
+	Status       int       `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // DeveloperOAuthClients exposes methods to manage developer_oauth_clients table in database.

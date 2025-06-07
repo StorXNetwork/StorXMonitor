@@ -2,6 +2,7 @@ package satellitedb
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"storj.io/common/uuid"
@@ -24,8 +25,11 @@ func (repo *developerOAuthClients) GetByID(ctx context.Context, id uuid.UUID) (*
 }
 
 func (repo *developerOAuthClients) GetByClientID(ctx context.Context, clientID string) (*console.DeveloperOAuthClient, error) {
-	// If not implemented in DBX, return an error
-	return nil, nil // or errors.New("not implemented")
+	dbxClient, err := repo.db.Get_DeveloperOauthClient_By_ClientId(ctx, dbx.DeveloperOauthClient_ClientId(clientID))
+	if err != nil {
+		return nil, err
+	}
+	return toConsoleOAuthClient(dbxClient), nil
 }
 
 func (repo *developerOAuthClients) ListByDeveloperID(ctx context.Context, developerID uuid.UUID) ([]console.DeveloperOAuthClient, error) {
@@ -48,7 +52,7 @@ func (repo *developerOAuthClients) Insert(ctx context.Context, client *console.D
 		dbx.DeveloperOauthClient_ClientId(client.ClientID),
 		dbx.DeveloperOauthClient_ClientSecret(client.ClientSecret),
 		dbx.DeveloperOauthClient_Name(client.Name),
-		dbx.DeveloperOauthClient_RedirectUris(client.RedirectURIs),
+		dbx.DeveloperOauthClient_RedirectUris(strings.Join(client.RedirectURIs, ",")),
 		dbx.DeveloperOauthClient_Status(client.Status),
 		dbx.DeveloperOauthClient_UpdatedAt(client.UpdatedAt),
 	)
@@ -91,7 +95,7 @@ func toConsoleOAuthClient(dbxClient *dbx.DeveloperOauthClient) *console.Develope
 		ClientID:     dbxClient.ClientId,
 		ClientSecret: dbxClient.ClientSecret,
 		Name:         dbxClient.Name,
-		RedirectURIs: dbxClient.RedirectUris,
+		RedirectURIs: strings.Split(dbxClient.RedirectUris, ","),
 		Status:       dbxClient.Status,
 		CreatedAt:    dbxClient.CreatedAt,
 		UpdatedAt:    dbxClient.UpdatedAt,

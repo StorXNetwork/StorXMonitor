@@ -208,6 +208,11 @@ read one (
     where developer_oauth_client.id = ?
 )
 
+read one (
+    select developer_oauth_client
+    where developer_oauth_client.client_id = ?
+)
+
 model oauth2_request (
     key id
     index ( fields client_id )

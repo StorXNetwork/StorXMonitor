@@ -330,7 +330,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	server.router = router
 
 	// Add Swagger UI
-	router.PathPrefix("/swagger/").Handler()
+	router.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/", http.FileServer(http.Dir("swagger-ui"))))
 
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.

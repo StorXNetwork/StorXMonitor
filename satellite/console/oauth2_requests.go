@@ -8,17 +8,17 @@ import (
 )
 
 type OAuth2Request struct {
-	ID             uuid.UUID
-	ClientID       string
-	UserID         uuid.UUID
-	RedirectURI    string
-	Scopes         string
-	Status         int
-	CreatedAt      time.Time
-	ExpiresAt      time.Time
-	Code           string
-	ApprovedScopes string
-	RejectedScopes string
+	ID             uuid.UUID `json:"id"`
+	ClientID       string    `json:"client_id"`
+	UserID         uuid.UUID `json:"user_id"`
+	RedirectURI    string    `json:"redirect_uri"`
+	Scopes         string    `json:"scopes"`
+	Status         int       `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	ExpiresAt      time.Time `json:"expires_at"`
+	Code           string    `json:"code"`
+	ApprovedScopes string    `json:"approved_scopes"`
+	RejectedScopes string    `json:"rejected_scopes"`
 }
 
 type OAuth2Requests interface {

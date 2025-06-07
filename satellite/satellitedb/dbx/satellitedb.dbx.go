@@ -19399,6 +19399,64 @@ func (obj *pgxImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_DeveloperOauthClient_By_ClientId(ctx context.Context,
+	developer_oauth_client_client_id DeveloperOauthClient_ClientId_Field) (
+	developer_oauth_client *DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.client_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		developer_oauth_client, err = func() (developer_oauth_client *DeveloperOauthClient, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			developer_oauth_client = &DeveloperOauthClient{}
+			err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return developer_oauth_client, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("DeveloperOauthClient_By_ClientId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return developer_oauth_client, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_Oauth2Request_By_Id(ctx context.Context,
 	oauth2_request_id Oauth2Request_Id_Field) (
 	oauth2_request *Oauth2Request, err error) {
@@ -30614,6 +30672,64 @@ func (obj *pgxcockroachImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_DeveloperOauthClient_By_ClientId(ctx context.Context,
+	developer_oauth_client_client_id DeveloperOauthClient_ClientId_Field) (
+	developer_oauth_client *DeveloperOauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.client_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, developer_oauth_client_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		developer_oauth_client, err = func() (developer_oauth_client *DeveloperOauthClient, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			developer_oauth_client = &DeveloperOauthClient{}
+			err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return developer_oauth_client, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("DeveloperOauthClient_By_ClientId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return developer_oauth_client, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_Oauth2Request_By_Id(ctx context.Context,
 	oauth2_request_id Oauth2Request_Id_Field) (
 	oauth2_request *Oauth2Request, err error) {
@@ -38405,6 +38521,10 @@ type Methods interface {
 	Get_Coupon_By_Code(ctx context.Context,
 		coupon_code Coupon_Code_Field) (
 		coupon *Coupon, err error)
+
+	Get_DeveloperOauthClient_By_ClientId(ctx context.Context,
+		developer_oauth_client_client_id DeveloperOauthClient_ClientId_Field) (
+		developer_oauth_client *DeveloperOauthClient, err error)
 
 	Get_DeveloperOauthClient_By_Id(ctx context.Context,
 		developer_oauth_client_id DeveloperOauthClient_Id_Field) (
