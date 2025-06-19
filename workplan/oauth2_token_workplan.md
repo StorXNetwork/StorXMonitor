@@ -1,25 +1,33 @@
-# Work Plan: Implement OAuth2 Token Exchange Endpoint (`/oauth2/token`)
+# Work Plan: Implement OAuth2 Token Exchange Endpoint (`/oauth2/token`) with JWT-Encoded Client Secret
 
-This document details the implementation plan for the `/oauth2/token` endpoint, which allows an external application to exchange a one-time authorization code for a **Storj access grant** for a user, based on approved scopes.
+This document details the implementation plan for the `/oauth2/token` endpoint, where the client authenticates by sending a JWT-encoded `client_id` in the `client_secret` field. The backend validates the JWT using the stored `client_secret` for the given `client_id`, increasing security by never transmitting the secret directly.
 
 ---
 
 ## 1. Requirement & Contract
 
 - **Purpose:**  
-  Allow an external application to exchange a valid, unexpired authorization code (from consent flow) for a **Storj access grant** for the user, scoped to the approved permissions.
+  Allow an external application to exchange a valid, unexpired authorization code (from consent flow) for a **Storj access grant** for the user, using a JWT for client authentication.
+
 - **Endpoint:**  
   `POST /api/v0/oauth2/token`
+
 - **Input:**  
   ```json
   {
     "client_id": "string",
-    "client_secret": "string",
+    "client_secret": "jwt-string", // JWT-encoded client_id, signed with client_secret
     "redirect_uri": "string",
     "code": "string",
     "passphrase": "string"
   }
   ```
+  - `client_id`: Sent as plain text.
+  - `client_secret`: JWT string, signed with the actual client secret. The JWT payload must include:
+    - `client_id`: string
+    - `exp`: unix timestamp (expiry)
+  - `redirect_uri`, `code`, `passphrase`: as before
+
 - **Output (success):**
   ```json
   {
@@ -30,142 +38,130 @@ This document details the implementation plan for the `/oauth2/token` endpoint, 
 - **Output (error):**
   ```json
   {
-    "error": "invalid_code"
+    "error": "invalid_code" // or "client_secret_expired" if JWT is expired
   }
   ```
+
 - **Timeout:**  
-  Code expires after 30 seconds and can be used only once.
+  - Code expires after 30 seconds and can be used only once.
+  - JWT must not be expired (`exp` claim). If expired, error is `client_secret_expired`.
 
 ---
 
-## 2. Database Layer
+## 2. JWT Client Secret
 
-- **Table:** `oauth2_requests` (reuse from previous steps)
-- **Fields Used/Updated:**
-  - `id`, `client_id`, `code`, `status`, `approved_scopes`, `user_id`, `expires_at`
-- **DBX Methods:**
-  - `read one ( select oauth2_request where oauth2_request.code = ? )`
-  - `update oauth2_request ( where oauth2_request.id = ? )` (to mark code as used)
-- **Repository Interface:**
-  - `GetByCode(ctx, code string) (*OAuth2Request, error)`
-  - `MarkCodeUsed(ctx, id uuid.UUID) error`
-- **Implementation Note:**  
-  - Mark code as used atomically to prevent race conditions (e.g., double-spend).
-
----
-
-## 3. Service Layer: Access Grant Generation (Expanded)
-
-- **User/Project/API Key:**
-  1. Use the `user_id` from the OAuth2 request (not email).
-  2. Fetch all projects for the user.
-     - If none, return an error.
-  3. Use the first project (or apply business logic for selection).
-  4. Create a new API key for the project, with a name like `"OAUTH2_API_KEY_FOR_<client_id>_<request_id>"`.
-     - Optionally, check for an existing key with this name to avoid duplicates.
-
-- **Access Grant:**
-  5. Call `CreateAccessGrantForProject` with:
-     - The user context
-     - The selected project ID
-     - (Optional) Passphrase (can be omitted or set to a fixed value for OAuth2)
-     - The new API key
-     - The approved scopes from the OAuth2 request (ensure these are enforced in the grant)
-  6. Return the access grant string, the scopes, and the expiry.
-
-- **Security:**
-  - Ensure the access grant is scoped to the approved permissions.
-  - Audit log the issuance.
-  - Handle errors for missing user, project, or API key.
-
-- **Pseudocode Example:**
-
-```go
-user, err := s.store.Users().GetByID(ctx, oauth2Req.UserID)
-if err != nil { return error }
-projects, err := s.store.Projects().ListByUser(ctx, user.ID)
-if len(projects) == 0 { return error }
-project := projects[0]
-apiKey, err := s.store.APIKeys().Create(ctx, project.ID, "OAUTH2_API_KEY_FOR_"+clientID)
-if err != nil { return error }
-accessGrant, err := s.CreateAccessGrantForProject(ctx, project.ID, "", nil, nil, apiKey, approvedScopes)
-if err != nil { return error }
-return accessGrant
-```
-
----
-
-## 4. Controller Layer
-
-- **Handler:**  
-  `func (a *OAuth2API) ExchangeOAuth2Code(w http.ResponseWriter, r *http.Request)`
-  - Parse/validate input.
-  - Call the service.
-  - Return JSON response with `access_grant`, `scopes`, and `expires_in`.
-
----
-
-## 5. Route Registration
-
-- **File:** `satellite/console/consoleweb/server.go`
-- **Route:**
-  ```go
-  oauth2Router.Handle("/token", http.HandlerFunc(oauth2API.ExchangeOAuth2Code)).Methods(http.MethodPost, http.MethodOptions)
+- **JWT Payload Example:**
+  ```json
+  {
+    "client_id": "your-client-id",
+    "exp": 1712345678
+  }
   ```
-  - Place this under the `/api/v0/oauth2` router setup, grouped with other OAuth2 endpoints.
+- **JWT is signed using the client_secret as the HMAC key.**
+- **Backend:**
+  - Parse JWT from `client_secret` field.
+  - Extract and verify `client_id` and `exp`.
+  - Fetch stored secret for `client_id`.
+  - Validate JWT signature.
+  - Check `exp` is in the future.
 
 ---
 
-## 6. Example curl Request
+## 3. Development Steps
+
+### 3.1. Update API Contract
+- Change request body to accept `client_id` and `client_secret` (JWT) as described above.
+- Update OpenAPI/specs and documentation.
+
+### 3.2. Controller Layer
+- In `/oauth2/token` handler:
+  - Parse `client_id` and `client_secret` (JWT).
+  - Fetch client from DB using `client_id`.
+  - Validate JWT signature using stored `client_secret`.
+  - Check JWT payload for correct `client_id` and valid `exp`.
+  - If invalid, return `invalid_client` error.
+  - If expired, return `jwt_expired` error.
+  - Continue with code exchange logic as before.
+
+### 3.3. Service Layer
+- Remove direct `client_secret` comparison.
+- Add JWT validation logic (see Web3Auth.Token for reference).
+- On success, proceed with access grant issuance as before.
+
+### 3.4. Security
+- Never log or return the JWT or client_secret.
+- Audit log all sensitive actions.
+- Rate limit the endpoint.
+
+### 3.5. Testing
+- Add table-driven tests for:
+  - Valid/invalid JWTs (signature, expiry, payload)
+  - Valid/invalid/expired/used code
+  - All error and success paths
+
+### 3.6. Example JWT Creation (Client Side)
+- Use a JWT library to create a token:
+  - Header: `{ "alg": "HS256", "typ": "JWT" }`
+  - Payload: `{ "client_id": "...", "exp": ... }`
+  - Sign with `client_secret` as HMAC key.
+
+---
+
+## 4. Example curl Request
 
 ```sh
+# Assume you have generated a JWT and stored it in $JWT
 curl -X POST \
   http://localhost:10100/api/v0/oauth2/token \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "your-client-id",
-    "client_secret": "your-client-secret",
+    "client_secret": "'$JWT'",
     "redirect_uri": "https://your-app/callback",
     "code": "AUTH_CODE",
     "passphrase": "your-passphrase"
   }'
 ```
-- **Response:**
-  ```json
-  {
-    "access_grant": "1A...<redacted>...==",
-    "scopes": ["read", "write"],
-    "expires_in": 3600
-  }
-  ```
 
 ---
 
-## 7. Security & Best Practices
+## 5. Implementation Notes
 
-- **Access grant is scoped** to the approved permissions and user.
-- **Code can only be used once** (atomic update).
-- **All actions are audit-logged**.
-- **Rate limiting** on this endpoint.
-- **No sensitive info in error messages**.
-- **Project/API key selection** should be deterministic and secure.
-- **If user has no project/API key, return a clear error.**
-- **PKCE**: If supported, validate code_verifier (future-proof).
-- **CORS/CSRF**: Not needed for server-to-server, but document for completeness.
+- Use the pattern from `Web3Auth.Token` for JWT parsing and validation.
+- Use the `client_secret` from the DB as the HMAC key for validation.
+- Only allow JWTs with a short expiry (e.g., 1-5 minutes).
+- Do not accept JWTs with missing/invalid `client_id` or `exp`.
+- If the JWT is expired, the error returned is `client_secret_expired`.
+
+---
+
+## 6. Migration/Deprecation
+
+- If you have existing clients using the old method, consider supporting both for a transition period, or require all clients to update.
+
+---
+
+## 7. Summary of Required Changes
+
+- [ ] Update API contract and documentation
+- [ ] Update controller to parse and validate JWT in `client_secret`
+- [ ] Update service to use JWT-based client authentication
+- [ ] Remove direct client_secret usage from request
+- [ ] Add/Update tests for JWT validation and error cases
 
 ---
 
 ## 8. Table-Driven Testing
 
-- Valid/invalid client credentials.
-- Valid/invalid/expired/used code.
-- Redirect URI mismatch.
-- No approved scopes.
-- User with/without project/API key.
-- API key creation failure.
-- Access grant creation failure.
-- Duplicate API key name handling.
-- Success and all error paths.
+- Valid/invalid JWTs (signature, expiry, payload)
+- Valid/invalid/expired/used code
+- Redirect URI mismatch
+- No approved scopes
+- User with/without project/API key
+- API key creation failure
+- Access grant creation failure
+- Duplicate API key name handling
+- Success and all error paths
 
 ---
 
@@ -180,7 +176,7 @@ curl -X POST \
 
 ## 10. Current Status
 
-- **Service Layer:** ✅ Implemented
-- **Controller Layer:** ✅ Implemented
+- **Service Layer:** ✅ Implemented (JWT validation, error 'client_secret_expired' for expired JWT)
+- **Controller Layer:** ✅ Implemented (accepts JWT in client_secret)
 - **Route Registration:** ✅ Implemented
 - **Testing:** ❌ Pending

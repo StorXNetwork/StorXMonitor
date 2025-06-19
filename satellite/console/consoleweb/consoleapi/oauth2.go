@@ -98,11 +98,13 @@ func (a *OAuth2API) ConsentOAuth2Request(w http.ResponseWriter, r *http.Request)
 }
 
 // ExchangeOAuth2CodeRequest represents the request body for token exchange
+// client_secret is now a JWT-encoded string (payload: {client_id, exp}) signed with the actual client secret.
 type ExchangeOAuth2CodeRequest struct {
 	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
+	ClientSecret string `json:"client_secret"` // JWT-encoded client_id, signed with client secret
 	RedirectURI  string `json:"redirect_uri"`
 	Code         string `json:"code"`
+	Passphrase   string `json:"passphrase"`
 }
 
 // ExchangeOAuth2CodeResponse represents the response body for token exchange
@@ -112,11 +114,12 @@ type ExchangeOAuth2CodeResponse struct {
 }
 
 // ExchangeOAuth2Code handles POST /api/v0/oauth2/token
+// Accepts client_secret as a JWT-encoded string, not the raw secret.
 func (a *OAuth2API) ExchangeOAuth2Code(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req struct {
 		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"`
+		ClientSecret string `json:"client_secret"` // JWT-encoded client_id, signed with client secret
 		RedirectURI  string `json:"redirect_uri"`
 		Code         string `json:"code"`
 		Passphrase   string `json:"passphrase"`
@@ -132,7 +135,7 @@ func (a *OAuth2API) ExchangeOAuth2Code(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := a.Service.ExchangeOAuth2Code(ctx, console.ExchangeOAuth2CodeRequest{
 		ClientID:     req.ClientID,
-		ClientSecret: req.ClientSecret,
+		ClientSecret: req.ClientSecret, // JWT-encoded string
 		RedirectURI:  req.RedirectURI,
 		Code:         req.Code,
 		Passphrase:   req.Passphrase,

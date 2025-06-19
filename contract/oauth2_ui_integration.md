@@ -104,12 +104,13 @@ This document provides a practical, implementation-aligned guide for integrating
   ```json
   {
     "client_id": "string",
-    "client_secret": "string",
+    "client_secret": "string", // JWT-encoded client_id, signed with client secret
     "redirect_uri": "string",
     "code": "string",
     "passphrase": "string" // optional, for access grant encryption
   }
   ```
+  - `client_secret` must be a JWT with payload `{ "client_id": "...", "exp": ... }` signed using the client secret as HMAC key.
 - **Response (success):**
   ```json
   {
@@ -121,7 +122,7 @@ This document provides a practical, implementation-aligned guide for integrating
 - **Response (error):**
   ```json
   {
-    "error": "invalid_code"
+    "error": "invalid_code" // or "client_secret_expired" if JWT is expired
   }
   ```
 - **Timeout:** Code expires after 30 seconds, single use
@@ -157,6 +158,7 @@ This document provides a practical, implementation-aligned guide for integrating
   { "error": "error_code" }
   ```
 - UI should display user-friendly messages for known errors.
+- For `/oauth2/token`, if the JWT in `client_secret` is expired, the error will be `client_secret_expired`.
 
 ---
 
@@ -260,6 +262,8 @@ Developer        User            External App         StorX Backend
 - **Use secure storage and transmission for all secrets and tokens.**
 - **Follow the sequence: register client → request → consent → token exchange.**
 - **Contact backend team for any ambiguity or error not covered here.**
+- **client_secret** in `/oauth2/token` is now a JWT-encoded string, not the raw secret. See above for details.
+- **If the JWT is expired, the error will be `client_secret_expired`.**
 
 ---
 

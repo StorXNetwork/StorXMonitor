@@ -3031,8 +3031,9 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						scopes text NOT NULL,
 						status integer NOT NULL,
 						created_at timestamp with time zone NOT NULL,
-						expires_at timestamp with time zone NOT NULL,
+						consent_expires_at timestamp with time zone NOT NULL,
 						code text NOT NULL,
+						code_expires_at timestamp with time zone NOT NULL,
 						approved_scopes text NOT NULL,
 						rejected_scopes text NOT NULL,
 						PRIMARY KEY ( id )

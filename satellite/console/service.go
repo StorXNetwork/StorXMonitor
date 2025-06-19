@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/golang-jwt/jwt/v5"
 	"storj.io/common/cfgstruct"
 	"storj.io/common/currency"
 	"storj.io/common/encryption"
@@ -5859,8 +5860,32 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 		return nil, errs.New("invalid_client")
 	}
 
-	if client.ClientSecret != req.ClientSecret {
+	// Validate client_secret as JWT signed with the stored client secret
+	parsedToken, err := jwt.Parse(req.ClientSecret, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(client.ClientSecret), nil
+	})
+	if err != nil || !parsedToken.Valid {
 		return nil, errs.New("invalid_client")
+	}
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errs.New("invalid_client")
+	}
+	// Check client_id in JWT payload
+	jwtClientID, ok := claims["client_id"].(string)
+	if !ok || jwtClientID != req.ClientID {
+		return nil, errs.New("invalid_client")
+	}
+	// Check exp in JWT payload
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return nil, errs.New("invalid_client")
+	}
+	if int64(exp) < s.nowFn().Unix() {
+		return nil, errs.New("client_secret_expired")
 	}
 
 	// Get OAuth2 request by code
