@@ -5564,11 +5564,6 @@ func (s *Service) TestSetNow(now func() time.Time) {
 // The initial version is set to "v0.1".
 func (s *Service) CreateSocialShare(ctx context.Context, key, value string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = s.getUserAndAuditLog(ctx, "create social share")
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	initialVersion := "v0.1"
 
 	err = s.socialShareHelper.UploadSocialShare(ctx, key, value, initialVersion)
@@ -5589,10 +5584,6 @@ func (s *Service) CreateSocialShare(ctx context.Context, key, value string) (err
 // increments it, and then updates both the smart contract and the database.
 func (s *Service) UpdateSocialShare(ctx context.Context, key, value string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = s.getUserAndAuditLog(ctx, "update social share")
-	if err != nil {
-		return Error.Wrap(err)
-	}
 
 	currentVersion, err := s.store.Web3Auth().GetKeyVersion(ctx, []byte(key))
 	if err != nil {

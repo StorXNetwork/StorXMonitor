@@ -77,8 +77,6 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 		return fmt.Errorf("error getting nonce: %v", err)
 	}
 
-	nonceCount = 4
-
 	fmt.Println("SMART CONTRACT DEBUG nonceCount", nonceCount)
 	fmt.Println("SMART CONTRACT DEBUG gasPrice", gasPrice)
 	fmt.Println("SMART CONTRACT DEBUG data", data)
