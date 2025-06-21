@@ -149,6 +149,11 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
 );
+CREATE TABLE key_versions (
+	key_id bytea NOT NULL,
+	version text NOT NULL,
+	PRIMARY KEY ( key_id )
+);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',

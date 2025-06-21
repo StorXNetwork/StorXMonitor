@@ -14,3 +14,19 @@ read one (
     select web3_backup_share.share
     where web3_backup_share.backup_id = ?
 )
+
+model key_version (
+    key key_id
+
+    // key_id corresponds to the key in the smart contract
+    field key_id blob
+    // version is the current version of the key, e.g., "v0.1"
+    field version text ( updatable )
+)
+
+create key_version ( noreturn )
+update key_version ( where key_version.key_id = ? )
+read one (
+    select key_version.version
+    where key_version.key_id = ?
+)

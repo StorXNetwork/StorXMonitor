@@ -19,7 +19,6 @@ type Web3Config struct {
 	NetworkRPC   string
 	ContractAddr string
 	Address      string
-	PrivateKey   string
 }
 
 type web3Helper struct {
@@ -30,13 +29,13 @@ type web3Helper struct {
 	privateKey   *ecdsa.PrivateKey
 }
 
-func NewWeb3Helper(cnf Web3Config) (*web3Helper, error) {
+func NewWeb3Helper(cnf Web3Config, privateKey string) (*web3Helper, error) {
 	client, err := ethclient.Dial(cnf.NetworkRPC)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to the network: %v", err)
 	}
 
-	privateKeyECDSA, err := crypto.HexToECDSA(cnf.PrivateKey)
+	privateKeyECDSA, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing private key: %v", err)
 	}
@@ -77,6 +76,8 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 	if err != nil {
 		return fmt.Errorf("error getting nonce: %v", err)
 	}
+
+	nonceCount = 4
 
 	fmt.Println("SMART CONTRACT DEBUG nonceCount", nonceCount)
 	fmt.Println("SMART CONTRACT DEBUG gasPrice", gasPrice)

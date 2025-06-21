@@ -2998,6 +2998,18 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					1, 'month', 'Pay Using Other Currencies');`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add key_versions table",
+				Version:     283,
+				Action: migrate.SQL{
+					`CREATE TABLE key_versions (
+						key_id bytea NOT NULL,
+						version text NOT NULL,
+						PRIMARY KEY ( key_id )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

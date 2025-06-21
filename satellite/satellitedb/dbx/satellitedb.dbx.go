@@ -462,6 +462,11 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
 );
+CREATE TABLE key_versions (
+	key_id bytea NOT NULL,
+	version text NOT NULL,
+	PRIMARY KEY ( key_id )
+);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -1281,6 +1286,11 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
+);
+CREATE TABLE key_versions (
+	key_id bytea NOT NULL,
+	version text NOT NULL,
+	PRIMARY KEY ( key_id )
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
@@ -4444,6 +4454,55 @@ func (f GracefulExitSegmentTransfer_OrderLimitSendCount_Field) value() interface
 func (GracefulExitSegmentTransfer_OrderLimitSendCount_Field) _Column() string {
 	return "order_limit_send_count"
 }
+
+type KeyVersion struct {
+	KeyId   []byte
+	Version string
+}
+
+func (KeyVersion) _Table() string { return "key_versions" }
+
+type KeyVersion_Update_Fields struct {
+	Version KeyVersion_Version_Field
+}
+
+type KeyVersion_KeyId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func KeyVersion_KeyId(v []byte) KeyVersion_KeyId_Field {
+	return KeyVersion_KeyId_Field{_set: true, _value: v}
+}
+
+func (f KeyVersion_KeyId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (KeyVersion_KeyId_Field) _Column() string { return "key_id" }
+
+type KeyVersion_Version_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func KeyVersion_Version(v string) KeyVersion_Version_Field {
+	return KeyVersion_Version_Field{_set: true, _value: v}
+}
+
+func (f KeyVersion_Version_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (KeyVersion_Version_Field) _Column() string { return "version" }
 
 type Node struct {
 	Id                      []byte
@@ -14784,6 +14843,10 @@ type Value_Row struct {
 	Value time.Time
 }
 
+type Version_Row struct {
+	Version string
+}
+
 type Versioning_Row struct {
 	Versioning int
 }
@@ -16639,6 +16702,30 @@ func (obj *pgxImpl) CreateNoReturn_Web3BackupShare(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __backup_id_val, __share_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxImpl) CreateNoReturn_KeyVersion(ctx context.Context,
+	key_version_key_id KeyVersion_KeyId_Field,
+	key_version_version KeyVersion_Version_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__key_id_val := key_version_key_id.value()
+	__version_val := key_version_version.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO key_versions ( key_id, version ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __key_id_val, __version_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -21462,6 +21549,28 @@ func (obj *pgxImpl) Get_Web3BackupShare_Share_By_BackupId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_KeyVersion_Version_By_KeyId(ctx context.Context,
+	key_version_key_id KeyVersion_KeyId_Field) (
+	row *Version_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT key_versions.version FROM key_versions WHERE key_versions.key_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, key_version_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Version_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Version)
+	if err != nil {
+		return (*Version_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -24253,6 +24362,47 @@ func (obj *pgxImpl) Update_Web3BackupShare_By_BackupId(ctx context.Context,
 	return web3_backup_share, nil
 }
 
+func (obj *pgxImpl) Update_KeyVersion_By_KeyId(ctx context.Context,
+	key_version_key_id KeyVersion_KeyId_Field,
+	update KeyVersion_Update_Fields) (
+	key_version *KeyVersion, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE key_versions SET "), __sets, __sqlbundle_Literal(" WHERE key_versions.key_id = ? RETURNING key_versions.key_id, key_versions.version")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Version._set {
+		__values = append(__values, update.Version.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("version = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, key_version_key_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	key_version = &KeyVersion{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&key_version.KeyId, &key_version.Version)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return key_version, nil
+}
+
 func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -25419,6 +25569,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -27420,6 +27580,30 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Web3BackupShare(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __backup_id_val, __share_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_KeyVersion(ctx context.Context,
+	key_version_key_id KeyVersion_KeyId_Field,
+	key_version_version KeyVersion_Version_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__key_id_val := key_version_key_id.value()
+	__version_val := key_version_version.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO key_versions ( key_id, version ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __key_id_val, __version_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -32243,6 +32427,28 @@ func (obj *pgxcockroachImpl) Get_Web3BackupShare_Share_By_BackupId(ctx context.C
 
 }
 
+func (obj *pgxcockroachImpl) Get_KeyVersion_Version_By_KeyId(ctx context.Context,
+	key_version_key_id KeyVersion_KeyId_Field) (
+	row *Version_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT key_versions.version FROM key_versions WHERE key_versions.key_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, key_version_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Version_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Version)
+	if err != nil {
+		return (*Version_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -35034,6 +35240,47 @@ func (obj *pgxcockroachImpl) Update_Web3BackupShare_By_BackupId(ctx context.Cont
 	return web3_backup_share, nil
 }
 
+func (obj *pgxcockroachImpl) Update_KeyVersion_By_KeyId(ctx context.Context,
+	key_version_key_id KeyVersion_KeyId_Field,
+	update KeyVersion_Update_Fields) (
+	key_version *KeyVersion, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE key_versions SET "), __sets, __sqlbundle_Literal(" WHERE key_versions.key_id = ? RETURNING key_versions.key_id, key_versions.version")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Version._set {
+		__values = append(__values, update.Version.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("version = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, key_version_key_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	key_version = &KeyVersion{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&key_version.KeyId, &key_version.Version)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return key_version, nil
+}
+
 func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -36209,6 +36456,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_segment_transfer_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -36524,6 +36781,11 @@ type Methods interface {
 	CreateNoReturn_BillingBalance(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field,
 		billing_balance_balance BillingBalance_Balance_Field) (
+		err error)
+
+	CreateNoReturn_KeyVersion(ctx context.Context,
+		key_version_key_id KeyVersion_KeyId_Field,
+		key_version_version KeyVersion_Version_Field) (
 		err error)
 
 	CreateNoReturn_NodeSmartContractUpdates(ctx context.Context,
@@ -37042,6 +37304,10 @@ type Methods interface {
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error)
 
+	Get_KeyVersion_Version_By_KeyId(ctx context.Context,
+		key_version_key_id KeyVersion_KeyId_Field) (
+		row *Version_Row, err error)
+
 	Get_NodeEvent_By_Id(ctx context.Context,
 		node_event_id NodeEvent_Id_Field) (
 		node_event *NodeEvent, err error)
@@ -37512,6 +37778,11 @@ type Methods interface {
 		developer_id Developer_Id_Field,
 		update Developer_Update_Fields) (
 		developer *Developer, err error)
+
+	Update_KeyVersion_By_KeyId(ctx context.Context,
+		key_version_key_id KeyVersion_KeyId_Field,
+		update KeyVersion_Update_Fields) (
+		key_version *KeyVersion, err error)
 
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,

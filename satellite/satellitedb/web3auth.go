@@ -43,3 +43,28 @@ func (b *web3Auth) UploadBackupShare(ctx context.Context, backupID string, share
 	}
 	return nil
 }
+
+func (b *web3Auth) CreateKeyVersion(ctx context.Context, keyID []byte, version string) error {
+	return b.db.CreateNoReturn_KeyVersion(ctx,
+		dbx.KeyVersion_KeyId(keyID),
+		dbx.KeyVersion_Version(version),
+	)
+}
+
+func (b *web3Auth) GetKeyVersion(ctx context.Context, keyID []byte) (string, error) {
+	row, err := b.db.Get_KeyVersion_Version_By_KeyId(ctx, dbx.KeyVersion_KeyId(keyID))
+	if err != nil {
+		return "", err
+	}
+	return row.Version, nil
+}
+
+func (b *web3Auth) UpdateKeyVersion(ctx context.Context, keyID []byte, newVersion string) error {
+	_, err := b.db.Update_KeyVersion_By_KeyId(ctx,
+		dbx.KeyVersion_KeyId(keyID),
+		dbx.KeyVersion_Update_Fields{
+			Version: dbx.KeyVersion_Version(newVersion),
+		},
+	)
+	return err
+}
