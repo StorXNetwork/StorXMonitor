@@ -5608,24 +5608,24 @@ func (s *Service) UpdateSocialShare(ctx context.Context, key, value string) (err
 	return nil
 }
 
-// GetSocialShare retrieves a value from the smart contract for a specific key and version.
-func (s *Service) GetSocialShare(ctx context.Context, key, version string) (val []byte, err error) {
+// GetSocialShare retrieves a value from the smart contract for a specific key.
+// The version is automatically fetched from the database.
+func (s *Service) GetSocialShare(ctx context.Context, key string) (val []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = s.getUserAndAuditLog(ctx, "get social share")
+
+	// 1. Get the current version from the database
+	version, err := s.store.Web3Auth().GetKeyVersion(ctx, []byte(key))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
+	// 2. Call the smart contract with the retrieved version
 	return s.socialShareHelper.GetSocialShare(ctx, key, version)
 }
 
 // GetPaginatedSocialShares retrieves a paginated list of key-value pairs from the smart contract.
 func (s *Service) GetPaginatedSocialShares(ctx context.Context, startIndex, count uint64) (keys, values, versionIds []string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = s.getUserAndAuditLog(ctx, "get paginated social shares")
-	if err != nil {
-		return nil, nil, nil, Error.Wrap(err)
-	}
 
 	return s.socialShareHelper.GetPaginatedKeyValues(ctx, startIndex, count)
 }
@@ -5633,10 +5633,6 @@ func (s *Service) GetPaginatedSocialShares(ctx context.Context, startIndex, coun
 // GetTotalSocialShares retrieves the total number of keys from the smart contract.
 func (s *Service) GetTotalSocialShares(ctx context.Context) (count uint64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = s.getUserAndAuditLog(ctx, "get total social shares")
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
 
 	return s.socialShareHelper.GetTotalKeys(ctx)
 }

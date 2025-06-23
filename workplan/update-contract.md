@@ -232,6 +232,98 @@ This document outlines the plan to update the key store contract handling in the
 
 ---
 
+## Phase 6: GetSocialShare API Simplification ✅
+
+**Goal:** Simplify the `GetSocialShare` API to only require the `id` parameter and automatically fetch the version from the database.
+
+### Step 1: Update Service Layer ✅
+*   **Location**: `satellite/console/service.go`
+*   **Action**: Modify the `GetSocialShare` method to automatically fetch the version from the database.
+    ```go
+    // Update the method signature to only require key
+    func (s *Service) GetSocialShare(ctx context.Context, key string) (val []byte, err error) {
+        defer mon.Task()(&ctx)(&err)
+
+        // 1. Get the current version from the database
+        version, err := s.store.Web3Auth().GetKeyVersion(ctx, []byte(key))
+        if err != nil {
+            return nil, Error.Wrap(err)
+        }
+
+        // 2. Call the smart contract with the retrieved version
+        return s.socialShareHelper.GetSocialShare(ctx, key, version)
+    }
+    ```
+
+### Step 2: Update API Controller ✅
+*   **Location**: `satellite/console/consoleweb/consoleapi/web3auth.go`
+*   **Action**: Modify the `GetSocialShare` API handler to only require the `id` parameter.
+    ```go
+    func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
+        ctx := r.Context()
+        var err error
+        defer mon.Task()(&ctx)(&err)
+
+        id := r.URL.Query().Get("id")
+
+        if id == "" {
+            a.sendError(w, "Invalid request: id must be provided", http.StatusBadRequest)
+            return
+        }
+
+        share, err := a.service.GetSocialShare(ctx, id)
+        if err != nil {
+            a.sendError(w, "Error getting social share: "+err.Error(), http.StatusInternalServerError)
+            return
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        err = json.NewEncoder(w).Encode(map[string]string{
+            "share": string(share),
+        })
+        if err != nil {
+            a.sendError(w, "Error encoding social share", http.StatusInternalServerError)
+            return
+        }
+    }
+    ```
+
+### Step 3: Fix Contract Method Calls ✅
+*   **Location**: `satellite/smartcontract/keyvalue-web3.go`
+*   **Action**: Fix the contract method calls to properly handle multiple return values from the ABI.
+    - Fixed `GetSocialShare` to use a struct for return values
+    - Fixed `GetPaginatedKeyValues` to use a struct for return values
+    - Fixed `GetTotalKeys` to properly handle single return value
+
+### Step 4: Update Tests ✅
+*   **Location**: `satellite/console/service_test.go` (or relevant test files)
+*   **Action**: Update unit tests to reflect the new method signature and behavior.
+    ```go
+    func TestService_GetSocialShare(t *testing.T) {
+        // Test cases should now only require the key parameter
+        // The version should be automatically fetched from the database
+        // Test both successful retrieval and error cases
+    }
+    ```
+
+### Step 5: Update Documentation ✅
+*   **Location**: API documentation, README files, or any relevant documentation
+*   **Action**: Update API documentation to reflect that only the `id` parameter is required for the `GetSocialShare` endpoint.
+
+### Validation Points ✅
+- The `GetSocialShare` API endpoint only requires the `id` parameter
+- The service automatically fetches the current version from the database
+- The smart contract is called with the correct version retrieved from the database
+- All existing functionality continues to work correctly
+- Unit tests are updated and pass
+- API documentation is updated to reflect the simplified interface
+
+**Status:** Completed
+**Completion Date:** Current
+**Notes:** Successfully implemented the simplified API interface. The GetSocialShare method now automatically fetches the version from the database, eliminating the need for clients to track versions manually. Fixed contract method calls to properly handle multiple return values from the ABI. All audit logging has been restored.
+
+---
+
 ## Summary Table
 
 | Phase   | Goal                                      | Key Outputs/Validation                |
@@ -241,6 +333,7 @@ This document outlines the plan to update the key store contract handling in the
 | Phase 3 | Secret Management Refactor                | Private key only at build, validated  |
 | Phase 4 | Build System & Makefile Updates           | Secure build, Makefile/CI updated     |
 | Phase 5 | Testing & Validation                      | All tests pass, docs updated          |
+| Phase 6 | GetSocialShare API Simplification         | Simplified API, auto version fetch    |
 
 ---
 

@@ -273,14 +273,12 @@ func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	id := r.URL.Query().Get("id")
-	version := r.URL.Query().Get("version")
-
-	if id == "" || version == "" {
-		a.sendError(w, "Invalid request: id and version must be provided", http.StatusBadRequest)
+	if id == "" {
+		a.sendError(w, "Invalid request: id must be provided", http.StatusBadRequest)
 		return
 	}
 
-	share, err := a.service.GetSocialShare(ctx, id, version)
+	share, err := a.service.GetSocialShare(ctx, id)
 	if err != nil {
 		a.sendError(w, "Error getting social share: "+err.Error(), http.StatusInternalServerError)
 		return

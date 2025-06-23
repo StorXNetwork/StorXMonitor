@@ -76,30 +76,37 @@ func (w *keyValueWeb3Helper) GetSocialShare(ctx context.Context, id string, vers
 		return nil, fmt.Errorf("web3Helper is nil")
 	}
 
-	var value string
-	var exists bool
-	err := w.web3Helper.GetMethodCallData(ctx, "getKeyValueByVersion", &value, &exists, id, versionId)
+	// Create a struct to hold the return values
+	type returnValues struct {
+		Value  string
+		Exists bool
+	}
+
+	var result returnValues
+	err := w.web3Helper.GetMethodCallData(ctx, "getKeyValueByVersion", &result, id, versionId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting social share: %v", err)
 	}
-	if !exists {
+	if !result.Exists {
 		return nil, fmt.Errorf("key or version not found")
 	}
 
-	return []byte(value), nil
+	return []byte(result.Value), nil
 }
 
 func (w *keyValueWeb3Helper) GetPaginatedKeyValues(ctx context.Context, startIndex, count uint64) (keys, values, versionIds []string, err error) {
 	if w == nil {
 		return nil, nil, nil, fmt.Errorf("web3Helper is nil")
 	}
+
+	// Create a struct to hold the return values
 	type output struct {
 		Keys       []string
 		Values     []string
 		VersionIds []string
 	}
 	var out output
-	err = w.web3Helper.GetMethodCallData(ctx, "getPaginatedKeyValues", &out.Keys, &out.Values, &out.VersionIds, startIndex, count)
+	err = w.web3Helper.GetMethodCallData(ctx, "getPaginatedKeyValues", &out, startIndex, count)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("error getting paginated key values: %v", err)
 	}
@@ -110,6 +117,7 @@ func (w *keyValueWeb3Helper) GetTotalKeys(ctx context.Context) (uint64, error) {
 	if w == nil {
 		return 0, fmt.Errorf("web3Helper is nil")
 	}
+
 	var total uint64
 	err := w.web3Helper.GetMethodCallData(ctx, "getTotalKeys", &total)
 	if err != nil {
