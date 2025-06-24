@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/backup"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -144,6 +145,9 @@ type DB interface {
 	// StorjscanPayments stores payments retrieved from storjscan.
 	StorjscanPayments() storjscan.PaymentsDB
 
+	// Web3Auth returns database for web3 auth.
+	Web3Auth() backup.DB
+
 	// Testing provides access to testing facilities. These should not be used in production code.
 	Testing() TestingDB
 }
@@ -230,6 +234,8 @@ type Config struct {
 	PieceTracker piecetracker.Config
 
 	DurabilityReport durability.ReportConfig
+
+	Backup backup.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 }

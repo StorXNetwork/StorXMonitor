@@ -30,3 +30,76 @@ read one (
     select key_version.version
     where key_version.key_id = ?
 )
+
+model backup_final_status (
+    key backup_date
+
+    // backup_date is the date when backup was completed (YYYY-MM-DD format)
+    field backup_date text
+    // status indicates the backup status: "completed", "failed", "in_progress"
+    field status text ( updatable )
+    // completed_at timestamp when backup was completed
+    field completed_at timestamp ( updatable )
+    // total_pages total number of pages processed
+    field total_pages int ( updatable )
+    // total_keys total number of keys backed up
+    field total_keys int ( updatable )
+    // backup_file_path path to the final backup file
+    field backup_file_path text ( updatable )
+    // error_message error message if backup failed
+    field error_message text ( updatable )
+    // checksum hash of the backup file for integrity verification
+    field checksum text ( updatable )
+    // file_size size of the backup file in bytes
+    field file_size int64 ( updatable )
+)
+
+create backup_final_status ( noreturn )
+update backup_final_status ( where backup_final_status.backup_date = ? )
+read one (
+    select backup_final_status
+    where backup_final_status.backup_date = ?
+)
+read all (
+    select backup_final_status
+    orderby desc backup_final_status.backup_date
+)
+
+model backup_page_status (
+    key backup_date page_number
+
+    // backup_date is the date when backup was completed (YYYY-MM-DD format)
+    field backup_date text
+    // page_number is the page number being processed
+    field page_number int
+    // status indicates the page backup status: "completed", "failed", "in_progress"
+    field status text ( updatable )
+    // completed_at timestamp when page backup was completed
+    field completed_at timestamp ( updatable )
+    // keys_count number of keys in this page
+    field keys_count int ( updatable )
+    // file_path path to the page backup file
+    field file_path text ( updatable )
+    // error_message error message if page backup failed
+    field error_message text ( updatable )
+    // checksum hash of the page file for integrity verification
+    field checksum text ( updatable )
+    // file_size size of the page file in bytes
+    field file_size int64 ( updatable )
+)
+
+create backup_page_status ( noreturn )
+update backup_page_status (
+    where backup_page_status.backup_date = ?
+    where backup_page_status.page_number = ?
+)
+read one (
+    select backup_page_status
+    where backup_page_status.backup_date = ?
+    where backup_page_status.page_number = ?
+)
+read all (
+    select backup_page_status
+    where backup_page_status.backup_date = ?
+    orderby asc backup_page_status.page_number
+)

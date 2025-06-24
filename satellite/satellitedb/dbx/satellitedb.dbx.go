@@ -338,6 +338,30 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE backup_final_statuses (
+	backup_date text NOT NULL,
+	status text NOT NULL,
+	completed_at timestamp with time zone NOT NULL,
+	total_pages integer NOT NULL,
+	total_keys integer NOT NULL,
+	backup_file_path text NOT NULL,
+	error_message text NOT NULL,
+	checksum text NOT NULL,
+	file_size bigint NOT NULL,
+	PRIMARY KEY ( backup_date )
+);
+CREATE TABLE backup_page_statuses (
+	backup_date text NOT NULL,
+	page_number integer NOT NULL,
+	status text NOT NULL,
+	completed_at timestamp with time zone NOT NULL,
+	keys_count integer NOT NULL,
+	file_path text NOT NULL,
+	error_message text NOT NULL,
+	checksum text NOT NULL,
+	file_size bigint NOT NULL,
+	PRIMARY KEY ( backup_date, page_number )
+);
 CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
@@ -1162,6 +1186,30 @@ CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
+);
+CREATE TABLE backup_final_statuses (
+	backup_date text NOT NULL,
+	status text NOT NULL,
+	completed_at timestamp with time zone NOT NULL,
+	total_pages integer NOT NULL,
+	total_keys integer NOT NULL,
+	backup_file_path text NOT NULL,
+	error_message text NOT NULL,
+	checksum text NOT NULL,
+	file_size bigint NOT NULL,
+	PRIMARY KEY ( backup_date )
+);
+CREATE TABLE backup_page_statuses (
+	backup_date text NOT NULL,
+	page_number integer NOT NULL,
+	status text NOT NULL,
+	completed_at timestamp with time zone NOT NULL,
+	keys_count integer NOT NULL,
+	file_path text NOT NULL,
+	error_message text NOT NULL,
+	checksum text NOT NULL,
+	file_size bigint NOT NULL,
+	PRIMARY KEY ( backup_date, page_number )
 );
 CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
@@ -2327,6 +2375,397 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type BackupFinalStatus struct {
+	BackupDate     string
+	Status         string
+	CompletedAt    time.Time
+	TotalPages     int
+	TotalKeys      int
+	BackupFilePath string
+	ErrorMessage   string
+	Checksum       string
+	FileSize       int64
+}
+
+func (BackupFinalStatus) _Table() string { return "backup_final_statuses" }
+
+type BackupFinalStatus_Update_Fields struct {
+	Status         BackupFinalStatus_Status_Field
+	CompletedAt    BackupFinalStatus_CompletedAt_Field
+	TotalPages     BackupFinalStatus_TotalPages_Field
+	TotalKeys      BackupFinalStatus_TotalKeys_Field
+	BackupFilePath BackupFinalStatus_BackupFilePath_Field
+	ErrorMessage   BackupFinalStatus_ErrorMessage_Field
+	Checksum       BackupFinalStatus_Checksum_Field
+	FileSize       BackupFinalStatus_FileSize_Field
+}
+
+type BackupFinalStatus_BackupDate_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupFinalStatus_BackupDate(v string) BackupFinalStatus_BackupDate_Field {
+	return BackupFinalStatus_BackupDate_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_BackupDate_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_BackupDate_Field) _Column() string { return "backup_date" }
+
+type BackupFinalStatus_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupFinalStatus_Status(v string) BackupFinalStatus_Status_Field {
+	return BackupFinalStatus_Status_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_Status_Field) _Column() string { return "status" }
+
+type BackupFinalStatus_CompletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BackupFinalStatus_CompletedAt(v time.Time) BackupFinalStatus_CompletedAt_Field {
+	return BackupFinalStatus_CompletedAt_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_CompletedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_CompletedAt_Field) _Column() string { return "completed_at" }
+
+type BackupFinalStatus_TotalPages_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BackupFinalStatus_TotalPages(v int) BackupFinalStatus_TotalPages_Field {
+	return BackupFinalStatus_TotalPages_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_TotalPages_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_TotalPages_Field) _Column() string { return "total_pages" }
+
+type BackupFinalStatus_TotalKeys_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BackupFinalStatus_TotalKeys(v int) BackupFinalStatus_TotalKeys_Field {
+	return BackupFinalStatus_TotalKeys_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_TotalKeys_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_TotalKeys_Field) _Column() string { return "total_keys" }
+
+type BackupFinalStatus_BackupFilePath_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupFinalStatus_BackupFilePath(v string) BackupFinalStatus_BackupFilePath_Field {
+	return BackupFinalStatus_BackupFilePath_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_BackupFilePath_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_BackupFilePath_Field) _Column() string { return "backup_file_path" }
+
+type BackupFinalStatus_ErrorMessage_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupFinalStatus_ErrorMessage(v string) BackupFinalStatus_ErrorMessage_Field {
+	return BackupFinalStatus_ErrorMessage_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_ErrorMessage_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_ErrorMessage_Field) _Column() string { return "error_message" }
+
+type BackupFinalStatus_Checksum_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupFinalStatus_Checksum(v string) BackupFinalStatus_Checksum_Field {
+	return BackupFinalStatus_Checksum_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_Checksum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_Checksum_Field) _Column() string { return "checksum" }
+
+type BackupFinalStatus_FileSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func BackupFinalStatus_FileSize(v int64) BackupFinalStatus_FileSize_Field {
+	return BackupFinalStatus_FileSize_Field{_set: true, _value: v}
+}
+
+func (f BackupFinalStatus_FileSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupFinalStatus_FileSize_Field) _Column() string { return "file_size" }
+
+type BackupPageStatus struct {
+	BackupDate   string
+	PageNumber   int
+	Status       string
+	CompletedAt  time.Time
+	KeysCount    int
+	FilePath     string
+	ErrorMessage string
+	Checksum     string
+	FileSize     int64
+}
+
+func (BackupPageStatus) _Table() string { return "backup_page_statuses" }
+
+type BackupPageStatus_Update_Fields struct {
+	Status       BackupPageStatus_Status_Field
+	CompletedAt  BackupPageStatus_CompletedAt_Field
+	KeysCount    BackupPageStatus_KeysCount_Field
+	FilePath     BackupPageStatus_FilePath_Field
+	ErrorMessage BackupPageStatus_ErrorMessage_Field
+	Checksum     BackupPageStatus_Checksum_Field
+	FileSize     BackupPageStatus_FileSize_Field
+}
+
+type BackupPageStatus_BackupDate_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupPageStatus_BackupDate(v string) BackupPageStatus_BackupDate_Field {
+	return BackupPageStatus_BackupDate_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_BackupDate_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_BackupDate_Field) _Column() string { return "backup_date" }
+
+type BackupPageStatus_PageNumber_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BackupPageStatus_PageNumber(v int) BackupPageStatus_PageNumber_Field {
+	return BackupPageStatus_PageNumber_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_PageNumber_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_PageNumber_Field) _Column() string { return "page_number" }
+
+type BackupPageStatus_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupPageStatus_Status(v string) BackupPageStatus_Status_Field {
+	return BackupPageStatus_Status_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_Status_Field) _Column() string { return "status" }
+
+type BackupPageStatus_CompletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BackupPageStatus_CompletedAt(v time.Time) BackupPageStatus_CompletedAt_Field {
+	return BackupPageStatus_CompletedAt_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_CompletedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_CompletedAt_Field) _Column() string { return "completed_at" }
+
+type BackupPageStatus_KeysCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BackupPageStatus_KeysCount(v int) BackupPageStatus_KeysCount_Field {
+	return BackupPageStatus_KeysCount_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_KeysCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_KeysCount_Field) _Column() string { return "keys_count" }
+
+type BackupPageStatus_FilePath_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupPageStatus_FilePath(v string) BackupPageStatus_FilePath_Field {
+	return BackupPageStatus_FilePath_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_FilePath_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_FilePath_Field) _Column() string { return "file_path" }
+
+type BackupPageStatus_ErrorMessage_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupPageStatus_ErrorMessage(v string) BackupPageStatus_ErrorMessage_Field {
+	return BackupPageStatus_ErrorMessage_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_ErrorMessage_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_ErrorMessage_Field) _Column() string { return "error_message" }
+
+type BackupPageStatus_Checksum_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupPageStatus_Checksum(v string) BackupPageStatus_Checksum_Field {
+	return BackupPageStatus_Checksum_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_Checksum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_Checksum_Field) _Column() string { return "checksum" }
+
+type BackupPageStatus_FileSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func BackupPageStatus_FileSize(v int64) BackupPageStatus_FileSize_Field {
+	return BackupPageStatus_FileSize_Field{_set: true, _value: v}
+}
+
+func (f BackupPageStatus_FileSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BackupPageStatus_FileSize_Field) _Column() string { return "file_size" }
 
 type BillingBalance struct {
 	UserId      []byte
@@ -16738,6 +17177,82 @@ func (obj *pgxImpl) CreateNoReturn_KeyVersion(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) CreateNoReturn_BackupFinalStatus(ctx context.Context,
+	backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
+	backup_final_status_status BackupFinalStatus_Status_Field,
+	backup_final_status_completed_at BackupFinalStatus_CompletedAt_Field,
+	backup_final_status_total_pages BackupFinalStatus_TotalPages_Field,
+	backup_final_status_total_keys BackupFinalStatus_TotalKeys_Field,
+	backup_final_status_backup_file_path BackupFinalStatus_BackupFilePath_Field,
+	backup_final_status_error_message BackupFinalStatus_ErrorMessage_Field,
+	backup_final_status_checksum BackupFinalStatus_Checksum_Field,
+	backup_final_status_file_size BackupFinalStatus_FileSize_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__backup_date_val := backup_final_status_backup_date.value()
+	__status_val := backup_final_status_status.value()
+	__completed_at_val := backup_final_status_completed_at.value()
+	__total_pages_val := backup_final_status_total_pages.value()
+	__total_keys_val := backup_final_status_total_keys.value()
+	__backup_file_path_val := backup_final_status_backup_file_path.value()
+	__error_message_val := backup_final_status_error_message.value()
+	__checksum_val := backup_final_status_checksum.value()
+	__file_size_val := backup_final_status_file_size.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_final_statuses ( backup_date, status, completed_at, total_pages, total_keys, backup_file_path, error_message, checksum, file_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __backup_date_val, __status_val, __completed_at_val, __total_pages_val, __total_keys_val, __backup_file_path_val, __error_message_val, __checksum_val, __file_size_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxImpl) CreateNoReturn_BackupPageStatus(ctx context.Context,
+	backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+	backup_page_status_page_number BackupPageStatus_PageNumber_Field,
+	backup_page_status_status BackupPageStatus_Status_Field,
+	backup_page_status_completed_at BackupPageStatus_CompletedAt_Field,
+	backup_page_status_keys_count BackupPageStatus_KeysCount_Field,
+	backup_page_status_file_path BackupPageStatus_FilePath_Field,
+	backup_page_status_error_message BackupPageStatus_ErrorMessage_Field,
+	backup_page_status_checksum BackupPageStatus_Checksum_Field,
+	backup_page_status_file_size BackupPageStatus_FileSize_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__backup_date_val := backup_page_status_backup_date.value()
+	__page_number_val := backup_page_status_page_number.value()
+	__status_val := backup_page_status_status.value()
+	__completed_at_val := backup_page_status_completed_at.value()
+	__keys_count_val := backup_page_status_keys_count.value()
+	__file_path_val := backup_page_status_file_path.value()
+	__error_message_val := backup_page_status_error_message.value()
+	__checksum_val := backup_page_status_checksum.value()
+	__file_size_val := backup_page_status_file_size.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_page_statuses ( backup_date, page_number, status, completed_at, keys_count, file_path, error_message, checksum, file_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __backup_date_val, __page_number_val, __status_val, __completed_at_val, __keys_count_val, __file_path_val, __error_message_val, __checksum_val, __file_size_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -21571,6 +22086,139 @@ func (obj *pgxImpl) Get_KeyVersion_Version_By_KeyId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_BackupFinalStatus_By_BackupDate(ctx context.Context,
+	backup_final_status_backup_date BackupFinalStatus_BackupDate_Field) (
+	backup_final_status *BackupFinalStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_final_statuses.backup_date, backup_final_statuses.status, backup_final_statuses.completed_at, backup_final_statuses.total_pages, backup_final_statuses.total_keys, backup_final_statuses.backup_file_path, backup_final_statuses.error_message, backup_final_statuses.checksum, backup_final_statuses.file_size FROM backup_final_statuses WHERE backup_final_statuses.backup_date = ?")
+
+	var __values []interface{}
+	__values = append(__values, backup_final_status_backup_date.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_final_status = &BackupFinalStatus{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_final_status.BackupDate, &backup_final_status.Status, &backup_final_status.CompletedAt, &backup_final_status.TotalPages, &backup_final_status.TotalKeys, &backup_final_status.BackupFilePath, &backup_final_status.ErrorMessage, &backup_final_status.Checksum, &backup_final_status.FileSize)
+	if err != nil {
+		return (*BackupFinalStatus)(nil), obj.makeErr(err)
+	}
+	return backup_final_status, nil
+
+}
+
+func (obj *pgxImpl) All_BackupFinalStatus_OrderBy_Desc_BackupDate(ctx context.Context) (
+	rows []*BackupFinalStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_final_statuses.backup_date, backup_final_statuses.status, backup_final_statuses.completed_at, backup_final_statuses.total_pages, backup_final_statuses.total_keys, backup_final_statuses.backup_file_path, backup_final_statuses.error_message, backup_final_statuses.checksum, backup_final_statuses.file_size FROM backup_final_statuses ORDER BY backup_final_statuses.backup_date DESC")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupFinalStatus, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				backup_final_status := &BackupFinalStatus{}
+				err = __rows.Scan(&backup_final_status.BackupDate, &backup_final_status.Status, &backup_final_status.CompletedAt, &backup_final_status.TotalPages, &backup_final_status.TotalKeys, &backup_final_status.BackupFilePath, &backup_final_status.ErrorMessage, &backup_final_status.Checksum, &backup_final_status.FileSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_final_status)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_BackupPageStatus_By_BackupDate_And_PageNumber(ctx context.Context,
+	backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+	backup_page_status_page_number BackupPageStatus_PageNumber_Field) (
+	backup_page_status *BackupPageStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_page_statuses.backup_date, backup_page_statuses.page_number, backup_page_statuses.status, backup_page_statuses.completed_at, backup_page_statuses.keys_count, backup_page_statuses.file_path, backup_page_statuses.error_message, backup_page_statuses.checksum, backup_page_statuses.file_size FROM backup_page_statuses WHERE backup_page_statuses.backup_date = ? AND backup_page_statuses.page_number = ?")
+
+	var __values []interface{}
+	__values = append(__values, backup_page_status_backup_date.value(), backup_page_status_page_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_page_status = &BackupPageStatus{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_page_status.BackupDate, &backup_page_status.PageNumber, &backup_page_status.Status, &backup_page_status.CompletedAt, &backup_page_status.KeysCount, &backup_page_status.FilePath, &backup_page_status.ErrorMessage, &backup_page_status.Checksum, &backup_page_status.FileSize)
+	if err != nil {
+		return (*BackupPageStatus)(nil), obj.makeErr(err)
+	}
+	return backup_page_status, nil
+
+}
+
+func (obj *pgxImpl) All_BackupPageStatus_By_BackupDate_OrderBy_Asc_PageNumber(ctx context.Context,
+	backup_page_status_backup_date BackupPageStatus_BackupDate_Field) (
+	rows []*BackupPageStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_page_statuses.backup_date, backup_page_statuses.page_number, backup_page_statuses.status, backup_page_statuses.completed_at, backup_page_statuses.keys_count, backup_page_statuses.file_path, backup_page_statuses.error_message, backup_page_statuses.checksum, backup_page_statuses.file_size FROM backup_page_statuses WHERE backup_page_statuses.backup_date = ? ORDER BY backup_page_statuses.page_number")
+
+	var __values []interface{}
+	__values = append(__values, backup_page_status_backup_date.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupPageStatus, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				backup_page_status := &BackupPageStatus{}
+				err = __rows.Scan(&backup_page_status.BackupDate, &backup_page_status.PageNumber, &backup_page_status.Status, &backup_page_status.CompletedAt, &backup_page_status.KeysCount, &backup_page_status.FilePath, &backup_page_status.ErrorMessage, &backup_page_status.Checksum, &backup_page_status.FileSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_page_status)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -24403,6 +25051,154 @@ func (obj *pgxImpl) Update_KeyVersion_By_KeyId(ctx context.Context,
 	return key_version, nil
 }
 
+func (obj *pgxImpl) Update_BackupFinalStatus_By_BackupDate(ctx context.Context,
+	backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
+	update BackupFinalStatus_Update_Fields) (
+	backup_final_status *BackupFinalStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_final_statuses SET "), __sets, __sqlbundle_Literal(" WHERE backup_final_statuses.backup_date = ? RETURNING backup_final_statuses.backup_date, backup_final_statuses.status, backup_final_statuses.completed_at, backup_final_statuses.total_pages, backup_final_statuses.total_keys, backup_final_statuses.backup_file_path, backup_final_statuses.error_message, backup_final_statuses.checksum, backup_final_statuses.file_size")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	if update.TotalPages._set {
+		__values = append(__values, update.TotalPages.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_pages = ?"))
+	}
+
+	if update.TotalKeys._set {
+		__values = append(__values, update.TotalKeys.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_keys = ?"))
+	}
+
+	if update.BackupFilePath._set {
+		__values = append(__values, update.BackupFilePath.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("backup_file_path = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.Checksum._set {
+		__values = append(__values, update.Checksum.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("checksum = ?"))
+	}
+
+	if update.FileSize._set {
+		__values = append(__values, update.FileSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("file_size = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, backup_final_status_backup_date.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_final_status = &BackupFinalStatus{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_final_status.BackupDate, &backup_final_status.Status, &backup_final_status.CompletedAt, &backup_final_status.TotalPages, &backup_final_status.TotalKeys, &backup_final_status.BackupFilePath, &backup_final_status.ErrorMessage, &backup_final_status.Checksum, &backup_final_status.FileSize)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return backup_final_status, nil
+}
+
+func (obj *pgxImpl) Update_BackupPageStatus_By_BackupDate_And_PageNumber(ctx context.Context,
+	backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+	backup_page_status_page_number BackupPageStatus_PageNumber_Field,
+	update BackupPageStatus_Update_Fields) (
+	backup_page_status *BackupPageStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_page_statuses SET "), __sets, __sqlbundle_Literal(" WHERE backup_page_statuses.backup_date = ? AND backup_page_statuses.page_number = ? RETURNING backup_page_statuses.backup_date, backup_page_statuses.page_number, backup_page_statuses.status, backup_page_statuses.completed_at, backup_page_statuses.keys_count, backup_page_statuses.file_path, backup_page_statuses.error_message, backup_page_statuses.checksum, backup_page_statuses.file_size")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	if update.KeysCount._set {
+		__values = append(__values, update.KeysCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("keys_count = ?"))
+	}
+
+	if update.FilePath._set {
+		__values = append(__values, update.FilePath.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("file_path = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.Checksum._set {
+		__values = append(__values, update.Checksum.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("checksum = ?"))
+	}
+
+	if update.FileSize._set {
+		__values = append(__values, update.FileSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("file_size = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, backup_page_status_backup_date.value(), backup_page_status_page_number.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_page_status = &BackupPageStatus{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_page_status.BackupDate, &backup_page_status.PageNumber, &backup_page_status.Status, &backup_page_status.CompletedAt, &backup_page_status.KeysCount, &backup_page_status.FilePath, &backup_page_status.ErrorMessage, &backup_page_status.Checksum, &backup_page_status.FileSize)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return backup_page_status, nil
+}
+
 func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -25689,6 +26485,26 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM billing_balances;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_page_statuses;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_final_statuses;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -27604,6 +28420,82 @@ func (obj *pgxcockroachImpl) CreateNoReturn_KeyVersion(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __key_id_val, __version_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_BackupFinalStatus(ctx context.Context,
+	backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
+	backup_final_status_status BackupFinalStatus_Status_Field,
+	backup_final_status_completed_at BackupFinalStatus_CompletedAt_Field,
+	backup_final_status_total_pages BackupFinalStatus_TotalPages_Field,
+	backup_final_status_total_keys BackupFinalStatus_TotalKeys_Field,
+	backup_final_status_backup_file_path BackupFinalStatus_BackupFilePath_Field,
+	backup_final_status_error_message BackupFinalStatus_ErrorMessage_Field,
+	backup_final_status_checksum BackupFinalStatus_Checksum_Field,
+	backup_final_status_file_size BackupFinalStatus_FileSize_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__backup_date_val := backup_final_status_backup_date.value()
+	__status_val := backup_final_status_status.value()
+	__completed_at_val := backup_final_status_completed_at.value()
+	__total_pages_val := backup_final_status_total_pages.value()
+	__total_keys_val := backup_final_status_total_keys.value()
+	__backup_file_path_val := backup_final_status_backup_file_path.value()
+	__error_message_val := backup_final_status_error_message.value()
+	__checksum_val := backup_final_status_checksum.value()
+	__file_size_val := backup_final_status_file_size.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_final_statuses ( backup_date, status, completed_at, total_pages, total_keys, backup_file_path, error_message, checksum, file_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __backup_date_val, __status_val, __completed_at_val, __total_pages_val, __total_keys_val, __backup_file_path_val, __error_message_val, __checksum_val, __file_size_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_BackupPageStatus(ctx context.Context,
+	backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+	backup_page_status_page_number BackupPageStatus_PageNumber_Field,
+	backup_page_status_status BackupPageStatus_Status_Field,
+	backup_page_status_completed_at BackupPageStatus_CompletedAt_Field,
+	backup_page_status_keys_count BackupPageStatus_KeysCount_Field,
+	backup_page_status_file_path BackupPageStatus_FilePath_Field,
+	backup_page_status_error_message BackupPageStatus_ErrorMessage_Field,
+	backup_page_status_checksum BackupPageStatus_Checksum_Field,
+	backup_page_status_file_size BackupPageStatus_FileSize_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__backup_date_val := backup_page_status_backup_date.value()
+	__page_number_val := backup_page_status_page_number.value()
+	__status_val := backup_page_status_status.value()
+	__completed_at_val := backup_page_status_completed_at.value()
+	__keys_count_val := backup_page_status_keys_count.value()
+	__file_path_val := backup_page_status_file_path.value()
+	__error_message_val := backup_page_status_error_message.value()
+	__checksum_val := backup_page_status_checksum.value()
+	__file_size_val := backup_page_status_file_size.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_page_statuses ( backup_date, page_number, status, completed_at, keys_count, file_path, error_message, checksum, file_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __backup_date_val, __page_number_val, __status_val, __completed_at_val, __keys_count_val, __file_path_val, __error_message_val, __checksum_val, __file_size_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -32449,6 +33341,139 @@ func (obj *pgxcockroachImpl) Get_KeyVersion_Version_By_KeyId(ctx context.Context
 
 }
 
+func (obj *pgxcockroachImpl) Get_BackupFinalStatus_By_BackupDate(ctx context.Context,
+	backup_final_status_backup_date BackupFinalStatus_BackupDate_Field) (
+	backup_final_status *BackupFinalStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_final_statuses.backup_date, backup_final_statuses.status, backup_final_statuses.completed_at, backup_final_statuses.total_pages, backup_final_statuses.total_keys, backup_final_statuses.backup_file_path, backup_final_statuses.error_message, backup_final_statuses.checksum, backup_final_statuses.file_size FROM backup_final_statuses WHERE backup_final_statuses.backup_date = ?")
+
+	var __values []interface{}
+	__values = append(__values, backup_final_status_backup_date.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_final_status = &BackupFinalStatus{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_final_status.BackupDate, &backup_final_status.Status, &backup_final_status.CompletedAt, &backup_final_status.TotalPages, &backup_final_status.TotalKeys, &backup_final_status.BackupFilePath, &backup_final_status.ErrorMessage, &backup_final_status.Checksum, &backup_final_status.FileSize)
+	if err != nil {
+		return (*BackupFinalStatus)(nil), obj.makeErr(err)
+	}
+	return backup_final_status, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_BackupFinalStatus_OrderBy_Desc_BackupDate(ctx context.Context) (
+	rows []*BackupFinalStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_final_statuses.backup_date, backup_final_statuses.status, backup_final_statuses.completed_at, backup_final_statuses.total_pages, backup_final_statuses.total_keys, backup_final_statuses.backup_file_path, backup_final_statuses.error_message, backup_final_statuses.checksum, backup_final_statuses.file_size FROM backup_final_statuses ORDER BY backup_final_statuses.backup_date DESC")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupFinalStatus, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				backup_final_status := &BackupFinalStatus{}
+				err = __rows.Scan(&backup_final_status.BackupDate, &backup_final_status.Status, &backup_final_status.CompletedAt, &backup_final_status.TotalPages, &backup_final_status.TotalKeys, &backup_final_status.BackupFilePath, &backup_final_status.ErrorMessage, &backup_final_status.Checksum, &backup_final_status.FileSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_final_status)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_BackupPageStatus_By_BackupDate_And_PageNumber(ctx context.Context,
+	backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+	backup_page_status_page_number BackupPageStatus_PageNumber_Field) (
+	backup_page_status *BackupPageStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_page_statuses.backup_date, backup_page_statuses.page_number, backup_page_statuses.status, backup_page_statuses.completed_at, backup_page_statuses.keys_count, backup_page_statuses.file_path, backup_page_statuses.error_message, backup_page_statuses.checksum, backup_page_statuses.file_size FROM backup_page_statuses WHERE backup_page_statuses.backup_date = ? AND backup_page_statuses.page_number = ?")
+
+	var __values []interface{}
+	__values = append(__values, backup_page_status_backup_date.value(), backup_page_status_page_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_page_status = &BackupPageStatus{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_page_status.BackupDate, &backup_page_status.PageNumber, &backup_page_status.Status, &backup_page_status.CompletedAt, &backup_page_status.KeysCount, &backup_page_status.FilePath, &backup_page_status.ErrorMessage, &backup_page_status.Checksum, &backup_page_status.FileSize)
+	if err != nil {
+		return (*BackupPageStatus)(nil), obj.makeErr(err)
+	}
+	return backup_page_status, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_BackupPageStatus_By_BackupDate_OrderBy_Asc_PageNumber(ctx context.Context,
+	backup_page_status_backup_date BackupPageStatus_BackupDate_Field) (
+	rows []*BackupPageStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_page_statuses.backup_date, backup_page_statuses.page_number, backup_page_statuses.status, backup_page_statuses.completed_at, backup_page_statuses.keys_count, backup_page_statuses.file_path, backup_page_statuses.error_message, backup_page_statuses.checksum, backup_page_statuses.file_size FROM backup_page_statuses WHERE backup_page_statuses.backup_date = ? ORDER BY backup_page_statuses.page_number")
+
+	var __values []interface{}
+	__values = append(__values, backup_page_status_backup_date.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupPageStatus, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				backup_page_status := &BackupPageStatus{}
+				err = __rows.Scan(&backup_page_status.BackupDate, &backup_page_status.PageNumber, &backup_page_status.Status, &backup_page_status.CompletedAt, &backup_page_status.KeysCount, &backup_page_status.FilePath, &backup_page_status.ErrorMessage, &backup_page_status.Checksum, &backup_page_status.FileSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_page_status)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -35281,6 +36306,154 @@ func (obj *pgxcockroachImpl) Update_KeyVersion_By_KeyId(ctx context.Context,
 	return key_version, nil
 }
 
+func (obj *pgxcockroachImpl) Update_BackupFinalStatus_By_BackupDate(ctx context.Context,
+	backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
+	update BackupFinalStatus_Update_Fields) (
+	backup_final_status *BackupFinalStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_final_statuses SET "), __sets, __sqlbundle_Literal(" WHERE backup_final_statuses.backup_date = ? RETURNING backup_final_statuses.backup_date, backup_final_statuses.status, backup_final_statuses.completed_at, backup_final_statuses.total_pages, backup_final_statuses.total_keys, backup_final_statuses.backup_file_path, backup_final_statuses.error_message, backup_final_statuses.checksum, backup_final_statuses.file_size")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	if update.TotalPages._set {
+		__values = append(__values, update.TotalPages.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_pages = ?"))
+	}
+
+	if update.TotalKeys._set {
+		__values = append(__values, update.TotalKeys.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_keys = ?"))
+	}
+
+	if update.BackupFilePath._set {
+		__values = append(__values, update.BackupFilePath.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("backup_file_path = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.Checksum._set {
+		__values = append(__values, update.Checksum.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("checksum = ?"))
+	}
+
+	if update.FileSize._set {
+		__values = append(__values, update.FileSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("file_size = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, backup_final_status_backup_date.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_final_status = &BackupFinalStatus{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_final_status.BackupDate, &backup_final_status.Status, &backup_final_status.CompletedAt, &backup_final_status.TotalPages, &backup_final_status.TotalKeys, &backup_final_status.BackupFilePath, &backup_final_status.ErrorMessage, &backup_final_status.Checksum, &backup_final_status.FileSize)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return backup_final_status, nil
+}
+
+func (obj *pgxcockroachImpl) Update_BackupPageStatus_By_BackupDate_And_PageNumber(ctx context.Context,
+	backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+	backup_page_status_page_number BackupPageStatus_PageNumber_Field,
+	update BackupPageStatus_Update_Fields) (
+	backup_page_status *BackupPageStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_page_statuses SET "), __sets, __sqlbundle_Literal(" WHERE backup_page_statuses.backup_date = ? AND backup_page_statuses.page_number = ? RETURNING backup_page_statuses.backup_date, backup_page_statuses.page_number, backup_page_statuses.status, backup_page_statuses.completed_at, backup_page_statuses.keys_count, backup_page_statuses.file_path, backup_page_statuses.error_message, backup_page_statuses.checksum, backup_page_statuses.file_size")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	if update.KeysCount._set {
+		__values = append(__values, update.KeysCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("keys_count = ?"))
+	}
+
+	if update.FilePath._set {
+		__values = append(__values, update.FilePath.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("file_path = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.Checksum._set {
+		__values = append(__values, update.Checksum.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("checksum = ?"))
+	}
+
+	if update.FileSize._set {
+		__values = append(__values, update.FileSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("file_size = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, backup_page_status_backup_date.value(), backup_page_status_page_number.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_page_status = &BackupPageStatus{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_page_status.BackupDate, &backup_page_status.PageNumber, &backup_page_status.Status, &backup_page_status.CompletedAt, &backup_page_status.KeysCount, &backup_page_status.FilePath, &backup_page_status.ErrorMessage, &backup_page_status.Checksum, &backup_page_status.FileSize)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return backup_page_status, nil
+}
+
 func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -36576,6 +37749,26 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_page_statuses;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_final_statuses;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -36615,6 +37808,13 @@ type Methods interface {
 	All_AccountFreezeEvent_By_UserId(ctx context.Context,
 		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
 		rows []*AccountFreezeEvent, err error)
+
+	All_BackupFinalStatus_OrderBy_Desc_BackupDate(ctx context.Context) (
+		rows []*BackupFinalStatus, err error)
+
+	All_BackupPageStatus_By_BackupDate_OrderBy_Asc_PageNumber(ctx context.Context,
+		backup_page_status_backup_date BackupPageStatus_BackupDate_Field) (
+		rows []*BackupPageStatus, err error)
 
 	All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_Timestamp(ctx context.Context,
 		billing_transaction_user_id BillingTransaction_UserId_Field,
@@ -36777,6 +37977,30 @@ type Methods interface {
 	Count_User_By_Status(ctx context.Context,
 		user_status User_Status_Field) (
 		count int64, err error)
+
+	CreateNoReturn_BackupFinalStatus(ctx context.Context,
+		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
+		backup_final_status_status BackupFinalStatus_Status_Field,
+		backup_final_status_completed_at BackupFinalStatus_CompletedAt_Field,
+		backup_final_status_total_pages BackupFinalStatus_TotalPages_Field,
+		backup_final_status_total_keys BackupFinalStatus_TotalKeys_Field,
+		backup_final_status_backup_file_path BackupFinalStatus_BackupFilePath_Field,
+		backup_final_status_error_message BackupFinalStatus_ErrorMessage_Field,
+		backup_final_status_checksum BackupFinalStatus_Checksum_Field,
+		backup_final_status_file_size BackupFinalStatus_FileSize_Field) (
+		err error)
+
+	CreateNoReturn_BackupPageStatus(ctx context.Context,
+		backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+		backup_page_status_page_number BackupPageStatus_PageNumber_Field,
+		backup_page_status_status BackupPageStatus_Status_Field,
+		backup_page_status_completed_at BackupPageStatus_CompletedAt_Field,
+		backup_page_status_keys_count BackupPageStatus_KeysCount_Field,
+		backup_page_status_file_path BackupPageStatus_FilePath_Field,
+		backup_page_status_error_message BackupPageStatus_ErrorMessage_Field,
+		backup_page_status_checksum BackupPageStatus_Checksum_Field,
+		backup_page_status_file_size BackupPageStatus_FileSize_Field) (
+		err error)
 
 	CreateNoReturn_BillingBalance(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field,
@@ -37238,6 +38462,15 @@ type Methods interface {
 	Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_By_ApiKey_Head(ctx context.Context,
 		api_key_head ApiKey_Head_Field) (
 		row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row, err error)
+
+	Get_BackupFinalStatus_By_BackupDate(ctx context.Context,
+		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field) (
+		backup_final_status *BackupFinalStatus, err error)
+
+	Get_BackupPageStatus_By_BackupDate_And_PageNumber(ctx context.Context,
+		backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+		backup_page_status_page_number BackupPageStatus_PageNumber_Field) (
+		backup_page_status *BackupPageStatus, err error)
 
 	Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field) (
@@ -37744,6 +38977,17 @@ type Methods interface {
 		account_freeze_event_event AccountFreezeEvent_Event_Field,
 		update AccountFreezeEvent_Update_Fields) (
 		account_freeze_event *AccountFreezeEvent, err error)
+
+	Update_BackupFinalStatus_By_BackupDate(ctx context.Context,
+		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
+		update BackupFinalStatus_Update_Fields) (
+		backup_final_status *BackupFinalStatus, err error)
+
+	Update_BackupPageStatus_By_BackupDate_And_PageNumber(ctx context.Context,
+		backup_page_status_backup_date BackupPageStatus_BackupDate_Field,
+		backup_page_status_page_number BackupPageStatus_PageNumber_Field,
+		update BackupPageStatus_Update_Fields) (
+		backup_page_status *BackupPageStatus, err error)
 
 	Update_BillingBalance_By_UserId_And_Balance(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field,

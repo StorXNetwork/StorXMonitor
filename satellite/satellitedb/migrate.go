@@ -3010,6 +3010,39 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add backup status tables for smart contract backup service",
+				Version:     284,
+				Action: migrate.SQL{
+					`CREATE TABLE backup_final_status (
+						backup_date text NOT NULL,
+						status text NOT NULL,
+						completed_at timestamp with time zone,
+						total_pages integer,
+						total_keys integer,
+						backup_file_path text,
+						error_message text,
+						checksum text,
+						file_size bigint,
+						PRIMARY KEY ( backup_date )
+					);`,
+					`CREATE TABLE backup_page_status (
+						backup_date text NOT NULL,
+						page_number integer NOT NULL,
+						status text NOT NULL,
+						completed_at timestamp with time zone,
+						keys_count integer,
+						file_path text,
+						error_message text,
+						checksum text,
+						file_size bigint,
+						PRIMARY KEY ( backup_date, page_number )
+					);`,
+					`CREATE INDEX idx_backup_final_status_completed_at ON backup_final_status ( completed_at );`,
+					`CREATE INDEX idx_backup_page_status_backup_date ON backup_page_status ( backup_date );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
