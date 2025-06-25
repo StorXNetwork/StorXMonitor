@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-
-	"storj.io/common/identity"
 )
 
 // integrationTestDB implements the DB interface for integration testing
@@ -246,12 +244,6 @@ func TestIntegration_CompleteBackupWorkflow(t *testing.T) {
 			testDir := t.TempDir()
 			log := zaptest.NewLogger(t)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
-
 			db := newIntegrationTestDB()
 			contract := newIntegrationTestContract(tt.totalKeys)
 
@@ -264,7 +256,7 @@ func TestIntegration_CompleteBackupWorkflow(t *testing.T) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 			require.NotNil(t, service)
 
@@ -338,12 +330,6 @@ func TestIntegration_BackupRetryOnFailure(t *testing.T) {
 			testDir := t.TempDir()
 			log := zaptest.NewLogger(t)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
-
 			db := newIntegrationTestDB()
 
 			// Create contract that may fail
@@ -367,7 +353,7 @@ func TestIntegration_BackupRetryOnFailure(t *testing.T) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 
 			// Start service
@@ -426,12 +412,6 @@ func TestIntegration_ConcurrentPageProcessing(t *testing.T) {
 			testDir := t.TempDir()
 			log := zaptest.NewLogger(t)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
-
 			db := newIntegrationTestDB()
 
 			// Create contract with artificial delay
@@ -455,7 +435,7 @@ func TestIntegration_ConcurrentPageProcessing(t *testing.T) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 
 			// Start service and measure time
@@ -510,12 +490,6 @@ func TestIntegration_FileManagement(t *testing.T) {
 			testDir := t.TempDir()
 			log := zaptest.NewLogger(t)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
-
 			db := newIntegrationTestDB()
 			contract := newIntegrationTestContract(tt.totalKeys)
 
@@ -528,7 +502,7 @@ func TestIntegration_FileManagement(t *testing.T) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 
 			// Start service
@@ -608,12 +582,6 @@ func TestIntegration_BackupStatusTracking(t *testing.T) {
 			testDir := t.TempDir()
 			log := zaptest.NewLogger(t)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
-
 			db := newIntegrationTestDB()
 			contract := newIntegrationTestContract(tt.totalKeys)
 
@@ -626,7 +594,7 @@ func TestIntegration_BackupStatusTracking(t *testing.T) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 
 			// Start service

@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-
-	"storj.io/common/identity"
 )
 
 // performanceTestDB implements the DB interface for performance testing
@@ -244,12 +242,6 @@ func BenchmarkBackup_Throughput(b *testing.B) {
 			testDir := b.TempDir()
 			log := zaptest.NewLogger(b)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(b, err)
-
 			db := newPerformanceTestDB()
 			contract := newPerformanceTestContract(tt.totalKeys, tt.latency)
 
@@ -262,7 +254,7 @@ func BenchmarkBackup_Throughput(b *testing.B) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(b, err)
 
 			b.ResetTimer()
@@ -340,12 +332,6 @@ func BenchmarkBackup_Concurrency(b *testing.B) {
 			testDir := b.TempDir()
 			log := zaptest.NewLogger(b)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(b, err)
-
 			db := newPerformanceTestDB()
 			contract := newPerformanceTestContract(tt.totalKeys, tt.latency)
 
@@ -358,7 +344,7 @@ func BenchmarkBackup_Concurrency(b *testing.B) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(b, err)
 
 			b.ResetTimer()
@@ -422,12 +408,6 @@ func BenchmarkBackup_MemoryUsage(b *testing.B) {
 			testDir := b.TempDir()
 			log := zaptest.NewLogger(b)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(b, err)
-
 			db := newPerformanceTestDB()
 			contract := newPerformanceTestContract(tt.totalKeys, 1*time.Millisecond)
 
@@ -440,7 +420,7 @@ func BenchmarkBackup_MemoryUsage(b *testing.B) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(b, err)
 
 			b.ResetTimer()
@@ -524,12 +504,6 @@ func BenchmarkBackup_PageSizeOptimization(b *testing.B) {
 			testDir := b.TempDir()
 			log := zaptest.NewLogger(b)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(b, err)
-
 			db := newPerformanceTestDB()
 			contract := newPerformanceTestContract(tt.totalKeys, tt.latency)
 
@@ -542,7 +516,7 @@ func BenchmarkBackup_PageSizeOptimization(b *testing.B) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(b, err)
 
 			b.ResetTimer()
@@ -614,12 +588,6 @@ func TestPerformance_LoadTest(t *testing.T) {
 			testDir := t.TempDir()
 			log := zaptest.NewLogger(t)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
-
 			db := newPerformanceTestDB()
 			contract := newPerformanceTestContract(tt.totalKeys, 5*time.Millisecond)
 
@@ -632,7 +600,7 @@ func TestPerformance_LoadTest(t *testing.T) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 
 			// Start service and measure time
@@ -713,12 +681,6 @@ func TestPerformance_Throughput(t *testing.T) {
 			testDir := t.TempDir()
 			log := zaptest.NewLogger(t)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
-
 			db := newPerformanceTestDB()
 			contract := newPerformanceTestContract(tt.totalKeys, tt.latency)
 
@@ -731,7 +693,7 @@ func TestPerformance_Throughput(t *testing.T) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 
 			// Start service
@@ -794,12 +756,6 @@ func TestPerformance_Concurrency(t *testing.T) {
 			testDir := t.TempDir()
 			log := zaptest.NewLogger(t)
 
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
-
 			db := newPerformanceTestDB()
 			contract := newPerformanceTestContract(tt.totalKeys, tt.latency)
 
@@ -812,7 +768,7 @@ func TestPerformance_Concurrency(t *testing.T) {
 			}
 
 			// Create service
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 
 			// Start service

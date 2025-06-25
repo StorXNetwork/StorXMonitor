@@ -15,7 +15,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/debug"
-	"storj.io/common/identity"
 	"storj.io/common/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
@@ -26,8 +25,7 @@ import (
 //
 // architecture: Peer
 type Service struct {
-	Log      *zap.Logger
-	Identity *identity.FullIdentity
+	Log *zap.Logger
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
@@ -52,10 +50,9 @@ type Service struct {
 }
 
 // NewService creates a new backup service peer.
-func NewService(log *zap.Logger, identity *identity.FullIdentity, db DB, contract smartcontract.SocialShareHelper, config *Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, contract smartcontract.SocialShareHelper, config *Config) (*Service, error) {
 	peer := &Service{
-		Log:      log,
-		Identity: identity,
+		Log: log,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),

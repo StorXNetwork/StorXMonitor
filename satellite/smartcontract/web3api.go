@@ -127,9 +127,6 @@ func (w *web3Helper) GetMethodCallData(ctx context.Context, method string, outpu
 	}
 	callMsg.Gas = gasLimit
 
-	// b, _ := json.Marshal(callMsg)
-	// fmt.Println(string(b))
-
 	result, err := w.client.CallContract(ctx, callMsg, nil)
 	if err != nil {
 		return fmt.Errorf("error calling contract: %v and result (%s)", err, string(result))
@@ -137,7 +134,7 @@ func (w *web3Helper) GetMethodCallData(ctx context.Context, method string, outpu
 
 	err = w.abi.UnpackIntoInterface(output, method, result)
 	if err != nil {
-		return fmt.Errorf("failed to unpack result in get reputation: %v", err)
+		return fmt.Errorf("failed to unpack result for method %s: %v (result: %x)", method, err, result)
 	}
 
 	return nil

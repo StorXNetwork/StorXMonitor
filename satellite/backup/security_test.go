@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-
-	"storj.io/common/identity"
 )
 
 // securityTestDB implements the DB interface for security testing
@@ -271,16 +269,11 @@ func TestSecurity_InputValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := zaptest.NewLogger(t)
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
 
 			db := newSecurityTestDB()
 			contract := newSecurityTestContract(100)
 
-			service, err := NewService(log, identity, db, contract, tt.config)
+			service, err := NewService(log, db, contract, tt.config)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -526,11 +519,6 @@ func TestSecurity_RateLimiting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := zaptest.NewLogger(t)
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
 
 			db := newSecurityTestDB()
 			contract := newSecurityTestContract(tt.totalKeys)
@@ -543,7 +531,7 @@ func TestSecurity_RateLimiting(t *testing.T) {
 				WorkerConcurrency:  4,
 			}
 
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -577,11 +565,6 @@ func TestSecurity_ContextCancellation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := zaptest.NewLogger(t)
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
 
 			db := newSecurityTestDB()
 			contract := newSecurityTestContract(1000)
@@ -594,7 +577,7 @@ func TestSecurity_ContextCancellation(t *testing.T) {
 				WorkerConcurrency:  2,
 			}
 
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -647,11 +630,6 @@ func TestSecurity_ResourceExhaustion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := zaptest.NewLogger(t)
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
 
 			db := newSecurityTestDB()
 			contract := newSecurityTestContract(tt.totalKeys)
@@ -664,7 +642,7 @@ func TestSecurity_ResourceExhaustion(t *testing.T) {
 				WorkerConcurrency:  2,
 			}
 
-			service, err := NewService(log, identity, db, contract, config)
+			service, err := NewService(log, db, contract, config)
 
 			if tt.expectError {
 				assert.Error(t, err)

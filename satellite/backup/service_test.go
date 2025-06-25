@@ -10,10 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-
-	"storj.io/common/identity"
 )
 
 // mockDB implements the DB interface for testing
@@ -241,16 +238,11 @@ func TestService_NewService(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := zaptest.NewLogger(t)
-			identity, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{
-				Difficulty:  0,
-				Concurrency: 1,
-			})
-			require.NoError(t, err)
 
 			mockDB := &mockDB{}
 			mockContract := &mockSmartContract{}
 
-			service, err := NewService(log, identity, mockDB, mockContract, tt.config)
+			service, err := NewService(log, mockDB, mockContract, tt.config)
 
 			if tt.expectError {
 				assert.Error(t, err)

@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
@@ -106,7 +107,12 @@ func (w *keyValueWeb3Helper) GetPaginatedKeyValues(ctx context.Context, startInd
 		VersionIds []string
 	}
 	var out output
-	err = w.web3Helper.GetMethodCallData(ctx, "getPaginatedKeyValues", &out, startIndex, count)
+
+	// Convert uint64 to *big.Int for ABI compatibility
+	startIndexBig := new(big.Int).SetUint64(startIndex)
+	countBig := new(big.Int).SetUint64(count)
+
+	err = w.web3Helper.GetMethodCallData(ctx, "getPaginatedKeyValues", &out, startIndexBig, countBig)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("error getting paginated key values: %v", err)
 	}
@@ -118,12 +124,12 @@ func (w *keyValueWeb3Helper) GetTotalKeys(ctx context.Context) (uint64, error) {
 		return 0, fmt.Errorf("web3Helper is nil")
 	}
 
-	var total uint64
+	var total *big.Int
 	err := w.web3Helper.GetMethodCallData(ctx, "getTotalKeys", &total)
 	if err != nil {
 		return 0, fmt.Errorf("error getting total keys: %v", err)
 	}
-	return total, nil
+	return total.Uint64(), nil
 }
 
 // Ensure keyValueWeb3Helper implements SocialShareHelper interface
