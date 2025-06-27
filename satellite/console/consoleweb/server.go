@@ -484,7 +484,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		oauth2Router.Handle("/request", server.withAuth(http.HandlerFunc(oauth2API.CreateOAuth2Request))).Methods(http.MethodPost, http.MethodOptions)
 		oauth2Router.Handle("/consent", server.withAuth(http.HandlerFunc(oauth2API.ConsentOAuth2Request))).Methods(http.MethodPost, http.MethodOptions)
 		// token endpoint is accessed by client applications, no auth middleware needed but rate limiting is required
-		oauth2Router.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(oauth2API.ExchangeOAuth2Code))).Methods(http.MethodPost, http.MethodOptions)
+		oauth2Router.Handle("/token", server.ipRateLimiter.Limit(server.withAuth(http.HandlerFunc(oauth2API.ExchangeOAuth2Code)))).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	if config.ABTesting.Enabled {

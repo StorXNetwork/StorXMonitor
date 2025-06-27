@@ -5726,7 +5726,7 @@ func (s *Service) CreateDeveloperOAuthClient(ctx context.Context, req CreateOAut
 	if err != nil {
 		return nil, err
 	}
-	created.ClientSecret = clientSecret // Only return plaintext once
+	created.ClientSecret = hashedSecret // Only return plaintext once
 	return created, nil
 }
 
@@ -5971,7 +5971,7 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 	// Validate client credentials
 	client, err := s.store.DeveloperOAuthClients().GetByClientID(ctx, req.ClientID)
 	if err != nil {
-		return nil, errs.New("invalid_client")
+		return nil, errs.New("invalid_client_id")
 	}
 
 	// Validate client_secret as JWT signed with the stored client secret
@@ -5982,54 +5982,63 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 		return []byte(client.ClientSecret), nil
 	})
 	if err != nil || !parsedToken.Valid {
-		return nil, errs.New("invalid_client")
+		fmt.Println("err", err)
+		fmt.Println("parsedToken", parsedToken)
+		fmt.Println("client.ClientSecret", client.ClientSecret)
+		fmt.Println("req.ClientSecret", req.ClientSecret)
+		fmt.Println("client.ClientID", client.ClientID)
+		fmt.Println("req.ClientID", req.ClientID)
+		return nil, errs.New("invalid_client_secret")
 	}
 	claims, ok := parsedToken.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, errs.New("invalid_client")
+		return nil, errs.New("invalid_client_secret_claims")
 	}
+
+	fmt.Println("claims stage completed")
 	// Check client_id in JWT payload
 	jwtClientID, ok := claims["client_id"].(string)
 	if !ok || jwtClientID != req.ClientID {
-		return nil, errs.New("invalid_client")
+		return nil, errs.New("invalid_client_string")
 	}
+	fmt.Println("client_id stage completed")
 	// Check exp in JWT payload
 	exp, ok := claims["exp"].(float64)
 	if !ok {
-		return nil, errs.New("invalid_client")
+		return nil, errs.New("exp_not_found")
 	}
 	if int64(exp) < s.nowFn().Unix() {
 		return nil, errs.New("client_secret_expired")
 	}
-
+	fmt.Println("exp stage completed")
 	// Get OAuth2 request by code
 	oauthReq, err := s.store.OAuth2Requests().GetByCode(ctx, req.Code)
 	if err != nil {
 		return nil, errs.New("invalid_code")
 	}
-
+	fmt.Println("oauthReq stage completed")
 	user, err := s.getUserAndAuditLog(ctx, "exchange oauth2 code", zap.String("code", req.Code))
 	if err != nil {
 		return nil, errs.New("invalid_user")
 	}
-
+	fmt.Println("user stage completed")
 	if oauthReq.UserID != user.ID {
 		return nil, errs.New("invalid_user")
 	}
-
+	fmt.Println("user_id stage completed")
 	// Validate code status (must be approved)
 	if oauthReq.Status != 1 { // 1 = approved
 		return nil, errs.New("invalid_code")
 	}
-
+	fmt.Println("code_status stage completed")
 	if oauthReq.CodeExpiresAt.Before(s.nowFn()) {
 		return nil, errs.New("code_expired")
 	}
-
+	fmt.Println("code_expires_at stage completed")
 	if oauthReq.Code != req.Code {
 		return nil, errs.New("invalid_code")
 	}
-
+	fmt.Println("code_match stage completed")
 	// Validate redirect URI
 	uriMatch := false
 	if oauthReq.RedirectURI != "" {
@@ -6045,7 +6054,7 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 	if !uriMatch {
 		return nil, errs.New("invalid_redirect_uri")
 	}
-
+	fmt.Println("uri_match stage completed")
 	// Get user's projects
 	projects, err := s.store.Projects().GetByUserID(ctx, user.ID)
 	if err != nil {
@@ -6055,20 +6064,20 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 		return nil, errs.New("no_projects")
 	}
 	project := projects[0]
-
+	fmt.Println("projects stage completed")
 	// Create API key for the project
 	apiKeyName := fmt.Sprintf("OAUTH2_API_KEY_FOR_%s_%s", req.ClientID, oauthReq.ID.String())
 	_, apiKey, err := s.CreateAPIKey(ctx, project.ID, apiKeyName)
 	if err != nil {
 		return nil, errs.New("failed_to_create_api_key")
 	}
-
+	fmt.Println("api_key stage completed")
 	// Parse approved scopes
 	approvedScopes := strings.Split(oauthReq.ApprovedScopes, ",")
 	if len(approvedScopes) == 1 && approvedScopes[0] == "" {
 		approvedScopes = nil
 	}
-
+	fmt.Println("approved_scopes stage completed")
 	permissions := grant.Permission{
 		AllowDownload: false,
 		AllowUpload:   false,
@@ -6098,22 +6107,25 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 			prefixes = append(prefixes, prefix)
 		}
 	}
-
+	fmt.Println("prefixes stage completed")
 	if len(prefixes) == 0 {
 		prefixes = []grant.SharePrefix{{}}
 	}
-
+	fmt.Println("prefixes_len stage completed")
 	// Create access grant
 	accessGrant, err := s.CreateAccessGrantForProject(ctx, project.ID, req.Passphrase, prefixes, &permissions, apiKey)
 	if err != nil {
 		return nil, errs.New("failed_to_create_access_grant")
 	}
-
+	fmt.Println("access_grant stage completed")
 	// Mark code as used
 	err = s.store.OAuth2Requests().MarkCodeUsed(ctx, oauthReq.ID)
 	if err != nil {
 		return nil, errs.New("failed_to_mark_code_used")
 	}
+	fmt.Println("mark_code_used stage completed")
+	// Audit log the token exchange
+	s.auditLog(ctx, "exchange oauth2 code", &user.ID, user.Email, zap.String("code", req.Code), zap.String("client_id", req.ClientID))
 
 	return &ExchangeOAuth2CodeResponse{
 		AccessGrant: accessGrant,
