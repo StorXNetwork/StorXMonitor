@@ -17,28 +17,24 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/smartcontract"
 )
 
 type Web3Auth struct {
 	log     *zap.Logger
 	service *console.Service
 
-	web3AuthSocialShareHelper smartcontract.SocialShareHelper
-
 	cookieAuth *consolewebauth.CookieAuth
 
 	secreteKey string
 }
 
-func NewWeb3Auth(log *zap.Logger, service *console.Service, web3AuthSocialShareHelper smartcontract.SocialShareHelper,
+func NewWeb3Auth(log *zap.Logger, service *console.Service,
 	cookieAuth *consolewebauth.CookieAuth, secreteKey string) *Web3Auth {
 	return &Web3Auth{
-		log:                       log,
-		service:                   service,
-		web3AuthSocialShareHelper: web3AuthSocialShareHelper,
-		secreteKey:                secreteKey,
-		cookieAuth:                cookieAuth,
+		log:        log,
+		service:    service,
+		secreteKey: secreteKey,
+		cookieAuth: cookieAuth,
 	}
 }
 
@@ -211,7 +207,6 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
-
 }
 
 func (a *Web3Auth) GetBackupShare(w http.ResponseWriter, r *http.Request) {
@@ -248,11 +243,22 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if id == "" || len(share) == 0 {
-		a.sendError(w, "Invalid request", http.StatusBadRequest)
+		a.sendError(w, "Invalid request: id and share body must be provided", http.StatusBadRequest)
 		return
 	}
 
-	err = a.web3AuthSocialShareHelper.UploadSocialShare(ctx, id, string(share))
+	exists, err := a.service.SocialShareKeyExists(ctx, id)
+	if err != nil {
+		a.sendError(w, "Error checking social share: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if exists {
+		err = a.service.UpdateSocialShare(ctx, id, string(share))
+	} else {
+		err = a.service.CreateSocialShare(ctx, id, string(share))
+	}
+
 	if err != nil {
 		a.sendError(w, "Error uploading social share: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -267,22 +273,94 @@ func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	id := r.URL.Query().Get("id")
-	share, err := a.web3AuthSocialShareHelper.GetSocialShare(ctx, id)
-	if err != nil {
-		a.sendError(w, "Error getting social share", http.StatusInternalServerError)
+	if id == "" {
+		a.sendError(w, "Invalid request: id must be provided", http.StatusBadRequest)
 		return
 	}
 
+	share, err := a.service.GetSocialShare(ctx, id)
+	if err != nil {
+		a.sendError(w, "Error getting social share: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(map[string]string{
 		"share": string(share),
-		"id":    id,
 	})
 	if err != nil {
 		a.sendError(w, "Error encoding social share", http.StatusInternalServerError)
 		return
 	}
+}
 
-	w.WriteHeader(http.StatusOK)
+func (a *Web3Auth) GetPaginatedSocialShares(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	startIndexStr := r.URL.Query().Get("startIndex")
+	countStr := r.URL.Query().Get("count")
+
+	startIndex, err := strconv.ParseUint(startIndexStr, 10, 64)
+	if err != nil {
+		a.sendError(w, "Invalid startIndex", http.StatusBadRequest)
+		return
+	}
+
+	count, err := strconv.ParseUint(countStr, 10, 64)
+	if err != nil {
+		a.sendError(w, "Invalid count", http.StatusBadRequest)
+		return
+	}
+
+	keys, values, versionIds, err := a.service.GetPaginatedSocialShares(ctx, startIndex, count)
+	if err != nil {
+		a.sendError(w, "Error getting paginated social shares: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	type responseItem struct {
+		Key       string `json:"key"`
+		Value     string `json:"value"`
+		VersionID string `json:"versionId"`
+	}
+	response := make([]responseItem, len(keys))
+	for i := range keys {
+		response[i] = responseItem{
+			Key:       keys[i],
+			Value:     values[i],
+			VersionID: versionIds[i],
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		a.sendError(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (a *Web3Auth) GetTotalSocialShares(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	total, err := a.service.GetTotalSocialShares(ctx)
+	if err != nil {
+		a.sendError(w, "Error getting total social shares: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(map[string]uint64{
+		"total": total,
+	})
+	if err != nil {
+		a.sendError(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (a *Web3Auth) GetSignMessage(w http.ResponseWriter, r *http.Request) {
@@ -377,5 +455,4 @@ func getPublicKey(payload, signature string) (string, error) {
 
 	recoveredAddress := crypto.PubkeyToAddress(*pubKey)
 	return recoveredAddress.Hex(), nil
-
 }

@@ -47,7 +47,6 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/smartcontract"
 )
 
 const (
@@ -117,7 +116,6 @@ type Config struct {
 	Web3AuthContractAddress string `help:"contract address for web3 auth" default:""`
 	Web3AuthAddress         string `help:"address for web3 auth" default:""`
 	Web3AuthNetworkRPC      string `help:"network rpc for web3 auth" default:""`
-	Web3AuthPrivateKey      string `help:"private key for web3 auth" default:""`
 
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
@@ -406,19 +404,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	// router.HandleFunc("/loginbutton_facebook", authController.InitFacebookLogin)
 	// router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
 
-	smartcontractConfig := smartcontract.Web3Config{
-		Address:      config.Web3AuthAddress,
-		NetworkRPC:   config.Web3AuthNetworkRPC,
-		PrivateKey:   config.Web3AuthPrivateKey,
-		ContractAddr: config.Web3AuthContractAddress,
-	}
-
-	helper, err := smartcontract.NewKeyValueWeb3Helper(smartcontractConfig)
-	if err != nil {
-		server.log.Error("failed to create key value web3 helper", zap.Error(err))
-	}
-
-	web3AuthController := consoleapi.NewWeb3Auth(logger, service, helper, server.cookieAuth, "secret")
+	web3AuthController := consoleapi.NewWeb3Auth(logger, service, server.cookieAuth, "secret")
 	router.HandleFunc("/upload_backup_share", web3AuthController.UploadBackupShare)
 	router.HandleFunc("/get_backup_share", web3AuthController.GetBackupShare)
 	router.HandleFunc("/upload_social_share", web3AuthController.UploadSocialShare)
@@ -626,7 +612,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
-		router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler)
+		router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler("google665de0676f5e8d68.html"))
+		router.HandleFunc("/googled09d42a140c27991.html", server.googleVerificationHandler("googled09d42a140c27991.html"))
 		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}
 
@@ -737,7 +724,9 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	router.HandleFunc("/robots.txt", server.seoHandler)
-	router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler)
+	router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler("google665de0676f5e8d68.html"))
+	router.HandleFunc("/googled09d42a140c27991.html", server.googleVerificationHandler("googled09d42a140c27991.html"))
+
 	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
 	router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
@@ -884,9 +873,11 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // googleVerificationHandler handles the google verification file.
-func (server *Server) googleVerificationHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(`google-site-verification: google665de0676f5e8d68.html`))
+func (server *Server) googleVerificationHandler(googleHTML string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(`google-site-verification: ` + googleHTML))
+	})
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.

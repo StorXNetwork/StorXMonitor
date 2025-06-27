@@ -188,7 +188,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 		WalletID: &body.WalletID,
 	})
 	if err != nil {
-		a.sendJsonResponse(w, "Error creating user!"+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.sendJsonResponse(w, "Error updating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
 		return
 	}
@@ -468,7 +468,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 			)
 
 			if err != nil {
-				a.SendResponse(w, r, "Error creating user!"+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				a.SendResponse(w, r, "Error updating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating user!", http.StatusTemporaryRedirect)
 				return
 			}
@@ -751,13 +751,11 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 	reqOps, err := socialmedia.GetReqOptions(state)
 	if err != nil {
 		a.SendResponse(w, r, err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error="+err.Error(), http.StatusTemporaryRedirect)
 		return
 	}
 	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "login", r)
 	if err != nil {
-		a.SendResponse(w, r, "Error code verifier loading failed "+err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error code verifier loading failed", http.StatusTemporaryRedirect)
+		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
 
@@ -809,7 +807,7 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	userI, err := socialmedia.GetXUser(ctx, code, reqOps.Verifier, "r", r)
 	if err != nil {
-		a.SendResponse(w, r, "Error code verifier loading failed "+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		a.SendResponse(w, r, "Error code verifier loading failed", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
@@ -1360,7 +1358,7 @@ func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail, key string, w 
 			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from system", http.StatusTemporaryRedirect)
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
-			a.SendResponse(w, r, "Error getting token from system "+err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+			a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from system", http.StatusTemporaryRedirect)
 		}
 		return
@@ -1823,7 +1821,7 @@ func (a *Auth) HandleLinkedInIdTokenFromCode(w http.ResponseWriter, r *http.Requ
 
 	token, err := OAuth2Config.Exchange(context.TODO(), code)
 	if err != nil || token == nil {
-		a.SendResponse(w, r, "Error getting token from LinkedIn "+err.Error(), fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		a.SendResponse(w, r, "Error getting token from LinkedIn", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
 
@@ -1933,7 +1931,7 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 			)
 
 			if err != nil {
-				a.SendResponse(w, r, "Error creating user "+err.Error(), fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+				a.SendResponse(w, r, "Error creating user", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				return
 			}
 			referrer := r.URL.Query().Get("referrer")

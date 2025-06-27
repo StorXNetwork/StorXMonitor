@@ -25,6 +25,30 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE backup_final_statuses (
+	backup_date text NOT NULL,
+	status text NOT NULL,
+	completed_at timestamp with time zone NOT NULL,
+	total_pages integer NOT NULL,
+	total_keys integer NOT NULL,
+	backup_file_path text NOT NULL,
+	error_message text NOT NULL,
+	checksum text NOT NULL,
+	file_size bigint NOT NULL,
+	PRIMARY KEY ( backup_date )
+);
+CREATE TABLE backup_page_statuses (
+	backup_date text NOT NULL,
+	page_number integer NOT NULL,
+	status text NOT NULL,
+	completed_at timestamp with time zone NOT NULL,
+	keys_count integer NOT NULL,
+	file_path text NOT NULL,
+	error_message text NOT NULL,
+	checksum text NOT NULL,
+	file_size bigint NOT NULL,
+	PRIMARY KEY ( backup_date, page_number )
+);
 CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
@@ -160,6 +184,11 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
+);
+CREATE TABLE key_versions (
+	key_id bytea NOT NULL,
+	version text NOT NULL,
+	PRIMARY KEY ( key_id )
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,

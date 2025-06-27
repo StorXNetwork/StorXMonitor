@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/backup"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -256,7 +257,7 @@ func (dbc *satelliteDBCollection) Console() console.DB {
 }
 
 // Web3Auth returns database for web3 auth.
-func (dbc *satelliteDBCollection) Web3Auth() console.Web3Auth {
+func (dbc *satelliteDBCollection) Web3Auth() backup.DB {
 	return &web3Auth{db: dbc.getByName("web3_auth")}
 }
 

@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/smartcontract"
 )
 
 var mon = monkit.Package()
@@ -222,7 +223,8 @@ type Service struct {
 
 	varPartners map[string]struct{}
 
-	versioningConfig VersioningConfig
+	versioningConfig  VersioningConfig
+	socialShareHelper smartcontract.SocialShareHelper
 
 	nowFn func() time.Time
 }
@@ -343,12 +345,13 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, satelliteNodeAddress string,
-	maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
+	maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config,
+	socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+	if log == nil {
+		log = zap.NewNop()
+	}
 	if store == nil {
 		return nil, errs.New("store can't be nil")
-	}
-	if log == nil {
-		return nil, errs.New("log can't be nil")
 	}
 	if config.PasswordCost == 0 {
 		config.PasswordCost = bcrypt.DefaultCost
@@ -411,6 +414,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		config:                     config,
 		varPartners:                partners,
 		versioningConfig:           versioning,
+		socialShareHelper:          socialShareHelper,
 		nowFn:                      time.Now,
 	}, nil
 }
@@ -5555,6 +5559,116 @@ func (s *Service) TestSetVersioningConfig(versioning VersioningConfig) error {
 // TestSetNow allows tests to have the Service act as if the current time is whatever they want.
 func (s *Service) TestSetNow(now func() time.Time) {
 	s.nowFn = now
+}
+
+// CreateSocialShare creates a key-value pair in both the smart contract and the database.
+// The initial version is set to "v0.1".
+func (s *Service) CreateSocialShare(ctx context.Context, key, value string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	initialVersion := "v0.1"
+
+	err = s.socialShareHelper.UploadSocialShare(ctx, key, value, initialVersion)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.store.Web3Auth().CreateKeyVersion(ctx, []byte(key), initialVersion)
+	if err != nil {
+		// Rollback? For now, just error.
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// UpdateSocialShare updates an existing key-value pair. It fetches the current version,
+// increments it, and then updates both the smart contract and the database.
+func (s *Service) UpdateSocialShare(ctx context.Context, key, value string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	currentVersion, err := s.store.Web3Auth().GetKeyVersion(ctx, []byte(key))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	newVersion, err := incrementVersion(currentVersion)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.socialShareHelper.UpdateSocialShare(ctx, key, value, newVersion)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.store.Web3Auth().UpdateKeyVersion(ctx, []byte(key), newVersion)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// GetSocialShare retrieves a value from the smart contract for a specific key.
+// The version is automatically fetched from the database.
+func (s *Service) GetSocialShare(ctx context.Context, key string) (val []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// 1. Get the current version from the database
+	version, err := s.store.Web3Auth().GetKeyVersion(ctx, []byte(key))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// 2. Call the smart contract with the retrieved version
+	return s.socialShareHelper.GetSocialShare(ctx, key, version)
+}
+
+// GetPaginatedSocialShares retrieves a paginated list of key-value pairs from the smart contract.
+func (s *Service) GetPaginatedSocialShares(ctx context.Context, startIndex, count uint64) (keys, values, versionIds []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return s.socialShareHelper.GetPaginatedKeyValues(ctx, startIndex, count)
+}
+
+// GetTotalSocialShares retrieves the total number of keys from the smart contract.
+func (s *Service) GetTotalSocialShares(ctx context.Context) (count uint64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return s.socialShareHelper.GetTotalKeys(ctx)
+}
+
+// SocialShareKeyExists checks if a key already has a version in the database.
+func (s *Service) SocialShareKeyExists(ctx context.Context, key string) (exists bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = s.store.Web3Auth().GetKeyVersion(ctx, []byte(key))
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, Error.Wrap(err)
+	}
+	return true, nil
+}
+
+func incrementVersion(v string) (string, error) {
+	parts := strings.Split(v, ".")
+	if len(parts) != 2 || !strings.HasPrefix(parts[0], "v") {
+		return "", fmt.Errorf("invalid version format: %s", v)
+	}
+
+	majorStr := parts[0][1:]
+	_, err := strconv.Atoi(majorStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid major version: %s", v)
+	}
+
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("invalid minor version: %s", v)
+	}
+
+	return fmt.Sprintf("v%s.%d", majorStr, minor+1), nil
 }
 
 type CreateOAuthClientRequest struct {

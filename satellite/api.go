@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/secretconstants"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/emission"
@@ -53,6 +54,7 @@ import (
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/reputation"
+	"storj.io/storj/satellite/smartcontract"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/satellite/userworker"
 )
@@ -574,6 +576,18 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
+		if secretconstants.Web3AuthPrivateKey == "" {
+			return nil, errs.New("Web3AuthPrivateKey is not set")
+		}
+		web3AuthSocialShareHelper, err := smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
+			NetworkRPC:   consoleConfig.Web3AuthNetworkRPC,
+			ContractAddr: consoleConfig.Web3AuthContractAddress,
+			Address:      consoleConfig.Web3AuthAddress,
+		}, secretconstants.Web3AuthPrivateKey)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
 
 		externalAddress := consoleConfig.ExternalAddress
@@ -614,6 +628,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
 			},
 			consoleConfig.Config,
+			web3AuthSocialShareHelper,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

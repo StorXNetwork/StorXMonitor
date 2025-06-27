@@ -3000,8 +3000,53 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "create developer_oauth_clients table",
+				Description: "add key_versions table",
 				Version:     283,
+				Action: migrate.SQL{
+					`CREATE TABLE key_versions (
+						key_id bytea NOT NULL,
+						version text NOT NULL,
+						PRIMARY KEY ( key_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add backup status tables for smart contract backup service",
+				Version:     284,
+				Action: migrate.SQL{
+					`CREATE TABLE backup_final_statuses (
+						backup_date text NOT NULL,
+						status text NOT NULL,
+						completed_at timestamp with time zone NOT NULL,
+						total_pages integer NOT NULL,
+						total_keys integer NOT NULL,
+						backup_file_path text NOT NULL,
+						error_message text NOT NULL,
+						checksum text NOT NULL,
+						file_size bigint NOT NULL,
+						PRIMARY KEY ( backup_date )
+					);`,
+					`CREATE TABLE backup_page_statuses (
+						backup_date text NOT NULL,
+						page_number integer NOT NULL,
+						status text NOT NULL,
+						completed_at timestamp with time zone NOT NULL,
+						keys_count integer NOT NULL,
+						file_path text NOT NULL,
+						error_message text NOT NULL,
+						checksum text NOT NULL,
+						file_size bigint NOT NULL,
+						PRIMARY KEY ( backup_date, page_number )
+					);`,
+					`CREATE INDEX idx_backup_final_statuses_completed_at ON backup_final_statuses ( completed_at );`,
+					`CREATE INDEX idx_backup_page_statuses_backup_date ON backup_page_statuses ( backup_date );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create developer_oauth_clients table",
+				Version:     285,
 				Action: migrate.SQL{
 					`CREATE TABLE developer_oauth_clients (
 						id bytea NOT NULL,
@@ -3021,7 +3066,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 			{
 				DB:          &db.migrationDB,
 				Description: "create oauth2_requests table",
-				Version:     284,
+				Version:     286,
 				Action: migrate.SQL{
 					`CREATE TABLE oauth2_requests (
 						id bytea NOT NULL,

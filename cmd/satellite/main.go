@@ -347,6 +347,11 @@ var (
 		Short: "Fix last_net entries in the database for satellites with DistinctIP=false",
 		RunE:  cmdFixLastNets,
 	}
+	runBackupCmd = &cobra.Command{
+		Use:   "backup",
+		Short: "Run the smart contract backup service",
+		RunE:  cmdBackupRun,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -422,6 +427,7 @@ func init() {
 	rootCmd.AddCommand(fetchPiecesCmd)
 	rootCmd.AddCommand(repairSegmentCmd)
 	rootCmd.AddCommand(fixLastNetsCmd)
+	rootCmd.AddCommand(runBackupCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -488,6 +494,7 @@ func init() {
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runBackupCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)

@@ -19,6 +19,11 @@ endif
 endif
 CUSTOMTAG ?=
 
+# Allow the private key to be passed in, but default to a non-functional value.
+# This avoids build failures when the key is not provided.
+WEB3_AUTH_PRIVATE_KEY ?= "BUILD_TIME_PRIVATE_KEY_NOT_SET"
+LDFLAGS = -ldflags "-X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=$(WEB3_AUTH_PRIVATE_KEY)'"
+
 FILEEXT :=
 ifeq (${GOOS},windows)
 FILEEXT := .exe
@@ -83,11 +88,14 @@ build-satellite-admin-npm:
 ifndef GATEWAYPATH
 GATEWAYPATH=.build/gateway-tmp
 endif
-.PHONY: install-sim
-install-sim: ## install storj-sim
-	@echo "Running ${@}"
-	go install -race -v \
-		storj.io/storj/cmd/satellite \
+
+# Define a reusable command for installing simulator binaries
+define INSTALL_COMMAND
+# $(1) contains environment variables like GOOS and GOARCH
+# $(2) contains the race flag, if any
+# $(3) contains build tags, if any
+	@echo "Running ${@} for OS=$(or $(word 1,$(subst =, ,$(1))),$(GOOS)) ARCH=$(or $(word 2,$(subst =, ,$(1))),$(GOARCH))"
+	$(1) go install $(2) -v $(3) \
 		storj.io/storj/cmd/storagenode \
 		storj.io/storj/cmd/storj-sim \
 		storj.io/storj/cmd/versioncontrol \
@@ -96,8 +104,20 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/certificates \
 		storj.io/storj/cmd/multinode
 
-	## install the latest stable version of Gateway-ST
-	go install -race -v storj.io/gateway@latest
+	# Install the satellite binary with the injected private key
+	$(1) go install $(2) -v $(LDFLAGS) $(3) storj.io/storj/cmd/satellite
+
+	# Install the latest stable version of Gateway-ST
+	$(1) go install $(2) -v $(3) storj.io/gateway@latest
+endef
+
+.PHONY: install-sim
+install-sim: ## install storj-sim
+	$(call INSTALL_COMMAND,, -race)
+
+.PHONY: install-sim-window
+install-sim-window: ## install storj-sim for windows (amd64)
+	$(call INSTALL_COMMAND, CGO_ENABLED=1 GOOS=windows GOARCH=amd64 GOBIN= CC=x86_64-w64-mingw32-gcc)
 
 ##@ Lint
 

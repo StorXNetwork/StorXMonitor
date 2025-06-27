@@ -23,8 +23,8 @@ type reputationWeb3Helper struct {
 	web3Helper *web3Helper
 }
 
-func NewReputationWeb3Helper(web3Config Web3Config) (*reputationWeb3Helper, error) {
-	web3Helper, err := NewWeb3Helper(web3Config)
+func NewReputationWeb3Helper(web3Config Web3Config, privateKey string) (*reputationWeb3Helper, error) {
+	web3Helper, err := NewWeb3Helper(web3Config, privateKey)
 	if err != nil {
 		return nil, err
 	}
