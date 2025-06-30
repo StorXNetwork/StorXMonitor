@@ -40,8 +40,8 @@ func createJWTClientSecret(clientID, clientSecret string, expiryMinutes int) (st
 
 func main() {
 	// Client credentials from the provided data
-	clientID := "e45fa79a-05f5-4f00-bbfe-bd0a14aead0a"
-	clientSecret := "$2a$10$JXG5oUhb7JTVHMyVdEca/.0g7uEJCsRROe7V93lIc7ooIoZ5GLUFa"
+	clientID := "26787adf-82fd-4838-b790-fbded3057755"
+	clientSecret := "$2a$10$IvVS16zgyNYl77BF26.9zOQSaJeLSStxK20csim5H2OFXJhRofnAW"
 
 	// Create JWT client_secret
 	jwtClientSecret, err := createJWTClientSecret(clientID, clientSecret, 5)
