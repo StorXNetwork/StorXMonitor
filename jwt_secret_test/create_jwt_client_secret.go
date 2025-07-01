@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -39,21 +40,30 @@ func createJWTClientSecret(clientID, clientSecret string, expiryMinutes int) (st
 }
 
 func main() {
-	// Client credentials from the provided data
-	clientID := "26787adf-82fd-4838-b790-fbded3057755"
-	clientSecret := "$2a$10$IvVS16zgyNYl77BF26.9zOQSaJeLSStxK20csim5H2OFXJhRofnAW"
+	// Check if correct number of arguments provided
+	if len(os.Args) != 4 {
+		fmt.Println("Usage: go run create_jwt_client_secret.go <client_id> <client_secret> <redirect_uri>")
+		fmt.Println("Example: go run create_jwt_client_secret.go 26787adf-82fd-4838-b790-fbded3057755 '$2a$10$IvVS16zgyNYl77BF26.9zOQSaJeLSStxK20csim5H2OFXJhRofnAW' 'https://myapp.com/callback'")
+		os.Exit(1)
+	}
+
+	// Read arguments
+	clientID := os.Args[1]
+	clientSecret := os.Args[2]
+	redirectURI := os.Args[3]
 
 	// Create JWT client_secret
 	jwtClientSecret, err := createJWTClientSecret(clientID, clientSecret, 5)
 	if err != nil {
 		fmt.Printf("Error creating JWT: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
 	// Display results
 	fmt.Println("=== JWT Client Secret Generator (Go) ===")
 	fmt.Printf("Client ID: %s\n", clientID)
 	fmt.Printf("Client Secret: %s\n", clientSecret)
+	fmt.Printf("Redirect URI: %s\n", redirectURI)
 	fmt.Printf("JWT Client Secret: %s\n\n", jwtClientSecret)
 
 	// Decode and display JWT payload for verification
@@ -63,7 +73,7 @@ func main() {
 
 	if err != nil {
 		fmt.Printf("Error parsing JWT: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
 	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
@@ -85,17 +95,11 @@ func main() {
 		fmt.Printf("Time Remaining: %s\n\n", time.Until(expTime))
 	}
 
-	// Example curl request
-	fmt.Println("=== Example curl Request ===")
-	fmt.Printf(`curl -X POST \
-  http://localhost:10100/api/v0/oauth2/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "client_id": "%s",
-    "client_secret": "%s",
-    "redirect_uri": "https://myapp.com/callback",
-    "code": "AUTH_CODE_FROM_CONSENT",
-    "passphrase": "your-passphrase"
-  }'`, clientID, jwtClientSecret)
+	// Print the OAuth2 integration URL
+	fmt.Println("=== OAuth2 Integration URL ===")
+	integrationURL := fmt.Sprintf("https://storx.io/oauth2-integration?client_id=%s&client_secret=%s&redirect_uri=%s&scope=read,write",
+		clientID, jwtClientSecret, redirectURI)
+	fmt.Println(integrationURL)
 	fmt.Println()
+
 }
