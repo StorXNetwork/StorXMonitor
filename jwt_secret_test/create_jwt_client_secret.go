@@ -102,7 +102,7 @@ func main() {
 
 	// Print the OAuth2 integration URL
 	fmt.Println("=== OAuth2 Integration URL ===")
-	integrationURL := fmt.Sprintf("https://storx.io/oauth2-integration?client_id=%s&client_secret=%s&redirect_uri=%s&scope=read,write",
+	integrationURL := fmt.Sprintf("https://staging.storx.io/oauth2-integration?client_id=%s&client_secret=%s&redirect_uri=%s&scope=read,write",
 		clientID, jwtClientSecret, redirectURI)
 	fmt.Println(integrationURL)
 	fmt.Println()
