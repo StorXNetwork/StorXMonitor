@@ -41,16 +41,21 @@ func createJWTClientSecret(clientID, clientSecret string, expiryMinutes int) (st
 
 func main() {
 	// Check if correct number of arguments provided
-	if len(os.Args) != 4 {
-		fmt.Println("Usage: go run create_jwt_client_secret.go <client_id> <client_secret> <redirect_uri>")
-		fmt.Println("Example: go run create_jwt_client_secret.go 26787adf-82fd-4838-b790-fbded3057755 '$2a$10$IvVS16zgyNYl77BF26.9zOQSaJeLSStxK20csim5H2OFXJhRofnAW' 'https://myapp.com/callback'")
-		os.Exit(1)
-	}
+	// if len(os.Args) != 4 {
+	// 	fmt.Println("Usage: go run create_jwt_client_secret.go <client_id> <client_secret> <redirect_uri>")
+	// 	fmt.Println("Example: go run create_jwt_client_secret.go 26787adf-82fd-4838-b790-fbded3057755 '$2a$10$IvVS16zgyNYl77BF26.9zOQSaJeLSStxK20csim5H2OFXJhRofnAW' 'https://myapp.com/callback'")
+	// 	os.Exit(1)
+	// }
 
 	// Read arguments
-	clientID := os.Args[1]
-	clientSecret := os.Args[2]
-	redirectURI := os.Args[3]
+	clientID := "0ed3d8d9-c6ef-4673-9065-8c71f5e4fb6c"                             // os.Args[1]
+	clientSecret := "$2a$10$H1fDRblufhdPx.jp63oDC.Jh4MG7Qm8riDkDeXXD9Mt6996DuyTOq" // os.Args[2]
+	redirectURI := "http://localhost/callback"                                     // os.Args[3]
+
+	fmt.Println("=== JWT Client Secret Generator (Go) ===")
+	fmt.Printf("Client ID: %s\n", clientID)
+	fmt.Printf("Client Secret: %s\n", clientSecret)
+	fmt.Printf("Redirect URI: %s\n", redirectURI)
 
 	// Create JWT client_secret
 	jwtClientSecret, err := createJWTClientSecret(clientID, clientSecret, 5)
