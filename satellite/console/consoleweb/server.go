@@ -614,6 +614,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
 		router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler("google665de0676f5e8d68.html"))
 		router.HandleFunc("/googled09d42a140c27991.html", server.googleVerificationHandler("googled09d42a140c27991.html"))
+		router.HandleFunc("/trust-source", server.trustSourceHandler)
 		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}
 
@@ -726,6 +727,7 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	router.HandleFunc("/robots.txt", server.seoHandler)
 	router.HandleFunc("/google665de0676f5e8d68.html", server.googleVerificationHandler("google665de0676f5e8d68.html"))
 	router.HandleFunc("/googled09d42a140c27991.html", server.googleVerificationHandler("googled09d42a140c27991.html"))
+	router.HandleFunc("/trust-source", server.trustSourceHandler)
 
 	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
@@ -878,6 +880,12 @@ func (server *Server) googleVerificationHandler(googleHTML string) http.HandlerF
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(`google-site-verification: ` + googleHTML))
 	})
+}
+
+// oauth2IntegrationHandler handles the oauth2 integration.
+func (server *Server) trustSourceHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(`12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@109.236.87.89:10000`))
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
