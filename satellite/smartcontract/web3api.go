@@ -74,36 +74,43 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 
 	nonceCount, err := w.getNonce(ctx)
 	if err != nil {
-		return fmt.Errorf("error getting nonce: %v", err)
+		return fmt.Errorf("error getting nonce: method %s, params %v, gasPrice %v, err %v", method, params, gasPrice, err)
 	}
 
 	tx := types.NewTransaction(nonceCount, w.contractAddr, big.NewInt(0), uint64(5000000), gasPrice, data)
 
 	chainID, err := w.client.NetworkID(ctx)
 	if err != nil {
-		return fmt.Errorf("error getting network ID: %v", err)
+		return fmt.Errorf("error getting network ID: method %s, params %v, gasPrice %v, nonceCount %v, err %v", method, params, gasPrice, nonceCount, err)
 	}
 
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), w.privateKey)
 	if err != nil {
-		return fmt.Errorf("error signing transaction: %v", err)
+		return fmt.Errorf("error signing transaction: method %s, params %v, gasPrice %v, nonceCount %v, err %v", method, params, gasPrice, nonceCount, err)
+	}
+
+	rawTx, err := signedTx.Hash().MarshalText()
+	if err != nil {
+		return fmt.Errorf("error marshalling signed transaction: method %s, params %v, gasPrice %v, nonceCount %v, err %v", method, params, gasPrice, nonceCount, err)
 	}
 
 	err = w.client.SendTransaction(ctx, signedTx)
 	if err != nil {
-		return fmt.Errorf("error sending transaction: %v", err)
+		return fmt.Errorf("error sending transaction: method %s, params %v, gasPrice %v, nonceCount %v, txHash %s, signedTx %s, chainID %v, err %v",
+			method, params, gasPrice, nonceCount, tx.Hash().String(), string(rawTx), chainID, err)
 	}
 
 	receipt, err := bind.WaitMined(ctx, w.client, signedTx)
 	if err != nil {
-		return fmt.Errorf("error waiting for transaction to be mined: %v", err)
+		return fmt.Errorf("error waiting for transaction to be mined: method %s, params %v, gasPrice %v, nonceCount %v, err %v", method, params, gasPrice, nonceCount, err)
 	}
 
 	// b, _ := json.Marshal(receipt)
 	// fmt.Println(string(b))
 
 	if receipt.Status == types.ReceiptStatusFailed {
-		return fmt.Errorf("transaction failed with status %v", receipt.Status)
+		return fmt.Errorf("transaction failed with status %v: method %s, params %v, gasPrice %v, nonceCount %v, txHash %s, signedTx %s, chainID %v",
+			receipt.Status, method, params, gasPrice, nonceCount, tx.Hash().String(), string(rawTx), chainID)
 	}
 
 	return nil

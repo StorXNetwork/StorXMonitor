@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/console/secretconstants"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/smartcontract"
@@ -69,7 +68,7 @@ func cmdAuditorRun(cmd *cobra.Command, args []string) (err error) {
 		NetworkRPC:   runCfg.Audit.SmartContractNetworkRPC,
 		ContractAddr: runCfg.Audit.SmartContractReputationContractAddr,
 		Address:      runCfg.Audit.SmartContractNounceAddr,
-	}, secretconstants.Web3AuthPrivateKey)
+	}, runCfg.Audit.SmartContractPrivateKey)
 	if err != nil {
 		b, _ := json.MarshalIndent(runCfg.Audit, "", "  ")
 		log.Error("Failed to create smart contract connector.", zap.Error(err), zap.String("connector", string(b)))

@@ -17,7 +17,7 @@ COPY --from=ui /app/dist /app/storagenodeweb/dist
 RUN go build -o /go/bin/storagenode ./cmd/storagenode
 
 
-FROM amd64/debian:bookworm-slim
+FROM --platform=amd64 debian:bookworm-slim
 
 ENV GOARCH amd64
 ENV PATH=$PATH:/app
