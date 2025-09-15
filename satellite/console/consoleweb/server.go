@@ -221,6 +221,8 @@ type Server struct {
 
 	//boris
 	paymentMonitor *consoleapi.Payments
+
+	emailWebhook *consoleapi.EmailWebhook
 }
 
 // apiAuth exposes methods to control authentication process for each generated API endpoint.
@@ -280,7 +282,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, emailWebhook *consoleapi.EmailWebhook) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -298,6 +300,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		nodeURL:                         nodeURL,
 		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
+		emailWebhook:                    emailWebhook,
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -430,6 +433,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/linkedin_id_token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleLinkedInIdTokenFromCode))).Methods(http.MethodPost, http.MethodOptions)
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/send-email", (http.HandlerFunc(server.emailWebhook.SendEmailByType))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
