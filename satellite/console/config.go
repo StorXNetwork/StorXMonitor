@@ -36,6 +36,7 @@ type Config struct {
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig
 	AccountFreeze                   AccountFreezeConfig
+	EmailApiKey                     string `help:"api key for email" default:""`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	consoleapi "storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/secretconstants"
 	"storj.io/storj/satellite/console/userinfo"
@@ -139,6 +140,7 @@ type API struct {
 
 		StripeService *stripe.Service
 		StripeClient  stripe.Client
+		EmailWebhook  *consoleapi.EmailWebhook
 	}
 
 	REST struct {
@@ -181,6 +183,8 @@ type API struct {
 	Buckets struct {
 		Service *buckets.Service
 	}
+
+	EmailWebhook *consoleapi.EmailWebhook
 }
 
 // NewAPI creates a new satellite API process.

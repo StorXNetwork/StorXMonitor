@@ -116,6 +116,19 @@ func (e *StorageUsageEmail) Subject() string {
 	return fmt.Sprintf("Storage Usage Alert for Project %s", e.ProjectName)
 }
 
+// create a new email template for autobackup failure
+type AutoBackupFailureEmail struct {
+	Email  string
+	Error  string
+	Method string
+}
+
+// Template returns email template name.
+func (*AutoBackupFailureEmail) Template() string { return "AutoBackupFailure" }
+
+// Subject gets email subject.
+func (*AutoBackupFailureEmail) Subject() string { return "Auto Backup Failure" }
+
 // ExistingUserProjectInvitationEmail is mailservice template for project invitation email for existing users.
 type ExistingUserProjectInvitationEmail struct {
 	InviterEmail string

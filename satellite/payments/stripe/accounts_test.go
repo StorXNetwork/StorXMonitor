@@ -98,10 +98,12 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			"",
 			"",
+			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
 			nodeselection.NewPlacementDefinitions(),
 			console.VersioningConfig{},
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
+			nil,
 		)
 
 		require.NoError(t, err)

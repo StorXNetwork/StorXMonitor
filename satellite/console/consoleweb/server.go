@@ -405,6 +405,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	// router.HandleFunc("/facebook_login", authController.HandleFacebookLogin)
 
 	web3AuthController := consoleapi.NewWeb3Auth(logger, service, server.cookieAuth, "secret")
+	emailWebhookController := consoleapi.NewEmailWebhook(service, mailService, server.config.Config, server.config.ExternalAddress, server.config.SupportEmail)
 	router.HandleFunc("/upload_backup_share", web3AuthController.UploadBackupShare)
 	router.HandleFunc("/get_backup_share", web3AuthController.GetBackupShare)
 	router.HandleFunc("/upload_social_share", web3AuthController.UploadSocialShare)
@@ -430,6 +431,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/linkedin_id_token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleLinkedInIdTokenFromCode))).Methods(http.MethodPost, http.MethodOptions)
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/send-email", (http.HandlerFunc(emailWebhookController.SendEmailByType))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/user", (http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
