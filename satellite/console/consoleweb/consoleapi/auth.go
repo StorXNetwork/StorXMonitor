@@ -3282,3 +3282,16 @@ func (a *Auth) RegisterPipedriveForApp(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 	}
 }
+
+func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	email := "dhavalder93@gmail.com"
+
+	err = a.service.DeleteAccount(ctx, email)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+}

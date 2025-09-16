@@ -431,6 +431,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/user", (http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/delete-request", server.withAuth(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
