@@ -26597,6 +26597,33 @@ func (obj *pgxImpl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -26680,6 +26707,33 @@ func (obj *pgxImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -26705,6 +26759,33 @@ func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Cont
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -38356,6 +38437,33 @@ func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -38439,6 +38547,33 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -38464,6 +38599,33 @@ func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx con
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -39863,6 +40025,14 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
+	Delete_ApiKey_By_ProjectId(ctx context.Context,
+		api_key_project_id ApiKey_ProjectId_Field) (
+		count int64, err error)
+
+	Delete_BucketMetainfo_By_ProjectId(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+		count int64, err error)
+
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -39932,6 +40102,10 @@ type Methods interface {
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		deleted bool, err error)
+
+	Delete_Project_By_OwnerId(ctx context.Context,
+		project_owner_id Project_OwnerId_Field) (
+		count int64, err error)
 
 	Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 		repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (

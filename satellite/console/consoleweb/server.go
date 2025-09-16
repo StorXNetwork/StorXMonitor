@@ -886,7 +886,7 @@ func (server *Server) googleVerificationHandler(googleHTML string) http.HandlerF
 // oauth2IntegrationHandler handles the oauth2 integration.
 func (server *Server) trustSourceHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(`12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@109.236.87.89:10000`))
+	w.Write([]byte(`12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000`))
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
