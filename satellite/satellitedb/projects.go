@@ -568,6 +568,14 @@ func (projects *projects) ListByOwnerID(
 	return page, rows.Err()
 }
 
+// DeleteByUserID is a method for deleting project by userID from the database.
+func (projects *projects) DeleteByUserID(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Delete_Project_By_OwnerId(ctx, dbx.Project_OwnerId(userID[:]))
+	return err
+}
+
 func (projects *projects) DeleteAllAPIKeys(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

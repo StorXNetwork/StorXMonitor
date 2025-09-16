@@ -71,6 +71,9 @@ type Projects interface {
 
 	// UpdateStorageUsedPercentage is a method for updating the storage used percentage for a project.
 	UpdateStorageUsedPercentage(ctx context.Context, id uuid.UUID, percentage float64) error
+
+	// Delete is a method for deleting project by userID from the database.
+	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.

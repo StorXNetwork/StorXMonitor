@@ -11,11 +11,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
@@ -475,82 +473,21 @@ func (s *Service) DeleteAccount(ctx context.Context, email string) (err error) {
 	}
 
 	for _, project := range projects {
-		if err := s.deleteProjectData(ctx, &project); err != nil {
-			return fmt.Errorf("delete project data: %w", err)
+		if err := s.buckets.DeleteAllBucketsByProjectID(ctx, project.ID); err != nil {
+			return fmt.Errorf("delete buckets: %w", err)
 		}
 
-		if err := s.store.Projects().Delete(ctx, project.ID); err != nil {
-			return fmt.Errorf("delete project: %w", err)
+		if err := s.store.APIKeys().DeleteByProjectID(ctx, project.ID); err != nil {
+			return fmt.Errorf("delete API keys: %w", err)
 		}
+	}
+	if err := s.store.Projects().DeleteByUserID(ctx, user.ID); err != nil {
+		return fmt.Errorf("delete project: %w", err)
 	}
 
 	if err := s.store.Users().Delete(ctx, user.ID); err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
 
-	return nil
-}
-
-func (s *Service) deleteProjectData(ctx context.Context, project *Project) error {
-	if err := s.deleteAllBuckets(ctx, project); err != nil {
-		return fmt.Errorf("delete buckets: %w", err)
-	}
-
-	if err := s.deleteAllAPIKeys(ctx, project); err != nil {
-		return fmt.Errorf("delete API keys: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Service) deleteAllBuckets(ctx context.Context, project *Project) error {
-	var cursor string
-	for {
-		bucketList, err := s.buckets.ListBuckets(ctx, project.ID, buckets.ListOptions{
-			Direction: buckets.DirectionForward,
-			Cursor:    cursor,
-		}, macaroon.AllowedBuckets{All: true})
-		if err != nil {
-			return err
-		}
-
-		for _, bucket := range bucketList.Items {
-			if err := s.buckets.DeleteBucket(ctx, []byte(bucket.Name), project.ID); err != nil {
-				return err
-			}
-		}
-
-		if !bucketList.More {
-			break
-		}
-		cursor = bucketList.Items[len(bucketList.Items)-1].Name
-	}
-	return nil
-}
-
-func (s *Service) deleteAllAPIKeys(ctx context.Context, project *Project) error {
-	page := uint(1)
-	limit := uint(100)
-
-	for {
-		apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, project.ID, APIKeyCursor{
-			Limit: limit,
-			Page:  page,
-		})
-		if err != nil {
-			return err
-		}
-
-		for _, apiKey := range apiKeys.APIKeys {
-			if err := s.store.APIKeys().Delete(ctx, apiKey.ID); err != nil {
-				return err
-			}
-		}
-
-		if uint(len(apiKeys.APIKeys)) < limit {
-			break
-		}
-		page++
-	}
 	return nil
 }

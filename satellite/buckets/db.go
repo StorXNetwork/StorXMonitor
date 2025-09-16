@@ -141,4 +141,6 @@ type DB interface {
 	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
 	// IterateBucketLocations iterates through all buckets with specific page size.
 	IterateBucketLocations(ctx context.Context, pageSize int, fn func([]metabase.BucketLocation) error) (err error)
+	// DeleteAllBuckets deletes all buckets for a project
+	DeleteAllBucketsByProjectID(ctx context.Context, projectID uuid.UUID) (err error)
 }

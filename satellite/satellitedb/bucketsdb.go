@@ -260,6 +260,13 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 	return nil
 }
 
+// DeleteAllBucketsByProjectID deletes all buckets for a project.
+func (db *bucketsDB) DeleteAllBucketsByProjectID(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = db.db.Delete_BucketMetainfo_By_ProjectId(ctx, dbx.BucketMetainfo_ProjectId(projectID[:]))
+	return err
+}
+
 // ListBuckets returns a list of buckets for a project.
 func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts buckets.ListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList buckets.List, err error) {
 	defer mon.Task()(&ctx)(&err)
