@@ -52,7 +52,7 @@ func TestService_GetAllSatellitesData(t *testing.T) {
 		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		{
-			_, err := planet.StorageNodes[0].Console.Service.GetAllSatellitesData(ctx)
+			_, err := planet.StorageNodes[0].Console.Service.GetAllSatellitesData(ctx, "")
 			require.NoError(t, err)
 		}
 		// TODO figure out how add untrusted satellite to storagenode/trust/service and test GetAllSatellitesData

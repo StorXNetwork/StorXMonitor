@@ -431,6 +431,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/user", (http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/delete-request", server.withAuth(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
@@ -885,7 +886,7 @@ func (server *Server) googleVerificationHandler(googleHTML string) http.HandlerF
 // oauth2IntegrationHandler handles the oauth2 integration.
 func (server *Server) trustSourceHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(`12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@109.236.87.89:10000`))
+	w.Write([]byte(`12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000`))
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.

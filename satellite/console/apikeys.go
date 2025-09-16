@@ -31,6 +31,8 @@ type APIKeys interface {
 	Update(ctx context.Context, key APIKeyInfo) error
 	// Delete deletes APIKeyInfo from store
 	Delete(ctx context.Context, id uuid.UUID) error
+	// DeleteByProjectID deletes APIKeyInfo from store by projectID
+	DeleteByProjectID(ctx context.Context, projectID uuid.UUID) error
 }
 
 // RESTKeys is an interface for rest key operations.

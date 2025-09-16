@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"fmt"
 	"net/mail"
 	"time"
 
@@ -456,3 +457,37 @@ const (
 	// TrialExpired represents trial expired notification has been sent.
 	TrialExpired
 )
+
+// DeleteAccount deletes user by email and all associated data including projects, buckets, and api_keys
+func (s *Service) DeleteAccount(ctx context.Context, email string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.store.Users().GetByEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	projects, err := s.store.Projects().GetByUserID(ctx, user.ID)
+	if err != nil {
+		return fmt.Errorf("get user projects: %w", err)
+	}
+
+	for _, project := range projects {
+		if err := s.buckets.DeleteAllBucketsByProjectID(ctx, project.ID); err != nil {
+			return fmt.Errorf("delete buckets: %w", err)
+		}
+
+		if err := s.store.APIKeys().DeleteByProjectID(ctx, project.ID); err != nil {
+			return fmt.Errorf("delete API keys: %w", err)
+		}
+	}
+	if err := s.store.Projects().DeleteByUserID(ctx, user.ID); err != nil {
+		return fmt.Errorf("delete project: %w", err)
+	}
+
+	if err := s.store.Users().Delete(ctx, user.ID); err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+
+	return nil
+}

@@ -254,6 +254,13 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	return err
 }
 
+// DeleteByProjectID implements satellite.APIKeys.
+func (keys *apikeys) DeleteByProjectID(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = keys.methods.Delete_ApiKey_By_ProjectId(ctx, dbx.ApiKey_ProjectId(projectID[:]))
+	return err
+}
+
 func apiKeyToAPIKeyInfo(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	id, err := uuid.FromBytes(key.Id)
