@@ -638,14 +638,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.EmailWebhook = consoleapi.NewEmailWebhook(
-			peer.Console.Service,
-			peer.Mail.Service,
-			consoleConfig.Config,
-			externalAddress,
-			consoleConfig.SupportEmail,
-		)
-
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
@@ -662,7 +654,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Analytics,
 			config.Payments.PackagePlans,
 			peer.Payments.StripeService,
-			peer.EmailWebhook,
 		)
 
 		peer.Servers.Add(lifecycle.Item{
