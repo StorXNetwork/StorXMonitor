@@ -42,6 +42,9 @@ type Flags struct {
 
 	// Value of first redis db
 	RedisStartDB int
+
+	NewRelic       bool
+	NewRelicAPIKey string
 }
 
 var printCommands bool
@@ -79,6 +82,9 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
 	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", os.Getenv("STORJ_SIM_REDIS"), "connection string for redis e.g. 127.0.0.1:6379 (defaults to STORJ_SIM_REDIS)")
 	rootCmd.PersistentFlags().IntVarP(&flags.RedisStartDB, "redis-startdb", "", 0, "value of first redis db (defaults to 0)")
+
+	rootCmd.PersistentFlags().BoolVarP(&flags.NewRelic, "newrelic", "", true, "enable newrelic logging")
+	rootCmd.PersistentFlags().StringVarP(&flags.NewRelicAPIKey, "newrelic-api-key", "", os.Getenv("NEW_RELIC_API_KEY"), "newrelic api key")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.ConsoleLocaiton, "console-location", "l", "", "satellite web location if we wanted to connect UI from some other location")
 	rootCmd.PersistentFlags().StringVarP(&flags.GatewayCredenticalRequestURL, "gateway-credentials-request-url", "g", "", "to override gateway credentical url in satellite config")
