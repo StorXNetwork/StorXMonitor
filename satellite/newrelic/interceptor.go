@@ -6,24 +6,35 @@ package newrelic
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"go.uber.org/zap/zapcore"
 )
 
 // LogInterceptor intercepts zap logs and sends them to New Relic
 type LogInterceptor struct {
-	sender *Sender
+	sender   *Sender
+	logLevel zapcore.Level
 }
 
-// NewLogInterceptor creates a new LogInterceptor
-func NewLogInterceptor(apiKey string, enabled bool) *LogInterceptor {
-	return &LogInterceptor{sender: NewSender(apiKey, enabled)}
+// NewLogInterceptor creates a new LogInterceptor with log level filtering
+func NewLogInterceptor(apiKey string, enabled bool, logLevel string, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *LogInterceptor {
+	return &LogInterceptor{
+		sender:   NewSender(apiKey, enabled, newRelicTimeInterval, newRelicMaxBufferSize, newRelicMaxRetries),
+		logLevel: parseLogLevel(logLevel),
+	}
 }
 
 // InterceptLog intercepts a log entry and sends it to New Relic
 func (li *LogInterceptor) InterceptLog(entry zapcore.Entry) {
 	parsedEntry, jsonFields := li.parseLog(entry)
 
+	// Check if this log level should be sent to New Relic
+	if parsedEntry.Level < li.logLevel {
+		return
+	}
+
+	// Create structured log data
 	logData := map[string]interface{}{
 		"L":       parsedEntry.Level.String(),
 		"M":       parsedEntry.Message,
@@ -39,11 +50,10 @@ func (li *LogInterceptor) InterceptLog(entry zapcore.Entry) {
 		logData[key] = value
 	}
 
-	// Send JSON payload
+	// Send to New Relic
 	if jsonData, err := json.Marshal(logData); err == nil {
 		li.sender.SendLog(jsonData)
 	}
-	// Silently ignore JSON marshal errors
 }
 
 // parseLog parses Storj's structured log format: LEVEL\tLOGGER\tCALLER\tMESSAGE\t{JSON}
@@ -53,40 +63,40 @@ func (li *LogInterceptor) parseLog(entry zapcore.Entry) (zapcore.Entry, map[stri
 		return entry, make(map[string]interface{})
 	}
 
-	level := li.parseLevel(parts[0])
+	// Parse log components
+	level := parseLogLevel(parts[0])
 	_, caller, message := parts[1], parts[2], parts[3]
 
 	// Parse optional JSON fields
 	jsonFields := make(map[string]interface{})
 	if len(parts) > 4 {
 		jsonStr := strings.Join(parts[4:], "\t")
-		_ = json.Unmarshal([]byte(jsonStr), &jsonFields) // ignore errors safely
+		_ = json.Unmarshal([]byte(jsonStr), &jsonFields)
 	}
-
-	entryCaller := zapcore.NewEntryCaller(0, caller, 0, caller != "")
 
 	return zapcore.Entry{
 		Level:      level,
 		Time:       entry.Time,
 		Message:    message,
-		Caller:     entryCaller,
-		LoggerName: entry.LoggerName, // Keep the original process name from newRelicWriter
+		Caller:     zapcore.NewEntryCaller(0, caller, 0, caller != ""),
+		LoggerName: entry.LoggerName,
 		Stack:      entry.Stack,
 	}, jsonFields
 }
 
-// parseLevel converts a string log level to zapcore.Level
-func (li *LogInterceptor) parseLevel(levelStr string) zapcore.Level {
-	l := strings.ToUpper(levelStr)
-	switch {
-	case strings.Contains(l, "ERROR"), strings.Contains(l, "ERR"):
+// parseLogLevel converts a string log level to zapcore.Level
+func parseLogLevel(logLevel string) zapcore.Level {
+	switch strings.ToLower(logLevel) {
+	case "error":
 		return zapcore.ErrorLevel
-	case strings.Contains(l, "WARN"):
+	case "warn":
 		return zapcore.WarnLevel
-	case strings.Contains(l, "DEBUG"):
+	case "info":
+		return zapcore.InfoLevel
+	case "debug", "trace":
 		return zapcore.DebugLevel
 	default:
-		return zapcore.InfoLevel
+		return zapcore.DebugLevel
 	}
 }
 

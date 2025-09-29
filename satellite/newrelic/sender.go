@@ -13,23 +13,19 @@ import (
 	"time"
 )
 
-const (
-	maxBuffer     = 500
-	flushInterval = 2 * time.Minute
-	httpTimeout   = 30 * time.Second
-	maxRetries    = 3
-)
-
 type Sender struct {
-	apiKey   string
-	enabled  bool
-	url      string
-	client   *http.Client
-	buffer   []LogEntry
-	mu       sync.Mutex
-	ticker   *time.Ticker
-	shutdown chan struct{}
-	wg       sync.WaitGroup
+	apiKey                string
+	enabled               bool
+	url                   string
+	client                *http.Client
+	buffer                []LogEntry
+	mu                    sync.Mutex
+	ticker                *time.Ticker
+	shutdown              chan struct{}
+	wg                    sync.WaitGroup
+	newRelicTimeInterval  time.Duration
+	newRelicMaxBufferSize int
+	newRelicMaxRetries    int
 }
 
 type LogEntry struct {
@@ -41,16 +37,19 @@ type LogEntry struct {
 	Fields    map[string]interface{} `json:"fields,omitempty"`
 }
 
-func NewSender(apiKey string, enabled bool) *Sender {
+func NewSender(apiKey string, enabled bool, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *Sender {
 	s := &Sender{
-		apiKey:   apiKey,
-		enabled:  enabled,
-		url:      "https://log-api.newrelic.com/log/v1",
-		client:   &http.Client{Timeout: httpTimeout},
-		buffer:   make([]LogEntry, 0, maxBuffer),
-		shutdown: make(chan struct{}),
+		apiKey:                apiKey,
+		enabled:               enabled,
+		url:                   "https://log-api.newrelic.com/log/v1",
+		client:                &http.Client{Timeout: 30 * time.Second},
+		buffer:                make([]LogEntry, 0, newRelicMaxBufferSize),
+		shutdown:              make(chan struct{}),
+		newRelicTimeInterval:  newRelicTimeInterval,
+		newRelicMaxBufferSize: newRelicMaxBufferSize,
+		newRelicMaxRetries:    newRelicMaxRetries,
 	}
-	s.ticker = time.NewTicker(flushInterval)
+	s.ticker = time.NewTicker(newRelicTimeInterval)
 	go s.flushLoop()
 	return s
 }
@@ -99,7 +98,7 @@ func (s *Sender) addToBuffer(entry LogEntry) {
 
 	s.buffer = append(s.buffer, entry)
 
-	if len(s.buffer) >= maxBuffer {
+	if len(s.buffer) >= s.newRelicMaxBufferSize {
 		s.wg.Add(1)
 		go s.flushAsync()
 	}
@@ -142,7 +141,7 @@ func (s *Sender) sendBatch(logs []LogEntry) {
 		return
 	}
 
-	for attempt := 1; attempt <= maxRetries; attempt++ {
+	for attempt := 1; attempt <= s.newRelicMaxRetries; attempt++ {
 
 		req, err := http.NewRequest("POST", s.url, bytes.NewReader(payload))
 		if err != nil {

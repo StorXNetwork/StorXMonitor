@@ -20,6 +20,7 @@ import (
 type Flags struct {
 	Directory string
 	Host      string
+	LogLevel  string
 
 	SatelliteCount   int
 	StorageNodeCount int
@@ -43,8 +44,11 @@ type Flags struct {
 	// Value of first redis db
 	RedisStartDB int
 
-	NewRelic       bool
-	NewRelicAPIKey string
+	NewRelic              bool
+	NewRelicAPIKey        string
+	NewRelicTimeInterval  time.Duration
+	NewRelicMaxBufferSize int
+	NewRelicMaxRetries    int
 }
 
 var printCommands bool
@@ -68,6 +72,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", configDir, "base project directory")
 	rootCmd.PersistentFlags().StringVarP(&flags.Host, "host", "", "", "host to use for network")
+	rootCmd.PersistentFlags().StringVarP(&flags.LogLevel, "log-level", "", "debug", "log level (any value, defaults to debug)")
 
 	rootCmd.PersistentFlags().IntVarP(&flags.SatelliteCount, "satellites", "", 1, "number of satellites to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")
@@ -85,6 +90,9 @@ func main() {
 
 	rootCmd.PersistentFlags().BoolVarP(&flags.NewRelic, "newrelic", "", true, "enable newrelic logging")
 	rootCmd.PersistentFlags().StringVarP(&flags.NewRelicAPIKey, "newrelic-api-key", "", os.Getenv("NEW_RELIC_API_KEY"), "newrelic api key")
+	rootCmd.PersistentFlags().DurationVarP(&flags.NewRelicTimeInterval, "newrelic-time-interval", "", 2*time.Minute, "newrelic time interval")
+	rootCmd.PersistentFlags().IntVarP(&flags.NewRelicMaxBufferSize, "newrelic-max-buffer-size", "", 500, "newrelic max buffer size")
+	rootCmd.PersistentFlags().IntVarP(&flags.NewRelicMaxRetries, "newrelic-max-retries", "", 3, "newrelic max retries")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.ConsoleLocaiton, "console-location", "l", "", "satellite web location if we wanted to connect UI from some other location")
 	rootCmd.PersistentFlags().StringVarP(&flags.GatewayCredenticalRequestURL, "gateway-credentials-request-url", "g", "", "to override gateway credentical url in satellite config")

@@ -238,7 +238,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// with common adds all common arguments to the process
 	withCommon := func(dir string, all Arguments) Arguments {
-		common := []string{"--metrics.app-suffix", "sim", "--log.level", "debug", "--config-dir", dir}
+		common := []string{"--metrics.app-suffix", "sim", "--log.level", flags.LogLevel, "--config-dir", dir}
 		if flags.IsDev {
 			common = append(common, "--defaults", "dev")
 		} else {
@@ -253,7 +253,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return all
 	}
 
-	processes := NewProcesses(flags.Directory, flags.FailFast, flags.NewRelic, flags.NewRelicAPIKey)
+	processes := NewProcesses(flags.Directory, flags.FailFast, flags.NewRelic, flags.NewRelicAPIKey, flags.LogLevel, flags.NewRelicTimeInterval, flags.NewRelicMaxBufferSize, flags.NewRelicMaxRetries)
 
 	host := flags.Host
 	versioncontrol := processes.New(Info{
@@ -711,7 +711,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 }
 
 func identitySetup(network *Processes) (*Processes, error) {
-	processes := NewProcesses(network.Directory, network.FailFast, network.NewRelic, network.NewRelicAPIKey)
+	processes := NewProcesses(network.Directory, network.FailFast, network.NewRelic, network.NewRelicAPIKey, network.LogLevel, network.NewRelicTimeInterval, network.NewRelicMaxBufferSize, network.NewRelicMaxRetries)
 
 	for _, process := range network.List {
 		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {
