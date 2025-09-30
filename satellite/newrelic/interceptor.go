@@ -20,8 +20,7 @@ type LogInterceptor struct {
 // NewLogInterceptor creates a new LogInterceptor with log level filtering
 func NewLogInterceptor(apiKey string, logLevel string, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *LogInterceptor {
 	return &LogInterceptor{
-		sender:   NewSender(apiKey, newRelicTimeInterval, newRelicMaxBufferSize, newRelicMaxRetries),
-		logLevel: parseLogLevel(logLevel),
+		sender: NewSender(apiKey, newRelicTimeInterval, newRelicMaxBufferSize, newRelicMaxRetries),
 	}
 }
 
@@ -64,8 +63,7 @@ func (li *LogInterceptor) parseLog(entry zapcore.Entry) (zapcore.Entry, map[stri
 	}
 
 	// Parse log components
-	level := parseLogLevel(parts[0])
-	_, caller, message := parts[1], parts[2], parts[3]
+	loggerName, caller, message := parts[1], parts[2], parts[3]
 
 	// Parse optional JSON fields
 	jsonFields := make(map[string]interface{})
@@ -75,29 +73,13 @@ func (li *LogInterceptor) parseLog(entry zapcore.Entry) (zapcore.Entry, map[stri
 	}
 
 	return zapcore.Entry{
-		Level:      level,
+		Level:      entry.Level,
 		Time:       entry.Time,
 		Message:    message,
 		Caller:     zapcore.NewEntryCaller(0, caller, 0, caller != ""),
-		LoggerName: entry.LoggerName,
+		LoggerName: loggerName,
 		Stack:      entry.Stack,
 	}, jsonFields
-}
-
-// parseLogLevel converts a string log level to zapcore.Level
-func parseLogLevel(logLevel string) zapcore.Level {
-	switch strings.ToLower(logLevel) {
-	case "error":
-		return zapcore.ErrorLevel
-	case "warn":
-		return zapcore.WarnLevel
-	case "info":
-		return zapcore.InfoLevel
-	case "debug", "trace":
-		return zapcore.DebugLevel
-	default:
-		return zapcore.DebugLevel
-	}
 }
 
 // Close closes the interceptor and flushes remaining logs

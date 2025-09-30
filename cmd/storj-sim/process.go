@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -240,18 +242,76 @@ type newRelicWriter struct {
 
 func (w *newRelicWriter) Write(p []byte) (n int, err error) {
 	line := strings.TrimSpace(string(p))
+	if line == "" {
+		return len(p), nil
+	}
 
-	// Simple entry - let interceptor handle all parsing
+	logTime := w.parseLogTime(line)
+	if logTime.IsZero() {
+		logTime = time.Now()
+	}
+
+	logLevel := w.parseLogLevel(line)
+	var stack string
+	if logLevel == zapcore.ErrorLevel || logLevel == zapcore.PanicLevel {
+		stack = string(debug.Stack())
+	}
 	entry := zapcore.Entry{
-		Level:      zapcore.InfoLevel,
-		Time:       time.Now(),
+		Level:      logLevel,
+		Time:       logTime,
 		Message:    line,
 		Caller:     zapcore.NewEntryCaller(0, "", 0, false),
 		LoggerName: w.processName,
+		Stack:      stack,
 	}
 
 	w.core.InterceptLog(entry)
 	return len(p), nil
+}
+
+// parseLogTime extracts timestamp from JSON log
+func (w *newRelicWriter) parseLogTime(line string) time.Time {
+	var logData map[string]interface{}
+	if err := json.Unmarshal([]byte(line), &logData); err == nil {
+		if timestamp, ok := logData["T"].(string); ok {
+			// Try multiple common timestamp formats
+			formats := []string{
+				"2006-01-02T15:04:05.000Z",      // 2024-01-15T10:30:45.123Z
+				"2006-01-02T15:04:05.000Z07:00", // 2024-01-15T10:30:45.123+05:30
+				time.RFC3339,                    // 2024-01-15T10:30:45Z
+				"2006-01-02T15:04:05Z07:00",     // 2024-01-15T10:30:45+05:30
+			}
+
+			for _, format := range formats {
+				if t, err := time.Parse(format, timestamp); err == nil {
+					return t
+				}
+			}
+		}
+	}
+	return time.Time{}
+}
+
+// parseLogLevel extracts log level from JSON
+func (w *newRelicWriter) parseLogLevel(line string) zapcore.Level {
+	var logData map[string]interface{}
+	if err := json.Unmarshal([]byte(line), &logData); err == nil {
+		if level, ok := logData["L"].(string); ok {
+			switch level {
+			case "panic", "fatal":
+				return zapcore.PanicLevel
+			case "error":
+				return zapcore.ErrorLevel
+			case "warn", "warning":
+				return zapcore.WarnLevel
+			case "info":
+				return zapcore.InfoLevel
+			case "debug", "trace":
+				return zapcore.DebugLevel
+			}
+		}
+	}
+	return zapcore.InfoLevel
 }
 
 // Exec runs the process using the arguments for a given command.

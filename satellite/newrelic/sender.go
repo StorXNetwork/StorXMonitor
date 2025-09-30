@@ -33,6 +33,7 @@ type LogEntry struct {
 	Message   string                 `json:"message"`
 	Level     string                 `json:"level,omitempty"`
 	Caller    string                 `json:"caller,omitempty"`
+	Stack     string                 `json:"stack,omitempty"`
 	LogType   string                 `json:"logtype"`
 	Fields    map[string]interface{} `json:"fields,omitempty"`
 }
@@ -68,19 +69,20 @@ func (s *Sender) parseLog(data []byte) LogEntry {
 	var logData map[string]interface{}
 	if err := json.Unmarshal(data, &logData); err != nil {
 		return LogEntry{
-			Timestamp: time.Now().UnixMilli(),
+			Timestamp: s.getTimestamp(logData["T"]),
 			Message:   string(data),
 			LogType:   "application",
 		}
 	}
 
 	entry := LogEntry{
-		Timestamp: time.Now().UnixMilli(),
+		Timestamp: s.getTimestamp(logData["T"]),
 		Message:   s.getStringValue(logData["M"]),
 		Level:     s.getStringValue(logData["L"]),
 		Caller:    s.getStringValue(logData["C"]),
 		LogType:   "application",
 		Fields:    make(map[string]interface{}),
+		Stack:     s.getStringValue(logData["S"]),
 	}
 
 	// Add extra fields (excluding zap core fields)
@@ -91,6 +93,33 @@ func (s *Sender) parseLog(data []byte) LogEntry {
 	}
 
 	return entry
+}
+
+func (s *Sender) getTimestamp(v interface{}) int64 {
+	if v == nil {
+		return time.Now().UnixMilli()
+	}
+
+	// Try to parse as time string first
+	if str, ok := v.(string); ok {
+		if t, err := time.Parse(time.RFC3339, str); err == nil {
+			return t.UnixMilli()
+		}
+		if t, err := time.Parse("2006-01-02T15:04:05.000Z07:00", str); err == nil {
+			return t.UnixMilli()
+		}
+	}
+
+	// Try to convert to int64
+	if timestamp, ok := v.(int64); ok {
+		return timestamp
+	}
+	if timestamp, ok := v.(float64); ok {
+		return int64(timestamp)
+	}
+
+	// Fallback to current time
+	return time.Now().UnixMilli()
 }
 
 // getStringValue safely converts interface{} to string
