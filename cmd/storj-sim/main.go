@@ -44,7 +44,7 @@ type Flags struct {
 	// Value of first redis db
 	RedisStartDB int
 
-	NewRelic              bool
+	// New Relic config
 	NewRelicAPIKey        string
 	NewRelicTimeInterval  time.Duration
 	NewRelicMaxBufferSize int
@@ -88,7 +88,6 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", os.Getenv("STORJ_SIM_REDIS"), "connection string for redis e.g. 127.0.0.1:6379 (defaults to STORJ_SIM_REDIS)")
 	rootCmd.PersistentFlags().IntVarP(&flags.RedisStartDB, "redis-startdb", "", 0, "value of first redis db (defaults to 0)")
 
-	rootCmd.PersistentFlags().BoolVarP(&flags.NewRelic, "newrelic", "", true, "enable newrelic logging")
 	rootCmd.PersistentFlags().StringVarP(&flags.NewRelicAPIKey, "newrelic-api-key", "", os.Getenv("NEW_RELIC_API_KEY"), "newrelic api key")
 	rootCmd.PersistentFlags().DurationVarP(&flags.NewRelicTimeInterval, "newrelic-time-interval", "", 2*time.Minute, "newrelic time interval")
 	rootCmd.PersistentFlags().IntVarP(&flags.NewRelicMaxBufferSize, "newrelic-max-buffer-size", "", 500, "newrelic max buffer size")

@@ -18,9 +18,9 @@ type LogInterceptor struct {
 }
 
 // NewLogInterceptor creates a new LogInterceptor with log level filtering
-func NewLogInterceptor(apiKey string, enabled bool, logLevel string, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *LogInterceptor {
+func NewLogInterceptor(apiKey string, logLevel string, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *LogInterceptor {
 	return &LogInterceptor{
-		sender:   NewSender(apiKey, enabled, newRelicTimeInterval, newRelicMaxBufferSize, newRelicMaxRetries),
+		sender:   NewSender(apiKey, newRelicTimeInterval, newRelicMaxBufferSize, newRelicMaxRetries),
 		logLevel: parseLogLevel(logLevel),
 	}
 }

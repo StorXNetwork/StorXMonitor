@@ -15,7 +15,7 @@ import (
 
 type Sender struct {
 	apiKey                string
-	enabled               bool
+	enabled               bool // true if apiKey is not empty
 	url                   string
 	client                *http.Client
 	buffer                []LogEntry
@@ -37,10 +37,10 @@ type LogEntry struct {
 	Fields    map[string]interface{} `json:"fields,omitempty"`
 }
 
-func NewSender(apiKey string, enabled bool, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *Sender {
+func NewSender(apiKey string, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *Sender {
 	s := &Sender{
 		apiKey:                apiKey,
-		enabled:               enabled,
+		enabled:               apiKey != "", // true if apiKey is not empty
 		url:                   "https://log-api.newrelic.com/log/v1",
 		client:                &http.Client{Timeout: 30 * time.Second},
 		buffer:                make([]LogEntry, 0, newRelicMaxBufferSize),
@@ -55,7 +55,8 @@ func NewSender(apiKey string, enabled bool, newRelicTimeInterval time.Duration, 
 }
 
 func (s *Sender) SendLog(data []byte) {
-	if !s.enabled || s.apiKey == "" {
+	if !s.enabled {
+		fmt.Println("New Relic is disabled")
 		return
 	}
 
@@ -75,9 +76,9 @@ func (s *Sender) parseLog(data []byte) LogEntry {
 
 	entry := LogEntry{
 		Timestamp: time.Now().UnixMilli(),
-		Message:   fmt.Sprintf("%v", logData["M"]),
-		Level:     fmt.Sprintf("%v", logData["L"]),
-		Caller:    fmt.Sprintf("%v", logData["C"]),
+		Message:   s.getStringValue(logData["M"]),
+		Level:     s.getStringValue(logData["L"]),
+		Caller:    s.getStringValue(logData["C"]),
 		LogType:   "application",
 		Fields:    make(map[string]interface{}),
 	}
@@ -90,6 +91,17 @@ func (s *Sender) parseLog(data []byte) LogEntry {
 	}
 
 	return entry
+}
+
+// getStringValue safely converts interface{} to string
+func (s *Sender) getStringValue(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	if str, ok := v.(string); ok {
+		return str
+	}
+	return fmt.Sprintf("%v", v)
 }
 
 func (s *Sender) addToBuffer(entry LogEntry) {

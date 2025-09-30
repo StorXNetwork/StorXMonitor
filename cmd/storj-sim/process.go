@@ -29,6 +29,14 @@ import (
 	"storj.io/common/sync2"
 )
 
+type NewRelicConfig struct {
+	NewRelicAPIKey        string
+	LogLevel              string
+	NewRelicTimeInterval  time.Duration
+	NewRelicMaxBufferSize int
+	NewRelicMaxRetries    int
+}
+
 // Processes contains list of processes.
 type Processes struct {
 	Output    *PrefixWriter
@@ -37,19 +45,13 @@ type Processes struct {
 
 	FailFast       bool
 	MaxStartupWait time.Duration
-
-	NewRelic              bool
-	NewRelicAPIKey        string
-	LogLevel              string
-	NewRelicTimeInterval  time.Duration
-	NewRelicMaxBufferSize int
-	NewRelicMaxRetries    int
+	NewRelicConfig NewRelicConfig
 }
 
 const storjSimMaxLineLen = 10000
 
 // NewProcesses returns a group of processes.
-func NewProcesses(dir string, failfast bool, newRelic bool, newRelicAPIKey string, logLevel string, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *Processes {
+func NewProcesses(dir string, failfast bool, newRelicConfig NewRelicConfig) *Processes {
 	return &Processes{
 		Output:    NewPrefixWriter("sim", storjSimMaxLineLen, os.Stdout),
 		Directory: dir,
@@ -58,12 +60,7 @@ func NewProcesses(dir string, failfast bool, newRelic bool, newRelicAPIKey strin
 		FailFast:       failfast,
 		MaxStartupWait: time.Minute,
 
-		NewRelic:              newRelic,
-		NewRelicAPIKey:        newRelicAPIKey,
-		LogLevel:              logLevel,
-		NewRelicTimeInterval:  newRelicTimeInterval,
-		NewRelicMaxBufferSize: newRelicMaxBufferSize,
-		NewRelicMaxRetries:    newRelicMaxRetries,
+		NewRelicConfig: newRelicConfig,
 	}
 }
 
@@ -201,12 +198,7 @@ type Process struct {
 	stdout WriterFlusher
 	stderr WriterFlusher
 
-	NewRelic              bool
-	NewRelicAPIKey        string
-	LogLevel              string
-	NewRelicTimeInterval  time.Duration
-	NewRelicMaxBufferSize int
-	NewRelicMaxRetries    int
+	NewRelicConfig NewRelicConfig
 }
 
 // New creates a process which can be run in the specified directory.
@@ -223,12 +215,7 @@ func (processes *Processes) New(info Info) *Process {
 		stdout: output,
 		stderr: output,
 
-		NewRelic:              processes.NewRelic,
-		NewRelicAPIKey:        processes.NewRelicAPIKey,
-		LogLevel:              processes.LogLevel,
-		NewRelicTimeInterval:  processes.NewRelicTimeInterval,
-		NewRelicMaxBufferSize: processes.NewRelicMaxBufferSize,
-		NewRelicMaxRetries:    processes.NewRelicMaxRetries,
+		NewRelicConfig: processes.NewRelicConfig,
 	}
 
 	processes.List = append(processes.List, process)
@@ -253,9 +240,6 @@ type newRelicWriter struct {
 
 func (w *newRelicWriter) Write(p []byte) (n int, err error) {
 	line := strings.TrimSpace(string(p))
-	if line == "" || strings.Contains(line, "Timer tick") || strings.Contains(line, "Flush called") {
-		return len(p), nil
-	}
 
 	// Simple entry - let interceptor handle all parsing
 	entry := zapcore.Entry{
@@ -321,12 +305,9 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
 
 	// Setup New Relic if enabled
-	if process.NewRelic && process.NewRelicAPIKey != "" {
-		cmd.Env = append(cmd.Env, "NEW_RELIC_API_KEY="+process.NewRelicAPIKey)
-		cmd.Env = append(cmd.Env, "NEW_RELIC_ENABLED=true")
-
+	if process.NewRelicConfig.NewRelicAPIKey != "" {
 		// Create New Relic interceptor with log level filtering
-		newRelicCore := newrelic.NewLogInterceptor(process.NewRelicAPIKey, process.NewRelic, process.LogLevel, process.NewRelicTimeInterval, process.NewRelicMaxBufferSize, process.NewRelicMaxRetries)
+		newRelicCore := newrelic.NewLogInterceptor(process.NewRelicConfig.NewRelicAPIKey, process.NewRelicConfig.LogLevel, process.NewRelicConfig.NewRelicTimeInterval, process.NewRelicConfig.NewRelicMaxBufferSize, process.NewRelicConfig.NewRelicMaxRetries)
 		newRelicWriter := &newRelicWriter{core: newRelicCore, processName: process.Name}
 
 		// Send both to console and New Relic (with level filtering)

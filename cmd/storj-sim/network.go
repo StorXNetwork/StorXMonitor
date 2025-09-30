@@ -253,7 +253,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return all
 	}
 
-	processes := NewProcesses(flags.Directory, flags.FailFast, flags.NewRelic, flags.NewRelicAPIKey, flags.LogLevel, flags.NewRelicTimeInterval, flags.NewRelicMaxBufferSize, flags.NewRelicMaxRetries)
+	processes := NewProcesses(flags.Directory, flags.FailFast, NewRelicConfig{
+		NewRelicAPIKey:        flags.NewRelicAPIKey,
+		LogLevel:              flags.LogLevel,
+		NewRelicTimeInterval:  flags.NewRelicTimeInterval,
+		NewRelicMaxBufferSize: flags.NewRelicMaxBufferSize,
+		NewRelicMaxRetries:    flags.NewRelicMaxRetries,
+	})
 
 	host := flags.Host
 	versioncontrol := processes.New(Info{
@@ -711,7 +717,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 }
 
 func identitySetup(network *Processes) (*Processes, error) {
-	processes := NewProcesses(network.Directory, network.FailFast, network.NewRelic, network.NewRelicAPIKey, network.LogLevel, network.NewRelicTimeInterval, network.NewRelicMaxBufferSize, network.NewRelicMaxRetries)
+	processes := NewProcesses(network.Directory, network.FailFast, network.NewRelicConfig)
 
 	for _, process := range network.List {
 		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {
