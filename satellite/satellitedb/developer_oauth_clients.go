@@ -17,6 +17,9 @@ type developerOAuthClients struct {
 var _ console.DeveloperOAuthClients = (*developerOAuthClients)(nil)
 
 func (repo *developerOAuthClients) GetByID(ctx context.Context, id uuid.UUID) (*console.DeveloperOAuthClient, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	dbxClient, err := repo.db.Get_DeveloperOauthClient_By_Id(ctx, dbx.DeveloperOauthClient_Id(id[:]))
 	if err != nil {
 		return nil, err
@@ -25,6 +28,9 @@ func (repo *developerOAuthClients) GetByID(ctx context.Context, id uuid.UUID) (*
 }
 
 func (repo *developerOAuthClients) GetByClientID(ctx context.Context, clientID string) (*console.DeveloperOAuthClient, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	dbxClient, err := repo.db.Get_DeveloperOauthClient_By_ClientId(ctx, dbx.DeveloperOauthClient_ClientId(clientID))
 	if err != nil {
 		return nil, err
@@ -33,6 +39,9 @@ func (repo *developerOAuthClients) GetByClientID(ctx context.Context, clientID s
 }
 
 func (repo *developerOAuthClients) ListByDeveloperID(ctx context.Context, developerID uuid.UUID) ([]console.DeveloperOAuthClient, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	dbxClients, err := repo.db.All_DeveloperOauthClient_By_DeveloperId(ctx, dbx.DeveloperOauthClient_DeveloperId(developerID[:]))
 	if err != nil {
 		return nil, err
@@ -45,6 +54,9 @@ func (repo *developerOAuthClients) ListByDeveloperID(ctx context.Context, develo
 }
 
 func (repo *developerOAuthClients) Insert(ctx context.Context, client *console.DeveloperOAuthClient) (*console.DeveloperOAuthClient, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	dbxClient, err := repo.db.Create_DeveloperOauthClient(
 		ctx,
 		dbx.DeveloperOauthClient_Id(client.ID[:]),
@@ -63,11 +75,14 @@ func (repo *developerOAuthClients) Insert(ctx context.Context, client *console.D
 }
 
 func (repo *developerOAuthClients) StatusUpdate(ctx context.Context, id uuid.UUID, status int, updatedAt time.Time) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	fields := dbx.DeveloperOauthClient_Update_Fields{
 		Status:    dbx.DeveloperOauthClient_Status(status),
 		UpdatedAt: dbx.DeveloperOauthClient_UpdatedAt(updatedAt),
 	}
-	_, err := repo.db.Update_DeveloperOauthClient_By_Id(
+	_, err = repo.db.Update_DeveloperOauthClient_By_Id(
 		ctx,
 		dbx.DeveloperOauthClient_Id(id[:]),
 		fields,
@@ -76,7 +91,10 @@ func (repo *developerOAuthClients) StatusUpdate(ctx context.Context, id uuid.UUI
 }
 
 func (repo *developerOAuthClients) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := repo.db.Delete_DeveloperOauthClient_By_Id(ctx, dbx.DeveloperOauthClient_Id(id[:]))
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = repo.db.Delete_DeveloperOauthClient_By_Id(ctx, dbx.DeveloperOauthClient_Id(id[:]))
 	return err
 }
 

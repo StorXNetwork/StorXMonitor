@@ -55,6 +55,8 @@ func (cache *ReliabilityCache) LastUpdate() time.Time {
 // reliability cache after returning; it is just a best-effort count and should be treated as an
 // estimate.
 func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	state, err := cache.loadFast(ctx, time.Time{})
 	if err != nil {
 		return 0, err
@@ -70,6 +72,9 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 // Slice selectedNodes will be filled with results nodes and returned. It's length must be
 // equal to nodeIDs slice.
 func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storj.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	state, err := cache.loadFast(ctx, validUpTo)
 	if err != nil {
 		return nil, err
@@ -86,6 +91,8 @@ func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time
 }
 
 func (cache *ReliabilityCache) loadFast(ctx context.Context, validUpTo time.Time) (_ *reliabilityState, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// This code is designed to be very fast in the case where a refresh is not needed: just an
 	// atomic load from rarely written to bit of shared memory. The general strategy is to first
 	// read if the state suffices to answer the query. If not (due to it not existing, being

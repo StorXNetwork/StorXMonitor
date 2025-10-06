@@ -17,6 +17,8 @@ import (
 
 func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -106,6 +108,8 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) revokeRESTKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	apiKey, ok := vars["apikey"]
@@ -115,7 +119,7 @@ func (server *Server) revokeRESTKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := server.restKeys.Revoke(ctx, apiKey)
+	err = server.restKeys.Revoke(ctx, apiKey)
 	if err != nil {
 		sendJSONError(w, "failed to revoke api key",
 			err.Error(), http.StatusNotFound)

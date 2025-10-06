@@ -12,14 +12,18 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-
+	"github.com/spacemonkeygo/monkit/v3"
 	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
 
+var mon = monkit.Package()
+
 func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -117,6 +121,9 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 func (server *Server) getAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	vars := mux.Vars(r)
 	apikeyString, ok := vars["apikey"]
 	if !ok {
@@ -207,6 +214,9 @@ func (server *Server) getAPIKey(w http.ResponseWriter, r *http.Request) {
 func (server *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	vars := mux.Vars(r)
 	apikeyString, ok := vars["apikey"]
 	if !ok {
@@ -244,6 +254,9 @@ func (server *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -294,6 +307,9 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 
 func (server *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]

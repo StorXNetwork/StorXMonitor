@@ -14,8 +14,12 @@ import (
 )
 
 func (server *Server) createOAuthClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	oauthClient := oidc.OAuthClient{}
-	err := json.NewDecoder(r.Body).Decode(&oauthClient)
+	err = json.NewDecoder(r.Body).Decode(&oauthClient)
 	if err != nil {
 		sendJSONError(w, "invalid json", err.Error(), http.StatusBadRequest)
 		return
@@ -31,7 +35,7 @@ func (server *Server) createOAuthClient(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = server.db.OIDC().OAuthClients().Create(r.Context(), oauthClient)
+	err = server.db.OIDC().OAuthClients().Create(ctx, oauthClient)
 	if err != nil {
 		sendJSONError(w, "failed to create client", err.Error(), http.StatusInternalServerError)
 		return
@@ -41,6 +45,10 @@ func (server *Server) createOAuthClient(w http.ResponseWriter, r *http.Request) 
 }
 
 func (server *Server) updateOAuthClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	id, err := uuid.FromString(mux.Vars(r)["id"])
 	if err != nil {
 		sendJSONError(w, "missing required client id", err.Error(), http.StatusBadRequest)
@@ -56,7 +64,7 @@ func (server *Server) updateOAuthClient(w http.ResponseWriter, r *http.Request) 
 
 	oauthClient.ID = id
 
-	err = server.db.OIDC().OAuthClients().Update(r.Context(), oauthClient)
+	err = server.db.OIDC().OAuthClients().Update(ctx, oauthClient)
 	if err != nil {
 		sendJSONError(w, "failed to update client", err.Error(), http.StatusInternalServerError)
 		return
@@ -66,13 +74,17 @@ func (server *Server) updateOAuthClient(w http.ResponseWriter, r *http.Request) 
 }
 
 func (server *Server) deleteOAuthClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	id, err := uuid.FromString(mux.Vars(r)["id"])
 	if err != nil {
 		sendJSONError(w, "missing required client id", err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	err = server.db.OIDC().OAuthClients().Delete(r.Context(), id)
+	err = server.db.OIDC().OAuthClients().Delete(ctx, id)
 	if err != nil {
 		sendJSONError(w, "failed to delete client", err.Error(), http.StatusInternalServerError)
 		return

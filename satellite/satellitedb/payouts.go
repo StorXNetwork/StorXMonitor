@@ -22,6 +22,9 @@ type snopayoutsDB struct {
 
 // GetPaystub returns payStub by nodeID and period.
 func (db *snopayoutsDB) GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (paystub snopayouts.Paystub, err error) {
+
+	defer mon.Task()(&ctx)(&err)
+
 	dbxPaystub, err := db.db.Get_StoragenodePaystub_By_NodeId_And_Period(ctx,
 		dbx.StoragenodePaystub_NodeId(nodeID.Bytes()),
 		dbx.StoragenodePaystub_Period(period))
@@ -36,6 +39,8 @@ func (db *snopayoutsDB) GetPaystub(ctx context.Context, nodeID storj.NodeID, per
 
 // GetAllPaystubs return all payStubs by nodeID.
 func (db *snopayoutsDB) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) (paystubs []snopayouts.Paystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	dbxPaystubs, err := db.db.All_StoragenodePaystub_By_NodeId(ctx,
 		dbx.StoragenodePaystub_NodeId(nodeID.Bytes()))
 	if err != nil {
@@ -84,6 +89,8 @@ func convertDBXPaystub(dbxPaystub *dbx.StoragenodePaystub) (snopayouts.Paystub, 
 
 // GetPayment returns payment by nodeID and period.
 func (db *snopayoutsDB) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment snopayouts.Payment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// N.B. There can be multiple payments for a single node id and period, but the old query
 	// here did not take that into account. Indeed, all above layers do not take it into account
 	// from the service endpoints to the protobuf rpcs to the node client side. Instead of fixing
@@ -109,6 +116,8 @@ func (db *snopayoutsDB) GetPayment(ctx context.Context, nodeID storj.NodeID, per
 
 // GetAllPayments return all payments by nodeID.
 func (db *snopayoutsDB) GetAllPayments(ctx context.Context, nodeID storj.NodeID) (payments []snopayouts.Payment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	dbxPayments, err := db.db.All_StoragenodePayment_By_NodeId(ctx,
 		dbx.StoragenodePayment_NodeId(nodeID.Bytes()))
 	if err != nil {

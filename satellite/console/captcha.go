@@ -56,6 +56,8 @@ func NewDefaultCaptcha(kind CaptchaType, secretKey string) CaptchaHandler {
 // The documentation can be found here for recaptcha: https://developers.google.com/recaptcha/docs/verify
 // And here for hcaptcha: https://docs.hcaptcha.com/
 func (r captchaHandler) Verify(ctx context.Context, responseToken string, userIP string) (valid bool, score *float64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if responseToken == "" {
 		return false, nil, errs.New("the response token is empty")
 	}

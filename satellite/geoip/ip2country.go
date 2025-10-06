@@ -4,6 +4,7 @@
 package geoip
 
 import (
+	"context"
 	"net"
 
 	"github.com/zeebo/errs"
@@ -18,6 +19,10 @@ type IPToCountry interface {
 }
 
 func addressToIP(address string) (net.IP, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, errs.Wrap(err)

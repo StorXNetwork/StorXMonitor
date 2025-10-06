@@ -4,18 +4,21 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
-
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 )
 
 func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID, bucket []byte, err error) {
+	ctx := context.Background()
+	defer mon.Task()(&ctx)(&err)
+
 	projectUUIDString, ok := vars["project"]
 	if !ok {
 		return project, bucket, fmt.Errorf("project-uuid missing")
@@ -37,6 +40,10 @@ func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID
 }
 
 func parsePlacementConstraint(regionCode string) (storj.PlacementConstraint, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	switch regionCode {
 	case "EU":
 		return storj.EU, nil
@@ -57,6 +64,8 @@ func parsePlacementConstraint(regionCode string) (storj.PlacementConstraint, err
 
 func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	project, bucket, err := validateBucketPathParameters(mux.Vars(r))
 	if err != nil {
@@ -93,6 +102,10 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 }
 
 func (server *Server) createGeofenceForBucket(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	placement, err := parsePlacementConstraint(r.URL.Query().Get("region"))
 	if err != nil {
 		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
@@ -108,6 +121,9 @@ func (server *Server) deleteGeofenceForBucket(w http.ResponseWriter, r *http.Req
 
 func (server *Server) getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	project, bucket, err := validateBucketPathParameters(mux.Vars(r))
 	if err != nil {

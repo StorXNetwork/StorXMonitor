@@ -29,6 +29,8 @@ import (
 
 func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -57,6 +59,8 @@ func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) 
 
 func (server *Server) getProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -96,6 +100,8 @@ func (server *Server) getProject(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -162,6 +168,8 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -187,7 +195,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decoder := schema.NewDecoder()
-	err := decoder.Decode(&arguments, r.Form)
+	err = decoder.Decode(&arguments, r.Form)
 	if err != nil {
 		sendJSONError(w, "invalid arguments",
 			err.Error(), http.StatusBadRequest)
@@ -297,6 +305,8 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -363,6 +373,8 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -424,6 +436,8 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) updateProjectsUserAgent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -493,6 +507,8 @@ func (server *Server) updateProjectsUserAgent(w http.ResponseWriter, r *http.Req
 
 func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
@@ -676,6 +692,10 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 }
 
 func (server *Server) createGeofenceForProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	placement, err := parsePlacementConstraint(r.URL.Query().Get("region"))
 	if err != nil {
 		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
@@ -691,6 +711,8 @@ func (server *Server) deleteGeofenceForProject(w http.ResponseWriter, r *http.Re
 
 func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]

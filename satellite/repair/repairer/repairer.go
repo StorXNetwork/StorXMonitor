@@ -152,6 +152,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 // processWhileQueueHasItems keeps calling process() until the queue is empty or something
 // else goes wrong in fetching from the queue.
 func (service *Service) processWhileQueueHasItems(ctx context.Context) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
 	for {
 		err := service.process(ctx)
 		if err != nil {

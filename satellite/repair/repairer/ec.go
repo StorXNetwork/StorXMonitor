@@ -70,6 +70,9 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	client, err := piecestore.Dial(rpcpool.WithForceDial(ctx), ec.dialer, n, piecestore.DefaultConfig)
 	return client, ErrDialFailed.Wrap(err)
 }
@@ -162,6 +165,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				}
 
 				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, "", pieceSize)
+				defer mon.Task()(&ctx)(&err)
+
 				// if piecestore dial with last ip:port failed try again with node address
 				if triedLastIPPort && ErrDialFailed.Has(err) {
 					if pieceReadCloser != nil {

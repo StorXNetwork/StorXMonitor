@@ -33,6 +33,8 @@ type reputations struct {
 // disqualified, or suspended as a result of this update, the caller is
 // responsible for updating the records in the overlay to match.
 func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *reputation.Info, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	mutations, err := reputation.UpdateRequestToMutations(updateReq, now)
 	if err != nil {
 		return nil, err
@@ -149,6 +151,9 @@ func (reputations *reputations) ApplyUpdates(ctx context.Context, nodeID storj.N
 }
 
 func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*reputation.Info, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	res, err := reputations.db.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
 	if err != nil {
 		if errs.Is(err, sql.ErrNoRows) {

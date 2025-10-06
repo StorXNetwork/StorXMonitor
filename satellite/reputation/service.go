@@ -186,6 +186,7 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Inf
 
 // TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
 func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	err = service.db.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
 	if err != nil {
 		return err
@@ -210,6 +211,7 @@ func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID 
 
 // TestDisqualifyNode disqualifies a storage node.
 func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason overlay.DisqualificationReason) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	disqualifiedAt := time.Now()
 
 	err = service.db.DisqualifyNode(ctx, nodeID, disqualifiedAt, reason)
@@ -222,6 +224,8 @@ func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.Nod
 
 // TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	err = service.db.UnsuspendNodeUnknownAudit(ctx, nodeID)
 	if err != nil {
 		return err
@@ -248,6 +252,8 @@ func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeI
 // nodes to the backing store, if the attached reputationDB does any caching
 // at all.
 func (service *Service) TestFlushAllNodeInfo(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if db, ok := service.db.(*CachingDB); ok {
 		return db.FlushAll(ctx)
 	}
@@ -257,6 +263,8 @@ func (service *Service) TestFlushAllNodeInfo(ctx context.Context) (err error) {
 // FlushNodeInfo flushes any cached information about the specified node to
 // the backing store, if the attached reputationDB does any caching at all.
 func (service *Service) FlushNodeInfo(ctx context.Context, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if db, ok := service.db.(*CachingDB); ok {
 		return db.RequestSync(ctx, nodeID)
 	}

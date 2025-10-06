@@ -4,6 +4,7 @@
 package consolewasm
 
 import (
+	"context"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -44,6 +45,10 @@ type Permission struct {
 
 // SetPermission restricts the api key with the permissions and returns an api key with restricted permissions.
 func SetPermission(key string, buckets []string, permission Permission) (*macaroon.APIKey, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	if permission == (Permission{}) {
 		return nil, errs.New("permission is empty")
 	}

@@ -5,6 +5,7 @@ package consoleauth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"time"
 
@@ -22,17 +23,25 @@ type Claims struct {
 
 // JSON returns json representation of Claims.
 func (c *Claims) JSON() ([]byte, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	buffer := bytes.NewBuffer(nil)
 
-	err := json.NewEncoder(buffer).Encode(c)
+	err = json.NewEncoder(buffer).Encode(c)
 	return buffer.Bytes(), err
 }
 
 // FromJSON returns Claims instance, parsed from JSON.
 func FromJSON(data []byte) (*Claims, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	claims := new(Claims)
 
-	err := json.NewDecoder(bytes.NewReader(data)).Decode(claims)
+	err = json.NewDecoder(bytes.NewReader(data)).Decode(claims)
 	if err != nil {
 		return nil, err
 	}

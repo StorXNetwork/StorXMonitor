@@ -4,10 +4,15 @@
 package geoip
 
 import (
+	"context"
+
 	"github.com/oschwald/maxminddb-golang"
+	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/common/storj/location"
 )
+
+var mon = monkit.Package()
 
 // OpenMaxmindDB will use the provided filepath to open the target maxmind database.
 func OpenMaxmindDB(filepath string) (*MaxmindDB, error) {
@@ -44,6 +49,10 @@ func (m *MaxmindDB) Close() error {
 
 // LookupISOCountryCode accepts an IP address.
 func (m *MaxmindDB) LookupISOCountryCode(address string) (location.CountryCode, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	ip, err := addressToIP(address)
 	if err != nil || ip == nil {
 		return location.CountryCode(0), err
@@ -59,6 +68,10 @@ func (m *MaxmindDB) LookupISOCountryCode(address string) (location.CountryCode, 
 }
 
 func toCountryCode(info *ipInfo) location.CountryCode {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	// it's a tricky situation when represented_country is returned (like an embassy or military base).
 	// we have only 1-2 such nodes. it's more safe to exclude them from geofencing.
 	if info.RepresentedCountry.IsoCode != "" && info.RepresentedCountry.IsoCode != info.Country.IsoCode {
