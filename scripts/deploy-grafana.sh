@@ -29,6 +29,7 @@ check_files() {
         "grafana/provisioning/datasources/prometheus.yml"
         "grafana/provisioning/dashboards/dashboards.yml"
         "grafana/dashboards/storx-comprehensive-dashboard.json"
+        "grafana/dashboards/satellite-dashboard.json"
         "storx_exporter/storx_exporter.go"
         "storx_exporter/nodes.txt"
     )
