@@ -124,13 +124,26 @@ func (peer *Service) Run(ctx context.Context) (err error) {
 			err = group.Wait()
 		})
 	})
+
+	if err != nil {
+		mon.Counter("backup_service_run_failures").Inc(1)
+		return err
+	}
+
 	return err
 }
 
 // Close closes the backup service.
 func (peer *Service) Close() error {
-	return errs.Combine(
+	err := errs.Combine(
 		peer.Servers.Close(),
 		peer.Services.Close(),
 	)
+
+	if err != nil {
+		mon.Counter("backup_service_close_failures").Inc(1)
+		return err
+	}
+
+	return nil
 }

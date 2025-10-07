@@ -17,8 +17,10 @@ type web3Auth struct {
 }
 
 func (b *web3Auth) GetBackupShare(ctx context.Context, backupID string) (share []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	rows, err := b.db.Get_Web3BackupShare_Share_By_BackupId(ctx, dbx.Web3BackupShare_BackupId([]byte(backupID)))
 	if err != nil {
+		mon.Counter("web3auth_db_get_backup_share_error").Inc(1)
 		return nil, err
 	}
 	if rows == nil {
@@ -28,6 +30,7 @@ func (b *web3Auth) GetBackupShare(ctx context.Context, backupID string) (share [
 }
 
 func (b *web3Auth) UploadBackupShare(ctx context.Context, backupID string, share []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	err = b.db.CreateNoReturn_Web3BackupShare(ctx,
 		dbx.Web3BackupShare_BackupId([]byte(backupID)),
 		dbx.Web3BackupShare_Share(share),
@@ -40,40 +43,68 @@ func (b *web3Auth) UploadBackupShare(ctx context.Context, backupID string, share
 					Share: dbx.Web3BackupShare_Share(share),
 				},
 			)
+			if err != nil {
+				mon.Counter("web3auth_db_upload_backup_share_update_error").Inc(1)
+				return err
+			}
+		} else {
+			mon.Counter("web3auth_db_upload_backup_share_create_error").Inc(1)
+			return err
 		}
-		return err
 	}
 	return nil
 }
 
 func (b *web3Auth) CreateKeyVersion(ctx context.Context, keyID []byte, version string) error {
-	return b.db.CreateNoReturn_KeyVersion(ctx,
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = b.db.CreateNoReturn_KeyVersion(ctx,
 		dbx.KeyVersion_KeyId(keyID),
 		dbx.KeyVersion_Version(version),
 	)
+	if err != nil {
+		mon.Counter("web3auth_db_create_key_version_error").Inc(1)
+		return err
+	}
+	return nil
 }
 
 func (b *web3Auth) GetKeyVersion(ctx context.Context, keyID []byte) (string, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	row, err := b.db.Get_KeyVersion_Version_By_KeyId(ctx, dbx.KeyVersion_KeyId(keyID))
 	if err != nil {
+		mon.Counter("web3auth_db_get_key_version_error").Inc(1)
 		return "", err
 	}
 	return row.Version, nil
 }
 
 func (b *web3Auth) UpdateKeyVersion(ctx context.Context, keyID []byte, newVersion string) error {
-	_, err := b.db.Update_KeyVersion_By_KeyId(ctx,
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = b.db.Update_KeyVersion_By_KeyId(ctx,
 		dbx.KeyVersion_KeyId(keyID),
 		dbx.KeyVersion_Update_Fields{
 			Version: dbx.KeyVersion_Version(newVersion),
 		},
 	)
-	return err
+	if err != nil {
+		mon.Counter("web3auth_db_update_key_version_error").Inc(1)
+		return err
+	}
+	return nil
 }
 
 // Backup status methods
 func (b *web3Auth) CreateBackupFinalStatus(ctx context.Context, backupDate string, status string) error {
-	return b.db.CreateNoReturn_BackupFinalStatus(ctx,
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = b.db.CreateNoReturn_BackupFinalStatus(ctx,
 		dbx.BackupFinalStatus_BackupDate(backupDate),
 		dbx.BackupFinalStatus_Status(status),
 		dbx.BackupFinalStatus_CompletedAt(time.Time{}),
@@ -84,10 +115,18 @@ func (b *web3Auth) CreateBackupFinalStatus(ctx context.Context, backupDate strin
 		dbx.BackupFinalStatus_Checksum(""),
 		dbx.BackupFinalStatus_FileSize(0),
 	)
+	if err != nil {
+		mon.Counter("web3auth_db_create_backup_final_status_error").Inc(1)
+		return err
+	}
+	return nil
 }
 
 func (b *web3Auth) UpdateBackupFinalStatus(ctx context.Context, backupDate string, status string, completedAt time.Time, totalPages, totalKeys int, backupFilePath, errorMessage, checksum string, fileSize int64) error {
-	_, err := b.db.Update_BackupFinalStatus_By_BackupDate(ctx,
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = b.db.Update_BackupFinalStatus_By_BackupDate(ctx,
 		dbx.BackupFinalStatus_BackupDate(backupDate),
 		dbx.BackupFinalStatus_Update_Fields{
 			Status:         dbx.BackupFinalStatus_Status(status),
@@ -100,12 +139,20 @@ func (b *web3Auth) UpdateBackupFinalStatus(ctx context.Context, backupDate strin
 			FileSize:       dbx.BackupFinalStatus_FileSize(fileSize),
 		},
 	)
-	return err
+	if err != nil {
+		mon.Counter("web3auth_db_update_backup_final_status_error").Inc(1)
+		return err
+	}
+	return nil
 }
 
 func (b *web3Auth) GetBackupFinalStatus(ctx context.Context, backupDate string) (*backup.BackupFinalStatus, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	row, err := b.db.Get_BackupFinalStatus_By_BackupDate(ctx, dbx.BackupFinalStatus_BackupDate(backupDate))
 	if err != nil {
+		mon.Counter("web3auth_db_get_backup_final_status_error").Inc(1)
 		return nil, err
 	}
 	return &backup.BackupFinalStatus{
@@ -122,8 +169,12 @@ func (b *web3Auth) GetBackupFinalStatus(ctx context.Context, backupDate string) 
 }
 
 func (b *web3Auth) GetLatestBackupStatus(ctx context.Context) (*backup.BackupFinalStatus, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	rows, err := b.db.All_BackupFinalStatus_OrderBy_Desc_BackupDate(ctx)
 	if err != nil {
+		mon.Counter("web3auth_db_get_latest_backup_status_error").Inc(1)
 		return nil, err
 	}
 	if len(rows) == 0 {
@@ -144,8 +195,12 @@ func (b *web3Auth) GetLatestBackupStatus(ctx context.Context) (*backup.BackupFin
 }
 
 func (b *web3Auth) ListBackupStatuses(ctx context.Context, limit int) ([]*backup.BackupFinalStatus, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	rows, err := b.db.All_BackupFinalStatus_OrderBy_Desc_BackupDate(ctx)
 	if err != nil {
+		mon.Counter("web3auth_db_list_backup_statuses_error").Inc(1)
 		return nil, err
 	}
 
@@ -171,7 +226,10 @@ func (b *web3Auth) ListBackupStatuses(ctx context.Context, limit int) ([]*backup
 }
 
 func (b *web3Auth) CreateBackupPageStatus(ctx context.Context, backupDate string, pageNumber int, status string) error {
-	return b.db.CreateNoReturn_BackupPageStatus(ctx,
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = b.db.CreateNoReturn_BackupPageStatus(ctx,
 		dbx.BackupPageStatus_BackupDate(backupDate),
 		dbx.BackupPageStatus_PageNumber(pageNumber),
 		dbx.BackupPageStatus_Status(status),
@@ -182,10 +240,18 @@ func (b *web3Auth) CreateBackupPageStatus(ctx context.Context, backupDate string
 		dbx.BackupPageStatus_Checksum(""),
 		dbx.BackupPageStatus_FileSize(0),
 	)
+	if err != nil {
+		mon.Counter("web3auth_db_create_backup_page_status_error").Inc(1)
+		return err
+	}
+	return nil
 }
 
 func (b *web3Auth) UpdateBackupPageStatus(ctx context.Context, backupDate string, pageNumber int, status string, completedAt time.Time, keysCount int, filePath, errorMessage, checksum string, fileSize int64) error {
-	_, err := b.db.Update_BackupPageStatus_By_BackupDate_And_PageNumber(ctx,
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = b.db.Update_BackupPageStatus_By_BackupDate_And_PageNumber(ctx,
 		dbx.BackupPageStatus_BackupDate(backupDate),
 		dbx.BackupPageStatus_PageNumber(pageNumber),
 		dbx.BackupPageStatus_Update_Fields{
@@ -198,15 +264,23 @@ func (b *web3Auth) UpdateBackupPageStatus(ctx context.Context, backupDate string
 			FileSize:     dbx.BackupPageStatus_FileSize(fileSize),
 		},
 	)
-	return err
+	if err != nil {
+		mon.Counter("web3auth_db_update_backup_page_status_error").Inc(1)
+		return err
+	}
+	return nil
 }
 
 func (b *web3Auth) GetBackupPageStatus(ctx context.Context, backupDate string, pageNumber int) (*backup.BackupPageStatus, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	row, err := b.db.Get_BackupPageStatus_By_BackupDate_And_PageNumber(ctx,
 		dbx.BackupPageStatus_BackupDate(backupDate),
 		dbx.BackupPageStatus_PageNumber(pageNumber),
 	)
 	if err != nil {
+		mon.Counter("web3auth_db_get_backup_page_status_error").Inc(1)
 		return nil, err
 	}
 	return &backup.BackupPageStatus{
@@ -223,8 +297,12 @@ func (b *web3Auth) GetBackupPageStatus(ctx context.Context, backupDate string, p
 }
 
 func (b *web3Auth) GetBackupPageStatuses(ctx context.Context, backupDate string) ([]*backup.BackupPageStatus, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	rows, err := b.db.All_BackupPageStatus_By_BackupDate_OrderBy_Asc_PageNumber(ctx, dbx.BackupPageStatus_BackupDate(backupDate))
 	if err != nil {
+		mon.Counter("web3auth_db_get_backup_page_statuses_error").Inc(1)
 		return nil, err
 	}
 
@@ -246,12 +324,18 @@ func (b *web3Auth) GetBackupPageStatuses(ctx context.Context, backupDate string)
 }
 
 func (b *web3Auth) DeleteOldBackupStatuses(ctx context.Context, olderThan time.Time) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO: Implement proper deletion with raw SQL query
 	// For now, return nil to avoid compilation errors
 	return nil
 }
 
 func (b *web3Auth) DeleteBackupPageStatuses(ctx context.Context, backupDate string) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO: Implement proper deletion with raw SQL query
 	// For now, return nil to avoid compilation errors
 	return nil

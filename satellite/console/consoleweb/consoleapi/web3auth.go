@@ -55,9 +55,13 @@ func (a *Web3Auth) UploadBackupShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Track data size
+	mon.IntVal("web3auth_upload_backup_share_size_bytes").Observe(int64(len(share)))
+
 	err = a.service.UploadBackupShare(r.Context(), backupIDStr, share)
 	if err != nil {
 		a.sendError(w, "Error uploading backup share: "+err.Error(), http.StatusInternalServerError)
+		mon.Counter("web3auth_upload_backup_share_error_uploading_share").Inc(1)
 		return
 	}
 
@@ -146,6 +150,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	if !bytes.Equal([]byte(pubKey), []byte(user.WalletId)) {
 		a.sendError(w, "invalid signature", http.StatusBadRequest)
+		mon.Counter("web3auth_token_error_invalid_signature").Inc(1)
 		return
 	}
 
@@ -190,6 +195,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", request.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.sendError(w, "Failed to authenticate token request", http.StatusInternalServerError)
+			mon.Counter("web3auth_token_error_authentication_failed").Inc(1)
 		}
 		return
 	}
@@ -210,13 +216,21 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Web3Auth) GetBackupShare(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	backupIDStr := r.URL.Query().Get("backup_id")
 
 	share, err := a.service.GetBackupShare(r.Context(), backupIDStr)
 	if err != nil {
 		a.sendError(w, "Error getting backup share: "+err.Error(), http.StatusInternalServerError)
+		mon.Counter("web3auth_get_backup_share_error_retrieving").Inc(1)
 		return
 	}
+
+	// Track data size
+	mon.IntVal("web3auth_get_backup_share_size_bytes").Observe(int64(len(share)))
 
 	err = json.NewEncoder(w).Encode(map[string]string{
 		"share":     string(share),
@@ -247,6 +261,9 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Track data size
+	mon.IntVal("web3auth_upload_social_share_size_bytes").Observe(int64(len(share)))
+
 	exists, err := a.service.SocialShareKeyExists(ctx, id)
 	if err != nil {
 		a.sendError(w, "Error checking social share: "+err.Error(), http.StatusInternalServerError)
@@ -255,13 +272,18 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 
 	if exists {
 		err = a.service.UpdateSocialShare(ctx, id, string(share))
+		if err != nil {
+			a.sendError(w, "Error uploading social share: "+err.Error(), http.StatusInternalServerError)
+			mon.Counter("web3auth_upload_social_share_error_update").Inc(1)
+			return
+		}
 	} else {
 		err = a.service.CreateSocialShare(ctx, id, string(share))
-	}
-
-	if err != nil {
-		a.sendError(w, "Error uploading social share: "+err.Error(), http.StatusInternalServerError)
-		return
+		if err != nil {
+			a.sendError(w, "Error uploading social share: "+err.Error(), http.StatusInternalServerError)
+			mon.Counter("web3auth_upload_social_share_error_create").Inc(1)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusCreated)
@@ -281,8 +303,12 @@ func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
 	share, err := a.service.GetSocialShare(ctx, id)
 	if err != nil {
 		a.sendError(w, "Error getting social share: "+err.Error(), http.StatusInternalServerError)
+		mon.Counter("web3auth_get_social_share_error_retrieving").Inc(1)
 		return
 	}
+
+	// Track data size
+	mon.IntVal("web3auth_get_social_share_size_bytes").Observe(int64(len(share)))
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(map[string]string{
@@ -317,8 +343,12 @@ func (a *Web3Auth) GetPaginatedSocialShares(w http.ResponseWriter, r *http.Reque
 	keys, values, versionIds, err := a.service.GetPaginatedSocialShares(ctx, startIndex, count)
 	if err != nil {
 		a.sendError(w, "Error getting paginated social shares: "+err.Error(), http.StatusInternalServerError)
+		mon.Counter("web3auth_get_paginated_social_shares_error_retrieving").Inc(1)
 		return
 	}
+
+	// Track data count
+	mon.IntVal("web3auth_get_paginated_social_shares_count").Observe(int64(len(keys)))
 
 	type responseItem struct {
 		Key       string `json:"key"`
@@ -350,8 +380,12 @@ func (a *Web3Auth) GetTotalSocialShares(w http.ResponseWriter, r *http.Request) 
 	total, err := a.service.GetTotalSocialShares(ctx)
 	if err != nil {
 		a.sendError(w, "Error getting total social shares: "+err.Error(), http.StatusInternalServerError)
+		mon.Counter("web3auth_get_total_social_shares_error_retrieving").Inc(1)
 		return
 	}
+
+	// Track total value
+	mon.IntVal("web3auth_get_total_social_shares_value").Observe(int64(total))
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(map[string]uint64{
