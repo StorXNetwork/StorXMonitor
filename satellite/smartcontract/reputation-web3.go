@@ -40,27 +40,52 @@ func NewReputationWeb3Helper(web3Config Web3Config, privateKey string) (*reputat
 }
 
 func (w *reputationWeb3Helper) AddStaker(ctx context.Context, address string, reputation int64) error {
+	// Track attempts
+	mon.Counter("smartcontract_add_staker_attempts").Inc(1)
+
 	address = updateAddress(address)
 	err := w.web3Helper.SubmitTransaction(ctx, "addStaker", common.HexToAddress(address), big.NewInt(reputation))
 	if err != nil {
+		// Track failures with error type
+		mon.Counter("smartcontract_add_staker_failures").Inc(1)
+
+		mon.IntVal("smartcontract_add_staker_reputation_on_error").Observe(reputation)
 		return fmt.Errorf("error in GeneralContractMethod with addStaker: %v", err)
 	}
 
+	// Track success
+	mon.Counter("smartcontract_add_staker_successes").Inc(1)
+	mon.IntVal("smartcontract_add_staker_reputation").Observe(reputation)
 	return nil
 }
 
 func (w *reputationWeb3Helper) PushReputation(ctx context.Context, address string, reputation int64) error {
+	// Track attempts
+	mon.Counter("smartcontract_push_reputation_attempts").Inc(1)
+
 	address = updateAddress(address)
 	err := w.web3Helper.SubmitTransaction(ctx, "setReputation", common.HexToAddress(address), big.NewInt(reputation))
 	if err != nil {
+		// Track failures with error type
+		mon.Counter("smartcontract_push_reputation_failures").Inc(1)
+
+		mon.IntVal("smartcontract_push_reputation_value_on_error").Observe(reputation)
 		return fmt.Errorf("error in GeneralContractMethod with setReputation: %v", err)
 	}
 
+	// Track success
+	mon.Counter("smartcontract_push_reputation_successes").Inc(1)
+	mon.IntVal("smartcontract_push_reputation_value").Observe(reputation)
 	return nil
 }
 
 func (w *reputationWeb3Helper) IsStaker(ctx context.Context, address string) (bool, error) {
+	// Track attempts
+	mon.Counter("smartcontract_is_staker_attempts").Inc(1)
+
 	if w == nil {
+		mon.Counter("smartcontract_is_staker_failures").Inc(1)
+
 		return false, fmt.Errorf("web3Helper is nil")
 	}
 
@@ -69,14 +94,23 @@ func (w *reputationWeb3Helper) IsStaker(ctx context.Context, address string) (bo
 	var isStaker bool
 	err := w.web3Helper.GetMethodCallData(ctx, "isStaker", &isStaker, common.HexToAddress(address))
 	if err != nil {
+		mon.Counter("smartcontract_is_staker_failures").Inc(1)
+
 		return false, fmt.Errorf("error in GetMethodCallData with isStaker: %v", err)
 	}
 
+	// Track success
+	mon.Counter("smartcontract_is_staker_successes").Inc(1)
 	return isStaker, nil
 }
 
 func (w *reputationWeb3Helper) GetReputation(ctx context.Context, address string) (int64, error) {
+	// Track attempts
+	mon.Counter("smartcontract_get_reputation_attempts").Inc(1)
+
 	if w == nil {
+		mon.Counter("smartcontract_get_reputation_failures").Inc(1)
+
 		return 0, fmt.Errorf("web3Helper is nil")
 	}
 
@@ -85,10 +119,16 @@ func (w *reputationWeb3Helper) GetReputation(ctx context.Context, address string
 	var r *big.Int
 	err := w.web3Helper.GetMethodCallData(ctx, "getReputation", &r, common.HexToAddress(address))
 	if err != nil {
+		mon.Counter("smartcontract_get_reputation_failures").Inc(1)
+
 		return 0, fmt.Errorf("error in GetMethodCallData with getReputation: %v", err)
 	}
 
-	return r.Int64(), nil
+	// Track success
+	mon.Counter("smartcontract_get_reputation_successes").Inc(1)
+	reputation := r.Int64()
+	mon.IntVal("smartcontract_get_reputation_value").Observe(reputation)
+	return reputation, nil
 }
 
 func updateAddress(address string) string {
