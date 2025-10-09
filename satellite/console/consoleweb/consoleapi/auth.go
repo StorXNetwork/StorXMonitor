@@ -3288,10 +3288,54 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	email := "dhavalder93@gmail.com"
+	// Parse request body to get email and password
+	var requestData struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 
-	err = a.service.DeleteAccount(ctx, email)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
+		return
 	}
+
+	err = json.Unmarshal(body, &requestData)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Validate required fields
+	if requestData.Email == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("email is required"))
+		return
+	}
+
+	if requestData.Password == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("password is required"))
+		return
+	}
+
+	// Hardcoded password for verification
+	hardcodedPassword := "StorX@2024#Secure!Admin"
+
+	// Check if provided password matches hardcoded password
+	if requestData.Password != hardcodedPassword {
+		a.serveJSONError(ctx, w, console.ErrUnauthorized.New("invalid password"))
+		return
+	}
+
+	// Call delete account function with the provided email
+	err = a.service.DeleteAccount(ctx, requestData.Email)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Account deleted successfully",
+	})
 }
