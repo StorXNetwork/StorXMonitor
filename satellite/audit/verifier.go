@@ -346,6 +346,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 // IdentifyContainedNodes returns the set of all contained nodes out of the
 // holders of pieces in the given segment.
 func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Segment) (skipList map[storj.NodeID]bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 	segmentInfo, err := verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 		StreamID: segment.StreamID,
 		Position: segment.Position,

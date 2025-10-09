@@ -4,6 +4,7 @@
 package consolewasm
 
 import (
+	"context"
 	"strings"
 
 	"storj.io/common/grant"
@@ -11,6 +12,10 @@ import (
 
 // RestrictGrant restricts an access grant with the permissions and paths and returns a new access grant.
 func RestrictGrant(accessGrant string, paths []string, permission Permission) (string, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	access, err := grant.ParseAccess(accessGrant)
 	if err != nil {
 		return "", err

@@ -4,6 +4,7 @@
 package compensation
 
 import (
+	"context"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -101,6 +102,9 @@ type PeriodInfo struct {
 
 // GenerateStatements generates all of the Statements for the given PeriodInfo.
 func GenerateStatements(info PeriodInfo) ([]Statement, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 	startDate := info.Period.StartDate()
 	endDate := info.Period.EndDateExclusive()
 

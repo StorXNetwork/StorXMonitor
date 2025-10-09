@@ -28,6 +28,7 @@ type nodeReputation struct {
 var _ audit.NodeReputation = (*nodeReputation)(nil)
 
 func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeReputationEntry, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	rows, err := nr.db.Query(ctx, `SELECT n.id, n.wallet, n.disqualified, n.exit_initiated_at, n.exit_finished_at,
 										n.exit_success, n.under_review, n.inactive, r.audit_reputation_alpha, r.disqualified,
@@ -55,6 +56,8 @@ func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeR
 }
 
 func (nr *nodeReputation) NodeSmartContractStatus(ctx context.Context, wallet, msgType, msg string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	id, err := uuid.New()
 	if err != nil {
 		return fmt.Errorf("failed to generate uuid: %v", err)

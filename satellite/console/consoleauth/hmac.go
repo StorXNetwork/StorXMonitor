@@ -17,9 +17,11 @@ type Hmac struct {
 
 // Sign implements satellite signer.
 func (a *Hmac) Sign(data []byte) ([]byte, error) {
+	var err error
+	defer mon.Task()(nil)(&err)
 	mac := hmac.New(sha256.New, a.Secret)
 
-	_, err := mac.Write(data)
+	_, err = mac.Write(data)
 	if err != nil {
 		return nil, err
 	}

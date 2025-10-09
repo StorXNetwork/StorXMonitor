@@ -23,7 +23,7 @@ var mon = monkit.Package()
 func cmdBackupRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
-
+	defer mon.Task()(&ctx)(&err)
 	// Check if database connection string is properly configured
 	if runCfg.Database == "" || runCfg.Database == "postgres://" {
 		log.Error("Database connection string is not properly configured")
@@ -34,6 +34,7 @@ func cmdBackupRun(cmd *cobra.Command, args []string) (err error) {
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-backup"})
 	if err != nil {
 		log.Error("Failed to connect to database", zap.Error(err), zap.String("database", runCfg.Database))
+		mon.Counter("backup_cmd_database_connection_failed").Inc(1)
 		return errs.New("Error starting master database: %+v", err)
 	}
 	defer func() {
@@ -74,6 +75,7 @@ func cmdBackupRun(cmd *cobra.Command, args []string) (err error) {
 	}, secretconstants.Web3AuthPrivateKey)
 	if err != nil {
 		log.Error("Failed to create smart contract connector", zap.Error(err))
+		mon.Counter("backup_cmd_smart_contract_connector_failed").Inc(1)
 		return errs.New("Failed to create smart contract connector: %+v", err)
 	}
 
@@ -86,8 +88,12 @@ func cmdBackupRun(cmd *cobra.Command, args []string) (err error) {
 	)
 	if err != nil {
 		log.Error("Failed to create backup service", zap.Error(err))
+		mon.Counter("backup_cmd_service_creation_failed").Inc(1)
 		return err
 	}
+
+	// Record successful service creation
+	mon.Counter("backup_cmd_service_created_successfully").Inc(1)
 
 	// Initialize metrics
 	if err := process.InitMetrics(ctx, log, monkit.Default, process.MetricsIDFromHostname(log), eventkitbq.BQDestination); err != nil {
@@ -98,6 +104,7 @@ func cmdBackupRun(cmd *cobra.Command, args []string) (err error) {
 	err = db.CheckVersion(ctx)
 	if err != nil {
 		log.Error("Failed satellite database version check.", zap.Error(err))
+		mon.Counter("backup_cmd_database_version_check_failed").Inc(1)
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 

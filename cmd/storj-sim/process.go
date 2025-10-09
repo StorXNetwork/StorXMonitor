@@ -5,24 +5,39 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"storj.io/storj/satellite/newrelic"
+
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zapcore"
+
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/processgroup"
 	"storj.io/common/sync2"
 )
+
+type NewRelicConfig struct {
+	NewRelicAPIKey        string
+	LogLevel              string
+	NewRelicTimeInterval  time.Duration
+	NewRelicMaxBufferSize int
+	NewRelicMaxRetries    int
+}
 
 // Processes contains list of processes.
 type Processes struct {
@@ -32,12 +47,13 @@ type Processes struct {
 
 	FailFast       bool
 	MaxStartupWait time.Duration
+	NewRelicConfig NewRelicConfig
 }
 
 const storjSimMaxLineLen = 10000
 
 // NewProcesses returns a group of processes.
-func NewProcesses(dir string, failfast bool) *Processes {
+func NewProcesses(dir string, failfast bool, newRelicConfig NewRelicConfig) *Processes {
 	return &Processes{
 		Output:    NewPrefixWriter("sim", storjSimMaxLineLen, os.Stdout),
 		Directory: dir,
@@ -45,6 +61,8 @@ func NewProcesses(dir string, failfast bool) *Processes {
 
 		FailFast:       failfast,
 		MaxStartupWait: time.Minute,
+
+		NewRelicConfig: newRelicConfig,
 	}
 }
 
@@ -181,6 +199,8 @@ type Process struct {
 
 	stdout WriterFlusher
 	stderr WriterFlusher
+
+	NewRelicConfig NewRelicConfig
 }
 
 // New creates a process which can be run in the specified directory.
@@ -196,6 +216,8 @@ func (processes *Processes) New(info Info) *Process {
 
 		stdout: output,
 		stderr: output,
+
+		NewRelicConfig: processes.NewRelicConfig,
 	}
 
 	processes.List = append(processes.List, process)
@@ -210,6 +232,86 @@ func (process *Process) WaitForStart(dependency *Process) {
 // WaitForExited ensures that process will wait on dependency before starting.
 func (process *Process) WaitForExited(dependency *Process) {
 	process.Wait = append(process.Wait, &dependency.Status.Exited)
+}
+
+// newRelicWriter implements io.Writer to send logs to New Relic
+type newRelicWriter struct {
+	core        *newrelic.LogInterceptor
+	processName string
+}
+
+func (w *newRelicWriter) Write(p []byte) (n int, err error) {
+	line := strings.TrimSpace(string(p))
+	if line == "" {
+		return len(p), nil
+	}
+
+	logTime := w.parseLogTime(line)
+	if logTime.IsZero() {
+		logTime = time.Now()
+	}
+
+	logLevel := w.parseLogLevel(line)
+	var stack string
+	if logLevel == zapcore.ErrorLevel || logLevel == zapcore.PanicLevel {
+		stack = string(debug.Stack())
+	}
+	entry := zapcore.Entry{
+		Level:      logLevel,
+		Time:       logTime,
+		Message:    line,
+		Caller:     zapcore.NewEntryCaller(0, "", 0, false),
+		LoggerName: w.processName,
+		Stack:      stack,
+	}
+
+	w.core.InterceptLog(entry)
+	return len(p), nil
+}
+
+// parseLogTime extracts timestamp from JSON log
+func (w *newRelicWriter) parseLogTime(line string) time.Time {
+	var logData map[string]interface{}
+	if err := json.Unmarshal([]byte(line), &logData); err == nil {
+		if timestamp, ok := logData["T"].(string); ok {
+			// Try multiple common timestamp formats
+			formats := []string{
+				"2006-01-02T15:04:05.000Z",      // 2024-01-15T10:30:45.123Z
+				"2006-01-02T15:04:05.000Z07:00", // 2024-01-15T10:30:45.123+05:30
+				time.RFC3339,                    // 2024-01-15T10:30:45Z
+				"2006-01-02T15:04:05Z07:00",     // 2024-01-15T10:30:45+05:30
+			}
+
+			for _, format := range formats {
+				if t, err := time.Parse(format, timestamp); err == nil {
+					return t
+				}
+			}
+		}
+	}
+	return time.Time{}
+}
+
+// parseLogLevel extracts log level from JSON
+func (w *newRelicWriter) parseLogLevel(line string) zapcore.Level {
+	var logData map[string]interface{}
+	if err := json.Unmarshal([]byte(line), &logData); err == nil {
+		if level, ok := logData["L"].(string); ok {
+			switch level {
+			case "panic", "fatal":
+				return zapcore.PanicLevel
+			case "error":
+				return zapcore.ErrorLevel
+			case "warn", "warning":
+				return zapcore.WarnLevel
+			case "info":
+				return zapcore.InfoLevel
+			case "debug", "trace":
+				return zapcore.DebugLevel
+			}
+		}
+	}
+	return zapcore.InfoLevel
 }
 
 // Exec runs the process using the arguments for a given command.
@@ -262,28 +364,19 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	cmd.Dir = process.processes.Directory
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
 
-	{ // setup standard output with logging into file
-		// removing log wrinting in files as we dont need that for now.
-		// outfile, err1 := os.OpenFile(filepath.Join(process.Directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		// if err1 != nil {
-		// 	return fmt.Errorf("open stdout: %w", err1)
-		// }
-		// defer func() { err = errs.Combine(err, outfile.Close()) }()
+	// Setup New Relic if enabled
+	if process.NewRelicConfig.NewRelicAPIKey != "" {
+		// Create New Relic interceptor with log level filtering
+		newRelicCore := newrelic.NewLogInterceptor(process.NewRelicConfig.NewRelicAPIKey, process.NewRelicConfig.LogLevel, process.NewRelicConfig.NewRelicTimeInterval, process.NewRelicConfig.NewRelicMaxBufferSize, process.NewRelicConfig.NewRelicMaxRetries)
+		newRelicWriter := &newRelicWriter{core: newRelicCore, processName: process.Name}
 
-		cmd.Stdout = process.stdout // io.MultiWriter(process.stdout, outfile)
-	}
-
-	{ // setup standard error with logging into file
-		// removing log wrinting in files as we dont need that for now.
-		// errfile, err2 := os.OpenFile(filepath.Join(process.Directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		// if err2 != nil {
-		// 	return fmt.Errorf("open stderr: %w", err2)
-		// }
-		// defer func() {
-		// 	err = errs.Combine(err, errfile.Close())
-		// }()
-
-		cmd.Stderr = process.stderr // io.MultiWriter(process.stderr, errfile)
+		// Send both to console and New Relic (with level filtering)
+		cmd.Stdout = io.MultiWriter(process.stdout, newRelicWriter)
+		cmd.Stderr = io.MultiWriter(process.stderr, newRelicWriter)
+	} else {
+		// Simple output - no New Relic
+		cmd.Stdout = process.stdout
+		cmd.Stderr = process.stderr
 	}
 
 	// ensure that it is part of this process group

@@ -19,6 +19,8 @@ type MockRepairQueue struct {
 
 // Insert implements RepairQueue.
 func (m *MockRepairQueue) Insert(ctx context.Context, s *InjuredSegment) (alreadyInserted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for _, alreadyAdded := range m.Segments {
 		if alreadyAdded.StreamID == s.StreamID {
 			return true, nil
@@ -30,6 +32,8 @@ func (m *MockRepairQueue) Insert(ctx context.Context, s *InjuredSegment) (alread
 
 // InsertBatch implements RepairQueue.
 func (m *MockRepairQueue) InsertBatch(ctx context.Context, segments []*InjuredSegment) (newlyInsertedSegments []*InjuredSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for _, segment := range segments {
 		inserted, err := m.Insert(ctx, segment)
 		if err != nil {

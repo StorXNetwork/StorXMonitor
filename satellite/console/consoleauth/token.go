@@ -5,6 +5,7 @@ package consoleauth
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"io"
 	"strings"
@@ -35,6 +36,9 @@ func (t Token) String() string {
 
 // FromBase64URLString creates Token instance from base64URLEncoded string representation.
 func FromBase64URLString(token string) (Token, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 	i := strings.Split(token, ".")
 	if len(i) < 2 {
 		return Token{}, errs.New("invalid token format")

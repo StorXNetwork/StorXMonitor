@@ -1,0 +1,26 @@
+# StorX Storage Node Configuration
+# One port per line, or host:port format
+# Lines starting with # are comments
+
+# Default StorX storage node ports (10 nodes)
+13009
+13019
+13029
+13039
+13049
+13059
+13069
+13079
+13089
+13099
+
+# For larger deployments, add more ports:
+# 13109
+# 13119
+# 13129
+# ... up to 100,000+ nodes
+
+# Or use host:port format for distributed deployments:
+# 192.168.1.10:13009
+# 192.168.1.11:13009
+# 192.168.1.12:13009

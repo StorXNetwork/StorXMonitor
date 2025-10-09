@@ -113,6 +113,8 @@ func NewDurability(db overlay.DB, metabaseDB *metabase.DB, class string, classif
 
 // Start implements rangedloop.Observer.
 func (c *Report) Start(ctx context.Context, startTime time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	c.nodes, err = c.db.GetParticipatingNodes(ctx, -12*time.Hour, c.asOfSystemInterval)
 	if err != nil {
 		return errs.Wrap(err)
@@ -158,6 +160,9 @@ func (c *Report) classifyNodeAliases() {
 
 // Fork implements rangedloop.Observer.
 func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	d := &ObserverFork{
 		reportThreshold:        c.reportThreshold,
 		healthStat:             make([]HealthStat, len(c.className)),
@@ -194,6 +199,9 @@ func (c *Report) Join(ctx context.Context, partial rangedloop.Partial) (err erro
 
 // Finish implements rangedloop.Observer.
 func (c *Report) Finish(ctx context.Context) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	reportTime := time.Now()
 	for name, stat := range c.healthStat {
 		c.reporter(reportTime, c.class, name, stat)
@@ -231,6 +239,8 @@ type ObserverFork struct {
 
 // Process implements rangedloop.Partial.
 func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	controlledByClass := c.controlledByClassCache
 	for i := range segments {
 		s := &segments[i]

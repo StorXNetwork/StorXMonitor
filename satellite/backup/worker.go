@@ -60,6 +60,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 		err = worker.process(ctx)
 		if err != nil {
 			worker.log.Error("process", zap.Error(Error.Wrap(err)))
+			mon.Counter("backup_worker_process_failures").Inc(1)
 		}
 		return nil
 	})
@@ -81,7 +82,10 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 	existingStatus, err := worker.db.GetBackupFinalStatus(ctx, today)
 	if err == nil && existingStatus.Status == BackupStatusCompleted {
 		worker.log.Info("Backup already completed today", zap.String("date", today))
+		mon.Counter("backup_worker_process_already_completed").Inc(1)
 		return nil
+	} else {
+		mon.Counter("backup_worker_process_not_completed").Inc(1)
 	}
 
 	// If backup status exists but is not completed, we'll update it instead of creating a new one
@@ -105,12 +109,14 @@ func (worker *Worker) executeBackup(ctx context.Context, backupDate string) (err
 		// If error is not "not found", return it
 		if !strings.Contains(err.Error(), "no rows") && !strings.Contains(err.Error(), "not found") {
 			worker.log.Error("Failed to check existing backup status", zap.Error(err))
+			mon.Counter("backup_worker_process_check_existing_status_failures").Inc(1)
 			return err
 		}
 		// If not found, create new backup status
 		err = worker.db.CreateBackupFinalStatus(ctx, backupDate, BackupStatusInProgress)
 		if err != nil {
 			worker.log.Error("Failed to create backup status", zap.Error(err))
+			mon.Counter("backup_worker_process_create_status_failures").Inc(1)
 			return err
 		}
 		worker.log.Info("Created new backup status", zap.String("date", backupDate))
@@ -119,6 +125,7 @@ func (worker *Worker) executeBackup(ctx context.Context, backupDate string) (err
 		err = worker.db.UpdateBackupFinalStatus(ctx, backupDate, BackupStatusInProgress, time.Time{}, 0, 0, "", "", "", 0)
 		if err != nil {
 			worker.log.Error("Failed to update existing backup status", zap.Error(err))
+			mon.Counter("backup_worker_process_update_status_failures").Inc(1)
 			return err
 		}
 		worker.log.Info("Updated existing backup status", zap.String("date", backupDate))
@@ -129,20 +136,29 @@ func (worker *Worker) executeBackup(ctx context.Context, backupDate string) (err
 	totalKeys, err := worker.contract.GetTotalKeys(ctx)
 	if err != nil {
 		worker.log.Error("Failed to get total keys from smart contract", zap.Error(err))
+		mon.Counter("backup_worker_process_get_total_keys_failures").Inc(1)
 		worker.log.Info("Falling back to mock data for testing purposes")
 
 		// For testing purposes, use mock data when smart contract is not available
 		// In production, this should be replaced with proper error handling
 		totalKeys = 100 // Mock data for testing
 		worker.log.Info("Using mock data", zap.Uint64("totalKeys", totalKeys))
+		mon.Counter("backup_worker_process_get_total_keys_successes").Inc(1)
 	} else {
 		worker.log.Info("Successfully got total keys", zap.Uint64("totalKeys", totalKeys))
+		mon.Counter("backup_worker_process_get_total_keys_successes").Inc(1)
 	}
 
 	// Calculate total pages
 	totalPages := int((totalKeys + uint64(worker.config.PageSize) - 1) / uint64(worker.config.PageSize))
 	if totalPages == 0 {
 		totalPages = 1 // At least one page
+		mon.Counter("backup_worker_process_calculate_total_pages_zero").Inc(1)
+	} else {
+		mon.Counter("backup_worker_process_calculate_total_pages_success").Inc(1)
+		mon.IntVal("backup_worker_process_calculate_total_pages_total_pages").Observe(int64(totalPages))
+		mon.IntVal("backup_worker_process_calculate_total_pages_total_keys").Observe(int64(totalKeys))
+		mon.IntVal("backup_worker_process_calculate_total_pages_page_size").Observe(int64(worker.config.PageSize))
 	}
 
 	worker.log.Info("Starting backup",
@@ -200,6 +216,7 @@ func (worker *Worker) executeBackup(ctx context.Context, backupDate string) (err
 	if err != nil {
 		worker.log.Error("Failed to create final backup", zap.Error(err))
 		worker.updateBackupStatusFailed(ctx, backupDate, "Failed to create final backup: "+err.Error())
+		mon.Counter("backup_worker_process_create_final_backup_failures").Inc(1)
 		return err
 	}
 
@@ -207,6 +224,7 @@ func (worker *Worker) executeBackup(ctx context.Context, backupDate string) (err
 	err = worker.db.UpdateBackupFinalStatus(ctx, backupDate, BackupStatusCompleted, time.Now(), totalPages, totalProcessedKeys, backupFilePath, "", "", 0)
 	if err != nil {
 		worker.log.Error("Failed to update backup status", zap.Error(err))
+		mon.Counter("backup_worker_process_update_backup_status_failures").Inc(1)
 		return err
 	}
 
@@ -215,6 +233,10 @@ func (worker *Worker) executeBackup(ctx context.Context, backupDate string) (err
 		zap.Int("total_pages", totalPages),
 		zap.Int("total_keys", totalProcessedKeys),
 		zap.String("backup_file", backupFilePath))
+
+	// Record backup success
+	mon.Counter("backup_job_success").Inc(1)
+	mon.IntVal("backup_job_total_keys").Observe(int64(totalProcessedKeys))
 
 	return nil
 }
@@ -229,11 +251,13 @@ func (worker *Worker) processPage(ctx context.Context, backupDate string, pageNu
 		// If error is not "not found", return it
 		if !strings.Contains(err.Error(), "no rows") && !strings.Contains(err.Error(), "not found") {
 			worker.log.Error("Failed to check existing page status", zap.Error(err))
+			mon.Counter("backup_worker_process_check_existing_page_status_failures").Inc(1)
 			return err
 		}
 		// If not found, create new page status
 		err = worker.db.CreateBackupPageStatus(ctx, backupDate, pageNumber, BackupStatusInProgress)
 		if err != nil {
+			mon.Counter("backup_worker_process_create_page_status_failures").Inc(1)
 			return err
 		}
 	} else {
@@ -241,6 +265,7 @@ func (worker *Worker) processPage(ctx context.Context, backupDate string, pageNu
 		err = worker.db.UpdateBackupPageStatus(ctx, backupDate, pageNumber, BackupStatusInProgress, time.Time{}, 0, "", "", "", 0)
 		if err != nil {
 			worker.log.Error("Failed to update existing page status", zap.Error(err))
+			mon.Counter("backup_worker_process_update_page_status_failures").Inc(1)
 			return err
 		}
 	}
@@ -257,12 +282,19 @@ func (worker *Worker) processPage(ctx context.Context, backupDate string, pageNu
 		zap.Int("start_index", int(startIndex)),
 		zap.Int("end_index", int(startIndex+count)))
 	if err != nil {
+		// Track specific error type for backup operations
+		mon.Counter("backup_smartcontract_keyvalue_getpaginated_failures").Inc(1)
 		worker.log.Error("Failed to get page data from smart contract",
 			zap.Int("page_number", pageNumber),
 			zap.Error(err))
 		worker.log.Info("Falling back to mock data for testing purposes")
+		mon.Counter("backup_worker_process_get_page_data_from_smart_contract_failures").Inc(1)
 		return err
 	}
+
+	// Track success
+	mon.Counter("backup_smartcontract_keyvalue_getpaginated_successes").Inc(1)
+	mon.IntVal("backup_smartcontract_keyvalue_keys_retrieved").Observe(int64(len(keys)))
 
 	// Convert to KeyValuePair slice
 	keyValuePairs := make([]KeyValuePair, len(keys))
@@ -277,21 +309,34 @@ func (worker *Worker) processPage(ctx context.Context, backupDate string, pageNu
 	// Save page data to file
 	filePath, err := worker.savePageData(backupDate, pageNumber, keyValuePairs)
 	if err != nil {
+		// Track file save failures
+		mon.Counter("backup_file_save_failures").Inc(1)
 		worker.log.Error("Failed to save page data",
 			zap.Int("page_number", pageNumber),
 			zap.Error(err))
 		worker.updatePageStatusFailed(ctx, backupDate, pageNumber, "Failed to save page data: "+err.Error())
+		mon.Counter("backup_worker_process_save_page_data_failures").Inc(1)
 		return err
 	}
+
+	// Track successful file save
+	mon.Counter("backup_file_save_successes").Inc(1)
+	mon.IntVal("backup_file_size_bytes").Observe(int64(len(filePath)))
 
 	// Update page status to completed
 	err = worker.db.UpdateBackupPageStatus(ctx, backupDate, pageNumber, BackupStatusCompleted, time.Now(), len(keyValuePairs), filePath, "", "", 0)
 	if err != nil {
+		// Track database update failures
+		mon.Counter("backup_database_update_failures").Inc(1)
 		worker.log.Error("Failed to update page status",
 			zap.Int("page_number", pageNumber),
 			zap.Error(err))
+		mon.Counter("backup_worker_process_update_page_status_failures").Inc(1)
 		return err
 	}
+
+	// Track successful database update
+	mon.Counter("backup_database_update_successes").Inc(1)
 
 	worker.log.Info("Page processed successfully",
 		zap.Int("page_number", pageNumber),
@@ -305,6 +350,10 @@ func (worker *Worker) updateBackupStatusFailed(ctx context.Context, backupDate, 
 	err := worker.db.UpdateBackupFinalStatus(ctx, backupDate, BackupStatusFailed, time.Now(), 0, 0, "", errorMessage, "", 0)
 	if err != nil {
 		worker.log.Error("Failed to update backup status to failed", zap.Error(err))
+		mon.Counter("backup_worker_process_update_backup_status_failed_failures").Inc(1)
+	} else {
+		// Record backup failure
+		mon.Counter("backup_job_failure").Inc(1)
 	}
 }
 
@@ -313,6 +362,7 @@ func (worker *Worker) updatePageStatusFailed(ctx context.Context, backupDate str
 	err := worker.db.UpdateBackupPageStatus(ctx, backupDate, pageNumber, BackupStatusFailed, time.Now(), 0, "", errorMessage, "", 0)
 	if err != nil {
 		worker.log.Error("Failed to update page status to failed", zap.Error(err))
+		mon.Counter("backup_worker_process_update_page_status_failed_failures").Inc(1)
 	}
 }
 
@@ -320,15 +370,18 @@ func (worker *Worker) updatePageStatusFailed(ctx context.Context, backupDate str
 func (worker *Worker) savePageData(backupDate string, pageNumber int, data []KeyValuePair) (string, error) {
 	backupDir := filepath.Join(worker.config.BackupDir, backupDate)
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		mon.Counter("backup_worker_process_save_page_data_mkdir_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 	fileName := fmt.Sprintf("page_%d.json", pageNumber)
 	filePath := filepath.Join(backupDir, fileName)
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
+		mon.Counter("backup_worker_process_save_page_data_marshal_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
+		mon.Counter("backup_worker_process_save_page_data_write_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 	worker.log.Debug("Page data saved", zap.String("file_path", filePath), zap.Int("keys_count", len(data)))
@@ -344,6 +397,7 @@ func (worker *Worker) createFinalBackup(ctx context.Context, backupDate string) 
 	// Get all page statuses
 	pageStatuses, err := worker.db.GetBackupPageStatuses(ctx, backupDate)
 	if err != nil {
+		mon.Counter("backup_worker_process_create_final_backup_get_page_statuses_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 
@@ -354,11 +408,13 @@ func (worker *Worker) createFinalBackup(ctx context.Context, backupDate string) 
 		if pageStatus.Status == BackupStatusCompleted && pageStatus.FilePath != "" {
 			pageData, err := os.ReadFile(pageStatus.FilePath)
 			if err != nil {
+				mon.Counter("backup_worker_process_create_final_backup_read_page_file_failures").Inc(1)
 				worker.log.Warn("Failed to read page file", zap.String("file_path", pageStatus.FilePath), zap.Error(err))
 				continue
 			}
 			var pageKeyValuePairs []KeyValuePair
 			if err := json.Unmarshal(pageData, &pageKeyValuePairs); err != nil {
+				mon.Counter("backup_worker_process_create_final_backup_unmarshal_page_data_failures").Inc(1)
 				worker.log.Warn("Failed to unmarshal page data", zap.String("file_path", pageStatus.FilePath), zap.Error(err))
 				continue
 			}
@@ -384,6 +440,7 @@ func (worker *Worker) createFinalBackup(ctx context.Context, backupDate string) 
 
 	jsonData, err := json.Marshal(backupData) // no indentation
 	if err != nil {
+		mon.Counter("backup_worker_process_create_final_backup_create_zip_file_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 
@@ -399,28 +456,34 @@ func (worker *Worker) createFinalBackup(ctx context.Context, backupDate string) 
 
 	jsonFile, err := zipWriter.Create(fmt.Sprintf("backup_%s.json", backupDate))
 	if err != nil {
+		mon.Counter("backup_worker_process_create_final_backup_create_json_file_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 	if _, err := jsonFile.Write(jsonData); err != nil {
+		mon.Counter("backup_worker_process_create_final_backup_write_json_file_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 
 	if err := zipWriter.Close(); err != nil {
+		mon.Counter("backup_worker_process_create_final_backup_close_zip_writer_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 
 	fileInfo, err := os.Stat(backupFilePath)
 	if err != nil {
+		mon.Counter("backup_worker_process_create_final_backup_stat_file_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 
 	checksum, err := worker.calculateFileChecksum(backupFilePath)
 	if err != nil {
+		mon.Counter("backup_worker_process_create_final_backup_calculate_file_checksum_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
 
 	err = worker.db.UpdateBackupFinalStatus(ctx, backupDate, BackupStatusCompleted, time.Now(), len(pageStatuses), totalKeys, backupFilePath, "", checksum, fileInfo.Size())
 	if err != nil {
+		mon.Counter("backup_worker_process_create_final_backup_update_backup_status_failures").Inc(1)
 		worker.log.Error("Failed to update backup status with file info", zap.Error(err))
 	}
 
@@ -453,6 +516,7 @@ func (worker *Worker) cleanupPageFiles(backupDate string) {
 	backupDir := filepath.Join(worker.config.BackupDir, backupDate)
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
+		mon.Counter("backup_worker_process_cleanup_page_files_read_backup_directory_failures").Inc(1)
 		worker.log.Warn("Failed to read backup directory for cleanup", zap.Error(err))
 		return
 	}
@@ -460,9 +524,11 @@ func (worker *Worker) cleanupPageFiles(backupDate string) {
 		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".json" && entry.Name() != fmt.Sprintf("backup_%s.json", backupDate) {
 			pageFilePath := filepath.Join(backupDir, entry.Name())
 			if err := os.Remove(pageFilePath); err != nil {
+				mon.Counter("backup_worker_process_cleanup_page_files_remove_page_file_failures").Inc(1)
 				worker.log.Warn("Failed to remove page file", zap.String("file_path", pageFilePath), zap.Error(err))
 			} else {
 				worker.log.Debug("Removed page file", zap.String("file_path", pageFilePath))
+				mon.Counter("backup_worker_process_cleanup_page_files_remove_page_file_successes").Inc(1)
 			}
 		}
 	}

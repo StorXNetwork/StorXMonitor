@@ -93,8 +93,12 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 	reputations, err := worker.db.GetAll(ctx)
 	if err != nil {
 		worker.log.Error("failed to get all reputations", zap.Error(err))
+		mon.Counter("reputation_push_worker_get_all_failures").Inc(1) //mon:locked
 		return err
 	}
+
+	mon.IntVal("reputation_push_worker_total_nodes").Observe(int64(len(reputations))) //mon:locked
+	mon.Counter("reputation_push_worker_get_all_successes").Inc(1)                    //mon:locked
 
 	var smartContractErr errs.Group
 	for _, reputation := range reputations {
@@ -107,6 +111,7 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 			reputation.PieceCount == 0 ||
 			reputation.LastContactSuccess.Before(time.Now().Add(-time.Hour*24*30)) {
 			worker.log.Info("skipping node", zap.String("wallet", reputation.Wallet), zap.Time("lastContactSuccess", *reputation.LastContactSuccess))
+			mon.Counter("reputation_push_worker_skipped_nodes").Inc(1) //mon:locked
 			err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("skipping node: %v", reputation.Wallet))
 			smartContractErr.Add(err)
 			continue
@@ -120,12 +125,15 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 
 			worker.log.Info("processing reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
 			reputationVal := int64(reputation.AuditReputationAlpha) * 5
+			mon.IntVal("reputation_push_worker_processing_nodes").Observe(1)             //mon:locked
+			mon.IntVal("reputation_push_worker_reputation_value").Observe(reputationVal) //mon:locked
 			if (reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero()) ||
 				(reputation.ExitInitiatedAt != nil && reputation.ExitInitiatedAt.IsZero()) ||
 				(reputation.ExitFinishedAt != nil && reputation.ExitFinishedAt.IsZero()) ||
 				(reputation.ExitSuccess != nil && *reputation.ExitSuccess) ||
 				(reputation.UnderReview != nil && !(*reputation.UnderReview).IsZero()) {
 				worker.log.Info("disqualified node", zap.String("wallet", reputation.Wallet), zap.Time("disqualified", *reputation.Disqualified))
+				mon.Counter("reputation_push_worker_disqualified_nodes").Inc(1) //mon:locked
 				reputationVal = 0
 			}
 
@@ -137,6 +145,7 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 
 			if reputationFromContract == reputationVal {
 				worker.log.Info("reputation already pushed", zap.String("wallet", reputation.Wallet), zap.Int64("reputationFromContract", reputationFromContract), zap.Int64("reputation", reputationVal))
+				mon.Counter("reputation_push_worker_already_pushed").Inc(1) //mon:locked
 				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("reputation already pushed: %v", reputationVal))
 				smartContractErr.Add(err)
 				return
@@ -151,16 +160,17 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 			}
 
 			if isStaker {
-
 				worker.log.Info("pushing reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
 				err = worker.connector.PushReputation(ctx, reputation.Wallet, reputationVal)
 				if err != nil {
 					worker.log.Error("failed to push reputation", zap.Error(err))
+					mon.Counter("reputation_push_worker_push_reputation_failures").Inc(1) //mon:locked
 					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to push reputation: %v", err))
 					smartContractErr.Add(err)
 					return
 				}
 				worker.log.Info("pushed reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
+				mon.Counter("reputation_push_worker_push_reputation_successes").Inc(1) //mon:locked
 				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("pushed reputation: %v", reputationVal))
 				smartContractErr.Add(err)
 			} else {
@@ -168,11 +178,13 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 				err = worker.connector.AddStaker(ctx, reputation.Wallet, reputationVal)
 				if err != nil {
 					worker.log.Error("failed to add staker", zap.Error(err))
+					mon.Counter("reputation_push_worker_add_staker_failures").Inc(1) //mon:locked
 					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to add staker: %v", err))
 					smartContractErr.Add(err)
 					return
 				}
 				worker.log.Info("added staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
+				mon.Counter("reputation_push_worker_add_staker_successes").Inc(1) //mon:locked
 				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("added staker: %v", reputationVal))
 				smartContractErr.Add(err)
 			}
@@ -184,10 +196,12 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 				err = worker.db.ActivateNode(ctx, reputation.NodeID)
 				if err != nil {
 					worker.log.Error("failed to activate node", zap.Error(err))
+					mon.Counter("reputation_push_worker_activate_node_failures").Inc(1) //mon:locked
 					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to activate node: %v", err))
 					smartContractErr.Add(err)
 					return
 				}
+				mon.Counter("reputation_push_worker_activate_node_successes").Inc(1) //mon:locked
 			}
 
 			worker.log.Info("processed reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
@@ -196,6 +210,13 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 	}
 
 	worker.log.Info("ReputationPushWorker processed reputations", zap.Int("count", len(reputations)))
+	mon.IntVal("reputation_push_worker_processed_reputations").Observe(int64(len(reputations))) //mon:locked
+
+	if smartContractErr.Err() != nil {
+		mon.Counter("reputation_push_worker_processing_errors").Inc(1) //mon:locked
+	} else {
+		mon.Counter("reputation_push_worker_processing_successes").Inc(1) //mon:locked
+	}
 
 	return smartContractErr.Err()
 }

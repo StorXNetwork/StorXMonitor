@@ -94,6 +94,9 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 // We can't calculate this upon first starting a Ranged Loop Observer, because there may not be any
 // nodes yet. We expect that there will be nodes before there are segments, though.
 func (observer *Observer) getNodesEstimate(ctx context.Context) (int, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	// this should be safe to call frequently; it is an efficient caching lookup.
 	totalNumNodes, err := observer.nodesCache.NumNodes(ctx)
 	if err != nil {
@@ -113,6 +116,10 @@ func (observer *Observer) getNodesEstimate(ctx context.Context) (int, error) {
 }
 
 func (observer *Observer) createInsertBuffer() *queue.InsertBuffer {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	return queue.NewInsertBuffer(observer.repairQueue, observer.repairQueueBatchSize)
 }
 

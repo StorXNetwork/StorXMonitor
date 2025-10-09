@@ -4,6 +4,7 @@
 package compensation
 
 import (
+	"context"
 	"io"
 
 	"storj.io/common/strictcsv"
@@ -47,6 +48,9 @@ type Invoice struct {
 
 // MergeNodeInfo updates the fields representing the node information into the invoice.
 func (invoice *Invoice) MergeNodeInfo(nodeInfo NodeInfo) error {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 	if invoice.NodeID != NodeID(nodeInfo.ID) {
 		return Error.New("node ID mismatch (invoice=%q nodeinfo=%q)", invoice.NodeID, nodeInfo.ID)
 	}
@@ -69,6 +73,9 @@ func (invoice *Invoice) MergeNodeInfo(nodeInfo NodeInfo) error {
 // MergeStatement updates the fields representing the calculation of the payment amounts
 // into the invoice.
 func (invoice *Invoice) MergeStatement(statement Statement) error {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 	if invoice.NodeID != NodeID(statement.NodeID) {
 		return Error.New("node ID mismatch (invoice=%q statement=%q)", invoice.NodeID, statement.NodeID)
 	}

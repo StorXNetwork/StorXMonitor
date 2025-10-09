@@ -3,7 +3,11 @@
 
 package geoip
 
-import "storj.io/common/storj/location"
+import (
+	"context"
+
+	"storj.io/common/storj/location"
+)
 
 // MockIPToCountry provides a mock solution for looking up country codes in testplanet tests. This is done using the
 // last byte of the ip address and mod'ing it into a country code.
@@ -25,6 +29,10 @@ func (m MockIPToCountry) Close() error {
 
 // LookupISOCountryCode accepts an IP address.
 func (m MockIPToCountry) LookupISOCountryCode(address string) (location.CountryCode, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	if len(m) == 0 {
 		return location.CountryCode(0), nil
 	}

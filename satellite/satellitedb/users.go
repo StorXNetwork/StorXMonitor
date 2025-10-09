@@ -32,6 +32,8 @@ type users struct {
 
 // UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
 func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if failedLoginPenalty != nil {
 		// failed_login_count exceeded config.FailedLoginPenalty
 		_, err = users.db.ExecContext(ctx, users.db.Rebind(`

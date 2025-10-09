@@ -28,6 +28,8 @@ import (
 
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -132,6 +134,8 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -212,6 +216,8 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) usersPendingDeletion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	type User struct {
 		ID       uuid.UUID `json:"id"`
@@ -302,6 +308,8 @@ func (server *Server) usersPendingDeletion(w http.ResponseWriter, r *http.Reques
 
 func (server *Server) userLimits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -346,6 +354,8 @@ func (server *Server) userLimits(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -452,6 +462,8 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) updateUsersUserAgent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -548,6 +560,8 @@ func (server *Server) updateUsersUserAgent(w http.ResponseWriter, r *http.Reques
 // updateLimits updates user limits and all project limits for that user (future and existing).
 func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -638,6 +652,8 @@ func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -677,6 +693,8 @@ func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -706,6 +724,8 @@ func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) 
 
 func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -740,6 +760,8 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 
 func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -773,6 +795,8 @@ func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) 
 
 func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -891,6 +915,8 @@ func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -925,6 +951,8 @@ func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) 
 
 func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -955,6 +983,8 @@ func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.R
 
 func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -989,6 +1019,8 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 
 func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -1094,6 +1126,10 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) createGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "failed to read body",
@@ -1129,6 +1165,8 @@ func (server *Server) createGeofenceForAccount(w http.ResponseWriter, r *http.Re
 
 func (server *Server) disableBotRestriction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -1166,11 +1204,17 @@ func (server *Server) disableBotRestriction(w http.ResponseWriter, r *http.Reque
 }
 
 func (server *Server) deleteGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	server.setGeofenceForUser(w, r, storj.DefaultPlacement)
 }
 
 func (server *Server) setGeofenceForUser(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]
@@ -1206,6 +1250,8 @@ func (server *Server) setGeofenceForUser(w http.ResponseWriter, r *http.Request,
 
 func (server *Server) updateFreeTrialExpiration(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	vars := mux.Vars(r)
 	userEmail, ok := vars["useremail"]

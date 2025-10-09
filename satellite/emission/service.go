@@ -4,14 +4,18 @@
 package emission
 
 import (
+	"context"
 	"math"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 )
 
 // Error describes internal emission service error.
 var Error = errs.Class("emission service")
+
+var mon = monkit.Package()
 
 const (
 	decimalMultiplier   = 1000
@@ -77,6 +81,10 @@ type CalculationInput struct {
 
 // CalculateImpact calculates emission impact coming from different sources e.g. Storj, hyperscaler or corporateDC.
 func (sv *Service) CalculateImpact(input *CalculationInput) (*Impact, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	// Define a data row of services expansion factors.
 	expansionFactor := sv.prepareExpansionFactorRow()
 
@@ -167,10 +175,18 @@ func (sv *Service) CalculateImpact(input *CalculationInput) (*Impact, error) {
 
 // CalculateSavedTrees calculates saved trees count based on emission impact.
 func (sv *Service) CalculateSavedTrees(impact float64) int64 {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	return int64(math.Round(impact / sv.config.AverageCO2SequesteredByTree))
 }
 
 func (sv *Service) prepareExpansionFactorRow() *Row {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	storjExpansionFactor := unitless.Value(sv.config.StorjExpansionFactor)
 
 	row := new(Row)
@@ -244,6 +260,10 @@ func (sv *Service) prepareDriveLifetimeRow() *Row {
 }
 
 func (sv *Service) prepareDriveEmbodiedCarbonEmissionRow() *Row {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	newDriveEmbodiedCarbon := kilogramPerByte.Value(sv.config.NewDriveEmbodiedCarbon * tbToBytesMultiplier)
 	noEmbodiedCarbon := kilogramPerByte.Value(0)
 
@@ -311,6 +331,10 @@ func (sv *Service) prepareCarbonFromWritesAndRepairsRow(timeStored Val) (*Row, e
 }
 
 func (sv *Service) prepareCarbonPerByteMetadataOverheadRow() (*Row, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	noCarbonPerByteMetadataOverhead := kilogramPerByteHour.Value(0)
 
 	row := new(Row)
@@ -373,6 +397,10 @@ func prepareTotalCarbonRow(input *CalculationInput, effectiveCarbonPerByteRow, e
 }
 
 func calculateStorjBlended(networkWeightingRow, totalCarbonRow *Row) (Val, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	storjReusedTotalCarbon := networkWeightingRow[storjReused].Mul(totalCarbonRow[storjReused])
 	storjNewAndReusedTotalCarbon, err := networkWeightingRow[storjNew].Mul(totalCarbonRow[storjNew]).Add(storjReusedTotalCarbon)
 	if err != nil {
@@ -388,6 +416,10 @@ func calculateStorjBlended(networkWeightingRow, totalCarbonRow *Row) (Val, error
 }
 
 func sumRows(v ...*Row) (*Row, error) {
+	ctx := context.Background()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	rv := v[0]
 	for _, l := range v[1:] {
 		for i := 0; i < len(l); i++ {

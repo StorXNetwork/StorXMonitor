@@ -6,12 +6,15 @@ package buckets
 import (
 	"context"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/metabase"
 )
 
 var (
+	mon = monkit.Package()
+
 	// ErrBucketNotEmpty is returned when a caller attempts to change placement constraints.
 	ErrBucketNotEmpty = errs.Class("bucket must be empty")
 )
@@ -34,6 +37,9 @@ type Service struct {
 // is empty before attempting to change the placement constraint of a bucket. If the placement constraint is not being
 // changed, then this additional check is skipped.
 func (buckets *Service) UpdateBucket(ctx context.Context, bucket Bucket) (Bucket, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	current, err := buckets.GetBucket(ctx, []byte(bucket.Name), bucket.ProjectID)
 	if err != nil {
 		return Bucket{}, err
