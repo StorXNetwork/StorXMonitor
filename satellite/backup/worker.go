@@ -234,6 +234,10 @@ func (worker *Worker) executeBackup(ctx context.Context, backupDate string) (err
 		zap.Int("total_keys", totalProcessedKeys),
 		zap.String("backup_file", backupFilePath))
 
+	// Record backup success
+	mon.Counter("backup_job_success").Inc(1)
+	mon.IntVal("backup_job_total_keys").Observe(int64(totalProcessedKeys))
+
 	return nil
 }
 
@@ -347,6 +351,9 @@ func (worker *Worker) updateBackupStatusFailed(ctx context.Context, backupDate, 
 	if err != nil {
 		worker.log.Error("Failed to update backup status to failed", zap.Error(err))
 		mon.Counter("backup_worker_process_update_backup_status_failed_failures").Inc(1)
+	} else {
+		// Record backup failure
+		mon.Counter("backup_job_failure").Inc(1)
 	}
 }
 

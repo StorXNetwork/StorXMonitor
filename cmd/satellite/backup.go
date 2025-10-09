@@ -92,6 +92,9 @@ func cmdBackupRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	// Record successful service creation
+	mon.Counter("backup_cmd_service_created_successfully").Inc(1)
+
 	// Initialize metrics
 	if err := process.InitMetrics(ctx, log, monkit.Default, process.MetricsIDFromHostname(log), eventkitbq.BQDestination); err != nil {
 		log.Warn("Failed to initialize telemetry batcher on backup service", zap.Error(err))
