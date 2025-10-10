@@ -472,17 +472,20 @@ func (s *Service) DeleteAccount(ctx context.Context, email string) (err error) {
 		return fmt.Errorf("get user projects: %w", err)
 	}
 
-	for _, project := range projects {
-		if err := s.buckets.DeleteAllBucketsByProjectID(ctx, project.ID); err != nil {
-			return fmt.Errorf("delete buckets: %w", err)
+	if len(projects) > 0 {
+		for _, project := range projects {
+			if err := s.buckets.DeleteAllBucketsByProjectID(ctx, project.ID); err != nil {
+				return fmt.Errorf("delete buckets: %w", err)
+			}
+
+			if err := s.store.APIKeys().DeleteByProjectID(ctx, project.ID); err != nil {
+				return fmt.Errorf("delete API keys: %w", err)
+			}
 		}
 
-		if err := s.store.APIKeys().DeleteByProjectID(ctx, project.ID); err != nil {
-			return fmt.Errorf("delete API keys: %w", err)
+		if err := s.store.Projects().DeleteByUserID(ctx, user.ID); err != nil {
+			return fmt.Errorf("delete project: %w", err)
 		}
-	}
-	if err := s.store.Projects().DeleteByUserID(ctx, user.ID); err != nil {
-		return fmt.Errorf("delete project: %w", err)
 	}
 
 	if err := s.store.Users().Delete(ctx, user.ID); err != nil {
