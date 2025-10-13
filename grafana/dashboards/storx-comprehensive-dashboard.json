@@ -138,7 +138,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -152,7 +152,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -170,7 +170,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "fieldConfig": {
         "defaults": {
@@ -225,7 +225,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -243,7 +243,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "fieldConfig": {
         "defaults": {
@@ -295,7 +295,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -313,7 +313,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "fieldConfig": {
         "defaults": {
@@ -365,7 +365,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -434,7 +434,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -452,7 +452,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+          "uid": "Prometheus"   
       },
       "fieldConfig": {
         "defaults": {
@@ -508,7 +508,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -526,7 +526,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "fieldConfig": {
         "defaults": {
@@ -578,7 +578,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -596,7 +596,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "description": "",
       "fieldConfig": {
@@ -725,7 +725,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -739,7 +739,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -757,7 +757,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "description": "",
       "fieldConfig": {
@@ -994,7 +994,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1008,7 +1008,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1023,7 +1023,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1054,7 +1054,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "fieldConfig": {
         "defaults": {
@@ -1107,7 +1107,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1125,7 +1125,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "fieldConfig": {
         "defaults": {
@@ -1212,7 +1212,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1226,7 +1226,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1296,7 +1296,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1366,7 +1366,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1464,7 +1464,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1548,7 +1548,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1566,7 +1566,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "description": "",
       "fieldConfig": {
@@ -1687,7 +1687,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1701,7 +1701,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1715,7 +1715,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+              "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1733,7 +1733,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "description": "",
       "fieldConfig": {
@@ -1862,7 +1862,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1876,7 +1876,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1891,7 +1891,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1909,7 +1909,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"   
       },
       "fieldConfig": {
         "defaults": {
@@ -2019,7 +2019,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2033,7 +2033,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2047,7 +2047,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "expr": "max(checker_segment_health)",
@@ -2060,7 +2060,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "expr": "checker_segment_total_count",
@@ -2077,7 +2077,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2179,7 +2179,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2193,7 +2193,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2211,7 +2211,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus-storx"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2340,7 +2340,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2354,7 +2354,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2368,7 +2368,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "count(up{job=\"storagenodes\"} == 0)",
@@ -2381,7 +2381,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus-storx"
+            "uid": "Prometheus"   
           },
           "editorMode": "code",
           "expr": "count(suspension_score == 1)",
@@ -2453,7 +2453,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus-storx"
+          "uid": "Prometheus"   
         },
         "definition": "label_values(satellite)",
         "includeAll": true,
