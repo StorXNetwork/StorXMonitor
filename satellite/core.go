@@ -30,10 +30,12 @@ import (
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/backup"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
+	"storj.io/storj/satellite/console/secretconstants"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/mailservice"
@@ -51,6 +53,7 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
+	"storj.io/storj/satellite/smartcontract"
 )
 
 // Core is the satellite core process that runs chores.
@@ -152,6 +155,10 @@ type Core struct {
 
 	RepairQueueStat struct {
 		Chore *repairer.QueueStat
+	}
+
+	Backup struct {
+		Service *backup.Service
 	}
 }
 
@@ -621,6 +628,36 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Garbage Collection", peer.GarbageCollection.Sender.Loop))
+	}
+
+	{ // setup backup service
+		// Create smart contract helper using console Web3Auth configuration
+		smartContractConnector, err := smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
+			NetworkRPC:   config.Console.Web3AuthNetworkRPC,
+			ContractAddr: config.Console.Web3AuthContractAddress,
+			Address:      config.Console.Web3AuthAddress,
+		}, secretconstants.Web3AuthPrivateKey)
+		if err != nil {
+			peer.Log.Warn("Failed to create smart contract connector for backup", zap.Error(err))
+		} else {
+			peer.Backup.Service, err = backup.NewService(
+				peer.Log.Named("backup"),
+				peer.DB.Web3Auth(),
+				smartContractConnector,
+				&config.Backup,
+			)
+			if err != nil {
+				peer.Log.Warn("Failed to create backup service", zap.Error(err))
+			} else {
+				peer.Services.Add(lifecycle.Item{
+					Name:  "backup",
+					Run:   peer.Backup.Service.Run,
+					Close: peer.Backup.Service.Close,
+				})
+				peer.Debug.Server.Panel.Add(
+					debug.Cycle("Backup Service", peer.Backup.Service.Backup.Worker.Loop))
+			}
+		}
 	}
 
 	return peer, nil
