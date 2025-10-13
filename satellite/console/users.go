@@ -462,9 +462,18 @@ const (
 func (s *Service) DeleteAccount(ctx context.Context, email string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.store.Users().GetByEmail(ctx, email)
+	verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, email)
 	if err != nil {
 		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	var user *User
+	if verified != nil {
+		user = verified
+	} else if len(unverified) > 0 {
+		user = &unverified[0]
+	} else {
+		return fmt.Errorf("user not found with email: %s", email)
 	}
 
 	projects, err := s.store.Projects().GetByUserID(ctx, user.ID)
