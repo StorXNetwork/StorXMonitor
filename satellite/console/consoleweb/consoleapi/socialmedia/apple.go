@@ -153,6 +153,8 @@ func getApplePublicKeys() ([]AppleKey, error) {
 		return nil, err
 	}
 
+	defer resp.Body.Close()
+
 	//read response
 	bodyContents, err = io.ReadAll(resp.Body)
 	if err != nil {
@@ -181,7 +183,7 @@ func VerifyIdToken(idToken string) (*IdTokenResponse, error) {
 
 	err = mapstructure.Decode(tokenClaims.Claims, &jwtClaims)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to decode token: %v", err)
 	}
 
 	// log.Printf("%t\n%#v", tokenClaims.Valid, tokenClaims.Claims)
@@ -194,8 +196,8 @@ func VerifyIdToken(idToken string) (*IdTokenResponse, error) {
 	}
 
 	expTime := time.UnixMilli(jwtClaims.Exp)
-	if time.Now().Before(expTime) {
-		return nil, errors.New("exp is earlier than the current time.")
+	if time.Now().After(expTime) {
+		return nil, errors.New("token has expired")
 	}
 
 	return &jwtClaims, nil
@@ -205,6 +207,10 @@ func GetAppleUser(ctx context.Context, idToken string) (*AppleUser, error) {
 	token, err := VerifyIdToken(idToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify token: %v", err)
+	}
+
+	if token.Email == "" {
+		return nil, errors.New("email is empty")
 	}
 
 	return &AppleUser{

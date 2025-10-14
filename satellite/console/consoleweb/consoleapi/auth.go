@@ -159,6 +159,14 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 
 		email = linkedinuser.Email
 		name = linkedinuser.Name
+	} else if migrationType == "apple" {
+		appleuser, err := socialmedia.GetAppleUser(ctx, body.AccessToken)
+		if err != nil {
+			a.sendJsonResponse(w, "Error getting user details from Apple!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			return
+		}
+
+		email = appleuser.Email
 	} else {
 		a.sendJsonResponse(w, "Invalid migration type!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
