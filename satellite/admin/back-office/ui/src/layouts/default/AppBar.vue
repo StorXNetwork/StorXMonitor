@@ -10,12 +10,12 @@
 
         <v-app-bar-title class="mx-1">
             <router-link v-if="featureFlags.dashboard" to="/dashboard">
-                <v-img v-if="theme.global.current.value.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
-                <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
+                <v-img v-if="theme.global.current.value.dark" src="@/assets/SidebarLogoWhite.svg" width="172" alt="STOR-X Logo" />
+                <v-img v-else src="@/assets/SidebarLogo.svg" width="172" alt="STOR-X Logo" />
             </router-link>
             <div v-else>
-                <v-img v-if="theme.global.current.value.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
-                <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
+                <v-img v-if="theme.global.current.value.dark" src="@/assets/SidebarLogoWhite.svg" width="172" alt="STOR-X Logo" />
+                <v-img v-else src="@/assets/SidebarLogo.svg" width="172" alt="STOR-X Logo" />
             </div>
         </v-app-bar-title>
 
