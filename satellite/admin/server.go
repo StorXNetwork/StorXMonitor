@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/oidc"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
 )
@@ -77,6 +78,10 @@ type DB interface {
 	Buckets() buckets.DB
 	// Attribution returns database for value attribution.
 	Attribution() attribution.DB
+	// OverlayCache returns database for overlay information
+	OverlayCache() overlay.DB
+	// LiveAccounting returns database for caching project usage data
+	LiveAccounting() accounting.Cache
 }
 
 // Server provides endpoints for administrative tasks.
@@ -87,6 +92,7 @@ type Server struct {
 	server   http.Server
 
 	db             DB
+	liveAccounting accounting.Cache
 	payments       payments.Accounts
 	buckets        *buckets.Service
 	restKeys       *restkeys.Service
@@ -104,6 +110,7 @@ func NewServer(
 	log *zap.Logger,
 	listener net.Listener,
 	db DB,
+	liveAccounting accounting.Cache,
 	buckets *buckets.Service,
 	restKeys *restkeys.Service,
 	freezeAccounts *console.AccountFreezeService,
@@ -119,13 +126,13 @@ func NewServer(
 		listener: listener,
 
 		db:             db,
+		liveAccounting: liveAccounting,
 		payments:       accounts,
 		buckets:        buckets,
 		restKeys:       restKeys,
 		analytics:      analyticsService,
 		freezeAccounts: freezeAccounts,
-
-		nowFn: time.Now,
+		nowFn:          time.Now,
 
 		console: console,
 		config:  config,
@@ -169,13 +176,18 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.deleteGeofenceForProject).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.getAPIKey).Methods("GET")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
+	fullAccessAPI.HandleFunc("/users/{useremail}/login-history", server.getUserLoginHistory).Methods("GET")
 	fullAccessAPI.HandleFunc("/restkeys/{useremail}", server.addRESTKey).Methods("POST")
 	fullAccessAPI.HandleFunc("/restkeys/{apikey}/revoke", server.revokeRESTKey).Methods("PUT")
 
 	// limit update access required
 	limitUpdateAPI := api.NewRoute().Subrouter()
 	limitUpdateAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}, false))
+	limitUpdateAPI.HandleFunc("/users", server.getAllUsers).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
+	limitUpdateAPI.HandleFunc("/nodes", server.getAllNodes).Methods("GET")
+	limitUpdateAPI.HandleFunc("/nodes/stats", server.getNodeStats).Methods("GET")
+	limitUpdateAPI.HandleFunc("/nodes/{nodeId}", server.getNodeDetails).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.userLimits).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-freeze", server.billingFreezeUser).Methods("PUT")

@@ -166,7 +166,7 @@ type ProjectTableSlotProps = { item: { raw: ProjectTableItem } };
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);
-const sortBy = ref([{ key: 'name', order: 'asc' }]);
+const sortBy = ref([{ key: 'name', order: 'asc' as const }]);
 const router = useRouter();
 
 const headers = [
@@ -178,7 +178,7 @@ const headers = [
     { title: 'Download Used', key: 'download.used' },
     { title: 'Download Limit', key: 'download.limit' },
     { title: 'Segments Used', key: 'segment.percent' },
-    { title: 'Project ID', key: 'id', align: 'start' },
+    { title: 'Project ID', key: 'id', align: 'start' as const },
     // { title: 'Value Attribution', key: 'agent' },
     // { title: 'Date Created', key: 'date' },
 ];
@@ -195,7 +195,7 @@ const projects = computed<ProjectTableItem[]>(() => {
         return {
             used,
             limit,
-            percent: used !== null ? Math.round(used * 100 / limit) : null,
+            percent: (used !== null && used !== undefined && limit > 0) ? Math.round(used * 100 / limit) : 0,
         };
     }
 
@@ -207,9 +207,9 @@ const projects = computed<ProjectTableItem[]>(() => {
     return projects.map<ProjectTableItem>(project => ({
         id: project.id,
         name: project.name,
-        storage: makeUsageStats(project.storageUsed, project.storageLimit),
-        download: makeUsageStats(project.bandwidthUsed, project.bandwidthLimit),
-        segment: makeUsageStats(project.segmentUsed, project.segmentLimit),
+        storage: makeUsageStats(project.storageUsed || 0, project.storageLimit || 0),
+        download: makeUsageStats(project.bandwidthUsed || 0, project.bandwidthLimit || 0),
+        segment: makeUsageStats(project.segmentUsed || 0, project.segmentLimit || 0),
     }));
 });
 

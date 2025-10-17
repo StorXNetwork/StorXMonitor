@@ -36,4 +36,5 @@ type WebappSession struct {
 	UserAgent string
 	Status    int
 	ExpiresAt time.Time
+	CreatedAt time.Time
 }

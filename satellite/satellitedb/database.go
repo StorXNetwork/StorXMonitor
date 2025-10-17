@@ -261,6 +261,14 @@ func (dbc *satelliteDBCollection) Web3Auth() backup.DB {
 	return &web3Auth{db: dbc.getByName("web3_auth")}
 }
 
+// LiveAccounting returns database for caching project usage data.
+// Note: This method is not implemented in the database layer as LiveAccounting
+// is a Redis-based cache that's initialized separately in the satellite core.
+// This method should not be called directly.
+func (dbc *satelliteDBCollection) LiveAccounting() accounting.Cache {
+	panic("LiveAccounting should not be called on the database layer - use peer.LiveAccounting.Cache directly")
+}
+
 // OIDC returns the database for storing OAuth and OIDC information.
 func (dbc *satelliteDBCollection) OIDC() oidc.DB {
 	db := dbc.getByName("oidc")

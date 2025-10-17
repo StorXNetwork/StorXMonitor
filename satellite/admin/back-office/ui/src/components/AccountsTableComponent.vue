@@ -3,14 +3,47 @@
 
 <template>
     <v-card variant="flat" rounded="xlg" border>
+        <div class="d-flex justify-between mx-2 mt-2" style="max-width: 1200px; margin: 0 auto;">
+            <div></div>
+            <div class="d-flex align-center gap-4" style="max-width: 700px;">
         <v-text-field
             v-model="search" label="Search" prepend-inner-icon="mdi-magnify" single-line variant="solo-filled" flat
-            hide-details clearable density="compact" rounded="lg" class="mx-2 mt-2"
-        />
+                    hide-details clearable density="compact" rounded="lg"
+                    style="min-width: 350px;"
+                    @input="loadUsers"
+                />
+                <v-select
+                    v-model="statusFilter" label="Status" prepend-inner-icon="mdi-filter" single-line variant="outlined" flat
+                    hide-details clearable density="compact" rounded="lg"
+                    style="width: 250px;"
+                    :items="statusOptions" item-title="text" item-value="value"
+                    @update:model-value="loadUsers"
+                />
+            </div>
+        </div>
 
+        <!-- Loading state -->
+        <div v-if="loading" class="d-flex justify-center align-center py-8">
+            <v-progress-circular indeterminate color="primary" size="64" />
+            <p class="ml-4">Loading users...</p>
+        </div>
+
+        <!-- Error state -->
+        <v-alert v-else-if="error" type="error" variant="tonal" class="ma-4">
+            <v-alert-title>Error loading users</v-alert-title>
+            {{ error }}
+        </v-alert>
+
+        <!-- Data table -->
         <v-data-table
-            v-model="selected" v-model:sort-by="sortBy" :headers="headers" :items="users" :search="search"
+            v-else
+            v-model="selected" v-model:sort-by="sortBy" :headers="headers" :items="displayUsers"
             density="comfortable" hover
+            :items-per-page="itemsPerPage"
+            :page="currentPage"
+            :server-items-length="totalCount"
+            @update:page="handlePageChange"
+            @update:items-per-page="handleItemsPerPageChange"
         >
             <template #item.email="{ item }">
                 <div class="text-no-wrap">
@@ -18,12 +51,13 @@
                         variant="outlined" color="default" size="small" class="mr-1 text-caption" density="comfortable" icon
                         width="24" height="24"
                     >
-                        <AccountActionsMenu />
+                        <AccountActionsMenu :user-email="item.raw.email" />
                         <v-icon icon="mdi-dots-horizontal" />
                     </v-btn>
                     <v-chip
-                        variant="text" color="default" size="small" router-link to="/account-details"
-                        class="font-weight-bold pl-1 ml-1"
+                        variant="text" color="default" size="small" 
+                        class="font-weight-bold pl-1 ml-1 cursor-pointer"
+                        @click="navigateToAccountDetails(item.raw.email)"
                     >
                         <template #prepend>
                             <svg class="mr-2" width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -34,19 +68,11 @@
                                 />
                             </svg>
                         </template>
-                        {{ item.columns.email }}
+                        {{ item.raw.email }}
                     </v-chip>
                 </div>
             </template>
 
-            <template #item.type="{ item }">
-                <v-chip
-                    :color="getColor(item.raw.type)" variant="tonal" size="small" class="font-weight-bold"
-                    @click="setSearch(item.raw.type)"
-                >
-                    {{ item.raw.type }}
-                </v-chip>
-            </template>
 
             <template #item.status="{ item }">
                 <v-chip
@@ -57,24 +83,45 @@
                 </v-chip>
             </template>
 
-            <template #item.agent="{ item }">
-                <v-chip variant="tonal" color="default" size="small" @click="setSearch(item.raw.agent)">
-                    {{ item.raw.agent }}
+            <template #item.paidTier="{ item }">
+                <v-chip variant="tonal" color="default" size="small" @click="setSearch(item.raw.paidTier)">
+                    {{ item.raw.paidTier }}
                 </v-chip>
             </template>
 
-            <template #item.placement="{ item }">
-                <v-chip
-                    variant="tonal" color="default" size="small" rounded="lg" class="text-capitalize"
-                    @click="setSearch(item.raw.placement)"
-                >
-                    {{ item.raw.placement }}
+            <template #item.source="{ item }">
+                <v-chip variant="outlined" color="info" size="small">
+                    {{ item.raw.source }}
                 </v-chip>
             </template>
 
-            <template #item.date="{ item }">
+            <template #item.utmSource="{ item }">
+                <span class="text-caption">{{ item.raw.utmSource }}</span>
+            </template>
+
+            <template #item.utmMedium="{ item }">
+                <span class="text-caption">{{ item.raw.utmMedium }}</span>
+            </template>
+
+            <template #item.utmCampaign="{ item }">
+                <span class="text-caption">{{ item.raw.utmCampaign }}</span>
+            </template>
+
+            <template #item.lastSessionExpiry="{ item }">
+                <span class="text-no-wrap text-caption">
+                    {{ item.raw.lastSessionExpiry }}
+                </span>
+            </template>
+
+            <template #item.totalSessionCount="{ item }">
+                <v-chip variant="tonal" color="success" size="small">
+                    {{ item.raw.totalSessionCount }}
+                </v-chip>
+            </template>
+
+            <template #item.createdAt="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.raw.date }}
+                    {{ item.raw.createdAt }}
                 </span>
             </template>
         </v-data-table>
@@ -82,202 +129,232 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { VCard, VTextField, VBtn, VIcon, VChip } from 'vuetify/components';
+import { ref, onMounted, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { VCard, VTextField, VSelect, VBtn, VIcon, VChip, VProgressCircular, VAlert, VAlertTitle } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
+import { adminApi, type User } from '@/api/adminApi';
+import { useAppStore } from '@/store/app';
+
+// Props
+const props = defineProps<{
+    refreshTrigger?: number;
+}>();
+
+// Emits
+const emit = defineEmits<{
+    'stats-updated': [stats: {
+        totalAccounts: number;
+        active: number;
+        inactive: number;
+        deleted: number;
+        pendingDeletion: number;
+        legalHold: number;
+        pendingBotVerification: number;
+        pro: number;
+        free: number;
+    }];
+    'export-requested': [users: any[]];
+}>();
+
+const router = useRouter();
+const appStore = useAppStore();
 
 const search = ref<string>('');
+const statusFilter = ref<string>('');
 const selected = ref<string[]>([]);
-const sortBy = ref([{ key: 'email', order: 'asc' }]);
+const sortBy = ref([{ key: 'email', order: 'asc' as const }]);
+const loading = ref(true);
+const error = ref<string | null>(null);
+const users = ref<User[]>([]);
+const currentPage = ref(1);
+const totalPages = ref(1);
+const totalCount = ref(0);
+const itemsPerPage = ref(50);
+
+const statusOptions = [
+    { text: 'All Status', value: '' },
+    { text: 'Active', value: '1' },
+    { text: 'Inactive', value: '0' },
+    { text: 'Deleted', value: '2' },
+    { text: 'Pending Deletion', value: '3' },
+    { text: 'Legal Hold', value: '4' },
+    { text: 'Pending Bot Verification', value: '5' },
+];
 
 const headers = [
     { title: 'Account', key: 'email' },
-    { title: 'Type', key: 'type' },
-    // { title: 'Name', key: 'name' },
-    { title: 'Projects', key: 'projects' },
-    { title: 'Storage', key: 'storage' },
-    { title: 'Download', key: 'download' },
+    { title: 'Storage', key: 'storageUsed' },
+    { title: 'Download', key: 'bandwidthUsed' },
     { title: 'Status', key: 'status' },
-    { title: 'Value', key: 'agent' },
-    { title: 'Placement', key: 'placement' },
-    { title: 'ID', key: 'userid' },
-    { title: 'Created', key: 'date', align: 'start' },
-];
-const users = [
-    {
-        name: 'Magnolia Queen',
-        date: '12 Mar 2023',
-        type: 'Enterprise',
-        status: 'Active',
-        projects: '8',
-        storage: '1,000 TB',
-        download: '3,000 TB',
-        agent: 'Company',
-        email: 'magnolia@queen.com',
-        placement: 'global',
-        userid: '2521',
-    },
-    {
-        name: 'Irving Thacker',
-        date: '30 May 2023',
-        type: 'Enterprise',
-        status: 'Active',
-        projects: '3',
-        storage: '1,000 TB',
-        download: '3,000 TB',
-        agent: 'Company',
-        email: 'itacker@gmail.com',
-        placement: 'global',
-        userid: '41',
-    },
-    {
-        name: 'Brianne Deighton',
-        date: '20 Mar 2023',
-        type: 'Enterprise',
-        status: 'Active',
-        projects: '1',
-        storage: '1,000 TB',
-        download: '3,000 TB',
-        agent: 'Company',
-        email: 'bd@rianne.net',
-        placement: 'global',
-        userid: '87212',
-    },
-    {
-        name: 'Vince Duke',
-        date: '4 Apr 2023',
-        type: 'Priority',
-        status: 'Active',
-        projects: '5',
-        storage: '500 TB',
-        download: '500 TB',
-        agent: 'User Agent',
-        email: 'vduke@gmail.com',
-        placement: 'global',
-        userid: '53212',
-    },
-    {
-        name: 'Aurora Knowles',
-        date: '15 Mar 2023',
-        type: 'Priority',
-        status: 'Active',
-        projects: '5',
-        storage: '500 TB',
-        download: '500 TB',
-        agent: 'User Agent',
-        email: 'knowles@aurora.io',
-        placement: 'global',
-        userid: '2',
-    },
-    {
-        name: 'Luvenia Breckinridge',
-        date: '11 Jan 2023',
-        type: 'Priority',
-        status: 'Frozen',
-        projects: '3',
-        storage: '500 TB',
-        download: '500 TB',
-        agent: 'User Agent',
-        email: 'lbreckinridge42@gmail.com',
-        placement: 'global',
-        userid: '1244',
-    },
-    {
-        name: 'Georgia Jordan',
-        date: '15 Mar 2023',
-        type: 'Pro',
-        status: 'Active',
-        projects: '3',
-        storage: '75 TB',
-        download: '300 TB',
-        agent: 'Agent',
-        email: 'georgia@jordan.net',
-        placement: 'global',
-        userid: '55524',
-    },
-    {
-        name: 'Mckayla Bird',
-        date: '5 May 2023',
-        type: 'Pro',
-        status: 'Active',
-        projects: '2',
-        storage: '75 TB',
-        download: '300 TB',
-        agent: 'Agent',
-        email: 'mckaylabird@gmail.com',
-        placement: 'global',
-        userid: '102852',
-    },
-    {
-        name: 'Herb Hamilton',
-        date: '15 Mar 2023',
-        type: 'Pro',
-        status: 'Active',
-        projects: '3',
-        storage: '75 TB',
-        download: '300 TB',
-        agent: 'Agent',
-        email: 'herbh@gmail.com',
-        placement: 'global',
-        userid: '248',
-    },
-    {
-        name: 'Tria Goddard',
-        date: '10 Mar 2023',
-        type: 'Free',
-        status: 'Frozen',
-        projects: '1',
-        storage: '1 TB',
-        download: '3 TB',
-        agent: 'Name',
-        email: 'tg@tria.com',
-        placement: 'global',
-        userid: '12515',
-    },
-    {
-        name: 'Scarlett Trevis',
-        date: '24 Mar 2023',
-        type: 'Free',
-        status: 'Active',
-        projects: '1',
-        storage: '1 TB',
-        download: '3 TB',
-        agent: 'Name',
-        email: 'sctrevis@gmail.com',
-        placement: 'global',
-        userid: '821',
-    },
-    {
-        name: 'Destiny Brett',
-        date: '29 Mar 2023',
-        type: 'Free',
-        status: 'Suspended',
-        projects: '1',
-        storage: '0 TB',
-        download: '0 TB',
-        agent: 'Test',
-        email: 'destiny@gmail.com',
-        placement: 'global',
-        userid: '25808',
-    },
+    { title: 'Tier', key: 'paidTier' },
+    { title: 'Source', key: 'source' },
+    { title: 'UTM Source', key: 'utmSource' },
+    { title: 'UTM Medium', key: 'utmMedium' },
+    { title: 'UTM Campaign', key: 'utmCampaign' },
+    { title: 'Last Session', key: 'lastSessionExpiry' },
+    { title: 'Sessions', key: 'totalSessionCount' },
+    { title: 'Created', key: 'createdAt', align: 'start' as const },
 ];
 
-function getColor(type: string) {
-    if (type === 'Enterprise') return 'purple';
-    if (type === 'Priority') return 'secondary';
-    if (type === 'Pro') return 'success';
-    if (type === 'Free') return 'default';
+// Load users data
+const loadUsers = async () => {
+    try {
+        loading.value = true;
+        error.value = null;
+
+        const response = await adminApi.getAllUsers({
+            limit: itemsPerPage.value,
+            page: currentPage.value,
+            search: search.value || undefined,
+            status: statusFilter.value || undefined,
+            sortBy: sortBy.value[0]?.key || 'email',
+            sortOrder: sortBy.value[0]?.order || 'asc',
+        });
+
+        users.value = response.users;
+        totalPages.value = response.pageCount;
+        totalCount.value = response.totalCount;
+        
+        // Emit stats update
+        emitStatsUpdate();
+    } catch (err) {
+        console.error('Failed to load users:', err);
+        error.value = err instanceof Error ? err.message : 'Unknown error occurred';
+    } finally {
+        loading.value = false;
+    }
+};
+
+// Computed properties for display
+const displayUsers = computed(() => {
+    return users.value.map(user => ({
+        ...user,
+        status: getStatusText(user.status),
+        storageUsed: formatBytes(user.storageUsed),
+        bandwidthUsed: formatBytes(user.bandwidthUsed),
+        createdAt: formatDate(user.createdAt),
+        paidTier: user.paidTier ? 'Paid' : 'Free',
+        source: user.source || 'N/A',
+        utmSource: user.utmSource || 'N/A',
+        utmMedium: user.utmMedium || 'N/A',
+        utmCampaign: user.utmCampaign || 'N/A',
+        lastSessionExpiry: user.lastSessionExpiry ? formatDate(user.lastSessionExpiry) : 'Never',
+        totalSessionCount: user.totalSessionCount || 0,
+    }));
+});
+
+// Helper functions
+const getStatusText = (status: number): string => {
+    switch (status) {
+        case 0: return 'Inactive';
+        case 1: return 'Active';
+        case 2: return 'Deleted';
+        case 3: return 'Pending Deletion';
+        case 4: return 'Legal Hold';
+        case 5: return 'Pending Bot Verification';
+        default: return 'Unknown';
+    }
+};
+
+
+const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    });
+};
+
+const getColor = (type: string) => {
     if (type === 'Active') return 'success';
     if (type === 'Inactive') return 'default';
-    if (type === 'Frozen') return 'warning';
-    if (type === 'Suspended') return 'error';
     if (type === 'Deleted') return 'error';
+    if (type === 'Pending Deletion') return 'warning';
+    if (type === 'Legal Hold') return 'warning';
+    if (type === 'Pending Bot Verification') return 'warning';
+    if (type === 'Paid') return 'success';
+    if (type === 'Never') return 'warning';
     return 'default';
-}
+};
 
-function setSearch(searchText: string) {
+const setSearch = (searchText: string) => {
     search.value = searchText;
-}
+    loadUsers();
+};
+
+// Pagination handlers
+const handlePageChange = (page: number) => {
+    currentPage.value = page;
+    loadUsers();
+};
+
+const handleItemsPerPageChange = (itemsPerPageValue: number) => {
+    itemsPerPage.value = itemsPerPageValue;
+    currentPage.value = 1;
+    loadUsers();
+};
+
+// Emit stats update
+const emitStatsUpdate = () => {
+    const stats = {
+        totalAccounts: totalCount.value,
+        active: users.value.filter(u => u.status === 1).length,
+        inactive: users.value.filter(u => u.status === 0).length,
+        deleted: users.value.filter(u => u.status === 2).length,
+        pendingDeletion: users.value.filter(u => u.status === 3).length,
+        legalHold: users.value.filter(u => u.status === 4).length,
+        pendingBotVerification: users.value.filter(u => u.status === 5).length,
+        pro: users.value.filter(u => u.paidTier).length,
+        free: users.value.filter(u => !u.paidTier).length,
+    };
+    emit('stats-updated', stats);
+};
+
+// Watch for refresh trigger
+watch(() => props.refreshTrigger, () => {
+    if (props.refreshTrigger && props.refreshTrigger > 0) {
+        loadUsers();
+    }
+});
+
+// Navigation function
+const navigateToAccountDetails = async (email: string) => {
+    try {
+        // Store the email in localStorage or a global store for the AccountDetails page to use
+        localStorage.setItem('selectedUserEmail', email);
+        // Navigate to account details page
+        router.push('/account-details');
+    } catch (error) {
+        console.error('Failed to navigate to account details:', error);
+    }
+};
+
+
+// Export filtered users
+const exportFilteredUsers = () => {
+    // Emit the current filtered users data
+    emit('export-requested', users.value);
+};
+
+// Expose method to parent component
+defineExpose({
+    exportFilteredUsers
+});
+
+// Load data on component mount
+onMounted(() => {
+    loadUsers();
+});
 </script>

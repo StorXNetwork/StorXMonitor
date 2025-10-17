@@ -3089,10 +3089,10 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "add created_at column to webapp_session table",
+				Description: "add created_at column to webapp_sessions table",
 				Version:     287,
 				Action: migrate.SQL{
-					`ALTER TABLE webapp_session ADD COLUMN created_at timestamp with time zone NOT NULL DEFAULT now();`,
+					`ALTER TABLE webapp_sessions ADD COLUMN created_at timestamp with time zone NOT NULL DEFAULT now();`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
