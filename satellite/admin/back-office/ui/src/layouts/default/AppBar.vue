@@ -181,6 +181,15 @@
                         Projects
                     </v-list-item-title>
                 </v-list-item>
+
+                <v-list-item v-if="featureFlags.nodes.list" link router-link to="/nodes" class="my-1" rounded="lg">
+                    <template #prepend>
+                        <img src="@/assets/icon-server.svg" alt="Storage Nodes">
+                    </template>
+                    <v-list-item-title class="text-body-2 ml-3">
+                        Storage Nodes
+                    </v-list-item-title>
+                </v-list-item>
             </v-list>
         </v-sheet>
     </v-navigation-drawer>

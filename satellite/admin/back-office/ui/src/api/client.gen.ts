@@ -33,10 +33,17 @@ export class BucketFlags {
     view: boolean;
 }
 
+export class NodeFlags {
+    list: boolean;
+    view: boolean;
+    manage: boolean;
+}
+
 export class FeatureFlags {
     account: AccountFlags;
     project: ProjectFlags;
     bucket: BucketFlags;
+    nodes: NodeFlags;
     dashboard: boolean;
     operator: boolean;
     signOut: boolean;

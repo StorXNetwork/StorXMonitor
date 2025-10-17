@@ -18,10 +18,10 @@ const routes = [
         // ],
         // TODO: once the switch satellite feature is implemented, remove the redirection below and
         // uncomment the above code.
-        redirect: '/account-search', // directly redirect
+        redirect: '/dashboard', // directly redirect
     },
     {
-        path: '/admin',
+        path: '/',
         component: () => import('@/layouts/default/Default.vue'),
         children: [
             {
@@ -48,6 +48,16 @@ const routes = [
                 path: '/projects',
                 name: 'Projects',
                 component: () => import(/* webpackChunkName: "Projects" */ '@/views/Projects.vue'),
+            },
+            {
+                path: '/nodes',
+                name: 'Nodes',
+                component: () => import(/* webpackChunkName: "Nodes" */ '@/views/Nodes.vue'),
+            },
+            {
+                path: '/node-details/:id',
+                name: 'Node Details',
+                component: () => import(/* webpackChunkName: "NodeDetails" */ '@/views/NodeDetails.vue'),
             },
             {
                 path: '/project-details',

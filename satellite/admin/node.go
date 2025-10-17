@@ -4,7 +4,9 @@
 package admin
 
 import (
+	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -153,6 +155,13 @@ func (server *Server) getAllNodes(w http.ResponseWriter, r *http.Request) {
 			end = totalCount
 		}
 		paginatedNodes = nodes[offset:end]
+	}
+
+	// Check if this is an export request
+	format := query.Get("format")
+	if format == "csv" {
+		server.exportNodesData(w, nodes, statusFilter, countryFilter, format)
+		return
 	}
 
 	// Create response
@@ -326,4 +335,58 @@ func getNodeStatus(node *overlay.NodeDossier, onlineWindow time.Duration) string
 
 	// Node is offline
 	return "offline"
+}
+
+// exportNodesData exports node data in CSV format
+func (server *Server) exportNodesData(w http.ResponseWriter, nodes []Node, statusFilter, countryFilter, format string) {
+	if format == "csv" {
+		w.Header().Set("Content-Type", "text/csv")
+		w.Header().Set("Content-Disposition", "attachment; filename=nodes_export.csv")
+
+		// Write CSV header
+		csvWriter := csv.NewWriter(w)
+		defer csvWriter.Flush()
+
+		// Write header row
+		headers := []string{
+			"Node ID", "Status", "Address", "Country Code", "Free Disk",
+			"Latency (90th)", "Version", "Created At", "Operator Email",
+		}
+		csvWriter.Write(headers)
+
+		// Write data rows
+		for _, node := range nodes {
+			row := []string{
+				node.ID,
+				node.Status,
+				node.Address,
+				node.CountryCode,
+				fmt.Sprintf("%d", node.FreeDisk),
+				fmt.Sprintf("%d", node.Latency90),
+				node.Version,
+				node.CreatedAt.Format("2006-01-02 15:04:05"),
+				node.OperatorEmail,
+			}
+			csvWriter.Write(row)
+		}
+	} else {
+		// JSON format
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Disposition", "attachment; filename=nodes_export.json")
+
+		response := struct {
+			TotalNodes int               `json:"totalNodes"`
+			Filters    map[string]string `json:"filters"`
+			Nodes      []Node            `json:"nodes"`
+		}{
+			TotalNodes: len(nodes),
+			Filters: map[string]string{
+				"status":  statusFilter,
+				"country": countryFilter,
+			},
+			Nodes: nodes,
+		}
+
+		json.NewEncoder(w).Encode(response)
+	}
 }

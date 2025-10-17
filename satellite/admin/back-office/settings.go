@@ -32,6 +32,7 @@ type FeatureFlags struct {
 	Account         AccountFlags `json:"account"`
 	Project         ProjectFlags `json:"project"`
 	Bucket          BucketFlags  `json:"bucket"`
+	Nodes           NodeFlags    `json:"nodes"`
 	Dashboard       bool         `json:"dashboard"`
 	Operator        bool         `json:"operator"` // This is the information about the logged operator
 	SignOut         bool         `json:"signOut"`
@@ -85,6 +86,13 @@ type BucketFlags struct {
 	View                   bool `json:"view"`
 }
 
+// NodeFlags are the feature flags related to storage nodes.
+type NodeFlags struct {
+	List   bool `json:"list"`
+	View   bool `json:"view"`
+	Manage bool `json:"manage"`
+}
+
 // GetSettings returns the service settings.
 func (s *Service) GetSettings(ctx context.Context) (*Settings, api.HTTPError) {
 	return &Settings{
@@ -130,6 +138,11 @@ func (s *Service) GetSettings(ctx context.Context) (*Settings, api.HTTPError) {
 					UpdatePlacement:        true,
 					UpdateValueAttribution: true,
 					View:                   true,
+				},
+				Nodes: NodeFlags{
+					List:   true,
+					View:   true,
+					Manage: true,
 				},
 				Dashboard:       true,
 				Operator:        true,
