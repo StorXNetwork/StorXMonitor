@@ -206,6 +206,7 @@ model webapp_session (
     field user_agent text
     field status     int       ( updatable, autoinsert )
     field expires_at timestamp ( updatable )
+    field created_at timestamp ( autoinsert )
 )
 
 create webapp_session ( )

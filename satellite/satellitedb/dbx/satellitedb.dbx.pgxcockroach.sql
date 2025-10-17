@@ -669,6 +669,7 @@ CREATE TABLE webapp_sessions (
 	user_agent text NOT NULL,
 	status integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE webapp_session_developers (

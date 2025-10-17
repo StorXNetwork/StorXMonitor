@@ -982,6 +982,7 @@ CREATE TABLE webapp_sessions (
 	user_agent text NOT NULL,
 	status integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE webapp_session_developers (
@@ -1861,6 +1862,7 @@ CREATE TABLE webapp_sessions (
 	user_agent text NOT NULL,
 	status integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE webapp_session_developers (
@@ -14132,6 +14134,7 @@ type WebappSession struct {
 	UserAgent string
 	Status    int
 	ExpiresAt time.Time
+	CreatedAt time.Time
 }
 
 func (WebappSession) _Table() string { return "webapp_sessions" }
@@ -14254,6 +14257,25 @@ func (f WebappSession_ExpiresAt_Field) value() interface{} {
 }
 
 func (WebappSession_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type WebappSession_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func WebappSession_CreatedAt(v time.Time) WebappSession_CreatedAt_Field {
+	return WebappSession_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f WebappSession_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSession_CreatedAt_Field) _Column() string { return "created_at" }
 
 type WebappSessionDeveloper struct {
 	Id          []byte
@@ -17529,23 +17551,26 @@ func (obj *pgxImpl) Create_WebappSession(ctx context.Context,
 	webapp_session_expires_at WebappSession_ExpiresAt_Field) (
 	webapp_session *WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
 	__id_val := webapp_session_id.value()
 	__user_id_val := webapp_session_user_id.value()
 	__ip_address_val := webapp_session_ip_address.value()
 	__user_agent_val := webapp_session_user_agent.value()
 	__status_val := int(0)
 	__expires_at_val := webapp_session_expires_at.value()
+	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at, webapp_sessions.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val)
+	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt, &webapp_session.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -22592,7 +22617,7 @@ func (obj *pgxImpl) All_WebappSession_By_UserId(ctx context.Context,
 	rows []*WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at, webapp_sessions.created_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, webapp_session_user_id.value())
@@ -22610,7 +22635,7 @@ func (obj *pgxImpl) All_WebappSession_By_UserId(ctx context.Context,
 
 			for __rows.Next() {
 				webapp_session := &WebappSession{}
-				err = __rows.Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+				err = __rows.Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt, &webapp_session.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -22637,7 +22662,7 @@ func (obj *pgxImpl) Get_WebappSession_By_Id(ctx context.Context,
 	webapp_session *WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at, webapp_sessions.created_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, webapp_session_id.value())
@@ -22646,7 +22671,7 @@ func (obj *pgxImpl) Get_WebappSession_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt, &webapp_session.CreatedAt)
 	if err != nil {
 		return (*WebappSession)(nil), obj.makeErr(err)
 	}
@@ -25683,7 +25708,7 @@ func (obj *pgxImpl) Update_WebappSession_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at, webapp_sessions.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -25712,7 +25737,7 @@ func (obj *pgxImpl) Update_WebappSession_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt, &webapp_session.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -29369,23 +29394,26 @@ func (obj *pgxcockroachImpl) Create_WebappSession(ctx context.Context,
 	webapp_session_expires_at WebappSession_ExpiresAt_Field) (
 	webapp_session *WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
 	__id_val := webapp_session_id.value()
 	__user_id_val := webapp_session_user_id.value()
 	__ip_address_val := webapp_session_ip_address.value()
 	__user_agent_val := webapp_session_user_agent.value()
 	__status_val := int(0)
 	__expires_at_val := webapp_session_expires_at.value()
+	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at, webapp_sessions.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val)
+	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt, &webapp_session.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -34432,7 +34460,7 @@ func (obj *pgxcockroachImpl) All_WebappSession_By_UserId(ctx context.Context,
 	rows []*WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at, webapp_sessions.created_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, webapp_session_user_id.value())
@@ -34450,7 +34478,7 @@ func (obj *pgxcockroachImpl) All_WebappSession_By_UserId(ctx context.Context,
 
 			for __rows.Next() {
 				webapp_session := &WebappSession{}
-				err = __rows.Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+				err = __rows.Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt, &webapp_session.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -34477,7 +34505,7 @@ func (obj *pgxcockroachImpl) Get_WebappSession_By_Id(ctx context.Context,
 	webapp_session *WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at, webapp_sessions.created_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, webapp_session_id.value())
@@ -34486,7 +34514,7 @@ func (obj *pgxcockroachImpl) Get_WebappSession_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt, &webapp_session.CreatedAt)
 	if err != nil {
 		return (*WebappSession)(nil), obj.makeErr(err)
 	}
@@ -37523,7 +37551,7 @@ func (obj *pgxcockroachImpl) Update_WebappSession_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at, webapp_sessions.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -37552,7 +37580,7 @@ func (obj *pgxcockroachImpl) Update_WebappSession_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt, &webapp_session.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

@@ -3087,6 +3087,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX oauth2_requests_user_id_index ON oauth2_requests ( user_id );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add created_at column to webapp_session table",
+				Version:     287,
+				Action: migrate.SQL{
+					`ALTER TABLE webapp_session ADD COLUMN created_at timestamp with time zone NOT NULL DEFAULT now();`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
