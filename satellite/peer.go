@@ -147,6 +147,8 @@ type DB interface {
 
 	// Web3Auth returns database for web3 auth.
 	Web3Auth() backup.DB
+	// LiveAccounting returns database for caching project usage data
+	LiveAccounting() accounting.Cache
 
 	// Testing provides access to testing facilities. These should not be used in production code.
 	Testing() TestingDB

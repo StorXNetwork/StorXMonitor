@@ -177,5 +177,6 @@ func getSessionFromDBX(dbxSession *dbx.WebappSession) (consoleauth.WebappSession
 		UserAgent: dbxSession.UserAgent,
 		Status:    dbxSession.Status,
 		ExpiresAt: dbxSession.ExpiresAt,
+		CreatedAt: dbxSession.CreatedAt,
 	}, nil
 }

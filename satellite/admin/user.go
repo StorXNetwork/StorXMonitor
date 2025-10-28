@@ -5,13 +5,17 @@ package admin
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -174,11 +178,20 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		PaidTier     bool                      `json:"paidTier"`
 	}
 	type Project struct {
-		ID          uuid.UUID `json:"id"`
-		PublicID    uuid.UUID `json:"publicId"`
-		Name        string    `json:"name"`
-		Description string    `json:"description"`
-		OwnerID     uuid.UUID `json:"ownerId"`
+		ID                    uuid.UUID `json:"id"`
+		PublicID              uuid.UUID `json:"publicId"`
+		Name                  string    `json:"name"`
+		Description           string    `json:"description"`
+		OwnerID               uuid.UUID `json:"ownerId"`
+		CreatedAt             time.Time `json:"createdAt"`
+		StorageLimit          *int64    `json:"storageLimit"`
+		BandwidthLimit        *int64    `json:"bandwidthLimit"`
+		SegmentLimit          *int64    `json:"segmentLimit"`
+		StorageUsed           int64     `json:"storageUsed"`
+		BandwidthUsed         int64     `json:"bandwidthUsed"`
+		SegmentUsed           int64     `json:"segmentUsed"`
+		StorageUsedPercentage float64   `json:"storageUsedPercentage"`
+		DefaultPlacement      int       `json:"defaultPlacement"`
 	}
 
 	var output struct {
@@ -195,12 +208,35 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		PaidTier:     user.PaidTier,
 	}
 	for _, p := range projects {
+		var storageLimit *int64
+		if p.StorageLimit != nil {
+			limit := int64(*p.StorageLimit)
+			storageLimit = &limit
+		}
+
+		var bandwidthLimit *int64
+		if p.BandwidthLimit != nil {
+			limit := int64(*p.BandwidthLimit)
+			bandwidthLimit = &limit
+		}
+
+		storageUsed, bandwidthUsed, segmentUsed := server.getProjectUsageData(ctx, p.ID)
+
 		output.Projects = append(output.Projects, Project{
-			ID:          p.ID,
-			PublicID:    p.PublicID,
-			Name:        p.Name,
-			Description: p.Description,
-			OwnerID:     p.OwnerID,
+			ID:                    p.ID,
+			PublicID:              p.PublicID,
+			Name:                  p.Name,
+			Description:           p.Description,
+			OwnerID:               p.OwnerID,
+			CreatedAt:             p.CreatedAt,
+			StorageLimit:          storageLimit,
+			BandwidthLimit:        bandwidthLimit,
+			SegmentLimit:          p.SegmentLimit,
+			StorageUsed:           storageUsed,
+			BandwidthUsed:         bandwidthUsed,
+			SegmentUsed:           segmentUsed,
+			StorageUsedPercentage: p.StorageUsedPercentage,
+			DefaultPlacement:      int(p.DefaultPlacement),
 		})
 	}
 
@@ -1298,4 +1334,421 @@ func (server *Server) updateFreeTrialExpiration(w http.ResponseWriter, r *http.R
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// User struct for response (matching dashboard requirements)
+type User struct {
+	ID                    uuid.UUID  `json:"id"`
+	FullName              string     `json:"fullName"`
+	Email                 string     `json:"email"`
+	Status                int        `json:"status"`
+	CreatedAt             time.Time  `json:"createdAt"`
+	PaidTier              bool       `json:"paidTier"`
+	ProjectStorageLimit   int64      `json:"projectStorageLimit"`
+	ProjectBandwidthLimit int64      `json:"projectBandwidthLimit"`
+	Source                string     `json:"source"`
+	UtmSource             string     `json:"utmSource"`
+	UtmMedium             string     `json:"utmMedium"`
+	UtmCampaign           string     `json:"utmCampaign"`
+	UtmTerm               string     `json:"utmTerm"`
+	UtmContent            string     `json:"utmContent"`
+	LastSessionExpiry     *time.Time `json:"lastSessionExpiry"`
+	FirstSessionExpiry    *time.Time `json:"firstSessionExpiry"`
+	TotalSessionCount     int        `json:"totalSessionCount"`
+	StorageUsed           int64      `json:"storageUsed"`
+	BandwidthUsed         int64      `json:"bandwidthUsed"`
+	SegmentUsed           int64      `json:"segmentUsed"`
+	ProjectCount          int        `json:"projectCount"`
+}
+
+func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	// Parse query parameters for pagination (following pattern from usersPendingDeletion)
+	query := r.URL.Query()
+
+	// Parse limit with max limit protection
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		limitParam = "50"
+	}
+	limit, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		sendJSONError(w, "Bad request", "parameter 'limit' must be a valid number", http.StatusBadRequest)
+		return
+	}
+	if limit > 500 {
+		limit = 500 // Prevent excessive requests
+	}
+
+	// Parse page
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		pageParam = "1"
+	}
+	page, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		sendJSONError(w, "Bad request", "parameter 'page' must be a valid number", http.StatusBadRequest)
+		return
+	}
+
+	// Parse search parameter
+	search := query.Get("search")
+
+	// Parse status filter
+	statusFilter := parseStatusParam(query.Get("status"))
+	if statusFilter == nil && query.Get("status") != "" {
+		sendJSONError(w, "Bad request", "parameter 'status' must be a valid number", http.StatusBadRequest)
+		return
+	}
+
+	// Get users with session data using optimized query
+	// Convert status filter to int pointer
+	var statusFilterInt *int
+	if statusFilter != nil {
+		statusInt := int(*statusFilter)
+		statusFilterInt = &statusInt
+	}
+
+	// Set created after date to August 1, 2024 as per your requirements
+	createdAfter := time.Date(2024, 8, 1, 0, 0, 0, 0, time.UTC)
+
+	// Get users with session data
+	offset := (page - 1) * limit
+	allUsers, err := server.db.Console().Users().GetAllUsersWithSessionData(ctx, int(limit), int(offset), statusFilterInt, &createdAfter)
+	if err != nil {
+		sendJSONError(w, "failed to get users with session data",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// For now, we'll get all users to calculate total count
+	// In a production system, you'd want a separate count query
+	allUsersForCount, err := server.db.Console().Users().GetAllUsers(ctx)
+	if err != nil {
+		sendJSONError(w, "failed to get total user count",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Filter by status if specified for count
+	filteredCount := len(allUsersForCount)
+	if statusFilter != nil {
+		filteredCount = 0
+		for _, user := range allUsersForCount {
+			if user.Status == *statusFilter {
+				filteredCount++
+			}
+		}
+	}
+
+	// Calculate pagination
+	totalCount := uint64(filteredCount)
+	totalPages := (totalCount + uint64(limit) - 1) / uint64(limit)
+
+	// The users are already paginated from the database query
+	paginatedUsers := allUsers
+
+	// Apply search filter if provided
+	filteredUsers := paginatedUsers
+	if search != "" {
+		filteredUsers = make([]*console.User, 0)
+		searchLower := strings.ToLower(search)
+		for _, user := range paginatedUsers {
+			if strings.Contains(strings.ToLower(user.Email), searchLower) {
+				filteredUsers = append(filteredUsers, user)
+			}
+		}
+	}
+
+	// Convert to response format and remove sensitive information
+	users := make([]User, 0, len(filteredUsers))
+	for _, user := range filteredUsers {
+		user.PasswordHash = nil
+
+		// Get user's projects to calculate usage
+		projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+		projectCount := 0
+		var totalStorageUsed, totalBandwidthUsed, totalSegmentUsed int64
+
+		if err == nil {
+			projectCount = len(projects)
+
+			// Calculate total usage from all projects using current data
+			for _, project := range projects {
+				storageUsed, bandwidthUsed, segmentUsed := server.getProjectUsageData(ctx, project.ID)
+				totalStorageUsed += storageUsed
+				totalBandwidthUsed += bandwidthUsed
+				totalSegmentUsed += segmentUsed
+			}
+		}
+
+		// or create a separate response struct that includes session data
+		var lastSessionExpiry, firstSessionExpiry *time.Time
+		var totalSessionCount int
+
+		users = append(users, User{
+			ID:                    user.ID,
+			FullName:              user.FullName,
+			Email:                 user.Email,
+			Status:                int(user.Status),
+			CreatedAt:             user.CreatedAt,
+			PaidTier:              user.PaidTier,
+			ProjectStorageLimit:   user.ProjectStorageLimit,
+			ProjectBandwidthLimit: user.ProjectBandwidthLimit,
+			Source:                user.Source,
+			UtmSource:             user.UtmSource,
+			UtmMedium:             user.UtmMedium,
+			UtmCampaign:           user.UtmCampaign,
+			UtmTerm:               user.UtmTerm,
+			UtmContent:            user.UtmContent,
+			LastSessionExpiry:     lastSessionExpiry,
+			FirstSessionExpiry:    firstSessionExpiry,
+			TotalSessionCount:     totalSessionCount,
+			StorageUsed:           totalStorageUsed,
+			BandwidthUsed:         totalBandwidthUsed,
+			SegmentUsed:           totalSegmentUsed,
+			ProjectCount:          projectCount,
+		})
+	}
+
+	// Check if this is an export request
+	format := query.Get("format")
+	if format == "csv" || format == "json" {
+		server.exportUsersData(w, users, search, query.Get("status"), format)
+		return
+	}
+
+	// Regular JSON response for UI
+	response := struct {
+		Users       []User `json:"users"`
+		PageCount   uint   `json:"pageCount"`
+		CurrentPage uint   `json:"currentPage"`
+		TotalCount  uint64 `json:"totalCount"`
+		HasMore     bool   `json:"hasMore"`
+		Limit       uint   `json:"limit"`
+		Offset      uint64 `json:"offset"`
+	}{
+		Users:       users,
+		PageCount:   uint(totalPages),
+		CurrentPage: uint(page),
+		TotalCount:  totalCount,
+		HasMore:     page < totalPages,
+		Limit:       uint(limit),
+		Offset:      offset,
+	}
+
+	// Stream JSON response directly
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// formatTime formats a time pointer for CSV export
+func formatTime(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format("2006-01-02 15:04:05")
+}
+
+// exportUsersData exports user data in CSV or JSON format
+func (server *Server) exportUsersData(w http.ResponseWriter, users []User, search, status, format string) {
+	if format == "csv" {
+		w.Header().Set("Content-Type", "text/csv")
+		w.Header().Set("Content-Disposition", "attachment; filename=users_export.csv")
+
+		// Write CSV header
+		csvWriter := csv.NewWriter(w)
+		defer csvWriter.Flush()
+
+		// Write header row
+		headers := []string{
+			"ID", "Full Name", "Email", "Status", "Created At", "Paid Tier",
+			"Project Storage Limit", "Project Bandwidth Limit", "Storage Used",
+			"Bandwidth Used", "Segment Used", "Project Count", "Source",
+			"UTM Source", "UTM Medium", "UTM Campaign", "UTM Term", "UTM Content",
+			"Last Session Expiry", "First Session Expiry", "Total Sessions",
+		}
+		csvWriter.Write(headers)
+
+		// Write data rows
+		for _, user := range users {
+			row := []string{
+				user.ID.String(),
+				user.FullName,
+				user.Email,
+				fmt.Sprintf("%d", user.Status),
+				user.CreatedAt.Format("2006-01-02 15:04:05"),
+				fmt.Sprintf("%t", user.PaidTier),
+				fmt.Sprintf("%d", user.ProjectStorageLimit),
+				fmt.Sprintf("%d", user.ProjectBandwidthLimit),
+				fmt.Sprintf("%d", user.StorageUsed),
+				fmt.Sprintf("%d", user.BandwidthUsed),
+				fmt.Sprintf("%d", user.SegmentUsed),
+				fmt.Sprintf("%d", user.ProjectCount),
+				user.Source,
+				user.UtmSource,
+				user.UtmMedium,
+				user.UtmCampaign,
+				user.UtmTerm,
+				user.UtmContent,
+				formatTime(user.LastSessionExpiry),
+				formatTime(user.FirstSessionExpiry),
+				fmt.Sprintf("%d", user.TotalSessionCount),
+			}
+			csvWriter.Write(row)
+		}
+	} else {
+		// JSON format
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Disposition", "attachment; filename=users_export.json")
+
+		response := struct {
+			TotalUsers int               `json:"totalUsers"`
+			Filters    map[string]string `json:"filters"`
+			Users      []User            `json:"users"`
+		}{
+			TotalUsers: len(users),
+			Filters: map[string]string{
+				"search": search,
+				"status": status,
+			},
+			Users: users,
+		}
+
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+// parseStatusParam parses status parameter and returns UserStatus or nil
+func parseStatusParam(param string) *console.UserStatus {
+	if param == "" {
+		return nil
+	}
+	statusInt, err := strconv.Atoi(param)
+	if err != nil {
+		return nil
+	}
+	status := console.UserStatus(statusInt)
+	return &status
+}
+
+// getProjectUsageData gets storage, bandwidth, and segment usage for a project
+func (server *Server) getProjectUsageData(ctx context.Context, projectID uuid.UUID) (storageUsed, bandwidthUsed, segmentUsed int64) {
+	// Get storage usage from live accounting
+	storageUsed, err := server.liveAccounting.GetProjectStorageUsage(ctx, projectID)
+	if err != nil {
+		server.log.Warn("Failed to get project storage usage",
+			zap.String("project_id", projectID.String()),
+			zap.Error(err))
+		storageUsed = 0
+	}
+
+	// Get bandwidth usage - try cache first, then database fallback
+	bandwidthUsed, err = server.liveAccounting.GetProjectBandwidthUsage(ctx, projectID, time.Now())
+	if err != nil {
+		// Fallback to database if cache fails
+		bandwidthUsed, err = server.db.ProjectAccounting().GetProjectBandwidth(ctx, projectID, time.Now().Year(), time.Now().Month(), time.Now().Day(), 0)
+		if err != nil {
+			server.log.Warn("Failed to get project bandwidth usage",
+				zap.String("project_id", projectID.String()),
+				zap.Error(err))
+			bandwidthUsed = 0
+		}
+	}
+
+	// Get segment usage from live accounting
+	segmentUsed, err = server.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
+	if err != nil {
+		server.log.Warn("Failed to get project segment usage",
+			zap.String("project_id", projectID.String()),
+			zap.Error(err))
+		segmentUsed = 0
+	}
+
+	return storageUsed, bandwidthUsed, segmentUsed
+}
+
+func (server *Server) getUserLoginHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	// Get user by email
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "user not found", "", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get all webapp sessions for this user
+	sessions, err := server.db.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get user login history", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Convert sessions to response format
+	type LoginHistoryEntry struct {
+		ID        string    `json:"id"`
+		IPAddress string    `json:"ipAddress"`
+		UserAgent string    `json:"userAgent"`
+		Status    int       `json:"status"`
+		LoginTime time.Time `json:"loginTime"`
+		ExpiresAt time.Time `json:"expiresAt"`
+		IsActive  bool      `json:"isActive"`
+	}
+
+	entries := make([]LoginHistoryEntry, 0, len(sessions))
+	now := time.Now()
+
+	for _, session := range sessions {
+		entries = append(entries, LoginHistoryEntry{
+			ID:        session.ID.String(),
+			IPAddress: session.Address,
+			UserAgent: session.UserAgent,
+			Status:    session.Status,
+			LoginTime: session.CreatedAt,
+			ExpiresAt: session.ExpiresAt,
+			IsActive:  session.ExpiresAt.After(now),
+		})
+	}
+
+	// Sort by login time (most recent first)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].LoginTime.After(entries[j].LoginTime)
+	})
+
+	// Create response
+	response := struct {
+		UserEmail string              `json:"userEmail"`
+		Total     int                 `json:"total"`
+		Sessions  []LoginHistoryEntry `json:"sessions"`
+	}{
+		UserEmail: userEmail,
+		Total:     len(entries),
+		Sessions:  entries,
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
 }

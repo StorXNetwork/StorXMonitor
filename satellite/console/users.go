@@ -44,6 +44,8 @@ type Users interface {
 
 	//boris: GetAllUsers is a method for querying all users from the database.
 	GetAllUsers(ctx context.Context) ([]*User, error)
+	// GetAllUsersWithSessionData retrieves all users with their session data using LEFT JOIN
+	GetAllUsersWithSessionData(ctx context.Context, limit, offset int, statusFilter *int, createdAfter *time.Time) ([]*User, error)
 	// Insert is a method for inserting user into the database.
 	Insert(ctx context.Context, user *User) (*User, error)
 	// Delete is a method for deleting user by ID from the database.

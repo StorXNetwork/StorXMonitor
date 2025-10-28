@@ -32,6 +32,7 @@ type FeatureFlags struct {
 	Account         AccountFlags `json:"account"`
 	Project         ProjectFlags `json:"project"`
 	Bucket          BucketFlags  `json:"bucket"`
+	Nodes           NodeFlags    `json:"nodes"`
 	Dashboard       bool         `json:"dashboard"`
 	Operator        bool         `json:"operator"` // This is the information about the logged operator
 	SignOut         bool         `json:"signOut"`
@@ -85,56 +86,68 @@ type BucketFlags struct {
 	View                   bool `json:"view"`
 }
 
+// NodeFlags are the feature flags related to storage nodes.
+type NodeFlags struct {
+	List   bool `json:"list"`
+	View   bool `json:"view"`
+	Manage bool `json:"manage"`
+}
+
 // GetSettings returns the service settings.
 func (s *Service) GetSettings(ctx context.Context) (*Settings, api.HTTPError) {
 	return &Settings{
 		Admin: SettingsAdmin{
 			Features: FeatureFlags{
 				Account: AccountFlags{
-					Create:                 false,
-					Delete:                 false,
-					History:                false,
-					List:                   false,
+					Create:                 true,
+					Delete:                 true,
+					History:                true,
+					List:                   true,
 					Projects:               true,
 					Search:                 true,
-					Suspend:                false,
-					Unsuspend:              false,
-					ResetMFA:               false,
-					UpdateInfo:             false,
-					UpdateLimits:           false,
-					UpdatePlacement:        false,
-					UpdateStatus:           false,
-					UpdateValueAttribution: false,
+					Suspend:                true,
+					Unsuspend:              true,
+					ResetMFA:               true,
+					UpdateInfo:             true,
+					UpdateLimits:           true,
+					UpdatePlacement:        true,
+					UpdateStatus:           true,
+					UpdateValueAttribution: true,
 					View:                   true,
 				},
 				Project: ProjectFlags{
-					Create:                 false,
-					Delete:                 false,
-					History:                false,
-					List:                   false,
-					UpdateInfo:             false,
+					Create:                 true,
+					Delete:                 true,
+					History:                true,
+					List:                   true,
+					UpdateInfo:             true,
 					UpdateLimits:           true,
-					UpdatePlacement:        false,
-					UpdateValueAttribution: false,
+					UpdatePlacement:        true,
+					UpdateValueAttribution: true,
 					View:                   true,
-					MemberList:             false,
-					MemberAdd:              false,
-					MemberRemove:           false,
+					MemberList:             true,
+					MemberAdd:              true,
+					MemberRemove:           true,
 				},
 				Bucket: BucketFlags{
-					Create:                 false,
-					Delete:                 false,
-					History:                false,
-					List:                   false,
-					UpdateInfo:             false,
-					UpdatePlacement:        false,
-					UpdateValueAttribution: false,
-					View:                   false,
+					Create:                 true,
+					Delete:                 true,
+					History:                true,
+					List:                   true,
+					UpdateInfo:             true,
+					UpdatePlacement:        true,
+					UpdateValueAttribution: true,
+					View:                   true,
 				},
-				Dashboard:       false,
-				Operator:        false,
-				SignOut:         false,
-				SwitchSatellite: false,
+				Nodes: NodeFlags{
+					List:   true,
+					View:   true,
+					Manage: true,
+				},
+				Dashboard:       true,
+				Operator:        true,
+				SignOut:         true,
+				SwitchSatellite: true,
 			},
 		},
 	}, api.HTTPError{}

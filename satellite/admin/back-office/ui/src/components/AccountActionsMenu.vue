@@ -4,13 +4,13 @@
 <template>
     <v-menu activator="parent">
         <v-list class="pa-2">
-            <v-list-item v-if="featureFlags.account.view" density="comfortable" link rounded="lg" base-color="info" router-link to="/account-details">
+            <v-list-item v-if="featureFlags.account.view" density="comfortable" link rounded="lg" base-color="info" @click="navigateToAccountDetails">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     View Account
                 </v-list-item-title>
             </v-list-item>
 
-            <v-divider v-if="featureFlags.account.updateInfo || featureFlags.account.updateStaus || featureFlags.account.updateValueAttribution || featureFlags.account.updatePlacement || featureFlags.account.updateLimits || featureFlags.project.create " class="my-2" />
+            <v-divider v-if="featureFlags.account.updateInfo || featureFlags.account.updateStatus || featureFlags.account.updateValueAttribution || featureFlags.account.updatePlacement || featureFlags.account.updateLimits || featureFlags.project.create " class="my-2" />
 
             <v-list-item v-if="featureFlags.account.updateInfo" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
@@ -82,6 +82,7 @@
 
 <script setup lang="ts">
 import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
+import { useRouter } from 'vue-router';
 
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -96,5 +97,20 @@ import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 import AccountUserAgentsDialog from '@/components/AccountUserAgentsDialog.vue';
 import AccountLimitsDialog from '@/components/AccountLimitsDialog.vue';
 
-const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
+// Props
+const props = defineProps<{
+    userEmail?: string;
+}>();
+
+const router = useRouter();
+const appStore = useAppStore();
+const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+
+// Navigation function
+const navigateToAccountDetails = () => {
+    if (props.userEmail) {
+        localStorage.setItem('selectedUserEmail', props.userEmail);
+        router.push(`/account-details?email=${encodeURIComponent(props.userEmail)}`);
+    }
+};
 </script>

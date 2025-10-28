@@ -299,6 +299,120 @@ func (users *users) GetAllUsers(ctx context.Context) (usersFromDB []*console.Use
 	return usersFromDB, nil
 }
 
+// GetAllUsersWithSessionData retrieves all users with their session data using LEFT JOIN
+// This combines all three queries from your requirements into one optimized query
+func (users *users) GetAllUsersWithSessionData(ctx context.Context, limit, offset int, statusFilter *int, createdAfter *time.Time) (usersWithSessions []*console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Build the query dynamically based on filters
+	query := `
+		SELECT 
+			u.id, u.full_name, u.email, u.status, u.created_at, u.source, 
+			u.utm_source, u.utm_medium, u.utm_campaign, u.utm_term, u.utm_content,u.paid_tier,
+			u.project_storage_limit, u.project_bandwidth_limit,
+			w.last_session_expiry, w.first_session_expiry, w.total_session_count
+		FROM 
+			"satellite/0".users u
+		LEFT JOIN (
+			SELECT 
+				user_id, 
+				MAX(expires_at) AS last_session_expiry,
+				MIN(expires_at) AS first_session_expiry,
+				COUNT(expires_at) AS total_session_count
+			FROM 
+				"satellite/0".webapp_sessions
+			GROUP BY 
+				user_id
+		) w 
+		ON 
+			w.user_id = u.id
+	`
+
+	// Add WHERE conditions
+	whereConditions := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if statusFilter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.status = $%d", argIndex))
+		args = append(args, *statusFilter)
+		argIndex++
+	}
+
+	if createdAfter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.created_at >= $%d", argIndex))
+		args = append(args, *createdAfter)
+		argIndex++
+	}
+
+	if len(whereConditions) > 0 {
+		query += " WHERE " + strings.Join(whereConditions, " AND ")
+	}
+
+	// Add ORDER BY
+	query += " ORDER BY w.last_session_expiry DESC NULLS LAST"
+
+	// Add LIMIT and OFFSET
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, limit, offset)
+
+	rows, err := users.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var user console.User
+		var lastSessionExpiry, firstSessionExpiry *time.Time
+		var totalSessionCount sql.NullInt32
+
+		// Use sql.NullString for fields that can be NULL
+		var source, utmSource, utmMedium, utmCampaign, utmTerm, utmContent sql.NullString
+		var companyName sql.NullString
+
+		err = rows.Scan(
+			&user.ID, &user.FullName, &user.Email, &user.Status, &user.CreatedAt, &source,
+			&utmSource, &utmMedium, &utmCampaign, &utmTerm, &utmContent,
+			&user.PaidTier,
+			&user.ProjectStorageLimit, &user.ProjectBandwidthLimit,
+			&lastSessionExpiry, &firstSessionExpiry, &totalSessionCount,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Handle NULL values properly
+		if source.Valid {
+			user.Source = source.String
+		}
+		if utmSource.Valid {
+			user.UtmSource = utmSource.String
+		}
+		if utmMedium.Valid {
+			user.UtmMedium = utmMedium.String
+		}
+		if utmCampaign.Valid {
+			user.UtmCampaign = utmCampaign.String
+		}
+		if utmTerm.Valid {
+			user.UtmTerm = utmTerm.String
+		}
+		if utmContent.Valid {
+			user.UtmContent = utmContent.String
+		}
+		if companyName.Valid {
+			user.CompanyName = companyName.String
+		}
+
+		// Note: Session data is not stored in console.User struct, but we have it available
+		// if needed for the admin response
+		usersWithSessions = append(usersWithSessions, &user)
+	}
+
+	return usersWithSessions, rows.Err()
+}
+
 // GetUnverifiedNeedingReminder returns users in need of a reminder to verify their email.
 func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) (usersNeedingReminder []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)

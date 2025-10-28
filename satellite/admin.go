@@ -267,6 +267,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			log.Named("admin"),
 			peer.Admin.Listener,
 			peer.DB,
+			peer.LiveAccounting.Cache,
 			peer.Buckets.Service,
 			peer.REST.Keys,
 			peer.FreezeAccounts.Service,
