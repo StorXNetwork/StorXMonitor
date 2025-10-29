@@ -55,14 +55,21 @@ jobs:
         Write-Host "Current directory: $(Get-Location)"
         
         foreach ($service in $services) {
-          Write-Host "Stopping $service service..."
-          $stopResult = & ".\nssm.exe" stop $service 2>&1
-          Write-Host "  Result: $stopResult"
-          
-          # Wait for service to stop
-          Start-Sleep -Seconds 3
           $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-          Write-Host "  Status: $serviceStatus"
+          Write-Host "$service current status: $serviceStatus"
+          
+          if ($serviceStatus -eq "Running" -or $serviceStatus -eq "Paused" -or $serviceStatus -eq "StartPending") {
+            Write-Host "Stopping $service service..."
+            $stopResult = & ".\nssm.exe" stop $service 2>&1
+            Write-Host "  Result: $stopResult"
+            
+            # Wait for service to stop
+            Start-Sleep -Seconds 3
+            $newStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+            Write-Host "  New status: $newStatus"
+          } else {
+            Write-Host "$service service is already stopped (status: $serviceStatus)"
+          }
         }
         
     - name: Build satellite.exe
@@ -140,18 +147,33 @@ jobs:
         Write-Host "Current directory: $(Get-Location)"
         
         foreach ($service in $services) {
-          Write-Host "Starting $service service..."
-          $startResult = & ".\nssm.exe" start $service 2>&1
-          Write-Host "  Result: $startResult"
-          
-          # Wait for service to start
-          Start-Sleep -Seconds 3
           $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-          Write-Host "  Status: $serviceStatus"
+          Write-Host "$service current status: $serviceStatus"
           
-          if ($serviceStatus -eq "Running") {
-            Write-Host "  Successfully started $service"
+          if ($serviceStatus -eq "Stopped") {
+            Write-Host "Starting $service service..."
+            $startResult = & ".\nssm.exe" start $service 2>&1
+            Write-Host "  Result: $startResult"
+            
+            # Wait for service to start
+            Start-Sleep -Seconds 5
+            $newStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+            Write-Host "  New status: $newStatus"
+            
+            if ($newStatus -eq "Running") {
+              Write-Host "  Successfully started $service"
+            } else {
+              Write-Warning "  $service is in $newStatus state"
+            }
+          } elseif ($serviceStatus -eq "Running" -or $serviceStatus -eq "StartPending") {
+            Write-Host "$service service is already running or starting (status: $serviceStatus)"
           } else {
-            Write-Warning "  $service is in $serviceStatus state"
+            Write-Host "$service service is in $serviceStatus state - attempting to start..."
+            $startResult = & ".\nssm.exe" start $service 2>&1
+            Write-Host "  Result: $startResult"
+            
+            Start-Sleep -Seconds 5
+            $newStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+            Write-Host "  New status: $newStatus"
           }
         }
