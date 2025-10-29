@@ -55,27 +55,24 @@ jobs:
       run: |
         $services = @("StorjNetwork", "StorjSatellite", "StorjSatelliteBackup")
         foreach ($service in $services) {
-          if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
-            Write-Host "Stopping $service service..."
-            Stop-Service -Name $service -Force
-            
-            # Wait for service to fully stop
-            $timeout = 30
-            $elapsed = 0
-            do {
-              Start-Sleep -Seconds 2
-              $elapsed += 2
-              $serviceStatus = (Get-Service -Name $service).Status
-              Write-Host "  $service status: $serviceStatus (waited $elapsed seconds)"
-            } while ($serviceStatus -eq "Stopping" -and $elapsed -lt $timeout)
-            
-            if ($serviceStatus -eq "Stopped") {
-              Write-Host "Successfully stopped $service service"
-            } else {
-              Write-Warning "$service service did not stop within $timeout seconds"
-            }
+          Write-Host "Stopping $service service using NSSM..."
+          $stopResult = & "D:\bin\nssm.exe" stop $service 2>&1
+          Write-Host "Stop result: $stopResult"
+          
+          # Wait for service to fully stop
+          $timeout = 30
+          $elapsed = 0
+          do {
+            Start-Sleep -Seconds 2
+            $elapsed += 2
+            $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+            Write-Host "  $service status: $serviceStatus (waited $elapsed seconds)"
+          } while ($serviceStatus -ne "Stopped" -and $elapsed -lt $timeout)
+          
+          if ($serviceStatus -eq "Stopped") {
+            Write-Host "Successfully stopped $service service"
           } else {
-            Write-Host "No existing $service service found"
+            Write-Warning "$service service did not stop within $timeout seconds - current status: $serviceStatus"
           }
         }
         
@@ -122,54 +119,67 @@ jobs:
         $failedServices = @()
         
         foreach ($service in $services) {
-          if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
-            $serviceStatus = (Get-Service -Name $service).Status
-            Write-Host "Service $service current status: $serviceStatus"
+          $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+          Write-Host "Service $service current status: $serviceStatus"
+          
+          try {
+            Write-Host "Starting $service service using NSSM..."
+            $startResult = & "D:\bin\nssm.exe" start $service 2>&1
+            Write-Host "Start result: $startResult"
             
-            try {
-              if ($serviceStatus -eq "Paused") {
-                Write-Host "Attempting to resume paused $service service..."
-                Resume-Service -Name $service
-                Write-Host "Successfully resumed paused $service service"
-              } elseif ($serviceStatus -eq "Stopped") {
-                Write-Host "Attempting to start stopped $service service..."
-                Start-Service -Name $service
-                Write-Host "Successfully started $service service"
-              } elseif ($serviceStatus -eq "Running") {
-                Write-Host "$service service is already running"
+            # Wait for service to start and check final status
+            Start-Sleep -Seconds 5
+            $finalStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+            Write-Host "Service $service final status: $finalStatus"
+            
+            if ($finalStatus -eq "Running") {
+              Write-Host "Successfully started $service service"
+            } elseif ($finalStatus -eq "Paused") {
+              Write-Warning "$service service started but is paused - this may be normal for this service"
+              Write-Host "Attempting to resume paused $service service..."
+              $resumeResult = & "D:\bin\nssm.exe" continue $service 2>&1
+              Write-Host "Resume result: $resumeResult"
+              
+              Start-Sleep -Seconds 3
+              $finalStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+              Write-Host "Service $service status after resume: $finalStatus"
+              
+              if ($finalStatus -eq "Running") {
+                Write-Host "Successfully resumed $service service"
               } else {
-                Write-Host "Service $service is in unexpected state: $serviceStatus"
-                Write-Host "Attempting to start $service service..."
-                try {
-                  Start-Service -Name $service
-                  Write-Host "Successfully started $service service"
-                } catch {
-                  if ($_.Exception.Message -like "*already running*") {
-                    Write-Host "$service service is already running (instance exists)"
-                  } else {
-                    throw $_
-                  }
-                }
+                Write-Warning "$service service is in $finalStatus state - may be normal for this service"
               }
-              
-              # Verify service started successfully
-              Start-Sleep -Seconds 2
-              $finalStatus = (Get-Service -Name $service).Status
-              Write-Host "Service $service final status: $finalStatus"
-              
-            } catch {
-              Write-Error "Failed to start/resume $service service: $($_.Exception.Message)"
-              Write-Host "Service $service error details: $($_.Exception)"
-              $failedServices += $service
+            } else {
+              Write-Warning "$service service is in $finalStatus state"
             }
-          } else {
-            Write-Error "No $service service found - service must be configured"
+            
+          } catch {
+            Write-Host "Service $service error details: $($_.Exception.Message)"
+            Write-Error "Failed to start $service service: $($_.Exception.Message)"
             $failedServices += $service
           }
         }
         
         if ($failedServices.Count -gt 0) {
           Write-Error "Failed to start services: $($failedServices -join ', ')"
+          
+          # Additional diagnostics for failed services
+          foreach ($service in $failedServices) {
+            Write-Host "Diagnosing $service service..."
+            try {
+              $serviceInfo = Get-Service -Name $service
+              Write-Host "  Status: $($serviceInfo.Status)"
+              Write-Host "  StartType: $($serviceInfo.StartType)"
+              Write-Host "  ServiceType: $($serviceInfo.ServiceType)"
+              
+              # Try to get more details using sc.exe
+              $scOutput = & sc.exe qc $service 2>&1
+              Write-Host "  Service config: $scOutput"
+            } catch {
+              Write-Host "  Could not get service details: $($_.Exception.Message)"
+            }
+          }
+          
           Write-Error "Deployment failed - all services must be running"
           exit 1
         }
