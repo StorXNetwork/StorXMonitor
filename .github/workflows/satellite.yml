@@ -90,15 +90,15 @@ jobs:
           
           Invoke-Expression $buildCmd
           
-          Write-Host "Build completed. Checking if satellite.exe was created in $buildPath:"
+          Write-Host "Build completed. Checking if satellite.exe was created in $buildPath"
           if (Test-Path "$buildPath\satellite.exe") {
             $fileInfo = Get-Item "$buildPath\satellite.exe"
-            Write-Host "✓ satellite.exe created successfully in $buildPath"
+            Write-Host "satellite.exe created successfully in $buildPath"
             Write-Host "  Size: $($fileInfo.Length) bytes"
             Write-Host "  Location: $($fileInfo.FullName)"
             Write-Host "  Modified: $($fileInfo.LastWriteTime)"
           } else {
-            Write-Error "✗ satellite.exe was not created in $buildPath"
+            Write-Error "satellite.exe was not created in $buildPath"
             Write-Host "Listing $buildPath contents:"
             if (Test-Path $buildPath) {
               Get-ChildItem $buildPath | Select-Object Name, Length
