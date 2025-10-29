@@ -53,14 +53,47 @@ jobs:
         
     - name: Stop existing services
       run: |
-        $services = @("StorjNetwork", "StorjSatellite")
+        $services = @("StorjNetwork", "StorjSatellite", "StorjSatelliteBackup")
         foreach ($service in $services) {
           if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
+            Write-Host "Stopping $service service..."
             Stop-Service -Name $service -Force
-            Write-Host "Stopped $service service"
+            
+            # Wait for service to fully stop
+            $timeout = 30
+            $elapsed = 0
+            do {
+              Start-Sleep -Seconds 2
+              $elapsed += 2
+              $serviceStatus = (Get-Service -Name $service).Status
+              Write-Host "  $service status: $serviceStatus (waited $elapsed seconds)"
+            } while ($serviceStatus -eq "Stopping" -and $elapsed -lt $timeout)
+            
+            if ($serviceStatus -eq "Stopped") {
+              Write-Host "✓ $service service stopped successfully"
+            } else {
+              Write-Warning "$service service did not stop within $timeout seconds"
+            }
           } else {
             Write-Host "No existing $service service found"
           }
+        }
+        
+        # Additional wait to ensure file handles are released
+        Write-Host "Waiting 5 seconds for file handles to be released..."
+        Start-Sleep -Seconds 5
+        
+        # Kill any remaining processes that might be using satellite.exe
+        Write-Host "Checking for processes using satellite.exe..."
+        $processes = Get-Process | Where-Object { $_.Path -like "*satellite.exe" }
+        if ($processes) {
+          foreach ($process in $processes) {
+            Write-Host "Killing process: $($process.Name) (PID: $($process.Id))"
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+          Start-Sleep -Seconds 3
+        } else {
+          Write-Host "No satellite.exe processes found"
         }
         
     - name: Backup existing satellite.exe
@@ -85,7 +118,7 @@ jobs:
         
     - name: Start services
       run: |
-        $services = @("StorjNetwork", "StorjSatellite")
+        $services = @("StorjNetwork", "StorjSatellite", "StorjSatelliteBackup")
         foreach ($service in $services) {
           if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
             Start-Service -Name $service
