@@ -48,8 +48,40 @@ jobs:
         
     - name: Build satellite.exe
       run: |
-        cd cmd/satellite
-        go build -ldflags "-X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'" -o satellite.exe .
+        Write-Host "Current directory: $(Get-Location)"
+        Write-Host "Listing cmd directory:"
+        Get-ChildItem cmd -Recurse | Select-Object Name, FullName
+        
+        Write-Host "Checking if cmd/satellite exists:"
+        if (Test-Path "cmd/satellite") {
+          Write-Host "cmd/satellite directory exists"
+          cd cmd/satellite
+          Write-Host "Changed to cmd/satellite directory: $(Get-Location)"
+          Write-Host "Listing satellite directory:"
+          Get-ChildItem | Select-Object Name
+          
+          Write-Host "Building satellite.exe..."
+          $buildCmd = "go build -ldflags `"-X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'`" -o satellite.exe ."
+          Write-Host "Build command: $buildCmd"
+          
+          Invoke-Expression $buildCmd
+          
+          Write-Host "Build completed. Checking if satellite.exe was created:"
+          if (Test-Path "satellite.exe") {
+            $fileInfo = Get-Item "satellite.exe"
+            Write-Host "✓ satellite.exe created successfully"
+            Write-Host "  Size: $($fileInfo.Length) bytes"
+            Write-Host "  Location: $($fileInfo.FullName)"
+          } else {
+            Write-Error "✗ satellite.exe was not created"
+            Write-Host "Listing current directory contents:"
+            Get-ChildItem | Select-Object Name, Length
+          }
+        } else {
+          Write-Error "cmd/satellite directory not found"
+          Write-Host "Available directories:"
+          Get-ChildItem -Directory | Select-Object Name
+        }
         
     - name: Stop existing services
       run: |
