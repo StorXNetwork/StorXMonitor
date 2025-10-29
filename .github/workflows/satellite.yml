@@ -1,0 +1,81 @@
+name: Build and Deploy Satellite
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: [self-hosted, windows]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Build satellite.exe
+      run: |
+        cd cmd/satellite
+        go build -o satellite.exe .
+        
+    - name: Stop existing services
+      run: |
+        $services = @("StorjNetwork", "StorjSatellite")
+        foreach ($service in $services) {
+          if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
+            Stop-Service -Name $service -Force
+            Write-Host "Stopped $service service"
+          } else {
+            Write-Host "No existing $service service found"
+          }
+        }
+        
+    - name: Backup existing satellite.exe
+      run: |
+        $binPath = "D:\bin"
+        $backupPath = "D:\bin\backups"
+        $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+        
+        if (Test-Path "$binPath\satellite.exe") {
+          if (-not (Test-Path $backupPath)) {
+            New-Item -ItemType Directory -Path $backupPath -Force
+          }
+          Copy-Item "$binPath\satellite.exe" "$backupPath\satellite_backup_$timestamp.exe"
+          Write-Host "Backed up existing satellite.exe to $backupPath\satellite_backup_$timestamp.exe"
+        }
+        
+    - name: Replace satellite.exe
+      run: |
+        $binPath = "D:\bin"
+        Copy-Item "cmd\satellite\satellite.exe" "$binPath\satellite.exe" -Force
+        Write-Host "Replaced satellite.exe in $binPath"
+        
+    - name: Start services
+      run: |
+        $services = @("StorjNetwork", "StorjSatellite")
+        foreach ($service in $services) {
+          if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
+            Start-Service -Name $service
+            Write-Host "Started $service service"
+          } else {
+            Write-Host "No $service service found - satellite.exe updated but service not configured"
+          }
+        }
+        
+    - name: Verify deployment
+      run: |
+        $binPath = "D:\bin"
+        if (Test-Path "$binPath\satellite.exe") {
+          $fileInfo = Get-Item "$binPath\satellite.exe"
+          Write-Host "✓ satellite.exe deployed successfully"
+          Write-Host "  Size: $($fileInfo.Length) bytes"
+          Write-Host "  Modified: $($fileInfo.LastWriteTime)"
+        } else {
+          Write-Error "satellite.exe not found in $binPath"
+          exit 1
+        }
