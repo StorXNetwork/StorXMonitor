@@ -89,7 +89,7 @@ ifndef GATEWAYPATH
 GATEWAYPATH=.build/gateway-tmp
 endif
 
-
+# dummy commit to trigger a build
 .PHONY: build-satellite-window
 build-satellite-window: ## build satellite for windows (amd64)
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -v -race -o satellite.exe storj.io/storj/cmd/satellite
