@@ -70,7 +70,7 @@ jobs:
             } while ($serviceStatus -eq "Stopping" -and $elapsed -lt $timeout)
             
             if ($serviceStatus -eq "Stopped") {
-              Write-Host "✓ $service service stopped successfully"
+              Write-Host "Successfully stopped $service service"
             } else {
               Write-Warning "$service service did not stop within $timeout seconds"
             }
