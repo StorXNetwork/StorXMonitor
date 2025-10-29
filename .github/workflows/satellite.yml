@@ -119,13 +119,27 @@ jobs:
     - name: Start services
       run: |
         $services = @("StorjNetwork", "StorjSatellite", "StorjSatelliteBackup")
+        $failedServices = @()
+        
         foreach ($service in $services) {
           if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
-            Start-Service -Name $service
-            Write-Host "Started $service service"
+            try {
+              Start-Service -Name $service
+              Write-Host "Successfully started $service service"
+            } catch {
+              Write-Error "Failed to start $service service: $($_.Exception.Message)"
+              $failedServices += $service
+            }
           } else {
-            Write-Host "No $service service found - satellite.exe updated but service not configured"
+            Write-Error "No $service service found - service must be configured"
+            $failedServices += $service
           }
+        }
+        
+        if ($failedServices.Count -gt 0) {
+          Write-Error "Failed to start services: $($failedServices -join ', ')"
+          Write-Error "Deployment failed - all services must be running"
+          exit 1
         }
         
     - name: Verify deployment
