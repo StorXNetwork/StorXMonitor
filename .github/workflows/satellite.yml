@@ -17,6 +17,34 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
+        cache: false
+        
+    - name: Clean Go cache (if setup fails)
+      if: failure()
+      run: |
+        Remove-Item -Path "D:\deployment\StorXRunner\_work\_tool\go" -Recurse -Force -ErrorAction SilentlyContinue
+        
+    - name: Manual Go setup (fallback)
+      if: failure()
+      run: |
+        $goUrl = "https://go.dev/dl/go1.21.13.windows-amd64.zip"
+        $goZip = "go1.21.13.windows-amd64.zip"
+        $goDir = "C:\go"
+        
+        Write-Host "Downloading Go manually..."
+        Invoke-WebRequest -Uri $goUrl -OutFile $goZip
+        
+        Write-Host "Extracting Go..."
+        Expand-Archive -Path $goZip -DestinationPath "C:\" -Force
+        
+        Write-Host "Setting Go environment..."
+        $env:PATH = "C:\go\bin;" + $env:PATH
+        $env:GOROOT = "C:\go"
+        
+        Write-Host "Go version:"
+        go version
+        
+        Remove-Item $goZip -Force
         
     - name: Build satellite.exe
       run: |
