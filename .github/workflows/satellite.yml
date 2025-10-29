@@ -46,9 +46,28 @@ jobs:
         
         Remove-Item $goZip -Force
         
+    - name: Stop services before build
+      run: |
+        $binPath = "D:\bin"
+        $services = @("StorxBackup", "StorxAuditor", "StorjSatellite")
+        
+        Set-Location $binPath
+        Write-Host "Current directory: $(Get-Location)"
+        
+        foreach ($service in $services) {
+          Write-Host "Stopping $service service..."
+          $stopResult = & ".\nssm.exe" stop $service 2>&1
+          Write-Host "  Result: $stopResult"
+          
+          # Wait for service to stop
+          Start-Sleep -Seconds 3
+          $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+          Write-Host "  Status: $serviceStatus"
+        }
+        
     - name: Build satellite.exe
       run: |
-        $buildPath = "D:\deployment"
+        $buildPath = "D:\bin"
         Write-Host "Building satellite.exe in $buildPath"
         
         Write-Host "Current directory: $(Get-Location)"
@@ -110,4 +129,29 @@ jobs:
           Write-Error "cmd/satellite directory not found"
           Write-Host "Available directories:"
           Get-ChildItem -Directory | Select-Object Name
+        }
+        
+    - name: Start services after build
+      run: |
+        $binPath = "D:\bin"
+        $services = @("StorxBackup", "StorxAuditor", "StorjSatellite")
+        
+        Set-Location $binPath
+        Write-Host "Current directory: $(Get-Location)"
+        
+        foreach ($service in $services) {
+          Write-Host "Starting $service service..."
+          $startResult = & ".\nssm.exe" start $service 2>&1
+          Write-Host "  Result: $startResult"
+          
+          # Wait for service to start
+          Start-Sleep -Seconds 3
+          $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+          Write-Host "  Status: $serviceStatus"
+          
+          if ($serviceStatus -eq "Running") {
+            Write-Host "  Successfully started $service"
+          } else {
+            Write-Warning "  $service is in $serviceStatus state"
+          }
         }
