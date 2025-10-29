@@ -73,6 +73,23 @@ jobs:
             Write-Host "Successfully stopped $service service"
           } else {
             Write-Warning "$service service did not stop within $timeout seconds - current status: $serviceStatus"
+            
+            # Force kill any remaining processes for this service
+            Write-Host "Force killing any remaining processes for $service..."
+            $processes = Get-Process | Where-Object { $_.ProcessName -like "*satellite*" -or $_.ProcessName -like "*storj*" }
+            foreach ($process in $processes) {
+              Write-Host "  Killing process: $($process.ProcessName) (PID: $($process.Id))"
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+            
+            # Try to stop service again
+            Write-Host "Attempting to stop $service service again..."
+            $stopResult2 = & "D:\bin\nssm.exe" stop $service 2>&1
+            Write-Host "Second stop result: $stopResult2"
+            
+            Start-Sleep -Seconds 5
+            $finalStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+            Write-Host "Final $service status after force stop: $finalStatus"
           }
         }
         
@@ -129,26 +146,36 @@ jobs:
             
             # Check if start failed due to service already running/paused
             if ($startResult -like "*Unexpected status SERVICE_PAUSED*" -or $startResult -like "*already running*") {
-              Write-Host "$service service is already running (paused state) - treating as success"
-              $finalStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-              Write-Host "Service $service current status: $finalStatus"
+              Write-Host "$service service is already running (paused state) - force stopping and restarting..."
               
-              if ($finalStatus -eq "Paused") {
-                Write-Host "Attempting to resume paused $service service..."
-                $resumeResult = & "D:\bin\nssm.exe" continue $service 2>&1
-                Write-Host "Resume result: $resumeResult"
-                
-                Start-Sleep -Seconds 3
-                $finalStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-                Write-Host "Service $service status after resume: $finalStatus"
-                
-                if ($finalStatus -eq "Running") {
-                  Write-Host "Successfully resumed $service service"
-                } else {
-                  Write-Host "$service service is in $finalStatus state - treating as success (service is active)"
-                }
+              # Force stop the service
+              Write-Host "Force stopping $service service..."
+              $forceStopResult = & "D:\bin\nssm.exe" stop $service 2>&1
+              Write-Host "Force stop result: $forceStopResult"
+              
+              # Kill any remaining processes
+              $processes = Get-Process | Where-Object { $_.ProcessName -like "*satellite*" -or $_.ProcessName -like "*storj*" }
+              foreach ($process in $processes) {
+                Write-Host "  Killing process: $($process.ProcessName) (PID: $($process.Id))"
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              }
+              
+              Start-Sleep -Seconds 5
+              
+              # Try to start again
+              Write-Host "Attempting to start $service service again..."
+              $startResult2 = & "D:\bin\nssm.exe" start $service 2>&1
+              Write-Host "Second start result: $startResult2"
+              
+              Start-Sleep -Seconds 5
+              $finalStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+              Write-Host "Service $service final status after restart: $finalStatus"
+              
+              if ($finalStatus -eq "Running") {
+                Write-Host "Successfully started $service service after restart"
               } else {
-                Write-Host "$service service is in $finalStatus state - treating as success"
+                Write-Error "$service service failed to start properly - status: $finalStatus"
+                $failedServices += $service
               }
             } else {
               # Normal start process
@@ -170,10 +197,12 @@ jobs:
                 if ($finalStatus -eq "Running") {
                   Write-Host "Successfully resumed $service service"
                 } else {
-                  Write-Host "$service service is in $finalStatus state - treating as success (service is active)"
+                  Write-Error "$service service failed to resume properly - status: $finalStatus"
+                  $failedServices += $service
                 }
               } else {
-                Write-Host "$service service is in $finalStatus state"
+                Write-Error "$service service failed to start properly - status: $finalStatus"
+                $failedServices += $service
               }
             }
             
