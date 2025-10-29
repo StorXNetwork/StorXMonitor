@@ -46,7 +46,47 @@ jobs:
         
         Remove-Item $goZip -Force
         
-    - name: Stop services before build
+    - name: Build satellite.exe
+      run: |
+        $tempPath = "D:\deployment"
+        Write-Host "Building satellite.exe to temporary location: $tempPath"
+        
+        Write-Host "Current directory: $(Get-Location)"
+        Write-Host "Checking if cmd/satellite exists:"
+        if (Test-Path "cmd/satellite") {
+          Write-Host "cmd/satellite directory exists"
+          
+          Write-Host "Building satellite.exe..."
+          $buildCmd = "go build -ldflags `"-X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'`" -o `"$tempPath\satellite.exe`" ./cmd/satellite"
+          Write-Host "Build command: $buildCmd"
+          
+          Invoke-Expression $buildCmd
+          
+          Write-Host "Build completed. Checking if satellite.exe was created in $tempPath"
+          if (Test-Path "$tempPath\satellite.exe") {
+            $fileInfo = Get-Item "$tempPath\satellite.exe"
+            Write-Host "satellite.exe built successfully"
+            Write-Host "  Size: $($fileInfo.Length) bytes"
+            Write-Host "  Location: $($fileInfo.FullName)"
+            Write-Host "  Modified: $($fileInfo.LastWriteTime)"
+          } else {
+            Write-Error "satellite.exe was not created in $tempPath"
+            Write-Host "Listing $tempPath contents:"
+            if (Test-Path $tempPath) {
+              Get-ChildItem $tempPath | Select-Object Name, Length
+            } else {
+              Write-Host "$tempPath directory does not exist"
+            }
+            exit 1
+          }
+        } else {
+          Write-Error "cmd/satellite directory not found"
+          Write-Host "Available directories:"
+          Get-ChildItem -Directory | Select-Object Name
+          exit 1
+        }
+        
+    - name: Stop services before replacement
       run: |
         $binPath = "D:\bin"
         $services = @("StorxBackup", "StorxAuditor", "StorjSatellite")
@@ -72,71 +112,51 @@ jobs:
           }
         }
         
-    - name: Build satellite.exe
+        # Additional wait to ensure file handles are released
+        Write-Host "Waiting 5 seconds for file handles to be released..."
+        Start-Sleep -Seconds 5
+        
+    - name: Replace satellite.exe
       run: |
         $buildPath = "D:\bin"
-        Write-Host "Building satellite.exe in $buildPath"
+        $tempPath = "D:\deployment"
         
-        Write-Host "Current directory: $(Get-Location)"
-        Write-Host "Checking if cmd/satellite exists:"
-        if (Test-Path "cmd/satellite") {
-          Write-Host "cmd/satellite directory exists"
+        # Check if satellite.exe already exists and backup if needed
+        if (Test-Path "$buildPath\satellite.exe") {
+          Write-Host "Existing satellite.exe found in $buildPath"
+          $existingFile = Get-Item "$buildPath\satellite.exe"
+          Write-Host "  Current size: $($existingFile.Length) bytes"
+          Write-Host "  Current modified: $($existingFile.LastWriteTime)"
           
-          # Check if satellite.exe already exists and backup if needed
-          if (Test-Path "$buildPath\satellite.exe") {
-            Write-Host "Existing satellite.exe found in $buildPath"
-            $existingFile = Get-Item "$buildPath\satellite.exe"
-            Write-Host "  Current size: $($existingFile.Length) bytes"
-            Write-Host "  Current modified: $($existingFile.LastWriteTime)"
-            
-            # Clean up old backups first
-            Write-Host "Cleaning up old backup files..."
-            $oldBackups = Get-ChildItem "$buildPath\satellite_backup_*.exe" -ErrorAction SilentlyContinue
-            if ($oldBackups) {
-              foreach ($backup in $oldBackups) {
-                Write-Host "  Deleting old backup: $($backup.Name)"
-                Remove-Item $backup.FullName -Force
-              }
-              Write-Host "  Cleaned up $($oldBackups.Count) old backup(s)"
-            } else {
-              Write-Host "  No old backups found to clean up"
+          # Clean up old backups first
+          Write-Host "Cleaning up old backup files..."
+          $oldBackups = Get-ChildItem "$buildPath\satellite_backup_*.exe" -ErrorAction SilentlyContinue
+          if ($oldBackups) {
+            foreach ($backup in $oldBackups) {
+              Write-Host "  Deleting old backup: $($backup.Name)"
+              Remove-Item $backup.FullName -Force
             }
-            
-            # Create new backup
-            $backupPath = "$buildPath\satellite_backup.exe"
-            Copy-Item "$buildPath\satellite.exe" $backupPath
-            Write-Host "  Backed up current satellite.exe to: satellite_backup.exe"
+            Write-Host "  Cleaned up $($oldBackups.Count) old backup(s)"
           } else {
-            Write-Host "No existing satellite.exe found in $buildPath"
+            Write-Host "  No old backups found to clean up"
           }
           
-          Write-Host "Building satellite.exe..."
-          $buildCmd = "go build -ldflags `"-X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'`" -o `"$buildPath\satellite.exe`" ./cmd/satellite"
-          Write-Host "Build command: $buildCmd"
-          
-          Invoke-Expression $buildCmd
-          
-          Write-Host "Build completed. Checking if satellite.exe was created in $buildPath"
-          if (Test-Path "$buildPath\satellite.exe") {
-            $fileInfo = Get-Item "$buildPath\satellite.exe"
-            Write-Host "satellite.exe created successfully in $buildPath"
-            Write-Host "  Size: $($fileInfo.Length) bytes"
-            Write-Host "  Location: $($fileInfo.FullName)"
-            Write-Host "  Modified: $($fileInfo.LastWriteTime)"
-          } else {
-            Write-Error "satellite.exe was not created in $buildPath"
-            Write-Host "Listing $buildPath contents:"
-            if (Test-Path $buildPath) {
-              Get-ChildItem $buildPath | Select-Object Name, Length
-            } else {
-              Write-Host "$buildPath directory does not exist"
-            }
-          }
+          # Create new backup
+          $backupPath = "$buildPath\satellite_backup.exe"
+          Copy-Item "$buildPath\satellite.exe" $backupPath
+          Write-Host "  Backed up current satellite.exe to: satellite_backup.exe"
         } else {
-          Write-Error "cmd/satellite directory not found"
-          Write-Host "Available directories:"
-          Get-ChildItem -Directory | Select-Object Name
+          Write-Host "No existing satellite.exe found in $buildPath"
         }
+        
+        # Replace with new build
+        Write-Host "Replacing satellite.exe with new build..."
+        Copy-Item "$tempPath\satellite.exe" "$buildPath\satellite.exe" -Force
+        Write-Host "satellite.exe replaced successfully"
+        
+        $fileInfo = Get-Item "$buildPath\satellite.exe"
+        Write-Host "  New size: $($fileInfo.Length) bytes"
+        Write-Host "  New modified: $($fileInfo.LastWriteTime)"
         
     - name: Start services after build
       run: |

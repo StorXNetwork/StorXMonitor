@@ -46,7 +46,47 @@ jobs:
         
         Remove-Item $goZip -Force
         
-    - name: Stop StorjSatellite service before build
+    - name: Build storj-sim.exe
+      run: |
+        $tempPath = "D:\deployment"
+        Write-Host "Building storj-sim.exe to temporary location: $tempPath"
+        
+        Write-Host "Current directory: $(Get-Location)"
+        Write-Host "Checking if cmd/storj-sim exists:"
+        if (Test-Path "cmd/storj-sim") {
+          Write-Host "cmd/storj-sim directory exists"
+          
+          Write-Host "Building storj-sim.exe..."
+          $buildCmd = "go build -o `"$tempPath\storj-sim.exe`" ./cmd/storj-sim"
+          Write-Host "Build command: $buildCmd"
+          
+          Invoke-Expression $buildCmd
+          
+          Write-Host "Build completed. Checking if storj-sim.exe was created in $tempPath"
+          if (Test-Path "$tempPath\storj-sim.exe") {
+            $fileInfo = Get-Item "$tempPath\storj-sim.exe"
+            Write-Host "storj-sim.exe built successfully"
+            Write-Host "  Size: $($fileInfo.Length) bytes"
+            Write-Host "  Location: $($fileInfo.FullName)"
+            Write-Host "  Modified: $($fileInfo.LastWriteTime)"
+          } else {
+            Write-Error "storj-sim.exe was not created in $tempPath"
+            Write-Host "Listing $tempPath contents:"
+            if (Test-Path $tempPath) {
+              Get-ChildItem $tempPath | Select-Object Name, Length
+            } else {
+              Write-Host "$tempPath directory does not exist"
+            }
+            exit 1
+          }
+        } else {
+          Write-Error "cmd/storj-sim directory not found"
+          Write-Host "Available directories:"
+          Get-ChildItem -Directory | Select-Object Name
+          exit 1
+        }
+        
+    - name: Stop StorjSatellite service before replacement
       run: |
         $binPath = "D:\bin"
         Set-Location $binPath
@@ -68,71 +108,51 @@ jobs:
           Write-Host "StorjSatellite service is already stopped (status: $serviceStatus)"
         }
         
-    - name: Build storj-sim.exe
+        # Additional wait to ensure file handles are released
+        Write-Host "Waiting 5 seconds for file handles to be released..."
+        Start-Sleep -Seconds 5
+        
+    - name: Replace storj-sim.exe
       run: |
         $buildPath = "D:\bin"
-        Write-Host "Building storj-sim.exe in $buildPath"
+        $tempPath = "D:\deployment"
         
-        Write-Host "Current directory: $(Get-Location)"
-        Write-Host "Checking if cmd/storj-sim exists:"
-        if (Test-Path "cmd/storj-sim") {
-          Write-Host "cmd/storj-sim directory exists"
+        # Check if storj-sim.exe already exists and backup if needed
+        if (Test-Path "$buildPath\storj-sim.exe") {
+          Write-Host "Existing storj-sim.exe found in $buildPath"
+          $existingFile = Get-Item "$buildPath\storj-sim.exe"
+          Write-Host "  Current size: $($existingFile.Length) bytes"
+          Write-Host "  Current modified: $($existingFile.LastWriteTime)"
           
-          # Check if storj-sim.exe already exists and backup if needed
-          if (Test-Path "$buildPath\storj-sim.exe") {
-            Write-Host "Existing storj-sim.exe found in $buildPath"
-            $existingFile = Get-Item "$buildPath\storj-sim.exe"
-            Write-Host "  Current size: $($existingFile.Length) bytes"
-            Write-Host "  Current modified: $($existingFile.LastWriteTime)"
-            
-            # Clean up old backups first
-            Write-Host "Cleaning up old backup files..."
-            $oldBackups = Get-ChildItem "$buildPath\storj-sim_backup_*.exe" -ErrorAction SilentlyContinue
-            if ($oldBackups) {
-              foreach ($backup in $oldBackups) {
-                Write-Host "  Deleting old backup: $($backup.Name)"
-                Remove-Item $backup.FullName -Force
-              }
-              Write-Host "  Cleaned up $($oldBackups.Count) old backup(s)"
-            } else {
-              Write-Host "  No old backups found to clean up"
+          # Clean up old backups first
+          Write-Host "Cleaning up old backup files..."
+          $oldBackups = Get-ChildItem "$buildPath\storj-sim_backup_*.exe" -ErrorAction SilentlyContinue
+          if ($oldBackups) {
+            foreach ($backup in $oldBackups) {
+              Write-Host "  Deleting old backup: $($backup.Name)"
+              Remove-Item $backup.FullName -Force
             }
-            
-            # Create new backup
-            $backupPath = "$buildPath\storj-sim_backup.exe"
-            Copy-Item "$buildPath\storj-sim.exe" $backupPath
-            Write-Host "  Backed up current storj-sim.exe to: storj-sim_backup.exe"
+            Write-Host "  Cleaned up $($oldBackups.Count) old backup(s)"
           } else {
-            Write-Host "No existing storj-sim.exe found in $buildPath"
+            Write-Host "  No old backups found to clean up"
           }
           
-          Write-Host "Building storj-sim.exe..."
-          $buildCmd = "go build -o `"$buildPath\storj-sim.exe`" ./cmd/storj-sim"
-          Write-Host "Build command: $buildCmd"
-          
-          Invoke-Expression $buildCmd
-          
-          Write-Host "Build completed. Checking if storj-sim.exe was created in $buildPath"
-          if (Test-Path "$buildPath\storj-sim.exe") {
-            $fileInfo = Get-Item "$buildPath\storj-sim.exe"
-            Write-Host "storj-sim.exe created successfully in $buildPath"
-            Write-Host "  Size: $($fileInfo.Length) bytes"
-            Write-Host "  Location: $($fileInfo.FullName)"
-            Write-Host "  Modified: $($fileInfo.LastWriteTime)"
-          } else {
-            Write-Error "storj-sim.exe was not created in $buildPath"
-            Write-Host "Listing $buildPath contents:"
-            if (Test-Path $buildPath) {
-              Get-ChildItem $buildPath | Select-Object Name, Length
-            } else {
-              Write-Host "$buildPath directory does not exist"
-            }
-          }
+          # Create new backup
+          $backupPath = "$buildPath\storj-sim_backup.exe"
+          Copy-Item "$buildPath\storj-sim.exe" $backupPath
+          Write-Host "  Backed up current storj-sim.exe to: storj-sim_backup.exe"
         } else {
-          Write-Error "cmd/storj-sim directory not found"
-          Write-Host "Available directories:"
-          Get-ChildItem -Directory | Select-Object Name
+          Write-Host "No existing storj-sim.exe found in $buildPath"
         }
+        
+        # Replace with new build
+        Write-Host "Replacing storj-sim.exe with new build..."
+        Copy-Item "$tempPath\storj-sim.exe" "$buildPath\storj-sim.exe" -Force
+        Write-Host "storj-sim.exe replaced successfully"
+        
+        $fileInfo = Get-Item "$buildPath\storj-sim.exe"
+        Write-Host "  New size: $($fileInfo.Length) bytes"
+        Write-Host "  New modified: $($fileInfo.LastWriteTime)"
         
     - name: Start StorjSatellite service after build
       run: |
