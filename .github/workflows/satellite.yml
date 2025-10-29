@@ -48,8 +48,7 @@ jobs:
         
     - name: Build satellite.exe
       run: |
-        cd cmd/satellite
-        go build -o satellite.exe .
+        make build-satellite-window WEB3_AUTH_PRIVATE_KEY=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
         
     - name: Stop existing services
       run: |

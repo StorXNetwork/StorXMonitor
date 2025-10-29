@@ -89,6 +89,11 @@ ifndef GATEWAYPATH
 GATEWAYPATH=.build/gateway-tmp
 endif
 
+
+.PHONY: build-satellite-window
+build-satellite-window: ## build satellite for windows (amd64)
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -v -race -o satellite.exe storj.io/storj/cmd/satellite
+
 # Define a reusable command for installing simulator binaries
 define INSTALL_COMMAND
 # $(1) contains environment variables like GOOS and GOARCH
