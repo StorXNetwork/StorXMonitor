@@ -49,8 +49,7 @@ jobs:
     - name: Build satellite.exe
       run: |
         cd cmd/satellite
-        $env:WEB3_AUTH_PRIVATE_KEY = "${{ secrets.WEB3_AUTH_PRIVATE_KEY }}"
-        go build -o satellite.exe .
+        go build -ldflags "-X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'" -o satellite.exe .
         
     - name: Stop existing services
       run: |
