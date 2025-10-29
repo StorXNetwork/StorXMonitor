@@ -124,16 +124,42 @@ jobs:
         foreach ($service in $services) {
           if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
             $serviceStatus = (Get-Service -Name $service).Status
+            Write-Host "Service $service current status: $serviceStatus"
+            
             try {
               if ($serviceStatus -eq "Paused") {
+                Write-Host "Attempting to resume paused $service service..."
                 Resume-Service -Name $service
                 Write-Host "Successfully resumed paused $service service"
-              } else {
+              } elseif ($serviceStatus -eq "Stopped") {
+                Write-Host "Attempting to start stopped $service service..."
                 Start-Service -Name $service
                 Write-Host "Successfully started $service service"
+              } elseif ($serviceStatus -eq "Running") {
+                Write-Host "$service service is already running"
+              } else {
+                Write-Host "Service $service is in unexpected state: $serviceStatus"
+                Write-Host "Attempting to start $service service..."
+                try {
+                  Start-Service -Name $service
+                  Write-Host "Successfully started $service service"
+                } catch {
+                  if ($_.Exception.Message -like "*already running*") {
+                    Write-Host "$service service is already running (instance exists)"
+                  } else {
+                    throw $_
+                  }
+                }
               }
+              
+              # Verify service started successfully
+              Start-Sleep -Seconds 2
+              $finalStatus = (Get-Service -Name $service).Status
+              Write-Host "Service $service final status: $finalStatus"
+              
             } catch {
               Write-Error "Failed to start/resume $service service: $($_.Exception.Message)"
+              Write-Host "Service $service error details: $($_.Exception)"
               $failedServices += $service
             }
           } else {
