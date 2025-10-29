@@ -1,9 +1,15 @@
+
 name: Build Storj Sim
 
 on:
-    push:
-      branches: [ main ]
-    workflow_dispatch:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.21'
+  BIN_PATH: 'D:\bin'
+  TEMP_PATH: 'D:\deployment'
 
 jobs:
   build-storj-sim:
@@ -13,187 +19,72 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Go
+    - name: Setup Go (cached)
       uses: actions/setup-go@v4
       with:
-        go-version: '1.21'
-        cache: false
-        
-    - name: Clean Go cache (if setup fails)
-      if: failure()
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+        cache-dependency-path: |
+          go.sum
+          **/go.sum
+          
+    - name: Pre-download dependencies
       run: |
-        Remove-Item -Path "D:\deployment\StorXRunner\_work\_tool\go" -Recurse -Force -ErrorAction SilentlyContinue
-        
-    - name: Manual Go setup (fallback)
-      if: failure()
-      run: |
-        $goUrl = "https://go.dev/dl/go1.21.13.windows-amd64.zip"
-        $goZip = "go1.21.13.windows-amd64.zip"
-        $goDir = "C:\go"
-        
-        Write-Host "Downloading Go manually..."
-        Invoke-WebRequest -Uri $goUrl -OutFile $goZip
-        
-        Write-Host "Extracting Go..."
-        Expand-Archive -Path $goZip -DestinationPath "C:\" -Force
-        
-        Write-Host "Setting Go environment..."
-        $env:PATH = "C:\go\bin;" + $env:PATH
-        $env:GOROOT = "C:\go"
-        
-        Write-Host "Go version:"
-        go version
-        
-        Remove-Item $goZip -Force
-        
-    - name: Build storj-sim.exe
-      run: |
-        $tempPath = "D:\deployment"
-        Write-Host "Building storj-sim.exe to temporary location: $tempPath"
-        
-        Write-Host "Current directory: $(Get-Location)"
-        Write-Host "Checking if cmd/storj-sim exists:"
+        Write-Host "Pre-downloading dependencies..."
+        go mod download
         if (Test-Path "cmd/storj-sim") {
-          Write-Host "cmd/storj-sim directory exists"
-          
-          Write-Host "Building storj-sim.exe..."
-          $buildCmd = "go build -o `"$tempPath\storj-sim.exe`" ./cmd/storj-sim"
-          Write-Host "Build command: $buildCmd"
-          
-          Invoke-Expression $buildCmd
-          
-          Write-Host "Build completed. Checking if storj-sim.exe was created in $tempPath"
-          if (Test-Path "$tempPath\storj-sim.exe") {
-            $fileInfo = Get-Item "$tempPath\storj-sim.exe"
-            Write-Host "storj-sim.exe built successfully"
-            Write-Host "  Size: $($fileInfo.Length) bytes"
-            Write-Host "  Location: $($fileInfo.FullName)"
-            Write-Host "  Modified: $($fileInfo.LastWriteTime)"
-          } else {
-            Write-Error "storj-sim.exe was not created in $tempPath"
-            Write-Host "Listing $tempPath contents:"
-            if (Test-Path $tempPath) {
-              Get-ChildItem $tempPath | Select-Object Name, Length
-            } else {
-              Write-Host "$tempPath directory does not exist"
-            }
-            exit 1
-          }
+          Write-Host "Pre-building storj-sim dependencies..."
+          go build -o nul ./cmd/storj-sim 2>&1 | Write-Host
+        }
+        
+    - name: Quick service stop
+      run: |
+        Set-Location $env:BIN_PATH
+        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
+        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
+          & ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
+          Start-Sleep -Seconds 2  # Reduced wait time
+        }
+        
+    - name: Fast build storj-sim.exe
+      run: |
+        $buildStart = Get-Date
+        Write-Host "Building storj-sim.exe with optimizations..."
+        
+        # Use Go build cache and skip tests for faster build
+        $env:GOFLAGS = "-buildvcs=false"
+        
+        $buildCmd = "go build -ldflags `"-s -w`" -o `"$env:TEMP_PATH\storj-sim.exe`" ./cmd/storj-sim"
+        Write-Host "Build command: $buildCmd"
+        
+        Invoke-Expression $buildCmd
+        
+        $buildTime = (Get-Date) - $buildStart
+        Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
+        
+        if (Test-Path "$env:TEMP_PATH\storj-sim.exe") {
+          $size = (Get-Item "$env:TEMP_PATH\storj-sim.exe").Length
+          Write-Host "storj-sim.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
         } else {
-          Write-Error "cmd/storj-sim directory not found"
-          Write-Host "Available directories:"
-          Get-ChildItem -Directory | Select-Object Name
+          Write-Error "Build failed - storj-sim.exe not found"
           exit 1
         }
         
-    - name: Stop StorjSatellite service before replacement
+    - name: Quick file replacement
       run: |
-        $binPath = "D:\bin"
-        Set-Location $binPath
-        Write-Host "Current directory: $(Get-Location)"
-        
-        $serviceStatus = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
-        Write-Host "StorjSatellite current status: $serviceStatus"
-        
-        if ($serviceStatus -eq "Running" -or $serviceStatus -eq "Paused" -or $serviceStatus -eq "StartPending") {
-          Write-Host "Stopping StorjSatellite service..."
-          $stopResult = & ".\nssm.exe" stop StorjSatellite 2>&1
-          Write-Host "  Result: $stopResult"
-          
-          # Wait for service to stop
-          Start-Sleep -Seconds 3
-          $newStatus = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
-          Write-Host "  New status: $newStatus"
-        } else {
-          Write-Host "StorjSatellite service is already stopped (status: $serviceStatus)"
+        # Minimal file operations
+        if (Test-Path "$env:BIN_PATH\storj-sim.exe") {
+          Remove-Item "$env:BIN_PATH\storj-sim.exe" -Force -ErrorAction SilentlyContinue
         }
+        Move-Item "$env:TEMP_PATH\storj-sim.exe" "$env:BIN_PATH\storj-sim.exe" -Force
+        Write-Host "storj-sim.exe replaced"
         
-        # Additional wait to ensure file handles are released
-        Write-Host "Waiting 5 seconds for file handles to be released..."
-        Start-Sleep -Seconds 5
-        
-    - name: Replace storj-sim.exe
+    - name: Quick service start
       run: |
-        $buildPath = "D:\bin"
-        $tempPath = "D:\deployment"
+        Set-Location $env:BIN_PATH
+        & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
+        Start-Sleep -Seconds 2  # Reduced wait time
         
-        # Check if storj-sim.exe already exists and backup if needed
-        if (Test-Path "$buildPath\storj-sim.exe") {
-          Write-Host "Existing storj-sim.exe found in $buildPath"
-          $existingFile = Get-Item "$buildPath\storj-sim.exe"
-          Write-Host "  Current size: $($existingFile.Length) bytes"
-          Write-Host "  Current modified: $($existingFile.LastWriteTime)"
-          
-          # Clean up old backups first
-          Write-Host "Cleaning up old backup files..."
-          $oldBackups = Get-ChildItem "$buildPath\storj-sim_backup_*.exe" -ErrorAction SilentlyContinue
-          if ($oldBackups) {
-            foreach ($backup in $oldBackups) {
-              Write-Host "  Deleting old backup: $($backup.Name)"
-              Remove-Item $backup.FullName -Force
-            }
-            Write-Host "  Cleaned up $($oldBackups.Count) old backup(s)"
-          } else {
-            Write-Host "  No old backups found to clean up"
-          }
-          
-          # Create new backup
-          $backupPath = "$buildPath\storj-sim_backup.exe"
-          Copy-Item "$buildPath\storj-sim.exe" $backupPath
-          Write-Host "  Backed up current storj-sim.exe to: storj-sim_backup.exe"
-        } else {
-          Write-Host "No existing storj-sim.exe found in $buildPath"
-        }
-        
-        # Replace with new build
-        Write-Host "Replacing storj-sim.exe with new build..."
-        Copy-Item "$tempPath\storj-sim.exe" "$buildPath\storj-sim.exe" -Force
-        Write-Host "storj-sim.exe replaced successfully"
-        
-        $fileInfo = Get-Item "$buildPath\storj-sim.exe"
-        Write-Host "  New size: $($fileInfo.Length) bytes"
-        Write-Host "  New modified: $($fileInfo.LastWriteTime)"
-        
-    - name: Start StorjSatellite service after build
-      run: |
-        $binPath = "D:\bin"
-        Set-Location $binPath
-        Write-Host "Current directory: $(Get-Location)"
-        
-        $serviceStatus = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
-        Write-Host "StorjSatellite current status: $serviceStatus"
-        
-        $ErrorActionPreference = "Continue"
-        
-        if ($serviceStatus -eq "Stopped") {
-          Write-Host "Starting StorjSatellite service..."
-          $startOutput = & cmd /c ".\nssm.exe start StorjSatellite" 2>&1
-          Write-Host "  Output: $startOutput"
-          
-          # Wait for service to start
-          Start-Sleep -Seconds 5
-          $newStatus = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
-          Write-Host "  New status: $newStatus"
-          
-          if ($newStatus -eq "Running") {
-            Write-Host "  Successfully started StorjSatellite"
-          } elseif ($newStatus -eq "StartPending") {
-            Write-Host "  StorjSatellite is starting (StartPending) - this is acceptable"
-          } else {
-            Write-Warning "  StorjSatellite is in $newStatus state"
-          }
-        } elseif ($serviceStatus -eq "Running" -or $serviceStatus -eq "StartPending") {
-          Write-Host "StorjSatellite service is already running or starting (status: $serviceStatus)"
-        } else {
-          Write-Host "StorjSatellite service is in $serviceStatus state - attempting to start..."
-          $startOutput = & cmd /c ".\nssm.exe start StorjSatellite" 2>&1
-          Write-Host "  Output: $startOutput"
-          
-          Start-Sleep -Seconds 5
-          $newStatus = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
-          Write-Host "  New status: $newStatus"
-          
-          if ($newStatus -eq "Running" -or $newStatus -eq "StartPending") {
-            Write-Host "  Service is starting or running"
-          }
-        }
+        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
+        Write-Host "StorjSatellite status: $status"
+        Write-Host "Service start initiated"

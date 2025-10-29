@@ -5,6 +5,12 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  GO_VERSION: '1.21'
+  BIN_PATH: 'D:\bin'
+  TEMP_PATH: 'D:\deployment'
+  SERVICES: 'StorxBackup,StorxAuditor,StorjSatellite'
+
 jobs:
   build-satellite:
     runs-on: [self-hosted, windows]
@@ -13,195 +19,96 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Go
+    - name: Setup Go (cached)
       uses: actions/setup-go@v4
       with:
-        go-version: '1.21'
-        cache: false
-        
-    - name: Clean Go cache (if setup fails)
-      if: failure()
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+        cache-dependency-path: |
+          go.sum
+          **/go.sum
+          
+    - name: Pre-download dependencies
       run: |
-        Remove-Item -Path "D:\deployment\StorXRunner\_work\_tool\go" -Recurse -Force -ErrorAction SilentlyContinue
-        
-    - name: Manual Go setup (fallback)
-      if: failure()
-      run: |
-        $goUrl = "https://go.dev/dl/go1.21.13.windows-amd64.zip"
-        $goZip = "go1.21.13.windows-amd64.zip"
-        $goDir = "C:\go"
-        
-        Write-Host "Downloading Go manually..."
-        Invoke-WebRequest -Uri $goUrl -OutFile $goZip
-        
-        Write-Host "Extracting Go..."
-        Expand-Archive -Path $goZip -DestinationPath "C:\" -Force
-        
-        Write-Host "Setting Go environment..."
-        $env:PATH = "C:\go\bin;" + $env:PATH
-        $env:GOROOT = "C:\go"
-        
-        Write-Host "Go version:"
-        go version
-        
-        Remove-Item $goZip -Force
-        
-    - name: Build satellite.exe
-      run: |
-        $tempPath = "D:\deployment"
-        Write-Host "Building satellite.exe to temporary location: $tempPath"
-        
-        Write-Host "Current directory: $(Get-Location)"
-        Write-Host "Checking if cmd/satellite exists:"
+        Write-Host "Pre-downloading dependencies..."
+        go mod download
         if (Test-Path "cmd/satellite") {
-          Write-Host "cmd/satellite directory exists"
-          
-          Write-Host "Building satellite.exe..."
-          $buildCmd = "go build -ldflags `"-X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'`" -o `"$tempPath\satellite.exe`" ./cmd/satellite"
-          Write-Host "Build command: $buildCmd"
-          
-          Invoke-Expression $buildCmd
-          
-          Write-Host "Build completed. Checking if satellite.exe was created in $tempPath"
-          if (Test-Path "$tempPath\satellite.exe") {
-            $fileInfo = Get-Item "$tempPath\satellite.exe"
-            Write-Host "satellite.exe built successfully"
-            Write-Host "  Size: $($fileInfo.Length) bytes"
-            Write-Host "  Location: $($fileInfo.FullName)"
-            Write-Host "  Modified: $($fileInfo.LastWriteTime)"
-          } else {
-            Write-Error "satellite.exe was not created in $tempPath"
-            Write-Host "Listing $tempPath contents:"
-            if (Test-Path $tempPath) {
-              Get-ChildItem $tempPath | Select-Object Name, Length
-            } else {
-              Write-Host "$tempPath directory does not exist"
+          Write-Host "Pre-building satellite dependencies..."
+          go build -o nul ./cmd/satellite 2>&1 | Write-Host
+        }
+        
+    - name: Parallel service stop
+      run: |
+        $services = $env:SERVICES -split ','
+        $stopJobs = @()
+        
+        foreach ($service in $services) {
+          $stopJobs += Start-Job -ScriptBlock {
+            param($serviceName, $binPath)
+            Set-Location $binPath
+            $status = (Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status
+            if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
+              & ".\nssm.exe" stop $serviceName 2>&1 | Out-Null
             }
-            exit 1
-          }
+          } -ArgumentList $service, $env:BIN_PATH
+        }
+        
+        # Wait for all stop jobs to complete (max 10 seconds)
+        $stopJobs | Wait-Job -Timeout 10 | Out-Null
+        Write-Host "All services stopped or timeout reached"
+        
+    - name: Fast build satellite.exe
+      run: |
+        $buildStart = Get-Date
+        Write-Host "Building satellite.exe with optimizations..."
+        
+        # Use Go build cache and skip tests for faster build
+        $env:GOFLAGS = "-buildvcs=false"
+        
+        $buildCmd = "go build -ldflags `"-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'`" -o `"$env:TEMP_PATH\satellite.exe`" ./cmd/satellite"
+        Write-Host "Build command: $buildCmd"
+        
+        Invoke-Expression $buildCmd
+        
+        $buildTime = (Get-Date) - $buildStart
+        Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
+        
+        if (Test-Path "$env:TEMP_PATH\satellite.exe") {
+          $size = (Get-Item "$env:TEMP_PATH\satellite.exe").Length
+          Write-Host "satellite.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
         } else {
-          Write-Error "cmd/satellite directory not found"
-          Write-Host "Available directories:"
-          Get-ChildItem -Directory | Select-Object Name
+          Write-Error "Build failed - satellite.exe not found"
           exit 1
         }
         
-    - name: Stop services before replacement
+    - name: Quick file replacement
       run: |
-        $binPath = "D:\bin"
-        $services = @("StorxBackup", "StorxAuditor", "StorjSatellite")
+        # Minimal file operations
+        if (Test-Path "$env:BIN_PATH\satellite.exe") {
+          Remove-Item "$env:BIN_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
+        }
+        Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        Write-Host "satellite.exe replaced"
         
-        Set-Location $binPath
-        Write-Host "Current directory: $(Get-Location)"
+    - name: Parallel service start
+      run: |
+        $services = $env:SERVICES -split ','
+        $startJobs = @()
         
         foreach ($service in $services) {
-          $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-          Write-Host "$service current status: $serviceStatus"
-          
-          if ($serviceStatus -eq "Running" -or $serviceStatus -eq "Paused" -or $serviceStatus -eq "StartPending") {
-            Write-Host "Stopping $service service..."
-            $stopResult = & ".\nssm.exe" stop $service 2>&1
-            Write-Host "  Result: $stopResult"
-            
-            # Wait for service to stop
-            Start-Sleep -Seconds 3
-            $newStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-            Write-Host "  New status: $newStatus"
-          } else {
-            Write-Host "$service service is already stopped (status: $serviceStatus)"
-          }
+          $startJobs += Start-Job -ScriptBlock {
+            param($serviceName, $binPath)
+            Set-Location $binPath
+            & cmd /c ".\nssm.exe" start $serviceName 2>&1 | Out-Null
+          } -ArgumentList $service, $env:BIN_PATH
         }
         
-        # Additional wait to ensure file handles are released
-        Write-Host "Waiting 5 seconds for file handles to be released..."
-        Start-Sleep -Seconds 5
+        # Wait for all start jobs to complete (max 15 seconds)
+        $startJobs | Wait-Job -Timeout 15 | Out-Null
         
-    - name: Replace satellite.exe
-      run: |
-        $buildPath = "D:\bin"
-        $tempPath = "D:\deployment"
-        
-        # Check if satellite.exe already exists and backup if needed
-        if (Test-Path "$buildPath\satellite.exe") {
-          Write-Host "Existing satellite.exe found in $buildPath"
-          $existingFile = Get-Item "$buildPath\satellite.exe"
-          Write-Host "  Current size: $($existingFile.Length) bytes"
-          Write-Host "  Current modified: $($existingFile.LastWriteTime)"
-          
-          # Clean up old backups first
-          Write-Host "Cleaning up old backup files..."
-          $oldBackups = Get-ChildItem "$buildPath\satellite_backup_*.exe" -ErrorAction SilentlyContinue
-          if ($oldBackups) {
-            foreach ($backup in $oldBackups) {
-              Write-Host "  Deleting old backup: $($backup.Name)"
-              Remove-Item $backup.FullName -Force
-            }
-            Write-Host "  Cleaned up $($oldBackups.Count) old backup(s)"
-          } else {
-            Write-Host "  No old backups found to clean up"
-          }
-          
-          # Create new backup
-          $backupPath = "$buildPath\satellite_backup.exe"
-          Copy-Item "$buildPath\satellite.exe" $backupPath
-          Write-Host "  Backed up current satellite.exe to: satellite_backup.exe"
-        } else {
-          Write-Host "No existing satellite.exe found in $buildPath"
-        }
-        
-        # Replace with new build
-        Write-Host "Replacing satellite.exe with new build..."
-        Copy-Item "$tempPath\satellite.exe" "$buildPath\satellite.exe" -Force
-        Write-Host "satellite.exe replaced successfully"
-        
-        $fileInfo = Get-Item "$buildPath\satellite.exe"
-        Write-Host "  New size: $($fileInfo.Length) bytes"
-        Write-Host "  New modified: $($fileInfo.LastWriteTime)"
-        
-    - name: Start services after build
-      run: |
-        $binPath = "D:\bin"
-        $services = @("StorxBackup", "StorxAuditor", "StorjSatellite")
-        
-        Set-Location $binPath
-        Write-Host "Current directory: $(Get-Location)"
-        
-        $ErrorActionPreference = "Continue"
+        # Quick status check
         foreach ($service in $services) {
-          $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-          Write-Host "$service current status: $serviceStatus"
-          
-          if ($serviceStatus -eq "Stopped") {
-            Write-Host "Starting $service service..."
-            $startOutput = & cmd /c ".\nssm.exe start $service" 2>&1
-            Write-Host "  Output: $startOutput"
-            
-            # Wait for service to start and check actual status
-            Start-Sleep -Seconds 5
-            $newStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-            Write-Host "  New status: $newStatus"
-            
-            # Check if service is running or in a valid state
-            if ($newStatus -eq "Running") {
-              Write-Host "  Successfully started $service"
-            } elseif ($newStatus -eq "StartPending") {
-              Write-Host "  $service is starting (StartPending) - this is acceptable"
-            } else {
-              Write-Warning "  $service is in $newStatus state"
-            }
-          } elseif ($serviceStatus -eq "Running" -or $serviceStatus -eq "StartPending") {
-            Write-Host "$service service is already running or starting (status: $serviceStatus)"
-          } else {
-            Write-Host "$service service is in $serviceStatus state - attempting to start..."
-            $startOutput = & cmd /c ".\nssm.exe start $service" 2>&1
-            Write-Host "  Output: $startOutput"
-            
-            Start-Sleep -Seconds 5
-            $newStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-            Write-Host "  New status: $newStatus"
-            
-            if ($newStatus -eq "Running" -or $newStatus -eq "StartPending") {
-              Write-Host "  Service is starting or running"
-            }
-          }
+          $status = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+          Write-Host "$service status: $status"
         }
+        Write-Host "All services started"
