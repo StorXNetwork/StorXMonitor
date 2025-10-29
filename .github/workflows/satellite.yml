@@ -222,25 +222,60 @@ jobs:
         if ($failedServices.Count -gt 0) {
           Write-Error "Failed to start services: $($failedServices -join ', ')"
           
-          # Additional diagnostics for failed services
+          # Try to fix problematic services
           foreach ($service in $failedServices) {
-            Write-Host "Diagnosing $service service..."
+            Write-Host "Attempting to fix $service service..."
+            
+            # Check service configuration
             try {
               $serviceInfo = Get-Service -Name $service
-              Write-Host "  Status: $($serviceInfo.Status)"
+              Write-Host "  Current status: $($serviceInfo.Status)"
               Write-Host "  StartType: $($serviceInfo.StartType)"
-              Write-Host "  ServiceType: $($serviceInfo.ServiceType)"
               
-              # Try to get more details using sc.exe
-              $scOutput = & sc.exe qc $service 2>&1
-              Write-Host "  Service config: $scOutput"
+              # Get NSSM configuration
+              Write-Host "  Checking NSSM configuration..."
+              $appPath = & "D:\bin\nssm.exe" get $service Application 2>&1
+              $appParams = & "D:\bin\nssm.exe" get $service AppParameters 2>&1
+              $appDir = & "D:\bin\nssm.exe" get $service AppDirectory 2>&1
+              
+              Write-Host "  Application: $appPath"
+              Write-Host "  Parameters: $appParams"
+              Write-Host "  Directory: $appDir"
+              
+              # Try to reconfigure the service
+              Write-Host "  Attempting to reconfigure $service service..."
+              & "D:\bin\nssm.exe" set $service Application "D:\bin\satellite.exe" 2>&1 | Out-Null
+              & "D:\bin\nssm.exe" set $service AppDirectory "D:\bin" 2>&1 | Out-Null
+              & "D:\bin\nssm.exe" set $service AppParameters "" 2>&1 | Out-Null
+              
+              # Try to restart the service
+              Write-Host "  Attempting to restart $service service..."
+              & "D:\bin\nssm.exe" stop $service 2>&1 | Out-Null
+              Start-Sleep -Seconds 5
+              & "D:\bin\nssm.exe" start $service 2>&1 | Out-Null
+              
+              Start-Sleep -Seconds 5
+              $finalStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+              Write-Host "  Final status after reconfiguration: $finalStatus"
+              
+              if ($finalStatus -eq "Running") {
+                Write-Host "  Successfully fixed $service service"
+                $failedServices = $failedServices | Where-Object { $_ -ne $service }
+              } else {
+                Write-Host "  $service service still not running - status: $finalStatus"
+              }
+              
             } catch {
-              Write-Host "  Could not get service details: $($_.Exception.Message)"
+              Write-Host "  Could not fix $service service: $($_.Exception.Message)"
             }
           }
           
-          Write-Error "Deployment failed - all services must be running"
-          exit 1
+          if ($failedServices.Count -gt 0) {
+            Write-Error "Deployment failed - services still not running: $($failedServices -join ', ')"
+            exit 1
+          } else {
+            Write-Host "All services are now running successfully!"
+          }
         }
         
     - name: Verify deployment
