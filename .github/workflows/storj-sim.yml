@@ -143,10 +143,12 @@ jobs:
         $serviceStatus = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
         Write-Host "StorjSatellite current status: $serviceStatus"
         
+        $ErrorActionPreference = "Continue"
+        
         if ($serviceStatus -eq "Stopped") {
           Write-Host "Starting StorjSatellite service..."
-          $startResult = & ".\nssm.exe" start StorjSatellite 2>&1
-          Write-Host "  Result: $startResult"
+          $startOutput = & cmd /c ".\nssm.exe start StorjSatellite" 2>&1
+          Write-Host "  Output: $startOutput"
           
           # Wait for service to start
           Start-Sleep -Seconds 5
@@ -155,6 +157,8 @@ jobs:
           
           if ($newStatus -eq "Running") {
             Write-Host "  Successfully started StorjSatellite"
+          } elseif ($newStatus -eq "StartPending") {
+            Write-Host "  StorjSatellite is starting (StartPending) - this is acceptable"
           } else {
             Write-Warning "  StorjSatellite is in $newStatus state"
           }
@@ -162,10 +166,14 @@ jobs:
           Write-Host "StorjSatellite service is already running or starting (status: $serviceStatus)"
         } else {
           Write-Host "StorjSatellite service is in $serviceStatus state - attempting to start..."
-          $startResult = & ".\nssm.exe" start StorjSatellite 2>&1
-          Write-Host "  Result: $startResult"
+          $startOutput = & cmd /c ".\nssm.exe start StorjSatellite" 2>&1
+          Write-Host "  Output: $startOutput"
           
           Start-Sleep -Seconds 5
           $newStatus = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
           Write-Host "  New status: $newStatus"
+          
+          if ($newStatus -eq "Running" -or $newStatus -eq "StartPending") {
+            Write-Host "  Service is starting or running"
+          }
         }

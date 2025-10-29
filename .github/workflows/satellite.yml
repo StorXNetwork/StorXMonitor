@@ -146,22 +146,26 @@ jobs:
         Set-Location $binPath
         Write-Host "Current directory: $(Get-Location)"
         
+        $ErrorActionPreference = "Continue"
         foreach ($service in $services) {
           $serviceStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
           Write-Host "$service current status: $serviceStatus"
           
           if ($serviceStatus -eq "Stopped") {
             Write-Host "Starting $service service..."
-            $startResult = & ".\nssm.exe" start $service 2>&1
-            Write-Host "  Result: $startResult"
+            $startOutput = & cmd /c ".\nssm.exe start $service" 2>&1
+            Write-Host "  Output: $startOutput"
             
-            # Wait for service to start
+            # Wait for service to start and check actual status
             Start-Sleep -Seconds 5
             $newStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
             Write-Host "  New status: $newStatus"
             
+            # Check if service is running or in a valid state
             if ($newStatus -eq "Running") {
               Write-Host "  Successfully started $service"
+            } elseif ($newStatus -eq "StartPending") {
+              Write-Host "  $service is starting (StartPending) - this is acceptable"
             } else {
               Write-Warning "  $service is in $newStatus state"
             }
@@ -169,11 +173,15 @@ jobs:
             Write-Host "$service service is already running or starting (status: $serviceStatus)"
           } else {
             Write-Host "$service service is in $serviceStatus state - attempting to start..."
-            $startResult = & ".\nssm.exe" start $service 2>&1
-            Write-Host "  Result: $startResult"
+            $startOutput = & cmd /c ".\nssm.exe start $service" 2>&1
+            Write-Host "  Output: $startOutput"
             
             Start-Sleep -Seconds 5
             $newStatus = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
             Write-Host "  New status: $newStatus"
+            
+            if ($newStatus -eq "Running" -or $newStatus -eq "StartPending") {
+              Write-Host "  Service is starting or running"
+            }
           }
         }
