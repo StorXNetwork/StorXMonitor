@@ -123,11 +123,17 @@ jobs:
         
         foreach ($service in $services) {
           if (Get-Service -Name $service -ErrorAction SilentlyContinue) {
+            $serviceStatus = (Get-Service -Name $service).Status
             try {
-              Start-Service -Name $service
-              Write-Host "Successfully started $service service"
+              if ($serviceStatus -eq "Paused") {
+                Resume-Service -Name $service
+                Write-Host "Successfully resumed paused $service service"
+              } else {
+                Start-Service -Name $service
+                Write-Host "Successfully started $service service"
+              }
             } catch {
-              Write-Error "Failed to start $service service: $($_.Exception.Message)"
+              Write-Error "Failed to start/resume $service service: $($_.Exception.Message)"
               $failedServices += $service
             }
           } else {
