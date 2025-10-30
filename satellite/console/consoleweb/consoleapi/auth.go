@@ -517,6 +517,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	a.TokenGoogleWrapper(ctx, googleuser.Email, body.Key, w, r)
 	// Set up a test project and bucket
 
+	a.log.Info("Sending registration welcome email to user: " + user.Email)
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email}},
