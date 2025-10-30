@@ -208,6 +208,20 @@ func (*AccountAlreadyExistsEmail) Subject() string {
 	return "Are you trying to sign in?"
 }
 
+// RegistrationWelcomeEmail is mailservice template for email where user tries to create account, but one already exists.
+type RegistrationWelcomeEmail struct {
+	Username  string
+	LoginLink string
+}
+
+// Template returns email template name.
+func (*RegistrationWelcomeEmail) Template() string { return "RegistrationWelcome" }
+
+// Subject gets email subject.
+func (*RegistrationWelcomeEmail) Subject() string {
+	return "Welcome to StorX"
+}
+
 // AccountAlreadyExistsEmail is mailservice template for email where user tries to create account, but one already exists.
 type ContactUsForm struct {
 	Email   string

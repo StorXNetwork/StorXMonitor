@@ -517,6 +517,15 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	a.TokenGoogleWrapper(ctx, googleuser.Email, body.Key, w, r)
 	// Set up a test project and bucket
 
+	a.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email}},
+		&console.RegistrationWelcomeEmail{
+			Username:  user.FullName,
+			LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
+		},
+	)
+
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
@@ -1975,8 +1984,6 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 		}
 	}
 
-	// a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, w, r)
-
 	// Set up a test project and bucket
 
 	authed := console.WithUser(ctx, user)
@@ -1996,6 +2003,16 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 
 	// login
 	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, body.Key, w, r)
+
+	a.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email}},
+		&console.RegistrationWelcomeEmail{
+			Username:  user.FullName,
+			LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
+		},
+	)
+
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 }
 
