@@ -9,7 +9,7 @@ on:
 env:
   NODE_VERSION: '18'
   TEMP_PATH: 'D:\deployment'
-  DEPLOY_PATH: 'D:\StorjNetwork\storxweb'
+  DEPLOY_PATH: 'D:\StorjNetwork\StorxMonitorAdmin'
   UI_PATH: 'satellite\admin\back-office\ui'
 
 jobs:
@@ -78,7 +78,7 @@ jobs:
         Write-Host "Deploying build to StorjNetwork..."
         
         $deploymentBuildPath = Join-Path $env:TEMP_PATH "build"
-        $storjNetworkPath = $env:DEPLOY_PATH
+        $storjNetworkBuildPath = $env:DEPLOY_PATH
         
         # Check if deployment build exists
         if (-not (Test-Path $deploymentBuildPath)) {
@@ -86,27 +86,32 @@ jobs:
           exit 1
         }
         
-        # Check if StorjNetwork path exists and delete old build
-        if (Test-Path $storjNetworkPath) {
-          Write-Host "StorjNetwork path exists, deleting old build..."
-          Remove-Item $storjNetworkPath -Recurse -Force -ErrorAction SilentlyContinue
-          Write-Host "Old build deleted"
+        # Ensure parent directory exists (D:\StorjNetwork)
+        $parentPath = Split-Path $storjNetworkBuildPath -Parent
+        if (-not (Test-Path $parentPath)) {
+          Write-Host "Creating parent directory: $parentPath"
+          New-Item -ItemType Directory -Path $parentPath -Force | Out-Null
         } else {
-          Write-Host "StorjNetwork path does not exist, creating directory..."
-          $parentPath = Split-Path $storjNetworkPath -Parent
-          if (-not (Test-Path $parentPath)) {
-            New-Item -ItemType Directory -Path $parentPath -Force | Out-Null
-          }
+          Write-Host "Parent directory exists: $parentPath"
         }
         
-        # Move build to StorjNetwork (automatically removes from deployment folder)
-        Write-Host "Moving build to $storjNetworkPath..."
-        Move-Item -Path $deploymentBuildPath -Destination $storjNetworkPath -Force
-        Write-Host "Build deployed successfully"
+        # Delete old build folder if it exists (dedicated folder for this build)
+        if (Test-Path $storjNetworkBuildPath) {
+          Write-Host "StorxMonitorAdmin folder exists, deleting old build..."
+          Remove-Item $storjNetworkBuildPath -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Old build deleted"
+        } else {
+          Write-Host "StorxMonitorAdmin folder does not exist, will create new one"
+        }
+        
+        # Move build to StorxMonitorAdmin (automatically removes from deployment folder)
+        Write-Host "Moving build to $storjNetworkBuildPath..."
+        Move-Item -Path $deploymentBuildPath -Destination $storjNetworkBuildPath -Force
+        Write-Host "Build deployed successfully to $storjNetworkBuildPath"
         
         # Verify deployment
-        if (Test-Path $storjNetworkPath) {
-          $deployedSize = (Get-ChildItem $storjNetworkPath -Recurse | Measure-Object -Property Length -Sum).Sum
+        if (Test-Path $storjNetworkBuildPath) {
+          $deployedSize = (Get-ChildItem $storjNetworkBuildPath -Recurse | Measure-Object -Property Length -Sum).Sum
           Write-Host "Deployment verified ($([math]::Round($deployedSize/1MB, 2)) MB)"
         } else {
           Write-Error "Deployment verification failed"
