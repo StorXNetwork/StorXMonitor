@@ -9,7 +9,7 @@ on:
 env:
   NODE_VERSION: '18'
   TEMP_PATH: 'D:\deployment'
-  DEPLOY_PATH: 'D:\StorjNetwork\StorxMonitorAdmin'
+  DEPLOY_PATH: 'D:\StorjNetwork\StorxMonitorAdmin\build'
   UI_PATH: 'satellite\admin\back-office\ui'
 
 jobs:
@@ -86,7 +86,7 @@ jobs:
           exit 1
         }
         
-        # Ensure parent directory exists (D:\StorjNetwork)
+        # Ensure parent directory exists (D:\StorjNetwork\StorxMonitorAdmin)
         $parentPath = Split-Path $storjNetworkBuildPath -Parent
         if (-not (Test-Path $parentPath)) {
           Write-Host "Creating parent directory: $parentPath"
@@ -95,16 +95,16 @@ jobs:
           Write-Host "Parent directory exists: $parentPath"
         }
         
-        # Delete old build folder if it exists (dedicated folder for this build)
+        # Delete old build folder if it exists (only the build subfolder, preserve other files)
         if (Test-Path $storjNetworkBuildPath) {
-          Write-Host "StorxMonitorAdmin folder exists, deleting old build..."
+          Write-Host "Build folder exists, deleting old build folder only..."
           Remove-Item $storjNetworkBuildPath -Recurse -Force -ErrorAction SilentlyContinue
-          Write-Host "Old build deleted"
+          Write-Host "Old build folder deleted"
         } else {
-          Write-Host "StorxMonitorAdmin folder does not exist, will create new one"
+          Write-Host "Build folder does not exist, will create new one"
         }
         
-        # Move build to StorxMonitorAdmin (automatically removes from deployment folder)
+        # Move build to StorxMonitorAdmin\build (automatically removes from deployment folder)
         Write-Host "Moving build to $storjNetworkBuildPath..."
         Move-Item -Path $deploymentBuildPath -Destination $storjNetworkBuildPath -Force
         Write-Host "Build deployed successfully to $storjNetworkBuildPath"
