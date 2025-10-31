@@ -113,12 +113,12 @@ jobs:
           exit 1
         }
         
-    - name: ✅ Summary
+    - name: Summary
       run: |
         Write-Host ""
-        Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
-        Write-Host "✅ Admin Back-Office UI successfully built and deployed!" -ForegroundColor Green
-        Write-Host "📍 Deployment Path: $env:DEPLOY_PATH" -ForegroundColor Cyan
-        Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
+        Write-Host "===============================================================" -ForegroundColor Green
+        Write-Host "[SUCCESS] Admin Back-Office UI successfully built and deployed!" -ForegroundColor Green
+        Write-Host "Deployment Path: $env:DEPLOY_PATH" -ForegroundColor Cyan
+        Write-Host "===============================================================" -ForegroundColor Green
         Write-Host ""
 
