@@ -1752,3 +1752,91 @@ func (server *Server) getUserLoginHistory(w http.ResponseWriter, r *http.Request
 
 	sendJSONData(w, http.StatusOK, data)
 }
+
+// func (server *Server) updateUserStatus(w http.ResponseWriter, r *http.Request) {
+// 	ctx := r.Context()
+// 	var err error
+// 	defer mon.Task()(&ctx)(&err)
+
+// 	vars := mux.Vars(r)
+// 	userEmail, ok := vars["useremail"]
+// 	if !ok {
+// 		sendJSONError(w, "user-email missing",
+// 			"", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+// 	if errors.Is(err, sql.ErrNoRows) {
+// 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+// 			"", http.StatusNotFound)
+// 		return
+// 	}
+// 	if err != nil {
+// 		sendJSONError(w, "failed to get user",
+// 			err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	body, err := io.ReadAll(r.Body)
+// 	if err != nil {
+// 		sendJSONError(w, "failed to read body",
+// 			err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	var input struct {
+// 		Status *int `json:"status"`
+// 	}
+
+// 	err = json.Unmarshal(body, &input)
+// 	if err != nil {
+// 		sendJSONError(w, "failed to unmarshal request",
+// 			err.Error(), http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	if input.Status == nil {
+// 		sendJSONError(w, "status was not provided",
+// 			"", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	// Validate status value (0-5)
+// 	statusValue := *input.Status
+// 	if statusValue < 0 || statusValue > 5 {
+// 		sendJSONError(w, fmt.Sprintf("invalid status value: %d. Status must be between 0 and 5", statusValue),
+// 			"Valid status values: 0=Inactive, 1=Active, 2=Deleted, 3=PendingDeletion, 4=LegalHold, 5=PendingBotVerification",
+// 			http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	userStatus := console.UserStatus(statusValue)
+// 	updateRequest := console.UpdateUserRequest{
+// 		Status: &userStatus,
+// 	}
+
+// 	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
+// 	if err != nil {
+// 		sendJSONError(w, "failed to update user status",
+// 			err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	// Return updated user info
+// 	updatedUser, err := server.db.Console().Users().Get(ctx, user.ID)
+// 	if err != nil {
+// 		sendJSONError(w, "failed to get updated user",
+// 			err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	data, err := json.Marshal(updatedUser)
+// 	if err != nil {
+// 		sendJSONError(w, "json encoding failed",
+// 			err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	sendJSONData(w, http.StatusOK, data)
+// }

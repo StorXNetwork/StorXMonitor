@@ -304,6 +304,7 @@ export class AdminApi {
         projectStorageLimit: number;
         projectBandwidthLimit: number;
         defaultPlacement: number;
+        status?: number;
     }): Promise<User> {
         const fullPath = `${this.ROOT_PATH}/users/${email}`;
         const response = await this.http.put(fullPath, JSON.stringify(userData));
@@ -324,14 +325,78 @@ export class AdminApi {
         throw new APIError(err.error || err.detail || 'Failed to delete user', response.status);
     }
 
-    public async suspendUser(email: string): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/users/${email}/billing-freeze`;
+    public async disableUserMFA(email: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/users/${encodeURIComponent(email)}/mfa`;
+        const response = await this.http.delete(fullPath, null);
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to disable user MFA', response.status);
+    }
+
+    public async updateUserStatus(email: string, status: number): Promise<User> {
+        const fullPath = `${this.ROOT_PATH}/users/${encodeURIComponent(email)}/status`;
+        const response = await this.http.put(fullPath, JSON.stringify({ status }));
+        if (response.ok) {
+            return response.json().then((body) => body as User);
+        }
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to update user status', response.status);
+    }
+
+    public async updateUsersUserAgent(email: string, userAgent: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/users/${encodeURIComponent(email)}/useragent`;
+        const response = await this.http.patch(fullPath, JSON.stringify({ userAgent }));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to update user agent', response.status);
+    }
+
+    public async createGeofenceForAccount(email: string, placement: number): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/users/${encodeURIComponent(email)}/geofence`;
+        const response = await this.http.patch(fullPath, JSON.stringify({ placement }));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to create geofence for account', response.status);
+    }
+
+    public async deleteGeofenceForAccount(email: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/users/${encodeURIComponent(email)}/geofence`;
+        const response = await this.http.delete(fullPath, null);
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to delete geofence for account', response.status);
+    }
+
+    public async updateFreeTrialExpiration(email: string, expirationDate: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/users/${encodeURIComponent(email)}/trial-expiration`;
+        const response = await this.http.patch(fullPath, JSON.stringify({ expirationDate }));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to update free trial expiration', response.status);
+    }
+
+    public async billingFreezeUser(email: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/users/${encodeURIComponent(email)}/billing-freeze`;
         const response = await this.http.put(fullPath, JSON.stringify({}));
         if (response.ok) {
             return;
         }
         const err = await response.json();
-        throw new APIError(err.error || err.detail || 'Failed to suspend user', response.status);
+        throw new APIError(err.error || err.detail || 'Failed to freeze user billing', response.status);
+    }
+
+    public async suspendUser(email: string): Promise<void> {
+        return this.billingFreezeUser(email);
     }
 
     public async unsuspendUser(email: string): Promise<void> {
@@ -398,20 +463,6 @@ export class AdminApi {
         throw new APIError(err.error || err.detail || 'Failed to update project limits', response.status);
     }
 
-    public async createProject(projectData: {
-        name: string;
-        description: string;
-        ownerEmail: string;
-        defaultPlacement: number;
-    }): Promise<Project> {
-        const fullPath = `${this.ROOT_PATH}/projects`;
-        const response = await this.http.post(fullPath, JSON.stringify(projectData));
-        if (response.ok) {
-            return response.json().then((body) => body as Project);
-        }
-        const err = await response.json();
-        throw new APIError(err.error || err.detail || 'Failed to create project', response.status);
-    }
 
     public async updateProject(projectId: string, projectData: {
         name: string;

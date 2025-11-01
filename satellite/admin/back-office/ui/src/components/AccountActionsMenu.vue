@@ -10,47 +10,40 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-divider v-if="featureFlags.account.updateInfo || featureFlags.account.updateStatus || featureFlags.account.updateValueAttribution || featureFlags.account.updatePlacement || featureFlags.account.updateLimits || featureFlags.project.create " class="my-2" />
+            <v-divider v-if="featureFlags.account.updateInfo || featureFlags.account.updateStatus || featureFlags.account.updatePlacement || featureFlags.account.updateLimits" class="my-2" />
 
             <v-list-item v-if="featureFlags.account.updateInfo" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Edit Account
-                    <AccountInformationDialog />
+                    <AccountInformationDialog :userEmail="userEmail" />
                 </v-list-item-title>
             </v-list-item>
 
             <v-list-item v-if="featureFlags.account.updateStatus" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Status
-                    <AccountStatusDialog />
+                    <AccountStatusDialog :userEmail="userEmail" />
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.updateValueAttribution" density="comfortable" link rounded="lg">
+            <!-- <v-list-item v-if="featureFlags.account.updateValueAttribution" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Value
-                    <AccountUserAgentsDialog />
+                    <AccountUserAgentsDialog :userEmail="userEmail" />
                 </v-list-item-title>
-            </v-list-item>
+            </v-list-item> -->
 
             <v-list-item v-if="featureFlags.account.updatePlacement" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Placement
-                    <AccountGeofenceDialog />
+                    <AccountGeofenceDialog :userEmail="userEmail" />
                 </v-list-item-title>
             </v-list-item>
 
             <v-list-item v-if="featureFlags.account.updateLimits" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Change Limits
-                    <AccountLimitsDialog />
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.project.create" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    New Project
-                    <AccountNewProjectDialog />
+                    <AccountLimitsDialog :userEmail="userEmail" />
                 </v-list-item-title>
             </v-list-item>
 
@@ -92,9 +85,8 @@ import AccountStatusDialog from '@/components/AccountStatusDialog.vue';
 import AccountResetMFADialog from '@/components/AccountResetMFADialog.vue';
 import AccountSuspendDialog from '@/components/AccountSuspendDialog.vue';
 import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
-import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
-import AccountUserAgentsDialog from '@/components/AccountUserAgentsDialog.vue';
+// import AccountUserAgentsDialog from '@/components/AccountUserAgentsDialog.vue';
 import AccountLimitsDialog from '@/components/AccountLimitsDialog.vue';
 
 // Props

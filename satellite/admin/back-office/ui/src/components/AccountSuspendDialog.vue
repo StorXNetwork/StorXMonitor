@@ -102,6 +102,8 @@ const selected = ref<string[]>([]);
 const otherReason = ref<string>('');
 const snackbar = ref<boolean>(false);
 const dialog = ref<boolean>(false);
+const valid = ref<boolean>(false);
+const loading = ref<boolean>(false);
 
 function onButtonClick() {
     snackbar.value = true;

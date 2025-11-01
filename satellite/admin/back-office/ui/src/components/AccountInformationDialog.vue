@@ -23,27 +23,22 @@
             <v-form v-model="valid" class="pa-7">
                 <v-row>
                     <v-col cols="12">
-                        <p>Edit the name, email, and account type.</p>
+                        <p>Edit the name and email.</p>
                     </v-col>
                 </v-row>
 
                 <v-row>
                     <v-col cols="12">
                         <v-text-field
-                            model-value="Irving Tacker" label="Account Name" variant="outlined"
-                            hide-details="auto"
+                            v-model="fullName" label="Account Name" variant="outlined"
+                            hide-details="auto" :disabled="loading"
                         />
                     </v-col>
 
                     <v-col cols="12">
-                        <v-text-field model-value="itacker@gmail.com" label="Account Email" hide-details="auto" />
-                    </v-col>
-
-                    <v-col cols="12">
-                        <v-select
-                            label="Account Type" placeholder="Select the account type"
-                            :items="['Free', 'Pro', 'Priority', 'Enterprise']" model-value="Pro" chips required variant="outlined"
-                            hide-details="auto"
+                        <v-text-field 
+                            v-model="email" label="Account Email" variant="solo-filled" 
+                            flat readonly hide-details="auto" 
                         />
                     </v-col>
                 </v-row>
@@ -72,10 +67,19 @@
             </v-btn>
         </template>
     </v-snackbar>
+
+    <v-snackbar v-model="errorSnackbar" :timeout="7000" color="error">
+        {{ errorMessage }}
+        <template #actions>
+            <v-btn color="default" variant="text" @click="errorSnackbar = false">
+                Close
+            </v-btn>
+        </template>
+    </v-snackbar>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -90,14 +94,77 @@ import {
     VTextField,
     VCardActions,
     VSnackbar,
-    VSelect,
 } from 'vuetify/components';
+import { adminApi } from '@/api/adminApi';
+
+const props = defineProps<{
+    userEmail?: string;
+}>();
 
 const snackbar = ref<boolean>(false);
+const errorSnackbar = ref<boolean>(false);
+const errorMessage = ref<string>('');
 const dialog = ref<boolean>(false);
+const loading = ref<boolean>(false);
+const valid = ref<boolean>(false);
 
-function onButtonClick() {
-    snackbar.value = true;
-    dialog.value = false;
+const userEmail = computed(() => {
+    return props.userEmail || '';
+});
+
+const fullName = ref<string>('');
+const email = ref<string>('');
+const projectLimit = ref<number>(0);
+const projectStorageLimit = ref<number>(0);
+const projectBandwidthLimit = ref<number>(0);
+const defaultPlacement = ref<number>(0);
+
+// Load user data when dialog opens
+watch(() => dialog.value, async (isOpen) => {
+    if (isOpen && userEmail.value) {
+        await loadUserData();
+    }
+});
+
+async function loadUserData() {
+    if (!userEmail.value) return;
+    
+    try {
+        loading.value = true;
+        const userInfo = await adminApi.getUserInfo(userEmail.value);
+        fullName.value = userInfo.user.fullName;
+        email.value = userInfo.user.email;
+        projectLimit.value = userInfo.user.projectLimit;
+        projectStorageLimit.value = 0; // This might need to come from limits API
+        projectBandwidthLimit.value = 0; // This might need to come from limits API
+        defaultPlacement.value = userInfo.user.placement;
+    } catch (error: any) {
+        errorMessage.value = error.message || 'Failed to load user data';
+        errorSnackbar.value = true;
+    } finally {
+        loading.value = false;
+    }
+}
+
+async function onButtonClick() {
+    if (!valid.value || !userEmail.value) return;
+    
+    try {
+        loading.value = true;
+        await adminApi.updateUser(userEmail.value, {
+            fullName: fullName.value,
+            projectLimit: projectLimit.value,
+            projectStorageLimit: projectStorageLimit.value,
+            projectBandwidthLimit: projectBandwidthLimit.value,
+            defaultPlacement: defaultPlacement.value,
+        });
+        snackbar.value = true;
+        dialog.value = false;
+    } catch (error: any) {
+        errorMessage.value = error.message || 'Failed to update account information';
+        errorSnackbar.value = true;
+    } finally {
+        loading.value = false;
+    }
 }
 </script>
