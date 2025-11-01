@@ -224,7 +224,15 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const appStore = useAppStore();
 const router = useRouter();
-const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+
+// Safely access feature flags with fallback
+const featureFlags = computed(() => {
+    const settings = appStore.state.settings;
+    if (!settings || !settings.admin || !settings.admin.features) {
+        return {} as FeatureFlags;
+    }
+    return settings.admin.features as FeatureFlags;
+});
 
 // Loading state
 const loading = ref(false);

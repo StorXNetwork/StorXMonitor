@@ -74,6 +74,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 
@@ -96,7 +97,15 @@ const props = defineProps<{
 
 const router = useRouter();
 const appStore = useAppStore();
-const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+
+// Safely access feature flags with fallback
+const featureFlags = computed(() => {
+    const settings = appStore.state.settings;
+    if (!settings || !settings.admin || !settings.admin.features) {
+        return {} as FeatureFlags;
+    }
+    return settings.admin.features as FeatureFlags;
+});
 
 // Navigation function
 const navigateToAccountDetails = () => {

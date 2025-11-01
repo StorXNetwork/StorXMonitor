@@ -20,7 +20,7 @@ class AppState {
   public placements: PlacementInfo[];
   public userAccount: UserAccount | null = null;
   public selectedProject: Project | null = null;
-  public settings: Settings;
+  public settings: Settings | null = null; // Initialize as null to handle race conditions
 }
 
 export const useAppStore = defineStore("app", () => {

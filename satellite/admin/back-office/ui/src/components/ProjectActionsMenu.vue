@@ -26,7 +26,7 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.project.upatePlacement" density="comfortable" link rounded="lg">
+            <v-list-item v-if="featureFlags.project.updatePlacement" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Placement
                     <ProjectGeofenceDialog />
@@ -66,6 +66,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 
 import { FeatureFlags } from '@/api/client.gen';
@@ -79,5 +80,14 @@ import ProjectUserAgentsDialog from '@/components/ProjectUserAgentsDialog.vue';
 import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectAddUserDialog from '@/components/ProjectAddUserDialog.vue';
 
-const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
+const appStore = useAppStore();
+
+// Safely access feature flags with fallback - prevents crash when settings load
+const featureFlags = computed(() => {
+    const settings = appStore.state.settings;
+    if (!settings || !settings.admin || !settings.admin.features) {
+        return {} as FeatureFlags;
+    }
+    return settings.admin.features as FeatureFlags;
+});
 </script>

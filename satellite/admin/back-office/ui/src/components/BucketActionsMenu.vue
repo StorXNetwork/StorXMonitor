@@ -46,6 +46,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 
 import { FeatureFlags } from '@/api/client.gen';
@@ -56,5 +57,14 @@ import BucketDeleteDialog from '@/components/BucketDeleteDialog.vue';
 import BucketGeofenceDialog from '@/components/BucketGeofenceDialog.vue';
 import BucketUserAgentsDialog from '@/components/BucketUserAgentsDialog.vue';
 
-const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
+const appStore = useAppStore();
+
+// Safely access feature flags with fallback
+const featureFlags = computed(() => {
+    const settings = appStore.state.settings;
+    if (!settings || !settings.admin || !settings.admin.features) {
+        return {} as FeatureFlags;
+    }
+    return settings.admin.features as FeatureFlags;
+});
 </script>

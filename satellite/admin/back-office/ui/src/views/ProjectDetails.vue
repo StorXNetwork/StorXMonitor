@@ -201,7 +201,15 @@ import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
 
 const appStore = useAppStore();
-const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+
+// Safely access feature flags with fallback
+const featureFlags = computed(() => {
+    const settings = appStore.state.settings;
+    if (!settings || !settings.admin || !settings.admin.features) {
+        return {} as FeatureFlags;
+    }
+    return settings.admin.features as FeatureFlags;
+});
 
 const userAccount = computed<UserAccount>(() => appStore.state.userAccount as UserAccount);
 const project = computed<Project>(() => appStore.state.selectedProject as Project);

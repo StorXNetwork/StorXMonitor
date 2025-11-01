@@ -4,11 +4,15 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -93,16 +97,65 @@ func NewServer(
 
 	root = root.PathPrefix(PathPrefix).Subrouter()
 	// Static assets for the web interface.
-	// This handler must be the last one because it uses the root as prefix, otherwise, it will serve
-	// all the paths defined by the handlers set after this one.
+	// Using router ordering strategy (like ConsoleWeb): register specific routes before catch-all.
+
 	var staticHandler http.Handler
 	if config.StaticDir == "" {
+		// Embedded assets
 		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.FS(Assets)))
 	} else {
+		// File system assets
 		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.Dir(config.StaticDir)))
 	}
 
-	root.PathPrefix("/").Handler(staticHandler).Methods("GET")
+	// 1. Register static assets path FIRST (before catch-all)
+	// This handles /assets/*, /favicon.ico, etc.
+	root.PathPrefix("/assets/").Handler(staticHandler).Methods("GET")
+	root.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		staticHandler.ServeHTTP(w, r)
+	}).Methods("GET")
+
+	// 2. SPA fallback handler LAST (catches everything else)
+	// Serves index.html for all unmatched routes (Vue Router routes)
+	root.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip API routes - they're already handled by main router
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			http.NotFound(w, r)
+			return
+		}
+
+		// Serve index.html (SPA fallback)
+		if config.StaticDir == "" {
+			// Embedded assets
+			indexFile, err := Assets.Open("index.html")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			defer indexFile.Close()
+
+			// Get file info for http.ServeContent
+			info, err := indexFile.Stat()
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+
+			// Create a ReadSeeker for http.ServeContent
+			data, err := io.ReadAll(indexFile)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			http.ServeContent(w, r, "index.html", info.ModTime(), bytes.NewReader(data))
+		} else {
+			// File system assets
+			indexPath := filepath.Join(config.StaticDir, "index.html")
+			http.ServeFile(w, r, indexPath)
+		}
+	})).Methods("GET")
 
 	return server
 }

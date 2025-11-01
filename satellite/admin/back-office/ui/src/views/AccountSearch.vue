@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { VContainer, VRow, VCol, VBtn, VCard, VCardText, VForm, VTextField } from 'vuetify/components';
 
@@ -77,7 +77,15 @@ const emailRules: ((value: string) => boolean | string)[] = [
 const appStore = useAppStore();
 const notify = useNotificationsStore();
 const router = useRouter();
-const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+
+// Safely access feature flags with fallback
+const featureFlags = computed(() => {
+    const settings = appStore.state.settings;
+    if (!settings || !settings.admin || !settings.admin.features) {
+        return {} as FeatureFlags;
+    }
+    return settings.admin.features as FeatureFlags;
+});
 /**
  * Fetches user information and navigates to Account Details page.
  * Displays an error message if no user has the input email address.

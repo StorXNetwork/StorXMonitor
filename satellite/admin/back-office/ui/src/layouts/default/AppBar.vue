@@ -196,7 +196,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VAppBar,
     VAppBarNavIcon,
@@ -223,7 +223,17 @@ import { useAppStore } from '@/store/app';
 const theme = useTheme();
 const drawer = ref<boolean>(true);
 const activeTheme = ref<number>(0);
-const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
+const appStore = useAppStore();
+
+// Safely access feature flags with fallback - prevents crash when settings load after AppBar renders
+const featureFlags = computed(() => {
+    const settings = appStore.state.settings;
+    if (!settings || !settings.admin || !settings.admin.features) {
+        // Return empty feature flags object if settings haven't loaded yet
+        return {} as FeatureFlags;
+    }
+    return settings.admin.features as FeatureFlags;
+});
 
 function toggleTheme(newTheme: string) {
     if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {

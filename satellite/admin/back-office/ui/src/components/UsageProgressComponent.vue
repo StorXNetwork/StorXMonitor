@@ -64,8 +64,16 @@ import { FeatureFlags } from "@/api/client.gen";
 import { useAppStore } from "@/store/app";
 import { Dimensions, Size } from "@/utils/bytesSize";
 
-const featureFlags = useAppStore().state.settings.admin
-    .features as FeatureFlags;
+const appStore = useAppStore();
+
+// Safely access feature flags with fallback
+const featureFlags = computed(() => {
+    const settings = appStore.state.settings;
+    if (!settings || !settings.admin || !settings.admin.features) {
+        return {} as FeatureFlags;
+    }
+    return settings.admin.features as FeatureFlags;
+});
 
 const props = defineProps<{
     title: string;
