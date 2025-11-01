@@ -85,7 +85,7 @@ const router = createRouter({
 
 watch(
     () => router.currentRoute.value.name as string,
-    routeName => document.title = 'Storj Admin' + (routeName ? ' - ' + routeName : ''),
+    routeName => document.title = 'Storx Admin' + (routeName ? ' - ' + routeName : ''),
 );
 
 export default router;

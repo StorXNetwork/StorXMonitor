@@ -40,7 +40,7 @@
                 <v-card variant="flat" class="mt-8 pa-4" rounded="xlg" border>
                     <v-card-text>
                         <h2 class="my-1">Select a satellite</h2>
-                        <p>to continue to Storj Admin</p>
+                        <p>to continue to Storx Admin</p>
                         <v-select
                             v-model="selectedSatellite" label="Satellite" placeholder="Select a satellite"
                             :items="['North America US1', 'Europe EU1', 'Asia-Pacific AP1']" variant="outlined" class="mt-5" autofocus

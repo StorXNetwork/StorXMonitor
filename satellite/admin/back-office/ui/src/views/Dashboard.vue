@@ -4,7 +4,7 @@
 <template>
     <v-container fluid>
         <PageTitleComponent title="Dashboard" />
-        <PageSubtitleComponent subtitle="Welcome to the Storj Admin UI for North America US1." />
+        <PageSubtitleComponent subtitle="Welcome to the Storx Admin UI for North America US1." />
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" sm="6" md="4" lg="2">
