@@ -1,7 +1,7 @@
-// Copyright (C) 2022 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package adminui
+package ui
 
 import (
 	"embed"

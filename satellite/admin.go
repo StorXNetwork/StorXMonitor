@@ -31,6 +31,8 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
+
+	_ "storj.io/storj/satellite/admin/ui" // Import to initialize embedded UI assets
 )
 
 // Admin is the satellite core process that runs chores.
@@ -276,6 +278,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.Admin.Service,
 			config.Console,
 			adminConfig,
+			placement,
 		)
 
 		peer.Servers.Add(lifecycle.Item{

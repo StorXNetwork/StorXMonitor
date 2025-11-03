@@ -5,13 +5,17 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +36,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
@@ -104,8 +109,10 @@ type Server struct {
 
 	nowFn func() time.Time
 
-	console consoleweb.Config
-	config  Config
+	console   consoleweb.Config
+	config    Config
+	placement nodeselection.PlacementDefinitions
+	auth      *AuthService
 }
 
 // NewServer returns a new administration Server.
@@ -122,6 +129,7 @@ func NewServer(
 	backOfficeService *backoffice.Service,
 	console consoleweb.Config,
 	config Config,
+	placement nodeselection.PlacementDefinitions,
 ) *Server {
 	server := &Server{
 		log: log,
@@ -137,8 +145,14 @@ func NewServer(
 		freezeAccounts: freezeAccounts,
 		nowFn:          time.Now,
 
-		console: console,
-		config:  config,
+		console:   console,
+		config:    config,
+		placement: placement,
+		auth: NewAuthService(AuthConfig{
+			SecretKey:  config.AuthorizationToken, // Use admin token as JWT secret
+			Expiration: 24 * time.Hour,            // 24 hour expiration
+			Issuer:     "storj-admin",
+		}),
 	}
 
 	root := mux.NewRouter()
@@ -211,23 +225,82 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT")
 
+	// Auth endpoints (public, no auth required)
+	authAPI := api.NewRoute().Subrouter()
+	authAPI.HandleFunc("/auth/login", server.loginHandler).Methods("POST")
+	authAPI.HandleFunc("/auth/logout", server.logoutHandler).Methods("POST")
+
+	// Settings and Placements endpoints (public, no auth required for basic info)
+	publicAPI := api.NewRoute().Subrouter()
+	publicAPI.HandleFunc("/settings", server.getSettingsHandler).Methods("GET")
+	publicAPI.HandleFunc("/placements", server.getPlacementsHandler).Methods("GET")
+
 	// NewServer adds the backoffice.PahtPrefix for the static assets, but not for the API because the
 	// generator already add the PathPrefix to router when the API handlers are hooked.
-	_ = backoffice.NewServer(
-		log.Named("back-office"),
-		nil,
-		backOfficeService,
-		root,
-		config.BackOffice,
-	)
+	// _ = backoffice.NewServer(
+	// 	log.Named("back-office"),
+	// 	nil,
+	// 	backOfficeService,
+	// 	root,
+	// 	config.BackOffice,
+	// )
 
-	// This handler must be the last one because it uses the root as prefix,
-	// otherwise will try to serve all the handlers set after this one.
+	// Static assets handler
+	var staticHandler http.Handler
 	if config.StaticDir == "" {
-		root.PathPrefix("/").Handler(http.FileServer(http.FS(Assets))).Methods("GET")
+		// Embedded assets
+		staticHandler = http.FileServer(http.FS(Assets))
 	} else {
-		root.PathPrefix("/").Handler(http.FileServer(http.Dir(config.StaticDir))).Methods("GET")
+		// File system assets
+		staticHandler = http.FileServer(http.Dir(config.StaticDir))
 	}
+
+	// 1. Register static assets path FIRST (before catch-all)
+	// This handles /assets/*, /favicon.ico, etc.
+	root.PathPrefix("/assets/").Handler(staticHandler).Methods("GET")
+	root.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		staticHandler.ServeHTTP(w, r)
+	}).Methods("GET")
+
+	root.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip API routes - they're already handled by main router
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			http.NotFound(w, r)
+			return
+		}
+
+		// Serve index.html (SPA fallback)
+		if config.StaticDir == "" {
+			// Embedded assets
+			indexFile, err := Assets.Open("index.html")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			defer indexFile.Close()
+
+			// Get file info for http.ServeContent
+			info, err := indexFile.Stat()
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+
+			// Create a ReadSeeker for http.ServeContent
+			data, err := io.ReadAll(indexFile)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			http.ServeContent(w, r, "index.html", info.ModTime(), bytes.NewReader(data))
+		} else {
+			// File system assets
+			indexPath := filepath.Join(config.StaticDir, "index.html")
+			http.ServeFile(w, r, indexPath)
+		}
+	})).Methods("GET")
 
 	server.server.Handler = root
 	return server
@@ -338,6 +411,48 @@ func (server *Server) withAuth(allowedGroups []string, requireAPIKey bool) func(
 func validateAPIKey(configured, sent string) bool {
 	equality := subtle.ConstantTimeCompare([]byte(sent), []byte(configured))
 	return equality == 1
+}
+
+// getSettingsHandler wraps Server.GetSettings for HTTP.
+func (server *Server) getSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	settings, httpErr := server.GetSettings(ctx)
+	if httpErr.Err != nil {
+		sendJSONError(w, "failed to get settings", httpErr.Err.Error(), httpErr.Status)
+		return
+	}
+
+	data, err := json.Marshal(settings)
+	if err != nil {
+		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
+// getPlacementsHandler wraps Server.GetPlacements for HTTP.
+func (server *Server) getPlacementsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	placements, httpErr := server.GetPlacements(ctx)
+	if httpErr.Err != nil {
+		sendJSONError(w, "failed to get placements", httpErr.Err.Error(), httpErr.Status)
+		return
+	}
+
+	data, err := json.Marshal(placements)
+	if err != nil {
+		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
 }
 
 // responseWriterStatusCode is a wrapper of an http.ResponseWriter to track the
@@ -469,4 +584,91 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 			next.ServeHTTP(&respWCode, r)
 		})
 	}
+}
+
+// loginHandler handles admin login requests.
+// Validates admin credentials and returns a JWT token.
+func (server *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var loginRequest struct {
+		Token string `json:"token"`
+		Email string `json:"email,omitempty"` // Optional email for token claims
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
+		sendJSONError(w, "invalid request body", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if server.config.AuthorizationToken == "" {
+		sendJSONError(w, "authentication not configured", "", http.StatusInternalServerError)
+		return
+	}
+
+	// Validate admin token
+	if !validateAPIKey(server.config.AuthorizationToken, loginRequest.Token) {
+		sendJSONError(w, "invalid credentials", "", http.StatusUnauthorized)
+		return
+	}
+
+	// Generate JWT token
+	email := loginRequest.Email
+	if email == "" {
+		email = "admin@storj.io" // Default admin email
+	}
+
+	jwtToken, err := server.auth.GenerateToken(ctx, email)
+	if err != nil {
+		server.log.Error("failed to generate JWT token", zap.Error(err))
+		sendJSONError(w, "failed to generate token", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return success with JWT token
+	response := struct {
+		Token     string    `json:"token"`
+		TokenType string    `json:"token_type"`
+		ExpiresIn int64     `json:"expires_in"` // seconds
+		ExpiresAt time.Time `json:"expires_at"`
+	}{
+		Token:     jwtToken,
+		TokenType: "Bearer",
+		ExpiresIn: int64(server.auth.expiration.Seconds()),
+		ExpiresAt: time.Now().Add(server.auth.expiration),
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
+// logoutHandler handles admin logout requests.
+// For API token auth, logout is handled client-side (token removal).
+func (server *Server) logoutHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	// For API token authentication, logout is client-side only
+	// Just return success
+	response := struct {
+		Message string `json:"message"`
+	}{
+		Message: "logged out successfully",
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
 }
