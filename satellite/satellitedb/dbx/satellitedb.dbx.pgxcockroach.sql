@@ -25,6 +25,17 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE admins (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	status integer NOT NULL,
+	password_hash bytea NOT NULL,
+	roles text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE backup_final_statuses (
 	backup_date text NOT NULL,
 	status text NOT NULL,
@@ -736,6 +747,7 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	PRIMARY KEY ( tx_id )
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
+CREATE INDEX admin_email_status_index ON admins ( email, status ) ;
 CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;

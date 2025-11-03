@@ -338,6 +338,17 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE admins (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	status integer NOT NULL,
+	password_hash bytea NOT NULL,
+	roles text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE backup_final_statuses (
 	backup_date text NOT NULL,
 	status text NOT NULL,
@@ -1049,6 +1060,7 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	PRIMARY KEY ( tx_id )
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
+CREATE INDEX admin_email_status_index ON admins ( email, status ) ;
 CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
@@ -1218,6 +1230,17 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE admins (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	status integer NOT NULL,
+	password_hash bytea NOT NULL,
+	roles text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE backup_final_statuses (
 	backup_date text NOT NULL,
 	status text NOT NULL,
@@ -1929,6 +1952,7 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	PRIMARY KEY ( tx_id )
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
+CREATE INDEX admin_email_status_index ON admins ( email, status ) ;
 CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
@@ -2437,6 +2461,211 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type Admin struct {
+	Id           []byte
+	Email        string
+	Status       int
+	PasswordHash []byte
+	Roles        *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    *time.Time
+}
+
+func (Admin) _Table() string { return "admins" }
+
+type Admin_Create_Fields struct {
+	Roles     Admin_Roles_Field
+	DeletedAt Admin_DeletedAt_Field
+}
+
+type Admin_Update_Fields struct {
+	Email        Admin_Email_Field
+	Status       Admin_Status_Field
+	PasswordHash Admin_PasswordHash_Field
+	Roles        Admin_Roles_Field
+	UpdatedAt    Admin_UpdatedAt_Field
+	DeletedAt    Admin_DeletedAt_Field
+}
+
+type Admin_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Admin_Id(v []byte) Admin_Id_Field {
+	return Admin_Id_Field{_set: true, _value: v}
+}
+
+func (f Admin_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Admin_Id_Field) _Column() string { return "id" }
+
+type Admin_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Admin_Email(v string) Admin_Email_Field {
+	return Admin_Email_Field{_set: true, _value: v}
+}
+
+func (f Admin_Email_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Admin_Email_Field) _Column() string { return "email" }
+
+type Admin_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Admin_Status(v int) Admin_Status_Field {
+	return Admin_Status_Field{_set: true, _value: v}
+}
+
+func (f Admin_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Admin_Status_Field) _Column() string { return "status" }
+
+type Admin_PasswordHash_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Admin_PasswordHash(v []byte) Admin_PasswordHash_Field {
+	return Admin_PasswordHash_Field{_set: true, _value: v}
+}
+
+func (f Admin_PasswordHash_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Admin_PasswordHash_Field) _Column() string { return "password_hash" }
+
+type Admin_Roles_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Admin_Roles(v string) Admin_Roles_Field {
+	return Admin_Roles_Field{_set: true, _value: &v}
+}
+
+func Admin_Roles_Raw(v *string) Admin_Roles_Field {
+	if v == nil {
+		return Admin_Roles_Null()
+	}
+	return Admin_Roles(*v)
+}
+
+func Admin_Roles_Null() Admin_Roles_Field {
+	return Admin_Roles_Field{_set: true, _null: true}
+}
+
+func (f Admin_Roles_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Admin_Roles_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Admin_Roles_Field) _Column() string { return "roles" }
+
+type Admin_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Admin_CreatedAt(v time.Time) Admin_CreatedAt_Field {
+	return Admin_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Admin_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Admin_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Admin_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Admin_UpdatedAt(v time.Time) Admin_UpdatedAt_Field {
+	return Admin_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Admin_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Admin_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type Admin_DeletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Admin_DeletedAt(v time.Time) Admin_DeletedAt_Field {
+	return Admin_DeletedAt_Field{_set: true, _value: &v}
+}
+
+func Admin_DeletedAt_Raw(v *time.Time) Admin_DeletedAt_Field {
+	if v == nil {
+		return Admin_DeletedAt_Null()
+	}
+	return Admin_DeletedAt(*v)
+}
+
+func Admin_DeletedAt_Null() Admin_DeletedAt_Field {
+	return Admin_DeletedAt_Field{_set: true, _null: true}
+}
+
+func (f Admin_DeletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Admin_DeletedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Admin_DeletedAt_Field) _Column() string { return "deleted_at" }
 
 type BackupFinalStatus struct {
 	BackupDate     string
@@ -15649,6 +15878,12 @@ type DefaultVersioning_Row struct {
 	DefaultVersioning int
 }
 
+type Email_Status_Roles_Row struct {
+	Email  string
+	Status int
+	Roles  *string
+}
+
 type Id_Email_FullName_Row struct {
 	Id       []byte
 	Email    string
@@ -17741,6 +17976,42 @@ func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxImpl) Create_Admin(ctx context.Context,
+	admin_id Admin_Id_Field,
+	admin_email Admin_Email_Field,
+	admin_password_hash Admin_PasswordHash_Field,
+	admin_updated_at Admin_UpdatedAt_Field,
+	optional Admin_Create_Fields) (
+	admin *Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := admin_id.value()
+	__email_val := admin_email.value()
+	__status_val := int(0)
+	__password_hash_val := admin_password_hash.value()
+	__roles_val := optional.Roles.value()
+	__created_at_val := __now
+	__updated_at_val := admin_updated_at.value()
+	__deleted_at_val := optional.DeletedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO admins ( id, email, status, password_hash, roles, created_at, updated_at, deleted_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __email_val, __status_val, __password_hash_val, __roles_val, __created_at_val, __updated_at_val, __deleted_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	admin = &Admin{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return admin, nil
 
 }
 
@@ -22862,6 +23133,196 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) All_Admin(ctx context.Context) (
+	rows []*Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at FROM admins")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Admin, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				admin := &Admin{}
+				err = __rows.Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, admin)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_Admin_By_Email(ctx context.Context,
+	admin_email Admin_Email_Field) (
+	rows []*Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at FROM admins WHERE admins.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, admin_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Admin, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				admin := &Admin{}
+				err = __rows.Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, admin)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_Admin_By_Id(ctx context.Context,
+	admin_id Admin_Id_Field) (
+	admin *Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at FROM admins WHERE admins.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, admin_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	admin = &Admin{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+	if err != nil {
+		return (*Admin)(nil), obj.makeErr(err)
+	}
+	return admin, nil
+
+}
+
+func (obj *pgxImpl) Get_Admin_By_Email_And_Status_Not_Number(ctx context.Context,
+	admin_email Admin_Email_Field) (
+	admin *Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at FROM admins WHERE admins.email = ? AND admins.status != 0 LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, admin_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		admin, err = func() (admin *Admin, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			admin = &Admin{}
+			err = __rows.Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return admin, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("Admin_By_Email_And_Status_Not_Number")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return admin, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_Admin_Email_Admin_Status_Admin_Roles_By_Id(ctx context.Context,
+	admin_id Admin_Id_Field) (
+	row *Email_Status_Roles_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.email, admins.status, admins.roles FROM admins WHERE admins.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, admin_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Email_Status_Roles_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Email, &row.Status, &row.Roles)
+	if err != nil {
+		return (*Email_Status_Roles_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) Get_Web3BackupShare_Share_By_BackupId(ctx context.Context,
 	web3_backup_share_backup_id Web3BackupShare_BackupId_Field) (
 	row *Share_Row, err error) {
@@ -25901,6 +26362,72 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxImpl) Update_Admin_By_Id(ctx context.Context,
+	admin_id Admin_Id_Field,
+	update Admin_Update_Fields) (
+	admin *Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE admins SET "), __sets, __sqlbundle_Literal(" WHERE admins.id = ? RETURNING admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if update.Roles._set {
+		__values = append(__values, update.Roles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("roles = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, admin_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	admin = &Admin{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return admin, nil
+}
+
 func (obj *pgxImpl) Update_Web3BackupShare_By_BackupId(ctx context.Context,
 	web3_backup_share_backup_id Web3BackupShare_BackupId_Field,
 	update Web3BackupShare_Update_Fields) (
@@ -27004,6 +27531,33 @@ func (obj *pgxImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 
 }
 
+func (obj *pgxImpl) Delete_Admin_By_Id(ctx context.Context,
+	admin_id Admin_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM admins WHERE admins.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, admin_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl pgxImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
@@ -27619,6 +28173,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_final_statuses;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM admins;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -29584,6 +30148,42 @@ func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_Admin(ctx context.Context,
+	admin_id Admin_Id_Field,
+	admin_email Admin_Email_Field,
+	admin_password_hash Admin_PasswordHash_Field,
+	admin_updated_at Admin_UpdatedAt_Field,
+	optional Admin_Create_Fields) (
+	admin *Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := admin_id.value()
+	__email_val := admin_email.value()
+	__status_val := int(0)
+	__password_hash_val := admin_password_hash.value()
+	__roles_val := optional.Roles.value()
+	__created_at_val := __now
+	__updated_at_val := admin_updated_at.value()
+	__deleted_at_val := optional.DeletedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO admins ( id, email, status, password_hash, roles, created_at, updated_at, deleted_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __email_val, __status_val, __password_hash_val, __roles_val, __created_at_val, __updated_at_val, __deleted_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	admin = &Admin{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return admin, nil
 
 }
 
@@ -34705,6 +35305,196 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) All_Admin(ctx context.Context) (
+	rows []*Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at FROM admins")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Admin, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				admin := &Admin{}
+				err = __rows.Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, admin)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_Admin_By_Email(ctx context.Context,
+	admin_email Admin_Email_Field) (
+	rows []*Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at FROM admins WHERE admins.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, admin_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Admin, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				admin := &Admin{}
+				err = __rows.Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, admin)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_Admin_By_Id(ctx context.Context,
+	admin_id Admin_Id_Field) (
+	admin *Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at FROM admins WHERE admins.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, admin_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	admin = &Admin{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+	if err != nil {
+		return (*Admin)(nil), obj.makeErr(err)
+	}
+	return admin, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_Admin_By_Email_And_Status_Not_Number(ctx context.Context,
+	admin_email Admin_Email_Field) (
+	admin *Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at FROM admins WHERE admins.email = ? AND admins.status != 0 LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, admin_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		admin, err = func() (admin *Admin, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			admin = &Admin{}
+			err = __rows.Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return admin, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("Admin_By_Email_And_Status_Not_Number")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return admin, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_Admin_Email_Admin_Status_Admin_Roles_By_Id(ctx context.Context,
+	admin_id Admin_Id_Field) (
+	row *Email_Status_Roles_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT admins.email, admins.status, admins.roles FROM admins WHERE admins.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, admin_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Email_Status_Roles_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Email, &row.Status, &row.Roles)
+	if err != nil {
+		return (*Email_Status_Roles_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_Web3BackupShare_Share_By_BackupId(ctx context.Context,
 	web3_backup_share_backup_id Web3BackupShare_BackupId_Field) (
 	row *Share_Row, err error) {
@@ -37744,6 +38534,72 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxcockroachImpl) Update_Admin_By_Id(ctx context.Context,
+	admin_id Admin_Id_Field,
+	update Admin_Update_Fields) (
+	admin *Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE admins SET "), __sets, __sqlbundle_Literal(" WHERE admins.id = ? RETURNING admins.id, admins.email, admins.status, admins.password_hash, admins.roles, admins.created_at, admins.updated_at, admins.deleted_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if update.Roles._set {
+		__values = append(__values, update.Roles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("roles = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, admin_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	admin = &Admin{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&admin.Id, &admin.Email, &admin.Status, &admin.PasswordHash, &admin.Roles, &admin.CreatedAt, &admin.UpdatedAt, &admin.DeletedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return admin, nil
+}
+
 func (obj *pgxcockroachImpl) Update_Web3BackupShare_By_BackupId(ctx context.Context,
 	web3_backup_share_backup_id Web3BackupShare_BackupId_Field,
 	update Web3BackupShare_Update_Fields) (
@@ -38847,6 +39703,33 @@ func (obj *pgxcockroachImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx c
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Admin_By_Id(ctx context.Context,
+	admin_id Admin_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM admins WHERE admins.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, admin_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl pgxcockroachImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
@@ -39471,6 +40354,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM admins;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -39510,6 +40403,13 @@ type Methods interface {
 	All_AccountFreezeEvent_By_UserId(ctx context.Context,
 		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
 		rows []*AccountFreezeEvent, err error)
+
+	All_Admin(ctx context.Context) (
+		rows []*Admin, err error)
+
+	All_Admin_By_Email(ctx context.Context,
+		admin_email Admin_Email_Field) (
+		rows []*Admin, err error)
 
 	All_BackupFinalStatus_OrderBy_Desc_BackupDate(ctx context.Context) (
 		rows []*BackupFinalStatus, err error)
@@ -39804,6 +40704,14 @@ type Methods interface {
 		web3_backup_share_share Web3BackupShare_Share_Field) (
 		err error)
 
+	Create_Admin(ctx context.Context,
+		admin_id Admin_Id_Field,
+		admin_email Admin_Email_Field,
+		admin_password_hash Admin_PasswordHash_Field,
+		admin_updated_at Admin_UpdatedAt_Field,
+		optional Admin_Create_Fields) (
+		admin *Admin, err error)
+
 	Create_ApiKey(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
 		api_key_project_id ApiKey_ProjectId_Field,
@@ -40049,6 +40957,10 @@ type Methods interface {
 		account_freeze_event_event AccountFreezeEvent_Event_Field) (
 		deleted bool, err error)
 
+	Delete_Admin_By_Id(ctx context.Context,
+		admin_id Admin_Id_Field) (
+		deleted bool, err error)
+
 	Delete_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
@@ -40204,6 +41116,18 @@ type Methods interface {
 		account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
 		account_freeze_event_event AccountFreezeEvent_Event_Field) (
 		account_freeze_event *AccountFreezeEvent, err error)
+
+	Get_Admin_By_Email_And_Status_Not_Number(ctx context.Context,
+		admin_email Admin_Email_Field) (
+		admin *Admin, err error)
+
+	Get_Admin_By_Id(ctx context.Context,
+		admin_id Admin_Id_Field) (
+		admin *Admin, err error)
+
+	Get_Admin_Email_Admin_Status_Admin_Roles_By_Id(ctx context.Context,
+		admin_id Admin_Id_Field) (
+		row *Email_Status_Roles_Row, err error)
 
 	Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
@@ -40748,6 +41672,11 @@ type Methods interface {
 		account_freeze_event_event AccountFreezeEvent_Event_Field,
 		update AccountFreezeEvent_Update_Fields) (
 		account_freeze_event *AccountFreezeEvent, err error)
+
+	Update_Admin_By_Id(ctx context.Context,
+		admin_id Admin_Id_Field,
+		update Admin_Update_Fields) (
+		admin *Admin, err error)
 
 	Update_BackupFinalStatus_By_BackupDate(ctx context.Context,
 		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,

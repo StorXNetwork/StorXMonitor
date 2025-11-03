@@ -3095,6 +3095,25 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE webapp_sessions ADD COLUMN created_at timestamp with time zone NOT NULL DEFAULT now();`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add admins table",
+				Version:     288,
+				Action: migrate.SQL{
+					`CREATE TABLE admins (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	status integer NOT NULL,
+	password_hash bytea NOT NULL,
+	roles text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	PRIMARY KEY ( id )
+);`,
+					`CREATE INDEX admin_email_status_index ON admins ( email, status ) ;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
