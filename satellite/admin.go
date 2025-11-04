@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin"
-	backoffice "storj.io/storj/satellite/admin/back-office"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -71,7 +70,6 @@ type Admin struct {
 	Admin struct {
 		Listener net.Listener
 		Server   *admin.Server
-		Service  *backoffice.Service
 	}
 
 	Buckets struct {
@@ -252,16 +250,6 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
-		peer.Admin.Service = backoffice.NewService(
-			log.Named("back-office:service"),
-			peer.DB.Console(),
-			peer.DB.ProjectAccounting(),
-			peer.Accounting.Service,
-			placement,
-			config.Metainfo.ProjectLimits.MaxBuckets,
-			config.Metainfo.RateLimiter.Rate,
-		)
-
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 		// Use Console's AuthTokenSecret for JWT signing (same secret used for console auth tokens)
@@ -278,7 +266,6 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.FreezeAccounts.Service,
 			peer.Analytics.Service,
 			peer.Payments.Accounts,
-			peer.Admin.Service,
 			config.Console,
 			adminConfig,
 			placement,

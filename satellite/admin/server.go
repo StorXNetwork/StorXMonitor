@@ -29,7 +29,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/storj/private/emptyfs"
 	"storj.io/storj/satellite/accounting"
-	backoffice "storj.io/storj/satellite/admin/back-office"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
@@ -65,7 +64,6 @@ type Config struct {
 
 	AuthorizationToken string `internal:"true" help:"authorization token for API key authentication (legacy)"`
 	JWTSecretKey       string `internal:"true" help:"secret key for signing JWT tokens"`
-	BackOffice         backoffice.Config
 }
 
 // Groups defines permission groups.
@@ -130,7 +128,6 @@ func NewServer(
 	freezeAccounts *console.AccountFreezeService,
 	analyticsService *analytics.Service,
 	accounts payments.Accounts,
-	backOfficeService *backoffice.Service,
 	console consoleweb.Config,
 	config Config,
 	placement nodeselection.PlacementDefinitions,
