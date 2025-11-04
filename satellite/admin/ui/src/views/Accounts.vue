@@ -167,8 +167,11 @@ const refreshData = () => {
 };
 
 // Handle stats update from table component
+// NOTE: This is disabled because stats should come from backend API, not filtered table data
+// The stats cards should always show total counts, regardless of filters applied
 const handleStatsUpdate = (newStats: typeof stats.value) => {
-    stats.value = newStats;
+    // Don't update stats from filtered table - keep the real stats from backend
+    // stats.value = newStats; // Commented out to prevent overriding real stats
 };
 
 // Format number with commas

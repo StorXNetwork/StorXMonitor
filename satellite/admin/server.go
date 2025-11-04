@@ -228,6 +228,7 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/nodes/{nodeId}", server.getNodeDetails).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.userLimits).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/upgrade", server.upgradeUserAccount).Methods("POST")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-freeze", server.billingFreezeUser).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-freeze", server.billingUnfreezeUser).Methods("DELETE")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-warning", server.billingUnWarnUser).Methods("DELETE")
@@ -241,10 +242,16 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT")
 
-	// Auth endpoints (public, no auth required)
+	// Auth endpoints
 	authAPI := api.NewRoute().Subrouter()
 	authAPI.HandleFunc("/auth/login", server.loginHandler).Methods("POST")
 	authAPI.HandleFunc("/auth/logout", server.logoutHandler).Methods("POST")
+
+	// Current admin user endpoint (requires authentication)
+	authAPIWithAuth := api.NewRoute().Subrouter()
+	authAPIWithAuth.Use(server.withAuth([]string{config.Groups.LimitUpdate}, false))
+	authAPIWithAuth.HandleFunc("/auth/me", server.getCurrentAdminHandler).Methods("GET")
+	authAPIWithAuth.HandleFunc("/auth/me", server.updateCurrentAdminHandler).Methods("PUT")
 
 	// Settings and Placements endpoints (public, no auth required for basic info)
 	publicAPI := api.NewRoute().Subrouter()

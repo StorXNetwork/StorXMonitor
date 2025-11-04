@@ -24,31 +24,63 @@ const (
 
 // seedSuperAdmin creates a super admin user if one doesn't exist.
 // This is called during server startup to ensure there's always at least one admin.
+// It checks for any admin with super_admin role, not just a specific email,
+// so it works even if the super admin changes their email.
 func seedSuperAdmin(log *zap.Logger, db DB, _ string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	adminDB := db.AdminUsers()
 
-	// Quick existence check first
-	if adminExists(ctx, log, adminDB) {
+	// Check if any super_admin exists (by role, not email)
+	if superAdminExists(ctx, log, adminDB) {
 		return
 	}
 
 	createSuperAdmin(ctx, log, adminDB)
 }
 
-// adminExists checks if admin already exists and handles errors
-func adminExists(ctx context.Context, log *zap.Logger, adminDB Users) bool {
+// superAdminExists checks if any admin with super_admin role exists.
+// This is more robust than checking by email, as admins can change their email.
+func superAdminExists(ctx context.Context, log *zap.Logger, adminDB Users) bool {
+	// Get all admins (active, inactive, and deleted) to check for super_admin role
+	allAdmins, err := adminDB.ListAll(ctx)
+	if err != nil {
+		log.Error("Failed to list all admins for super admin check",
+			zap.Error(err))
+		// On error, try fallback check by email
+		return fallbackCheckByEmail(ctx, log, adminDB)
+	}
+
+	// Check if any admin has super_admin role (regardless of status)
+	for _, admin := range allAdmins {
+		if admin.Roles != nil && *admin.Roles == superAdminRole {
+			log.Info("Super admin already exists",
+				zap.String("email", admin.Email),
+				zap.String("role", *admin.Roles),
+				zap.String("id", admin.ID.String()),
+				zap.Int("status", int(admin.Status)))
+			return true
+		}
+	}
+
+	// No super_admin found by role, try fallback check by email
+	// This handles edge cases where the role might not be set correctly
+	return fallbackCheckByEmail(ctx, log, adminDB)
+}
+
+// fallbackCheckByEmail is a fallback method to check for super admin by email.
+// This is used when List() fails or to catch edge cases.
+func fallbackCheckByEmail(ctx context.Context, log *zap.Logger, adminDB Users) bool {
 	_, err := adminDB.GetByEmailAnyStatus(ctx, superAdminEmail)
 	switch {
 	case err == nil:
-		log.Info("Super admin already exists", zap.String("email", superAdminEmail))
+		log.Info("Super admin found by email fallback", zap.String("email", superAdminEmail))
 		return true
 	case errs.Is(err, ErrNotFound):
 		return false
 	default:
-		log.Error("Failed to check for existing super admin",
+		log.Error("Failed to check for existing super admin by email",
 			zap.Error(err),
 			zap.String("email", superAdminEmail))
 		// On error, assume it doesn't exist to allow creation attempt

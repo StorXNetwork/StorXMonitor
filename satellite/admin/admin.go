@@ -28,6 +28,8 @@ type Users interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// List returns all active admin users.
 	List(ctx context.Context) ([]AdminUser, error)
+	// ListAll returns all admin users regardless of status (for seeding checks).
+	ListAll(ctx context.Context) ([]AdminUser, error)
 }
 
 // AdminUserStatus indicates the status of an admin user.

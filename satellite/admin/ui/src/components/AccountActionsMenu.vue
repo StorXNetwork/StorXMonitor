@@ -47,6 +47,13 @@
                 </v-list-item-title>
             </v-list-item>
 
+            <v-list-item v-if="featureFlags.account.updateLimits" density="comfortable" link rounded="lg" base-color="success">
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Upgrade Account
+                    <AccountUpgradeDialog :userEmail="userEmail" @account-upgraded="handleAccountUpdated" />
+                </v-list-item-title>
+            </v-list-item>
+
             <v-divider v-if="featureFlags.account.resetMFA || featureFlags.account.suspend || featureFlags.account.delete" class="my-2" />
 
             <v-list-item v-if="featureFlags.account.resetMFA" density="comfortable" link rounded="lg">
@@ -89,6 +96,7 @@ import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 // import AccountUserAgentsDialog from '@/components/AccountUserAgentsDialog.vue';
 import AccountLimitsDialog from '@/components/AccountLimitsDialog.vue';
+import AccountUpgradeDialog from '@/components/AccountUpgradeDialog.vue';
 
 // Props
 const props = defineProps<{

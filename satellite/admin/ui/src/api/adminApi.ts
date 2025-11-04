@@ -166,6 +166,15 @@ export class AdminApi {
         search?: string;
         sortBy?: string;
         sortOrder?: 'asc' | 'desc';
+        email?: string;
+        storageMin?: number;
+        storageMax?: number;
+        utmSource?: string;
+        utmMedium?: string;
+        utmCampaign?: string;
+        utmTerm?: string;
+        utmContent?: string;
+        tier?: 'paid' | 'free';
     }): Promise<UserListResponse> {
         const queryParams = new URLSearchParams();
         if (params?.limit) queryParams.append('limit', params.limit.toString());
@@ -174,6 +183,15 @@ export class AdminApi {
         if (params?.search) queryParams.append('search', params.search);
         if (params?.sortBy) queryParams.append('sort_by', params.sortBy);
         if (params?.sortOrder) queryParams.append('sort_order', params.sortOrder);
+        if (params?.email) queryParams.append('email', params.email);
+        if (params?.storageMin !== undefined) queryParams.append('storage_min', params.storageMin.toString());
+        if (params?.storageMax !== undefined) queryParams.append('storage_max', params.storageMax.toString());
+        if (params?.utmSource) queryParams.append('utm_source', params.utmSource);
+        if (params?.utmMedium) queryParams.append('utm_medium', params.utmMedium);
+        if (params?.utmCampaign) queryParams.append('utm_campaign', params.utmCampaign);
+        if (params?.utmTerm) queryParams.append('utm_term', params.utmTerm);
+        if (params?.utmContent) queryParams.append('utm_content', params.utmContent);
+        if (params?.tier) queryParams.append('tier', params.tier);
 
         const fullPath = `${this.ROOT_PATH}/users${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
         const response = await this.http.get(fullPath);
@@ -278,6 +296,27 @@ export class AdminApi {
         }
         const err = await response.json();
         throw new APIError(err.error || err.detail || 'Failed to update user limits', response.status);
+    }
+
+    public async upgradeUserAccount(email: string, upgradeData: {
+        storageLimit: number;    // in bytes
+        bandwidthLimit: number;  // in bytes
+        upgradeToPaid?: boolean;
+        resetExpiration?: boolean;
+    }): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/users/${email}/upgrade`;
+        const response = await this.http.post(fullPath, JSON.stringify({
+            storageLimit: upgradeData.storageLimit,
+            bandwidthLimit: upgradeData.bandwidthLimit,
+            upgradeToPaid: upgradeData.upgradeToPaid ?? true,
+            resetExpiration: upgradeData.resetExpiration ?? true,
+        }));
+
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to upgrade user account', response.status);
     }
 
     public async createUser(userData: {
@@ -590,6 +629,98 @@ export class AdminApi {
     }
 
     // Dashboard Statistics APIs
+    // Admin User Management APIs
+    public async getCurrentAdmin(): Promise<{
+        id: string;
+        email: string;
+        role: string;
+        status: number;
+        createdAt: string;
+        updatedAt: string;
+    }> {
+        const fullPath = `${this.ROOT_PATH}/auth/me`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            const responseText = await response.text();
+            if (!responseText || responseText.trim() === '') {
+                throw new APIError('Empty response from server', response.status);
+            }
+            try {
+                return JSON.parse(responseText) as {
+                    id: string;
+                    email: string;
+                    role: string;
+                    status: number;
+                    createdAt: string;
+                    updatedAt: string;
+                };
+            } catch (parseError) {
+                throw new APIError(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`, response.status);
+            }
+        }
+        // Handle error response
+        let errorMessage = 'Failed to get current admin';
+        try {
+            const errorText = await response.text();
+            if (errorText) {
+                const err = JSON.parse(errorText);
+                errorMessage = err.error || err.detail || errorMessage;
+            }
+        } catch {
+            // If error response is not JSON, use status text
+            errorMessage = response.statusText || errorMessage;
+        }
+        throw new APIError(errorMessage, response.status);
+    }
+
+    public async updateCurrentAdmin(data: {
+        email?: string;
+        password?: string;
+        // Role cannot be updated by self - security restriction
+    }): Promise<{
+        id: string;
+        email: string;
+        role: string;
+        status: number;
+        createdAt: string;
+        updatedAt: string;
+    }> {
+        const fullPath = `${this.ROOT_PATH}/auth/me`;
+        const response = await this.http.put(fullPath, JSON.stringify(data));
+        if (response.ok) {
+            const responseText = await response.text();
+            if (!responseText || responseText.trim() === '') {
+                throw new APIError('Empty response from server', response.status);
+            }
+            try {
+                return JSON.parse(responseText) as {
+                    id: string;
+                    email: string;
+                    role: string;
+                    status: number;
+                    createdAt: string;
+                    updatedAt: string;
+                };
+            } catch (parseError) {
+                throw new APIError(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`, response.status);
+            }
+        }
+        // Handle error response
+        let errorMessage = 'Failed to update admin';
+        try {
+            const errorText = await response.text();
+            if (errorText) {
+                const err = JSON.parse(errorText);
+                errorMessage = err.error || err.detail || errorMessage;
+            }
+        } catch {
+            // If error response is not JSON, use status text
+            errorMessage = response.statusText || errorMessage;
+        }
+        throw new APIError(errorMessage, response.status);
+    }
+
+    // Dashboard Statistics APIs
     public async getDashboardStats(): Promise<{
         totalAccounts: number;
         active: number;
@@ -601,11 +732,10 @@ export class AdminApi {
         pro: number;
         free: number;
     }> {
-        // This would need to be implemented in server.go
-        // For now, we'll calculate from users data
-        const users = await this.getAllUsers({ limit: 1000 });
+        // Fetch ALL users without filters to get accurate stats
+        // Use a high limit to get all users, or fetch in batches
         const stats = {
-            totalAccounts: users.totalCount,
+            totalAccounts: 0,
             active: 0,
             inactive: 0,
             deleted: 0,
@@ -616,37 +746,57 @@ export class AdminApi {
             free: 0,
         };
 
-        // Count by status and account type
-        users.users.forEach(user => {
-            // Count by status (0=Inactive, 1=Active, 2=Deleted, 3=PendingDeletion, 4=LegalHold, 5=PendingBotVerification)
-            switch (user.status) {
-                case 0:
-                    stats.inactive++;
-                    break;
-                case 1:
-                    stats.active++;
-                    break;
-                case 2:
-                    stats.deleted++;
-                    break;
-                case 3:
-                    stats.pendingDeletion++;
-                    break;
-                case 4:
-                    stats.legalHold++;
-                    break;
-                case 5:
-                    stats.pendingBotVerification++;
-                    break;
-            }
-            
-            // Count by account type based on paidTier
-            if (user.paidTier) {
-                stats.pro++;
-            } else {
-                stats.free++;
-            }
-        });
+        // Fetch users in batches to get all users (max 500 per request)
+        let page = 1;
+        let hasMore = true;
+        const limit = 500;
+
+        while (hasMore) {
+            const response = await this.getAllUsers({
+                limit: limit,
+                page: page,
+                // No filters - get all users
+            });
+
+            // Count by status and account type
+            response.users.forEach(user => {
+                // Count by status (0=Inactive, 1=Active, 2=Deleted, 3=PendingDeletion, 4=LegalHold, 5=PendingBotVerification)
+                switch (user.status) {
+                    case 0:
+                        stats.inactive++;
+                        break;
+                    case 1:
+                        stats.active++;
+                        break;
+                    case 2:
+                        stats.deleted++;
+                        break;
+                    case 3:
+                        stats.pendingDeletion++;
+                        break;
+                    case 4:
+                        stats.legalHold++;
+                        break;
+                    case 5:
+                        stats.pendingBotVerification++;
+                        break;
+                }
+                
+                // Count by account type based on paidTier
+                if (user.paidTier) {
+                    stats.pro++;
+                } else {
+                    stats.free++;
+                }
+            });
+
+            // Update total from response (should be the same across pages)
+            stats.totalAccounts = response.totalCount;
+
+            // Check if there are more pages
+            hasMore = response.hasMore && page < response.pageCount;
+            page++;
+        }
 
         return stats;
     }

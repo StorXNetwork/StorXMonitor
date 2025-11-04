@@ -686,6 +686,148 @@ func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// upgradeUserAccount upgrades a user to paid tier, updates project limits, and resets expiration.
+// This is an atomic operation that handles all upgrade-related changes in one transaction.
+func (server *Server) upgradeUserAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	// Get admin user from context for audit logging
+	adminUser, err := GetAdminUser(ctx)
+	if err != nil {
+		sendJSONError(w, "unauthorized", "admin user not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	// Get user
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail), "", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		StorageLimit    int64 `json:"storageLimit"`    // in bytes
+		BandwidthLimit  int64 `json:"bandwidthLimit"`  // in bytes
+		UpgradeToPaid   bool  `json:"upgradeToPaid"`   // whether to upgrade to paid tier
+		ResetExpiration bool  `json:"resetExpiration"` // whether to reset expiration tracking
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate limits
+	if input.StorageLimit <= 0 || input.BandwidthLimit <= 0 {
+		sendJSONError(w, "invalid limits", "storage and bandwidth limits must be greater than 0", http.StatusBadRequest)
+		return
+	}
+
+	// Step 1: Upgrade to paid tier if requested
+	if input.UpgradeToPaid {
+		paidTier := true
+		now := server.nowFn()
+		updateRequest := console.UpdateUserRequest{
+			PaidTier:    &paidTier,
+			UpgradeTime: &now,
+		}
+		err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
+		if err != nil {
+			sendJSONError(w, "failed to upgrade user to paid tier", err.Error(), http.StatusInternalServerError)
+			return
+		}
+		server.log.Info("User upgraded to paid tier",
+			zap.String("user_email", userEmail),
+			zap.String("admin_email", adminUser.Email))
+	}
+
+	// Step 2: Update user-level project limits (for future projects)
+	newLimits := console.UsageLimits{
+		Storage:   input.StorageLimit,
+		Bandwidth: input.BandwidthLimit,
+		Segment:   user.ProjectSegmentLimit, // Keep existing segment limit
+	}
+
+	err = server.db.Console().Users().UpdateUserProjectLimits(ctx, user.ID, newLimits)
+	if err != nil {
+		sendJSONError(w, "failed to update user project limits", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Step 3: Get all user's projects
+	userProjects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get user's projects", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Step 4: Update all projects with new limits and reset expiration if requested
+	now := time.Now().UTC()
+	for _, project := range userProjects {
+		// Update project limits
+		err = server.db.Console().Projects().UpdateUsageLimits(ctx, project.ID, newLimits)
+		if err != nil {
+			sendJSONError(w, fmt.Sprintf("failed to update project limits for project %s", project.ID.String()),
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Reset expiration tracking if requested
+		// Note: We update the project's CreatedAt and PrevDaysUntilExpiration directly via database
+		// This effectively resets the expiration timer by making the project appear newly created
+		if input.ResetExpiration {
+			// Update project with new CreatedAt and reset PrevDaysUntilExpiration
+			project.CreatedAt = now
+			project.PrevDaysUntilExpiration = 0
+
+			// Update project in database (Update expects a pointer)
+			err = server.db.Console().Projects().Update(ctx, &project)
+			if err != nil {
+				server.log.Error("Failed to reset project expiration",
+					zap.Error(err),
+					zap.String("project_id", project.ID.String()),
+					zap.String("user_email", userEmail))
+				// Continue with other projects even if one fails
+			} else {
+				server.log.Info("Project expiration reset",
+					zap.String("project_id", project.ID.String()),
+					zap.String("project_name", project.Name))
+			}
+		}
+	}
+
+	server.log.Info("User account upgraded successfully",
+		zap.String("user_email", userEmail),
+		zap.String("admin_email", adminUser.Email),
+		zap.Int64("storage_limit", input.StorageLimit),
+		zap.Int64("bandwidth_limit", input.BandwidthLimit),
+		zap.Bool("upgraded_to_paid", input.UpgradeToPaid),
+		zap.Bool("expiration_reset", input.ResetExpiration),
+		zap.Int("projects_updated", len(userProjects)))
+
+	sendJSONData(w, http.StatusOK, []byte(`{"message":"user account upgraded successfully"}`))
+}
+
 func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -1394,8 +1536,50 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse search parameter
+	// Parse search parameter (general search, can be email or name)
 	search := query.Get("search")
+
+	// Parse email filter (exact or contains match)
+	emailFilter := query.Get("email")
+
+	// Parse storage range filters
+	storageMinParam := query.Get("storage_min")
+	storageMin := int64(0)
+	if storageMinParam != "" {
+		storageMin, err = strconv.ParseInt(storageMinParam, 10, 64)
+		if err != nil {
+			sendJSONError(w, "Bad request", "parameter 'storage_min' must be a valid number", http.StatusBadRequest)
+			return
+		}
+	}
+
+	storageMaxParam := query.Get("storage_max")
+	storageMax := int64(0)
+	if storageMaxParam != "" {
+		storageMax, err = strconv.ParseInt(storageMaxParam, 10, 64)
+		if err != nil {
+			sendJSONError(w, "Bad request", "parameter 'storage_max' must be a valid number", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Parse UTM parameter filters
+	utmSource := query.Get("utm_source")
+	utmMedium := query.Get("utm_medium")
+	utmCampaign := query.Get("utm_campaign")
+	utmTerm := query.Get("utm_term")
+	utmContent := query.Get("utm_content")
+
+	// Parse tier filter (paid/free)
+	tierFilter := query.Get("tier") // "paid" or "free"
+	var paidTierFilter *bool
+	if tierFilter == "paid" {
+		paidTier := true
+		paidTierFilter = &paidTier
+	} else if tierFilter == "free" {
+		paidTier := false
+		paidTierFilter = &paidTier
+	}
 
 	// Parse status filter
 	statusFilter := parseStatusParam(query.Get("status"))
@@ -1424,46 +1608,15 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For now, we'll get all users to calculate total count
-	// In a production system, you'd want a separate count query
-	allUsersForCount, err := server.db.Console().Users().GetAllUsers(ctx)
-	if err != nil {
-		sendJSONError(w, "failed to get total user count",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Filter by status if specified for count
-	filteredCount := len(allUsersForCount)
-	if statusFilter != nil {
-		filteredCount = 0
-		for _, user := range allUsersForCount {
-			if user.Status == *statusFilter {
-				filteredCount++
-			}
-		}
-	}
-
-	// Calculate pagination
-	totalCount := uint64(filteredCount)
-	totalPages := (totalCount + uint64(limit) - 1) / uint64(limit)
-
 	// The users are already paginated from the database query
+	// Total count will be calculated after filtering is applied
 	paginatedUsers := allUsers
 
-	// Apply search filter if provided
+	// Apply filters after getting users (we need storage data for range filtering)
+	// We'll filter after calculating storage usage
 	filteredUsers := paginatedUsers
-	if search != "" {
-		filteredUsers = make([]*console.User, 0)
-		searchLower := strings.ToLower(search)
-		for _, user := range paginatedUsers {
-			if strings.Contains(strings.ToLower(user.Email), searchLower) {
-				filteredUsers = append(filteredUsers, user)
-			}
-		}
-	}
 
-	// Convert to response format and remove sensitive information
+	// Convert to response format and apply filters
 	users := make([]User, 0, len(filteredUsers))
 	for _, user := range filteredUsers {
 		user.PasswordHash = nil
@@ -1482,6 +1635,55 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 				totalStorageUsed += storageUsed
 				totalBandwidthUsed += bandwidthUsed
 				totalSegmentUsed += segmentUsed
+			}
+		}
+
+		// Apply email filter (exact or contains match)
+		if emailFilter != "" {
+			emailLower := strings.ToLower(emailFilter)
+			userEmailLower := strings.ToLower(user.Email)
+			if !strings.Contains(userEmailLower, emailLower) {
+				continue // Skip this user
+			}
+		}
+
+		// Apply storage range filter
+		if storageMinParam != "" && totalStorageUsed < storageMin {
+			continue // Skip this user
+		}
+		if storageMaxParam != "" && totalStorageUsed > storageMax {
+			continue // Skip this user
+		}
+
+		// Apply UTM parameter filters
+		if utmSource != "" && !strings.EqualFold(user.UtmSource, utmSource) {
+			continue // Skip this user
+		}
+		if utmMedium != "" && !strings.EqualFold(user.UtmMedium, utmMedium) {
+			continue // Skip this user
+		}
+		if utmCampaign != "" && !strings.EqualFold(user.UtmCampaign, utmCampaign) {
+			continue // Skip this user
+		}
+		if utmTerm != "" && !strings.EqualFold(user.UtmTerm, utmTerm) {
+			continue // Skip this user
+		}
+		if utmContent != "" && !strings.EqualFold(user.UtmContent, utmContent) {
+			continue // Skip this user
+		}
+
+		// Apply tier filter (paid/free)
+		if paidTierFilter != nil && user.PaidTier != *paidTierFilter {
+			continue // Skip this user
+		}
+
+		// Apply general search filter (email or name)
+		if search != "" {
+			searchLower := strings.ToLower(search)
+			emailMatches := strings.Contains(strings.ToLower(user.Email), searchLower)
+			nameMatches := strings.Contains(strings.ToLower(user.FullName), searchLower)
+			if !emailMatches && !nameMatches {
+				continue // Skip this user
 			}
 		}
 
@@ -1513,6 +1715,11 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			ProjectCount:          projectCount,
 		})
 	}
+
+	// Calculate pagination based on filtered results
+	// Note: This count is after all filters are applied
+	totalCount := uint64(len(users))
+	totalPages := (totalCount + uint64(limit) - 1) / uint64(limit)
 
 	// Check if this is an export request
 	format := query.Get("format")

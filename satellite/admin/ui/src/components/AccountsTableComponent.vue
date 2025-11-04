@@ -2,25 +2,312 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" rounded="xlg" border>
-        <div class="d-flex justify-between mx-2 mt-2" style="max-width: 1200px; margin: 0 auto;">
-            <div></div>
-            <div class="d-flex align-center gap-4" style="max-width: 700px;">
-        <v-text-field
-            v-model="search" label="Search" prepend-inner-icon="mdi-magnify" single-line variant="solo-filled" flat
-                    hide-details clearable density="compact" rounded="lg"
-                    style="min-width: 350px;"
-                    @input="loadUsers"
+    <v-card variant="flat" rounded="xlg" border class="mb-4">
+        <!-- Filter Section -->
+        <v-card-text class="pa-4">
+            <div class="d-flex align-center justify-space-between mb-4">
+                <div class="d-flex align-center gap-2">
+                    <v-icon icon="mdi-filter" size="20" color="primary"></v-icon>
+                    <span class="text-h6 font-weight-medium">Filters</span>
+                    <v-chip v-if="activeFiltersCount > 0" size="small" color="primary" variant="flat" class="ml-2">
+                        {{ activeFiltersCount }} active
+                    </v-chip>
+                </div>
+                <v-btn
+                    v-if="activeFiltersCount > 0"
+                    variant="text"
+                    color="error"
+                    size="small"
+                    prepend-icon="mdi-close-circle"
+                    @click="clearAllFilters"
+                >
+                    Clear All
+                </v-btn>
+            </div>
+
+            <!-- Quick Filters Row -->
+            <div class="d-flex flex-wrap align-center gap-3 mb-3">
+                <v-text-field
+                    v-model="search"
+                    label="Search users"
+                    prepend-inner-icon="mdi-magnify"
+                    variant="outlined"
+                    density="comfortable"
+                    hide-details
+                    clearable
+                    rounded="lg"
+                    class="flex-grow-1"
+                    style="min-width: 280px; max-width: 400px;"
+                    @input="debouncedLoadUsers"
                 />
+                
+                <v-text-field
+                    v-model="emailFilter"
+                    label="Email"
+                    prepend-inner-icon="mdi-email-outline"
+                    variant="outlined"
+                    density="comfortable"
+                    hide-details
+                    clearable
+                    rounded="lg"
+                    style="min-width: 220px; max-width: 300px;"
+                    @input="debouncedLoadUsers"
+                />
+
                 <v-select
-                    v-model="statusFilter" label="Status" prepend-inner-icon="mdi-filter" single-line variant="outlined" flat
-                    hide-details clearable density="compact" rounded="lg"
-                    style="width: 250px;"
-                    :items="statusOptions" item-title="text" item-value="value"
+                    v-model="statusFilter"
+                    label="Status"
+                    prepend-inner-icon="mdi-account-check-outline"
+                    variant="outlined"
+                    density="comfortable"
+                    hide-details
+                    clearable
+                    rounded="lg"
+                    :items="statusOptions"
+                    item-title="text"
+                    item-value="value"
+                    style="min-width: 160px; max-width: 200px;"
+                    @update:model-value="loadUsers"
+                />
+
+                <v-select
+                    v-model="tierFilter"
+                    label="Tier"
+                    prepend-inner-icon="mdi-crown-outline"
+                    variant="outlined"
+                    density="comfortable"
+                    hide-details
+                    clearable
+                    rounded="lg"
+                    :items="tierOptions"
+                    item-title="text"
+                    item-value="value"
+                    style="min-width: 140px; max-width: 180px;"
                     @update:model-value="loadUsers"
                 />
             </div>
-        </div>
+
+            <!-- Active Filter Chips -->
+            <div v-if="activeFiltersCount > 0" class="d-flex flex-wrap align-center gap-2 mb-3 pa-3" style="background-color: rgba(var(--v-theme-primary), 0.05); border-radius: 12px;">
+                <span class="text-caption text-medium-emphasis mr-2">Active filters:</span>
+                <v-chip
+                    v-if="emailFilter"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="emailFilter = ''; loadUsers()"
+                >
+                    <v-icon start icon="mdi-email-outline" size="16"></v-icon>
+                    Email: {{ emailFilter }}
+                </v-chip>
+                <v-chip
+                    v-if="statusFilter"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="statusFilter = ''; loadUsers()"
+                >
+                    <v-icon start icon="mdi-account-check-outline" size="16"></v-icon>
+                    Status: {{ getStatusText(parseInt(statusFilter)) }}
+                </v-chip>
+                <v-chip
+                    v-if="tierFilter"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="tierFilter = ''; loadUsers()"
+                >
+                    <v-icon start icon="mdi-crown-outline" size="16"></v-icon>
+                    Tier: {{ tierFilter === 'paid' ? 'Paid' : 'Free' }}
+                </v-chip>
+                <v-chip
+                    v-if="storageMin || storageMax"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="storageMin = null; storageMax = null; loadUsers()"
+                >
+                    <v-icon start icon="mdi-harddisk" size="16"></v-icon>
+                    Storage: {{ formatStorageRange() }}
+                </v-chip>
+                <v-chip
+                    v-if="utmSource"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="utmSource = ''; loadUsers()"
+                >
+                    <v-icon start icon="mdi-source-branch" size="16"></v-icon>
+                    UTM Source: {{ utmSource }}
+                </v-chip>
+                <v-chip
+                    v-if="utmMedium"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="utmMedium = ''; loadUsers()"
+                >
+                    <v-icon start icon="mdi-source-merge" size="16"></v-icon>
+                    UTM Medium: {{ utmMedium }}
+                </v-chip>
+                <v-chip
+                    v-if="utmCampaign"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="utmCampaign = ''; loadUsers()"
+                >
+                    <v-icon start icon="mdi-bullhorn" size="16"></v-icon>
+                    UTM Campaign: {{ utmCampaign }}
+                </v-chip>
+            </div>
+
+            <!-- Advanced Filters Section -->
+            <v-expand-transition>
+                <v-card v-if="showAdvancedFilters" variant="tonal" color="primary" class="pa-4" rounded="lg">
+                    <div class="d-flex align-center justify-space-between mb-3">
+                        <div class="d-flex align-center gap-2">
+                            <v-icon icon="mdi-tune" size="20" color="primary"></v-icon>
+                            <span class="text-subtitle-1 font-weight-medium">Advanced Filters</span>
+                        </div>
+                        <v-btn
+                            icon
+                            size="small"
+                            variant="text"
+                            @click="showAdvancedFilters = false"
+                        >
+                            <v-icon>mdi-chevron-up</v-icon>
+                        </v-btn>
+                    </div>
+
+                    <div class="d-flex flex-wrap align-center gap-3">
+                        <!-- Storage Range -->
+                        <div class="d-flex align-center gap-2" style="min-width: 100%;">
+                            <v-text-field
+                                v-model.number="storageMin"
+                                label="Min Storage"
+                                prepend-inner-icon="mdi-harddisk"
+                                variant="outlined"
+                                density="comfortable"
+                                hide-details
+                                type="number"
+                                rounded="lg"
+                                class="flex-grow-1"
+                                style="max-width: 200px;"
+                                @input="debouncedLoadUsers"
+                            />
+                            <v-icon icon="mdi-arrow-right" size="20" class="mx-2"></v-icon>
+                            <v-text-field
+                                v-model.number="storageMax"
+                                label="Max Storage"
+                                prepend-inner-icon="mdi-harddisk-plus"
+                                variant="outlined"
+                                density="comfortable"
+                                hide-details
+                                type="number"
+                                rounded="lg"
+                                class="flex-grow-1"
+                                style="max-width: 200px;"
+                                @input="debouncedLoadUsers"
+                            />
+                            <v-chip v-if="storageMin || storageMax" size="small" color="info" variant="flat" class="ml-2">
+                                {{ formatBytes(storageMin || 0) }} - {{ formatBytes(storageMax || 0) }}
+                            </v-chip>
+                        </div>
+
+                        <!-- UTM Parameters -->
+                        <v-text-field
+                            v-model="utmSource"
+                            label="UTM Source"
+                            prepend-inner-icon="mdi-source-branch"
+                            variant="outlined"
+                            density="comfortable"
+                            hide-details
+                            clearable
+                            rounded="lg"
+                            style="min-width: 200px; max-width: 250px;"
+                            @input="debouncedLoadUsers"
+                        />
+
+                        <v-text-field
+                            v-model="utmMedium"
+                            label="UTM Medium"
+                            prepend-inner-icon="mdi-source-merge"
+                            variant="outlined"
+                            density="comfortable"
+                            hide-details
+                            clearable
+                            rounded="lg"
+                            style="min-width: 200px; max-width: 250px;"
+                            @input="debouncedLoadUsers"
+                        />
+
+                        <v-text-field
+                            v-model="utmCampaign"
+                            label="UTM Campaign"
+                            prepend-inner-icon="mdi-bullhorn"
+                            variant="outlined"
+                            density="comfortable"
+                            hide-details
+                            clearable
+                            rounded="lg"
+                            style="min-width: 200px; max-width: 250px;"
+                            @input="debouncedLoadUsers"
+                        />
+
+                        <v-text-field
+                            v-model="utmTerm"
+                            label="UTM Term"
+                            prepend-inner-icon="mdi-tag-outline"
+                            variant="outlined"
+                            density="comfortable"
+                            hide-details
+                            clearable
+                            rounded="lg"
+                            style="min-width: 200px; max-width: 250px;"
+                            @input="debouncedLoadUsers"
+                        />
+
+                        <v-text-field
+                            v-model="utmContent"
+                            label="UTM Content"
+                            prepend-inner-icon="mdi-content-copy"
+                            variant="outlined"
+                            density="comfortable"
+                            hide-details
+                            clearable
+                            rounded="lg"
+                            style="min-width: 200px; max-width: 250px;"
+                            @input="debouncedLoadUsers"
+                        />
+                    </div>
+                </v-card>
+            </v-expand-transition>
+
+            <!-- Advanced Filters Toggle -->
+            <div class="d-flex justify-center mt-3">
+                <v-btn
+                    variant="text"
+                    color="primary"
+                    size="small"
+                    :prepend-icon="showAdvancedFilters ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                    @click="showAdvancedFilters = !showAdvancedFilters"
+                >
+                    {{ showAdvancedFilters ? 'Hide' : 'Show' }} Advanced Filters
+                </v-btn>
+            </div>
+        </v-card-text>
+    </v-card>
+
+    <!-- Data Table Card -->
+    <v-card variant="flat" rounded="xlg" border>
 
         <!-- Loading state -->
         <div v-if="loading" class="d-flex justify-center align-center py-8">
@@ -131,7 +418,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { VCard, VTextField, VSelect, VBtn, VIcon, VChip, VProgressCircular, VAlert, VAlertTitle } from 'vuetify/components';
+import { VCard, VTextField, VSelect, VBtn, VIcon, VChip, VProgressCircular, VAlert, VAlertTitle, VExpandTransition } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
@@ -163,7 +450,17 @@ const router = useRouter();
 const appStore = useAppStore();
 
 const search = ref<string>('');
+const emailFilter = ref<string>('');
 const statusFilter = ref<string>('');
+const tierFilter = ref<string>('');
+const storageMin = ref<number | null>(null);
+const storageMax = ref<number | null>(null);
+const utmSource = ref<string>('');
+const utmMedium = ref<string>('');
+const utmCampaign = ref<string>('');
+const utmTerm = ref<string>('');
+const utmContent = ref<string>('');
+const showAdvancedFilters = ref(false);
 const selected = ref<string[]>([]);
 const sortBy = ref([{ key: 'email', order: 'asc' as const }]);
 const loading = ref(true);
@@ -184,6 +481,12 @@ const statusOptions = [
     { text: 'Pending Bot Verification', value: '5' },
 ];
 
+const tierOptions = [
+    { text: 'All Tiers', value: '' },
+    { text: 'Paid', value: 'paid' },
+    { text: 'Free', value: 'free' },
+];
+
 const headers = [
     { title: 'Account', key: 'email' },
     { title: 'Storage', key: 'storageUsed' },
@@ -199,6 +502,67 @@ const headers = [
     { title: 'Created', key: 'createdAt', align: 'start' as const },
 ];
 
+// Debounce function for search inputs
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+const debouncedLoadUsers = () => {
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(() => {
+        loadUsers();
+    }, 500);
+};
+
+// Clear all filters
+const clearAllFilters = () => {
+    search.value = '';
+    emailFilter.value = '';
+    statusFilter.value = '';
+    tierFilter.value = '';
+    storageMin.value = null;
+    storageMax.value = null;
+    utmSource.value = '';
+    utmMedium.value = '';
+    utmCampaign.value = '';
+    utmTerm.value = '';
+    utmContent.value = '';
+    loadUsers();
+};
+
+// Clear advanced filters only
+const clearAdvancedFilters = () => {
+    storageMin.value = null;
+    storageMax.value = null;
+    utmSource.value = '';
+    utmMedium.value = '';
+    utmCampaign.value = '';
+    utmTerm.value = '';
+    utmContent.value = '';
+    loadUsers();
+};
+
+// Count active filters
+const activeFiltersCount = computed(() => {
+    let count = 0;
+    if (emailFilter.value) count++;
+    if (statusFilter.value) count++;
+    if (tierFilter.value) count++;
+    if (storageMin.value || storageMax.value) count++;
+    if (utmSource.value) count++;
+    if (utmMedium.value) count++;
+    if (utmCampaign.value) count++;
+    if (utmTerm.value) count++;
+    if (utmContent.value) count++;
+    return count;
+});
+
+// Format storage range for chip display
+const formatStorageRange = () => {
+    const min = storageMin.value ? formatBytes(storageMin.value) : '0';
+    const max = storageMax.value ? formatBytes(storageMax.value) : '∞';
+    return `${min} - ${max}`;
+};
+
 // Load users data
 const loadUsers = async () => {
     try {
@@ -209,7 +573,16 @@ const loadUsers = async () => {
             limit: itemsPerPage.value,
             page: currentPage.value,
             search: search.value || undefined,
+            email: emailFilter.value || undefined,
             status: statusFilter.value || undefined,
+            tier: tierFilter.value ? (tierFilter.value as 'paid' | 'free') : undefined,
+            storageMin: storageMin.value ?? undefined,
+            storageMax: storageMax.value ?? undefined,
+            utmSource: utmSource.value || undefined,
+            utmMedium: utmMedium.value || undefined,
+            utmCampaign: utmCampaign.value || undefined,
+            utmTerm: utmTerm.value || undefined,
+            utmContent: utmContent.value || undefined,
             sortBy: sortBy.value[0]?.key || 'email',
             sortOrder: sortBy.value[0]?.order || 'asc',
         });
@@ -218,8 +591,8 @@ const loadUsers = async () => {
         totalPages.value = response.pageCount;
         totalCount.value = response.totalCount;
         
-        // Emit stats update
-        emitStatsUpdate();
+        // Don't emit stats update - stats should come from backend API (getDashboardStats)
+        // Filtered table data should not override the real stats
     } catch (err) {
         console.error('Failed to load users:', err);
         error.value = err instanceof Error ? err.message : 'Unknown error occurred';
@@ -306,21 +679,11 @@ const handleItemsPerPageChange = (itemsPerPageValue: number) => {
     loadUsers();
 };
 
-// Emit stats update
-const emitStatsUpdate = () => {
-    const stats = {
-        totalAccounts: totalCount.value,
-        active: users.value.filter(u => u.status === 1).length,
-        inactive: users.value.filter(u => u.status === 0).length,
-        deleted: users.value.filter(u => u.status === 2).length,
-        pendingDeletion: users.value.filter(u => u.status === 3).length,
-        legalHold: users.value.filter(u => u.status === 4).length,
-        pendingBotVerification: users.value.filter(u => u.status === 5).length,
-        pro: users.value.filter(u => u.paidTier).length,
-        free: users.value.filter(u => !u.paidTier).length,
-    };
-    emit('stats-updated', stats);
-};
+// Emit stats update - REMOVED: Stats should come from backend API, not from filtered table data
+// The stats cards should show total counts, not filtered counts
+// const emitStatsUpdate = () => {
+//     // Don't emit filtered stats - stats should come from getDashboardStats API
+// };
 
 // Watch for refresh trigger
 watch(() => props.refreshTrigger, () => {
