@@ -12,7 +12,7 @@ const routes = [
     },
     {
         path: '/',
-        redirect: '/dashboard',
+        redirect: '/login',
     },
     {
         path: '/',
@@ -77,14 +77,26 @@ const router = createRouter({
     routes,
 });
 
+// Helper function to check if cookie exists
+function getCookie(name: string): string | null {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+        return parts.pop()?.split(';').shift() || null;
+    }
+    return null;
+}
+
 // Router guard - protect routes except login
+// Uses cookie-based auth (same as console)
 router.beforeEach((to, from, next) => {
-    const token = localStorage.getItem('adminToken');
+    const cookieName = '_admin_tokenKey';
+    const hasTokenCookie = getCookie(cookieName) !== null;
     
     // Allow access to login page without token
     if (to.path === '/login') {
-        // If already logged in, redirect to dashboard
-        if (token) {
+        // If already logged in (has cookie), redirect to dashboard
+        if (hasTokenCookie) {
             next('/dashboard');
         } else {
             next();
@@ -92,8 +104,9 @@ router.beforeEach((to, from, next) => {
         return;
     }
     
-    // Protect all other routes
-    if (!token) {
+    // Protect all other routes - check for cookie
+    // If no cookie, backend will return 401 and handleUnauthorized will redirect to login
+    if (!hasTokenCookie) {
         next('/login');
     } else {
         next();

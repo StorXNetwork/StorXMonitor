@@ -7,20 +7,31 @@
             <v-col cols="12" sm="8" md="6" lg="4">
                 <v-card variant="flat" class="pa-6" rounded="xlg" border>
                     <v-card-title class="text-h4 mb-2">Storx Admin</v-card-title>
-                    <v-card-subtitle class="mb-4">Enter your admin token to continue</v-card-subtitle>
+                    <v-card-subtitle class="mb-4">Enter your credentials to continue</v-card-subtitle>
                     
                     <v-form v-model="isFormValid" @submit.prevent="login">
                         <v-text-field
-                            v-model="token"
-                            label="Admin Token"
+                            v-model="email"
+                            label="Email"
+                            type="email"
+                            variant="outlined"
+                            class="mb-3"
+                            :disabled="isLoading"
+                            :rules="emailRules"
+                            autofocus
+                            autocomplete="username"
+                        />
+                        
+                        <v-text-field
+                            v-model="password"
+                            label="Password"
                             type="password"
                             variant="outlined"
                             class="mb-4"
                             :disabled="isLoading"
-                            :rules="tokenRules"
+                            :rules="passwordRules"
                             :error-messages="errorMessage"
-                            autofocus
-                            autocomplete="off"
+                            autocomplete="current-password"
                         />
                         
                         <v-btn
@@ -48,14 +59,23 @@ import { AdminHttpClient } from '@/utils/adminHttpClient';
 const router = useRouter();
 const notify = useNotificationsStore();
 
-const token = ref<string>('');
+const email = ref<string>('');
+const password = ref<string>('');
 const isLoading = ref<boolean>(false);
 const isFormValid = ref<boolean>(false);
 const errorMessage = ref<string>('');
 
-const tokenRules = [
-    (v: string) => !!v || 'Token is required',
-    (v: string) => v.length >= 3 || 'Token must be at least 3 characters',
+const emailRules = [
+    (v: string) => !!v || 'Email is required',
+    (v: string) => {
+        const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return pattern.test(v) || 'Please enter a valid email address';
+    },
+];
+
+const passwordRules = [
+    (v: string) => !!v || 'Password is required',
+    (v: string) => v.length >= 3 || 'Password must be at least 3 characters',
 ];
 
 async function login(): Promise<void> {
@@ -66,7 +86,10 @@ async function login(): Promise<void> {
 
     try {
         const httpClient = new AdminHttpClient();
-        const response = await httpClient.post('/api/auth/login', JSON.stringify({ token: token.value }));
+        const response = await httpClient.post('/api/auth/login', JSON.stringify({ 
+            email: email.value,
+            password: password.value
+        }));
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Invalid credentials' }));
@@ -75,14 +98,14 @@ async function login(): Promise<void> {
 
         const data = await response.json();
         
-        // Store token in localStorage (JWT token from backend)
-        localStorage.setItem('adminToken', data.token);
+        // Token is automatically stored in cookie by backend (SetTokenCookie)
+        // No need to store in localStorage - cookies are sent automatically with requests
         
         // Navigate to dashboard
         router.push('/dashboard');
         notify.notifySuccess('Logged in successfully');
     } catch (error: any) {
-        errorMessage.value = error.message || 'Login failed. Please check your token.';
+        errorMessage.value = error.message || 'Login failed. Please check your email and password.';
         notify.notifyError(errorMessage.value);
     } finally {
         isLoading.value = false;

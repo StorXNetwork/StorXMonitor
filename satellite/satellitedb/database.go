@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/backup"
@@ -254,6 +255,12 @@ func (dbc *satelliteDBCollection) Console() console.DB {
 	})
 
 	return db.consoleDB
+}
+
+// AdminUsers returns database for admin users.
+func (dbc *satelliteDBCollection) AdminUsers() admin.Users {
+	db := dbc.getByName("console")
+	return &adminUsers{db: db}
 }
 
 // Web3Auth returns database for web3 auth.

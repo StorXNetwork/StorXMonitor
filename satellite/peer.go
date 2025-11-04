@@ -116,6 +116,8 @@ type DB interface {
 	ReverifyQueue() audit.ReverifyQueue
 	// Console returns database for satellite console
 	Console() console.DB
+	// AdminUsers returns database for admin users
+	AdminUsers() admin.Users
 	// OIDC returns the database for OIDC resources.
 	OIDC() oidc.DB
 	// Orders returns database for orders

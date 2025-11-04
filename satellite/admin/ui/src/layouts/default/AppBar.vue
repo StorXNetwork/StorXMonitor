@@ -262,8 +262,7 @@ async function logout(): Promise<void> {
         // Ignore errors, still log out client-side
     }
     
-    // Clear token and redirect to login
-    localStorage.removeItem('adminToken');
+    // Redirect to login (cookie is removed by backend via RemoveTokenCookie)
     router.push('/login');
 }
 </script>

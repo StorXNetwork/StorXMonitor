@@ -46,7 +46,7 @@ type AdminClaims struct {
 }
 
 // GenerateToken generates a new JWT token for admin authentication.
-func (s *AuthService) GenerateToken(ctx context.Context, email string) (string, error) {
+func (s *AuthService) GenerateToken(ctx context.Context, email string, role string) (string, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -60,7 +60,7 @@ func (s *AuthService) GenerateToken(ctx context.Context, email string) (string, 
 
 	claims := &AdminClaims{
 		Email:     email,
-		Role:      "admin",
+		Role:      role,
 		TokenType: "admin",
 		IssuedAt:  now,
 		RegisteredClaims: jwt.RegisteredClaims{

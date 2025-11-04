@@ -63,7 +63,8 @@ type Config struct {
 	AllowedOauthHost string `help:"the oauth host allowed to bypass token authentication."`
 	Groups           Groups
 
-	AuthorizationToken string `internal:"true"`
+	AuthorizationToken string `internal:"true" help:"authorization token for API key authentication (legacy)"`
+	JWTSecretKey       string `internal:"true" help:"secret key for signing JWT tokens"`
 	BackOffice         backoffice.Config
 }
 
@@ -78,6 +79,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
+	// AdminUsers returns database for admin users
+	AdminUsers() Users
 	// OIDC returns the database for OIDC and OAuth information.
 	OIDC() oidc.DB
 	// StripeCoinPayments returns database for satellite stripe coin payments
@@ -109,10 +112,11 @@ type Server struct {
 
 	nowFn func() time.Time
 
-	console   consoleweb.Config
-	config    Config
-	placement nodeselection.PlacementDefinitions
-	auth      *AuthService
+	console    consoleweb.Config
+	config     Config
+	placement  nodeselection.PlacementDefinitions
+	auth       *AuthService
+	cookieAuth *CookieAuth
 }
 
 // NewServer returns a new administration Server.
@@ -130,7 +134,7 @@ func NewServer(
 	console consoleweb.Config,
 	config Config,
 	placement nodeselection.PlacementDefinitions,
-) *Server {
+) (*Server, error) {
 	server := &Server{
 		log: log,
 
@@ -148,12 +152,27 @@ func NewServer(
 		console:   console,
 		config:    config,
 		placement: placement,
-		auth: NewAuthService(AuthConfig{
-			SecretKey:  config.AuthorizationToken, // Use admin token as JWT secret
-			Expiration: 24 * time.Hour,            // 24 hour expiration
-			Issuer:     "storj-admin",
-		}),
 	}
+
+	jwtSecretKey := config.JWTSecretKey
+	if jwtSecretKey == "" {
+		return nil, Error.New("JWTSecretKey is required for admin authentication")
+	}
+
+	server.auth = NewAuthService(AuthConfig{
+		SecretKey:  jwtSecretKey,
+		Expiration: 24 * time.Hour, // 24 hour expiration
+		Issuer:     "storj-admin",
+	})
+
+	// Initialize cookie auth (following console pattern)
+	server.cookieAuth = NewCookieAuth(CookieSettings{
+		Name: "_admin_tokenKey",
+		Path: "/",
+	}, "")
+
+	// Seed super admin on startup if it doesn't exist
+	seedSuperAdmin(log, db, "")
 
 	root := mux.NewRouter()
 
@@ -235,16 +254,6 @@ func NewServer(
 	publicAPI.HandleFunc("/settings", server.getSettingsHandler).Methods("GET")
 	publicAPI.HandleFunc("/placements", server.getPlacementsHandler).Methods("GET")
 
-	// NewServer adds the backoffice.PahtPrefix for the static assets, but not for the API because the
-	// generator already add the PathPrefix to router when the API handlers are hooked.
-	// _ = backoffice.NewServer(
-	// 	log.Named("back-office"),
-	// 	nil,
-	// 	backOfficeService,
-	// 	root,
-	// 	config.BackOffice,
-	// )
-
 	// Static assets handler
 	var staticHandler http.Handler
 	if config.StaticDir == "" {
@@ -303,7 +312,7 @@ func NewServer(
 	})).Methods("GET")
 
 	server.server.Handler = root
-	return server
+	return server, nil
 }
 
 // Run starts the admin endpoint.
@@ -343,22 +352,96 @@ func (server *Server) SetAllowedOauthHost(host string) {
 	server.config.AllowedOauthHost = host
 }
 
+// adminTokenAuth validates JWT token and returns authenticated context with admin user.
+func (server *Server) adminTokenAuth(ctx context.Context, tokenString string, authTime time.Time) (_ context.Context, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	claims, err := server.auth.ValidateToken(ctx, tokenString)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	adminUser, err := server.db.AdminUsers().GetByEmail(ctx, claims.Email)
+	if err != nil {
+		return nil, Error.New("admin user not found: %s", claims.Email)
+	}
+
+	if adminUser.Status != AdminActive {
+		return nil, Error.New("admin account is not active: %s", claims.Email)
+	}
+
+	return WithAdminUser(ctx, adminUser), nil
+}
+
 // withAuth checks if the requester is authorized to perform an operation. If the request did not come from the oauth proxy, verify the auth token.
 // Otherwise, check that the user has the required permissions to conduct the operation. `allowedGroups` is a list of groups that are authorized.
 // If it is nil, then the api method is not accessible from the oauth proxy.
 func (server *Server) withAuth(allowedGroups []string, requireAPIKey bool) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			ctx := r.Context()
+
+			defer mon.Task()(&ctx)(&err)
+
+			defer func() {
+				if err != nil {
+					// Remove cookie on auth failure (following console pattern)
+					server.cookieAuth.RemoveTokenCookie(w)
+					sendJSONError(w, "Unauthorized", err.Error(), http.StatusUnauthorized)
+				}
+			}()
+
 			if server.config.AuthorizationToken == "" {
 				sendJSONError(w, AuthorizationNotEnabled, "", http.StatusForbidden)
 				return
 			}
 
 			if r.Host != server.config.AllowedOauthHost {
-				// not behind the proxy; use old authentication method.
-				if !validateAPIKey(server.config.AuthorizationToken, r.Header.Get("Authorization")) {
-					sendJSONError(w, "Forbidden", "required a valid authorization token", http.StatusForbidden)
-					return
+				// not behind the proxy; check for cookie token first (following console pattern)
+				var tokenString string
+				var foundInCookie bool
+
+				// Try to get token from cookie first (like console)
+				cookieTokenInfo, err := server.cookieAuth.GetToken(r)
+				if err == nil {
+					tokenString = cookieTokenInfo.Token
+					foundInCookie = true
+				} else {
+					// Fall back to Authorization header (backward compatibility)
+					authHeader := r.Header.Get("Authorization")
+					if strings.HasPrefix(authHeader, "Bearer ") {
+						tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+					}
+				}
+
+				if tokenString != "" {
+					// Validate token and get authenticated context (like console's TokenAuth)
+					newCtx, err := server.adminTokenAuth(ctx, tokenString, time.Now())
+					if err != nil {
+						if foundInCookie {
+							server.cookieAuth.RemoveTokenCookie(w)
+						}
+						server.log.Warn("Invalid JWT token", zap.Error(err), zap.String("ip", getClientIP(r)))
+						return
+					}
+					ctx = newCtx
+
+					// Get admin user from context for logging
+					adminUser, err := GetAdminUser(ctx)
+					if err == nil {
+						r.Header.Set("X-Admin-Email", adminUser.Email)
+						if adminUser.Roles != nil {
+							r.Header.Set("X-Admin-Role", *adminUser.Roles)
+						}
+					}
+				} else {
+					// No token found - try API key validation (backward compatibility)
+					authHeader := r.Header.Get("Authorization")
+					if !validateAPIKey(server.config.AuthorizationToken, authHeader) {
+						sendJSONError(w, "Forbidden", "required a valid authorization token", http.StatusForbidden)
+						return
+					}
 				}
 			} else {
 				var allowed bool
@@ -394,16 +477,19 @@ func (server *Server) withAuth(allowedGroups []string, requireAPIKey bool) func(
 				}
 			}
 
-			server.log.Info(
-				"admin action",
-				zap.String("host", r.Host),
-				zap.String("user", r.Header.Get("X-Forwarded-Email")),
-				zap.String("action", fmt.Sprintf("%s-%s", r.Method, r.RequestURI)),
-				zap.String("queries", r.URL.Query().Encode()),
+			// Log admin action
+			adminEmail := r.Header.Get("X-Admin-Email")
+			if adminEmail == "" {
+				adminEmail = r.Header.Get("X-Forwarded-Email")
+			}
+			server.log.Info("admin action",
+				zap.String("user", adminEmail),
+				zap.String("action", fmt.Sprintf("%s %s", r.Method, r.RequestURI)),
 			)
 
 			r.Header.Set("Cache-Control", "must-revalidate")
-			next.ServeHTTP(w, r)
+			// Pass authenticated context to handler (following console pattern with r.Clone)
+			next.ServeHTTP(w, r.Clone(ctx))
 		})
 	}
 }
@@ -584,91 +670,4 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 			next.ServeHTTP(&respWCode, r)
 		})
 	}
-}
-
-// loginHandler handles admin login requests.
-// Validates admin credentials and returns a JWT token.
-func (server *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var loginRequest struct {
-		Token string `json:"token"`
-		Email string `json:"email,omitempty"` // Optional email for token claims
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
-		sendJSONError(w, "invalid request body", err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if server.config.AuthorizationToken == "" {
-		sendJSONError(w, "authentication not configured", "", http.StatusInternalServerError)
-		return
-	}
-
-	// Validate admin token
-	if !validateAPIKey(server.config.AuthorizationToken, loginRequest.Token) {
-		sendJSONError(w, "invalid credentials", "", http.StatusUnauthorized)
-		return
-	}
-
-	// Generate JWT token
-	email := loginRequest.Email
-	if email == "" {
-		email = "admin@storj.io" // Default admin email
-	}
-
-	jwtToken, err := server.auth.GenerateToken(ctx, email)
-	if err != nil {
-		server.log.Error("failed to generate JWT token", zap.Error(err))
-		sendJSONError(w, "failed to generate token", err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Return success with JWT token
-	response := struct {
-		Token     string    `json:"token"`
-		TokenType string    `json:"token_type"`
-		ExpiresIn int64     `json:"expires_in"` // seconds
-		ExpiresAt time.Time `json:"expires_at"`
-	}{
-		Token:     jwtToken,
-		TokenType: "Bearer",
-		ExpiresIn: int64(server.auth.expiration.Seconds()),
-		ExpiresAt: time.Now().Add(server.auth.expiration),
-	}
-
-	data, err := json.Marshal(response)
-	if err != nil {
-		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	sendJSONData(w, http.StatusOK, data)
-}
-
-// logoutHandler handles admin logout requests.
-// For API token auth, logout is handled client-side (token removal).
-func (server *Server) logoutHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	// For API token authentication, logout is client-side only
-	// Just return success
-	response := struct {
-		Message string `json:"message"`
-	}{
-		Message: "logged out successfully",
-	}
-
-	data, err := json.Marshal(response)
-	if err != nil {
-		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	sendJSONData(w, http.StatusOK, data)
 }

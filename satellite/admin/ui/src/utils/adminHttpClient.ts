@@ -4,33 +4,23 @@
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 
 /**
- * AdminHttpClient is a specialized HTTP client for admin APIs that includes authorization headers.
+ * AdminHttpClient is a specialized HTTP client for admin APIs.
+ * Uses cookie-based authentication (cookies are automatically sent by browser).
  */
 export class AdminHttpClient {
-    private get authToken(): string {
-        // Get token from localStorage, fallback to empty string
-        return localStorage.getItem('adminToken') || '';
-    }
-
     /**
-     * Sends HTTP requests with admin authorization headers.
+     * Sends HTTP requests. Cookies are automatically sent by browser.
      */
     private async sendJSON(method: string, path: string, body: string | null): Promise<Response> {
         const request: RequestInit = {
             method: method,
             body: body,
+            credentials: 'include', // Include cookies in requests
         };
 
-        const token = this.authToken;
         request.headers = {
             'Content-Type': 'application/json',
         };
-        
-        // Only add Authorization header if token exists (skip for login endpoint)
-        if (token && !path.includes('/auth/login')) {
-            // Use Bearer prefix for JWT tokens
-            request.headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-        }
 
         const response = await fetch(path, request);
         if (response.status === 401) {
@@ -81,10 +71,11 @@ export class AdminHttpClient {
      */
     private async handleUnauthorized(): Promise<void> {
         try {
-            const logoutPath = '/api/v0/auth/logout';
+            const logoutPath = '/api/auth/logout';
             const request: RequestInit = {
                 method: 'POST',
                 body: null,
+                credentials: 'include', // Include cookies
             };
 
             request.headers = {
@@ -94,9 +85,6 @@ export class AdminHttpClient {
             await fetch(logoutPath, request);
             // eslint-disable-next-line no-empty
         } catch (error) {}
-
-        // Clear token from localStorage
-        localStorage.removeItem('adminToken');
         
         setTimeout(() => {
             if (!window.location.href.includes('/login')) {

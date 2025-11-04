@@ -264,8 +264,11 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
+		// Use Console's AuthTokenSecret for JWT signing (same secret used for console auth tokens)
+		// This ensures consistency between console and admin authentication
+		adminConfig.JWTSecretKey = config.Console.AuthTokenSecret
 
-		peer.Admin.Server = admin.NewServer(
+		adminServer, err := admin.NewServer(
 			log.Named("admin"),
 			peer.Admin.Listener,
 			peer.DB,
@@ -280,6 +283,10 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			adminConfig,
 			placement,
 		)
+		if err != nil {
+			return nil, err
+		}
+		peer.Admin.Server = adminServer
 
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
