@@ -10,7 +10,7 @@ env:
   NODE_VERSION: '18'
   TEMP_PATH: 'D:\deployment'
   DEPLOY_PATH: 'D:\StorjNetwork\StorxMonitorAdmin\build'
-  UI_PATH: 'satellite\admin\back-office\ui'
+  UI_PATH: 'satellite\admin\ui'
 
 jobs:
   build-admin-ui:
@@ -55,7 +55,7 @@ jobs:
       run: |
         Write-Host "Moving build to deployment folder..."
         
-        # Build folder is at satellite/admin/back-office/ui/build
+        # Build folder is at satellite/admin/ui/build
         $sourcePath = Join-Path $env:UI_PATH "build"
         $destPath = Join-Path $env:TEMP_PATH "build"
         
