@@ -30,9 +30,9 @@
                 <v-row>
                     <v-col cols="12">
                         <v-select
-                            label="Deleting reason" placeholder="Select one or more reasons"
-                            :items="['Reason 1', 'Reason 2', 'Reason 3', 'Other']" multiple variant="outlined" autofocus required
-                            hide-details="auto"
+                            v-model="selectedReasons" label="Deletion reason" placeholder="Select one or more reasons"
+                            :items="['Account Violation', 'User Request', 'Fraud Detection', 'Other']" multiple variant="outlined" autofocus required
+                            hide-details="auto" :disabled="loading"
                         />
                     </v-col>
                 </v-row>
@@ -40,13 +40,7 @@
                 <v-row>
                     <v-col cols="12">
                         <v-text-field
-                            model-value="41" label="Account ID" variant="solo-filled" flat readonly
-                            hide-details="auto"
-                        />
-                    </v-col>
-                    <v-col cols="12">
-                        <v-text-field
-                            model-value="itacker@gmail.com" label="Account Email" variant="solo-filled" flat readonly
+                            :model-value="userEmail" label="Account Email" variant="solo-filled" flat readonly
                             hide-details="auto"
                         />
                     </v-col>
@@ -70,7 +64,7 @@
                         <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="error" variant="flat" block @click="onButtonClick">Delete Account</v-btn>
+                        <v-btn color="error" variant="flat" block :loading="loading" :disabled="loading" @click="onButtonClick">Delete Account</v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>
@@ -85,10 +79,19 @@
             </v-btn>
         </template>
     </v-snackbar>
+
+    <v-snackbar v-model="errorSnackbar" :timeout="7000" color="error">
+        {{ errorMessage }}
+        <template #actions>
+            <v-btn color="default" variant="text" @click="errorSnackbar = false">
+                Close
+            </v-btn>
+        </template>
+    </v-snackbar>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import {
     VDialog,
     VCard,
@@ -106,12 +109,57 @@ import {
     VSelect,
     VAlert,
 } from 'vuetify/components';
+import { adminApi } from '@/api/adminApi';
+import { useNotificationsStore } from '@/store/notifications';
+
+const props = defineProps<{
+    userEmail?: string;
+}>();
+
+const emit = defineEmits<{
+    'account-deleted': [];
+}>();
+
+const notify = useNotificationsStore();
 
 const snackbar = ref<boolean>(false);
+const errorSnackbar = ref<boolean>(false);
+const errorMessage = ref<string>('');
 const dialog = ref<boolean>(false);
+const loading = ref<boolean>(false);
+const selectedReasons = ref<string[]>([]);
 
-function onButtonClick() {
-    snackbar.value = true;
-    dialog.value = false;
+const userEmail = computed(() => props.userEmail || '');
+
+async function onButtonClick() {
+    if (!userEmail.value || loading.value) return;
+    
+    if (selectedReasons.value.length === 0) {
+        errorMessage.value = 'Please select at least one deletion reason';
+        errorSnackbar.value = true;
+        return;
+    }
+    
+    try {
+        loading.value = true;
+        
+        await adminApi.deleteUser(userEmail.value);
+        
+        snackbar.value = true;
+        dialog.value = false;
+        notify.notifySuccess('Account deleted successfully');
+        
+        // Reset form
+        selectedReasons.value = [];
+        
+        // Emit event to refresh parent component
+        emit('account-deleted');
+    } catch (error: any) {
+        errorMessage.value = error.message || 'Failed to delete account';
+        errorSnackbar.value = true;
+        notify.notifyError(errorMessage.value);
+    } finally {
+        loading.value = false;
+    }
 }
 </script>

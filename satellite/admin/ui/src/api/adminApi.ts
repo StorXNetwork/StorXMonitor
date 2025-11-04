@@ -281,13 +281,10 @@ export class AdminApi {
     }
 
     public async createUser(userData: {
-        fullName: string;
         email: string;
+        fullName: string;
         password: string;
-        projectLimit: number;
-        projectStorageLimit: number;
-        projectBandwidthLimit: number;
-        defaultPlacement: number;
+        signupPromoCode?: string;
     }): Promise<User> {
         const fullPath = `${this.ROOT_PATH}/users`;
         const response = await this.http.post(fullPath, JSON.stringify(userData));
@@ -407,6 +404,16 @@ export class AdminApi {
         }
         const err = await response.json();
         throw new APIError(err.error || err.detail || 'Failed to unsuspend user', response.status);
+    }
+
+    public async deactivateUserAccount(email: string): Promise<User> {
+        const fullPath = `${this.ROOT_PATH}/users/${encodeURIComponent(email)}/deactivate-account`;
+        const response = await this.http.put(fullPath, JSON.stringify({}));
+        if (response.ok) {
+            return response.json().then((body) => body as User);
+        }
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to deactivate user account', response.status);
     }
 
     // Project Management APIs

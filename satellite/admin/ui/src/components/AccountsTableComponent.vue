@@ -51,7 +51,7 @@
                         variant="outlined" color="default" size="small" class="mr-1 text-caption" density="comfortable" icon
                         width="24" height="24"
                     >
-                        <AccountActionsMenu :user-email="item.raw.email" />
+                        <AccountActionsMenu :user-email="item.raw.email" @refresh-accounts="loadUsers" />
                         <v-icon icon="mdi-dots-horizontal" />
                     </v-btn>
                     <v-chip

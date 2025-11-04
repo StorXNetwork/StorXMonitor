@@ -15,16 +15,16 @@
             <v-list-item v-if="featureFlags.account.updateInfo" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Edit Account
-                    <AccountInformationDialog :userEmail="userEmail" />
+                    <AccountInformationDialog :userEmail="userEmail" @account-updated="handleAccountUpdated" />
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.updateStatus" density="comfortable" link rounded="lg">
+            <!-- <v-list-item v-if="featureFlags.account.updateStatus" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Status
                     <AccountStatusDialog :userEmail="userEmail" />
                 </v-list-item-title>
-            </v-list-item>
+            </v-list-item> -->
 
             <!-- <v-list-item v-if="featureFlags.account.updateValueAttribution" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
@@ -33,12 +33,12 @@
                 </v-list-item-title>
             </v-list-item> -->
 
-            <v-list-item v-if="featureFlags.account.updatePlacement" density="comfortable" link rounded="lg">
+            <!-- <v-list-item v-if="featureFlags.account.updatePlacement" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Placement
                     <AccountGeofenceDialog :userEmail="userEmail" />
                 </v-list-item-title>
-            </v-list-item>
+            </v-list-item> -->
 
             <v-list-item v-if="featureFlags.account.updateLimits" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
@@ -58,15 +58,15 @@
 
             <v-list-item v-if="featureFlags.account.suspend" density="comfortable" link rounded="lg" base-color="warning">
                 <v-list-item-title class="text-body-2 font-weight-medium">
-                    Suspend
-                    <AccountSuspendDialog />
+                    Deactivate Account
+                    <AccountSuspendDialog :userEmail="userEmail" @account-deactivated="handleAccountDeactivated" />
                 </v-list-item-title>
             </v-list-item>
 
             <v-list-item v-if="featureFlags.account.delete" density="comfortable" link rounded="lg" base-color="error">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Delete
-                    <AccountDeleteDialog />
+                    <AccountDeleteDialog :userEmail="userEmail" @account-deleted="handleAccountDeleted" />
                 </v-list-item-title>
             </v-list-item>
         </v-list>
@@ -113,5 +113,22 @@ const navigateToAccountDetails = () => {
         localStorage.setItem('selectedUserEmail', props.userEmail);
         router.push(`/account-details?email=${encodeURIComponent(props.userEmail)}`);
     }
+};
+
+// Handle account actions - emit events to parent to refresh data
+const emit = defineEmits<{
+    'refresh-accounts': [];
+}>();
+
+const handleAccountDeactivated = () => {
+    emit('refresh-accounts');
+};
+
+const handleAccountDeleted = () => {
+    emit('refresh-accounts');
+};
+
+const handleAccountUpdated = () => {
+    emit('refresh-accounts');
 };
 </script>

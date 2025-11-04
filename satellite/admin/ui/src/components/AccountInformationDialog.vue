@@ -146,8 +146,12 @@ async function loadUserData() {
     }
 }
 
+const emit = defineEmits<{
+    'account-updated': [];
+}>();
+
 async function onButtonClick() {
-    if (!valid.value || !userEmail.value) return;
+    if (!valid.value || !userEmail.value || loading.value) return;
     
     try {
         loading.value = true;
@@ -160,6 +164,9 @@ async function onButtonClick() {
         });
         snackbar.value = true;
         dialog.value = false;
+        
+        // Emit event to refresh parent component
+        emit('account-updated');
     } catch (error: any) {
         errorMessage.value = error.message || 'Failed to update account information';
         errorSnackbar.value = true;

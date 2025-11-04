@@ -27,7 +27,7 @@
                         />
                     </svg>
                     New Account
-                    <NewAccountDialog />
+                    <NewAccountDialog @account-created="refreshData" />
                 </v-btn>
             </v-col>
         </v-row>

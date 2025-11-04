@@ -191,7 +191,7 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/users/{useremail}/mfa", server.disableUserMFA).Methods("DELETE")
-	// fullAccessAPI.HandleFunc("/users/{useremail}/status", server.updateUserStatus).Methods("PUT")
+	fullAccessAPI.HandleFunc("/users/{useremail}/deactivate-account", server.deactivateUserAccount).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}/activate-account/disable-bot-restriction", server.disableBotRestriction).
 		Methods("PATCH")
 	fullAccessAPI.HandleFunc("/users/{useremail}/useragent", server.updateUsersUserAgent).Methods("PATCH")

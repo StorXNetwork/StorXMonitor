@@ -19,12 +19,12 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.updateStatus" density="comfortable" link rounded="lg">
+            <!-- <v-list-item v-if="featureFlags.account.updateStatus" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Status
                     <AccountStatusDialog :userEmail="userEmail" />
                 </v-list-item-title>
-            </v-list-item>
+            </v-list-item> -->
 
             <!-- <v-list-item v-if="featureFlags.account.updateValueAttribution" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
@@ -33,12 +33,12 @@
                 </v-list-item-title>
             </v-list-item> -->
 
-            <v-list-item v-if="featureFlags.account.updatePlacement" density="comfortable" link rounded="lg">
+            <!-- <v-list-item v-if="featureFlags.account.updatePlacement" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Placement
                     <AccountGeofenceDialog :userEmail="userEmail" />
                 </v-list-item-title>
-            </v-list-item>
+            </v-list-item> -->
 
             <v-list-item v-if="featureFlags.account.updateLimits" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
@@ -58,7 +58,7 @@
 
             <v-list-item v-if="featureFlags.account.suspend" density="comfortable" link rounded="lg" base-color="warning">
                 <v-list-item-title class="text-body-2 font-weight-medium">
-                    Suspend
+                    Deactivate Account
                     <AccountSuspendDialog />
                 </v-list-item-title>
             </v-list-item>
