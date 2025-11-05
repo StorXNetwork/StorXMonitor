@@ -30,8 +30,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
-
-	_ "storj.io/storj/satellite/admin/ui" // Import to initialize embedded UI assets
 )
 
 // Admin is the satellite core process that runs chores.
