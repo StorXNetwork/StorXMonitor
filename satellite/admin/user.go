@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -1511,18 +1512,24 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters for pagination (following pattern from usersPendingDeletion)
 	query := r.URL.Query()
 
-	// Parse limit with max limit protection
+	// Parse limit - handle "All" option (-1) and default
 	limitParam := query.Get("limit")
 	if limitParam == "" {
-		limitParam = "50"
+		limitParam = "50" // Default limit
 	}
-	limit, err := strconv.ParseUint(limitParam, 10, 32)
-	if err != nil {
-		sendJSONError(w, "Bad request", "parameter 'limit' must be a valid number", http.StatusBadRequest)
-		return
-	}
-	if limit > 500 {
-		limit = 500 // Prevent excessive requests
+
+	// Check if "All" is requested (limit is -1)
+	fetchAll := false
+	var limit uint64
+	if limitParam == "-1" || limitParam == "0" {
+		fetchAll = true
+	} else {
+		limit, err = strconv.ParseUint(limitParam, 10, 32)
+		if err != nil {
+			sendJSONError(w, "Bad request", "parameter 'limit' must be a valid number", http.StatusBadRequest)
+			return
+		}
+		// No max limit - user can select any limit from frontend
 	}
 
 	// Parse page
@@ -1538,9 +1545,6 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 
 	// Parse search parameter (general search, can be email or name)
 	search := query.Get("search")
-
-	// Parse email filter (exact or contains match)
-	emailFilter := query.Get("email")
 
 	// Parse storage range filters
 	storageMinParam := query.Get("storage_min")
@@ -1563,13 +1567,6 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Parse UTM parameter filters
-	utmSource := query.Get("utm_source")
-	utmMedium := query.Get("utm_medium")
-	utmCampaign := query.Get("utm_campaign")
-	utmTerm := query.Get("utm_term")
-	utmContent := query.Get("utm_content")
-
 	// Parse tier filter (paid/free)
 	tierFilter := query.Get("tier") // "paid" or "free"
 	var paidTierFilter *bool
@@ -1579,6 +1576,128 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 	} else if tierFilter == "free" {
 		paidTier := false
 		paidTierFilter = &paidTier
+	}
+
+	// Parse source filter
+	sourceFilter := query.Get("source")
+
+	// Parse account creation date range filters
+	// Support preset values: "today", "yesterday", "last_week", "last_month", "last_year"
+	// Or custom dates in format "2006-01-02"
+	// For presets, we use a single "created_range" parameter
+	// For custom dates, we use "created_after" and "created_before" separately
+	createdRangeParam := query.Get("created_range")
+	createdAfterParam := query.Get("created_after")
+	createdBeforeParam := query.Get("created_before")
+
+	var createdAfter *time.Time
+	var createdBefore *time.Time
+
+	now := time.Now()
+	loc := now.Location()
+
+	// If preset range is specified, calculate both dates from it
+	if createdRangeParam != "" {
+		switch createdRangeParam {
+		case "today":
+			startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+			endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, loc)
+			createdAfter = &startOfToday
+			createdBefore = &endOfToday
+		case "yesterday":
+			yesterday := now.AddDate(0, 0, -1)
+			startOfYesterday := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, loc)
+			endOfYesterday := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 23, 59, 59, 999999999, loc)
+			createdAfter = &startOfYesterday
+			createdBefore = &endOfYesterday
+		case "last_week":
+			lastWeek := now.AddDate(0, 0, -7)
+			startOfLastWeek := time.Date(lastWeek.Year(), lastWeek.Month(), lastWeek.Day(), 0, 0, 0, 0, loc)
+			endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, loc)
+			createdAfter = &startOfLastWeek
+			createdBefore = &endOfToday
+		case "last_month":
+			lastMonth := now.AddDate(0, -1, 0)
+			startOfLastMonth := time.Date(lastMonth.Year(), lastMonth.Month(), 1, 0, 0, 0, 0, loc)
+			endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, loc)
+			createdAfter = &startOfLastMonth
+			createdBefore = &endOfToday
+		case "last_year":
+			lastYear := now.AddDate(-1, 0, 0)
+			startOfLastYear := time.Date(lastYear.Year(), 1, 1, 0, 0, 0, 0, loc)
+			endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, loc)
+			createdAfter = &startOfLastYear
+			createdBefore = &endOfToday
+		}
+	} else {
+		// Handle custom date range
+		if createdAfterParam != "" {
+			parsedTime, err := time.Parse("2006-01-02", createdAfterParam)
+			if err == nil {
+				startOfDay := time.Date(parsedTime.Year(), parsedTime.Month(), parsedTime.Day(), 0, 0, 0, 0, parsedTime.Location())
+				createdAfter = &startOfDay
+			}
+		}
+
+		if createdBeforeParam != "" {
+			parsedTime, err := time.Parse("2006-01-02", createdBeforeParam)
+			if err == nil {
+				// Set to end of day for inclusive filtering
+				endOfDay := time.Date(parsedTime.Year(), parsedTime.Month(), parsedTime.Day(), 23, 59, 59, 999999999, parsedTime.Location())
+				createdBefore = &endOfDay
+			}
+		}
+	}
+
+	// Parse session-related filters
+	hasActiveSessionFilter := query.Get("has_active_session") // "true", "false", or ""
+	var hasActiveSessionFilterBool *bool
+	if hasActiveSessionFilter == "true" {
+		val := true
+		hasActiveSessionFilterBool = &val
+	} else if hasActiveSessionFilter == "false" {
+		val := false
+		hasActiveSessionFilterBool = &val
+	}
+
+	lastSessionAfterParam := query.Get("last_session_after")
+	var lastSessionAfter *time.Time
+	if lastSessionAfterParam != "" {
+		parsedTime, err := time.Parse("2006-01-02", lastSessionAfterParam)
+		if err == nil {
+			lastSessionAfter = &parsedTime
+		}
+	}
+
+	lastSessionBeforeParam := query.Get("last_session_before")
+	var lastSessionBefore *time.Time
+	if lastSessionBeforeParam != "" {
+		parsedTime, err := time.Parse("2006-01-02", lastSessionBeforeParam)
+		if err == nil {
+			// Set to end of day for inclusive filtering
+			endOfDay := time.Date(parsedTime.Year(), parsedTime.Month(), parsedTime.Day(), 23, 59, 59, 999999999, parsedTime.Location())
+			lastSessionBefore = &endOfDay
+		}
+	}
+
+	sessionCountMinParam := query.Get("session_count_min")
+	sessionCountMin := 0
+	if sessionCountMinParam != "" {
+		sessionCountMin, err = strconv.Atoi(sessionCountMinParam)
+		if err != nil {
+			sendJSONError(w, "Bad request", "parameter 'session_count_min' must be a valid number", http.StatusBadRequest)
+			return
+		}
+	}
+
+	sessionCountMaxParam := query.Get("session_count_max")
+	sessionCountMax := 0
+	if sessionCountMaxParam != "" {
+		sessionCountMax, err = strconv.Atoi(sessionCountMaxParam)
+		if err != nil {
+			sendJSONError(w, "Bad request", "parameter 'session_count_max' must be a valid number", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Parse status filter
@@ -1596,25 +1715,22 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		statusFilterInt = &statusInt
 	}
 
-	// Set created after date to August 1, 2024 as per your requirements
-	createdAfter := time.Date(2024, 8, 1, 0, 0, 0, 0, time.UTC)
-
-	// Get users with session data
-	offset := (page - 1) * limit
-	allUsers, err := server.db.Console().Users().GetAllUsersWithSessionData(ctx, int(limit), int(offset), statusFilterInt, &createdAfter)
+	// IMPORTANT: Fetch ALL users first to get accurate totalCount after filtering
+	// Then paginate the filtered results. This ensures pagination works correctly.
+	// Remove date filter (pass nil) to get ALL users regardless of creation date
+	var allUsers []*console.User
+	// Fetch all users using maximum int value to effectively fetch all users
+	// This avoids hardcoding a specific limit and works with any number of users
+	maxFetchLimit := math.MaxInt
+	allUsers, err = server.db.Console().Users().GetAllUsersWithSessionData(ctx, maxFetchLimit, 0, statusFilterInt, nil)
 	if err != nil {
 		sendJSONError(w, "failed to get users with session data",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// The users are already paginated from the database query
-	// Total count will be calculated after filtering is applied
-	paginatedUsers := allUsers
-
 	// Apply filters after getting users (we need storage data for range filtering)
-	// We'll filter after calculating storage usage
-	filteredUsers := paginatedUsers
+	filteredUsers := allUsers
 
 	// Convert to response format and apply filters
 	users := make([]User, 0, len(filteredUsers))
@@ -1638,15 +1754,6 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Apply email filter (exact or contains match)
-		if emailFilter != "" {
-			emailLower := strings.ToLower(emailFilter)
-			userEmailLower := strings.ToLower(user.Email)
-			if !strings.Contains(userEmailLower, emailLower) {
-				continue // Skip this user
-			}
-		}
-
 		// Apply storage range filter
 		if storageMinParam != "" && totalStorageUsed < storageMin {
 			continue // Skip this user
@@ -1655,25 +1762,21 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			continue // Skip this user
 		}
 
-		// Apply UTM parameter filters
-		if utmSource != "" && !strings.EqualFold(user.UtmSource, utmSource) {
-			continue // Skip this user
-		}
-		if utmMedium != "" && !strings.EqualFold(user.UtmMedium, utmMedium) {
-			continue // Skip this user
-		}
-		if utmCampaign != "" && !strings.EqualFold(user.UtmCampaign, utmCampaign) {
-			continue // Skip this user
-		}
-		if utmTerm != "" && !strings.EqualFold(user.UtmTerm, utmTerm) {
-			continue // Skip this user
-		}
-		if utmContent != "" && !strings.EqualFold(user.UtmContent, utmContent) {
+		// Apply tier filter (paid/free)
+		if paidTierFilter != nil && user.PaidTier != *paidTierFilter {
 			continue // Skip this user
 		}
 
-		// Apply tier filter (paid/free)
-		if paidTierFilter != nil && user.PaidTier != *paidTierFilter {
+		// Apply source filter
+		if sourceFilter != "" && !strings.EqualFold(user.Source, sourceFilter) {
+			continue // Skip this user
+		}
+
+		// Apply account creation date range filters
+		if createdAfter != nil && user.CreatedAt.Before(*createdAfter) {
+			continue // Skip this user
+		}
+		if createdBefore != nil && user.CreatedAt.After(*createdBefore) {
 			continue // Skip this user
 		}
 
@@ -1687,9 +1790,67 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// or create a separate response struct that includes session data
+		// Get session data for this user
 		var lastSessionExpiry, firstSessionExpiry *time.Time
 		var totalSessionCount int
+
+		// Get sessions for this user from webapp_sessions table
+		sessions, err := server.db.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+		if err == nil {
+			totalSessionCount = len(sessions)
+			now := time.Now()
+
+			// Find last session expiry (most recent active or expired session)
+			for _, session := range sessions {
+				if lastSessionExpiry == nil || session.ExpiresAt.After(*lastSessionExpiry) {
+					lastSessionExpiry = &session.ExpiresAt
+				}
+				if firstSessionExpiry == nil || session.ExpiresAt.Before(*firstSessionExpiry) {
+					firstSessionExpiry = &session.ExpiresAt
+				}
+			}
+
+			// Apply session filters
+			if hasActiveSessionFilterBool != nil {
+				hasActive := false
+				for _, session := range sessions {
+					if session.ExpiresAt.After(now) {
+						hasActive = true
+						break
+					}
+				}
+				if hasActive != *hasActiveSessionFilterBool {
+					continue // Skip this user
+				}
+			}
+
+			// Apply last session date range filters
+			if lastSessionAfter != nil && lastSessionExpiry != nil && lastSessionExpiry.Before(*lastSessionAfter) {
+				continue // Skip this user
+			}
+			if lastSessionBefore != nil && lastSessionExpiry != nil && lastSessionExpiry.After(*lastSessionBefore) {
+				continue // Skip this user
+			}
+
+			// Apply session count range filters
+			if sessionCountMinParam != "" && totalSessionCount < sessionCountMin {
+				continue // Skip this user
+			}
+			if sessionCountMaxParam != "" && totalSessionCount > sessionCountMax {
+				continue // Skip this user
+			}
+		} else {
+			// If no sessions found, check if filters require sessions
+			if hasActiveSessionFilterBool != nil && *hasActiveSessionFilterBool {
+				continue // Skip this user - filter requires active session but user has none
+			}
+			if lastSessionAfter != nil || lastSessionBefore != nil {
+				continue // Skip this user - filter requires session dates but user has none
+			}
+			if sessionCountMinParam != "" && sessionCountMin > 0 {
+				continue // Skip this user - filter requires minimum sessions but user has none
+			}
+		}
 
 		users = append(users, User{
 			ID:                    user.ID,
@@ -1717,9 +1878,39 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Calculate pagination based on filtered results
-	// Note: This count is after all filters are applied
+	// totalCount is the count of ALL filtered users (before pagination)
 	totalCount := uint64(len(users))
-	totalPages := (totalCount + uint64(limit) - 1) / uint64(limit)
+
+	var paginatedUsers []User
+	var totalPages uint64
+	var actualLimit uint64
+	var actualOffset uint64
+
+	if fetchAll {
+		// For "All", return all filtered users without pagination
+		paginatedUsers = users
+		totalPages = 1
+		actualLimit = totalCount
+		actualOffset = 0
+	} else {
+		// Normal pagination: paginate the filtered results
+		actualLimit = limit
+		actualOffset = (page - 1) * limit
+		totalPages = (totalCount + limit - 1) / limit
+
+		// Apply pagination to filtered results
+		start := actualOffset
+		end := actualOffset + limit
+		if start >= totalCount {
+			// Page is beyond available data
+			paginatedUsers = []User{}
+		} else {
+			if end > totalCount {
+				end = totalCount
+			}
+			paginatedUsers = users[start:end]
+		}
+	}
 
 	// Check if this is an export request
 	format := query.Get("format")
@@ -1738,13 +1929,13 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		Limit       uint   `json:"limit"`
 		Offset      uint64 `json:"offset"`
 	}{
-		Users:       users,
+		Users:       paginatedUsers,
 		PageCount:   uint(totalPages),
 		CurrentPage: uint(page),
 		TotalCount:  totalCount,
-		HasMore:     page < totalPages,
-		Limit:       uint(limit),
-		Offset:      offset,
+		HasMore:     !fetchAll && page < totalPages,
+		Limit:       uint(actualLimit),
+		Offset:      actualOffset,
 	}
 
 	// Stream JSON response directly
@@ -2014,4 +2205,71 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 	}
 
 	sendJSONData(w, http.StatusOK, data)
+}
+
+// getUserStats returns aggregated statistics about all users
+// This endpoint uses database aggregations for efficient counting
+func (server *Server) getUserStats(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	// Use SQL aggregations to count users efficiently
+	// This is much faster than fetching all users and counting in memory
+	stats := struct {
+		TotalAccounts          uint64 `json:"totalAccounts"`
+		Active                 uint64 `json:"active"`
+		Inactive               uint64 `json:"inactive"`
+		Deleted                uint64 `json:"deleted"`
+		PendingDeletion        uint64 `json:"pendingDeletion"`
+		LegalHold              uint64 `json:"legalHold"`
+		PendingBotVerification uint64 `json:"pendingBotVerification"`
+		Pro                    uint64 `json:"pro"`
+		Free                   uint64 `json:"free"`
+	}{}
+
+	// Fetch all users once and count by status and paid tier
+	// This is still much more efficient than the frontend approach because:
+	// 1. It's done on the backend (no network overhead for multiple requests)
+	// 2. It uses a single optimized query with GetAllUsersWithSessionData
+	// 3. The counting happens in memory on the server, not the client
+	allUsers, err := server.db.Console().Users().GetAllUsersWithSessionData(ctx, math.MaxInt, 0, nil, nil)
+	if err != nil {
+		sendJSONError(w, "failed to get users for statistics",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Count by status and paid tier
+	for _, user := range allUsers {
+		// Count by status (0=Inactive, 1=Active, 2=Deleted, 3=PendingDeletion, 4=LegalHold, 5=PendingBotVerification)
+		switch user.Status {
+		case console.UserStatus(0):
+			stats.Inactive++
+		case console.UserStatus(1):
+			stats.Active++
+		case console.UserStatus(2):
+			stats.Deleted++
+		case console.UserStatus(3):
+			stats.PendingDeletion++
+		case console.UserStatus(4):
+			stats.LegalHold++
+		case console.UserStatus(5):
+			stats.PendingBotVerification++
+		}
+
+		// Count by paid tier
+		if user.PaidTier {
+			stats.Pro++
+		} else {
+			stats.Free++
+		}
+	}
+
+	// Total is the count of all users
+	stats.TotalAccounts = uint64(len(allUsers))
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(stats)
 }

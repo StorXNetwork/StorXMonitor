@@ -33,7 +33,7 @@
         </v-row>
 
         <!-- Statistics Cards -->
-        <v-row class="d-flex align-center justify-center mt-2">
+        <v-row class="d-flex align-center justify-center mt-2 mb-8">
             <v-col cols="12" sm="6" md="4" lg="2">
                 <CardStatsComponent
                     title="Total Accounts" 
@@ -85,7 +85,7 @@
         </v-row>
 
         <!-- Loading state for stats -->
-        <v-row v-if="statsLoading" class="d-flex align-center justify-center mt-2">
+        <v-row v-if="statsLoading" class="d-flex align-center justify-center mt-2 mb-8">
             <v-col cols="12" class="text-center">
                 <v-progress-circular indeterminate color="primary" size="32" />
                 <p class="mt-2">Loading account statistics...</p>
@@ -93,7 +93,7 @@
         </v-row>
 
         <!-- Error state for stats -->
-        <v-row v-if="statsError" class="mt-4">
+        <v-row v-if="statsError" class="mt-4 mb-8">
             <v-col cols="12">
                 <v-alert type="error" variant="tonal">
                     <v-alert-title>Error loading statistics</v-alert-title>
@@ -105,7 +105,7 @@
         <!-- User Management Table -->
         <AccountsTableComponent 
             ref="tableComponent"
-            class="my-5" 
+            class="mt-6" 
             :refresh-trigger="refreshTrigger"
             @stats-updated="handleStatsUpdate"
             @export-requested="handleExportRequest"

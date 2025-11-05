@@ -2,105 +2,149 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" rounded="xlg" border class="mb-4">
+    <v-card variant="flat" rounded="xlg" border class="mb-4" elevation="0" style="background: #ffffff;">
         <!-- Filter Section -->
-        <v-card-text class="pa-4">
-            <div class="d-flex align-center justify-space-between mb-4">
-                <div class="d-flex align-center gap-2">
-                    <v-icon icon="mdi-filter" size="20" color="primary"></v-icon>
-                    <span class="text-h6 font-weight-medium">Filters</span>
-                    <v-chip v-if="activeFiltersCount > 0" size="small" color="primary" variant="flat" class="ml-2">
-                        {{ activeFiltersCount }} active
-                    </v-chip>
+        <v-card-text class="pa-6">
+            <!-- Header -->
+            <div class="d-flex align-center justify-space-between mb-6">
+                <div class="d-flex align-center gap-3">
+                    <div class="d-flex align-center justify-center" style="width: 40px; height: 40px; background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-primary), 0.05)); border-radius: 12px;">
+                        <v-icon icon="mdi-filter-variant" size="24" color="primary"></v-icon>
+                    </div>
+                    <div>
+                        <span class="text-h6 font-weight-bold" style="color: #1e1e1e;">Filters</span>
+                        <v-chip v-if="activeFiltersCount > 0" size="small" color="primary" variant="flat" class="ml-3">
+                            {{ activeFiltersCount }} active
+                        </v-chip>
+                    </div>
                 </div>
                 <v-btn
                     v-if="activeFiltersCount > 0"
-                    variant="text"
+                    variant="outlined"
                     color="error"
                     size="small"
                     prepend-icon="mdi-close-circle"
                     @click="clearAllFilters"
+                    style="border-radius: 8px;"
                 >
                     Clear All
                 </v-btn>
             </div>
 
             <!-- Quick Filters Row -->
-            <div class="d-flex flex-wrap align-center gap-3 mb-3">
-                <v-text-field
-                    v-model="search"
-                    label="Search users"
-                    prepend-inner-icon="mdi-magnify"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                    clearable
-                    rounded="lg"
-                    class="flex-grow-1"
-                    style="min-width: 280px; max-width: 400px;"
-                    @input="debouncedLoadUsers"
-                />
-                
-                <v-text-field
-                    v-model="emailFilter"
-                    label="Email"
-                    prepend-inner-icon="mdi-email-outline"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                    clearable
-                    rounded="lg"
-                    style="min-width: 220px; max-width: 300px;"
-                    @input="debouncedLoadUsers"
-                />
+            <div class="mb-8">
+                <div class="d-flex flex-wrap align-center quick-filters-container">
+                    <v-text-field
+                        v-model="search"
+                        label="Search users"
+                        prepend-inner-icon="mdi-magnify"
+                        variant="outlined"
+                        density="comfortable"
+                        hide-details
+                        clearable
+                        rounded="lg"
+                        class="flex-grow-1"
+                        style="min-width: 300px; max-width: 450px;"
+                        @input="debouncedLoadUsers"
+                    />
 
-                <v-select
-                    v-model="statusFilter"
-                    label="Status"
-                    prepend-inner-icon="mdi-account-check-outline"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                    clearable
-                    rounded="lg"
-                    :items="statusOptions"
-                    item-title="text"
-                    item-value="value"
-                    style="min-width: 160px; max-width: 200px;"
-                    @update:model-value="loadUsers"
-                />
+                    <v-select
+                        v-model="statusFilter"
+                        label="Status"
+                        prepend-inner-icon="mdi-account-check-outline"
+                        variant="outlined"
+                        density="comfortable"
+                        hide-details
+                        clearable
+                        rounded="lg"
+                        :items="statusOptions"
+                        item-title="text"
+                        item-value="value"
+                        style="min-width: 180px; max-width: 220px;"
+                        @update:model-value="loadUsers"
+                    />
 
-                <v-select
-                    v-model="tierFilter"
-                    label="Tier"
-                    prepend-inner-icon="mdi-crown-outline"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                    clearable
-                    rounded="lg"
-                    :items="tierOptions"
-                    item-title="text"
-                    item-value="value"
-                    style="min-width: 140px; max-width: 180px;"
-                    @update:model-value="loadUsers"
-                />
+                    <v-select
+                        v-model="tierFilter"
+                        label="Tier"
+                        prepend-inner-icon="mdi-crown-outline"
+                        variant="outlined"
+                        density="comfortable"
+                        hide-details
+                        clearable
+                        rounded="lg"
+                        :items="tierOptions"
+                        item-title="text"
+                        item-value="value"
+                        style="min-width: 160px; max-width: 200px;"
+                        @update:model-value="loadUsers"
+                    />
+
+                    <v-select
+                        v-model="sourceFilter"
+                        label="Signup Source"
+                        prepend-inner-icon="mdi-source-commit"
+                        variant="outlined"
+                        density="comfortable"
+                        hide-details
+                        clearable
+                        rounded="lg"
+                        :items="sourceOptions"
+                        item-title="text"
+                        item-value="value"
+                        style="min-width: 200px; max-width: 250px;"
+                        @update:model-value="debouncedLoadUsers"
+                    />
+
+                    <v-select
+                        v-model="createdDateRange"
+                        label="Created Date"
+                        prepend-inner-icon="mdi-calendar-range"
+                        :items="createdDateRangeOptions"
+                        item-title="text"
+                        item-value="value"
+                        variant="outlined"
+                        density="comfortable"
+                        hide-details
+                        clearable
+                        rounded="lg"
+                        style="min-width: 180px; max-width: 220px;"
+                        @update:model-value="handleCreatedDateRangeChange"
+                    />
+                    
+                    <div v-if="createdDateRange === 'custom'" class="d-flex align-center gap-3">
+                        <v-text-field
+                            v-model="createdAfterCustom"
+                            label="Created After"
+                            prepend-inner-icon="mdi-calendar-start"
+                            variant="outlined"
+                            density="comfortable"
+                            hide-details
+                            type="date"
+                            rounded="lg"
+                            style="min-width: 180px; max-width: 220px;"
+                            @update:model-value="debouncedLoadUsers"
+                        />
+                        <v-icon icon="mdi-arrow-right" size="20" color="primary"></v-icon>
+                        <v-text-field
+                            v-model="createdBeforeCustom"
+                            label="Created Before"
+                            prepend-inner-icon="mdi-calendar-end"
+                            variant="outlined"
+                            density="comfortable"
+                            hide-details
+                            type="date"
+                            rounded="lg"
+                            style="min-width: 180px; max-width: 220px;"
+                            @update:model-value="debouncedLoadUsers"
+                        />
+                    </div>
+                </div>
             </div>
 
             <!-- Active Filter Chips -->
-            <div v-if="activeFiltersCount > 0" class="d-flex flex-wrap align-center gap-2 mb-3 pa-3" style="background-color: rgba(var(--v-theme-primary), 0.05); border-radius: 12px;">
-                <span class="text-caption text-medium-emphasis mr-2">Active filters:</span>
-                <v-chip
-                    v-if="emailFilter"
-                    size="small"
-                    closable
-                    color="primary"
-                    variant="tonal"
-                    @click:close="emailFilter = ''; loadUsers()"
-                >
-                    <v-icon start icon="mdi-email-outline" size="16"></v-icon>
-                    Email: {{ emailFilter }}
-                </v-chip>
+            <div v-if="activeFiltersCount > 0" class="d-flex flex-wrap align-center gap-2 mb-6 pa-4" style="background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), rgba(var(--v-theme-primary), 0.03)); border: 1px solid rgba(var(--v-theme-primary), 0.15); border-radius: 16px;">
+                <span class="text-body-2 font-weight-medium mr-2" style="color: rgba(var(--v-theme-primary), 0.9);">Active filters:</span>
                 <v-chip
                     v-if="statusFilter"
                     size="small"
@@ -135,172 +179,242 @@
                     Storage: {{ formatStorageRange() }}
                 </v-chip>
                 <v-chip
-                    v-if="utmSource"
+                    v-if="sourceFilter"
                     size="small"
                     closable
                     color="primary"
                     variant="tonal"
-                    @click:close="utmSource = ''; loadUsers()"
+                    @click:close="sourceFilter = ''; loadUsers()"
                 >
-                    <v-icon start icon="mdi-source-branch" size="16"></v-icon>
-                    UTM Source: {{ utmSource }}
+                    <v-icon start icon="mdi-source-commit" size="16"></v-icon>
+                    Source: {{ sourceFilter }}
                 </v-chip>
                 <v-chip
-                    v-if="utmMedium"
+                    v-if="createdDateRange && createdDateRange !== 'custom'"
                     size="small"
                     closable
                     color="primary"
                     variant="tonal"
-                    @click:close="utmMedium = ''; loadUsers()"
+                    @click:close="createdDateRange = ''; loadUsers()"
                 >
-                    <v-icon start icon="mdi-source-merge" size="16"></v-icon>
-                    UTM Medium: {{ utmMedium }}
+                    <v-icon start icon="mdi-calendar-range" size="16"></v-icon>
+                    Created: {{ createdDateRangeOptions.find(opt => opt.value === createdDateRange)?.text || createdDateRange }}
                 </v-chip>
                 <v-chip
-                    v-if="utmCampaign"
+                    v-if="createdDateRange === 'custom' && (createdAfterCustom || createdBeforeCustom)"
                     size="small"
                     closable
                     color="primary"
                     variant="tonal"
-                    @click:close="utmCampaign = ''; loadUsers()"
+                    @click:close="createdDateRange = ''; createdAfterCustom = ''; createdBeforeCustom = ''; loadUsers()"
                 >
-                    <v-icon start icon="mdi-bullhorn" size="16"></v-icon>
-                    UTM Campaign: {{ utmCampaign }}
+                    <v-icon start icon="mdi-calendar-range" size="16"></v-icon>
+                    Created: {{ createdAfterCustom || 'Any' }} - {{ createdBeforeCustom || 'Any' }}
+                </v-chip>
+                <v-chip
+                    v-if="hasActiveSession"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="hasActiveSession = ''; loadUsers()"
+                >
+                    <v-icon start icon="mdi-login" size="16"></v-icon>
+                    Active Session: {{ hasActiveSession === 'true' ? 'Yes' : 'No' }}
+                </v-chip>
+                <v-chip
+                    v-if="lastSessionAfter || lastSessionBefore"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="lastSessionAfter = ''; lastSessionBefore = ''; loadUsers()"
+                >
+                    <v-icon start icon="mdi-clock-outline" size="16"></v-icon>
+                    Last Session: {{ lastSessionAfter || 'Any' }} - {{ lastSessionBefore || 'Any' }}
+                </v-chip>
+                <v-chip
+                    v-if="sessionCountMin || sessionCountMax"
+                    size="small"
+                    closable
+                    color="primary"
+                    variant="tonal"
+                    @click:close="sessionCountMin = null; sessionCountMax = null; loadUsers()"
+                >
+                    <v-icon start icon="mdi-counter" size="16"></v-icon>
+                    Sessions: {{ sessionCountMin || 0 }} - {{ sessionCountMax || '∞' }}
                 </v-chip>
             </div>
 
             <!-- Advanced Filters Section -->
             <v-expand-transition>
-                <v-card v-if="showAdvancedFilters" variant="tonal" color="primary" class="pa-4" rounded="lg">
-                    <div class="d-flex align-center justify-space-between mb-3">
-                        <div class="d-flex align-center gap-2">
-                            <v-icon icon="mdi-tune" size="20" color="primary"></v-icon>
-                            <span class="text-subtitle-1 font-weight-medium">Advanced Filters</span>
+                <v-card v-if="showAdvancedFilters" elevation="0" class="pa-6" rounded="xl" style="background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.04), rgba(var(--v-theme-primary), 0.01)); border: 1px solid rgba(var(--v-theme-primary), 0.12);">
+                    <div class="d-flex align-center justify-space-between mb-6">
+                        <div class="d-flex align-center gap-3">
+                            <div class="d-flex align-center justify-center" style="width: 36px; height: 36px; background: rgba(var(--v-theme-primary), 0.1); border-radius: 10px;">
+                                <v-icon icon="mdi-tune-variant" size="20" color="primary"></v-icon>
+                            </div>
+                            <span class="text-h6 font-weight-bold" style="color: #1e1e1e;">Advanced Filters</span>
                         </div>
                         <v-btn
                             icon
                             size="small"
                             variant="text"
                             @click="showAdvancedFilters = false"
+                            style="border-radius: 8px;"
                         >
                             <v-icon>mdi-chevron-up</v-icon>
                         </v-btn>
                     </div>
 
-                    <div class="d-flex flex-wrap align-center gap-3">
-                        <!-- Storage Range -->
-                        <div class="d-flex align-center gap-2" style="min-width: 100%;">
-                            <v-text-field
-                                v-model.number="storageMin"
-                                label="Min Storage"
-                                prepend-inner-icon="mdi-harddisk"
-                                variant="outlined"
-                                density="comfortable"
-                                hide-details
-                                type="number"
-                                rounded="lg"
-                                class="flex-grow-1"
-                                style="max-width: 200px;"
-                                @input="debouncedLoadUsers"
-                            />
-                            <v-icon icon="mdi-arrow-right" size="20" class="mx-2"></v-icon>
-                            <v-text-field
-                                v-model.number="storageMax"
-                                label="Max Storage"
-                                prepend-inner-icon="mdi-harddisk-plus"
-                                variant="outlined"
-                                density="comfortable"
-                                hide-details
-                                type="number"
-                                rounded="lg"
-                                class="flex-grow-1"
-                                style="max-width: 200px;"
-                                @input="debouncedLoadUsers"
-                            />
-                            <v-chip v-if="storageMin || storageMax" size="small" color="info" variant="flat" class="ml-2">
-                                {{ formatBytes(storageMin || 0) }} - {{ formatBytes(storageMax || 0) }}
-                            </v-chip>
+                    <div class="d-flex flex-column gap-5">
+                        <!-- Storage Section -->
+                        <div class="filter-group">
+                            <div class="filter-group-header mb-5">
+                                <v-icon icon="mdi-database" size="20" color="primary" class="mr-2"></v-icon>
+                                <span class="text-subtitle-1 font-weight-semibold" style="color: #1e1e1e;">Storage</span>
+                            </div>
+                            <div class="d-flex align-center gap-5">
+                                <v-text-field
+                                    v-model.number="storageMin"
+                                    label="Min Storage"
+                                    prepend-inner-icon="mdi-harddisk"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    hide-details
+                                    type="number"
+                                    rounded="lg"
+                                    class="flex-grow-1"
+                                    style="max-width: 250px;"
+                                    @input="debouncedLoadUsers"
+                                />
+                                <v-icon icon="mdi-arrow-right" size="24" color="primary" class="mx-3"></v-icon>
+                                <v-text-field
+                                    v-model.number="storageMax"
+                                    label="Max Storage"
+                                    prepend-inner-icon="mdi-harddisk-plus"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    hide-details
+                                    type="number"
+                                    rounded="lg"
+                                    class="flex-grow-1"
+                                    style="max-width: 250px;"
+                                    @input="debouncedLoadUsers"
+                                />
+                            </div>
                         </div>
 
-                        <!-- UTM Parameters -->
-                        <v-text-field
-                            v-model="utmSource"
-                            label="UTM Source"
-                            prepend-inner-icon="mdi-source-branch"
-                            variant="outlined"
-                            density="comfortable"
-                            hide-details
-                            clearable
-                            rounded="lg"
-                            style="min-width: 200px; max-width: 250px;"
-                            @input="debouncedLoadUsers"
-                        />
+                        <!-- Divider -->
+                        <v-divider class="my-5" style="opacity: 0.3;"></v-divider>
 
-                        <v-text-field
-                            v-model="utmMedium"
-                            label="UTM Medium"
-                            prepend-inner-icon="mdi-source-merge"
-                            variant="outlined"
-                            density="comfortable"
-                            hide-details
-                            clearable
-                            rounded="lg"
-                            style="min-width: 200px; max-width: 250px;"
-                            @input="debouncedLoadUsers"
-                        />
+                        <!-- Session Filters Section -->
+                        <div class="filter-group">
+                            <div class="filter-group-header mb-6">
+                                <div class="d-flex align-center justify-center mr-2" style="width: 32px; height: 32px; background: rgba(var(--v-theme-primary), 0.1); border-radius: 8px;">
+                                    <v-icon icon="mdi-login" size="18" color="primary"></v-icon>
+                                </div>
+                                <span class="text-subtitle-1 font-weight-semibold" style="color: #1e1e1e;">Session Filters</span>
+                            </div>
 
-                        <v-text-field
-                            v-model="utmCampaign"
-                            label="UTM Campaign"
-                            prepend-inner-icon="mdi-bullhorn"
-                            variant="outlined"
-                            density="comfortable"
-                            hide-details
-                            clearable
-                            rounded="lg"
-                            style="min-width: 200px; max-width: 250px;"
-                            @input="debouncedLoadUsers"
-                        />
+                            <div class="d-flex flex-column gap-5">
+                                <!-- Active Session Filter -->
+                                <div class="session-filter-item">
+                                    <v-select
+                                        v-model="hasActiveSession"
+                                        label="Active Session"
+                                        prepend-inner-icon="mdi-login"
+                                        :items="activeSessionOptions"
+                                        item-title="text"
+                                        item-value="value"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        hide-details
+                                        clearable
+                                        rounded="lg"
+                                        style="max-width: 280px;"
+                                        @update:model-value="debouncedLoadUsers"
+                                    />
+                                </div>
 
-                        <v-text-field
-                            v-model="utmTerm"
-                            label="UTM Term"
-                            prepend-inner-icon="mdi-tag-outline"
-                            variant="outlined"
-                            density="comfortable"
-                            hide-details
-                            clearable
-                            rounded="lg"
-                            style="min-width: 200px; max-width: 250px;"
-                            @input="debouncedLoadUsers"
-                        />
+                                <!-- Last Session Date Range -->
+                                <div class="d-flex align-center gap-5 session-filter-item">
+                                    <v-text-field
+                                        v-model="lastSessionAfter"
+                                        label="Last Session After"
+                                        prepend-inner-icon="mdi-clock-start"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        hide-details
+                                        type="date"
+                                        rounded="lg"
+                                        class="flex-grow-1"
+                                        style="max-width: 250px;"
+                                        @update:model-value="debouncedLoadUsers"
+                                    />
+                                    <v-icon icon="mdi-arrow-right" size="24" color="primary" class="mx-3"></v-icon>
+                                    <v-text-field
+                                        v-model="lastSessionBefore"
+                                        label="Last Session Before"
+                                        prepend-inner-icon="mdi-clock-end"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        hide-details
+                                        type="date"
+                                        rounded="lg"
+                                        class="flex-grow-1"
+                                        style="max-width: 250px;"
+                                        @update:model-value="debouncedLoadUsers"
+                                    />
+                                </div>
 
-                        <v-text-field
-                            v-model="utmContent"
-                            label="UTM Content"
-                            prepend-inner-icon="mdi-content-copy"
-                            variant="outlined"
-                            density="comfortable"
-                            hide-details
-                            clearable
-                            rounded="lg"
-                            style="min-width: 200px; max-width: 250px;"
-                            @input="debouncedLoadUsers"
-                        />
+                                <!-- Session Count Range -->
+                                <div class="d-flex align-center gap-5 session-filter-item">
+                                    <v-text-field
+                                        v-model.number="sessionCountMin"
+                                        label="Min Sessions"
+                                        prepend-inner-icon="mdi-counter"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        hide-details
+                                        type="number"
+                                        rounded="lg"
+                                        class="flex-grow-1"
+                                        style="max-width: 250px;"
+                                        @input="debouncedLoadUsers"
+                                    />
+                                    <v-icon icon="mdi-arrow-right" size="24" color="primary" class="mx-3"></v-icon>
+                                    <v-text-field
+                                        v-model.number="sessionCountMax"
+                                        label="Max Sessions"
+                                        prepend-inner-icon="mdi-counter"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        hide-details
+                                        type="number"
+                                        rounded="lg"
+                                        class="flex-grow-1"
+                                        style="max-width: 250px;"
+                                        @input="debouncedLoadUsers"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </v-card>
             </v-expand-transition>
 
             <!-- Advanced Filters Toggle -->
-            <div class="d-flex justify-center mt-3">
+            <div class="d-flex justify-center mt-6">
                 <v-btn
-                    variant="text"
+                    variant="outlined"
                     color="primary"
-                    size="small"
+                    size="default"
                     :prepend-icon="showAdvancedFilters ? 'mdi-chevron-up' : 'mdi-chevron-down'"
                     @click="showAdvancedFilters = !showAdvancedFilters"
+                    style="border-radius: 10px; text-transform: none; font-weight: 500; padding: 8px 24px;"
                 >
-                    {{ showAdvancedFilters ? 'Hide' : 'Show' }} Advanced Filters
+                    {{ showAdvancedFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters' }}
                 </v-btn>
             </div>
         </v-card-text>
@@ -322,13 +436,20 @@
         </v-alert>
 
         <!-- Data table -->
-        <v-data-table
+        <v-data-table-server
             v-else
             v-model="selected" v-model:sort-by="sortBy" :headers="headers" :items="displayUsers"
             density="comfortable" hover
-            :items-per-page="itemsPerPage"
+            :items-per-page="itemsPerPage === -1 ? totalCount : itemsPerPage"
+            :items-per-page-options="[
+                { title: '10', value: 10 },
+                { title: '25', value: 25 },
+                { title: '50', value: 50 },
+                { title: '100', value: 100 },
+                { title: 'All', value: -1 }
+            ]"
             :page="currentPage"
-            :server-items-length="totalCount"
+            :items-length="totalCount"
             @update:page="handlePageChange"
             @update:items-per-page="handleItemsPerPageChange"
         >
@@ -411,7 +532,7 @@
                     {{ item.raw.createdAt }}
                 </span>
             </template>
-        </v-data-table>
+        </v-data-table-server>
     </v-card>
 </template>
 
@@ -419,7 +540,7 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { VCard, VTextField, VSelect, VBtn, VIcon, VChip, VProgressCircular, VAlert, VAlertTitle, VExpandTransition } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
+import { VDataTableServer } from 'vuetify/labs/components';
 
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
 import { adminApi, type User } from '@/api/adminApi';
@@ -450,16 +571,19 @@ const router = useRouter();
 const appStore = useAppStore();
 
 const search = ref<string>('');
-const emailFilter = ref<string>('');
 const statusFilter = ref<string>('');
 const tierFilter = ref<string>('');
 const storageMin = ref<number | null>(null);
 const storageMax = ref<number | null>(null);
-const utmSource = ref<string>('');
-const utmMedium = ref<string>('');
-const utmCampaign = ref<string>('');
-const utmTerm = ref<string>('');
-const utmContent = ref<string>('');
+const sourceFilter = ref<string>('');
+const createdDateRange = ref<string>('');
+const createdAfterCustom = ref<string>('');
+const createdBeforeCustom = ref<string>('');
+const hasActiveSession = ref<string>('');
+const lastSessionAfter = ref<string>('');
+const lastSessionBefore = ref<string>('');
+const sessionCountMin = ref<number | null>(null);
+const sessionCountMax = ref<number | null>(null);
 const showAdvancedFilters = ref(false);
 const selected = ref<string[]>([]);
 const sortBy = ref([{ key: 'email', order: 'asc' as const }]);
@@ -485,6 +609,31 @@ const tierOptions = [
     { text: 'All Tiers', value: '' },
     { text: 'Paid', value: 'paid' },
     { text: 'Free', value: 'free' },
+];
+
+const sourceOptions = [
+    { text: 'All Sources', value: '' },
+    { text: 'Google', value: 'Google' },
+    { text: 'LinkedIn', value: 'LinkedIn' },
+    { text: 'Apple', value: 'Apple' },
+    { text: 'Referral', value: 'Referral' },
+    { text: 'Other', value: 'Other' },
+];
+
+const activeSessionOptions = [
+    { text: 'All', value: '' },
+    { text: 'Has Active Session', value: 'true' },
+    { text: 'No Active Session', value: 'false' },
+];
+
+const createdDateRangeOptions = [
+    { text: 'All Time', value: '' },
+    { text: 'Today', value: 'today' },
+    { text: 'Yesterday', value: 'yesterday' },
+    { text: 'Last Week', value: 'last_week' },
+    { text: 'Last Month', value: 'last_month' },
+    { text: 'Last Year', value: 'last_year' },
+    { text: 'Custom', value: 'custom' },
 ];
 
 const headers = [
@@ -513,19 +662,31 @@ const debouncedLoadUsers = () => {
     }, 500);
 };
 
+// Handle created date range change
+const handleCreatedDateRangeChange = () => {
+    if (createdDateRange.value !== 'custom') {
+        createdAfterCustom.value = '';
+        createdBeforeCustom.value = '';
+    }
+    debouncedLoadUsers();
+};
+
 // Clear all filters
 const clearAllFilters = () => {
     search.value = '';
-    emailFilter.value = '';
     statusFilter.value = '';
     tierFilter.value = '';
     storageMin.value = null;
     storageMax.value = null;
-    utmSource.value = '';
-    utmMedium.value = '';
-    utmCampaign.value = '';
-    utmTerm.value = '';
-    utmContent.value = '';
+    sourceFilter.value = '';
+    createdDateRange.value = '';
+    createdAfterCustom.value = '';
+    createdBeforeCustom.value = '';
+    hasActiveSession.value = '';
+    lastSessionAfter.value = '';
+    lastSessionBefore.value = '';
+    sessionCountMin.value = null;
+    sessionCountMax.value = null;
     loadUsers();
 };
 
@@ -533,26 +694,27 @@ const clearAllFilters = () => {
 const clearAdvancedFilters = () => {
     storageMin.value = null;
     storageMax.value = null;
-    utmSource.value = '';
-    utmMedium.value = '';
-    utmCampaign.value = '';
-    utmTerm.value = '';
-    utmContent.value = '';
+    hasActiveSession.value = '';
+    lastSessionAfter.value = '';
+    lastSessionBefore.value = '';
+    sessionCountMin.value = null;
+    sessionCountMax.value = null;
     loadUsers();
 };
 
 // Count active filters
 const activeFiltersCount = computed(() => {
     let count = 0;
-    if (emailFilter.value) count++;
+    if (search.value) count++;
     if (statusFilter.value) count++;
     if (tierFilter.value) count++;
     if (storageMin.value || storageMax.value) count++;
-    if (utmSource.value) count++;
-    if (utmMedium.value) count++;
-    if (utmCampaign.value) count++;
-    if (utmTerm.value) count++;
-    if (utmContent.value) count++;
+    if (sourceFilter.value) count++;
+    if (createdDateRange.value && createdDateRange.value !== 'custom') count++;
+    if (createdDateRange.value === 'custom' && (createdAfterCustom.value || createdBeforeCustom.value)) count++;
+    if (hasActiveSession.value) count++;
+    if (lastSessionAfter.value || lastSessionBefore.value) count++;
+    if (sessionCountMin.value || sessionCountMax.value) count++;
     return count;
 });
 
@@ -564,25 +726,55 @@ const formatStorageRange = () => {
 };
 
 // Load users data
+let isLoading = false; // Prevent multiple simultaneous calls
 const loadUsers = async () => {
+    // Prevent duplicate calls
+    if (isLoading) {
+        return;
+    }
+    
     try {
+        isLoading = true;
         loading.value = true;
         error.value = null;
 
+        // Handle "All" option - send -1 for limit when "All" is selected
+        const limitValue = itemsPerPage.value === -1 ? -1 : itemsPerPage.value;
+        
+        // Ensure page is at least 1 (Vuetify uses 1-based pagination)
+        const pageValue = Math.max(1, currentPage.value);
+
+        // Calculate created date range
+        let createdRangeValue: string | undefined;
+        let createdAfterValue: string | undefined;
+        let createdBeforeValue: string | undefined;
+        
+        if (createdDateRange.value && createdDateRange.value !== 'custom') {
+            // Use preset value - send only one parameter
+            createdRangeValue = createdDateRange.value;
+        } else if (createdDateRange.value === 'custom') {
+            // Use custom dates - send separate after/before
+            createdAfterValue = createdAfterCustom.value || undefined;
+            createdBeforeValue = createdBeforeCustom.value || undefined;
+        }
+
         const response = await adminApi.getAllUsers({
-            limit: itemsPerPage.value,
-            page: currentPage.value,
+            limit: limitValue,
+            page: pageValue,
             search: search.value || undefined,
-            email: emailFilter.value || undefined,
             status: statusFilter.value || undefined,
             tier: tierFilter.value ? (tierFilter.value as 'paid' | 'free') : undefined,
             storageMin: storageMin.value ?? undefined,
             storageMax: storageMax.value ?? undefined,
-            utmSource: utmSource.value || undefined,
-            utmMedium: utmMedium.value || undefined,
-            utmCampaign: utmCampaign.value || undefined,
-            utmTerm: utmTerm.value || undefined,
-            utmContent: utmContent.value || undefined,
+            source: sourceFilter.value || undefined,
+            createdRange: createdRangeValue,
+            createdAfter: createdAfterValue,
+            createdBefore: createdBeforeValue,
+            hasActiveSession: hasActiveSession.value ? hasActiveSession.value === 'true' : undefined,
+            lastSessionAfter: lastSessionAfter.value || undefined,
+            lastSessionBefore: lastSessionBefore.value || undefined,
+            sessionCountMin: sessionCountMin.value ?? undefined,
+            sessionCountMax: sessionCountMax.value ?? undefined,
             sortBy: sortBy.value[0]?.key || 'email',
             sortOrder: sortBy.value[0]?.order || 'asc',
         });
@@ -591,13 +783,16 @@ const loadUsers = async () => {
         totalPages.value = response.pageCount;
         totalCount.value = response.totalCount;
         
-        // Don't emit stats update - stats should come from backend API (getDashboardStats)
-        // Filtered table data should not override the real stats
+        // Sync currentPage with backend response to ensure consistency
+        if (response.currentPage && response.currentPage !== currentPage.value) {
+            currentPage.value = response.currentPage;
+        }
     } catch (err) {
         console.error('Failed to load users:', err);
         error.value = err instanceof Error ? err.message : 'Unknown error occurred';
     } finally {
         loading.value = false;
+        isLoading = false;
     }
 };
 
@@ -669,7 +864,12 @@ const setSearch = (searchText: string) => {
 
 // Pagination handlers
 const handlePageChange = (page: number) => {
-    currentPage.value = page;
+    // Vuetify uses 1-based pagination, ensure page is at least 1
+    if (page < 1) {
+        currentPage.value = 1;
+    } else {
+        currentPage.value = page;
+    }
     loadUsers();
 };
 
@@ -679,11 +879,6 @@ const handleItemsPerPageChange = (itemsPerPageValue: number) => {
     loadUsers();
 };
 
-// Emit stats update - REMOVED: Stats should come from backend API, not from filtered table data
-// The stats cards should show total counts, not filtered counts
-// const emitStatsUpdate = () => {
-//     // Don't emit filtered stats - stats should come from getDashboardStats API
-// };
 
 // Watch for refresh trigger
 watch(() => props.refreshTrigger, () => {
@@ -721,3 +916,26 @@ onMounted(() => {
     loadUsers();
 });
 </script>
+
+<style scoped>
+.filter-group {
+    padding: 0;
+    margin-bottom: 8px;
+}
+
+.filter-group-header {
+    display: flex;
+    align-items: center;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(var(--v-theme-primary), 0.12);
+}
+
+.session-filter-item {
+    margin-top: 20px;
+}
+
+.quick-filters-container {
+    gap: 15px;
+}
+</style>

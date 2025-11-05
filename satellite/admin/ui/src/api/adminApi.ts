@@ -166,32 +166,38 @@ export class AdminApi {
         search?: string;
         sortBy?: string;
         sortOrder?: 'asc' | 'desc';
-        email?: string;
         storageMin?: number;
         storageMax?: number;
-        utmSource?: string;
-        utmMedium?: string;
-        utmCampaign?: string;
-        utmTerm?: string;
-        utmContent?: string;
         tier?: 'paid' | 'free';
+        source?: string;
+        createdRange?: string;
+        createdAfter?: string;
+        createdBefore?: string;
+        hasActiveSession?: boolean;
+        lastSessionAfter?: string;
+        lastSessionBefore?: string;
+        sessionCountMin?: number;
+        sessionCountMax?: number;
     }): Promise<UserListResponse> {
         const queryParams = new URLSearchParams();
-        if (params?.limit) queryParams.append('limit', params.limit.toString());
-        if (params?.page) queryParams.append('page', params.page.toString());
+        if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
+        if (params?.page !== undefined) queryParams.append('page', params.page.toString());
         if (params?.status) queryParams.append('status', params.status);
         if (params?.search) queryParams.append('search', params.search);
         if (params?.sortBy) queryParams.append('sort_by', params.sortBy);
         if (params?.sortOrder) queryParams.append('sort_order', params.sortOrder);
-        if (params?.email) queryParams.append('email', params.email);
         if (params?.storageMin !== undefined) queryParams.append('storage_min', params.storageMin.toString());
         if (params?.storageMax !== undefined) queryParams.append('storage_max', params.storageMax.toString());
-        if (params?.utmSource) queryParams.append('utm_source', params.utmSource);
-        if (params?.utmMedium) queryParams.append('utm_medium', params.utmMedium);
-        if (params?.utmCampaign) queryParams.append('utm_campaign', params.utmCampaign);
-        if (params?.utmTerm) queryParams.append('utm_term', params.utmTerm);
-        if (params?.utmContent) queryParams.append('utm_content', params.utmContent);
         if (params?.tier) queryParams.append('tier', params.tier);
+        if (params?.source) queryParams.append('source', params.source);
+        if (params?.createdRange) queryParams.append('created_range', params.createdRange);
+        if (params?.createdAfter) queryParams.append('created_after', params.createdAfter);
+        if (params?.createdBefore) queryParams.append('created_before', params.createdBefore);
+        if (params?.hasActiveSession !== undefined) queryParams.append('has_active_session', params.hasActiveSession.toString());
+        if (params?.lastSessionAfter) queryParams.append('last_session_after', params.lastSessionAfter);
+        if (params?.lastSessionBefore) queryParams.append('last_session_before', params.lastSessionBefore);
+        if (params?.sessionCountMin !== undefined) queryParams.append('session_count_min', params.sessionCountMin.toString());
+        if (params?.sessionCountMax !== undefined) queryParams.append('session_count_max', params.sessionCountMax.toString());
 
         const fullPath = `${this.ROOT_PATH}/users${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
         const response = await this.http.get(fullPath);
@@ -732,73 +738,24 @@ export class AdminApi {
         pro: number;
         free: number;
     }> {
-        // Fetch ALL users without filters to get accurate stats
-        // Use a high limit to get all users, or fetch in batches
-        const stats = {
-            totalAccounts: 0,
-            active: 0,
-            inactive: 0,
-            deleted: 0,
-            pendingDeletion: 0,
-            legalHold: 0,
-            pendingBotVerification: 0,
-            pro: 0,
-            free: 0,
-        };
-
-        // Fetch users in batches to get all users (max 500 per request)
-        let page = 1;
-        let hasMore = true;
-        const limit = 500;
-
-        while (hasMore) {
-            const response = await this.getAllUsers({
-                limit: limit,
-                page: page,
-                // No filters - get all users
+        // Use the dedicated stats API endpoint for efficient database aggregations
+        const fullPath = `${this.ROOT_PATH}/users/stats`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as {
+                totalAccounts: number;
+                active: number;
+                inactive: number;
+                deleted: number;
+                pendingDeletion: number;
+                legalHold: number;
+                pendingBotVerification: number;
+                pro: number;
+                free: number;
             });
-
-            // Count by status and account type
-            response.users.forEach(user => {
-                // Count by status (0=Inactive, 1=Active, 2=Deleted, 3=PendingDeletion, 4=LegalHold, 5=PendingBotVerification)
-                switch (user.status) {
-                    case 0:
-                        stats.inactive++;
-                        break;
-                    case 1:
-                        stats.active++;
-                        break;
-                    case 2:
-                        stats.deleted++;
-                        break;
-                    case 3:
-                        stats.pendingDeletion++;
-                        break;
-                    case 4:
-                        stats.legalHold++;
-                        break;
-                    case 5:
-                        stats.pendingBotVerification++;
-                        break;
-                }
-                
-                // Count by account type based on paidTier
-                if (user.paidTier) {
-                    stats.pro++;
-                } else {
-                    stats.free++;
-                }
-            });
-
-            // Update total from response (should be the same across pages)
-            stats.totalAccounts = response.totalCount;
-
-            // Check if there are more pages
-            hasMore = response.hasMore && page < response.pageCount;
-            page++;
         }
-
-        return stats;
+        const err = await response.json();
+        throw new APIError(err.error || err.detail || 'Failed to fetch user statistics', response.status);
     }
 
     // User Details API

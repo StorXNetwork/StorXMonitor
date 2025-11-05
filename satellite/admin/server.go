@@ -222,6 +222,7 @@ func NewServer(
 	limitUpdateAPI := api.NewRoute().Subrouter()
 	limitUpdateAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}, false))
 	limitUpdateAPI.HandleFunc("/users", server.getAllUsers).Methods("GET")
+	limitUpdateAPI.HandleFunc("/users/stats", server.getUserStats).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	limitUpdateAPI.HandleFunc("/nodes", server.getAllNodes).Methods("GET")
 	limitUpdateAPI.HandleFunc("/nodes/stats", server.getNodeStats).Methods("GET")
