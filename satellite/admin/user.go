@@ -177,6 +177,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		ProjectLimit int                       `json:"projectLimit"`
 		Placement    storj.PlacementConstraint `json:"placement"`
 		PaidTier     bool                      `json:"paidTier"`
+		Status       int                       `json:"status"`
 	}
 	type Project struct {
 		ID                    uuid.UUID `json:"id"`
@@ -207,6 +208,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		ProjectLimit: user.ProjectLimit,
 		Placement:    user.DefaultPlacement,
 		PaidTier:     user.PaidTier,
+		Status:       int(user.Status),
 	}
 	for _, p := range projects {
 		var storageLimit *int64
@@ -424,6 +426,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	type UserWithPaidTier struct {
 		console.User
 		PaidTierStr string `json:"paidTierStr"`
+		Status      *int   `json:"status"` // Add status field for admin status updates
 	}
 
 	var input UserWithPaidTier
@@ -487,6 +490,17 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 			now := server.nowFn()
 			updateRequest.UpgradeTime = &now
 		}
+	}
+	// Allow admin to update user status
+	if input.Status != nil {
+		statusValue := console.UserStatus(*input.Status)
+		// Validate status value (0-5 are valid statuses)
+		if statusValue < 0 || statusValue > 5 {
+			sendJSONError(w, "invalid status value",
+				"status must be between 0 (Inactive) and 5 (Pending Bot Verification)", http.StatusBadRequest)
+			return
+		}
+		updateRequest.Status = &statusValue
 	}
 
 	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
@@ -687,6 +701,95 @@ func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getUpgradeAccountInfo returns current account upgrade information for the UI form.
+func (server *Server) getUpgradeAccountInfo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	// Get user
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail), "", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get all user's projects to get current limits
+	userProjects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get user's projects", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Build response with current values
+	response := struct {
+		UserEmail                   string `json:"userEmail"`
+		PaidTier                    bool   `json:"paidTier"`
+		StorageLimit                *int64 `json:"storageLimit,omitempty"`                // from first project or user-level
+		BandwidthLimit              *int64 `json:"bandwidthLimit,omitempty"`              // from first project or user-level
+		UserSpecifiedStorageLimit   *int64 `json:"userSpecifiedStorageLimit,omitempty"`   // from first project
+		UserSpecifiedBandwidthLimit *int64 `json:"userSpecifiedBandwidthLimit,omitempty"` // from first project
+		ProjectsCount               int    `json:"projectsCount"`
+		PrevDaysUntilExpiration     int    `json:"prevDaysUntilExpiration"`
+	}{
+		UserEmail:     userEmail,
+		PaidTier:      user.PaidTier,
+		ProjectsCount: len(userProjects),
+	}
+
+	// Get limits from first project if available, otherwise use user-level limits
+	if len(userProjects) > 0 {
+		firstProject := userProjects[0]
+		if firstProject.StorageLimit != nil {
+			limit := int64(*firstProject.StorageLimit)
+			response.StorageLimit = &limit
+		}
+		if firstProject.BandwidthLimit != nil {
+			limit := int64(*firstProject.BandwidthLimit)
+			response.BandwidthLimit = &limit
+		}
+		if firstProject.UserSpecifiedStorageLimit != nil {
+			limit := int64(*firstProject.UserSpecifiedStorageLimit)
+			response.UserSpecifiedStorageLimit = &limit
+		}
+		if firstProject.UserSpecifiedBandwidthLimit != nil {
+			limit := int64(*firstProject.UserSpecifiedBandwidthLimit)
+			response.UserSpecifiedBandwidthLimit = &limit
+		}
+		// Get PrevDaysUntilExpiration from first project
+		response.PrevDaysUntilExpiration = firstProject.PrevDaysUntilExpiration
+	} else {
+		// No projects, use user-level limits
+		if user.ProjectStorageLimit > 0 {
+			response.StorageLimit = &user.ProjectStorageLimit
+		}
+		if user.ProjectBandwidthLimit > 0 {
+			response.BandwidthLimit = &user.ProjectBandwidthLimit
+		}
+		// No projects, so PrevDaysUntilExpiration is 0
+		response.PrevDaysUntilExpiration = 0
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
 // upgradeUserAccount upgrades a user to paid tier, updates project limits, and resets expiration.
 // This is an atomic operation that handles all upgrade-related changes in one transaction.
 func (server *Server) upgradeUserAccount(w http.ResponseWriter, r *http.Request) {
@@ -726,10 +829,12 @@ func (server *Server) upgradeUserAccount(w http.ResponseWriter, r *http.Request)
 	}
 
 	var input struct {
-		StorageLimit    int64 `json:"storageLimit"`    // in bytes
-		BandwidthLimit  int64 `json:"bandwidthLimit"`  // in bytes
-		UpgradeToPaid   bool  `json:"upgradeToPaid"`   // whether to upgrade to paid tier
-		ResetExpiration bool  `json:"resetExpiration"` // whether to reset expiration tracking
+		StorageLimit                int64  `json:"storageLimit"`                // in bytes (usage_limit)
+		BandwidthLimit              int64  `json:"bandwidthLimit"`              // in bytes (bandwidth_limit)
+		UserSpecifiedStorageLimit   *int64 `json:"userSpecifiedStorageLimit"`   // optional: user_specified_usage_limit
+		UserSpecifiedBandwidthLimit *int64 `json:"userSpecifiedBandwidthLimit"` // optional: user_specified_bandwidth_limit
+		UpgradeToPaid               bool   `json:"upgradeToPaid"`               // whether to upgrade to paid tier
+		ResetExpiration             bool   `json:"resetExpiration"`             // whether to reset expiration tracking
 	}
 
 	err = json.Unmarshal(body, &input)
@@ -744,76 +849,76 @@ func (server *Server) upgradeUserAccount(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Step 1: Upgrade to paid tier if requested
+	// Step 1: Update paid tier status (matches: UPDATE users SET paid_tier = true/false)
+	paidTier := input.UpgradeToPaid
+	upgradeTime := server.nowFn()
+	updateRequest := console.UpdateUserRequest{
+		PaidTier:    &paidTier,
+		UpgradeTime: &upgradeTime,
+	}
+	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
+	if err != nil {
+		sendJSONError(w, "failed to update user paid tier", err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if input.UpgradeToPaid {
-		paidTier := true
-		now := server.nowFn()
-		updateRequest := console.UpdateUserRequest{
-			PaidTier:    &paidTier,
-			UpgradeTime: &now,
-		}
-		err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
-		if err != nil {
-			sendJSONError(w, "failed to upgrade user to paid tier", err.Error(), http.StatusInternalServerError)
-			return
-		}
 		server.log.Info("User upgraded to paid tier",
+			zap.String("user_email", userEmail),
+			zap.String("admin_email", adminUser.Email))
+	} else {
+		server.log.Info("User downgraded from paid tier",
 			zap.String("user_email", userEmail),
 			zap.String("admin_email", adminUser.Email))
 	}
 
-	// Step 2: Update user-level project limits (for future projects)
-	newLimits := console.UsageLimits{
-		Storage:   input.StorageLimit,
-		Bandwidth: input.BandwidthLimit,
-		Segment:   user.ProjectSegmentLimit, // Keep existing segment limit
-	}
-
-	err = server.db.Console().Users().UpdateUserProjectLimits(ctx, user.ID, newLimits)
-	if err != nil {
-		sendJSONError(w, "failed to update user project limits", err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Step 3: Get all user's projects
+	// Step 2: Get all user's projects
 	userProjects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "failed to get user's projects", err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Step 4: Update all projects with new limits and reset expiration if requested
+	// Step 3: Update all projects
 	now := time.Now().UTC()
 	for _, project := range userProjects {
-		// Update project limits
-		err = server.db.Console().Projects().UpdateUsageLimits(ctx, project.ID, newLimits)
-		if err != nil {
-			sendJSONError(w, fmt.Sprintf("failed to update project limits for project %s", project.ID.String()),
-				err.Error(), http.StatusInternalServerError)
-			return
+		// Always update usage_limit and bandwidth_limit (storage and bandwidth limits)
+		storageLimit := memory.Size(input.StorageLimit)
+		bandwidthLimit := memory.Size(input.BandwidthLimit)
+		project.StorageLimit = &storageLimit
+		project.BandwidthLimit = &bandwidthLimit
+
+		// Always set user_specified_usage_limit to match usage_limit when admin upgrades
+		// If explicitly provided, use that value; otherwise use the same as usage_limit
+		if input.UserSpecifiedStorageLimit != nil {
+			userSpecStorage := memory.Size(*input.UserSpecifiedStorageLimit)
+			project.UserSpecifiedStorageLimit = &userSpecStorage
+		} else {
+			// Set user_specified_usage_limit = usage_limit (e.g., 10000000000 = 10000000000)
+			project.UserSpecifiedStorageLimit = &storageLimit
+		}
+
+		// Always set user_specified_bandwidth_limit to match bandwidth_limit when admin upgrades
+		// If explicitly provided, use that value; otherwise use the same as bandwidth_limit
+		if input.UserSpecifiedBandwidthLimit != nil {
+			userSpecBandwidth := memory.Size(*input.UserSpecifiedBandwidthLimit)
+			project.UserSpecifiedBandwidthLimit = &userSpecBandwidth
+		} else {
+			// Set user_specified_bandwidth_limit = bandwidth_limit (e.g., 50000000000 = 50000000000)
+			project.UserSpecifiedBandwidthLimit = &bandwidthLimit
 		}
 
 		// Reset expiration tracking if requested
-		// Note: We update the project's CreatedAt and PrevDaysUntilExpiration directly via database
-		// This effectively resets the expiration timer by making the project appear newly created
 		if input.ResetExpiration {
-			// Update project with new CreatedAt and reset PrevDaysUntilExpiration
 			project.CreatedAt = now
 			project.PrevDaysUntilExpiration = 0
+		}
 
-			// Update project in database (Update expects a pointer)
-			err = server.db.Console().Projects().Update(ctx, &project)
-			if err != nil {
-				server.log.Error("Failed to reset project expiration",
-					zap.Error(err),
-					zap.String("project_id", project.ID.String()),
-					zap.String("user_email", userEmail))
-				// Continue with other projects even if one fails
-			} else {
-				server.log.Info("Project expiration reset",
-					zap.String("project_id", project.ID.String()),
-					zap.String("project_name", project.Name))
-			}
+		// Update project in database
+		err = server.db.Console().Projects().Update(ctx, &project)
+		if err != nil {
+			sendJSONError(w, fmt.Sprintf("failed to update project %s", project.ID.String()),
+				err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 
@@ -826,7 +931,47 @@ func (server *Server) upgradeUserAccount(w http.ResponseWriter, r *http.Request)
 		zap.Bool("expiration_reset", input.ResetExpiration),
 		zap.Int("projects_updated", len(userProjects)))
 
-	sendJSONData(w, http.StatusOK, []byte(`{"message":"user account upgraded successfully"}`))
+	// Build full response
+	response := struct {
+		Message                     string   `json:"message"`
+		UserEmail                   string   `json:"userEmail"`
+		StorageLimit                int64    `json:"storageLimit"`
+		BandwidthLimit              int64    `json:"bandwidthLimit"`
+		UserSpecifiedStorageLimit   *int64   `json:"userSpecifiedStorageLimit,omitempty"`
+		UserSpecifiedBandwidthLimit *int64   `json:"userSpecifiedBandwidthLimit,omitempty"`
+		UpgradedToPaid              bool     `json:"upgradedToPaid"`
+		ResetExpiration             bool     `json:"resetExpiration"`
+		ProjectsUpdated             int      `json:"projectsUpdated"`
+		ProjectIDs                  []string `json:"projectIds"`
+	}{
+		Message:         "user account upgraded successfully",
+		UserEmail:       userEmail,
+		StorageLimit:    input.StorageLimit,
+		BandwidthLimit:  input.BandwidthLimit,
+		UpgradedToPaid:  input.UpgradeToPaid,
+		ResetExpiration: input.ResetExpiration,
+		ProjectsUpdated: len(userProjects),
+		ProjectIDs:      make([]string, 0, len(userProjects)),
+	}
+
+	if input.UserSpecifiedStorageLimit != nil {
+		response.UserSpecifiedStorageLimit = input.UserSpecifiedStorageLimit
+	}
+	if input.UserSpecifiedBandwidthLimit != nil {
+		response.UserSpecifiedBandwidthLimit = input.UserSpecifiedBandwidthLimit
+	}
+
+	for _, project := range userProjects {
+		response.ProjectIDs = append(response.ProjectIDs, project.ID.String())
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		sendJSONError(w, "json encoding failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
 }
 
 func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {

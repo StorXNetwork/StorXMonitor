@@ -17,8 +17,8 @@ import (
 
 // Constants for super admin configuration
 const (
-	superAdminEmail = "admin@storj.io"
-	defaultPassword = "admin123"
+	superAdminEmail = "superadmin@storx.io"
+	defaultPassword = "superadmin@storx.io@2025"
 	superAdminRole  = "super_admin"
 )
 

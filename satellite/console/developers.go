@@ -24,6 +24,12 @@ type Developers interface {
 	// GetByEmailWithUnverified is a method for querying developers by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *Developer, unverified []Developer, err error)
 	GetByStatus(ctx context.Context, status UserStatus, cursor DeveloperCursor) (*DeveloperPage, error)
+	// GetAllDevelopersWithStats retrieves developers with session and OAuth client statistics using optimized JOINs.
+	// This method handles filtering and pagination at the database level for better performance.
+	// Returns developers with stats and total count for pagination.
+	GetAllDevelopersWithStats(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (developers []*Developer, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, oauthClientCounts []int, totalCount int, err error)
+	// GetDeveloperStats returns counts of developers grouped by status using optimized SQL aggregation
+	GetDeveloperStats(ctx context.Context) (total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification int, err error)
 	// GetByEmail is a method for querying developers by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*Developer, error)
 

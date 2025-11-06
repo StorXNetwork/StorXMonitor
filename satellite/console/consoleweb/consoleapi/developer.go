@@ -161,7 +161,7 @@ func (a *DeveloperAuth) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.service.DeleteSession(ctx, sessionID)
+	err = a.service.DeleteSessionDeveloper(ctx, sessionID)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -430,7 +430,7 @@ func (a *DeveloperAuth) ActivateAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, developer.ID, developer.Email, ip, r.UserAgent(), nil)
+	tokenInfo, err := a.service.GenerateSessionTokenForDeveloper(ctx, developer.ID, developer.Email, ip, nil)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return

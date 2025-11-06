@@ -35,6 +35,8 @@ type DB interface {
 	ResetPasswordTokens() ResetPasswordTokens
 	// WebappSessions is a getter for WebappSessions repository.
 	WebappSessions() consoleauth.WebappSessions
+	// WebappSessionDevelopers is a getter for WebappSessionDevelopers repository.
+	WebappSessionDevelopers() consoleauth.WebappSessionDevelopers
 	// AccountFreezeEvents is a getter for AccountFreezeEvents repository.
 	AccountFreezeEvents() AccountFreezeEvents
 	// DeveloperOAuthClients is a getter for DeveloperOAuthClients repository.

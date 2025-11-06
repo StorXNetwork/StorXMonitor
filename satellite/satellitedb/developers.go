@@ -6,6 +6,9 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -158,6 +161,224 @@ func (dev *developers) GetByStatus(ctx context.Context, status console.UserStatu
 	page.CurrentPage = cursor.Page
 
 	return page, nil
+}
+
+// GetAllDevelopersWithStats retrieves developers with session and OAuth client statistics using optimized JOINs.
+// This method handles filtering and pagination at the database level for better performance.
+// Uses CTE with window function to avoid duplicate COUNT query.
+func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (developers []*console.Developer, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, oauthClientCounts []int, totalCount int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Build WHERE conditions - only add conditions when filters are provided
+	whereConditions := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if statusFilter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("d.status = $%d", argIndex))
+		args = append(args, *statusFilter)
+		argIndex++
+	}
+
+	if createdAfter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("d.created_at >= $%d", argIndex))
+		args = append(args, *createdAfter)
+		argIndex++
+	}
+
+	if createdBefore != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("d.created_at <= $%d", argIndex))
+		args = append(args, *createdBefore)
+		argIndex++
+	}
+
+	if search != "" {
+		searchPattern := "%" + strings.ToLower(search) + "%"
+		whereConditions = append(whereConditions, fmt.Sprintf("(LOWER(d.email) LIKE $%d OR LOWER(d.full_name) LIKE $%d)", argIndex, argIndex))
+		args = append(args, searchPattern)
+		argIndex++
+	}
+
+	// Session filters - add to WHERE clause
+	if hasActiveSession != nil {
+		if *hasActiveSession {
+			// Has active session: last_session_expiry > NOW()
+			whereConditions = append(whereConditions, "s.last_session_expiry > NOW()")
+		} else {
+			// No active session: last_session_expiry IS NULL OR last_session_expiry <= NOW()
+			whereConditions = append(whereConditions, "(s.last_session_expiry IS NULL OR s.last_session_expiry <= NOW())")
+		}
+	}
+
+	if lastSessionAfter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry >= $%d", argIndex))
+		args = append(args, *lastSessionAfter)
+		argIndex++
+	}
+
+	if lastSessionBefore != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry <= $%d", argIndex))
+		args = append(args, *lastSessionBefore)
+		argIndex++
+	}
+
+	if sessionCountMin != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("COALESCE(s.total_session_count, 0) >= $%d", argIndex))
+		args = append(args, *sessionCountMin)
+		argIndex++
+	}
+
+	if sessionCountMax != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("COALESCE(s.total_session_count, 0) <= $%d", argIndex))
+		args = append(args, *sessionCountMax)
+		argIndex++
+	}
+
+	// Build optimized query with CTE and window function for total count
+	// This eliminates the need for a separate COUNT query
+	query := `
+		WITH developer_stats AS (
+			SELECT 
+				d.id,
+				d.full_name,
+				d.email,
+				d.status,
+				d.created_at,
+				s.last_session_expiry,
+				s.first_session_expiry,
+				s.total_session_count,
+				COALESCE(oauth.oauth_client_count, 0) AS oauth_client_count,
+				COUNT(*) OVER() AS total_count
+			FROM 
+				developers d
+			LEFT JOIN (
+				SELECT 
+					developer_id,
+					MAX(expires_at) AS last_session_expiry,
+					MIN(expires_at) AS first_session_expiry,
+					COUNT(*) AS total_session_count
+				FROM 
+					webapp_session_developers
+				GROUP BY 
+					developer_id
+			) s ON s.developer_id = d.id
+			LEFT JOIN (
+				SELECT 
+					developer_id,
+					COUNT(*) AS oauth_client_count
+				FROM 
+					developer_oauth_clients
+				GROUP BY 
+					developer_id
+			) oauth ON oauth.developer_id = d.id
+	`
+
+	if len(whereConditions) > 0 {
+		query += " WHERE " + strings.Join(whereConditions, " AND ")
+	}
+
+	query += `
+			ORDER BY d.created_at DESC
+			LIMIT $` + fmt.Sprintf("%d", argIndex) + ` OFFSET $` + fmt.Sprintf("%d", argIndex+1) + `
+		)
+		SELECT * FROM developer_stats
+	`
+	args = append(args, limit, offset)
+
+	rows, err := dev.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, nil, nil, nil, nil, 0, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var developer console.Developer
+		var lastExpiry, firstExpiry sql.NullTime
+		var totalSessionCount sql.NullInt32
+		var oauthClientCount int
+		var rowTotalCount int
+
+		err = rows.Scan(
+			&developer.ID,
+			&developer.FullName,
+			&developer.Email,
+			&developer.Status,
+			&developer.CreatedAt,
+			&lastExpiry,
+			&firstExpiry,
+			&totalSessionCount,
+			&oauthClientCount,
+			&rowTotalCount, // Window function count
+		)
+		if err != nil {
+			return nil, nil, nil, nil, nil, 0, err
+		}
+
+		// Set totalCount from first row (same for all rows due to window function)
+		if totalCount == 0 {
+			totalCount = rowTotalCount
+		}
+
+		var lastExpiryPtr, firstExpiryPtr *time.Time
+		if lastExpiry.Valid {
+			lastExpiryPtr = &lastExpiry.Time
+		}
+		if firstExpiry.Valid {
+			firstExpiryPtr = &firstExpiry.Time
+		}
+
+		var sessionCount int
+		if totalSessionCount.Valid {
+			sessionCount = int(totalSessionCount.Int32)
+		}
+
+		developers = append(developers, &developer)
+		lastSessionExpiry = append(lastSessionExpiry, lastExpiryPtr)
+		firstSessionExpiry = append(firstSessionExpiry, firstExpiryPtr)
+		totalSessionCounts = append(totalSessionCounts, sessionCount)
+		oauthClientCounts = append(oauthClientCounts, oauthClientCount)
+	}
+
+	// Check for errors from iterating over rows (required by tagsql)
+	if err = rows.Err(); err != nil {
+		return nil, nil, nil, nil, nil, 0, err
+	}
+
+	return developers, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, oauthClientCounts, totalCount, nil
+}
+
+// GetDeveloperStats returns counts of developers grouped by status using optimized SQL aggregation
+func (dev *developers) GetDeveloperStats(ctx context.Context) (total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Use a single optimized SQL query with FILTER to count developers by status
+	// This is much more efficient than fetching all developers and counting in memory
+	query := `
+		SELECT 
+			COUNT(*) FILTER (WHERE status = 0) AS inactive,
+			COUNT(*) FILTER (WHERE status = 1) AS active,
+			COUNT(*) FILTER (WHERE status = 2) AS deleted,
+			COUNT(*) FILTER (WHERE status = 3) AS pending_deletion,
+			COUNT(*) FILTER (WHERE status = 4) AS legal_hold,
+			COUNT(*) FILTER (WHERE status = 5) AS pending_bot_verification,
+			COUNT(*) AS total
+		FROM developers
+	`
+
+	err = dev.db.QueryRowContext(ctx, query).Scan(
+		&inactive,
+		&active,
+		&deleted,
+		&pendingDeletion,
+		&legalHold,
+		&pendingBotVerification,
+		&total,
+	)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
+	}
+
+	return total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification, nil
 }
 
 // GetByEmail is a method for querying developer by verified email from the database.

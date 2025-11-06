@@ -1416,6 +1416,44 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}, nil
 }
 
+// GenerateSessionTokenForDeveloper creates a new developer session and returns the string representation of its token.
+func (s *Service) GenerateSessionTokenForDeveloper(ctx context.Context, developerID uuid.UUID, email, ip string, customDuration *time.Duration) (_ *TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	sessionID, err := uuid.New()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	duration := s.config.Session.Duration
+	if customDuration != nil {
+		duration = *customDuration
+	} else if s.config.Session.InactivityTimerEnabled {
+		duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+	}
+	expiresAt := time.Now().Add(duration)
+
+	_, err = s.store.WebappSessionDevelopers().Create(ctx, sessionID, developerID, ip, expiresAt)
+	if err != nil {
+		return nil, err
+	}
+
+	token := consoleauth.Token{Payload: sessionID.Bytes()}
+
+	signature, err := s.tokens.SignToken(token)
+	if err != nil {
+		return nil, err
+	}
+	token.Signature = signature
+
+	s.auditLog(ctx, "login developer", &developerID, email)
+
+	return &TokenInfo{
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
 // ActivateAccount - is a method for activating user account after registration.
 func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -2084,7 +2122,7 @@ func (s *Service) TokenDeveloper(ctx context.Context, request AuthDeveloper) (re
 		weekDuration := 7 * 24 * time.Hour
 		customDurationPtr = &weekDuration
 	}
-	response, err = s.GenerateSessionToken(ctx, developer.ID, developer.Email, request.IP, request.UserAgent, customDurationPtr)
+	response, err = s.GenerateSessionTokenForDeveloper(ctx, developer.ID, developer.Email, request.IP, customDurationPtr)
 	if err != nil {
 		return nil, err
 	}
@@ -2581,7 +2619,7 @@ func (s *Service) ChangePasswordDeveloper(ctx context.Context, pass, newPass str
 		}
 	}
 
-	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, developer.ID)
+	_, err = s.store.WebappSessionDevelopers().DeleteAllByDeveloperId(ctx, developer.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -4420,14 +4458,14 @@ func (s *Service) TokenAuthForDeveloper(ctx context.Context, token consoleauth.T
 		return nil, Error.Wrap(err)
 	}
 
-	session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+	developerSession, err := s.store.WebappSessionDevelopers().GetBySessionID(ctx, sessionID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	ctx, err = s.authorizeDeveloper(ctx, session.UserID, session.ExpiresAt, authTime)
+	ctx, err = s.authorizeDeveloper(ctx, developerSession.DeveloperID, developerSession.ExpiresAt, authTime)
 	if err != nil {
-		err := errs.Combine(err, s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
+		err := errs.Combine(err, s.store.WebappSessionDevelopers().DeleteBySessionID(ctx, sessionID))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -4957,6 +4995,13 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err e
 	return Error.Wrap(s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
 }
 
+// DeleteSessionDeveloper removes the developer session from the database.
+func (s *Service) DeleteSessionDeveloper(ctx context.Context, sessionID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return Error.Wrap(s.store.WebappSessionDevelopers().DeleteBySessionID(ctx, sessionID))
+}
+
 // DeleteAllSessionsByUserIDExcept removes all sessions except the specified session from the database.
 func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -5017,7 +5062,7 @@ func (s *Service) RefreshSessionDeveloper(ctx context.Context, sessionID uuid.UU
 	duration := time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
 	expiresAt = time.Now().Add(duration)
 
-	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
+	err = s.store.WebappSessionDevelopers().UpdateExpiration(ctx, sessionID, expiresAt)
 	if err != nil {
 		return time.Time{}, err
 	}

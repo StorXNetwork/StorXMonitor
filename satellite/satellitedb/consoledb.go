@@ -96,6 +96,11 @@ func (db *ConsoleDB) WebappSessions() consoleauth.WebappSessions {
 	return &webappSessions{db.db}
 }
 
+// WebappSessionDevelopers is a getter for WebappSessionDevelopers repository.
+func (db *ConsoleDB) WebappSessionDevelopers() consoleauth.WebappSessionDevelopers {
+	return &webappSessionDevelopers{db.db}
+}
+
 // AccountFreezeEvents is a getter for AccountFreezeEvents repository.
 func (db *ConsoleDB) AccountFreezeEvents() console.AccountFreezeEvents {
 	return &accountFreezeEvents{db.db}
