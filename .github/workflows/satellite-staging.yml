@@ -19,11 +19,29 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Setup Go (skip if already installed)
+      id: setup-go
+      run: |
+        # Check if Go is already available
+        $goCmd = Get-Command go -ErrorAction SilentlyContinue
+        if ($goCmd) {
+          $goVersion = (go version 2>&1)
+          Write-Host "Go is already installed: $goVersion"
+          Write-Host "Skipping setup-go action"
+          Write-Host "go-available=true" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Host "Go not found, will use setup-go action"
+          Write-Host "go-available=false" >> $env:GITHUB_OUTPUT
+        }
+      continue-on-error: true
+      
     - name: Setup Go
+      if: steps.setup-go.outputs.go-available != 'true'
       uses: actions/setup-go@v4
       with:
         go-version: ${{ env.GO_VERSION }}
-        cache: false
+        cache: true
+        cache-dependency-path: go.sum
           
     - name: Pre-download dependencies
       run: |
@@ -35,6 +53,8 @@ jobs:
         }
         
     - name: Fast build satellite.exe
+      env:
+        WEB3_AUTH_PRIVATE_KEY: ${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
       run: |
         $buildStart = Get-Date
         Write-Host "Building satellite.exe with optimizations..."
@@ -42,7 +62,9 @@ jobs:
         # Use Go build cache and skip tests for faster build
         $env:GOFLAGS = "-buildvcs=false"
         
-        $buildCmd = "go build -ldflags `"-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'`" -o `"$env:TEMP_PATH\satellite.exe`" ./cmd/satellite"
+        # Build the ldflags with proper variable expansion
+        $ldflags = "-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'"
+        $buildCmd = "go build -ldflags `"$ldflags`" -o `"$env:TEMP_PATH\satellite.exe`" ./cmd/satellite"
         Write-Host "Build command: $buildCmd"
         
         Invoke-Expression $buildCmd

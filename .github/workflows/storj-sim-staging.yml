@@ -18,11 +18,29 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Setup Go (skip if already installed)
+      id: setup-go
+      run: |
+        # Check if Go is already available
+        $goCmd = Get-Command go -ErrorAction SilentlyContinue
+        if ($goCmd) {
+          $goVersion = (go version 2>&1)
+          Write-Host "Go is already installed: $goVersion"
+          Write-Host "Skipping setup-go action"
+          Write-Host "go-available=true" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Host "Go not found, will use setup-go action"
+          Write-Host "go-available=false" >> $env:GITHUB_OUTPUT
+        }
+      continue-on-error: true
+      
     - name: Setup Go
+      if: steps.setup-go.outputs.go-available != 'true'
       uses: actions/setup-go@v4
       with:
         go-version: ${{ env.GO_VERSION }}
-        cache: false
+        cache: true
+        cache-dependency-path: go.sum
           
     - name: Pre-download dependencies
       run: |
