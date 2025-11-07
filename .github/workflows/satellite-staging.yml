@@ -52,8 +52,20 @@ jobs:
         go mod download
         if (Test-Path "cmd/satellite") {
           Write-Host "Pre-building satellite dependencies..."
-          go build -o nul ./cmd/satellite 2>&1 | Write-Host
+          # Use a unique temp file to avoid file locking issues
+          $tempExe = "$env:TEMP\satellite-prebuild-$([guid]::NewGuid()).exe"
+          try {
+            go build -o $tempExe ./cmd/satellite 2>&1 | Write-Host
+            if (Test-Path $tempExe) {
+              Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
+            }
+            Write-Host "Pre-build completed successfully"
+          } catch {
+            Write-Host "Pre-build failed (non-critical): $_"
+            Write-Host "Continuing with build..."
+          }
         }
+      continue-on-error: true
         
     - name: Fast build satellite.exe
       env:
