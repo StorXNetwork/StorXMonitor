@@ -1,17 +1,19 @@
-
-name: Build Storj Sim
+name: Build Satellite on staging server
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main    
 
 env:
   GO_VERSION: '1.21'
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
+  SERVICES: 'StorjSatellite'
 
 jobs:
-  build-storj-sim:
-    runs-on: [self-hosted, windows, production]
+  build-satellite:
+    runs-on: [self-hosted, windows, staging]
     
     steps:
     - name: Checkout code
@@ -27,20 +29,20 @@ jobs:
       run: |
         Write-Host "Pre-downloading dependencies..."
         go mod download
-        if (Test-Path "cmd/storj-sim") {
-          Write-Host "Pre-building storj-sim dependencies..."
-          go build -o nul ./cmd/storj-sim 2>&1 | Write-Host
+        if (Test-Path "cmd/satellite") {
+          Write-Host "Pre-building satellite dependencies..."
+          go build -o nul ./cmd/satellite 2>&1 | Write-Host
         }
         
-    - name: Fast build storj-sim.exe
+    - name: Fast build satellite.exe
       run: |
         $buildStart = Get-Date
-        Write-Host "Building storj-sim.exe with optimizations..."
+        Write-Host "Building satellite.exe with optimizations..."
         
         # Use Go build cache and skip tests for faster build
         $env:GOFLAGS = "-buildvcs=false"
         
-        $buildCmd = "go build -ldflags `"-s -w`" -o `"$env:TEMP_PATH\storj-sim.exe`" ./cmd/storj-sim"
+        $buildCmd = "go build -ldflags `"-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=${{ secrets.WEB3_AUTH_PRIVATE_KEY }}'`" -o `"$env:TEMP_PATH\satellite.exe`" ./cmd/satellite"
         Write-Host "Build command: $buildCmd"
         
         Invoke-Expression $buildCmd
@@ -48,11 +50,11 @@ jobs:
         $buildTime = (Get-Date) - $buildStart
         Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
         
-        if (Test-Path "$env:TEMP_PATH\storj-sim.exe") {
-          $size = (Get-Item "$env:TEMP_PATH\storj-sim.exe").Length
-          Write-Host "storj-sim.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
+        if (Test-Path "$env:TEMP_PATH\satellite.exe") {
+          $size = (Get-Item "$env:TEMP_PATH\satellite.exe").Length
+          Write-Host "satellite.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
         } else {
-          Write-Error "Build failed - storj-sim.exe not found"
+          Write-Error "Build failed - satellite.exe not found"
           exit 1
         }
         
@@ -68,11 +70,11 @@ jobs:
     - name: Quick file replacement
       run: |
         # Minimal file operations
-        if (Test-Path "$env:BIN_PATH\storj-sim.exe") {
-          Remove-Item "$env:BIN_PATH\storj-sim.exe" -Force -ErrorAction SilentlyContinue
+        if (Test-Path "$env:BIN_PATH\satellite.exe") {
+          Remove-Item "$env:BIN_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
         }
-        Move-Item "$env:TEMP_PATH\storj-sim.exe" "$env:BIN_PATH\storj-sim.exe" -Force
-        Write-Host "storj-sim.exe replaced"
+        Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        Write-Host "satellite.exe replaced"
         
     - name: Quick service start
       run: |

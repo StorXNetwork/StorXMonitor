@@ -11,7 +11,7 @@ env:
 
 jobs:
   build-satellite:
-    runs-on: [self-hosted, windows]
+    runs-on: [self-hosted, windows, production]
     
     steps:
     - name: Checkout code

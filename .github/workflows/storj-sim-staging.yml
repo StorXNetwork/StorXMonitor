@@ -1,8 +1,9 @@
-
-name: Build Storj Sim
+name: Build Storj Sim on staging server
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main    
 
 env:
   GO_VERSION: '1.21'
@@ -11,7 +12,7 @@ env:
 
 jobs:
   build-storj-sim:
-    runs-on: [self-hosted, windows, production]
+    runs-on: [self-hosted, windows, staging]
     
     steps:
     - name: Checkout code
