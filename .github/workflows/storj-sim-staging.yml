@@ -1,8 +1,9 @@
-
-name: Build Storj Sim
+name: Build Storj Sim on staging server
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main    
 
 env:
   GO_VERSION: '1.21'
@@ -11,11 +12,14 @@ env:
 
 jobs:
   build-storj-sim:
-    runs-on: [self-hosted, windows, production]
+    runs-on: [self-hosted, windows, staging]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        clean: true
       
     - name: Setup Go (skip if already installed)
       id: setup-go
@@ -95,9 +99,48 @@ jobs:
     - name: Quick service start
       run: |
         Set-Location $env:BIN_PATH
-        & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
-        Start-Sleep -Seconds 2  # Reduced wait time
         
-        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
-        Write-Host "StorjSatellite status: $status"
-        Write-Host "Service start initiated"
+        # Check current service status
+        $service = Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue
+        if ($service) {
+          $status = $service.Status
+          Write-Host "Current service status: $status"
+          
+          # Wait for service to be in a stable state if it's transitioning
+          $maxWait = 10
+          $waitCount = 0
+          while (($status -eq "StartPending" -or $status -eq "StopPending" -or $status -eq "PausePending" -or $status -eq "ContinuePending") -and $waitCount -lt $maxWait) {
+            Start-Sleep -Seconds 1
+            $service.Refresh()
+            $status = $service.Status
+            Write-Host "Waiting for service... Status: $status"
+            $waitCount++
+          }
+          
+          # Only start if service is stopped
+          if ($status -eq "Stopped") {
+            Write-Host "Starting service..."
+            & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
+            Start-Sleep -Seconds 2
+            
+            # Verify service started
+            $service.Refresh()
+            $finalStatus = $service.Status
+            Write-Host "Service status after start: $finalStatus"
+          } elseif ($status -eq "Running") {
+            Write-Host "Service is already running"
+          } else {
+            Write-Host "Service is in state: $status - attempting restart"
+            & cmd /c ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
+            Start-Sleep -Seconds 2
+            & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
+            Start-Sleep -Seconds 2
+            $service.Refresh()
+            Write-Host "Service status after restart: $($service.Status)"
+          }
+        } else {
+          Write-Host "Service not found, attempting to start anyway"
+          & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
+        }
+        
+        Write-Host "Service start completed"

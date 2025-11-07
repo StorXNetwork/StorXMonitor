@@ -1,21 +1,26 @@
-name: Build Satellite
+name: Build Satellite on staging server
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main    
 
 env:
   GO_VERSION: '1.21'
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
-  SERVICES: 'StorxBackup,StorxAuditor,StorjSatellite'
+  SERVICES: 'StorjSatellite'
 
 jobs:
   build-satellite:
-    runs-on: [self-hosted, windows, production]
+    runs-on: [self-hosted, windows, staging]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        clean: true
       
     - name: Setup Go (skip if already installed)
       id: setup-go
@@ -78,25 +83,14 @@ jobs:
           exit 1
         }
         
-    - name: Parallel service stop
+    - name: Quick service stop
       run: |
-        $services = $env:SERVICES -split ','
-        $stopJobs = @()
-        
-        foreach ($service in $services) {
-          $stopJobs += Start-Job -ScriptBlock {
-            param($serviceName, $binPath)
-            Set-Location $binPath
-            $status = (Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status
-            if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-              & ".\nssm.exe" stop $serviceName 2>&1 | Out-Null
-            }
-          } -ArgumentList $service, $env:BIN_PATH
+        Set-Location $env:BIN_PATH
+        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
+        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
+          & ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
+          Start-Sleep -Seconds 2  # Reduced wait time
         }
-        
-        # Wait for all stop jobs to complete (max 10 seconds)
-        $stopJobs | Wait-Job -Timeout 10 | Out-Null
-        Write-Host "All services stopped or timeout reached"
         
     - name: Quick file replacement
       run: |
@@ -107,25 +101,51 @@ jobs:
         Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
         Write-Host "satellite.exe replaced"
         
-    - name: Parallel service start
+    - name: Quick service start
       run: |
-        $services = $env:SERVICES -split ','
-        $startJobs = @()
+        Set-Location $env:BIN_PATH
         
-        foreach ($service in $services) {
-          $startJobs += Start-Job -ScriptBlock {
-            param($serviceName, $binPath)
-            Set-Location $binPath
-            & cmd /c ".\nssm.exe" start $serviceName 2>&1 | Out-Null
-          } -ArgumentList $service, $env:BIN_PATH
+        # Check current service status
+        $service = Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue
+        if ($service) {
+          $status = $service.Status
+          Write-Host "Current service status: $status"
+          
+          # Wait for service to be in a stable state if it's transitioning
+          $maxWait = 10
+          $waitCount = 0
+          while (($status -eq "StartPending" -or $status -eq "StopPending" -or $status -eq "PausePending" -or $status -eq "ContinuePending") -and $waitCount -lt $maxWait) {
+            Start-Sleep -Seconds 1
+            $service.Refresh()
+            $status = $service.Status
+            Write-Host "Waiting for service... Status: $status"
+            $waitCount++
+          }
+          
+          # Only start if service is stopped
+          if ($status -eq "Stopped") {
+            Write-Host "Starting service..."
+            & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
+            Start-Sleep -Seconds 2
+            
+            # Verify service started
+            $service.Refresh()
+            $finalStatus = $service.Status
+            Write-Host "Service status after start: $finalStatus"
+          } elseif ($status -eq "Running") {
+            Write-Host "Service is already running"
+          } else {
+            Write-Host "Service is in state: $status - attempting restart"
+            & cmd /c ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
+            Start-Sleep -Seconds 2
+            & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
+            Start-Sleep -Seconds 2
+            $service.Refresh()
+            Write-Host "Service status after restart: $($service.Status)"
+          }
+        } else {
+          Write-Host "Service not found, attempting to start anyway"
+          & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
         }
         
-        # Wait for all start jobs to complete (max 15 seconds)
-        $startJobs | Wait-Job -Timeout 15 | Out-Null
-        
-        # Quick status check
-        foreach ($service in $services) {
-          $status = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-          Write-Host "$service status: $status"
-        }
-        Write-Host "All services started"
+        Write-Host "Service start completed"
