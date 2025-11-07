@@ -299,36 +299,41 @@ func (users *users) GetAllUsers(ctx context.Context) (usersFromDB []*console.Use
 	return usersFromDB, nil
 }
 
-// GetAllUsersWithSessionData retrieves all users with their session data using LEFT JOIN
-// This combines all three queries from your requirements into one optimized query
-func (users *users) GetAllUsersWithSessionData(ctx context.Context, limit, offset int, statusFilter *int, createdAfter *time.Time) (usersWithSessions []*console.User, err error) {
+// GetAllUsersOptimized retrieves users with all filters, session data, and project count in a single optimized query
+// This is a production-ready method that applies all filters in SQL for maximum performance
+func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (usersList []*console.User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Build the query dynamically based on filters
+	// Build comprehensive query with CTEs for session stats and project counts
 	query := `
-		SELECT 
-			u.id, u.full_name, u.email, u.status, u.created_at, u.source, 
-			u.utm_source, u.utm_medium, u.utm_campaign, u.utm_term, u.utm_content,u.paid_tier,
-			u.project_storage_limit, u.project_bandwidth_limit,
-			w.last_session_expiry, w.first_session_expiry, w.total_session_count
-		FROM 
-			"satellite/0".users u
-		LEFT JOIN (
+		WITH session_stats AS (
 			SELECT 
 				user_id, 
 				MAX(expires_at) AS last_session_expiry,
 				MIN(expires_at) AS first_session_expiry,
-				COUNT(expires_at) AS total_session_count
-			FROM 
-				"satellite/0".webapp_sessions
-			GROUP BY 
-				user_id
-		) w 
-		ON 
-			w.user_id = u.id
+				COUNT(*) AS total_session_count
+			FROM "satellite/0".webapp_sessions
+			GROUP BY user_id
+		),
+		project_counts AS (
+			SELECT 
+				owner_id AS user_id,
+				COUNT(*) AS project_count
+			FROM "satellite/0".projects
+			GROUP BY owner_id
+		)
+		SELECT 
+			u.id, u.full_name, u.email, u.status, u.created_at, u.source,
+			u.utm_source, u.utm_medium, u.utm_campaign, u.utm_term, u.utm_content,
+			u.paid_tier, u.project_storage_limit, u.project_bandwidth_limit,
+			s.last_session_expiry, s.first_session_expiry, s.total_session_count,
+			COALESCE(p.project_count, 0) AS project_count
+		FROM "satellite/0".users u
+		LEFT JOIN session_stats s ON s.user_id = u.id
+		LEFT JOIN project_counts p ON p.user_id = u.id
 	`
 
-	// Add WHERE conditions
+	// Build WHERE conditions
 	whereConditions := []string{}
 	args := []interface{}{}
 	argIndex := 1
@@ -345,44 +350,120 @@ func (users *users) GetAllUsersWithSessionData(ctx context.Context, limit, offse
 		argIndex++
 	}
 
+	if createdBefore != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.created_at <= $%d", argIndex))
+		args = append(args, *createdBefore)
+		argIndex++
+	}
+
+	if search != "" {
+		searchPattern := "%" + strings.ToLower(search) + "%"
+		whereConditions = append(whereConditions, fmt.Sprintf("(LOWER(u.email) LIKE $%d OR LOWER(u.full_name) LIKE $%d)", argIndex, argIndex))
+		args = append(args, searchPattern)
+		argIndex++
+	}
+
+	if paidTierFilter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.paid_tier = $%d", argIndex))
+		args = append(args, *paidTierFilter)
+		argIndex++
+	}
+
+	if sourceFilter != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("LOWER(u.source) = LOWER($%d)", argIndex))
+		args = append(args, sourceFilter)
+		argIndex++
+	}
+
+	// Session filters
+	if hasActiveSession != nil {
+		if *hasActiveSession {
+			whereConditions = append(whereConditions, "s.last_session_expiry > NOW()")
+		} else {
+			whereConditions = append(whereConditions, "(s.last_session_expiry IS NULL OR s.last_session_expiry <= NOW())")
+		}
+	}
+
+	if lastSessionAfter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry >= $%d", argIndex))
+		args = append(args, *lastSessionAfter)
+		argIndex++
+	}
+
+	if lastSessionBefore != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry <= $%d", argIndex))
+		args = append(args, *lastSessionBefore)
+		argIndex++
+	}
+
+	if sessionCountMin != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("COALESCE(s.total_session_count, 0) >= $%d", argIndex))
+		args = append(args, *sessionCountMin)
+		argIndex++
+	}
+
+	if sessionCountMax != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("COALESCE(s.total_session_count, 0) <= $%d", argIndex))
+		args = append(args, *sessionCountMax)
+		argIndex++
+	}
+
 	if len(whereConditions) > 0 {
 		query += " WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
 	// Add ORDER BY
-	query += " ORDER BY w.last_session_expiry DESC NULLS LAST"
+	query += " ORDER BY s.last_session_expiry DESC NULLS LAST, u.created_at DESC"
 
-	// Add LIMIT and OFFSET
-	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
-	args = append(args, limit, offset)
+	// Add LIMIT and OFFSET only if limit is specified (limit > 0)
+	// When limit <= 0, fetch all records without LIMIT clause
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		args = append(args, limit, offset)
+	} else {
+		// Only add OFFSET if limit is not specified but offset is needed
+		if offset > 0 {
+			query += fmt.Sprintf(" OFFSET $%d", argIndex)
+			args = append(args, offset)
+		}
+	}
 
 	rows, err := users.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, 0, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
+	// Initialize slices with appropriate capacity
+	// If limit is 0 or negative, use a reasonable default capacity
+	capacity := limit
+	if capacity <= 0 {
+		capacity = 1000 // Default capacity for "fetch all" scenario
+	}
+	usersList = make([]*console.User, 0, capacity)
+	lastSessionExpiry = make([]*time.Time, 0, capacity)
+	firstSessionExpiry = make([]*time.Time, 0, capacity)
+	totalSessionCounts = make([]int, 0, capacity)
+	projectCounts = make([]int, 0, capacity)
+
 	for rows.Next() {
 		var user console.User
-		var lastSessionExpiry, firstSessionExpiry *time.Time
-		var totalSessionCount sql.NullInt32
-
-		// Use sql.NullString for fields that can be NULL
+		var lastExp, firstExp *time.Time
+		var totalCount sql.NullInt32
+		var projectCount int
 		var source, utmSource, utmMedium, utmCampaign, utmTerm, utmContent sql.NullString
-		var companyName sql.NullString
 
 		err = rows.Scan(
 			&user.ID, &user.FullName, &user.Email, &user.Status, &user.CreatedAt, &source,
 			&utmSource, &utmMedium, &utmCampaign, &utmTerm, &utmContent,
-			&user.PaidTier,
-			&user.ProjectStorageLimit, &user.ProjectBandwidthLimit,
-			&lastSessionExpiry, &firstSessionExpiry, &totalSessionCount,
+			&user.PaidTier, &user.ProjectStorageLimit, &user.ProjectBandwidthLimit,
+			&lastExp, &firstExp, &totalCount,
+			&projectCount,
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, nil, nil, 0, err
 		}
 
-		// Handle NULL values properly
 		if source.Valid {
 			user.Source = source.String
 		}
@@ -401,16 +482,162 @@ func (users *users) GetAllUsersWithSessionData(ctx context.Context, limit, offse
 		if utmContent.Valid {
 			user.UtmContent = utmContent.String
 		}
-		if companyName.Valid {
-			user.CompanyName = companyName.String
-		}
 
-		// Note: Session data is not stored in console.User struct, but we have it available
-		// if needed for the admin response
-		usersWithSessions = append(usersWithSessions, &user)
+		usersList = append(usersList, &user)
+		lastSessionExpiry = append(lastSessionExpiry, lastExp)
+		firstSessionExpiry = append(firstSessionExpiry, firstExp)
+		if totalCount.Valid {
+			totalSessionCounts = append(totalSessionCounts, int(totalCount.Int32))
+		} else {
+			totalSessionCounts = append(totalSessionCounts, 0)
+		}
+		projectCounts = append(projectCounts, projectCount)
 	}
 
-	return usersWithSessions, rows.Err()
+	// Get total count with same filters
+	totalCount, err = users.GetUsersCountOptimized(ctx, statusFilter, createdAfter, createdBefore, search, paidTierFilter, sourceFilter, hasActiveSession, lastSessionAfter, lastSessionBefore, sessionCountMin, sessionCountMax)
+	if err != nil {
+		return nil, nil, nil, nil, nil, 0, err
+	}
+
+	return usersList, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, projectCounts, totalCount, rows.Err()
+}
+
+// GetUsersCountOptimized returns total count with all filters applied
+func (users *users) GetUsersCountOptimized(ctx context.Context, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `
+		WITH session_stats AS (
+			SELECT 
+				user_id,
+				MAX(expires_at) AS last_session_expiry,
+				COUNT(*) AS total_session_count
+			FROM "satellite/0".webapp_sessions
+			GROUP BY user_id
+		)
+		SELECT COUNT(*)
+		FROM "satellite/0".users u
+		LEFT JOIN session_stats s ON s.user_id = u.id
+	`
+
+	whereConditions := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if statusFilter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.status = $%d", argIndex))
+		args = append(args, *statusFilter)
+		argIndex++
+	}
+
+	if createdAfter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.created_at >= $%d", argIndex))
+		args = append(args, *createdAfter)
+		argIndex++
+	}
+
+	if createdBefore != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.created_at <= $%d", argIndex))
+		args = append(args, *createdBefore)
+		argIndex++
+	}
+
+	if search != "" {
+		searchPattern := "%" + strings.ToLower(search) + "%"
+		whereConditions = append(whereConditions, fmt.Sprintf("(LOWER(u.email) LIKE $%d OR LOWER(u.full_name) LIKE $%d)", argIndex, argIndex))
+		args = append(args, searchPattern)
+		argIndex++
+	}
+
+	if paidTierFilter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.paid_tier = $%d", argIndex))
+		args = append(args, *paidTierFilter)
+		argIndex++
+	}
+
+	if sourceFilter != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("LOWER(u.source) = LOWER($%d)", argIndex))
+		args = append(args, sourceFilter)
+		argIndex++
+	}
+
+	if hasActiveSession != nil {
+		if *hasActiveSession {
+			whereConditions = append(whereConditions, "s.last_session_expiry > NOW()")
+		} else {
+			whereConditions = append(whereConditions, "(s.last_session_expiry IS NULL OR s.last_session_expiry <= NOW())")
+		}
+	}
+
+	if lastSessionAfter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry >= $%d", argIndex))
+		args = append(args, *lastSessionAfter)
+		argIndex++
+	}
+
+	if lastSessionBefore != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry <= $%d", argIndex))
+		args = append(args, *lastSessionBefore)
+		argIndex++
+	}
+
+	if sessionCountMin != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("COALESCE(s.total_session_count, 0) >= $%d", argIndex))
+		args = append(args, *sessionCountMin)
+		argIndex++
+	}
+
+	if sessionCountMax != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("COALESCE(s.total_session_count, 0) <= $%d", argIndex))
+		args = append(args, *sessionCountMax)
+		argIndex++
+	}
+
+	if len(whereConditions) > 0 {
+		query += " WHERE " + strings.Join(whereConditions, " AND ")
+	}
+
+	err = users.db.QueryRowContext(ctx, query, args...).Scan(&count)
+	return count, err
+}
+
+// GetUserStats returns counts of users grouped by status and paid tier using optimized SQL aggregation
+func (users *users) GetUserStats(ctx context.Context) (total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification, pro, free int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Use a single optimized SQL query with FILTER to count users by status and paid tier
+	// This is much more efficient than fetching all users and counting in memory
+	query := `
+		SELECT 
+			COUNT(*) FILTER (WHERE status = 0) AS inactive,
+			COUNT(*) FILTER (WHERE status = 1) AS active,
+			COUNT(*) FILTER (WHERE status = 2) AS deleted,
+			COUNT(*) FILTER (WHERE status = 3) AS pending_deletion,
+			COUNT(*) FILTER (WHERE status = 4) AS legal_hold,
+			COUNT(*) FILTER (WHERE status = 5) AS pending_bot_verification,
+			COUNT(*) FILTER (WHERE paid_tier = true) AS pro,
+			COUNT(*) FILTER (WHERE paid_tier = false) AS free,
+			COUNT(*) AS total
+		FROM "satellite/0".users
+	`
+
+	err = users.db.QueryRowContext(ctx, query).Scan(
+		&inactive,
+		&active,
+		&deleted,
+		&pendingDeletion,
+		&legalHold,
+		&pendingBotVerification,
+		&pro,
+		&free,
+		&total,
+	)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
+	}
+
+	return total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification, pro, free, nil
 }
 
 // GetUnverifiedNeedingReminder returns users in need of a reminder to verify their email.

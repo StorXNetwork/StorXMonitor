@@ -277,13 +277,26 @@ func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, off
 		query += " WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
+	// Add ORDER BY
+	query += " ORDER BY d.created_at DESC"
+
+	// Add LIMIT and OFFSET only if limit is specified (limit > 0)
+	// When limit <= 0, fetch all records without LIMIT clause
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		args = append(args, limit, offset)
+	} else {
+		// Only add OFFSET if limit is not specified but offset is needed
+		if offset > 0 {
+			query += fmt.Sprintf(" OFFSET $%d", argIndex)
+			args = append(args, offset)
+		}
+	}
+
 	query += `
-			ORDER BY d.created_at DESC
-			LIMIT $` + fmt.Sprintf("%d", argIndex) + ` OFFSET $` + fmt.Sprintf("%d", argIndex+1) + `
 		)
 		SELECT * FROM developer_stats
 	`
-	args = append(args, limit, offset)
 
 	rows, err := dev.db.QueryContext(ctx, query, args...)
 	if err != nil {
