@@ -41,11 +41,14 @@ type Users interface {
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
 	// GetByEmail is a method for querying user by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
-
+	// GetUserStats returns counts of users grouped by status and paid tier using optimized SQL aggregation
+	GetUserStats(ctx context.Context) (total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification, pro, free int, err error)
 	//boris: GetAllUsers is a method for querying all users from the database.
 	GetAllUsers(ctx context.Context) ([]*User, error)
-	// GetAllUsersWithSessionData retrieves all users with their session data using LEFT JOIN
-	GetAllUsersWithSessionData(ctx context.Context, limit, offset int, statusFilter *int, createdAfter *time.Time) ([]*User, error)
+	// GetAllUsersOptimized retrieves users with all filters, session data, and project count in a single optimized query
+	GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (users []*User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error)
+	// GetUsersCountOptimized returns total count with all filters applied
+	GetUsersCountOptimized(ctx context.Context, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (count int, err error)
 	// Insert is a method for inserting user into the database.
 	Insert(ctx context.Context, user *User) (*User, error)
 	// Delete is a method for deleting user by ID from the database.
