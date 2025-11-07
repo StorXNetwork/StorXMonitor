@@ -32,26 +32,6 @@ jobs:
           go build -o nul ./cmd/satellite 2>&1 | Write-Host
         }
         
-    - name: Parallel service stop
-      run: |
-        $services = $env:SERVICES -split ','
-        $stopJobs = @()
-        
-        foreach ($service in $services) {
-          $stopJobs += Start-Job -ScriptBlock {
-            param($serviceName, $binPath)
-            Set-Location $binPath
-            $status = (Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status
-            if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-              & ".\nssm.exe" stop $serviceName 2>&1 | Out-Null
-            }
-          } -ArgumentList $service, $env:BIN_PATH
-        }
-        
-        # Wait for all stop jobs to complete (max 10 seconds)
-        $stopJobs | Wait-Job -Timeout 10 | Out-Null
-        Write-Host "All services stopped or timeout reached"
-        
     - name: Fast build satellite.exe
       run: |
         $buildStart = Get-Date
@@ -75,6 +55,26 @@ jobs:
           Write-Error "Build failed - satellite.exe not found"
           exit 1
         }
+        
+    - name: Parallel service stop
+      run: |
+        $services = $env:SERVICES -split ','
+        $stopJobs = @()
+        
+        foreach ($service in $services) {
+          $stopJobs += Start-Job -ScriptBlock {
+            param($serviceName, $binPath)
+            Set-Location $binPath
+            $status = (Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status
+            if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
+              & ".\nssm.exe" stop $serviceName 2>&1 | Out-Null
+            }
+          } -ArgumentList $service, $env:BIN_PATH
+        }
+        
+        # Wait for all stop jobs to complete (max 10 seconds)
+        $stopJobs | Wait-Job -Timeout 10 | Out-Null
+        Write-Host "All services stopped or timeout reached"
         
     - name: Quick file replacement
       run: |

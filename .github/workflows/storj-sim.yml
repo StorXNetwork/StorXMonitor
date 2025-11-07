@@ -32,15 +32,6 @@ jobs:
           go build -o nul ./cmd/storj-sim 2>&1 | Write-Host
         }
         
-    - name: Quick service stop
-      run: |
-        Set-Location $env:BIN_PATH
-        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
-        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-          & ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
-          Start-Sleep -Seconds 2  # Reduced wait time
-        }
-        
     - name: Fast build storj-sim.exe
       run: |
         $buildStart = Get-Date
@@ -63,6 +54,15 @@ jobs:
         } else {
           Write-Error "Build failed - storj-sim.exe not found"
           exit 1
+        }
+        
+    - name: Quick service stop
+      run: |
+        Set-Location $env:BIN_PATH
+        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
+        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
+          & ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
+          Start-Sleep -Seconds 2  # Reduced wait time
         }
         
     - name: Quick file replacement
