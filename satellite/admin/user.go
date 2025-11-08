@@ -1687,10 +1687,10 @@ type User struct {
 	LastSessionExpiry     *time.Time `json:"lastSessionExpiry"`
 	FirstSessionExpiry    *time.Time `json:"firstSessionExpiry"`
 	TotalSessionCount     int        `json:"totalSessionCount"`
-	StorageUsed           int64      `json:"storageUsed"`
-	BandwidthUsed         int64      `json:"bandwidthUsed"`
-	SegmentUsed           int64      `json:"segmentUsed"`
-	ProjectCount          int        `json:"projectCount"`
+	// StorageUsed           int64      `json:"storageUsed"`
+	// BandwidthUsed         int64      `json:"bandwidthUsed"`
+	// SegmentUsed           int64      `json:"segmentUsed"`
+	ProjectCount int `json:"projectCount"`
 }
 
 // UserListFilters holds all filter parameters for user listing
@@ -1711,8 +1711,8 @@ type UserListFilters struct {
 	CreatedBefore *time.Time
 
 	// Storage filters
-	StorageMin *int64
-	StorageMax *int64
+	// StorageMin *int64
+	// StorageMax *int64
 
 	// Session filters
 	HasActiveSession  *bool
@@ -1790,21 +1790,21 @@ func parseUserListFilters(r *http.Request) (*UserListFilters, error) {
 	filters.CreatedBefore = createdBefore
 
 	// Parse storage filters
-	if storageMinParam := query.Get("storage_min"); storageMinParam != "" {
-		storageMin, err := strconv.ParseInt(storageMinParam, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("parameter 'storage_min' must be a valid number: %w", err)
-		}
-		filters.StorageMin = &storageMin
-	}
+	// if storageMinParam := query.Get("storage_min"); storageMinParam != "" {
+	// 	storageMin, err := strconv.ParseInt(storageMinParam, 10, 64)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("parameter 'storage_min' must be a valid number: %w", err)
+	// 	}
+	// 	filters.StorageMin = &storageMin
+	// }
 
-	if storageMaxParam := query.Get("storage_max"); storageMaxParam != "" {
-		storageMax, err := strconv.ParseInt(storageMaxParam, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("parameter 'storage_max' must be a valid number: %w", err)
-		}
-		filters.StorageMax = &storageMax
-	}
+	// if storageMaxParam := query.Get("storage_max"); storageMaxParam != "" {
+	// 	storageMax, err := strconv.ParseInt(storageMaxParam, 10, 64)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("parameter 'storage_max' must be a valid number: %w", err)
+	// 	}
+	// 	filters.StorageMax = &storageMax
+	// }
 
 	// Parse session filters
 	hasActiveSessionFilter := query.Get("has_active_session")
@@ -1919,7 +1919,8 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to response format and calculate storage only for returned users (optimized)
+	// Convert to response format
+	// Calculate storage only for returned users (optimized) - COMMENTED OUT
 	users := make([]User, 0, len(allUsers))
 	for i, user := range allUsers {
 		user.PasswordHash = nil
@@ -1940,29 +1941,29 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			projectCount = projectCounts[i]
 		}
 
-		// Calculate storage/bandwidth only for returned users (much faster than all users)
-		var totalStorageUsed, totalBandwidthUsed, totalSegmentUsed int64
-		if projectCount > 0 {
-			// Only fetch projects if user has projects (optimization)
-			projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
-			if err == nil {
-				// Calculate total usage from all projects
-				for _, project := range projects {
-					storageUsed, bandwidthUsed, segmentUsed := server.getProjectUsageData(ctx, project.ID)
-					totalStorageUsed += storageUsed
-					totalBandwidthUsed += bandwidthUsed
-					totalSegmentUsed += segmentUsed
-				}
-			}
-		}
+		// // Calculate storage/bandwidth only for returned users (much faster than all users)
+		// var totalStorageUsed, totalBandwidthUsed, totalSegmentUsed int64
+		// if projectCount > 0 {
+		// 	// Only fetch projects if user has projects (optimization)
+		// 	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+		// 	if err == nil {
+		// 		// Calculate total usage from all projects
+		// 		for _, project := range projects {
+		// 			storageUsed, bandwidthUsed, segmentUsed := server.getProjectUsageData(ctx, project.ID)
+		// 			totalStorageUsed += storageUsed
+		// 			totalBandwidthUsed += bandwidthUsed
+		// 			totalSegmentUsed += segmentUsed
+		// 		}
+		// 	}
+		// }
 
-		// Apply storage range filter (post-query, only for returned users)
-		if filters.StorageMin != nil && totalStorageUsed < *filters.StorageMin {
-			continue // Skip this user
-		}
-		if filters.StorageMax != nil && totalStorageUsed > *filters.StorageMax {
-			continue // Skip this user
-		}
+		// // Apply storage range filter (post-query, only for returned users)
+		// if filters.StorageMin != nil && totalStorageUsed < *filters.StorageMin {
+		// 	continue // Skip this user
+		// }
+		// if filters.StorageMax != nil && totalStorageUsed > *filters.StorageMax {
+		// 	continue // Skip this user
+		// }
 
 		users = append(users, User{
 			ID:                    user.ID,
@@ -1982,10 +1983,10 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			LastSessionExpiry:     lastExp,
 			FirstSessionExpiry:    firstExp,
 			TotalSessionCount:     sessionCount,
-			StorageUsed:           totalStorageUsed,
-			BandwidthUsed:         totalBandwidthUsed,
-			SegmentUsed:           totalSegmentUsed,
-			ProjectCount:          projectCount,
+			// StorageUsed:           totalStorageUsed,
+			// BandwidthUsed:         totalBandwidthUsed,
+			// SegmentUsed:           totalSegmentUsed,
+			ProjectCount: projectCount,
 		})
 	}
 
@@ -1995,13 +1996,15 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 	var finalTotalCount uint64
 
 	// If storage filters were applied, adjust total count
-	if filters.StorageMin != nil || filters.StorageMax != nil {
-		// Storage filtering happens post-query, so we use the filtered count
-		finalTotalCount = uint64(len(users))
-	} else {
-		// No storage filtering, use the SQL count
-		finalTotalCount = uint64(totalCount)
-	}
+	// if filters.StorageMin != nil || filters.StorageMax != nil {
+	// 	// Storage filtering happens post-query, so we use the filtered count
+	// 	finalTotalCount = uint64(len(users))
+	// } else {
+	// 	// No storage filtering, use the SQL count
+	// 	finalTotalCount = uint64(totalCount)
+	// }
+	// No storage filtering, use the SQL count
+	finalTotalCount = uint64(totalCount)
 
 	if filters.FetchAll {
 		// For "All", return all users
@@ -2071,8 +2074,10 @@ func (server *Server) exportUsersData(w http.ResponseWriter, users []User, searc
 		// Write header row
 		headers := []string{
 			"ID", "Full Name", "Email", "Status", "Created At", "Paid Tier",
-			"Project Storage Limit", "Project Bandwidth Limit", "Storage Used",
-			"Bandwidth Used", "Segment Used", "Project Count", "Source",
+			"Project Storage Limit", "Project Bandwidth Limit",
+			// "Storage Used",
+			// "Bandwidth Used", "Segment Used",
+			"Project Count", "Source",
 			"UTM Source", "UTM Medium", "UTM Campaign", "UTM Term", "UTM Content",
 			"Last Session Expiry", "First Session Expiry", "Total Sessions",
 		}
@@ -2089,9 +2094,9 @@ func (server *Server) exportUsersData(w http.ResponseWriter, users []User, searc
 				fmt.Sprintf("%t", user.PaidTier),
 				fmt.Sprintf("%d", user.ProjectStorageLimit),
 				fmt.Sprintf("%d", user.ProjectBandwidthLimit),
-				fmt.Sprintf("%d", user.StorageUsed),
-				fmt.Sprintf("%d", user.BandwidthUsed),
-				fmt.Sprintf("%d", user.SegmentUsed),
+				// fmt.Sprintf("%d", user.StorageUsed),
+				// fmt.Sprintf("%d", user.BandwidthUsed),
+				// fmt.Sprintf("%d", user.SegmentUsed),
 				fmt.Sprintf("%d", user.ProjectCount),
 				user.Source,
 				user.UtmSource,
@@ -2188,14 +2193,30 @@ func (server *Server) getUserLoginHistory(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get user by email
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
-	if errors.Is(err, sql.ErrNoRows) {
+	// Use GetByEmailWithUnverified to get users regardless of status (including inactive)
+	// This allows admin to access inactive users, but we'll still block deleted users
+	verified, unverified, err := server.db.Console().Users().GetByEmailWithUnverified(ctx, userEmail)
+	if err != nil {
+		sendJSONError(w, "failed to get user", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Find the user - could be in verified (active) or unverified (inactive, etc.)
+	var user *console.User
+	if verified != nil {
+		user = verified
+	} else if len(unverified) > 0 {
+		// Use the first unverified user (should only be one per email)
+		user = &unverified[0]
+	} else {
 		sendJSONError(w, "user not found", "", http.StatusNotFound)
 		return
 	}
-	if err != nil {
-		sendJSONError(w, "failed to get user", err.Error(), http.StatusInternalServerError)
+
+	// Prevent access to deleted users
+	if user.Status == console.Deleted {
+		sendJSONError(w, "cannot access deleted user",
+			"user has been deleted and cannot be accessed", http.StatusForbidden)
 		return
 	}
 
