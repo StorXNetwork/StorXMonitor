@@ -124,59 +124,96 @@ jobs:
           Write-Host "Current service status: $status"
           
           # Wait for service to be in a stable state if it's transitioning
-          $maxWait = 10
+          $maxWait = 15
           $waitCount = 0
           while (($status -eq "StartPending" -or $status -eq "StopPending" -or $status -eq "PausePending" -or $status -eq "ContinuePending") -and $waitCount -lt $maxWait) {
             Start-Sleep -Seconds 1
             $service.Refresh()
             $status = $service.Status
-            Write-Host "Waiting for service... Status: $status"
+            Write-Host "Waiting for service to stabilize... Status: $status"
             $waitCount++
           }
+          
+          # Check status one more time right before attempting to start
+          $service.Refresh()
+          $status = $service.Status
+          Write-Host "Service status before start attempt: $status"
           
           # Only start if service is stopped
           if ($status -eq "Stopped") {
             Write-Host "Starting service..."
-            # Start service and ignore nssm.exe error (it may complain about StartPending state)
+            # Start service with error handling
             $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "nssm.exe returned exit code $LASTEXITCODE (this may be expected)"
-              Write-Host "Output: $startResult"
-            }
+            $exitCode = $LASTEXITCODE
             
-            # Wait a bit and verify service is actually starting or running
-            Start-Sleep -Seconds 3
+            # Wait a moment for service state to update
+            Start-Sleep -Seconds 2
             $service.Refresh()
             $finalStatus = $service.Status
             Write-Host "Service status after start attempt: $finalStatus"
             
-            # If service is starting or running, consider it successful
-            if ($finalStatus -eq "Running" -or $finalStatus -eq "StartPending") {
+            # Check if the error is about StartPending (which means service is actually starting)
+            $isStartPendingError = $startResult -match "SERVICE_START_PENDING" -or $startResult -match "StartPending"
+            
+            # If service is starting/running OR we got StartPending error (which means it's starting), consider success
+            if ($finalStatus -eq "Running" -or $finalStatus -eq "StartPending" -or $isStartPendingError) {
+              if ($isStartPendingError) {
+                Write-Host "nssm.exe reported StartPending error, but service is transitioning - this is expected"
+              }
               Write-Host "Service start initiated successfully"
               # Wait for it to fully start
               $waitCount = 0
-              while ($finalStatus -eq "StartPending" -and $waitCount -lt 15) {
+              while ($finalStatus -eq "StartPending" -and $waitCount -lt 30) {
                 Start-Sleep -Seconds 1
                 $service.Refresh()
                 $finalStatus = $service.Status
+                Write-Host "Waiting for service to start... Status: $finalStatus"
                 $waitCount++
               }
               Write-Host "Final service status: $finalStatus"
-            } else {
-              Write-Host "Warning: Service did not start. Status: $finalStatus"
+              if ($finalStatus -eq "Running") {
+                Write-Host "Service started successfully"
+              } else {
+                Write-Host "Warning: Service did not reach Running state. Final status: $finalStatus"
+              }
+            } elseif ($exitCode -ne 0) {
+              Write-Host "nssm.exe returned exit code $exitCode"
+              Write-Host "Output: $startResult"
+              Write-Host "Warning: Service start may have failed. Current status: $finalStatus"
             }
           } elseif ($status -eq "Running") {
             Write-Host "Service is already running"
+          } elseif ($status -eq "StartPending") {
+            Write-Host "Service is already starting - waiting for it to complete"
+            $waitCount = 0
+            while ($status -eq "StartPending" -and $waitCount -lt 30) {
+              Start-Sleep -Seconds 1
+              $service.Refresh()
+              $status = $service.Status
+              Write-Host "Waiting for service to start... Status: $status"
+              $waitCount++
+            }
+            Write-Host "Final service status: $status"
           } else {
             Write-Host "Service is in state: $status - attempting restart"
             & cmd /c ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
-            Start-Sleep -Seconds 3
+            Start-Sleep -Seconds 5
             $service.Refresh()
+            # Wait for stop to complete
+            $stopWait = 0
+            while ($service.Status -ne "Stopped" -and $stopWait -lt 15) {
+              Start-Sleep -Seconds 1
+              $service.Refresh()
+              $stopWait++
+            }
             if ($service.Status -eq "Stopped") {
+              Write-Host "Service stopped, now starting..."
               $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1
               Start-Sleep -Seconds 3
               $service.Refresh()
               Write-Host "Service status after restart: $($service.Status)"
+            } else {
+              Write-Host "Warning: Service did not stop properly. Status: $($service.Status)"
             }
           }
         } else {
