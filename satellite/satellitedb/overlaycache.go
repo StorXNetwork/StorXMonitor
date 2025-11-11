@@ -505,6 +505,105 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 	return records, Error.Wrap(err)
 }
 
+func convertArrayArgs(args []interface{}) []interface{} {
+	for i, a := range args {
+		switch v := a.(type) {
+		case []storj.NodeID:
+			args[i] = pgutil.NodeIDArray(v)
+		case []string:
+			args[i] = pgutil.TextArray(v)
+		}
+	}
+	return args
+}
+
+func (cache *overlaycache) GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var args []interface{}
+	argIndex := 1
+	onlineThreshold := time.Now().Add(-onlineWindow)
+
+	whereClause, err := filters.ToSQLWhereClause(&args, &argIndex, onlineThreshold)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+
+	baseQuery := `
+		SELECT id, address, email, wallet, last_net, last_ip_port, country_code,
+			created_at, free_disk, latency_90, last_contact_success, last_contact_failure,
+			disqualified, exit_initiated_at, exit_finished_at, offline_suspended, unknown_audit_suspended
+		FROM nodes
+		` + cache.db.impl.AsOfSystemInterval(asOfSystemInterval)
+
+	query := baseQuery
+	if whereClause != "" {
+		query += " WHERE " + whereClause
+	}
+
+	countQuery := `
+		SELECT COUNT(*)
+		FROM nodes
+		` + cache.db.impl.AsOfSystemInterval(asOfSystemInterval)
+
+	if whereClause != "" {
+		countQuery += " WHERE " + whereClause
+		countArgs := make([]interface{}, len(args))
+		copy(countArgs, args)
+		countArgs = convertArrayArgs(countArgs)
+		if err = cache.db.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+			return nil, 0, Error.Wrap(err)
+		}
+	} else {
+		if err = cache.db.QueryRow(ctx, countQuery).Scan(&totalCount); err != nil {
+			return nil, 0, Error.Wrap(err)
+		}
+	}
+
+	if totalCount == 0 {
+		return nil, 0, nil
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		args = append(args, limit, offset)
+	} else if offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIndex)
+		args = append(args, offset)
+	}
+
+	args = convertArrayArgs(args)
+
+	capacity := limit
+	if capacity <= 0 {
+		capacity = totalCount
+	}
+	nodes := make([]*nodeselection.SelectedNodeWithExtendedData, 0, capacity)
+
+	err = withRows(cache.db.Query(ctx, query, args...))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			node, err := scanSelectedNodeWithExtendedData(rows)
+			if err != nil {
+				return err
+			}
+			nodes = append(nodes, &node)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+
+	records = make([]nodeselection.SelectedNodeWithExtendedData, len(nodes))
+	for i := range nodes {
+		records[i] = *nodes[i]
+	}
+
+	return records, totalCount, nil
+}
+
 // nullNodeID represents a NodeID that may be null.
 type nullNodeID struct {
 	NodeID storj.NodeID
@@ -525,6 +624,76 @@ func (n *nullNodeID) Scan(value any) error {
 	}
 	n.Valid = true
 	return nil
+}
+
+func scanSelectedNodeWithExtendedData(rows tagsql.Rows) (nodeselection.SelectedNodeWithExtendedData, error) {
+	var node nodeselection.SelectedNode
+	node.Address = &pb.NodeAddress{}
+	var nodeID nullNodeID
+	var address, email, wallet, lastNet, lastIPPort, countryCode sql.NullString
+	var createdAt, lastContactSuccess, lastContactFailure sql.NullTime
+	var freeDisk, latency90 sql.NullInt64
+	var disqualified, exitInitiatedAt, exitFinishedAt, offlineSuspended, unknownAuditSuspended sql.NullTime
+
+	err := rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode,
+		&createdAt, &freeDisk, &latency90, &lastContactSuccess, &lastContactFailure,
+		&disqualified, &exitInitiatedAt, &exitFinishedAt, &offlineSuspended, &unknownAuditSuspended)
+	if err != nil {
+		return nodeselection.SelectedNodeWithExtendedData{}, err
+	}
+
+	if !nodeID.Valid {
+		return nodeselection.SelectedNodeWithExtendedData{}, nil
+	}
+
+	node.ID = nodeID.NodeID
+	node.Address.Address = address.String
+	node.Email = email.String
+	node.Wallet = wallet.String
+	node.LastNet = lastNet.String
+	if lastIPPort.Valid {
+		node.LastIPPort = lastIPPort.String
+	}
+	if countryCode.Valid {
+		node.CountryCode = location.ToCountryCode(countryCode.String)
+	}
+
+	result := nodeselection.SelectedNodeWithExtendedData{
+		SelectedNode: node,
+	}
+
+	if createdAt.Valid {
+		result.CreatedAt = createdAt.Time
+	}
+	if freeDisk.Valid {
+		result.FreeDisk = freeDisk.Int64
+	}
+	if latency90.Valid {
+		result.Latency90 = latency90.Int64
+	}
+	if lastContactSuccess.Valid {
+		result.LastContactSuccess = lastContactSuccess.Time
+	}
+	if lastContactFailure.Valid {
+		result.LastContactFailure = lastContactFailure.Time
+	}
+	if offlineSuspended.Valid {
+		result.OfflineSuspended = &offlineSuspended.Time
+	}
+	if unknownAuditSuspended.Valid {
+		result.UnknownAuditSuspended = &unknownAuditSuspended.Time
+	}
+	if disqualified.Valid {
+		result.Disqualified = &disqualified.Time
+	}
+	if exitInitiatedAt.Valid {
+		result.ExitInitiatedAt = &exitInitiatedAt.Time
+	}
+	if exitFinishedAt.Valid {
+		result.ExitFinishedAt = &exitFinishedAt.Time
+	}
+
+	return result, nil
 }
 
 func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
@@ -663,10 +832,22 @@ func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID
 
 	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
 	if request.Disqualified != nil {
+		// Setting disqualified - also set the reason
 		updateFields.DisqualificationReason = dbx.Node_DisqualificationReason(int(request.DisqualificationReason))
+	} else {
+		// Clearing disqualified - also clear the reason
+		updateFields.DisqualificationReason = dbx.Node_DisqualificationReason_Null()
 	}
 
-	err = cache.db.UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx, dbx.Node_Id(id.Bytes()), updateFields)
+	// If we're clearing disqualified, we need to use the unrestricted update function
+	// because the restricted one only works when disqualified IS NULL
+	if request.Disqualified == nil {
+		// Use unrestricted update to allow clearing disqualified status
+		err = cache.db.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateFields)
+	} else {
+		// Use restricted update for setting disqualified (only works on non-disqualified nodes)
+		err = cache.db.UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx, dbx.Node_Id(id.Bytes()), updateFields)
+	}
 	return Error.Wrap(err)
 }
 
@@ -1468,6 +1649,20 @@ func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storj.No
 	return Error.Wrap(err)
 }
 
+// UpdateLastContactSuccess updates the last_contact_success timestamp for a node.
+// This is used to manually set a node's online/offline status.
+func (cache *overlaycache) UpdateLastContactSuccess(ctx context.Context, nodeID storj.NodeID, timestamp time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `
+		UPDATE nodes
+		SET last_contact_success = $1
+		WHERE id = $2
+	`
+	_, err = cache.db.DB.ExecContext(ctx, query, timestamp, nodeID.Bytes())
+	return Error.Wrap(err)
+}
+
 // SetAllContainedNodes updates the contained field for all nodes, as necessary.
 // containedNodes is expected to be a set of all nodes that should be contained.
 // All nodes which are in this set but do not already have a non-NULL contained
@@ -1751,4 +1946,85 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 		lastIPPorts[id] = lastIPPort
 	}
 	return lastIPPorts, Error.Wrap(rows.Err())
+}
+
+// GetNodeStats returns aggregated statistics about all nodes using optimized SQL aggregation query.
+// This is much more efficient than fetching all nodes and calculating stats in memory.
+func (cache *overlaycache) GetNodeStats(ctx context.Context, onlineWindow time.Duration) (stats *overlay.AggregateNodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	onlineThreshold := time.Now().Add(-onlineWindow)
+
+	// Single optimized SQL query with COUNT FILTER and aggregation functions
+	// This calculates all stats in one database round-trip
+	// Status calculation logic matches getNodeStatusFromSelectedNode:
+	// 1. disqualified (highest priority)
+	// 2. exited
+	// 3. exiting
+	// 4. suspended
+	// 5. online/offline (based on last_contact_success)
+	query := `
+		SELECT 
+			COUNT(*) AS total_nodes,
+			COUNT(*) FILTER (
+				WHERE disqualified IS NULL 
+				AND exit_finished_at IS NULL 
+				AND exit_initiated_at IS NULL 
+				AND (offline_suspended IS NULL AND unknown_audit_suspended IS NULL)
+				AND last_contact_success > $1
+			) AS online_nodes,
+			COUNT(*) FILTER (
+				WHERE disqualified IS NULL 
+				AND exit_finished_at IS NULL 
+				AND exit_initiated_at IS NULL 
+				AND (offline_suspended IS NULL AND unknown_audit_suspended IS NULL)
+				AND (last_contact_success IS NULL OR last_contact_success <= $1)
+			) AS offline_nodes,
+			COUNT(*) FILTER (WHERE disqualified IS NOT NULL) AS disqualified_nodes,
+			COUNT(*) FILTER (
+				WHERE disqualified IS NULL 
+				AND exit_finished_at IS NULL 
+				AND (offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL)
+			) AS suspended_nodes,
+			COUNT(*) FILTER (
+				WHERE disqualified IS NULL 
+				AND exit_finished_at IS NULL 
+				AND exit_initiated_at IS NOT NULL
+			) AS exiting_nodes,
+			COUNT(*) FILTER (WHERE exit_finished_at IS NOT NULL) AS exited_nodes,
+			COALESCE(SUM(free_disk), 0) AS used_capacity,
+			COALESCE(AVG(latency_90), 0) AS average_latency
+		FROM nodes
+	`
+
+	var totalNodes, onlineNodes, offlineNodes, disqualifiedNodes, suspendedNodes, exitingNodes, exitedNodes int
+	var usedCapacity int64
+	var averageLatency float64
+
+	err = cache.db.QueryRow(ctx, query, onlineThreshold).Scan(
+		&totalNodes,
+		&onlineNodes,
+		&offlineNodes,
+		&disqualifiedNodes,
+		&suspendedNodes,
+		&exitingNodes,
+		&exitedNodes,
+		&usedCapacity,
+		&averageLatency,
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &overlay.AggregateNodeStats{
+		TotalNodes:        totalNodes,
+		OnlineNodes:       onlineNodes,
+		OfflineNodes:      offlineNodes,
+		DisqualifiedNodes: disqualifiedNodes,
+		SuspendedNodes:    suspendedNodes,
+		ExitingNodes:      exitingNodes,
+		ExitedNodes:       exitedNodes,
+		UsedCapacity:      usedCapacity,
+		AverageLatency:    int64(averageLatency),
+	}, nil
 }

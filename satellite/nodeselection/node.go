@@ -55,6 +55,124 @@ type SelectedNode struct {
 	Tags        NodeTags
 }
 
+// SelectedNodeWithExtendedData is a SelectedNode with extended data.
+type SelectedNodeWithExtendedData struct {
+	SelectedNode
+	CreatedAt             time.Time
+	FreeDisk              int64
+	Latency90             int64
+	LastContactSuccess    time.Time
+	LastContactFailure    time.Time
+	OfflineSuspended      *time.Time
+	UnknownAuditSuspended *time.Time
+	Disqualified          *time.Time
+	ExitInitiatedAt       *time.Time
+	ExitFinishedAt        *time.Time
+}
+
+// NodeQueryFilters contains filter parameters for database-level node queries.
+// All filters are applied at the SQL level for optimal performance.
+type NodeQueryFilters struct {
+	// Status filter: "online", "offline", "suspended", "disqualified", "exiting", "exited", or empty for all
+	Status string
+	// Email filter: partial match (case-insensitive LIKE)
+	Email string
+	// Countries: list of country codes to filter by (IN clause)
+	Countries []string
+	// CreatedAfter: filter nodes created after this time
+	CreatedAfter *time.Time
+	// CreatedBefore: filter nodes created before this time
+	CreatedBefore *time.Time
+	// Search: general search across multiple fields (email, address, wallet, node ID, last_net, last_ip_port)
+	Search string
+}
+
+func (filters NodeQueryFilters) ToSQLWhereClause(args *[]interface{}, argIndex *int, onlineThreshold time.Time) (string, error) {
+	var conditions []string
+
+	if filters.Status != "" {
+		switch strings.ToLower(filters.Status) {
+		case "online":
+			conditions = append(conditions, fmt.Sprintf("last_contact_success > $%d", *argIndex))
+			*args = append(*args, onlineThreshold)
+			(*argIndex)++
+		case "offline":
+			conditions = append(conditions, fmt.Sprintf("last_contact_success <= $%d", *argIndex))
+			*args = append(*args, onlineThreshold)
+			(*argIndex)++
+		case "suspended":
+			conditions = append(conditions, "(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL)")
+		case "disqualified":
+			conditions = append(conditions, "disqualified IS NOT NULL")
+		case "exiting":
+			conditions = append(conditions, "exit_initiated_at IS NOT NULL AND exit_finished_at IS NULL")
+		case "exited":
+			conditions = append(conditions, "exit_finished_at IS NOT NULL")
+		}
+	}
+
+	if filters.Email != "" {
+		emailPattern := "%" + strings.ToLower(filters.Email) + "%"
+		conditions = append(conditions, fmt.Sprintf("LOWER(email) LIKE $%d", *argIndex))
+		*args = append(*args, emailPattern)
+		(*argIndex)++
+	}
+
+	if len(filters.Countries) > 0 {
+		countryPlaceholders := make([]string, len(filters.Countries))
+		for i, country := range filters.Countries {
+			countryPlaceholders[i] = fmt.Sprintf("$%d", *argIndex)
+			*args = append(*args, strings.ToUpper(country))
+			(*argIndex)++
+		}
+		conditions = append(conditions, fmt.Sprintf("UPPER(country_code) IN (%s)", strings.Join(countryPlaceholders, ", ")))
+	}
+
+	if filters.CreatedAfter != nil {
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", *argIndex))
+		*args = append(*args, *filters.CreatedAfter)
+		(*argIndex)++
+	}
+
+	if filters.CreatedBefore != nil {
+		conditions = append(conditions, fmt.Sprintf("created_at <= $%d", *argIndex))
+		*args = append(*args, *filters.CreatedBefore)
+		(*argIndex)++
+	}
+
+	// General search across multiple fields: email, address, wallet, last_net, last_ip_port
+	// For node ID, we need to check if the search string is a valid NodeID format
+	if filters.Search != "" {
+		searchPattern := "%" + strings.ToLower(filters.Search) + "%"
+		searchConditions := []string{
+			fmt.Sprintf("LOWER(email) LIKE $%d", *argIndex),
+			fmt.Sprintf("LOWER(address) LIKE $%d", *argIndex),
+			fmt.Sprintf("LOWER(wallet) LIKE $%d", *argIndex),
+			fmt.Sprintf("LOWER(last_net) LIKE $%d", *argIndex),
+			fmt.Sprintf("LOWER(last_ip_port) LIKE $%d", *argIndex),
+		}
+
+		// Try to parse as NodeID - if valid, also search by node ID
+		if nodeID, err := storj.NodeIDFromString(filters.Search); err == nil && !nodeID.IsZero() {
+			(*argIndex)++
+			searchConditions = append(searchConditions, fmt.Sprintf("id = $%d", *argIndex))
+			*args = append(*args, nodeID.Bytes())
+		}
+
+		*args = append(*args, searchPattern)
+		(*argIndex)++
+
+		// Combine search conditions with OR
+		conditions = append(conditions, "("+strings.Join(searchConditions, " OR ")+")")
+	}
+
+	if len(conditions) == 0 {
+		return "", nil
+	}
+
+	return strings.Join(conditions, " AND "), nil
+}
+
 // Clone returns a deep clone of the selected node.
 func (node *SelectedNode) Clone() *SelectedNode {
 	newNode := *node

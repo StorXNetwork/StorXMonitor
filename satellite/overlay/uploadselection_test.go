@@ -942,3 +942,18 @@ func (m *mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselectio
 func (m *mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error) {
 	panic("implement me")
 }
+
+// GetAllNodesWithFilters satisfies overlay.DB interface.
+func (m *mockdb) GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error) {
+	panic("implement me")
+}
+
+// GetNodeStats satisfies overlay.DB interface.
+func (m *mockdb) GetNodeStats(ctx context.Context, onlineWindow time.Duration) (stats *overlay.AggregateNodeStats, err error) {
+	panic("implement me")
+}
+
+// UpdateLastContactSuccess satisfies overlay.DB interface.
+func (m *mockdb) UpdateLastContactSuccess(ctx context.Context, nodeID storj.NodeID, timestamp time.Time) (err error) {
+	panic("implement me")
+}

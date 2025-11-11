@@ -57,7 +57,6 @@ type DB interface {
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error)
 	// SelectAllStorageNodesDownload returns a nodes that are ready for downloading
 	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error)
-
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// GetNodes gets records for all specified nodes as of the given system interval. The
@@ -69,8 +68,16 @@ type DB interface {
 	// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
 	// excluding nodes that have been disqualified or gracefully exited).
 	GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
+	// GetAllNodesWithFilters returns filtered and paginated nodes with total count.
+	// All filters are applied at the database level for optimal performance.
+	GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error)
+	// GetNodeStats returns aggregated statistics about all nodes using optimized SQL query.
+	GetNodeStats(ctx context.Context, onlineWindow time.Duration) (stats *AggregateNodeStats, err error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
 	UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error
+	// UpdateLastContactSuccess updates the last_contact_success timestamp for a node.
+	// This is used to manually set a node's online/offline status.
+	UpdateLastContactSuccess(ctx context.Context, nodeID storj.NodeID, timestamp time.Time) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
@@ -271,6 +278,19 @@ type NodeStats struct {
 	LastContactFailure time.Time
 	OfflineUnderReview *time.Time
 	Status             ReputationStatus
+}
+
+// AggregateNodeStats contains aggregated statistics about all nodes.
+type AggregateNodeStats struct {
+	TotalNodes        int   `json:"totalNodes"`
+	OnlineNodes       int   `json:"onlineNodes"`
+	OfflineNodes      int   `json:"offlineNodes"`
+	DisqualifiedNodes int   `json:"disqualifiedNodes"`
+	SuspendedNodes    int   `json:"suspendedNodes"`
+	ExitingNodes      int   `json:"exitingNodes"`
+	ExitedNodes       int   `json:"exitedNodes"`
+	UsedCapacity      int64 `json:"usedCapacity"`
+	AverageLatency    int64 `json:"averageLatency"`
 }
 
 // NodeLastContact contains the ID, address, and timestamp.
