@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/console/secretconstants"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/developerservice"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -638,6 +639,20 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		// Setup developer service for console
+		regTokenChecker := developerservice.NewConsoleServiceAdapter(peer.DB.Console(), consoleConfig.Config)
+		developerService, err := developerservice.NewService(
+			peer.Log.Named("developerservice"),
+			peer.DB.Console(),
+			peer.Analytics.Service,
+			peer.Console.AuthTokens,
+			consoleConfig.Config,
+			regTokenChecker,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
@@ -654,6 +669,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Analytics,
 			config.Payments.PackagePlans,
 			peer.Payments.StripeService,
+			developerService,
 		)
 
 		peer.Servers.Add(lifecycle.Item{

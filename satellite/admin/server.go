@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/developerservice"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/overlay"
@@ -100,13 +101,14 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 
-	db             DB
-	liveAccounting accounting.Cache
-	payments       payments.Accounts
-	buckets        *buckets.Service
-	restKeys       *restkeys.Service
-	analytics      *analytics.Service
-	freezeAccounts *console.AccountFreezeService
+	db                      DB
+	liveAccounting          accounting.Cache
+	payments                payments.Accounts
+	buckets                 *buckets.Service
+	restKeys                *restkeys.Service
+	analytics               *analytics.Service
+	freezeAccounts          *console.AccountFreezeService
+	developerserviceService developerservice.Service
 
 	nowFn func() time.Time
 
@@ -131,20 +133,22 @@ func NewServer(
 	console consoleweb.Config,
 	config Config,
 	placement nodeselection.PlacementDefinitions,
+	developerserviceService *developerservice.Service,
 ) (*Server, error) {
 	server := &Server{
 		log: log,
 
 		listener: listener,
 
-		db:             db,
-		liveAccounting: liveAccounting,
-		payments:       accounts,
-		buckets:        buckets,
-		restKeys:       restKeys,
-		analytics:      analyticsService,
-		freezeAccounts: freezeAccounts,
-		nowFn:          time.Now,
+		db:                      db,
+		liveAccounting:          liveAccounting,
+		payments:                accounts,
+		buckets:                 buckets,
+		restKeys:                restKeys,
+		analytics:               analyticsService,
+		freezeAccounts:          freezeAccounts,
+		developerserviceService: *developerserviceService,
+		nowFn:                   time.Now,
 
 		console:   console,
 		config:    config,
@@ -183,7 +187,7 @@ func NewServer(
 
 	// prod owners only
 	fullAccessAPI := api.NewRoute().Subrouter()
-	fullAccessAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}, true))
+	fullAccessAPI.Use(server.WithAuth([]string{config.Groups.LimitUpdate}, true))
 	fullAccessAPI.HandleFunc("/users", server.addUser).Methods("POST")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
@@ -225,7 +229,7 @@ func NewServer(
 
 	// limit update access required
 	limitUpdateAPI := api.NewRoute().Subrouter()
-	limitUpdateAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}, false))
+	limitUpdateAPI.Use(server.WithAuth([]string{config.Groups.LimitUpdate}, false))
 	limitUpdateAPI.HandleFunc("/users", server.getAllUsers).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/stats", server.getUserStats).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
@@ -259,7 +263,7 @@ func NewServer(
 
 	// Current admin user endpoint (requires authentication)
 	authAPIWithAuth := api.NewRoute().Subrouter()
-	authAPIWithAuth.Use(server.withAuth([]string{config.Groups.LimitUpdate}, false))
+	authAPIWithAuth.Use(server.WithAuth([]string{config.Groups.LimitUpdate}, false))
 	authAPIWithAuth.HandleFunc("/auth/me", server.getCurrentAdminHandler).Methods("GET")
 	authAPIWithAuth.HandleFunc("/auth/me", server.updateCurrentAdminHandler).Methods("PUT")
 
@@ -390,7 +394,7 @@ func (server *Server) adminTokenAuth(ctx context.Context, tokenString string, au
 // withAuth checks if the requester is authorized to perform an operation. If the request did not come from the oauth proxy, verify the auth token.
 // Otherwise, check that the user has the required permissions to conduct the operation. `allowedGroups` is a list of groups that are authorized.
 // If it is nil, then the api method is not accessible from the oauth proxy.
-func (server *Server) withAuth(allowedGroups []string, requireAPIKey bool) func(next http.Handler) http.Handler {
+func (server *Server) WithAuth(allowedGroups []string, requireAPIKey bool) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var err error

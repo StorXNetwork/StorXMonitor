@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/console/consoleweb/staticapi"
+	"storj.io/storj/satellite/developerservice"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -195,11 +196,12 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config      Config
-	service     *console.Service
-	mailService *mailservice.Service
-	analytics   *analytics.Service
-	abTesting   *abtesting.Service
+	config           Config
+	service          *console.Service
+	developerService *developerservice.Service
+	mailService      *mailservice.Service
+	analytics        *analytics.Service
+	abTesting        *abtesting.Service
 
 	listener            net.Listener
 	server              http.Server
@@ -280,7 +282,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developerservice.Service) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -288,6 +290,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		config:                          config,
 		listener:                        listener,
 		service:                         service,
+		developerService:                developerService,
 		mailService:                     mailService,
 		analytics:                       analytics,
 		abTesting:                       abTesting,
@@ -459,7 +462,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
 
 	if config.DeveloperAPIEnabled {
-		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, accountFreezeService, mailService, server.developerCookieAuth,
+		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,
 			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
 			config.ContactInfoURL, config.GeneralRequestURL, config.DeveloperRegisterAPIKey, config.SignupActivationCodeEnabled, badPasswords)
 		developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
@@ -1000,7 +1003,7 @@ func (server *Server) withAuthDeveloper(handler http.Handler) http.Handler {
 			return
 		}
 
-		newCtx, err := server.service.TokenAuthForDeveloper(ctx, tokenInfo.Token, time.Now())
+		newCtx, err := server.developerService.TokenAuthForDeveloper(ctx, tokenInfo.Token, time.Now())
 		if err != nil {
 			return
 		}

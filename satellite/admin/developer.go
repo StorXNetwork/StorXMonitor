@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strconv"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/developerservice"
 )
 
 // Developer represents a developer in the API response
@@ -124,8 +124,8 @@ func (server *Server) getAllDevelopers(w http.ResponseWriter, r *http.Request) {
 		sessionCountMax = &maxVal
 	}
 
-	// Fetch developers with stats using optimized query
-	developers, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, oauthClientCounts, totalCount, err := server.db.Console().Developers().GetAllDevelopersWithStats(
+	// Fetch developers with stats using service
+	result, err := server.developerserviceService.GetAllDevelopersAdmin(
 		ctx,
 		actualLimit,
 		actualOffset,
@@ -145,18 +145,18 @@ func (server *Server) getAllDevelopers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to response format - preallocated slice for better performance
-	responseDevelopers := make([]Developer, len(developers))
-	for i, dev := range developers {
+	responseDevelopers := make([]Developer, len(result.Developers))
+	for i, devWithStats := range result.Developers {
 		responseDevelopers[i] = Developer{
-			ID:                 dev.ID,
-			FullName:           dev.FullName,
-			Email:              dev.Email,
-			Status:             int(dev.Status),
-			CreatedAt:          dev.CreatedAt,
-			LastSessionExpiry:  lastSessionExpiry[i],
-			FirstSessionExpiry: firstSessionExpiry[i],
-			TotalSessionCount:  totalSessionCounts[i],
-			OAuthClientCount:   oauthClientCounts[i],
+			ID:                 devWithStats.Developer.ID,
+			FullName:           devWithStats.Developer.FullName,
+			Email:              devWithStats.Developer.Email,
+			Status:             int(devWithStats.Developer.Status),
+			CreatedAt:          devWithStats.Developer.CreatedAt,
+			LastSessionExpiry:  result.LastSessionExpiry[i],
+			FirstSessionExpiry: result.FirstSessionExpiry[i],
+			TotalSessionCount:  result.TotalSessionCounts[i],
+			OAuthClientCount:   result.OAuthClientCounts[i],
 		}
 	}
 
@@ -175,8 +175,8 @@ func (server *Server) getAllDevelopers(w http.ResponseWriter, r *http.Request) {
 		Developers:  responseDevelopers,
 		PageCount:   uint(totalPages),
 		CurrentPage: uint(params.Page),
-		TotalCount:  uint64(totalCount),
-		HasMore:     actualOffset+actualLimit < totalCount,
+		TotalCount:  uint64(result.TotalCount),
+		HasMore:     actualOffset+actualLimit < result.TotalCount,
 		Limit:       uint(actualLimit),
 		Offset:      uint64(actualOffset),
 	}
@@ -314,16 +314,15 @@ func (server *Server) getDeveloperStats(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// Use optimized SQL aggregation to count developers by status
-	// This is much faster than fetching all developers and counting in memory
-	total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification, err := server.db.Console().Developers().GetDeveloperStats(ctx)
+	// Use service to get developer statistics
+	stats, err := server.developerserviceService.GetDeveloperStatsAdmin(ctx)
 	if err != nil {
 		sendJSONError(w, "failed to get developer statistics",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	stats := struct {
+	response := struct {
 		TotalDevelopers        uint64 `json:"totalDevelopers"`
 		Active                 uint64 `json:"active"`
 		Inactive               uint64 `json:"inactive"`
@@ -332,18 +331,18 @@ func (server *Server) getDeveloperStats(w http.ResponseWriter, r *http.Request) 
 		LegalHold              uint64 `json:"legalHold"`
 		PendingBotVerification uint64 `json:"pendingBotVerification"`
 	}{
-		TotalDevelopers:        uint64(total),
-		Active:                 uint64(active),
-		Inactive:               uint64(inactive),
-		Deleted:                uint64(deleted),
-		PendingDeletion:        uint64(pendingDeletion),
-		LegalHold:              uint64(legalHold),
-		PendingBotVerification: uint64(pendingBotVerification),
+		TotalDevelopers:        uint64(stats.Total),
+		Active:                 uint64(stats.Active),
+		Inactive:               uint64(stats.Inactive),
+		Deleted:                uint64(stats.Deleted),
+		PendingDeletion:        uint64(stats.PendingDeletion),
+		LegalHold:              uint64(stats.LegalHold),
+		PendingBotVerification: uint64(stats.PendingBotVerification),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(stats)
+	json.NewEncoder(w).Encode(response)
 }
 
 type DeveloperDetails struct {
@@ -366,62 +365,26 @@ func (server *Server) getDeveloperDetails(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get developer by email
-	developer, err := server.db.Console().Developers().GetByEmail(ctx, developerEmail)
-	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, "developer not found", "", http.StatusNotFound)
-		return
-	}
+	// Get developer details with login history using service
+	result, err := server.developerserviceService.GetDeveloperDetailsAdmin(ctx, developerEmail)
 	if err != nil {
-		sendJSONError(w, "failed to get developer", err.Error(), http.StatusInternalServerError)
+		if errors.Is(err, sql.ErrNoRows) || console.ErrEmailNotFound.Has(err) {
+			sendJSONError(w, "developer not found", "", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get developer details", err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// Get all webapp sessions for this developer
-	sessions, err := server.db.Console().WebappSessionDevelopers().GetAllByDeveloperId(ctx, developer.ID)
-	if err != nil {
-		sendJSONError(w, "failed to get developer login history", err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Convert sessions to response format
-	type LoginHistoryEntry struct {
-		ID        string    `json:"id"`
-		IPAddress string    `json:"ipAddress"`
-		Status    int       `json:"status"`
-		LoginTime time.Time `json:"loginTime"`
-		ExpiresAt time.Time `json:"expiresAt"`
-		IsActive  bool      `json:"isActive"`
-	}
-
-	entries := make([]LoginHistoryEntry, 0, len(sessions))
-	now := time.Now()
-
-	for _, session := range sessions {
-		entries = append(entries, LoginHistoryEntry{
-			ID:        session.ID.String(),
-			IPAddress: session.IP,
-			Status:    session.Status,
-			LoginTime: session.ExpiresAt,
-			ExpiresAt: session.ExpiresAt,
-			IsActive:  session.ExpiresAt.After(now),
-		})
-	}
-
-	// Sort by login time (most recent first)
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].LoginTime.After(entries[j].LoginTime)
-	})
 
 	// Create response
 	response := struct {
-		DeveloperEmail string              `json:"developerEmail"`
-		Total          int                 `json:"total"`
-		Sessions       []LoginHistoryEntry `json:"sessions"`
+		DeveloperEmail string                               `json:"developerEmail"`
+		Total          int                                  `json:"total"`
+		Sessions       []developerservice.LoginHistoryEntry `json:"sessions"`
 	}{
 		DeveloperEmail: developerEmail,
-		Total:          len(entries),
-		Sessions:       entries,
+		Total:          len(result.Sessions),
+		Sessions:       result.Sessions,
 	}
 
 	data, err := json.Marshal(response)
@@ -469,48 +432,15 @@ func (server *Server) addDeveloper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if developer exists (including unverified/deleted)
-	verified, unverified, err := server.db.Console().Developers().GetByEmailWithUnverified(ctx, input.Email)
+	// Use service function to create developer
+	newDeveloper, err := server.developerserviceService.CreateDeveloperAdmin(ctx, developer)
 	if err != nil {
-		sendJSONError(w, "failed to check for developer email",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if verified != nil || len(unverified) > 0 {
-		sendJSONError(w, fmt.Sprintf("developer with email already exists %s", input.Email),
-			"", http.StatusConflict)
-		return
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 0)
-	if err != nil {
-		sendJSONError(w, "unable to save password hash",
-			"", http.StatusInternalServerError)
-		return
-	}
-
-	developerID, err := uuid.New()
-	if err != nil {
-		sendJSONError(w, "unable to create UUID",
-			"", http.StatusInternalServerError)
-		return
-	}
-
-	// Set default status to Active if not provided
-	status := console.UserStatus(developer.Status)
-	if status == 0 {
-		status = console.Active
-	}
-
-	newDeveloper, err := server.db.Console().Developers().Insert(ctx, &console.Developer{
-		ID:           developerID,
-		FullName:     developer.FullName,
-		Email:        developer.Email,
-		PasswordHash: hash,
-		Status:       status,
-	})
-	if err != nil {
-		sendJSONError(w, "failed to insert developer",
+		if console.ErrEmailUsed.Has(err) {
+			sendJSONError(w, fmt.Sprintf("developer with email already exists %s", input.Email),
+				"", http.StatusConflict)
+			return
+		}
+		sendJSONError(w, "failed to create developer",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -539,25 +469,6 @@ func (server *Server) updateDeveloper(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		sendJSONError(w, "developer-email missing",
 			"", http.StatusBadRequest)
-		return
-	}
-
-	// Get developer by email (including unverified/deleted for admin operations)
-	verified, unverified, err := server.db.Console().Developers().GetByEmailWithUnverified(ctx, developerEmail)
-	if err != nil {
-		sendJSONError(w, "failed to get developer",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var developer *console.Developer
-	if verified != nil {
-		developer = verified
-	} else if len(unverified) > 0 {
-		developer = &unverified[0]
-	} else {
-		sendJSONError(w, fmt.Sprintf("developer with email %q does not exist", developerEmail),
-			"", http.StatusNotFound)
 		return
 	}
 
@@ -594,33 +505,8 @@ func (server *Server) updateDeveloper(w http.ResponseWriter, r *http.Request) {
 		hasUpdates = true
 	}
 	if input.Email != nil && *input.Email != "" {
-		// Only update email if it's different from current
-		if *input.Email != developer.Email {
-			// Check if new email already exists (including unverified/deleted)
-			existingVerified, existingUnverified, err := server.db.Console().Developers().GetByEmailWithUnverified(ctx, *input.Email)
-			if err != nil {
-				sendJSONError(w, "failed to check for developer email",
-					err.Error(), http.StatusInternalServerError)
-				return
-			}
-			// Check if email is taken by a different developer
-			if existingVerified != nil && existingVerified.ID != developer.ID {
-				sendJSONError(w, fmt.Sprintf("developer with email already exists %s", *input.Email),
-					"", http.StatusConflict)
-				return
-			}
-			if len(existingUnverified) > 0 {
-				for _, unv := range existingUnverified {
-					if unv.ID != developer.ID {
-						sendJSONError(w, fmt.Sprintf("developer with email already exists %s", *input.Email),
-							"", http.StatusConflict)
-						return
-					}
-				}
-			}
-			updateRequest.Email = input.Email
-			hasUpdates = true
-		}
+		updateRequest.Email = input.Email
+		hasUpdates = true
 	}
 	if input.Password != nil && *input.Password != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(*input.Password), 0)
@@ -634,60 +520,61 @@ func (server *Server) updateDeveloper(w http.ResponseWriter, r *http.Request) {
 	}
 	if input.Status != nil {
 		statusValue := console.UserStatus(*input.Status)
-		// Validate status value (0-5 are valid statuses)
-		if statusValue < 0 || statusValue > 5 {
-			sendJSONError(w, "invalid status value",
-				"status must be between 0 (Inactive) and 5 (Pending Bot Verification)", http.StatusBadRequest)
-			return
-		}
-		// Only update status if it's different from current
-		if statusValue != developer.Status {
-			updateRequest.Status = &statusValue
-			hasUpdates = true
-		}
+		updateRequest.Status = &statusValue
+		hasUpdates = true
 	}
 
 	// Only perform update if there are actual changes
-	if hasUpdates {
-		err = server.db.Console().Developers().Update(ctx, developer.ID, updateRequest)
+	if !hasUpdates {
+		// No updates, just return current developer using service
+		verified, unverified, err := server.developerserviceService.GetDeveloperByEmailWithUnverified(ctx, developerEmail)
 		if err != nil {
-			sendJSONError(w, "failed to update developer",
+			sendJSONError(w, "failed to get developer",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}
-	}
-
-	// Return updated developer (always fetch fresh from database)
-	// Determine which email to use for fallback lookup
-	lookupEmail := developer.Email
-	if updateRequest.Email != nil {
-		lookupEmail = *updateRequest.Email
-	}
-
-	updatedDeveloper, err := server.db.Console().Developers().Get(ctx, developer.ID)
-	if err != nil {
-		// If Get fails (e.g., status was set to deleted), try GetByEmailWithUnverified
-		verified, unverified, err2 := server.db.Console().Developers().GetByEmailWithUnverified(ctx, lookupEmail)
-		if err2 != nil {
-			sendJSONError(w, "failed to get updated developer",
-				err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if verified != nil && verified.ID == developer.ID {
-			updatedDeveloper = verified
+		var developer *console.Developer
+		if verified != nil {
+			developer = verified
 		} else if len(unverified) > 0 {
-			for _, unv := range unverified {
-				if unv.ID == developer.ID {
-					updatedDeveloper = &unv
-					break
-				}
-			}
+			developer = &unverified[0]
+		} else {
+			sendJSONError(w, fmt.Sprintf("developer with email %q does not exist", developerEmail),
+				"", http.StatusNotFound)
+			return
 		}
-		if updatedDeveloper == nil {
-			sendJSONError(w, "failed to get updated developer",
+		developer.PasswordHash = nil
+		data, err := json.Marshal(developer)
+		if err != nil {
+			sendJSONError(w, "json encoding failed",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}
+		sendJSONData(w, http.StatusOK, data)
+		return
+	}
+
+	// Use service function to update developer
+	updatedDeveloper, err := server.developerserviceService.UpdateDeveloperAdmin(ctx, developerEmail, updateRequest)
+	if err != nil {
+		if console.ErrEmailNotFound.Has(err) {
+			sendJSONError(w, fmt.Sprintf("developer with email %q does not exist", developerEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		if console.ErrEmailUsed.Has(err) {
+			sendJSONError(w, fmt.Sprintf("developer with email already exists %s", *input.Email),
+				"", http.StatusConflict)
+			return
+		}
+		if console.ErrValidation.Has(err) {
+			sendJSONError(w, "invalid request",
+				err.Error(), http.StatusBadRequest)
+			return
+		}
+		sendJSONError(w, "failed to update developer",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	updatedDeveloper.PasswordHash = nil
@@ -715,71 +602,20 @@ func (server *Server) deleteDeveloper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get developer by email (including unverified/deleted for admin operations)
-	verified, unverified, err := server.db.Console().Developers().GetByEmailWithUnverified(ctx, developerEmail)
+	// Use service function to delete developer
+	err = server.developerserviceService.DeleteDeveloperAdmin(ctx, developerEmail)
 	if err != nil {
-		sendJSONError(w, "failed to get developer details",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var developer *console.Developer
-	if verified != nil {
-		developer = verified
-	} else if len(unverified) > 0 {
-		developer = &unverified[0]
-	} else {
-		sendJSONError(w, fmt.Sprintf("developer with email %q does not exist", developerEmail),
-			"", http.StatusNotFound)
-		return
-	}
-
-	// Note: We skip checking developer_user_mappings as there's no direct method
-	// to access it through the console.DB interface. If needed, this check can be
-	// added by extending the Developers interface with a method to check mappings.
-
-	// Check if developer has OAuth clients
-	oauthClients, err := server.db.Console().DeveloperOAuthClients().ListByDeveloperID(ctx, developer.ID)
-	if err != nil {
-		sendJSONError(w, "unable to list OAuth clients",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(oauthClients) > 0 {
-		// Delete all OAuth clients for this developer
-		for _, client := range oauthClients {
-			err := server.db.Console().DeveloperOAuthClients().Delete(ctx, client.ID)
-			if err != nil {
-				sendJSONError(w, fmt.Sprintf("unable to delete OAuth client %s", client.ID.String()),
-					err.Error(), http.StatusInternalServerError)
-				return
-			}
+		if console.ErrEmailNotFound.Has(err) {
+			sendJSONError(w, fmt.Sprintf("developer with email %q does not exist", developerEmail),
+				"", http.StatusNotFound)
+			return
 		}
-	}
-
-	// Delete all developer sessions
-	_, err = server.db.Console().WebappSessionDevelopers().DeleteAllByDeveloperId(ctx, developer.ID)
-	if err != nil {
-		sendJSONError(w, "failed to delete developer sessions",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Soft delete: Update developer status to Deleted and anonymize email
-	emptyName := ""
-	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", developer.ID.String())
-	status := console.Deleted
-
-	err = server.db.Console().Developers().Update(ctx, developer.ID, console.UpdateDeveloperRequest{
-		FullName: &emptyName,
-		Email:    &deactivatedEmail,
-		Status:   &status,
-	})
-	if err != nil {
 		sendJSONError(w, "unable to delete developer",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // updateDeveloperStatus updates only the status of a developer
@@ -793,25 +629,6 @@ func (server *Server) updateDeveloperStatus(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		sendJSONError(w, "developer-email missing",
 			"", http.StatusBadRequest)
-		return
-	}
-
-	// Get developer by email (including unverified/deleted for admin operations)
-	verified, unverified, err := server.db.Console().Developers().GetByEmailWithUnverified(ctx, developerEmail)
-	if err != nil {
-		sendJSONError(w, "failed to get developer",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var developer *console.Developer
-	if verified != nil {
-		developer = verified
-	} else if len(unverified) > 0 {
-		developer = &unverified[0]
-	} else {
-		sendJSONError(w, fmt.Sprintf("developer with email %q does not exist", developerEmail),
-			"", http.StatusNotFound)
 		return
 	}
 
@@ -835,29 +652,22 @@ func (server *Server) updateDeveloperStatus(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Validate status value (0-5 are valid statuses)
 	statusValue := console.UserStatus(input.Status)
-	if statusValue < 0 || statusValue > 5 {
-		sendJSONError(w, "invalid status value",
-			"status must be between 0 (Inactive) and 5 (Pending Bot Verification)", http.StatusBadRequest)
-		return
-	}
 
-	updateRequest := console.UpdateDeveloperRequest{
-		Status: &statusValue,
-	}
-
-	err = server.db.Console().Developers().Update(ctx, developer.ID, updateRequest)
+	// Use service function to update developer status
+	updatedDeveloper, err := server.developerserviceService.UpdateDeveloperStatusAdmin(ctx, developerEmail, statusValue)
 	if err != nil {
+		if console.ErrEmailNotFound.Has(err) {
+			sendJSONError(w, fmt.Sprintf("developer with email %q does not exist", developerEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		if console.ErrValidation.Has(err) {
+			sendJSONError(w, "invalid status value",
+				err.Error(), http.StatusBadRequest)
+			return
+		}
 		sendJSONError(w, "failed to update developer status",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Return updated developer
-	updatedDeveloper, err := server.db.Console().Developers().Get(ctx, developer.ID)
-	if err != nil {
-		sendJSONError(w, "failed to get updated developer",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}

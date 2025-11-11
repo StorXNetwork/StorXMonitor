@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net"
 	"runtime/pprof"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -25,7 +26,9 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/developerservice"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
@@ -248,6 +251,26 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
+		// Setup developer service for admin
+		consoleAuthConfig := consoleauth.Config{
+			TokenExpirationTime: 24 * time.Hour,
+		}
+		authTokens := consoleauth.NewService(consoleAuthConfig, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
+
+		regTokenChecker := developerservice.NewConsoleServiceAdapter(peer.DB.Console(), config.Console.Config)
+
+		developerService, err := developerservice.NewService(
+			log.Named("developerservice"),
+			peer.DB.Console(),
+			peer.Analytics.Service,
+			authTokens,
+			config.Console.Config,
+			regTokenChecker,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 		// Use Console's AuthTokenSecret for JWT signing (same secret used for console auth tokens)
@@ -267,6 +290,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			config.Console,
 			adminConfig,
 			placement,
+			developerService,
 		)
 		if err != nil {
 			return nil, err

@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
+	"storj.io/storj/satellite/developerservice"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -52,6 +53,7 @@ type DeveloperAuth struct {
 	mailService               *mailservice.Service
 	cookieAuth                *consolewebauth.CookieAuth
 	developerRegisterAPIKey   string
+	developerService          *developerservice.Service
 }
 
 // DeveloperDetails is struct used for developer details
@@ -62,7 +64,7 @@ type DeveloperDetails struct {
 }
 
 // NewDeveloperAuth is a constructor for api auth controller.
-func NewDeveloperAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService,
+func NewDeveloperAuth(log *zap.Logger, service *console.Service, developerService *developerservice.Service, accountFreezeService *console.AccountFreezeService,
 	mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName,
 	externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL, developerRegisterAPIKey string,
 	activationCodeEnabled bool, badPasswords map[string]struct{}) *DeveloperAuth {
@@ -79,6 +81,7 @@ func NewDeveloperAuth(log *zap.Logger, service *console.Service, accountFreezeSe
 		ActivateAccountURL:        externalAddress + "activation",
 		ActivationCodeEnabled:     activationCodeEnabled,
 		service:                   service,
+		developerService:          developerService,
 		accountFreezeService:      accountFreezeService,
 		mailService:               mailService,
 		cookieAuth:                cookieAuth,
@@ -108,7 +111,7 @@ func (a *DeveloperAuth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.TokenDeveloper(ctx, tokenRequest)
+	tokenInfo, err := a.developerService.TokenDeveloper(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
 			web.ServeCustomJSONError(ctx, a.log, w, http.StatusOK, err, a.getDeveloperErrorMessage(err))
@@ -161,7 +164,7 @@ func (a *DeveloperAuth) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.service.DeleteSessionDeveloper(ctx, sessionID)
+	err = a.developerService.DeleteSessionDeveloper(ctx, sessionID)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -213,7 +216,7 @@ func (a *DeveloperAuth) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	verified, unverified, err := a.service.GetDeveloperByEmailWithUnverified(ctx, registerData.Email)
+	verified, unverified, err := a.developerService.GetDeveloperByEmailWithUnverified(ctx, registerData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -265,7 +268,7 @@ func (a *DeveloperAuth) Register(w http.ResponseWriter, r *http.Request) {
 			requestID = requestid.FromContext(ctx)
 		}
 
-		_, err = a.service.CreateDeveloper(ctx,
+		_, err = a.developerService.CreateDeveloper(ctx,
 			console.CreateDeveloper{
 				FullName:       registerData.FullName,
 				Email:          registerData.Email,
@@ -337,7 +340,7 @@ func (a *DeveloperAuth) ActivateAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	verified, unverified, err := a.service.GetDeveloperByEmailWithUnverified(ctx, activateData.Email)
+	verified, unverified, err := a.developerService.GetDeveloperByEmailWithUnverified(ctx, activateData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -379,7 +382,7 @@ func (a *DeveloperAuth) ActivateAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if developer.ActivationCode != activateData.Code || developer.SignupId != activateData.SignupId {
-		lockoutDuration, err := a.service.UpdateDevelopersFailedLoginState(ctx, developer)
+		lockoutDuration, err := a.developerService.UpdateDevelopersFailedLoginState(ctx, developer)
 		if err != nil {
 			a.serveJSONError(ctx, w, err)
 			return
@@ -397,7 +400,7 @@ func (a *DeveloperAuth) ActivateAccount(w http.ResponseWriter, r *http.Request) 
 
 		mon.Counter("developer_account_activation_failed").Inc(1)                                                    //mon:locked
 		mon.IntVal("developer_account_activation_developer_failed_count").Observe(int64(developer.FailedLoginCount)) //mon:locked
-		penaltyThreshold := a.service.GetLoginAttemptsWithoutPenalty()
+		penaltyThreshold := a.developerService.GetLoginAttemptsWithoutPenalty()
 
 		if developer.FailedLoginCount == penaltyThreshold {
 			mon.Counter("developer_account_activation_lockout_initiated").Inc(1) //mon:locked
@@ -412,13 +415,13 @@ func (a *DeveloperAuth) ActivateAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if developer.FailedLoginCount != 0 {
-		if err := a.service.ResetAccountLockDeveloper(ctx, developer); err != nil {
+		if err := a.developerService.ResetAccountLockDeveloper(ctx, developer); err != nil {
 			a.serveJSONError(ctx, w, err)
 			return
 		}
 	}
 
-	err = a.service.SetAccountActiveDeveloper(ctx, developer)
+	err = a.developerService.SetAccountActiveDeveloper(ctx, developer)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -430,7 +433,7 @@ func (a *DeveloperAuth) ActivateAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionTokenForDeveloper(ctx, developer.ID, developer.Email, ip, nil)
+	tokenInfo, err := a.developerService.GenerateSessionTokenForDeveloper(ctx, developer.ID, developer.Email, ip, nil)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -465,7 +468,7 @@ func (a *DeveloperAuth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.UpdateAccountDeveloper(ctx, updatedInfo.FullName); err != nil {
+	if err = a.developerService.UpdateAccountDeveloper(ctx, updatedInfo.FullName); err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
@@ -532,7 +535,7 @@ func (a *DeveloperAuth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = a.service.ChangePasswordDeveloper(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
+	err = a.developerService.ChangePasswordDeveloper(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -557,7 +560,7 @@ func (a *DeveloperAuth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo.ExpiresAt, err = a.service.RefreshSessionDeveloper(ctx, id)
+	tokenInfo.ExpiresAt, err = a.developerService.RefreshSessionDeveloper(ctx, id)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -652,7 +655,7 @@ func (a *DeveloperAuth) CreateOAuthClient(w http.ResponseWriter, r *http.Request
 		return
 	}
 	// TODO: Get developerID from auth context/session if needed
-	client, err := a.service.CreateDeveloperOAuthClient(r.Context(), req)
+	client, err := a.developerService.CreateDeveloperOAuthClient(r.Context(), req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -666,7 +669,7 @@ func (a *DeveloperAuth) CreateOAuthClient(w http.ResponseWriter, r *http.Request
 
 func (a *DeveloperAuth) ListOAuthClients(w http.ResponseWriter, r *http.Request) {
 	// TODO: Get developerID from auth context/session
-	clients, err := a.service.ListDeveloperOAuthClients(r.Context())
+	clients, err := a.developerService.ListDeveloperOAuthClients(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -686,7 +689,7 @@ func (a *DeveloperAuth) DeleteOAuthClient(w http.ResponseWriter, r *http.Request
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
-	if err := a.service.DeleteDeveloperOAuthClient(r.Context(), id); err != nil {
+	if err := a.developerService.DeleteDeveloperOAuthClient(r.Context(), id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -710,7 +713,7 @@ func (a *DeveloperAuth) UpdateOAuthClientStatus(w http.ResponseWriter, r *http.R
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
-	if err := a.service.UpdateDeveloperOAuthClientStatus(r.Context(), id, req.Status); err != nil {
+	if err := a.developerService.UpdateDeveloperOAuthClientStatus(r.Context(), id, req.Status); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
