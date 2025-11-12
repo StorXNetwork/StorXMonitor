@@ -25,111 +25,112 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        cache-dependency-path: ${{ env.UI_PATH }}/package-lock.json
+        cache-dependency-path: satellite/developer/ui/package-lock.json
           
     - name: Install dependencies
       run: |
-        echo "Installing npm dependencies..."
-        cd ${{ env.UI_PATH }}
+        Write-Host "Installing npm dependencies..."
+        Set-Location $env:UI_PATH
         npm ci
-        echo "Dependencies installed successfully"
+        Write-Host "Dependencies installed successfully"
         
     - name: Build UI
       run: |
-        buildStart=$(date +%s)
-        echo "Building developer UI..."
+        $buildStart = Get-Date
+        Write-Host "Building developer UI..."
         
-        cd ${{ env.UI_PATH }}
+        Set-Location $env:UI_PATH
         npm run build
         
-        buildEnd=$(date +%s)
-        buildTime=$((buildEnd - buildStart))
-        echo "Build completed in ${buildTime} seconds"
+        $buildTime = (Get-Date) - $buildStart
+        Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
         
-        if [ -d "./build" ]; then
-          buildSize=$(du -sh ./build | cut -f1)
-          echo "Build folder created successfully (${buildSize})"
-        else
-          echo "Build failed - build folder not found"
+        if (Test-Path "./build") {
+          $buildSize = (Get-ChildItem "./build" -Recurse | Measure-Object -Property Length -Sum).Sum
+          Write-Host "Build folder created successfully ($([math]::Round($buildSize/1MB, 2)) MB)"
+        } else {
+          Write-Error "Build failed - build folder not found"
           exit 1
-        fi
+        }
         
     - name: Move build to deployment folder
       run: |
-        echo "Moving build to deployment folder..."
+        Write-Host "Moving build to deployment folder..."
         
-        # Build folder is at ./satellite/developer/ui/build
-        sourcePath="${{ env.UI_PATH }}/build"
-        destPath="${{ env.TEMP_PATH }}/build"
+        # Build folder is at satellite/developer/ui/build
+        $sourcePath = Join-Path $env:UI_PATH "build"
+        $destPath = Join-Path $env:TEMP_PATH "build"
         
-        if [ ! -d "$sourcePath" ]; then
-          echo "Build folder not found at $sourcePath"
+        if (-not (Test-Path $sourcePath)) {
+          Write-Error "Build folder not found at $sourcePath"
           exit 1
-        fi
+        }
         
         # Create temp directory if it doesn't exist
-        mkdir -p "${{ env.TEMP_PATH }}"
+        if (-not (Test-Path $env:TEMP_PATH)) {
+          New-Item -ItemType Directory -Path $env:TEMP_PATH -Force | Out-Null
+        }
         
         # Remove old build if exists
-        if [ -d "$destPath" ]; then
-          rm -rf "$destPath"
-        fi
+        if (Test-Path $destPath) {
+          Remove-Item $destPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
         
         # Move build to temp folder
-        mv "$sourcePath" "$destPath"
-        echo "Build moved to deployment folder: $destPath"
+        Move-Item -Path $sourcePath -Destination $destPath -Force
+        Write-Host "Build moved to deployment folder: $destPath"
         
     - name: Deploy to Developer UI Build Path
       run: |
-        echo "Deploying build to developer UI build path..."
+        Write-Host "Deploying build to developer UI build path..."
         
-        deploymentBuildPath="${{ env.TEMP_PATH }}/build"
-        storjNetworkBuildPath="${{ env.DEPLOY_PATH }}"
+        $deploymentBuildPath = Join-Path $env:TEMP_PATH "build"
+        $storjNetworkBuildPath = $env:DEPLOY_PATH
         
         # Check if deployment build exists
-        if [ ! -d "$deploymentBuildPath" ]; then
-          echo "Deployment build not found at $deploymentBuildPath"
+        if (-not (Test-Path $deploymentBuildPath)) {
+          Write-Error "Deployment build not found at $deploymentBuildPath"
           exit 1
-        fi
+        }
         
         # Ensure parent directory exists
-        parentPath=$(dirname "$storjNetworkBuildPath")
-        if [ ! -d "$parentPath" ]; then
-          echo "Creating parent directory: $parentPath"
-          mkdir -p "$parentPath"
-        else
-          echo "Parent directory exists: $parentPath"
-        fi
+        $parentPath = Split-Path $storjNetworkBuildPath -Parent
+        if (-not (Test-Path $parentPath)) {
+          Write-Host "Creating parent directory: $parentPath"
+          New-Item -ItemType Directory -Path $parentPath -Force | Out-Null
+        } else {
+          Write-Host "Parent directory exists: $parentPath"
+        }
         
         # Delete old build folder if it exists
-        if [ -d "$storjNetworkBuildPath" ]; then
-          echo "Build folder exists, deleting old build folder only..."
-          rm -rf "$storjNetworkBuildPath"
-          echo "Old build folder deleted"
-        else
-          echo "Build folder does not exist, will create new one"
-        fi
+        if (Test-Path $storjNetworkBuildPath) {
+          Write-Host "Build folder exists, deleting old build folder only..."
+          Remove-Item $storjNetworkBuildPath -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Old build folder deleted"
+        } else {
+          Write-Host "Build folder does not exist, will create new one"
+        }
         
         # Move build to final location
-        echo "Moving build to $storjNetworkBuildPath..."
-        mv "$deploymentBuildPath" "$storjNetworkBuildPath"
-        echo "Build deployed successfully to $storjNetworkBuildPath"
+        Write-Host "Moving build to $storjNetworkBuildPath..."
+        Move-Item -Path $deploymentBuildPath -Destination $storjNetworkBuildPath -Force
+        Write-Host "Build deployed successfully to $storjNetworkBuildPath"
         
         # Verify deployment
-        if [ -d "$storjNetworkBuildPath" ]; then
-          deployedSize=$(du -sh "$storjNetworkBuildPath" | cut -f1)
-          echo "Deployment verified (${deployedSize})"
-        else
-          echo "Deployment verification failed"
+        if (Test-Path $storjNetworkBuildPath) {
+          $deployedSize = (Get-ChildItem $storjNetworkBuildPath -Recurse | Measure-Object -Property Length -Sum).Sum
+          Write-Host "Deployment verified ($([math]::Round($deployedSize/1MB, 2)) MB)"
+        } else {
+          Write-Error "Deployment verification failed"
           exit 1
-        fi
+        }
         
     - name: Summary
       run: |
-        echo ""
-        echo "==============================================================="
-        echo "[SUCCESS] Developer UI successfully built and deployed!"
-        echo "Deployment Path: ${{ env.DEPLOY_PATH }}"
-        echo "==============================================================="
-        echo ""
+        Write-Host ""
+        Write-Host "===============================================================" -ForegroundColor Yellow
+        Write-Host "[SUCCESS] Developer UI successfully built and deployed!" -ForegroundColor Yellow
+        Write-Host "Deployment Path: $env:DEPLOY_PATH" -ForegroundColor Cyan
+        Write-Host "===============================================================" -ForegroundColor Yellow
+        Write-Host ""
 
