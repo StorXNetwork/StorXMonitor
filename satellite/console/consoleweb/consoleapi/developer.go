@@ -1,7 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// This file has been moved to satellite/developer/auth_controller.go
+// All developer endpoints are now handled by the separate developer server
+// Commenting out to prevent accidental usage
+
 package consoleapi
+
+/*
 
 import (
 	"context"
@@ -17,6 +23,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/uuid"
@@ -25,7 +32,8 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/developerservice"
+	"storj.io/storj/satellite/developer"
+
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -53,7 +61,7 @@ type DeveloperAuth struct {
 	mailService               *mailservice.Service
 	cookieAuth                *consolewebauth.CookieAuth
 	developerRegisterAPIKey   string
-	developerService          *developerservice.Service
+	developerService          *developer.Service
 }
 
 // DeveloperDetails is struct used for developer details
@@ -64,7 +72,7 @@ type DeveloperDetails struct {
 }
 
 // NewDeveloperAuth is a constructor for api auth controller.
-func NewDeveloperAuth(log *zap.Logger, service *console.Service, developerService *developerservice.Service, accountFreezeService *console.AccountFreezeService,
+func NewDeveloperAuth(log *zap.Logger, service *console.Service, developerService *developer.Service, accountFreezeService *console.AccountFreezeService,
 	mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName,
 	externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL, developerRegisterAPIKey string,
 	activationCodeEnabled bool, badPasswords map[string]struct{}) *DeveloperAuth {
@@ -719,3 +727,170 @@ func (a *DeveloperAuth) UpdateOAuthClientStatus(w http.ResponseWriter, r *http.R
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+// VerifyResetToken verifies the JWT token from email link for password reset.
+func (a *DeveloperAuth) VerifyResetToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("token is required"))
+		return
+	}
+
+	developer, err := a.developerService.VerifyTokenForDeveloper(ctx, token)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Return developer info (without sensitive data)
+	response := struct {
+		Email    string `json:"email"`
+		FullName string `json:"fullName"`
+		Valid    bool   `json:"valid"`
+	}{
+		Email:    developer.Email,
+		FullName: developer.FullName,
+		Valid:    true,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		a.log.Error("could not encode token verification response", zap.Error(ErrDeveloperAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// ResetPasswordWithToken resets developer password using JWT token from email.
+func (a *DeveloperAuth) ResetPasswordWithToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var resetData struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"newPassword"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&resetData)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if resetData.Token == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("token is required"))
+		return
+	}
+
+	if resetData.NewPassword == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("new password is required"))
+		return
+	}
+
+	if a.badPasswords != nil {
+		_, exists := a.badPasswords[resetData.NewPassword]
+		if exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
+	}
+
+	err = a.developerService.ResetPasswordWithToken(ctx, resetData.Token, resetData.NewPassword)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(struct {
+		Success bool `json:"success"`
+	}{Success: true})
+}
+
+// ResetPasswordAfterFirstLogin resets password for developer with ResetPass status after first login.
+func (a *DeveloperAuth) ResetPasswordAfterFirstLogin(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	// Get developer from context (must be authenticated)
+	developer, err := console.GetDeveloper(ctx)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Only allow if status is ResetPass
+	if developer.Status != console.ResetPass {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("password reset is only allowed for accounts in reset password status"))
+		return
+	}
+
+	var passwordData struct {
+		NewPassword string `json:"newPassword"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&passwordData)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if passwordData.NewPassword == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("new password is required"))
+		return
+	}
+
+	if a.badPasswords != nil {
+		_, exists := a.badPasswords[passwordData.NewPassword]
+		if exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
+	}
+
+	// Validate new password
+	if err := console.ValidateNewPassword(passwordData.NewPassword); err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Hash new password
+	hash, err := bcrypt.GenerateFromPassword([]byte(passwordData.NewPassword), 0)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Update password and set status to Active
+	activeStatus := console.Active
+	_, err = a.developerService.UpdateDeveloperAdmin(ctx, developer.Email, console.UpdateDeveloperRequest{
+		PasswordHash: hash,
+		Status:       &activeStatus,
+	})
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Delete all existing sessions to force re-login
+	// Get session ID from request
+	sessionID, err := a.getSessionID(r)
+	if err == nil {
+		// Delete this session and all others
+		_ = a.developerService.DeleteSessionDeveloper(ctx, sessionID)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(struct {
+		Success bool `json:"success"`
+	}{Success: true})
+}
+*/

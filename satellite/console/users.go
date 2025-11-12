@@ -223,6 +223,8 @@ const (
 	LegalHold UserStatus = 4
 	// PendingBotVerification is a status that user receives after account activation but with high captcha score.
 	PendingBotVerification UserStatus = 5
+	// ResetPass is a status that developer receives when admin creates account and needs to reset password.
+	ResetPass UserStatus = 6
 )
 
 // String returns a string representation of the user status.
@@ -240,6 +242,8 @@ func (s UserStatus) String() string {
 		return "Legal Hold"
 	case PendingBotVerification:
 		return "Pending Bot Verification"
+	case ResetPass:
+		return "Reset Password"
 	default:
 		return ""
 	}

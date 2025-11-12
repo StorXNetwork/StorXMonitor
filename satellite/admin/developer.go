@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/developerservice"
+	"storj.io/storj/satellite/developer"
 )
 
 // Developer represents a developer in the API response
@@ -378,9 +378,9 @@ func (server *Server) getDeveloperDetails(w http.ResponseWriter, r *http.Request
 
 	// Create response
 	response := struct {
-		DeveloperEmail string                               `json:"developerEmail"`
-		Total          int                                  `json:"total"`
-		Sessions       []developerservice.LoginHistoryEntry `json:"sessions"`
+		DeveloperEmail string                        `json:"developerEmail"`
+		Total          int                           `json:"total"`
+		Sessions       []developer.LoginHistoryEntry `json:"sessions"`
 	}{
 		DeveloperEmail: developerEmail,
 		Total:          len(result.Sessions),
@@ -419,10 +419,10 @@ func (server *Server) addDeveloper(w http.ResponseWriter, r *http.Request) {
 	}
 
 	developer := console.CreateDeveloper{
-		FullName: input.FullName,
-		Email:    input.Email,
-		Password: input.Password,
-		Status:   input.Status,
+		FullName:    input.FullName,
+		Email:       input.Email,
+		Password:    input.Password,
+		CompanyName: input.CompanyName,
 	}
 
 	err = developer.IsValid(false)

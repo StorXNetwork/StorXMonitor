@@ -302,3 +302,20 @@ func (*UpgradeSuccessfullEmail) Template() string { return "UpgradeSuccessfull" 
 func (*UpgradeSuccessfullEmail) Subject() string {
 	return "Payment Receipt Confirmation for Your StorX Account"
 }
+
+// DeveloperAccountCreationEmail is mailservice template for developer account creation with JWT token link.
+type DeveloperAccountCreationEmail struct {
+	FullName       string
+	Email          string
+	Password       string
+	ActivationLink string // Single link with JWT token (contains expiration and developer details)
+	Origin         string
+}
+
+// Template returns email template name.
+func (*DeveloperAccountCreationEmail) Template() string { return "DeveloperAccountCreation" }
+
+// Subject gets email subject.
+func (*DeveloperAccountCreationEmail) Subject() string {
+	return "Welcome to StorX Developer Console - Reset Your Password"
+}

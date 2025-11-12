@@ -28,7 +28,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/restkeys"
-	"storj.io/storj/satellite/developerservice"
+	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
@@ -257,15 +257,27 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		}
 		authTokens := consoleauth.NewService(consoleAuthConfig, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
 
-		regTokenChecker := developerservice.NewConsoleServiceAdapter(peer.DB.Console(), config.Console.Config)
+		regTokenChecker := developer.NewConsoleServiceAdapter(peer.DB.Console(), config.Console.Config)
 
-		developerService, err := developerservice.NewService(
+		// Setup mail service for developer emails (when admin creates developer)
+		mailService, _ := setupMailService(log, Config{Mail: config.Mail})
+		// Continue without mail service if setup fails - emails won't be sent
+
+		// External address is required for developer service (used in activation emails)
+		if config.Console.ExternalAddress == "" {
+			return nil, errs.New("console.external-address must be set for developer service")
+		}
+		externalAddress := config.Console.ExternalAddress
+
+		developerService, err := developer.NewServiceWithMail(
 			log.Named("developerservice"),
 			peer.DB.Console(),
 			peer.Analytics.Service,
 			authTokens,
 			config.Console.Config,
 			regTokenChecker,
+			mailService,
+			externalAddress,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

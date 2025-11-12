@@ -65,10 +65,12 @@ const (
 	debugHTTP  = 9
 
 	// Satellite specific constants.
-	redisPort      = 4
-	adminHTTP      = 5
-	debugAdminHTTP = 6
-	debugCoreHTTP  = 7
+	redisPort          = 4
+	adminHTTP          = 5
+	debugAdminHTTP     = 6
+	debugCoreHTTP      = 7
+	developerHTTP      = 8
+	debugDeveloperHTTP = 10
 
 	// Satellite worker specific constants.
 	debugMigrationHTTP = 0
@@ -384,6 +386,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--admin.address", net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
 				"--admin.static-dir", filepath.Join(storjRoot, "satellite/admin/ui/build"),
+
+				"--developer.address", net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
+				"--developer.static-dir", filepath.Join(storjRoot, "satellite/developer/ui/build"),
 			},
 			"run": {"api"},
 		})
@@ -472,6 +477,19 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		adminProcess.WaitForExited(migrationProcess)
 
+		developerProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-developer/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
+		})
+		developerProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
+			"run": {
+				"developer",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugDeveloperHTTP)),
+			},
+		})
+		developerProcess.WaitForExited(migrationProcess)
 		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
 			Executable: "satellite",

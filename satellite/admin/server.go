@@ -35,7 +35,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
-	"storj.io/storj/satellite/developerservice"
+	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/overlay"
@@ -108,7 +108,7 @@ type Server struct {
 	restKeys                *restkeys.Service
 	analytics               *analytics.Service
 	freezeAccounts          *console.AccountFreezeService
-	developerserviceService developerservice.Service
+	developerserviceService developer.Service
 
 	nowFn func() time.Time
 
@@ -133,7 +133,7 @@ func NewServer(
 	console consoleweb.Config,
 	config Config,
 	placement nodeselection.PlacementDefinitions,
-	developerserviceService *developerservice.Service,
+	developerserviceService *developer.Service,
 ) (*Server, error) {
 	server := &Server{
 		log: log,
