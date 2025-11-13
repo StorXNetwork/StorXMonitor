@@ -3114,6 +3114,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX admin_email_status_index ON admins ( email, status ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add scopes and description columns to developer_oauth_clients table",
+				Version:     289,
+				Action: migrate.SQL{
+					`ALTER TABLE developer_oauth_clients ADD COLUMN scopes text NOT NULL;`,
+					`ALTER TABLE developer_oauth_clients ADD COLUMN description text NOT NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
