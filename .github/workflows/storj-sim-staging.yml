@@ -21,7 +21,7 @@ jobs:
         fetch-depth: 1
         clean: true
       
-    - name: Setup Go (skip if already installed)
+    - name: Setup Go (skip if already installed and meets version requirement)
       id: setup-go
       run: |
         # Check if Go is already available
