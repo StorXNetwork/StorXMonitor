@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: '1.21'
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
   SERVICES: 'StorxBackup,StorxAuditor,StorjSatellite'
@@ -16,51 +15,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Setup Go (skip if already installed)
-      id: setup-go
-      run: |
-        # Check if Go is already available
-        $goCmd = Get-Command go -ErrorAction SilentlyContinue
-        if ($goCmd) {
-          $goVersion = (go version 2>&1)
-          Write-Host "Go is already installed: $goVersion"
-          Write-Host "Skipping setup-go action"
-          Write-Host "go-available=true" >> $env:GITHUB_OUTPUT
-        } else {
-          Write-Host "Go not found, will use setup-go action"
-          Write-Host "go-available=false" >> $env:GITHUB_OUTPUT
-        }
-      continue-on-error: true
-      
-    - name: Setup Go
-      if: steps.setup-go.outputs.go-available != 'true'
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
-        cache: true
-        cache-dependency-path: go.sum
-          
-    - name: Pre-download dependencies
-      run: |
-        Write-Host "Pre-downloading dependencies..."
-        go mod download
-        if (Test-Path "cmd/satellite") {
-          Write-Host "Pre-building satellite dependencies..."
-          # Use a unique temp file to avoid file locking issues
-          $tempExe = "$env:TEMP\satellite-prebuild-$([guid]::NewGuid()).exe"
-          try {
-            go build -o $tempExe ./cmd/satellite 2>&1 | Write-Host
-            if (Test-Path $tempExe) {
-              Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
-            }
-            Write-Host "Pre-build completed successfully"
-          } catch {
-            Write-Host "Pre-build failed (non-critical): $_"
-            Write-Host "Continuing with build..."
-          }
-        }
-      continue-on-error: true
         
     - name: Fast build satellite.exe
       env:
