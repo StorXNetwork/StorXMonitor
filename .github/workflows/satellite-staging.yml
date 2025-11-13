@@ -32,9 +32,20 @@ jobs:
         }
         $goVersion = (go version 2>&1)
         Write-Host "Using installed Go: $goVersion"
-        # Set CGO environment variable
-        [Environment]::SetEnvironmentVariable("CGO_ENABLED", "1", "Process")
-        $env:CGO_ENABLED = "1"
+        
+        # Check if C compiler (gcc) is available for CGO
+        $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
+        if ($gccCmd) {
+          Write-Host "C compiler (gcc) found: $($gccCmd.Source)"
+          Write-Host "CGO will be enabled"
+          [Environment]::SetEnvironmentVariable("CGO_ENABLED", "1", "Process")
+          $env:CGO_ENABLED = "1"
+        } else {
+          Write-Host "C compiler (gcc) not found - CGO will be disabled"
+          Write-Host "If CGO is required, please install MinGW-w64 or TDM-GCC"
+          [Environment]::SetEnvironmentVariable("CGO_ENABLED", "0", "Process")
+          $env:CGO_ENABLED = "0"
+        }
       continue-on-error: false
         
     - name: Verify Go environment
@@ -67,8 +78,16 @@ jobs:
     - name: Build satellite.exe
       env:
         WEB3_AUTH_PRIVATE_KEY: ${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
-        CGO_ENABLED: 1  # Ensure CGO is enabled for build
       run: |
+        # Check if C compiler is available and set CGO_ENABLED accordingly
+        $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
+        if ($gccCmd) {
+          $env:CGO_ENABLED = "1"
+          Write-Host "C compiler found - Building with CGO_ENABLED=1"
+        } else {
+          $env:CGO_ENABLED = "0"
+          Write-Host "C compiler not found - Building with CGO_ENABLED=0"
+        }
         go build -ldflags "-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'" -o "$env:TEMP_PATH\satellite.exe" ./cmd/satellite
         
     - name: Quick service stop
@@ -118,9 +137,11 @@ jobs:
           # Only start if service is stopped
           if ($status -eq "Stopped") {
             Write-Host "Starting service..."
-            # Start service with error handling
-            $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1
+            # Start service - capture output but don't fail on error (nssm may complain about StartPending)
+            $ErrorActionPreference = "Continue"
+            $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-String
             $exitCode = $LASTEXITCODE
+            $ErrorActionPreference = "Stop"
             
             # Wait a moment for service state to update
             Start-Sleep -Seconds 2
@@ -184,7 +205,9 @@ jobs:
             }
             if ($service.Status -eq "Stopped") {
               Write-Host "Service stopped, now starting..."
-              $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1
+              $ErrorActionPreference = "Continue"
+              $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-String
+              $ErrorActionPreference = "Stop"
               Start-Sleep -Seconds 3
               $service.Refresh()
               Write-Host "Service status after restart: $($service.Status)"
@@ -194,8 +217,16 @@ jobs:
           }
         } else {
           Write-Host "Service not found, attempting to start anyway"
-          $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1
+          $ErrorActionPreference = "Continue"
+          $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-String
+          $ErrorActionPreference = "Stop"
           Start-Sleep -Seconds 2
+          # Verify service exists and is starting/running
+          $service = Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue
+          if ($service) {
+            $service.Refresh()
+            Write-Host "Service status: $($service.Status)"
+          }
         }
         
         Write-Host "Service start completed"
