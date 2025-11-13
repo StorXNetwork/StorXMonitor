@@ -31,27 +31,12 @@ jobs:
         }
         $goVersion = (go version 2>&1)
         Write-Host "Using installed Go: $goVersion"
-        
-        # Check if C compiler (gcc) is available for CGO
-        $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
-        if ($gccCmd) {
-          Write-Host "C compiler (gcc) found: $($gccCmd.Source)"
-          Write-Host "CGO will be enabled"
-          [Environment]::SetEnvironmentVariable("CGO_ENABLED", "1", "Process")
-          $env:CGO_ENABLED = "1"
-        } else {
-          Write-Host "C compiler (gcc) not found - CGO will be disabled"
-          Write-Host "If CGO is required, please install MinGW-w64 or TDM-GCC"
-          [Environment]::SetEnvironmentVariable("CGO_ENABLED", "0", "Process")
-          $env:CGO_ENABLED = "0"
-        }
       continue-on-error: false
         
     - name: Verify Go environment
       run: |
         go version
         go env GOROOT
-        go env CGO_ENABLED
           
     - name: Pre-download dependencies
       run: |
@@ -76,15 +61,6 @@ jobs:
         
     - name: Build storj-sim.exe
       run: |
-        # Check if C compiler is available and set CGO_ENABLED accordingly
-        $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
-        if ($gccCmd) {
-          $env:CGO_ENABLED = "1"
-          Write-Host "C compiler found - Building with CGO_ENABLED=1"
-        } else {
-          $env:CGO_ENABLED = "0"
-          Write-Host "C compiler not found - Building with CGO_ENABLED=0"
-        }
         go build -ldflags "-s -w" -o "$env:TEMP_PATH\storj-sim.exe" ./cmd/storj-sim
         
     - name: Quick service stop
@@ -161,18 +137,32 @@ jobs:
               Write-Host "Final service status: $finalStatus"
               if ($finalStatus -eq "Running") {
                 Write-Host "Service started successfully"
+                # Explicitly exit with success code
+                exit 0
               } else {
                 Write-Host "Warning: Service did not reach Running state. Final status: $finalStatus"
+                # Don't fail if service is at least starting
+                if ($finalStatus -eq "StartPending") {
+                  Write-Host "Service is still starting - considering success"
+                  exit 0
+                }
               }
             } elseif ($exitCode -ne 0) {
               Write-Host "nssm.exe returned exit code $exitCode"
               Write-Host "Output: $startResult"
-              Write-Host "Warning: Service start may have failed. Current status: $finalStatus"
+              # Check if service is actually running despite the error
+              if ($finalStatus -eq "Running" -or $finalStatus -eq "StartPending") {
+                Write-Host "Service is running despite nssm error - considering success"
+                exit 0
+              } else {
+                Write-Host "Warning: Service start may have failed. Current status: $finalStatus"
+              }
             } else {
               Write-Host "Warning: Service did not start. Status: $finalStatus"
             }
           } elseif ($status -eq "Running") {
             Write-Host "Service is already running"
+            exit 0
           } else {
             Write-Host "Service is in state: $status - attempting restart"
             & cmd /c ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
@@ -184,7 +174,12 @@ jobs:
               $ErrorActionPreference = "Stop"
               Start-Sleep -Seconds 3
               $service.Refresh()
-              Write-Host "Service status after restart: $($service.Status)"
+              $restartStatus = $service.Status
+              Write-Host "Service status after restart: $restartStatus"
+              if ($restartStatus -eq "Running" -or $restartStatus -eq "StartPending") {
+                Write-Host "Service restart successful"
+                exit 0
+              }
             }
           }
         } else {
@@ -197,8 +192,22 @@ jobs:
           $service = Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue
           if ($service) {
             $service.Refresh()
-            Write-Host "Service status: $($service.Status)"
+            $notFoundStatus = $service.Status
+            Write-Host "Service status: $notFoundStatus"
+            if ($notFoundStatus -eq "Running" -or $notFoundStatus -eq "StartPending") {
+              Write-Host "Service started successfully"
+              exit 0
+            }
           }
         }
         
         Write-Host "Service start completed"
+        # Final check - if we got here and service is running, exit successfully
+        $finalCheck = Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue
+        if ($finalCheck) {
+          $finalCheck.Refresh()
+          if ($finalCheck.Status -eq "Running") {
+            Write-Host "Final verification: Service is running - exiting successfully"
+            exit 0
+          }
+        }

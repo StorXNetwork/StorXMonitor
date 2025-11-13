@@ -32,27 +32,12 @@ jobs:
         }
         $goVersion = (go version 2>&1)
         Write-Host "Using installed Go: $goVersion"
-        
-        # Check if C compiler (gcc) is available for CGO
-        $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
-        if ($gccCmd) {
-          Write-Host "C compiler (gcc) found: $($gccCmd.Source)"
-          Write-Host "CGO will be enabled"
-          [Environment]::SetEnvironmentVariable("CGO_ENABLED", "1", "Process")
-          $env:CGO_ENABLED = "1"
-        } else {
-          Write-Host "C compiler (gcc) not found - CGO will be disabled"
-          Write-Host "If CGO is required, please install MinGW-w64 or TDM-GCC"
-          [Environment]::SetEnvironmentVariable("CGO_ENABLED", "0", "Process")
-          $env:CGO_ENABLED = "0"
-        }
       continue-on-error: false
         
     - name: Verify Go environment
       run: |
         go version
         go env GOROOT
-        go env CGO_ENABLED
           
     - name: Pre-download dependencies
       run: |
@@ -79,15 +64,6 @@ jobs:
       env:
         WEB3_AUTH_PRIVATE_KEY: ${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
       run: |
-        # Check if C compiler is available and set CGO_ENABLED accordingly
-        $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
-        if ($gccCmd) {
-          $env:CGO_ENABLED = "1"
-          Write-Host "C compiler found - Building with CGO_ENABLED=1"
-        } else {
-          $env:CGO_ENABLED = "0"
-          Write-Host "C compiler not found - Building with CGO_ENABLED=0"
-        }
         go build -ldflags "-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'" -o "$env:TEMP_PATH\satellite.exe" ./cmd/satellite
         
     - name: Quick service stop
