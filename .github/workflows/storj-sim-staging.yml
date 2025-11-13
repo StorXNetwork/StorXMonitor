@@ -6,7 +6,7 @@ on:
       - main    
 
 env:
-  GO_VERSION: '1.24.1'
+  GO_VERSION: '1.25.3'
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
 
@@ -21,34 +21,21 @@ jobs:
         fetch-depth: 1
         clean: true
       
-    - name: Setup Go (skip if already installed --dummy commit)
-      id: setup-go
-      run: |
-        # Check if Go is already available
-        $goCmd = Get-Command go -ErrorAction SilentlyContinue
-        if ($goCmd) {
-          $goVersion = (go version 2>&1)
-          Write-Host "Go is already installed: $goVersion"
-          Write-Host "Skipping setup-go action"
-          Write-Host "go-available=true" >> $env:GITHUB_OUTPUT
-        } else {
-          Write-Host "Go not found, will use setup-go action"
-          Write-Host "go-available=false" >> $env:GITHUB_OUTPUT
-        }
-      continue-on-error: true
-      
-    - name: Setup Go
-      if: steps.setup-go.outputs.go-available != 'true'
+    - name: Setup Go with CGO enabled
       uses: actions/setup-go@v4
       with:
         go-version: ${{ env.GO_VERSION }}
-        cache: false
+        cache: true
+      env:
+        CGO_ENABLED: 1  # Enable CGO
+        
+    - name: Verify Go environment
+      run: |
+        go version
+        go env GOROOT
+        go env CGO_ENABLED
           
     - name: Pre-download dependencies
-      env:
-        GOTOOLCHAIN: local
-        GOMODCACHE: D:\deployment\go\pkg\mod
-        GOCACHE: D:\deployment\go-build
       run: |
         Write-Host "Pre-downloading dependencies..."
         go mod download
@@ -69,33 +56,11 @@ jobs:
         }
       continue-on-error: true
         
-    - name: Fast build storj-sim.exe
+    - name: Build storj-sim.exe
       env:
-        GOTOOLCHAIN: local
-        GOMODCACHE: D:\deployment\go\pkg\mod
-        GOCACHE: D:\deployment\go-build
+        CGO_ENABLED: 1  # Ensure CGO is enabled for build
       run: |
-        $buildStart = Get-Date
-        Write-Host "Building storj-sim.exe with optimizations..."
-        
-        # Use Go build cache and skip tests for faster build
-        $env:GOFLAGS = "-buildvcs=false"
-        
-        $buildCmd = "go build -ldflags `"-s -w`" -o `"$env:TEMP_PATH\storj-sim.exe`" ./cmd/storj-sim"
-        Write-Host "Build command: $buildCmd"
-        
-        Invoke-Expression $buildCmd
-        
-        $buildTime = (Get-Date) - $buildStart
-        Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
-        
-        if (Test-Path "$env:TEMP_PATH\storj-sim.exe") {
-          $size = (Get-Item "$env:TEMP_PATH\storj-sim.exe").Length
-          Write-Host "storj-sim.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
-        } else {
-          Write-Error "Build failed - storj-sim.exe not found"
-          exit 1
-        }
+        go build -ldflags "-s -w" -o "$env:TEMP_PATH\storj-sim.exe" ./cmd/storj-sim
         
     - name: Quick service stop
       run: |
