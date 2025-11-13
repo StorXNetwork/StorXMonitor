@@ -637,6 +637,85 @@ func (a *DeveloperAuth) UpdateOAuthClientStatus(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusOK)
 }
 
+func (a *DeveloperAuth) GetOAuthClient(w http.ResponseWriter, r *http.Request) {
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	client, err := a.developerService.GetDeveloperOAuthClient(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(client)
+}
+
+func (a *DeveloperAuth) RegenerateOAuthClientSecret(w http.ResponseWriter, r *http.Request) {
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	client, err := a.developerService.RegenerateDeveloperOAuthClientSecret(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	resp := map[string]string{
+		"client_id":     client.ClientID,
+		"client_secret": client.ClientSecret,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (a *DeveloperAuth) UpdateOAuthClient(w http.ResponseWriter, r *http.Request) {
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	var req console.UpdateOAuthClientRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	client, err := a.developerService.UpdateDeveloperOAuthClient(r.Context(), id, req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(client)
+}
+
 // VerifyResetToken verifies the JWT token from email link for password reset.
 func (a *DeveloperAuth) VerifyResetToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -30,7 +30,9 @@ export interface OAuthClient {
     id: string;
     clientId: string;
     name: string;
+    description?: string;
     redirectUris: string[];
+    scopes?: string[];
     status: number;
     createdAt: string;
     updatedAt: string;
@@ -222,22 +224,44 @@ class DeveloperAPI {
      * Create OAuth client
      * Requires authentication
      */
-    async createOAuthClient(name: string, redirectUris: string[]): Promise<{ clientId: string; clientSecret: string }> {
+    async createOAuthClient(
+        name: string,
+        redirectUris: string[],
+        description?: string,
+        scopes?: string[]
+    ): Promise<{ clientId: string; clientSecret: string }> {
         const response = await fetch(`${API_BASE}/oauth2/clients`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             credentials: 'include',
-            body: JSON.stringify({ name, redirectUris }),
+            body: JSON.stringify({
+                name,
+                redirect_uris: redirectUris,
+                description: description || '',
+                scopes: scopes || [],
+            }),
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to create OAuth client');
+            const errorText = await response.text();
+            let errorMessage = 'Failed to create OAuth client';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
         }
 
-        return await response.json();
+        const result = await response.json();
+        // Backend returns client_id and client_secret, convert to camelCase
+        return {
+            clientId: result.client_id || result.clientId,
+            clientSecret: result.client_secret || result.clientSecret,
+        };
     }
 
     /**
@@ -254,11 +278,33 @@ class DeveloperAPI {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to list OAuth clients');
+            const errorText = await response.text();
+            let errorMessage = 'Failed to list OAuth clients';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
         }
 
-        return await response.json();
+        const data = await response.json();
+        // Map snake_case to camelCase for each client
+        if (!Array.isArray(data)) {
+            return [];
+        }
+        return data.map((client: any) => ({
+            id: client.id || client.ID,
+            clientId: client.client_id || client.clientId || client.ClientID,
+            name: client.name || client.Name,
+            description: client.description || client.Description || '',
+            redirectUris: client.redirect_uris || client.redirectUris || client.RedirectURIs || [],
+            scopes: client.scopes || client.Scopes || [],
+            status: client.status || client.Status || 0,
+            createdAt: client.created_at || client.createdAt || client.CreatedAt,
+            updatedAt: client.updated_at || client.updatedAt || client.UpdatedAt,
+        }));
     }
 
     /**
@@ -278,6 +324,122 @@ class DeveloperAPI {
             const error = await response.json();
             throw new Error(error.error || 'Failed to delete OAuth client');
         }
+    }
+
+    /**
+     * Get single OAuth client
+     * Requires authentication
+     */
+    async getOAuthClient(id: string): Promise<OAuthClient> {
+        const response = await fetch(`${API_BASE}/oauth2/clients/${id}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to get OAuth client';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        // Map snake_case to camelCase
+        return {
+            id: data.id || data.ID,
+            clientId: data.client_id || data.clientId || data.ClientID,
+            name: data.name || data.Name,
+            description: data.description || data.Description || '',
+            redirectUris: data.redirect_uris || data.redirectUris || data.RedirectURIs || [],
+            scopes: data.scopes || data.Scopes || [],
+            status: data.status || data.Status || 0,
+            createdAt: data.created_at || data.createdAt || data.CreatedAt,
+            updatedAt: data.updated_at || data.updatedAt || data.UpdatedAt,
+        };
+    }
+
+    /**
+     * Update OAuth client
+     * Requires authentication
+     */
+    async updateOAuthClient(
+        id: string,
+        updates: {
+            name?: string;
+            description?: string;
+            redirectUris?: string[];
+            scopes?: string[];
+        }
+    ): Promise<OAuthClient> {
+        // Convert camelCase to snake_case for backend
+        const body: any = {};
+        if (updates.name !== undefined) body.name = updates.name;
+        if (updates.description !== undefined) body.description = updates.description;
+        if (updates.redirectUris !== undefined) body.redirect_uris = updates.redirectUris;
+        if (updates.scopes !== undefined) body.scopes = updates.scopes;
+
+        const response = await fetch(`${API_BASE}/oauth2/clients/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to update OAuth client';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Regenerate OAuth client secret
+     * Requires authentication
+     */
+    async regenerateOAuthClientSecret(id: string): Promise<{ clientId: string; clientSecret: string }> {
+        const response = await fetch(`${API_BASE}/oauth2/clients/${id}/regenerate-secret`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to regenerate OAuth client secret';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const result = await response.json();
+        return {
+            clientId: result.client_id || result.clientId,
+            clientSecret: result.client_secret || result.clientSecret,
+        };
     }
 
     /**

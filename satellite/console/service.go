@@ -5148,12 +5148,16 @@ func incrementVersion(v string) (string, error) {
 
 type CreateOAuthClientRequest struct {
 	Name         string   `json:"name"`
+	Description  string   `json:"description"`
 	RedirectURIs []string `json:"redirect_uris"`
+	Scopes       []string `json:"scopes"`
 }
 
 type UpdateOAuthClientRequest struct {
-	Name         string
-	RedirectURIs string
+	Name         *string   `json:"name"`
+	Description  *string   `json:"description"`
+	RedirectURIs *[]string `json:"redirect_uris"`
+	Scopes       *[]string `json:"scopes"`
 }
 
 func generateRandomSecret(length int) (string, error) {

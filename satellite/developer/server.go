@@ -174,8 +174,11 @@ func NewServer(
 		developerAuthRouter.Handle("/reset-password-after-login", server.withAuthDeveloper(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ResetPasswordAfterFirstLogin)))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.CreateOAuthClient))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.ListOAuthClients))).Methods(http.MethodGet, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.GetOAuthClient))).Methods(http.MethodGet, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateOAuthClient))).Methods(http.MethodPut, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.DeleteOAuthClient))).Methods(http.MethodDelete, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients/{id}/status", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateOAuthClientStatus))).Methods(http.MethodPatch, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients/{id}/regenerate-secret", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.RegenerateOAuthClientSecret))).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	// Static assets handler

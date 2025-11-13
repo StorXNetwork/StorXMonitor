@@ -3119,8 +3119,10 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "add scopes and description columns to developer_oauth_clients table",
 				Version:     289,
 				Action: migrate.SQL{
-					`ALTER TABLE developer_oauth_clients ADD COLUMN scopes text NOT NULL;`,
-					`ALTER TABLE developer_oauth_clients ADD COLUMN description text NOT NULL;`,
+					`ALTER TABLE developer_oauth_clients ADD COLUMN scopes text;`,
+					`ALTER TABLE developer_oauth_clients ADD COLUMN description text;`,
+					`UPDATE developer_oauth_clients SET scopes = '' WHERE scopes IS NULL;`,
+					`UPDATE developer_oauth_clients SET description = '' WHERE description IS NULL;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
