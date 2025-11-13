@@ -716,6 +716,96 @@ func (a *DeveloperAuth) UpdateOAuthClient(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(client)
 }
 
+// AddRedirectURI adds a redirect URI to an OAuth client.
+func (a *DeveloperAuth) AddRedirectURI(w http.ResponseWriter, r *http.Request) {
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	var req console.AddRedirectURIRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	client, err := a.developerService.AddRedirectURI(r.Context(), id, req.URI)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(client)
+}
+
+// UpdateRedirectURI updates a redirect URI in an OAuth client.
+func (a *DeveloperAuth) UpdateRedirectURI(w http.ResponseWriter, r *http.Request) {
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	var req console.UpdateRedirectURIRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	client, err := a.developerService.UpdateRedirectURI(r.Context(), id, req.OldURI, req.NewURI)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(client)
+}
+
+// DeleteRedirectURI removes a redirect URI from an OAuth client.
+func (a *DeveloperAuth) DeleteRedirectURI(w http.ResponseWriter, r *http.Request) {
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	var req console.DeleteRedirectURIRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	client, err := a.developerService.DeleteRedirectURI(r.Context(), id, req.URI)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(client)
+}
+
 // VerifyResetToken verifies the JWT token from email link for password reset.
 func (a *DeveloperAuth) VerifyResetToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -179,6 +179,9 @@ func NewServer(
 		developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.DeleteOAuthClient))).Methods(http.MethodDelete, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients/{id}/status", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateOAuthClientStatus))).Methods(http.MethodPatch, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients/{id}/regenerate-secret", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.RegenerateOAuthClientSecret))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients/{id}/redirect-uris", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.AddRedirectURI))).Methods(http.MethodPost, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients/{id}/redirect-uris", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateRedirectURI))).Methods(http.MethodPut, http.MethodOptions)
+		developerAuthRouter.Handle("/oauth2/clients/{id}/redirect-uris", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.DeleteRedirectURI))).Methods(http.MethodDelete, http.MethodOptions)
 	}
 
 	// Static assets handler

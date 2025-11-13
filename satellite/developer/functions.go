@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -945,6 +947,194 @@ func (s *Service) UpdateDeveloperOAuthClient(ctx context.Context, id uuid.UUID, 
 	developerID, err := s.getDeveloperAndAuditLog(ctx, "update developer oauth client", zap.String("clientID", client.ClientID))
 	if err == nil {
 		s.auditLog(ctx, "update developer oauth client", &developerID.ID, "")
+	}
+
+	client.ClientSecret = "" // Never return secret
+	return client, nil
+}
+
+// validateRedirectURI validates a redirect URI format and security requirements.
+func validateRedirectURI(uri string) error {
+	uri = strings.TrimSpace(uri)
+	if uri == "" {
+		return errs.New("redirect URI cannot be empty")
+	}
+
+	parsedURL, err := url.Parse(uri)
+	if err != nil {
+		return errs.New("invalid URL format: %v", err)
+	}
+
+	// Check if HTTPS (required for production) or localhost (allowed for development)
+	if parsedURL.Scheme != "https" {
+		// Allow HTTP only for localhost
+		if parsedURL.Scheme != "http" || (parsedURL.Hostname() != "localhost" && parsedURL.Hostname() != "127.0.0.1") {
+			return errs.New("production URLs must use HTTPS. Only localhost is allowed for HTTP")
+		}
+	}
+
+	return nil
+}
+
+// AddRedirectURI adds a redirect URI to an OAuth client.
+func (s *Service) AddRedirectURI(ctx context.Context, clientID uuid.UUID, uri string) (*console.DeveloperOAuthClient, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	isOwner, err := s.isCurrentDeveloperOAuthClientOwner(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if !isOwner {
+		return nil, errs.New("client does not belong to developer")
+	}
+
+	client, err := s.store.DeveloperOAuthClients().GetByID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate URI
+	if err := validateRedirectURI(uri); err != nil {
+		return nil, err
+	}
+
+	// Check for duplicates (case-insensitive)
+	uriLower := strings.ToLower(strings.TrimSpace(uri))
+	for _, existingURI := range client.RedirectURIs {
+		if strings.ToLower(strings.TrimSpace(existingURI)) == uriLower {
+			return nil, errs.New("redirect URI already exists")
+		}
+	}
+
+	// Add the URI
+	client.RedirectURIs = append(client.RedirectURIs, strings.TrimSpace(uri))
+	client.UpdatedAt = time.Now().UTC()
+
+	err = s.store.DeveloperOAuthClients().Update(ctx, clientID, client)
+	if err != nil {
+		return nil, err
+	}
+
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "add redirect URI", zap.String("clientID", client.ClientID), zap.String("uri", uri))
+	if err == nil {
+		s.auditLog(ctx, "add redirect URI", &developerID.ID, "")
+	}
+
+	client.ClientSecret = "" // Never return secret
+	return client, nil
+}
+
+// UpdateRedirectURI updates a redirect URI in an OAuth client.
+func (s *Service) UpdateRedirectURI(ctx context.Context, clientID uuid.UUID, oldURI, newURI string) (*console.DeveloperOAuthClient, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	isOwner, err := s.isCurrentDeveloperOAuthClientOwner(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if !isOwner {
+		return nil, errs.New("client does not belong to developer")
+	}
+
+	client, err := s.store.DeveloperOAuthClients().GetByID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate new URI
+	if err := validateRedirectURI(newURI); err != nil {
+		return nil, err
+	}
+
+	// Find and update the URI
+	oldURILower := strings.ToLower(strings.TrimSpace(oldURI))
+	newURILower := strings.ToLower(strings.TrimSpace(newURI))
+	found := false
+
+	for i, existingURI := range client.RedirectURIs {
+		if strings.ToLower(strings.TrimSpace(existingURI)) == oldURILower {
+			// Check if new URI is duplicate (excluding the one being updated)
+			for j, otherURI := range client.RedirectURIs {
+				if i != j && strings.ToLower(strings.TrimSpace(otherURI)) == newURILower {
+					return nil, errs.New("redirect URI already exists")
+				}
+			}
+			client.RedirectURIs[i] = strings.TrimSpace(newURI)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, errs.New("redirect URI not found")
+	}
+
+	client.UpdatedAt = time.Now().UTC()
+
+	err = s.store.DeveloperOAuthClients().Update(ctx, clientID, client)
+	if err != nil {
+		return nil, err
+	}
+
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "update redirect URI", zap.String("clientID", client.ClientID), zap.String("oldURI", oldURI), zap.String("newURI", newURI))
+	if err == nil {
+		s.auditLog(ctx, "update redirect URI", &developerID.ID, "")
+	}
+
+	client.ClientSecret = "" // Never return secret
+	return client, nil
+}
+
+// DeleteRedirectURI removes a redirect URI from an OAuth client.
+func (s *Service) DeleteRedirectURI(ctx context.Context, clientID uuid.UUID, uri string) (*console.DeveloperOAuthClient, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	isOwner, err := s.isCurrentDeveloperOAuthClientOwner(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if !isOwner {
+		return nil, errs.New("client does not belong to developer")
+	}
+
+	client, err := s.store.DeveloperOAuthClients().GetByID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if at least one URI will remain
+	if len(client.RedirectURIs) <= 1 {
+		return nil, errs.New("cannot delete the last redirect URI. At least one redirect URI is required")
+	}
+
+	// Find and remove the URI
+	uriLower := strings.ToLower(strings.TrimSpace(uri))
+	found := false
+	newURIs := make([]string, 0, len(client.RedirectURIs))
+
+	for _, existingURI := range client.RedirectURIs {
+		if strings.ToLower(strings.TrimSpace(existingURI)) == uriLower {
+			found = true
+			continue // Skip this URI
+		}
+		newURIs = append(newURIs, existingURI)
+	}
+
+	if !found {
+		return nil, errs.New("redirect URI not found")
+	}
+
+	client.RedirectURIs = newURIs
+	client.UpdatedAt = time.Now().UTC()
+
+	err = s.store.DeveloperOAuthClients().Update(ctx, clientID, client)
+	if err != nil {
+		return nil, err
+	}
+
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "delete redirect URI", zap.String("clientID", client.ClientID), zap.String("uri", uri))
+	if err == nil {
+		s.auditLog(ctx, "delete redirect URI", &developerID.ID, "")
 	}
 
 	client.ClientSecret = "" // Never return secret

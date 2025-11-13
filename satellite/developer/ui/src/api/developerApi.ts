@@ -461,6 +461,129 @@ class DeveloperAPI {
             throw new Error(error.error || 'Failed to update OAuth client status');
         }
     }
+
+    /**
+     * Add redirect URI to OAuth client
+     * Requires authentication
+     */
+    async addRedirectURI(clientId: string, uri: string): Promise<OAuthClient> {
+        const response = await fetch(`${API_BASE}/oauth2/clients/${clientId}/redirect-uris`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ uri }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to add redirect URI';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        // Map snake_case to camelCase
+        return {
+            id: data.id || data.ID,
+            clientId: data.client_id || data.clientId || data.ClientID,
+            name: data.name || data.Name,
+            description: data.description || data.Description || '',
+            redirectUris: data.redirect_uris || data.redirectUris || data.RedirectURIs || [],
+            scopes: data.scopes || data.Scopes || [],
+            status: data.status || data.Status || 0,
+            createdAt: data.created_at || data.createdAt || data.CreatedAt,
+            updatedAt: data.updated_at || data.updatedAt || data.UpdatedAt,
+        };
+    }
+
+    /**
+     * Update redirect URI in OAuth client
+     * Requires authentication
+     */
+    async updateRedirectURI(clientId: string, oldURI: string, newURI: string): Promise<OAuthClient> {
+        const response = await fetch(`${API_BASE}/oauth2/clients/${clientId}/redirect-uris`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ old_uri: oldURI, new_uri: newURI }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to update redirect URI';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        // Map snake_case to camelCase
+        return {
+            id: data.id || data.ID,
+            clientId: data.client_id || data.clientId || data.ClientID,
+            name: data.name || data.Name,
+            description: data.description || data.Description || '',
+            redirectUris: data.redirect_uris || data.redirectUris || data.RedirectURIs || [],
+            scopes: data.scopes || data.Scopes || [],
+            status: data.status || data.Status || 0,
+            createdAt: data.created_at || data.createdAt || data.CreatedAt,
+            updatedAt: data.updated_at || data.updatedAt || data.UpdatedAt,
+        };
+    }
+
+    /**
+     * Delete redirect URI from OAuth client
+     * Requires authentication
+     */
+    async deleteRedirectURI(clientId: string, uri: string): Promise<OAuthClient> {
+        const response = await fetch(`${API_BASE}/oauth2/clients/${clientId}/redirect-uris`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ uri }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to delete redirect URI';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        // Map snake_case to camelCase
+        return {
+            id: data.id || data.ID,
+            clientId: data.client_id || data.clientId || data.ClientID,
+            name: data.name || data.Name,
+            description: data.description || data.Description || '',
+            redirectUris: data.redirect_uris || data.redirectUris || data.RedirectURIs || [],
+            scopes: data.scopes || data.Scopes || [],
+            status: data.status || data.Status || 0,
+            createdAt: data.created_at || data.createdAt || data.CreatedAt,
+            updatedAt: data.updated_at || data.updatedAt || data.UpdatedAt,
+        };
+    }
 }
 
 export const developerApi = new DeveloperAPI();

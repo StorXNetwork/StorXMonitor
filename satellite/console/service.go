@@ -5160,6 +5160,20 @@ type UpdateOAuthClientRequest struct {
 	Scopes       *[]string `json:"scopes"`
 }
 
+// Redirect URI management requests
+type AddRedirectURIRequest struct {
+	URI string `json:"uri"`
+}
+
+type UpdateRedirectURIRequest struct {
+	OldURI string `json:"old_uri"`
+	NewURI string `json:"new_uri"`
+}
+
+type DeleteRedirectURIRequest struct {
+	URI string `json:"uri"`
+}
+
 func generateRandomSecret(length int) (string, error) {
 	b := make([]byte, length)
 	_, err := rand.Read(b)
