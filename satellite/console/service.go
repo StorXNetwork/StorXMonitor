@@ -5508,3 +5508,27 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 		Scopes:      approvedScopes,
 	}, nil
 }
+
+// SubscribeNewsletter subscribes an email to the newsletter.
+func (s *Service) SubscribeNewsletter(ctx context.Context, email string) (_ *EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	subscription, err := s.store.EmailSubscriptions().Subscribe(ctx, email)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return subscription, nil
+}
+
+// UnsubscribeNewsletter unsubscribes an email from the newsletter.
+func (s *Service) UnsubscribeNewsletter(ctx context.Context, email string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.EmailSubscriptions().Unsubscribe(ctx, email)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
