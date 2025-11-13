@@ -346,6 +346,33 @@ read one (
 
 update user_settings ( where user_settings.user_id = ? )
 
+// email_subscription stores user requests to receive email updates.
+model email_subscription (
+    key email
+
+    // email is the subscriber email address.
+    field email text
+    // status indicates whether the subscription is active=1 or inactive=0.
+    field status int ( updatable, default 1 )
+    // unsubscribed_at indicates when the subscription was unsubscribed.
+    field unsubscribed_at timestamp ( updatable, nullable )
+    // created_at indicates when the subscription was created.
+    field created_at timestamp ( autoinsert )
+    // updated_at indicates when the subscription was last updated.
+    field updated_at timestamp ( updatable )
+)
+
+create email_subscription ( )
+update email_subscription ( where email_subscription.email = ? )
+
+read all (
+    select email_subscription
+)
+read one (
+    select email_subscription
+    where email_subscription.email = ?
+)
+
 // Admin contains information about administrators who have backend/admin access.
 model admin (
     key id

@@ -3114,6 +3114,21 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX admin_email_status_index ON admins ( email, status ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add email_subscriptions table",
+				Version:     289,
+				Action: migrate.SQL{
+					`CREATE TABLE email_subscriptions (
+	email text NOT NULL,
+	status integer NOT NULL DEFAULT 1,
+	unsubscribed_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( email )
+);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

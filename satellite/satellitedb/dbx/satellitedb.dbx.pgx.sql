@@ -172,6 +172,14 @@ CREATE TABLE developer_user_mappings (
 	user_id bytea NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE email_subscriptions (
+	email text NOT NULL,
+	status integer NOT NULL DEFAULT 1,
+	unsubscribed_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( email )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,

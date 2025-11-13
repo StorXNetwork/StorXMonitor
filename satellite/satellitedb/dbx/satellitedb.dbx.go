@@ -485,6 +485,14 @@ CREATE TABLE developer_user_mappings (
 	user_id bytea NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE email_subscriptions (
+	email text NOT NULL,
+	status integer NOT NULL DEFAULT 1,
+	unsubscribed_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( email )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -1376,6 +1384,14 @@ CREATE TABLE developer_user_mappings (
 	developer_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE email_subscriptions (
+	email text NOT NULL,
+	status integer NOT NULL DEFAULT 1,
+	unsubscribed_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( email )
 );
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
@@ -4886,6 +4902,137 @@ func (f DeveloperUserMapping_UserId_Field) value() interface{} {
 }
 
 func (DeveloperUserMapping_UserId_Field) _Column() string { return "user_id" }
+
+type EmailSubscription struct {
+	Email          string
+	Status         int
+	UnsubscribedAt *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (EmailSubscription) _Table() string { return "email_subscriptions" }
+
+type EmailSubscription_Create_Fields struct {
+	Status         EmailSubscription_Status_Field
+	UnsubscribedAt EmailSubscription_UnsubscribedAt_Field
+}
+
+type EmailSubscription_Update_Fields struct {
+	Status         EmailSubscription_Status_Field
+	UnsubscribedAt EmailSubscription_UnsubscribedAt_Field
+	UpdatedAt      EmailSubscription_UpdatedAt_Field
+}
+
+type EmailSubscription_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func EmailSubscription_Email(v string) EmailSubscription_Email_Field {
+	return EmailSubscription_Email_Field{_set: true, _value: v}
+}
+
+func (f EmailSubscription_Email_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (EmailSubscription_Email_Field) _Column() string { return "email" }
+
+type EmailSubscription_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func EmailSubscription_Status(v int) EmailSubscription_Status_Field {
+	return EmailSubscription_Status_Field{_set: true, _value: v}
+}
+
+func (f EmailSubscription_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (EmailSubscription_Status_Field) _Column() string { return "status" }
+
+type EmailSubscription_UnsubscribedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func EmailSubscription_UnsubscribedAt(v time.Time) EmailSubscription_UnsubscribedAt_Field {
+	return EmailSubscription_UnsubscribedAt_Field{_set: true, _value: &v}
+}
+
+func EmailSubscription_UnsubscribedAt_Raw(v *time.Time) EmailSubscription_UnsubscribedAt_Field {
+	if v == nil {
+		return EmailSubscription_UnsubscribedAt_Null()
+	}
+	return EmailSubscription_UnsubscribedAt(*v)
+}
+
+func EmailSubscription_UnsubscribedAt_Null() EmailSubscription_UnsubscribedAt_Field {
+	return EmailSubscription_UnsubscribedAt_Field{_set: true, _null: true}
+}
+
+func (f EmailSubscription_UnsubscribedAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f EmailSubscription_UnsubscribedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (EmailSubscription_UnsubscribedAt_Field) _Column() string { return "unsubscribed_at" }
+
+type EmailSubscription_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func EmailSubscription_CreatedAt(v time.Time) EmailSubscription_CreatedAt_Field {
+	return EmailSubscription_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f EmailSubscription_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (EmailSubscription_CreatedAt_Field) _Column() string { return "created_at" }
+
+type EmailSubscription_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func EmailSubscription_UpdatedAt(v time.Time) EmailSubscription_UpdatedAt_Field {
+	return EmailSubscription_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f EmailSubscription_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (EmailSubscription_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type GracefulExitProgress struct {
 	NodeId            []byte
@@ -17979,6 +18126,57 @@ func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_EmailSubscription(ctx context.Context,
+	email_subscription_email EmailSubscription_Email_Field,
+	email_subscription_updated_at EmailSubscription_UpdatedAt_Field,
+	optional EmailSubscription_Create_Fields) (
+	email_subscription *EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__email_val := email_subscription_email.value()
+	__unsubscribed_at_val := optional.UnsubscribedAt.value()
+	__created_at_val := __now
+	__updated_at_val := email_subscription_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("email, unsubscribed_at, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO email_subscriptions "), __clause, __sqlbundle_Literal(" RETURNING email_subscriptions.email, email_subscriptions.status, email_subscriptions.unsubscribed_at, email_subscriptions.created_at, email_subscriptions.updated_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __email_val, __unsubscribed_at_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Status._set {
+		__values = append(__values, optional.Status.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("status"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	email_subscription = &EmailSubscription{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&email_subscription.Email, &email_subscription.Status, &email_subscription.UnsubscribedAt, &email_subscription.CreatedAt, &email_subscription.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return email_subscription, nil
+
+}
+
 func (obj *pgxImpl) Create_Admin(ctx context.Context,
 	admin_id Admin_Id_Field,
 	admin_email Admin_Email_Field,
@@ -23133,6 +23331,71 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) All_EmailSubscription(ctx context.Context) (
+	rows []*EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT email_subscriptions.email, email_subscriptions.status, email_subscriptions.unsubscribed_at, email_subscriptions.created_at, email_subscriptions.updated_at FROM email_subscriptions")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*EmailSubscription, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				email_subscription := &EmailSubscription{}
+				err = __rows.Scan(&email_subscription.Email, &email_subscription.Status, &email_subscription.UnsubscribedAt, &email_subscription.CreatedAt, &email_subscription.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, email_subscription)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_EmailSubscription_By_Email(ctx context.Context,
+	email_subscription_email EmailSubscription_Email_Field) (
+	email_subscription *EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT email_subscriptions.email, email_subscriptions.status, email_subscriptions.unsubscribed_at, email_subscriptions.created_at, email_subscriptions.updated_at FROM email_subscriptions WHERE email_subscriptions.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, email_subscription_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	email_subscription = &EmailSubscription{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&email_subscription.Email, &email_subscription.Status, &email_subscription.UnsubscribedAt, &email_subscription.CreatedAt, &email_subscription.UpdatedAt)
+	if err != nil {
+		return (*EmailSubscription)(nil), obj.makeErr(err)
+	}
+	return email_subscription, nil
+
+}
+
 func (obj *pgxImpl) All_Admin(ctx context.Context) (
 	rows []*Admin, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -26362,6 +26625,57 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxImpl) Update_EmailSubscription_By_Email(ctx context.Context,
+	email_subscription_email EmailSubscription_Email_Field,
+	update EmailSubscription_Update_Fields) (
+	email_subscription *EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE email_subscriptions SET "), __sets, __sqlbundle_Literal(" WHERE email_subscriptions.email = ? RETURNING email_subscriptions.email, email_subscriptions.status, email_subscriptions.unsubscribed_at, email_subscriptions.created_at, email_subscriptions.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.UnsubscribedAt._set {
+		__values = append(__values, update.UnsubscribedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unsubscribed_at = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, email_subscription_email.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	email_subscription = &EmailSubscription{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&email_subscription.Email, &email_subscription.Status, &email_subscription.UnsubscribedAt, &email_subscription.CreatedAt, &email_subscription.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return email_subscription, nil
+}
+
 func (obj *pgxImpl) Update_Admin_By_Id(ctx context.Context,
 	admin_id Admin_Id_Field,
 	update Admin_Update_Fields) (
@@ -28053,6 +28367,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM email_subscriptions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -30148,6 +30472,57 @@ func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_EmailSubscription(ctx context.Context,
+	email_subscription_email EmailSubscription_Email_Field,
+	email_subscription_updated_at EmailSubscription_UpdatedAt_Field,
+	optional EmailSubscription_Create_Fields) (
+	email_subscription *EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__email_val := email_subscription_email.value()
+	__unsubscribed_at_val := optional.UnsubscribedAt.value()
+	__created_at_val := __now
+	__updated_at_val := email_subscription_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("email, unsubscribed_at, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO email_subscriptions "), __clause, __sqlbundle_Literal(" RETURNING email_subscriptions.email, email_subscriptions.status, email_subscriptions.unsubscribed_at, email_subscriptions.created_at, email_subscriptions.updated_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __email_val, __unsubscribed_at_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Status._set {
+		__values = append(__values, optional.Status.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("status"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	email_subscription = &EmailSubscription{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&email_subscription.Email, &email_subscription.Status, &email_subscription.UnsubscribedAt, &email_subscription.CreatedAt, &email_subscription.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return email_subscription, nil
 
 }
 
@@ -35305,6 +35680,71 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) All_EmailSubscription(ctx context.Context) (
+	rows []*EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT email_subscriptions.email, email_subscriptions.status, email_subscriptions.unsubscribed_at, email_subscriptions.created_at, email_subscriptions.updated_at FROM email_subscriptions")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*EmailSubscription, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				email_subscription := &EmailSubscription{}
+				err = __rows.Scan(&email_subscription.Email, &email_subscription.Status, &email_subscription.UnsubscribedAt, &email_subscription.CreatedAt, &email_subscription.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, email_subscription)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_EmailSubscription_By_Email(ctx context.Context,
+	email_subscription_email EmailSubscription_Email_Field) (
+	email_subscription *EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT email_subscriptions.email, email_subscriptions.status, email_subscriptions.unsubscribed_at, email_subscriptions.created_at, email_subscriptions.updated_at FROM email_subscriptions WHERE email_subscriptions.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, email_subscription_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	email_subscription = &EmailSubscription{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&email_subscription.Email, &email_subscription.Status, &email_subscription.UnsubscribedAt, &email_subscription.CreatedAt, &email_subscription.UpdatedAt)
+	if err != nil {
+		return (*EmailSubscription)(nil), obj.makeErr(err)
+	}
+	return email_subscription, nil
+
+}
+
 func (obj *pgxcockroachImpl) All_Admin(ctx context.Context) (
 	rows []*Admin, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -38534,6 +38974,57 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxcockroachImpl) Update_EmailSubscription_By_Email(ctx context.Context,
+	email_subscription_email EmailSubscription_Email_Field,
+	update EmailSubscription_Update_Fields) (
+	email_subscription *EmailSubscription, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE email_subscriptions SET "), __sets, __sqlbundle_Literal(" WHERE email_subscriptions.email = ? RETURNING email_subscriptions.email, email_subscriptions.status, email_subscriptions.unsubscribed_at, email_subscriptions.created_at, email_subscriptions.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.UnsubscribedAt._set {
+		__values = append(__values, update.UnsubscribedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unsubscribed_at = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, email_subscription_email.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	email_subscription = &EmailSubscription{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&email_subscription.Email, &email_subscription.Status, &email_subscription.UnsubscribedAt, &email_subscription.CreatedAt, &email_subscription.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return email_subscription, nil
+}
+
 func (obj *pgxcockroachImpl) Update_Admin_By_Id(ctx context.Context,
 	admin_id Admin_Id_Field,
 	update Admin_Update_Fields) (
@@ -40234,6 +40725,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM email_subscriptions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM developer_user_mappings;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -40467,6 +40968,9 @@ type Methods interface {
 	All_Developer_By_NormalizedEmail(ctx context.Context,
 		developer_normalized_email Developer_NormalizedEmail_Field) (
 		rows []*Developer, err error)
+
+	All_EmailSubscription(ctx context.Context) (
+		rows []*EmailSubscription, err error)
 
 	All_NodeSmartContractUpdates(ctx context.Context) (
 		rows []*NodeSmartContractUpdates, err error)
@@ -40796,6 +41300,12 @@ type Methods interface {
 		developer_user_mapping_developer_id DeveloperUserMapping_DeveloperId_Field,
 		developer_user_mapping_user_id DeveloperUserMapping_UserId_Field) (
 		developer_user_mapping *DeveloperUserMapping, err error)
+
+	Create_EmailSubscription(ctx context.Context,
+		email_subscription_email EmailSubscription_Email_Field,
+		email_subscription_updated_at EmailSubscription_UpdatedAt_Field,
+		optional EmailSubscription_Create_Fields) (
+		email_subscription *EmailSubscription, err error)
 
 	Create_NodeEvent(ctx context.Context,
 		node_event_id NodeEvent_Id_Field,
@@ -41212,6 +41722,10 @@ type Methods interface {
 	Get_Developer_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 		developer_normalized_email Developer_NormalizedEmail_Field) (
 		developer *Developer, err error)
+
+	Get_EmailSubscription_By_Email(ctx context.Context,
+		email_subscription_email EmailSubscription_Email_Field) (
+		email_subscription *EmailSubscription, err error)
 
 	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
@@ -41727,6 +42241,11 @@ type Methods interface {
 		developer_id Developer_Id_Field,
 		update Developer_Update_Fields) (
 		developer *Developer, err error)
+
+	Update_EmailSubscription_By_Email(ctx context.Context,
+		email_subscription_email EmailSubscription_Email_Field,
+		update EmailSubscription_Update_Fields) (
+		email_subscription *EmailSubscription, err error)
 
 	Update_KeyVersion_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field,
