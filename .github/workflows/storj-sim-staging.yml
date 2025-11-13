@@ -3,7 +3,7 @@ name: Build Storj Sim on staging server
 on:
   push:
     branches:
-      - main    
+      - developer_console    
 
 env:
   GO_VERSION: '1.21'
