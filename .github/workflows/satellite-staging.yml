@@ -22,13 +22,20 @@ jobs:
         fetch-depth: 1
         clean: true
       
-    - name: Setup Go with CGO enabled
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
-        cache: true
-      env:
-        CGO_ENABLED: 1  # Enable CGO
+    - name: Setup Go environment
+      run: |
+        # Check if Go is available
+        $goCmd = Get-Command go -ErrorAction SilentlyContinue
+        if (-not $goCmd) {
+          Write-Error "Go is not installed. Please install Go ${{ env.GO_VERSION }} on the runner."
+          exit 1
+        }
+        $goVersion = (go version 2>&1)
+        Write-Host "Using installed Go: $goVersion"
+        # Set CGO environment variable
+        [Environment]::SetEnvironmentVariable("CGO_ENABLED", "1", "Process")
+        $env:CGO_ENABLED = "1"
+      continue-on-error: false
         
     - name: Verify Go environment
       run: |
