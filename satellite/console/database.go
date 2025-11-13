@@ -45,6 +45,9 @@ type DB interface {
 	// OAuth2Requests is a getter for OAuth2Requests repository.
 	OAuth2Requests() OAuth2Requests
 
+	// EmailSubscriptions is a getter for EmailSubscriptions repository.
+	EmailSubscriptions() EmailSubscriptions
+
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error
 }

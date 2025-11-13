@@ -111,6 +111,11 @@ func (db *ConsoleDB) OAuth2Requests() console.OAuth2Requests {
 	return &oauth2Requests{db: db.db}
 }
 
+// EmailSubscriptions is a getter for EmailSubscriptions repository.
+func (db *ConsoleDB) EmailSubscriptions() console.EmailSubscriptions {
+	return &emailSubscriptions{db: db.db}
+}
+
 // WithTx is a method for executing and retrying transaction.
 func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.db == nil {

@@ -461,6 +461,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
 
+	newsletterController := consoleapi.NewNewsletter(logger, service)
+	newsletterRouter := router.PathPrefix("/api/v0/newsletter").Subrouter()
+	newsletterRouter.Use(server.withCORS)
+	newsletterRouter.Handle("/{action}", http.HandlerFunc(newsletterController.HandleSubscription)).Methods(http.MethodPost, http.MethodOptions)
+
 	if config.DeveloperAPIEnabled {
 		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,
 			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
