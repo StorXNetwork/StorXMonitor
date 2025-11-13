@@ -6,89 +6,23 @@ on:
       - developer_console    
 
 env:
-  GO_VERSION: '1.21'
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
 
 jobs:
   build-storj-sim:
     runs-on: [self-hosted, windows, staging]
-    
+    environment: staging
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 1
         clean: true
-      
-    - name: Setup Go (skip if already installed and meets version requirement)
-      id: setup-go
+        
+    - name: Build storj-sim.exe
       run: |
-        # Check if Go is already available
-        $goCmd = Get-Command go -ErrorAction SilentlyContinue
-        if ($goCmd) {
-          $goVersion = (go version 2>&1)
-          Write-Host "Go is already installed: $goVersion"
-          Write-Host "Skipping setup-go action"
-          Write-Host "go-available=true" >> $env:GITHUB_OUTPUT
-        } else {
-          Write-Host "Go not found, will use setup-go action"
-          Write-Host "go-available=false" >> $env:GITHUB_OUTPUT
-        }
-      continue-on-error: true
-      
-    - name: Setup Go
-      if: steps.setup-go.outputs.go-available != 'true'
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
-        cache: true
-        cache-dependency-path: go.sum
-          
-    - name: Pre-download dependencies
-      run: |
-        Write-Host "Pre-downloading dependencies..."
-        go mod download
-        if (Test-Path "cmd/storj-sim") {
-          Write-Host "Pre-building storj-sim dependencies..."
-          # Use a unique temp file to avoid file locking issues
-          $tempExe = "$env:TEMP\storj-sim-prebuild-$([guid]::NewGuid()).exe"
-          try {
-            go build -o $tempExe ./cmd/storj-sim 2>&1 | Write-Host
-            if (Test-Path $tempExe) {
-              Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
-            }
-            Write-Host "Pre-build completed successfully"
-          } catch {
-            Write-Host "Pre-build failed (non-critical): $_"
-            Write-Host "Continuing with build..."
-          }
-        }
-      continue-on-error: true
-        
-    - name: Fast build storj-sim.exe
-      run: |
-        $buildStart = Get-Date
-        Write-Host "Building storj-sim.exe with optimizations..."
-        
-        # Use Go build cache and skip tests for faster build
-        $env:GOFLAGS = "-buildvcs=false"
-        
-        $buildCmd = "go build -ldflags `"-s -w`" -o `"$env:TEMP_PATH\storj-sim.exe`" ./cmd/storj-sim"
-        Write-Host "Build command: $buildCmd"
-        
-        Invoke-Expression $buildCmd
-        
-        $buildTime = (Get-Date) - $buildStart
-        Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
-        
-        if (Test-Path "$env:TEMP_PATH\storj-sim.exe") {
-          $size = (Get-Item "$env:TEMP_PATH\storj-sim.exe").Length
-          Write-Host "storj-sim.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
-        } else {
-          Write-Error "Build failed - storj-sim.exe not found"
-          exit 1
-        }
+        go build -ldflags "-s -w" -o "$env:TEMP_PATH\storj-sim.exe" ./cmd/storj-sim
         
     - name: Quick service stop
       run: |
@@ -111,73 +45,35 @@ jobs:
     - name: Quick service start
       run: |
         Set-Location $env:BIN_PATH
-        
-        # Check current service status
         $service = Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue
-        if ($service) {
-          $status = $service.Status
-          Write-Host "Current service status: $status"
-          
-          # Wait for service to be in a stable state if it's transitioning
-          $maxWait = 10
-          $waitCount = 0
-          while (($status -eq "StartPending" -or $status -eq "StopPending" -or $status -eq "PausePending" -or $status -eq "ContinuePending") -and $waitCount -lt $maxWait) {
-            Start-Sleep -Seconds 1
-            $service.Refresh()
-            $status = $service.Status
-            Write-Host "Waiting for service... Status: $status"
-            $waitCount++
-          }
-          
-          # Only start if service is stopped
-          if ($status -eq "Stopped") {
-            Write-Host "Starting service..."
-            # Start service and ignore nssm.exe error (it may complain about StartPending state)
-            $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "nssm.exe returned exit code $LASTEXITCODE (this may be expected)"
-              Write-Host "Output: $startResult"
-            }
-            
-            # Wait a bit and verify service is actually starting or running
-            Start-Sleep -Seconds 3
-            $service.Refresh()
-            $finalStatus = $service.Status
-            Write-Host "Service status after start attempt: $finalStatus"
-            
-            # If service is starting or running, consider it successful
-            if ($finalStatus -eq "Running" -or $finalStatus -eq "StartPending") {
-              Write-Host "Service start initiated successfully"
-              # Wait for it to fully start
-              $waitCount = 0
-              while ($finalStatus -eq "StartPending" -and $waitCount -lt 15) {
-                Start-Sleep -Seconds 1
-                $service.Refresh()
-                $finalStatus = $service.Status
-                $waitCount++
-              }
-              Write-Host "Final service status: $finalStatus"
-            } else {
-              Write-Host "Warning: Service did not start. Status: $finalStatus"
-            }
-          } elseif ($status -eq "Running") {
-            Write-Host "Service is already running"
-          } else {
-            Write-Host "Service is in state: $status - attempting restart"
-            & cmd /c ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
-            Start-Sleep -Seconds 3
-            $service.Refresh()
-            if ($service.Status -eq "Stopped") {
-              $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1
-              Start-Sleep -Seconds 3
-              $service.Refresh()
-              Write-Host "Service status after restart: $($service.Status)"
-            }
-          }
-        } else {
-          Write-Host "Service not found, attempting to start anyway"
-          $startResult = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1
-          Start-Sleep -Seconds 2
+        if (-not $service) {
+          Write-Host "Service not found"
+          exit 0
         }
         
-        Write-Host "Service start completed"
+        # Wait for service to stabilize if transitioning
+        $maxWait = 10
+        while ($maxWait -gt 0 -and ($service.Status -match "Pending")) {
+          Start-Sleep -Seconds 1
+          $service.Refresh()
+          $maxWait--
+        }
+        
+        if ($service.Status -eq "Stopped") {
+          $ErrorActionPreference = "Continue"
+          $result = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-String
+          $ErrorActionPreference = "Stop"
+          Start-Sleep -Seconds 3
+          $service.Refresh()
+          
+          # Handle StartPending error (service is actually starting)
+          if ($result -match "SERVICE_START_PENDING" -or $service.Status -eq "Running" -or $service.Status -eq "StartPending") {
+            Write-Host "Service started successfully (Status: $($service.Status))"
+            exit 0
+          }
+        } elseif ($service.Status -eq "Running") {
+          Write-Host "Service already running"
+          exit 0
+        } else {
+          Write-Host "Service in unexpected state: $($service.Status)"
+        }
