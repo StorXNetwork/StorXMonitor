@@ -289,6 +289,182 @@ func (repo *oauth2Requests) GetStatisticsByDeveloperID(ctx context.Context, deve
 	return total, approved, pending, rejected, err
 }
 
+// GetUserStatisticsByDeveloperID returns user access statistics for a developer
+func (repo *oauth2Requests) GetUserStatisticsByDeveloperID(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time) (*console.UserStatistics, error) {
+	query := `
+		SELECT 
+			COUNT(DISTINCT oauth2_requests.user_id) as total_users,
+			COUNT(DISTINCT CASE 
+				WHEN oauth2_requests.created_at >= NOW() - INTERVAL '30 days' 
+				THEN oauth2_requests.user_id 
+			END) as active_users,
+			COUNT(*) as total_requests,
+			COUNT(*) FILTER (WHERE oauth2_requests.status = 1) as approved_requests,
+			COUNT(*) FILTER (WHERE oauth2_requests.status = 0) as pending_requests,
+			COUNT(*) FILTER (WHERE oauth2_requests.status = 2) as rejected_requests
+		FROM oauth2_requests
+		INNER JOIN developer_oauth_clients ON oauth2_requests.client_id = developer_oauth_clients.client_id
+		WHERE developer_oauth_clients.developer_id = $1
+	`
+	args := []interface{}{developerID[:]}
+	argIndex := 2
+
+	if startDate != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.created_at >= $%d", argIndex)
+		args = append(args, *startDate)
+		argIndex++
+	}
+
+	if endDate != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.created_at <= $%d", argIndex)
+		args = append(args, *endDate)
+		argIndex++
+	}
+
+	var stats console.UserStatistics
+	err := repo.db.QueryRowContext(ctx, query, args...).Scan(
+		&stats.TotalUsers,
+		&stats.ActiveUsers,
+		&stats.TotalRequests,
+		&stats.ApprovedRequests,
+		&stats.PendingRequests,
+		&stats.RejectedRequests,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+// GetUserAccessTrendsByDeveloperID returns user access trends over time for a developer
+func (repo *oauth2Requests) GetUserAccessTrendsByDeveloperID(ctx context.Context, developerID uuid.UUID, period string, startDate, endDate *time.Time) ([]console.UserAccessTrend, error) {
+	// Determine date truncation based on period
+	var dateTrunc string
+	switch period {
+	case "daily":
+		dateTrunc = "DATE(oauth2_requests.created_at)"
+	case "weekly":
+		dateTrunc = "DATE_TRUNC('week', oauth2_requests.created_at)"
+	case "monthly":
+		dateTrunc = "DATE_TRUNC('month', oauth2_requests.created_at)"
+	default:
+		dateTrunc = "DATE(oauth2_requests.created_at)"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT 
+			%s as date,
+			COUNT(DISTINCT oauth2_requests.user_id) as user_count,
+			COUNT(*) as request_count
+		FROM oauth2_requests
+		INNER JOIN developer_oauth_clients ON oauth2_requests.client_id = developer_oauth_clients.client_id
+		WHERE developer_oauth_clients.developer_id = $1
+	`, dateTrunc)
+
+	args := []interface{}{developerID[:]}
+	argIndex := 2
+
+	if startDate != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.created_at >= $%d", argIndex)
+		args = append(args, *startDate)
+		argIndex++
+	}
+
+	if endDate != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.created_at <= $%d", argIndex)
+		args = append(args, *endDate)
+		argIndex++
+	}
+
+	query += fmt.Sprintf(" GROUP BY %s ORDER BY date ASC", dateTrunc)
+
+	rows, err := repo.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var trends []console.UserAccessTrend
+	for rows.Next() {
+		var trend console.UserAccessTrend
+		err := rows.Scan(&trend.Date, &trend.UserCount, &trend.RequestCount)
+		if err != nil {
+			return nil, err
+		}
+		trends = append(trends, trend)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return trends, nil
+}
+
+// GetUserAccessByApplication returns user access breakdown by OAuth client for a developer
+// This includes ALL applications for the developer, even if they have zero requests
+func (repo *oauth2Requests) GetUserAccessByApplication(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time) ([]console.ApplicationUserStats, error) {
+	query := `
+		SELECT 
+			developer_oauth_clients.client_id,
+			developer_oauth_clients.name as client_name,
+			COUNT(DISTINCT oauth2_requests.user_id) as total_users,
+			COUNT(DISTINCT CASE 
+				WHEN oauth2_requests.created_at >= NOW() - INTERVAL '30 days' 
+				THEN oauth2_requests.user_id 
+			END) as active_users,
+			COUNT(oauth2_requests.id) as total_requests
+		FROM developer_oauth_clients
+		LEFT JOIN oauth2_requests ON developer_oauth_clients.client_id = oauth2_requests.client_id
+		WHERE developer_oauth_clients.developer_id = $1
+	`
+	args := []interface{}{developerID[:]}
+	argIndex := 2
+
+	if startDate != nil {
+		query += fmt.Sprintf(" AND (oauth2_requests.created_at IS NULL OR oauth2_requests.created_at >= $%d)", argIndex)
+		args = append(args, *startDate)
+		argIndex++
+	}
+
+	if endDate != nil {
+		query += fmt.Sprintf(" AND (oauth2_requests.created_at IS NULL OR oauth2_requests.created_at <= $%d)", argIndex)
+		args = append(args, *endDate)
+		argIndex++
+	}
+
+	query += " GROUP BY developer_oauth_clients.client_id, developer_oauth_clients.name ORDER BY total_users DESC, developer_oauth_clients.name ASC"
+
+	rows, err := repo.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var apps []console.ApplicationUserStats
+	for rows.Next() {
+		var app console.ApplicationUserStats
+		err := rows.Scan(
+			&app.ClientID,
+			&app.ClientName,
+			&app.TotalUsers,
+			&app.ActiveUsers,
+			&app.TotalRequests,
+		)
+		if err != nil {
+			return nil, err
+		}
+		apps = append(apps, app)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return apps, nil
+}
+
 // Conversion helper
 func toConsoleOAuth2Request(d *dbx.Oauth2Request) *console.OAuth2Request {
 	id, _ := uuid.FromBytes(d.Id)

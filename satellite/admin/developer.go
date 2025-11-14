@@ -32,6 +32,8 @@ type Developer struct {
 	FirstSessionExpiry *time.Time `json:"firstSessionExpiry"`
 	TotalSessionCount  int        `json:"totalSessionCount"`
 	OAuthClientCount   int        `json:"oauthClientCount"` // Number of OAuth clients created by this developer
+	TotalUsers         int        `json:"totalUsers"`       // Total unique users who accessed this developer's applications
+	ActiveUsers        int        `json:"activeUsers"`      // Active users (last 30 days) who accessed this developer's applications
 }
 
 // DeveloperListParams holds parsed query parameters for developer listing
@@ -157,6 +159,8 @@ func (server *Server) getAllDevelopers(w http.ResponseWriter, r *http.Request) {
 			FirstSessionExpiry: result.FirstSessionExpiry[i],
 			TotalSessionCount:  result.TotalSessionCounts[i],
 			OAuthClientCount:   result.OAuthClientCounts[i],
+			TotalUsers:         result.TotalUserCounts[i],
+			ActiveUsers:        result.ActiveUserCounts[i],
 		}
 	}
 
@@ -682,4 +686,253 @@ func (server *Server) updateDeveloperStatus(w http.ResponseWriter, r *http.Reque
 	}
 
 	sendJSONData(w, http.StatusOK, data)
+}
+
+// getDeveloperUserStatistics returns user access statistics for a developer
+func (server *Server) getDeveloperUserStatistics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	developerEmail, ok := vars["developerEmail"]
+	if !ok {
+		sendJSONError(w, "developer-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	// Get developer by email to get ID
+	developer, err := server.developerserviceService.GetDeveloperByEmail(ctx, developerEmail)
+	if err != nil {
+		if console.ErrEmailNotFound.Has(err) {
+			sendJSONError(w, "developer not found", "", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get developer", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Parse date range filters
+	query := r.URL.Query()
+	var startDate, endDate *time.Time
+
+	if startDateStr := query.Get("start_date"); startDateStr != "" {
+		parsed, err := time.Parse(time.RFC3339, startDateStr)
+		if err == nil {
+			startDate = &parsed
+		}
+	}
+
+	if endDateStr := query.Get("end_date"); endDateStr != "" {
+		parsed, err := time.Parse(time.RFC3339, endDateStr)
+		if err == nil {
+			endDate = &parsed
+		}
+	}
+
+	// Get user statistics
+	stats, err := server.developerserviceService.GetDeveloperUserStatistics(ctx, developer.ID, startDate, endDate)
+	if err != nil {
+		sendJSONError(w, "failed to get user statistics", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(stats)
+}
+
+// getDeveloperUserAccessTrends returns user access trends for a developer
+func (server *Server) getDeveloperUserAccessTrends(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	developerEmail, ok := vars["developerEmail"]
+	if !ok {
+		sendJSONError(w, "developer-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	// Get developer by email
+	developer, err := server.developerserviceService.GetDeveloperByEmail(ctx, developerEmail)
+	if err != nil {
+		if console.ErrEmailNotFound.Has(err) {
+			sendJSONError(w, "developer not found", "", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get developer", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Parse query parameters
+	query := r.URL.Query()
+	period := query.Get("period")
+	if period == "" {
+		period = "daily"
+	}
+
+	var startDate, endDate *time.Time
+	if startDateStr := query.Get("start_date"); startDateStr != "" {
+		parsed, err := time.Parse(time.RFC3339, startDateStr)
+		if err == nil {
+			startDate = &parsed
+		}
+	}
+
+	if endDateStr := query.Get("end_date"); endDateStr != "" {
+		parsed, err := time.Parse(time.RFC3339, endDateStr)
+		if err == nil {
+			endDate = &parsed
+		}
+	}
+
+	// Get trends
+	trends, err := server.developerserviceService.GetDeveloperUserAccessTrends(ctx, developer.ID, period, startDate, endDate)
+	if err != nil {
+		sendJSONError(w, "failed to get user access trends", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(trends)
+}
+
+// getDeveloperUserAccessByApplication returns user access breakdown by application
+func (server *Server) getDeveloperUserAccessByApplication(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	developerEmail, ok := vars["developerEmail"]
+	if !ok {
+		sendJSONError(w, "developer-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	// Get developer by email
+	developer, err := server.developerserviceService.GetDeveloperByEmail(ctx, developerEmail)
+	if err != nil {
+		if console.ErrEmailNotFound.Has(err) {
+			sendJSONError(w, "developer not found", "", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get developer", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Parse date range filters
+	query := r.URL.Query()
+	var startDate, endDate *time.Time
+
+	if startDateStr := query.Get("start_date"); startDateStr != "" {
+		parsed, err := time.Parse(time.RFC3339, startDateStr)
+		if err == nil {
+			startDate = &parsed
+		}
+	}
+
+	if endDateStr := query.Get("end_date"); endDateStr != "" {
+		parsed, err := time.Parse(time.RFC3339, endDateStr)
+		if err == nil {
+			endDate = &parsed
+		}
+	}
+
+	// Get application stats
+	apps, err := server.developerserviceService.GetDeveloperUserAccessByApplication(ctx, developer.ID, startDate, endDate)
+	if err != nil {
+		sendJSONError(w, "failed to get application statistics", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(apps)
+}
+
+// exportDeveloperUserStatistics exports user statistics as CSV
+func (server *Server) exportDeveloperUserStatistics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	developerEmail, ok := vars["developerEmail"]
+	if !ok {
+		sendJSONError(w, "developer-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	// Get developer by email
+	developer, err := server.developerserviceService.GetDeveloperByEmail(ctx, developerEmail)
+	if err != nil {
+		if console.ErrEmailNotFound.Has(err) {
+			sendJSONError(w, "developer not found", "", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get developer", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Parse date range filters
+	query := r.URL.Query()
+	var startDate, endDate *time.Time
+
+	if startDateStr := query.Get("start_date"); startDateStr != "" {
+		parsed, err := time.Parse(time.RFC3339, startDateStr)
+		if err == nil {
+			startDate = &parsed
+		}
+	}
+
+	if endDateStr := query.Get("end_date"); endDateStr != "" {
+		parsed, err := time.Parse(time.RFC3339, endDateStr)
+		if err == nil {
+			endDate = &parsed
+		}
+	}
+
+	// Get all statistics
+	stats, err := server.developerserviceService.GetDeveloperUserStatistics(ctx, developer.ID, startDate, endDate)
+	if err != nil {
+		sendJSONError(w, "failed to get user statistics", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	apps, err := server.developerserviceService.GetDeveloperUserAccessByApplication(ctx, developer.ID, startDate, endDate)
+	if err != nil {
+		sendJSONError(w, "failed to get application statistics", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Generate CSV
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=user-statistics-%s-%s.csv", developerEmail, time.Now().Format("2006-01-02")))
+
+	// Write CSV header
+	w.Write([]byte("Metric,Value\n"))
+	w.Write([]byte(fmt.Sprintf("Total Users,%d\n", stats.TotalUsers)))
+	w.Write([]byte(fmt.Sprintf("Active Users,%d\n", stats.ActiveUsers)))
+	w.Write([]byte(fmt.Sprintf("Total Requests,%d\n", stats.TotalRequests)))
+	w.Write([]byte(fmt.Sprintf("Approved Requests,%d\n", stats.ApprovedRequests)))
+	w.Write([]byte(fmt.Sprintf("Pending Requests,%d\n", stats.PendingRequests)))
+	w.Write([]byte(fmt.Sprintf("Rejected Requests,%d\n", stats.RejectedRequests)))
+	w.Write([]byte("\n"))
+	w.Write([]byte("Application,Client ID,Total Users,Active Users,Total Requests\n"))
+
+	// Write application data
+	for _, app := range apps {
+		line := fmt.Sprintf("%s,%s,%d,%d,%d\n",
+			app.ClientName,
+			app.ClientID,
+			app.TotalUsers,
+			app.ActiveUsers,
+			app.TotalRequests,
+		)
+		w.Write([]byte(line))
+	}
 }

@@ -30,6 +30,32 @@ type OAuth2Request struct {
 	RejectedScopes   string    `json:"rejected_scopes"`
 }
 
+// UserStatistics contains user access statistics for a developer
+type UserStatistics struct {
+	TotalUsers       int `json:"total_users"`
+	ActiveUsers      int `json:"active_users"` // Users with requests in last 30 days
+	TotalRequests    int `json:"total_requests"`
+	ApprovedRequests int `json:"approved_requests"`
+	PendingRequests  int `json:"pending_requests"`
+	RejectedRequests int `json:"rejected_requests"`
+}
+
+// UserAccessTrend represents user access over time
+type UserAccessTrend struct {
+	Date         time.Time `json:"date"`
+	UserCount    int       `json:"user_count"`
+	RequestCount int       `json:"request_count"`
+}
+
+// ApplicationUserStats represents user access breakdown by OAuth client
+type ApplicationUserStats struct {
+	ClientID      string `json:"client_id"`
+	ClientName    string `json:"client_name"`
+	TotalUsers    int    `json:"total_users"`
+	ActiveUsers   int    `json:"active_users"`
+	TotalRequests int    `json:"total_requests"`
+}
+
 type OAuth2Requests interface {
 	Insert(ctx context.Context, req *OAuth2Request) (*OAuth2Request, error)
 	Get(ctx context.Context, id uuid.UUID) (*OAuth2Request, error)
@@ -43,4 +69,8 @@ type OAuth2Requests interface {
 	ListByDeveloperID(ctx context.Context, developerID uuid.UUID, limit, offset int, startDate, endDate *time.Time, status *int, clientID, userID, ipAddress string) ([]OAuth2Request, error)
 	CountByDeveloperID(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time, status *int, clientID, userID, ipAddress string) (int, error)
 	GetStatisticsByDeveloperID(ctx context.Context, developerID uuid.UUID, clientID string) (total, approved, pending, rejected int, err error)
+	// User statistics methods for admin
+	GetUserStatisticsByDeveloperID(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time) (*UserStatistics, error)
+	GetUserAccessTrendsByDeveloperID(ctx context.Context, developerID uuid.UUID, period string, startDate, endDate *time.Time) ([]UserAccessTrend, error)
+	GetUserAccessByApplication(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time) ([]ApplicationUserStats, error)
 }

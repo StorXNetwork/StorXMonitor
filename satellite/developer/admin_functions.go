@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
 
@@ -18,6 +19,8 @@ type DeveloperListResult struct {
 	FirstSessionExpiry []*time.Time
 	TotalSessionCounts []int
 	OAuthClientCounts  []int
+	TotalUserCounts    []int // Total unique users per developer
+	ActiveUserCounts   []int // Active users (last 30 days) per developer
 	TotalCount         int
 }
 
@@ -28,6 +31,8 @@ type DeveloperWithStats struct {
 	FirstSessionExpiry *time.Time
 	TotalSessionCount  int
 	OAuthClientCount   int
+	TotalUsers         int // Total unique users who accessed this developer's applications
+	ActiveUsers        int // Active users (last 30 days) who accessed this developer's applications
 }
 
 // DeveloperStats contains aggregated statistics about developers.
@@ -71,7 +76,7 @@ func (s *Service) GetAllDevelopersAdmin(
 ) (_ *DeveloperListResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	developers, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, oauthClientCounts, totalCount, err := s.store.Developers().GetAllDevelopersWithStats(
+	developers, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, oauthClientCounts, totalUserCounts, activeUserCounts, totalCount, err := s.store.Developers().GetAllDevelopersWithStats(
 		ctx,
 		limit,
 		offset,
@@ -98,6 +103,8 @@ func (s *Service) GetAllDevelopersAdmin(
 			FirstSessionExpiry: firstSessionExpiry[i],
 			TotalSessionCount:  totalSessionCounts[i],
 			OAuthClientCount:   oauthClientCounts[i],
+			TotalUsers:         totalUserCounts[i],
+			ActiveUsers:        activeUserCounts[i],
 		}
 	}
 
@@ -107,6 +114,8 @@ func (s *Service) GetAllDevelopersAdmin(
 		FirstSessionExpiry: firstSessionExpiry,
 		TotalSessionCounts: totalSessionCounts,
 		OAuthClientCounts:  oauthClientCounts,
+		TotalUserCounts:    totalUserCounts,
+		ActiveUserCounts:   activeUserCounts,
 		TotalCount:         totalCount,
 	}, nil
 }
@@ -171,4 +180,70 @@ func (s *Service) GetDeveloperDetailsAdmin(ctx context.Context, developerEmail s
 		Developer: developer,
 		Sessions:  entries,
 	}, nil
+}
+
+// GetDeveloperUserStatistics returns user access statistics for a developer (admin version)
+func (s *Service) GetDeveloperUserStatistics(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time) (_ *console.UserStatistics, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stats, err := s.store.OAuth2Requests().GetUserStatisticsByDeveloperID(ctx, developerID, startDate, endDate)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return stats, nil
+}
+
+// GetDeveloperUserAccessTrends returns user access trends for a developer (admin version)
+func (s *Service) GetDeveloperUserAccessTrends(ctx context.Context, developerID uuid.UUID, period string, startDate, endDate *time.Time) (_ []console.UserAccessTrend, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Validate period
+	validPeriods := map[string]bool{"daily": true, "weekly": true, "monthly": true}
+	if !validPeriods[period] {
+		period = "daily"
+	}
+
+	trends, err := s.store.OAuth2Requests().GetUserAccessTrendsByDeveloperID(ctx, developerID, period, startDate, endDate)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return trends, nil
+}
+
+// GetDeveloperUserAccessByApplication returns user access breakdown by application (admin version)
+func (s *Service) GetDeveloperUserAccessByApplication(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time) (_ []console.ApplicationUserStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	apps, err := s.store.OAuth2Requests().GetUserAccessByApplication(ctx, developerID, startDate, endDate)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return apps, nil
+}
+
+// GetDeveloperByEmail returns a developer by email (admin version)
+// This includes all developers regardless of status (active, inactive, deleted, etc.)
+func (s *Service) GetDeveloperByEmail(ctx context.Context, developerEmail string) (_ *console.Developer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Use GetByEmailWithUnverified to get developers regardless of status
+	verified, unverified, err := s.store.Developers().GetByEmailWithUnverified(ctx, developerEmail)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// Return verified developer if exists, otherwise return first unverified
+	if verified != nil {
+		return verified, nil
+	}
+
+	if len(unverified) > 0 {
+		return &unverified[0], nil
+	}
+
+	// No developer found
+	return nil, ErrEmailNotFound.New("developer with email %q does not exist", developerEmail)
 }
