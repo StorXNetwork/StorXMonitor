@@ -56,6 +56,33 @@ type ApplicationUserStats struct {
 	TotalRequests int    `json:"total_requests"`
 }
 
+// UserDeveloperAccess represents a developer's access to a user's account
+type UserDeveloperAccess struct {
+	DeveloperID            uuid.UUID  `json:"developer_id"`
+	DeveloperName          string     `json:"developer_name"`
+	DeveloperEmail         string     `json:"developer_email"`
+	ClientID               string     `json:"client_id"`
+	ApplicationName        string     `json:"application_name"`
+	ApplicationDescription string     `json:"application_description"`
+	ApprovedScopes         []string   `json:"approved_scopes"`
+	RejectedScopes         []string   `json:"rejected_scopes"`
+	AccessGrantedDate      time.Time  `json:"access_granted_date"` // First approved request
+	LastAccessDate         *time.Time `json:"last_access_date"`    // Most recent request
+	ConsentExpiresAt       *time.Time `json:"consent_expires_at"`  // When consent expires
+	IsActive               bool       `json:"is_active"`           // Has active consent
+	TotalRequests          int        `json:"total_requests"`      // Total requests made
+}
+
+// UserAccessHistory represents historical access for a user-developer relationship
+type UserAccessHistory struct {
+	RequestID       uuid.UUID `json:"request_id"`
+	ClientID        string    `json:"client_id"`
+	ApplicationName string    `json:"application_name"`
+	Scopes          []string  `json:"scopes"`
+	Status          int       `json:"status"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
 type OAuth2Requests interface {
 	Insert(ctx context.Context, req *OAuth2Request) (*OAuth2Request, error)
 	Get(ctx context.Context, id uuid.UUID) (*OAuth2Request, error)
@@ -73,4 +100,8 @@ type OAuth2Requests interface {
 	GetUserStatisticsByDeveloperID(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time) (*UserStatistics, error)
 	GetUserAccessTrendsByDeveloperID(ctx context.Context, developerID uuid.UUID, period string, startDate, endDate *time.Time) ([]UserAccessTrend, error)
 	GetUserAccessByApplication(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time) ([]ApplicationUserStats, error)
+	// User developer access management methods
+	GetUserDeveloperAccess(ctx context.Context, userID uuid.UUID) ([]UserDeveloperAccess, error)
+	GetUserDeveloperAccessHistory(ctx context.Context, userID uuid.UUID, clientID string) ([]UserAccessHistory, error)
+	RevokeUserDeveloperAccess(ctx context.Context, userID uuid.UUID, clientID string) error
 }

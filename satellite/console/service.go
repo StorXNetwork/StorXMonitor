@@ -5526,3 +5526,74 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 		Scopes:      approvedScopes,
 	}, nil
 }
+
+// GetUserDeveloperAccess returns all developers with access to the current user's account
+func (s *Service) GetUserDeveloperAccess(ctx context.Context) (_ []UserDeveloperAccess, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user developer access")
+	if err != nil {
+		return nil, err
+	}
+
+	access, err := s.store.OAuth2Requests().GetUserDeveloperAccess(ctx, user.ID)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return access, nil
+}
+
+// GetUserDeveloperAccessHistory returns access history for a specific developer
+func (s *Service) GetUserDeveloperAccessHistory(ctx context.Context, clientID string) (_ []UserAccessHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user developer access history", zap.String("clientID", clientID))
+	if err != nil {
+		return nil, err
+	}
+
+	history, err := s.store.OAuth2Requests().GetUserDeveloperAccessHistory(ctx, user.ID, clientID)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return history, nil
+}
+
+// RevokeUserDeveloperAccess revokes a developer's access to the current user's account
+func (s *Service) RevokeUserDeveloperAccess(ctx context.Context, clientID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "revoke user developer access", zap.String("clientID", clientID))
+	if err != nil {
+		return err
+	}
+
+	// Verify the client exists and user has access to it
+	accessList, err := s.store.OAuth2Requests().GetUserDeveloperAccess(ctx, user.ID)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// Check if user has active access to this client
+	hasActiveAccess := false
+	for _, access := range accessList {
+		if access.ClientID == clientID && access.IsActive {
+			hasActiveAccess = true
+			break
+		}
+	}
+
+	if !hasActiveAccess {
+		return errs.New("no active access found for this developer")
+	}
+
+	// Revoke access
+	err = s.store.OAuth2Requests().RevokeUserDeveloperAccess(ctx, user.ID, clientID)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
+}

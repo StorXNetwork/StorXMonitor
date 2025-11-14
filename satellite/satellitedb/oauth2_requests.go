@@ -2,7 +2,9 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"storj.io/common/uuid"
@@ -463,6 +465,205 @@ func (repo *oauth2Requests) GetUserAccessByApplication(ctx context.Context, deve
 	}
 
 	return apps, nil
+}
+
+// GetUserDeveloperAccess returns all developers with access to a user's account
+func (repo *oauth2Requests) GetUserDeveloperAccess(ctx context.Context, userID uuid.UUID) ([]console.UserDeveloperAccess, error) {
+	query := `
+		SELECT 
+			d.id as developer_id,
+			d.full_name as developer_name,
+			d.email as developer_email,
+			doc.client_id,
+			doc.name as application_name,
+			COALESCE(doc.description, '') as application_description,
+			MIN(o.created_at) as access_granted_date,
+			MAX(o.created_at) as last_access_date,
+			MAX(o.consent_expires_at) as consent_expires_at,
+			COUNT(*) as total_requests,
+			-- Get most recent approved scopes (get the latest non-empty approved_scopes)
+			(SELECT approved_scopes FROM oauth2_requests o2 
+			 WHERE o2.user_id = $1
+			   AND o2.client_id = doc.client_id 
+			   AND o2.status = 1 
+			   AND o2.approved_scopes != '' 
+			 ORDER BY o2.created_at DESC LIMIT 1) as latest_approved_scopes,
+			-- Get most recent rejected scopes
+			(SELECT rejected_scopes FROM oauth2_requests o3 
+			 WHERE o3.user_id = $1
+			   AND o3.client_id = doc.client_id 
+			   AND o3.status = 1 
+			   AND o3.rejected_scopes != '' 
+			 ORDER BY o3.created_at DESC LIMIT 1) as latest_rejected_scopes
+		FROM oauth2_requests o
+		INNER JOIN developer_oauth_clients doc ON o.client_id = doc.client_id
+		INNER JOIN developers d ON doc.developer_id = d.id
+		WHERE o.user_id = $1
+			AND o.status = 1  -- Only approved requests
+		GROUP BY d.id, d.full_name, d.email, doc.client_id, doc.name, doc.description
+		ORDER BY last_access_date DESC
+	`
+
+	rows, err := repo.db.QueryContext(ctx, query, userID[:])
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	accessList := make([]console.UserDeveloperAccess, 0)
+	for rows.Next() {
+		var access console.UserDeveloperAccess
+		var latestApprovedScopes, latestRejectedScopes sql.NullString
+		var lastAccessDate, consentExpiresAt sql.NullTime
+
+		err := rows.Scan(
+			&access.DeveloperID,
+			&access.DeveloperName,
+			&access.DeveloperEmail,
+			&access.ClientID,
+			&access.ApplicationName,
+			&access.ApplicationDescription,
+			&access.AccessGrantedDate,
+			&lastAccessDate,
+			&consentExpiresAt,
+			&access.TotalRequests,
+			&latestApprovedScopes,
+			&latestRejectedScopes,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Parse scopes from comma-separated strings
+		if latestApprovedScopes.Valid && latestApprovedScopes.String != "" {
+			access.ApprovedScopes = parseScopes(latestApprovedScopes.String)
+		} else {
+			access.ApprovedScopes = []string{}
+		}
+
+		if latestRejectedScopes.Valid && latestRejectedScopes.String != "" {
+			access.RejectedScopes = parseScopes(latestRejectedScopes.String)
+		} else {
+			access.RejectedScopes = []string{}
+		}
+
+		// Set nullable time fields
+		if lastAccessDate.Valid {
+			access.LastAccessDate = &lastAccessDate.Time
+		}
+
+		if consentExpiresAt.Valid {
+			access.ConsentExpiresAt = &consentExpiresAt.Time
+			// Check if consent is still active (not expired)
+			access.IsActive = consentExpiresAt.Time.After(time.Now())
+		} else {
+			access.IsActive = false
+		}
+
+		accessList = append(accessList, access)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return accessList, nil
+}
+
+// GetUserDeveloperAccessHistory returns access history for a specific developer
+func (repo *oauth2Requests) GetUserDeveloperAccessHistory(ctx context.Context, userID uuid.UUID, clientID string) ([]console.UserAccessHistory, error) {
+	query := `
+		SELECT 
+			o.id as request_id,
+			o.client_id,
+			COALESCE(doc.name, '') as application_name,
+			o.scopes,
+			o.status,
+			o.created_at
+		FROM oauth2_requests o
+		LEFT JOIN developer_oauth_clients doc ON o.client_id = doc.client_id
+		WHERE o.user_id = $1
+			AND o.client_id = $2
+		ORDER BY o.created_at DESC
+	`
+
+	rows, err := repo.db.QueryContext(ctx, query, userID[:], clientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	history := make([]console.UserAccessHistory, 0)
+	for rows.Next() {
+		var h console.UserAccessHistory
+		var scopesStr string
+
+		err := rows.Scan(
+			&h.RequestID,
+			&h.ClientID,
+			&h.ApplicationName,
+			&scopesStr,
+			&h.Status,
+			&h.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Parse scopes
+		h.Scopes = parseScopes(scopesStr)
+
+		history = append(history, h)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return history, nil
+}
+
+// RevokeUserDeveloperAccess revokes a developer's access by expiring consent
+func (repo *oauth2Requests) RevokeUserDeveloperAccess(ctx context.Context, userID uuid.UUID, clientID string) error {
+	query := `
+		UPDATE oauth2_requests
+		SET consent_expires_at = NOW()
+		WHERE user_id = $1
+			AND client_id = $2
+			AND status = 1  -- Only approved requests
+			AND (consent_expires_at IS NULL OR consent_expires_at > NOW())  -- Only non-expired consents
+	`
+
+	result, err := repo.db.ExecContext(ctx, query, userID[:], clientID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no active access found to revoke")
+	}
+
+	return nil
+}
+
+// parseScopes parses comma-separated scope string into slice
+func parseScopes(scopesStr string) []string {
+	if scopesStr == "" {
+		return []string{}
+	}
+	scopes := []string{}
+	for _, scope := range strings.Split(scopesStr, ",") {
+		scope = strings.TrimSpace(scope)
+		if scope != "" {
+			scopes = append(scopes, scope)
+		}
+	}
+	return scopes
 }
 
 // Conversion helper
