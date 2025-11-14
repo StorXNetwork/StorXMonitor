@@ -1,10 +1,12 @@
 <template>
     <v-app>
+        <AppBar :drawer-model="drawer" @update:drawer="drawer = $event" />
         <v-navigation-drawer
             v-model="drawer"
             permanent
             :color="isDark ? 'surface' : 'white'"
             :class="{ 'drawer-dark': isDark }"
+            class="sidebar-drawer"
         >
             <v-list nav density="compact" class="nav-list">
                 <v-list-item
@@ -20,6 +22,12 @@
                     :active-class="isDark ? 'active-dark' : 'active-light'"
                 />
                 <v-list-item
+                    prepend-icon="mdi-file-document-multiple"
+                    title="Access Logs"
+                    :to="{ name: 'AccessLogs' }"
+                    :active-class="isDark ? 'active-dark' : 'active-light'"
+                />
+                <v-list-item
                     prepend-icon="mdi-cog"
                     title="Settings"
                     :to="{ name: 'Settings' }"
@@ -27,7 +35,6 @@
                 />
             </v-list>
         </v-navigation-drawer>
-        <AppBar :drawer-model="drawer" @update:drawer="drawer = $event" />
         <v-main :class="{ 'main-dark': isDark }">
             <v-container fluid class="pa-0">
                 <router-view />
@@ -53,6 +60,11 @@ watch(isDark, (dark) => {
 </script>
 
 <style scoped lang="scss">
+.sidebar-drawer {
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
 .v-navigation-drawer {
     border-right: 1px solid rgba(0, 0, 0, 0.08);
     transition: all 0.3s ease;
@@ -101,12 +113,11 @@ watch(isDark, (dark) => {
 
 .v-main {
     background-color: #f5f7fa;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, margin-left 0.3s ease;
+    margin-top: 64px !important; // Account for app bar height
 }
 
 .main-dark {
     background-color: #121212 !important;
 }
 </style>
-
-

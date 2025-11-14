@@ -7,6 +7,14 @@ import (
 	"storj.io/common/uuid"
 )
 
+// OAuth2RequestStatus represents the status of an OAuth2 request
+const (
+	OAuth2RequestStatusPending  = 0 // Request is pending approval
+	OAuth2RequestStatusApproved = 1 // Request has been approved
+	OAuth2RequestStatusRejected = 2 // Request has been rejected
+	OAuth2RequestStatusUsed     = 2 // Code has been used (same as rejected for now)
+)
+
 type OAuth2Request struct {
 	ID               uuid.UUID `json:"id"`
 	ClientID         string    `json:"client_id"`
@@ -31,4 +39,8 @@ type OAuth2Requests interface {
 	UpdateConsentExpiry(ctx context.Context, id uuid.UUID, consentExpiresAt time.Time) error
 	UpdateCodeAndExpiry(ctx context.Context, id uuid.UUID, code string, codeExpiresAt time.Time) error
 	MarkCodeUsed(ctx context.Context, id uuid.UUID) error
+	// Access logs methods
+	ListByDeveloperID(ctx context.Context, developerID uuid.UUID, limit, offset int, startDate, endDate *time.Time, status *int, clientID, userID, ipAddress string) ([]OAuth2Request, error)
+	CountByDeveloperID(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time, status *int, clientID, userID, ipAddress string) (int, error)
+	GetStatisticsByDeveloperID(ctx context.Context, developerID uuid.UUID, clientID string) (total, approved, pending, rejected int, err error)
 }

@@ -37,6 +37,11 @@ const router = createRouter({
                     component: () => import('@/views/OAuthClients.vue'),
                 },
                 {
+                    path: 'access-logs',
+                    name: 'AccessLogs',
+                    component: () => import('@/views/AccessLogs.vue'),
+                },
+                {
                     path: 'settings',
                     name: 'Settings',
                     component: () => import('@/views/Settings.vue'),
@@ -97,4 +102,3 @@ router.beforeEach(async (to, _from, next) => {
 });
 
 export default router;
-

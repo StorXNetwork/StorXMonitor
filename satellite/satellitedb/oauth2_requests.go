@@ -2,6 +2,7 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"storj.io/common/uuid"
@@ -98,6 +99,194 @@ func (repo *oauth2Requests) MarkCodeUsed(ctx context.Context, id uuid.UUID) erro
 	}
 	_, err := repo.db.Update_Oauth2Request_By_Id(ctx, dbx.Oauth2Request_Id(id[:]), fields)
 	return err
+}
+
+// ListByDeveloperID lists OAuth2 requests for a developer's clients with filters
+// If limit <= 0, all results are returned (no pagination)
+func (repo *oauth2Requests) ListByDeveloperID(ctx context.Context, developerID uuid.UUID, limit, offset int, startDate, endDate *time.Time, status *int, clientID, userID, ipAddress string) ([]console.OAuth2Request, error) {
+	query := `
+		SELECT oauth2_requests.id, oauth2_requests.client_id, oauth2_requests.user_id, 
+		       oauth2_requests.redirect_uri, oauth2_requests.scopes, oauth2_requests.status,
+		       oauth2_requests.created_at, oauth2_requests.consent_expires_at,
+		       oauth2_requests.code, oauth2_requests.code_expires_at,
+		       oauth2_requests.approved_scopes, oauth2_requests.rejected_scopes
+		FROM oauth2_requests
+		INNER JOIN developer_oauth_clients ON oauth2_requests.client_id = developer_oauth_clients.client_id
+		WHERE developer_oauth_clients.developer_id = $1
+	`
+	args := []interface{}{developerID[:]}
+	argIndex := 2
+
+	// Apply all filters in SQL for optimal performance
+	if clientID != "" {
+		query += fmt.Sprintf(" AND oauth2_requests.client_id = $%d", argIndex)
+		args = append(args, clientID)
+		argIndex++
+	}
+
+	if userID != "" {
+		// Convert userID string to UUID bytea for comparison
+		userUUID, err := uuid.FromString(userID)
+		if err == nil {
+			query += fmt.Sprintf(" AND oauth2_requests.user_id = $%d", argIndex)
+			args = append(args, userUUID[:])
+			argIndex++
+		}
+	}
+
+	if status != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.status = $%d", argIndex)
+		args = append(args, *status)
+		argIndex++
+	}
+
+	if startDate != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.created_at >= $%d", argIndex)
+		args = append(args, *startDate)
+		argIndex++
+	}
+
+	if endDate != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.created_at <= $%d", argIndex)
+		args = append(args, *endDate)
+		argIndex++
+	}
+
+	// // Note: IP address filtering not available without ip_address column
+	// // This is a placeholder for when the column is added
+	// if ipAddress != "" {
+	// 	// Will be implemented when ip_address column is added
+	// 	// query += fmt.Sprintf(" AND oauth2_requests.ip_address = $%d", argIndex)
+	// 	// args = append(args, ipAddress)
+	// 	// argIndex++
+	// }
+
+	// Order by timestamp descending (newest first) - done in SQL for performance
+	query += " ORDER BY oauth2_requests.created_at DESC"
+
+	// Apply pagination only if limit > 0 (allows fetching all results)
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIndex)
+		args = append(args, limit)
+		argIndex++
+		if offset > 0 {
+			query += fmt.Sprintf(" OFFSET $%d", argIndex)
+			args = append(args, offset)
+			argIndex++
+		}
+	}
+
+	rows, err := repo.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []console.OAuth2Request
+	for rows.Next() {
+		var req console.OAuth2Request
+		var idBytes, userIDBytes []byte
+		err := rows.Scan(
+			&idBytes, &req.ClientID, &userIDBytes, &req.RedirectURI,
+			&req.Scopes, &req.Status, &req.CreatedAt, &req.ConsentExpiresAt,
+			&req.Code, &req.CodeExpiresAt, &req.ApprovedScopes, &req.RejectedScopes,
+		)
+		if err != nil {
+			return nil, err
+		}
+		req.ID, _ = uuid.FromBytes(idBytes)
+		req.UserID, _ = uuid.FromBytes(userIDBytes)
+		results = append(results, req)
+	}
+
+	return results, rows.Err()
+}
+
+// CountByDeveloperID counts OAuth2 requests for a developer's clients with filters
+// All filter logic is applied in SQL for optimal performance
+func (repo *oauth2Requests) CountByDeveloperID(ctx context.Context, developerID uuid.UUID, startDate, endDate *time.Time, status *int, clientID, userID, ipAddress string) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM oauth2_requests
+		INNER JOIN developer_oauth_clients ON oauth2_requests.client_id = developer_oauth_clients.client_id
+		WHERE developer_oauth_clients.developer_id = $1
+	`
+	args := []interface{}{developerID[:]}
+	argIndex := 2
+
+	// Apply all filters in SQL for optimal performance
+	if clientID != "" {
+		query += fmt.Sprintf(" AND oauth2_requests.client_id = $%d", argIndex)
+		args = append(args, clientID)
+		argIndex++
+	}
+
+	if userID != "" {
+		// Convert userID string to UUID bytea for comparison
+		userUUID, err := uuid.FromString(userID)
+		if err == nil {
+			query += fmt.Sprintf(" AND oauth2_requests.user_id = $%d", argIndex)
+			args = append(args, userUUID[:])
+			argIndex++
+		}
+	}
+
+	if status != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.status = $%d", argIndex)
+		args = append(args, *status)
+		argIndex++
+	}
+
+	if startDate != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.created_at >= $%d", argIndex)
+		args = append(args, *startDate)
+		argIndex++
+	}
+
+	if endDate != nil {
+		query += fmt.Sprintf(" AND oauth2_requests.created_at <= $%d", argIndex)
+		args = append(args, *endDate)
+		argIndex++
+	}
+
+	// // Note: IP address filtering not available without ip_address column
+	// // This is a placeholder for when the column is added
+	// if ipAddress != "" {
+	// 	// Will be implemented when ip_address column is added
+	// 	// query += fmt.Sprintf(" AND oauth2_requests.ip_address = $%d", argIndex)
+	// 	// args = append(args, ipAddress)
+	// 	// argIndex++
+	// }
+
+	var count int
+	err := repo.db.QueryRowContext(ctx, query, args...).Scan(&count)
+	return count, err
+}
+
+// GetStatisticsByDeveloperID gets statistics for a developer's OAuth2 requests (no filters, all time)
+func (repo *oauth2Requests) GetStatisticsByDeveloperID(ctx context.Context, developerID uuid.UUID, clientID string) (total, approved, pending, rejected int, err error) {
+	// Note: Status values: 0=pending (console.OAuth2RequestStatusPending), 1=approved (console.OAuth2RequestStatusApproved), 2=rejected (console.OAuth2RequestStatusRejected)
+	query := `
+		SELECT 
+			COUNT(*) as total,
+			COUNT(*) FILTER (WHERE oauth2_requests.status = 1) as approved,
+			COUNT(*) FILTER (WHERE oauth2_requests.status = 0) as pending,
+			COUNT(*) FILTER (WHERE oauth2_requests.status = 2) as rejected
+		FROM oauth2_requests
+		INNER JOIN developer_oauth_clients ON oauth2_requests.client_id = developer_oauth_clients.client_id
+		WHERE developer_oauth_clients.developer_id = $1
+	`
+	args := []interface{}{developerID[:]}
+	argIndex := 2
+
+	if clientID != "" {
+		query += fmt.Sprintf(" AND oauth2_requests.client_id = $%d", argIndex)
+		args = append(args, clientID)
+		argIndex++
+	}
+
+	err = repo.db.QueryRowContext(ctx, query, args...).Scan(&total, &approved, &pending, &rejected)
+	return total, approved, pending, rejected, err
 }
 
 // Conversion helper

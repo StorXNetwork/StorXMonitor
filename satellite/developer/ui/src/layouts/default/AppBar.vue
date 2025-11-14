@@ -14,16 +14,12 @@
         />
 
         <!-- StorX Logo -->
-        <div class="logo-container">
+        <div class="logo-container" @click="router.push({ name: 'DashboardHome' })">
             <img
                 :src="logoPath"
                 alt="StorX"
                 class="logo-img"
             />
-            <div class="logo-text">
-                <span class="logo-text-stor">Stor</span>
-                <span class="logo-text-x">X</span>
-            </div>
         </div>
 
         <v-spacer />
@@ -139,6 +135,7 @@ async function handleLogout() {
     margin-left: 8px;
     cursor: pointer;
     user-select: none;
+    position: relative;
 }
 
 .logo-img {
@@ -153,6 +150,7 @@ async function handleLogout() {
     font-size: 20px;
     font-weight: 700;
     letter-spacing: -0.5px;
+    white-space: nowrap;
 }
 
 .logo-text-stor {

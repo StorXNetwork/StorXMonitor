@@ -1158,6 +1158,283 @@ func (s *Service) isCurrentDeveloperOAuthClientOwner(ctx context.Context, client
 	return client.DeveloperID == developerID.ID, nil
 }
 
+// AccessLogFilters represents filters for querying access logs
+type AccessLogFilters struct {
+	// Pagination (support both formats for compatibility)
+	Limit    int    // Old format: direct limit value
+	Offset   int    // Old format: direct offset value
+	Page     uint64 // New format: page number
+	FetchAll bool   // New format: fetch all flag
+
+	// Basic filters
+	StartDate *time.Time
+	EndDate   *time.Time
+	Status    *int // nil = all, console.OAuth2RequestStatusApproved = approved, console.OAuth2RequestStatusRejected = rejected
+	ClientID  string
+	IPAddress string // Kept for backend optimization but not shown in UI
+}
+
+// AccessLogEntry represents a single access log entry
+// Note: UserID and Code are excluded for security reasons
+type AccessLogEntry struct {
+	ID               uuid.UUID  `json:"id"`
+	ClientID         string     `json:"client_id"`
+	ClientName       string     `json:"client_name"`
+	Timestamp        time.Time  `json:"timestamp"`
+	Status           int        `json:"status"`        // console.OAuth2RequestStatusPending, console.OAuth2RequestStatusApproved, console.OAuth2RequestStatusRejected
+	AccessStatus     string     `json:"access_status"` // "pending", "approved", "rejected"
+	RedirectURI      string     `json:"redirect_uri"`
+	Scopes           []string   `json:"scopes"`
+	ApprovedScopes   []string   `json:"approved_scopes"`
+	RejectedScopes   []string   `json:"rejected_scopes"`
+	RejectionReason  string     `json:"rejection_reason,omitempty"`
+	ConsentExpiresAt *time.Time `json:"consent_expires_at,omitempty"`
+	CodeExpiresAt    *time.Time `json:"code_expires_at,omitempty"`
+}
+
+// AccessLogStatistics represents access log statistics
+type AccessLogStatistics struct {
+	Total       int     `json:"total"`
+	Approved    int     `json:"approved"`
+	Pending     int     `json:"pending"`
+	Rejected    int     `json:"rejected"`
+	SuccessRate float64 `json:"success_rate"` // percentage
+}
+
+// ListAccessLogs retrieves access logs for the current developer with filters
+func (s *Service) ListAccessLogs(ctx context.Context, filters AccessLogFilters) ([]AccessLogEntry, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "list access logs")
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all client IDs for this developer
+	clients, err := s.store.DeveloperOAuthClients().ListByDeveloperID(ctx, developerID.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(clients) == 0 {
+		return []AccessLogEntry{}, nil
+	}
+
+	// Build client ID filter if specific client requested
+	clientIDFilter := filters.ClientID
+	if clientIDFilter != "" {
+		// Verify the client belongs to this developer
+		clientExists := false
+		for _, client := range clients {
+			if client.ClientID == clientIDFilter {
+				clientExists = true
+				break
+			}
+		}
+		if !clientExists {
+			return nil, errs.New("client does not belong to developer")
+		}
+	}
+
+	// Build client name map for lookup
+	clientMap := make(map[string]string) // client_id -> client_name
+	for _, client := range clients {
+		clientMap[client.ClientID] = client.Name
+	}
+
+	// Query all logs in a single optimized SQL query (all filtering, sorting, and pagination done in SQL)
+	// If limit <= 0, all results are returned (no pagination)
+	logs, err := s.store.OAuth2Requests().ListByDeveloperID(
+		ctx,
+		developerID.ID,
+		filters.Limit, // Pass limit as-is (0 or negative = all results)
+		filters.Offset,
+		filters.StartDate,
+		filters.EndDate,
+		filters.Status,
+		clientIDFilter, // Pass clientID filter directly to SQL
+		"",             // UserID filter removed for security
+		filters.IPAddress,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to AccessLogEntry (all sorting and pagination already done in SQL)
+	allLogs := make([]AccessLogEntry, 0, len(logs))
+	for _, log := range logs {
+		accessStatus := "pending"
+		if log.Status == console.OAuth2RequestStatusApproved {
+			accessStatus = "approved"
+		} else if log.Status == console.OAuth2RequestStatusRejected {
+			accessStatus = "rejected"
+		}
+
+		scopes := []string{}
+		if log.Scopes != "" {
+			scopes = strings.Split(log.Scopes, ",")
+		}
+
+		approvedScopes := []string{}
+		if log.ApprovedScopes != "" {
+			approvedScopes = strings.Split(log.ApprovedScopes, ",")
+		}
+
+		rejectedScopes := []string{}
+		rejectionReason := ""
+		if log.RejectedScopes != "" {
+			rejectedScopes = strings.Split(log.RejectedScopes, ",")
+			// Use rejected_scopes as rejection reason if status is rejected
+			if log.Status == console.OAuth2RequestStatusRejected {
+				rejectionReason = log.RejectedScopes
+			}
+		}
+
+		// Convert time.Time to *time.Time for optional fields
+		var consentExpiresAt *time.Time
+		if !log.ConsentExpiresAt.IsZero() {
+			consentExpiresAt = &log.ConsentExpiresAt
+		}
+		var codeExpiresAt *time.Time
+		if !log.CodeExpiresAt.IsZero() {
+			codeExpiresAt = &log.CodeExpiresAt
+		}
+
+		allLogs = append(allLogs, AccessLogEntry{
+			ID:               log.ID,
+			ClientID:         log.ClientID,
+			ClientName:       clientMap[log.ClientID],
+			Timestamp:        log.CreatedAt,
+			Status:           log.Status,
+			AccessStatus:     accessStatus,
+			RedirectURI:      log.RedirectURI,
+			Scopes:           scopes,
+			ApprovedScopes:   approvedScopes,
+			RejectedScopes:   rejectedScopes,
+			RejectionReason:  rejectionReason,
+			ConsentExpiresAt: consentExpiresAt,
+			CodeExpiresAt:    codeExpiresAt,
+		})
+	}
+
+	return allLogs, nil
+}
+
+// CountAccessLogs counts access logs for the current developer with filters (for pagination)
+func (s *Service) CountAccessLogs(ctx context.Context, filters AccessLogFilters) (int, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "count access logs")
+	if err != nil {
+		return 0, err
+	}
+
+	// Get all client IDs for this developer
+	clients, err := s.store.DeveloperOAuthClients().ListByDeveloperID(ctx, developerID.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(clients) == 0 {
+		return 0, nil
+	}
+
+	// Build client ID filter if specific client requested
+	clientIDFilter := filters.ClientID
+	if clientIDFilter != "" {
+		// Verify the client belongs to this developer
+		clientExists := false
+		for _, client := range clients {
+			if client.ClientID == clientIDFilter {
+				clientExists = true
+				break
+			}
+		}
+		if !clientExists {
+			return 0, errs.New("client does not belong to developer")
+		}
+	}
+
+	// Count all logs with filters (all filtering done in SQL)
+	totalCount, err := s.store.OAuth2Requests().CountByDeveloperID(
+		ctx,
+		developerID.ID,
+		filters.StartDate,
+		filters.EndDate,
+		filters.Status,
+		clientIDFilter,
+		"", // UserID filter removed for security
+		filters.IPAddress,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	return totalCount, nil
+}
+
+// GetAccessLogStatistics retrieves access log statistics for the current developer
+// Returns total, approved, pending, and rejected counts (no filters applied)
+func (s *Service) GetAccessLogStatistics(ctx context.Context) (*AccessLogStatistics, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	developerID, err := s.getDeveloperAndAuditLog(ctx, "get access log statistics")
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all client IDs for this developer
+	clients, err := s.store.DeveloperOAuthClients().ListByDeveloperID(ctx, developerID.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(clients) == 0 {
+		return &AccessLogStatistics{
+			Total:       0,
+			Approved:    0,
+			Pending:     0,
+			Rejected:    0,
+			SuccessRate: 0,
+		}, nil
+	}
+
+	// Aggregate statistics across all client IDs (no filters)
+	total := 0
+	approved := 0
+	pending := 0
+	rejected := 0
+
+	for _, client := range clients {
+		clientTotal, clientApproved, clientPending, clientRejected, err := s.store.OAuth2Requests().GetStatisticsByDeveloperID(
+			ctx,
+			developerID.ID,
+			client.ClientID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		total += clientTotal
+		approved += clientApproved
+		pending += clientPending
+		rejected += clientRejected
+	}
+
+	successRate := 0.0
+	if total > 0 {
+		successRate = float64(approved) / float64(total) * 100.0
+	}
+
+	return &AccessLogStatistics{
+		Total:       total,
+		Approved:    approved,
+		Pending:     pending,
+		Rejected:    rejected,
+		SuccessRate: successRate,
+	}, nil
+}
+
 // CreateDeveloperAdmin creates a new developer (admin version - without registration token).
 // This is used by admin API to create developers directly.
 func (s *Service) CreateDeveloperAdmin(ctx context.Context, developer console.CreateDeveloper) (u *console.Developer, err error) {

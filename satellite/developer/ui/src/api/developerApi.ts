@@ -38,6 +38,39 @@ export interface OAuthClient {
     updatedAt: string;
 }
 
+export interface AccessLogFilters {
+    startDate?: string;
+    endDate?: string;
+    status?: number; // 0=pending, 1=approved, 2=rejected
+    clientId?: string;
+    limit?: number;
+    page?: number;
+}
+
+export interface AccessLogEntry {
+    id: string;
+    clientId: string;
+    clientName: string;
+    timestamp: string;
+    status: number;
+    accessStatus: string; // "pending", "approved", "rejected"
+    redirectUri: string;
+    scopes: string[];
+    approvedScopes: string[];
+    rejectedScopes: string[];
+    rejectionReason?: string;
+    consentExpiresAt?: string;
+    codeExpiresAt?: string;
+}
+
+export interface AccessLogStatistics {
+    total: number;
+    approved: number;
+    pending: number;
+    rejected: number;
+    successRate: number; // percentage
+}
+
 class DeveloperAPI {
     /**
      * Verify JWT token from email link
@@ -583,6 +616,169 @@ class DeveloperAPI {
             createdAt: data.created_at || data.createdAt || data.CreatedAt,
             updatedAt: data.updated_at || data.updatedAt || data.UpdatedAt,
         };
+    }
+
+    /**
+     * List access logs with filters
+     * Returns logs with pagination metadata
+     */
+    async listAccessLogs(filters: AccessLogFilters = {}): Promise<{ logs: AccessLogEntry[]; totalCount: number; pageCount: number; currentPage: number; hasMore: boolean; limit: number; offset: number }> {
+        const params = new URLSearchParams();
+        if (filters.startDate) params.append('start_date', filters.startDate);
+        if (filters.endDate) params.append('end_date', filters.endDate);
+        if (filters.status !== undefined) params.append('status', filters.status.toString());
+        if (filters.clientId) params.append('client_id', filters.clientId);
+        if (filters.limit !== undefined) params.append('limit', filters.limit.toString());
+        if (filters.page !== undefined) params.append('page', filters.page.toString());
+
+        const response = await fetch(`${API_BASE}/access-logs?${params.toString()}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to fetch access logs';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        
+        // Map backend response (PascalCase/snake_case) to frontend format (camelCase)
+        const mapLogEntry = (entry: any): AccessLogEntry => {
+            // Helper to parse comma-separated string to array
+            const parseScopes = (scopes: any): string[] => {
+                if (!scopes) return [];
+                if (Array.isArray(scopes)) return scopes;
+                if (typeof scopes === 'string') {
+                    return scopes.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                }
+                return [];
+            };
+
+            // Helper to convert UUID to string
+            const uuidToString = (uuid: any): string => {
+                if (!uuid) return '';
+                if (typeof uuid === 'string') return uuid;
+                if (typeof uuid === 'object' && uuid.toString) return uuid.toString();
+                return String(uuid);
+            };
+
+            return {
+                id: uuidToString(entry.id || entry.ID || ''),
+                clientId: entry.client_id || entry.clientId || entry.ClientID || '',
+                clientName: entry.client_name || entry.clientName || entry.ClientName || 'N/A',
+                timestamp: entry.timestamp || entry.Timestamp || entry.created_at || entry.CreatedAt || '',
+                status: entry.status || entry.Status || 0,
+                accessStatus: entry.access_status || entry.accessStatus || entry.AccessStatus || 'pending',
+                redirectUri: entry.redirect_uri || entry.redirectUri || entry.RedirectURI || '',
+                scopes: parseScopes(entry.scopes || entry.Scopes),
+                approvedScopes: parseScopes(entry.approved_scopes || entry.approvedScopes || entry.ApprovedScopes),
+                rejectedScopes: parseScopes(entry.rejected_scopes || entry.rejectedScopes || entry.RejectedScopes),
+                rejectionReason: entry.rejection_reason || entry.rejectionReason || entry.RejectionReason || '',
+                consentExpiresAt: entry.consent_expires_at || entry.consentExpiresAt || entry.ConsentExpiresAt || '',
+                codeExpiresAt: entry.code_expires_at || entry.codeExpiresAt || entry.CodeExpiresAt || '',
+            };
+        };
+        
+        // Handle both old format (array) and new format (object with logs, totalCount, pageCount, etc.)
+        if (Array.isArray(data)) {
+            return {
+                logs: data.map(mapLogEntry),
+                totalCount: data.length,
+                pageCount: 1,
+                currentPage: 1,
+                hasMore: false,
+                limit: filters.limit || 0,
+                offset: 0,
+            };
+        }
+        // New format: object with logs, totalCount, pageCount, currentPage, hasMore, limit, offset
+        return {
+            logs: (data.logs || []).map(mapLogEntry),
+            totalCount: data.totalCount || data.total_count || 0,
+            pageCount: data.pageCount || data.page_count || 1,
+            currentPage: data.currentPage || data.current_page || 1,
+            hasMore: data.hasMore || data.has_more || false,
+            limit: data.limit || 0,
+            offset: data.offset || 0,
+        };
+    }
+
+    /**
+     * Get access log statistics (no filters, all time statistics)
+     */
+    async getAccessLogStatistics(): Promise<AccessLogStatistics> {
+        const response = await fetch(`${API_BASE}/access-logs/statistics`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to fetch access log statistics';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        // Map snake_case to camelCase
+        return {
+            total: data.total || 0,
+            approved: data.approved || 0,
+            pending: data.pending || 0,
+            rejected: data.rejected || 0,
+            successRate: data.success_rate || data.successRate || 0,
+        };
+    }
+
+    /**
+     * Export access logs as CSV
+     */
+    async exportAccessLogs(filters: AccessLogFilters = {}): Promise<Blob> {
+        const params = new URLSearchParams();
+        if (filters.startDate) params.append('start_date', filters.startDate);
+        if (filters.endDate) params.append('end_date', filters.endDate);
+        if (filters.status !== undefined) params.append('status', filters.status.toString());
+        if (filters.clientId) params.append('client_id', filters.clientId);
+        if (filters.limit !== undefined) params.append('limit', filters.limit.toString());
+        if (filters.page !== undefined) params.append('page', filters.page.toString());
+
+        const response = await fetch(`${API_BASE}/access-logs/export?${params.toString()}`, {
+            method: 'GET',
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = 'Failed to export access logs';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error || errorMessage;
+            } catch {
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+
+        return await response.blob();
     }
 }
 

@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -975,4 +976,260 @@ func (a *DeveloperAuth) ResetPasswordAfterFirstLogin(w http.ResponseWriter, r *h
 	json.NewEncoder(w).Encode(struct {
 		Success bool `json:"success"`
 	}{Success: true})
+}
+
+// ListAccessLogs handles GET /api/v0/developer/auth/access-logs
+// parseAccessLogFilters parses and validates all query parameters for access log listing
+func (a *DeveloperAuth) parseAccessLogFilters(r *http.Request) (*AccessLogFilters, error) {
+	query := r.URL.Query()
+	filters := &AccessLogFilters{}
+
+	// Parse pagination - use local variables first
+	var limitValue uint64
+	var pageValue uint64
+	var fetchAll bool
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		limitParam = "50" // Default limit
+	}
+
+	if limitParam == "-1" || limitParam == "0" {
+		fetchAll = true
+	} else {
+		var err error
+		limitValue, err = strconv.ParseUint(limitParam, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("parameter 'limit' must be a valid number: %w", err)
+		}
+	}
+
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		pageParam = "1"
+	}
+	var err error
+	pageValue, err = strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("parameter 'page' must be a valid number: %w", err)
+	}
+
+	// Store in struct fields
+	filters.FetchAll = fetchAll
+	if !fetchAll {
+		filters.Limit = int(limitValue)
+		filters.Page = pageValue
+	} else {
+		filters.Limit = 0
+		filters.Page = 1
+	}
+
+	// Parse date range filters
+	if startDateStr := query.Get("start_date"); startDateStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, startDateStr); err == nil {
+			filters.StartDate = &parsed
+		} else {
+			return nil, fmt.Errorf("invalid 'start_date' format: %w", err)
+		}
+	}
+	if endDateStr := query.Get("end_date"); endDateStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, endDateStr); err == nil {
+			filters.EndDate = &parsed
+		} else {
+			return nil, fmt.Errorf("invalid 'end_date' format: %w", err)
+		}
+	}
+
+	// Parse status filter
+	if statusStr := query.Get("status"); statusStr != "" {
+		if parsed, err := strconv.Atoi(statusStr); err == nil {
+			filters.Status = &parsed
+		} else {
+			return nil, fmt.Errorf("parameter 'status' must be a valid number: %w", err)
+		}
+	}
+
+	filters.ClientID = query.Get("client_id")
+	filters.IPAddress = query.Get("ip_address") // Kept for backend optimization
+	// UserID filter removed for security reasons
+
+	return filters, nil
+}
+
+func (a *DeveloperAuth) ListAccessLogs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	// Parse all filters from query parameters
+	filters, err := a.parseAccessLogFilters(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, fmt.Errorf("bad request: %w", err))
+		return
+	}
+
+	// Calculate pagination parameters
+	var actualLimit, actualOffset int
+	if filters.FetchAll {
+		// For "All", pass 0 as limit to skip LIMIT clause in SQL query
+		actualLimit = 0
+		actualOffset = 0
+	} else {
+		actualLimit = filters.Limit
+		actualOffset = int((filters.Page - 1) * uint64(filters.Limit))
+	}
+
+	// Convert to service layer format
+	serviceFilters := AccessLogFilters{
+		StartDate: filters.StartDate,
+		EndDate:   filters.EndDate,
+		Status:    filters.Status,
+		ClientID:  filters.ClientID,
+		IPAddress: filters.IPAddress,
+		Limit:     actualLimit,
+		Offset:    actualOffset,
+	}
+
+	logs, err := a.developerService.ListAccessLogs(ctx, serviceFilters)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Get total count for pagination (with same filters but no limit/offset)
+	countFilters := AccessLogFilters{
+		StartDate: filters.StartDate,
+		EndDate:   filters.EndDate,
+		Status:    filters.Status,
+		ClientID:  filters.ClientID,
+		IPAddress: filters.IPAddress,
+		Limit:     0,
+		Offset:    0,
+	}
+	totalCount, err := a.developerService.CountAccessLogs(ctx, countFilters)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Calculate pagination metadata
+	var totalPages uint64
+	finalTotalCount := uint64(totalCount)
+
+	if filters.FetchAll {
+		totalPages = 1
+	} else {
+		limitValue := uint64(filters.Limit)
+		if limitValue > 0 {
+			totalPages = (finalTotalCount + limitValue - 1) / limitValue
+		} else {
+			totalPages = 1
+		}
+	}
+
+	// Return response matching user listing format
+	response := struct {
+		Logs        []AccessLogEntry `json:"logs"`
+		PageCount   uint             `json:"pageCount"`
+		CurrentPage uint             `json:"currentPage"`
+		TotalCount  uint64           `json:"totalCount"`
+		HasMore     bool             `json:"hasMore"`
+		Limit       uint             `json:"limit"`
+		Offset      uint64           `json:"offset"`
+	}{
+		Logs:        logs,
+		PageCount:   uint(totalPages),
+		CurrentPage: uint(filters.Page),
+		TotalCount:  finalTotalCount,
+		HasMore:     !filters.FetchAll && filters.Page < totalPages,
+		Limit:       uint(actualLimit),
+		Offset:      uint64(actualOffset),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetAccessLogStatistics handles GET /api/v0/developer/auth/access-logs/statistics
+// Returns total, approved, pending, and rejected counts (no filters, all time statistics)
+func (a *DeveloperAuth) GetAccessLogStatistics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	stats, err := a.developerService.GetAccessLogStatistics(ctx)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// ExportAccessLogs handles GET /api/v0/developer/auth/access-logs/export
+func (a *DeveloperAuth) ExportAccessLogs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	// Parse all filters from query parameters (same as ListAccessLogs - includes pagination)
+	filters, err := a.parseAccessLogFilters(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, fmt.Errorf("bad request: %w", err))
+		return
+	}
+
+	// Calculate pagination parameters (same logic as ListAccessLogs)
+	var actualLimit, actualOffset int
+	if filters.FetchAll {
+		actualLimit = 0 // 0 = no limit, get all results
+		actualOffset = 0
+	} else {
+		actualLimit = filters.Limit
+		if actualLimit <= 0 {
+			actualLimit = 50 // Default limit
+		}
+		actualOffset = (int(filters.Page) - 1) * actualLimit
+		if actualOffset < 0 {
+			actualOffset = 0
+		}
+	}
+
+	// Build service filters with pagination
+	serviceFilters := AccessLogFilters{
+		StartDate: filters.StartDate,
+		EndDate:   filters.EndDate,
+		Status:    filters.Status,
+		ClientID:  filters.ClientID,
+		IPAddress: filters.IPAddress,
+		Limit:     actualLimit,
+		Offset:    actualOffset,
+	}
+
+	logs, err := a.developerService.ListAccessLogs(ctx, serviceFilters)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	// Generate CSV
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=access-logs-%s.csv", time.Now().Format("2006-01-02")))
+
+	// Write CSV header
+	w.Write([]byte("Timestamp,Client ID,Client Name,Status,Redirect URI,Scopes,Approved Scopes,Rejected Scopes,Rejection Reason\n"))
+
+	// Write CSV rows
+	for _, log := range logs {
+		line := fmt.Sprintf("%s,%s,%s,%s,%s,\"%s\",\"%s\",\"%s\",\"%s\"\n",
+			log.Timestamp.Format(time.RFC3339),
+			log.ClientID,
+			log.ClientName,
+			log.AccessStatus,
+			log.RedirectURI,
+			strings.Join(log.Scopes, ","),
+			strings.Join(log.ApprovedScopes, ","),
+			strings.Join(log.RejectedScopes, ","),
+			log.RejectionReason,
+		)
+		w.Write([]byte(line))
+	}
 }

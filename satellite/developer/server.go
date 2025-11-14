@@ -182,6 +182,10 @@ func NewServer(
 		developerAuthRouter.Handle("/oauth2/clients/{id}/redirect-uris", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.AddRedirectURI))).Methods(http.MethodPost, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients/{id}/redirect-uris", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateRedirectURI))).Methods(http.MethodPut, http.MethodOptions)
 		developerAuthRouter.Handle("/oauth2/clients/{id}/redirect-uris", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.DeleteRedirectURI))).Methods(http.MethodDelete, http.MethodOptions)
+		// Access logs endpoints
+		developerAuthRouter.Handle("/access-logs", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.ListAccessLogs))).Methods(http.MethodGet, http.MethodOptions)
+		developerAuthRouter.Handle("/access-logs/statistics", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.GetAccessLogStatistics))).Methods(http.MethodGet, http.MethodOptions)
+		developerAuthRouter.Handle("/access-logs/export", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.ExportAccessLogs))).Methods(http.MethodGet, http.MethodOptions)
 	}
 
 	// Static assets handler
