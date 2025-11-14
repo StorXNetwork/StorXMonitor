@@ -3,7 +3,7 @@ name: Build Developer UI
 on:
   push:
     branches:
-      - main
+      - developer_console
   workflow_dispatch:
 
 env:
