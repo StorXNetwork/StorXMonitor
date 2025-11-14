@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/pushnotifications"
 )
 
 // DB contains access to different satellite databases.
@@ -47,6 +48,12 @@ type DB interface {
 
 	// EmailSubscriptions is a getter for EmailSubscriptions repository.
 	EmailSubscriptions() EmailSubscriptions
+
+	// FCMTokens is a getter for FCMTokens repository.
+	FCMTokens() pushnotifications.DB
+
+	// PushNotifications is a getter for PushNotifications repository.
+	PushNotifications() pushnotifications.PushNotificationDB
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

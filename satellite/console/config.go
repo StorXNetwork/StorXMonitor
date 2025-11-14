@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console/pushnotifications"
 )
 
 // Config keeps track of core console service configuration parameters.
@@ -37,6 +38,7 @@ type Config struct {
 	Session                         SessionConfig
 	AccountFreeze                   AccountFreezeConfig
 	EmailApiKey                     string `help:"api key for email" default:""`
+	PushNotifications               pushnotifications.Config
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

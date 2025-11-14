@@ -466,6 +466,17 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	newsletterRouter.Use(server.withCORS)
 	newsletterRouter.Handle("/{action}", http.HandlerFunc(newsletterController.HandleSubscription)).Methods(http.MethodPost, http.MethodOptions)
 
+	// Push Notifications API
+	pushNotificationsController := consoleapi.NewPushNotifications(logger, service)
+	pushNotificationsRouter := router.PathPrefix("/api/v0/fcm-token").Subrouter()
+	pushNotificationsRouter.Use(server.withCORS)
+	pushNotificationsRouter.Use(server.withAuth)
+
+	pushNotificationsRouter.Handle("", http.HandlerFunc(pushNotificationsController.RegisterToken)).Methods(http.MethodPost, http.MethodOptions)
+	pushNotificationsRouter.Handle("/{tokenId}", http.HandlerFunc(pushNotificationsController.UpdateToken)).Methods(http.MethodPut, http.MethodOptions)
+	pushNotificationsRouter.Handle("", http.HandlerFunc(pushNotificationsController.GetTokens)).Methods(http.MethodGet, http.MethodOptions)
+	pushNotificationsRouter.Handle("/{tokenId}", http.HandlerFunc(pushNotificationsController.DeleteToken)).Methods(http.MethodDelete, http.MethodOptions)
+
 	if config.DeveloperAPIEnabled {
 		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,
 			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,

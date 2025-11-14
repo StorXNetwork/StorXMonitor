@@ -12,6 +12,7 @@ import (
 	"storj.io/common/lrucache"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -114,6 +115,16 @@ func (db *ConsoleDB) OAuth2Requests() console.OAuth2Requests {
 // EmailSubscriptions is a getter for EmailSubscriptions repository.
 func (db *ConsoleDB) EmailSubscriptions() console.EmailSubscriptions {
 	return &emailSubscriptions{db: db.db}
+}
+
+// FCMTokens is a getter for FCMTokens repository.
+func (db *ConsoleDB) FCMTokens() pushnotifications.DB {
+	return &fcmTokens{db: db.db}
+}
+
+// PushNotifications is a getter for PushNotifications repository.
+func (db *ConsoleDB) PushNotifications() pushnotifications.PushNotificationDB {
+	return &pushNotifications{db: db.db}
 }
 
 // WithTx is a method for executing and retrying transaction.
