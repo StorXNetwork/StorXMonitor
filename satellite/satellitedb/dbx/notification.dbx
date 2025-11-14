@@ -1,0 +1,151 @@
+//--- push notifications ---//
+
+// fcm_tokens contains FCM tokens for push notifications.
+model fcm_tokens (
+    key id
+
+    index (
+        name fcm_tokens_user_id_index
+        fields user_id
+    )
+
+    index (
+        name fcm_tokens_token_index
+        fields token
+    )
+
+    index (
+        name fcm_tokens_user_active_index
+        fields user_id is_active
+    )
+
+    // id is a UUID for the FCM token.
+    field id blob
+    // user_id refers to user.id column.
+    field user_id blob
+    // token is the FCM registration token.
+    field token text
+    // device_id is an optional device identifier.
+    field device_id text ( nullable, updatable )
+    // device_type indicates the device type: 'android', 'ios', 'web'.
+    field device_type text ( nullable, updatable )
+    // app_version is the application version.
+    field app_version text ( nullable, updatable )
+    // os_version is the operating system version, e.g. 'Windows 10', 'Android 13', 'iOS 16.0'.
+    field os_version text ( nullable, updatable )
+    // device_model is the device model, e.g. 'iPhone 14', 'Samsung Galaxy S21'.
+    field device_model text ( nullable, updatable )
+    // browser_name is the browser name for web devices, e.g. 'Chrome', 'Safari', 'Firefox'.
+    field browser_name text ( nullable, updatable )
+    // user_agent is the full user agent string.
+    field user_agent text ( nullable, updatable )
+    // ip_address is the client IP address (from server).
+    field ip_address text ( nullable, updatable )
+    // created_at indicates when the token was created.
+    field created_at timestamp ( autoinsert )
+    // updated_at indicates when the token was last updated.
+    field updated_at timestamp ( updatable )
+    // last_used_at indicates when the token was last used.
+    field last_used_at timestamp ( nullable, updatable )
+    // is_active indicates whether the token is active.
+    field is_active bool ( updatable, default true )
+)
+
+create fcm_tokens ( )
+update fcm_tokens ( where fcm_tokens.id = ? )
+delete fcm_tokens ( where fcm_tokens.id = ? )
+delete fcm_tokens ( where fcm_tokens.user_id = ? )
+
+read one (
+    select fcm_tokens
+    where fcm_tokens.id = ?
+)
+
+read one (
+    select fcm_tokens
+    where fcm_tokens.token = ?
+)
+
+read all (
+    select fcm_tokens
+    where fcm_tokens.user_id = ?
+)
+
+read all (
+    select fcm_tokens
+    where fcm_tokens.user_id = ?
+    where fcm_tokens.is_active = true
+)
+
+// push_notifications contains information about sent push notifications for tracking.
+model push_notifications (
+    key id
+
+    index (
+        name push_notifications_user_id_index
+        fields user_id
+    )
+
+    index (
+        name push_notifications_status_index
+        fields status
+    )
+
+    index (
+        name push_notifications_created_at_index
+        fields created_at
+    )
+
+    // id is a UUID for the push notification.
+    field id blob
+    // user_id refers to user.id column.
+    field user_id blob
+    // token_id refers to fcm_tokens.id column.
+    field token_id blob ( nullable )
+    // title is the notification title.
+    field title text
+    // body is the notification body/message.
+    field body text
+    // data contains additional JSON data for the notification.
+    field data json ( nullable, updatable )
+    // status indicates the notification status: 'pending', 'sent', 'failed'.
+    field status text
+    // error_message contains error details if the notification failed.
+    field error_message text ( nullable, updatable )
+    // retry_count is the number of retry attempts for this notification.
+    field retry_count int ( updatable, default 0 )
+    // sent_at indicates when the notification was sent.
+    field sent_at timestamp ( nullable, updatable )
+    // created_at indicates when the notification was created.
+    field created_at timestamp ( autoinsert )
+)
+
+create push_notifications ( )
+update push_notifications ( where push_notifications.id = ? )
+delete push_notifications ( where push_notifications.id = ? )
+
+read one (
+    select push_notifications
+    where push_notifications.id = ?
+)
+
+read all (
+    select push_notifications
+    where push_notifications.user_id = ?
+)
+
+read all (
+    select push_notifications
+    where push_notifications.status = ?
+)
+
+read limitoffset (
+    select push_notifications
+    where push_notifications.user_id = ?
+)
+
+read limitoffset (
+    select push_notifications
+    where push_notifications.status = ?
+)
+

@@ -493,6 +493,24 @@ CREATE TABLE email_subscriptions (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( email )
 );
+CREATE TABLE fcm_tokens (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	token text NOT NULL,
+	device_id text,
+	device_type text,
+	app_version text,
+	os_version text,
+	device_model text,
+	browser_name text,
+	user_agent text,
+	ip_address text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	last_used_at timestamp with time zone,
+	is_active boolean NOT NULL DEFAULT true,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -699,6 +717,20 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_settled bigint NOT NULL,
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
+);
+CREATE TABLE push_notifications (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	token_id bytea,
+	title text NOT NULL,
+	body text NOT NULL,
+	data jsonb,
+	status text NOT NULL,
+	error_message text,
+	retry_count integer NOT NULL DEFAULT 0,
+	sent_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -1079,6 +1111,9 @@ CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_talli
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
+CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
+CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
+CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -1096,6 +1131,9 @@ CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
+CREATE INDEX push_notifications_user_id_index ON push_notifications ( user_id ) ;
+CREATE INDEX push_notifications_status_index ON push_notifications ( status ) ;
+CREATE INDEX push_notifications_created_at_index ON push_notifications ( created_at ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
@@ -1393,6 +1431,24 @@ CREATE TABLE email_subscriptions (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( email )
 );
+CREATE TABLE fcm_tokens (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	token text NOT NULL,
+	device_id text,
+	device_type text,
+	app_version text,
+	os_version text,
+	device_model text,
+	browser_name text,
+	user_agent text,
+	ip_address text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	last_used_at timestamp with time zone,
+	is_active boolean NOT NULL DEFAULT true,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -1599,6 +1655,20 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_settled bigint NOT NULL,
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
+);
+CREATE TABLE push_notifications (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	token_id bytea,
+	title text NOT NULL,
+	body text NOT NULL,
+	data jsonb,
+	status text NOT NULL,
+	error_message text,
+	retry_count integer NOT NULL DEFAULT 0,
+	sent_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -1979,6 +2049,9 @@ CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_talli
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
+CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
+CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
+CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -1996,6 +2069,9 @@ CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
+CREATE INDEX push_notifications_user_id_index ON push_notifications ( user_id ) ;
+CREATE INDEX push_notifications_status_index ON push_notifications ( status ) ;
+CREATE INDEX push_notifications_created_at_index ON push_notifications ( created_at ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
@@ -5033,6 +5109,455 @@ func (f EmailSubscription_UpdatedAt_Field) value() interface{} {
 }
 
 func (EmailSubscription_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type FcmTokens struct {
+	Id          []byte
+	UserId      []byte
+	Token       string
+	DeviceId    *string
+	DeviceType  *string
+	AppVersion  *string
+	OsVersion   *string
+	DeviceModel *string
+	BrowserName *string
+	UserAgent   *string
+	IpAddress   *string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	LastUsedAt  *time.Time
+	IsActive    bool
+}
+
+func (FcmTokens) _Table() string { return "fcm_tokens" }
+
+type FcmTokens_Create_Fields struct {
+	DeviceId    FcmTokens_DeviceId_Field
+	DeviceType  FcmTokens_DeviceType_Field
+	AppVersion  FcmTokens_AppVersion_Field
+	OsVersion   FcmTokens_OsVersion_Field
+	DeviceModel FcmTokens_DeviceModel_Field
+	BrowserName FcmTokens_BrowserName_Field
+	UserAgent   FcmTokens_UserAgent_Field
+	IpAddress   FcmTokens_IpAddress_Field
+	LastUsedAt  FcmTokens_LastUsedAt_Field
+	IsActive    FcmTokens_IsActive_Field
+}
+
+type FcmTokens_Update_Fields struct {
+	DeviceId    FcmTokens_DeviceId_Field
+	DeviceType  FcmTokens_DeviceType_Field
+	AppVersion  FcmTokens_AppVersion_Field
+	OsVersion   FcmTokens_OsVersion_Field
+	DeviceModel FcmTokens_DeviceModel_Field
+	BrowserName FcmTokens_BrowserName_Field
+	UserAgent   FcmTokens_UserAgent_Field
+	IpAddress   FcmTokens_IpAddress_Field
+	UpdatedAt   FcmTokens_UpdatedAt_Field
+	LastUsedAt  FcmTokens_LastUsedAt_Field
+	IsActive    FcmTokens_IsActive_Field
+}
+
+type FcmTokens_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func FcmTokens_Id(v []byte) FcmTokens_Id_Field {
+	return FcmTokens_Id_Field{_set: true, _value: v}
+}
+
+func (f FcmTokens_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_Id_Field) _Column() string { return "id" }
+
+type FcmTokens_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func FcmTokens_UserId(v []byte) FcmTokens_UserId_Field {
+	return FcmTokens_UserId_Field{_set: true, _value: v}
+}
+
+func (f FcmTokens_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_UserId_Field) _Column() string { return "user_id" }
+
+type FcmTokens_Token_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func FcmTokens_Token(v string) FcmTokens_Token_Field {
+	return FcmTokens_Token_Field{_set: true, _value: v}
+}
+
+func (f FcmTokens_Token_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_Token_Field) _Column() string { return "token" }
+
+type FcmTokens_DeviceId_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func FcmTokens_DeviceId(v string) FcmTokens_DeviceId_Field {
+	return FcmTokens_DeviceId_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_DeviceId_Raw(v *string) FcmTokens_DeviceId_Field {
+	if v == nil {
+		return FcmTokens_DeviceId_Null()
+	}
+	return FcmTokens_DeviceId(*v)
+}
+
+func FcmTokens_DeviceId_Null() FcmTokens_DeviceId_Field {
+	return FcmTokens_DeviceId_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_DeviceId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_DeviceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_DeviceId_Field) _Column() string { return "device_id" }
+
+type FcmTokens_DeviceType_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func FcmTokens_DeviceType(v string) FcmTokens_DeviceType_Field {
+	return FcmTokens_DeviceType_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_DeviceType_Raw(v *string) FcmTokens_DeviceType_Field {
+	if v == nil {
+		return FcmTokens_DeviceType_Null()
+	}
+	return FcmTokens_DeviceType(*v)
+}
+
+func FcmTokens_DeviceType_Null() FcmTokens_DeviceType_Field {
+	return FcmTokens_DeviceType_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_DeviceType_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_DeviceType_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_DeviceType_Field) _Column() string { return "device_type" }
+
+type FcmTokens_AppVersion_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func FcmTokens_AppVersion(v string) FcmTokens_AppVersion_Field {
+	return FcmTokens_AppVersion_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_AppVersion_Raw(v *string) FcmTokens_AppVersion_Field {
+	if v == nil {
+		return FcmTokens_AppVersion_Null()
+	}
+	return FcmTokens_AppVersion(*v)
+}
+
+func FcmTokens_AppVersion_Null() FcmTokens_AppVersion_Field {
+	return FcmTokens_AppVersion_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_AppVersion_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_AppVersion_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_AppVersion_Field) _Column() string { return "app_version" }
+
+type FcmTokens_OsVersion_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func FcmTokens_OsVersion(v string) FcmTokens_OsVersion_Field {
+	return FcmTokens_OsVersion_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_OsVersion_Raw(v *string) FcmTokens_OsVersion_Field {
+	if v == nil {
+		return FcmTokens_OsVersion_Null()
+	}
+	return FcmTokens_OsVersion(*v)
+}
+
+func FcmTokens_OsVersion_Null() FcmTokens_OsVersion_Field {
+	return FcmTokens_OsVersion_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_OsVersion_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_OsVersion_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_OsVersion_Field) _Column() string { return "os_version" }
+
+type FcmTokens_DeviceModel_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func FcmTokens_DeviceModel(v string) FcmTokens_DeviceModel_Field {
+	return FcmTokens_DeviceModel_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_DeviceModel_Raw(v *string) FcmTokens_DeviceModel_Field {
+	if v == nil {
+		return FcmTokens_DeviceModel_Null()
+	}
+	return FcmTokens_DeviceModel(*v)
+}
+
+func FcmTokens_DeviceModel_Null() FcmTokens_DeviceModel_Field {
+	return FcmTokens_DeviceModel_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_DeviceModel_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_DeviceModel_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_DeviceModel_Field) _Column() string { return "device_model" }
+
+type FcmTokens_BrowserName_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func FcmTokens_BrowserName(v string) FcmTokens_BrowserName_Field {
+	return FcmTokens_BrowserName_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_BrowserName_Raw(v *string) FcmTokens_BrowserName_Field {
+	if v == nil {
+		return FcmTokens_BrowserName_Null()
+	}
+	return FcmTokens_BrowserName(*v)
+}
+
+func FcmTokens_BrowserName_Null() FcmTokens_BrowserName_Field {
+	return FcmTokens_BrowserName_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_BrowserName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_BrowserName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_BrowserName_Field) _Column() string { return "browser_name" }
+
+type FcmTokens_UserAgent_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func FcmTokens_UserAgent(v string) FcmTokens_UserAgent_Field {
+	return FcmTokens_UserAgent_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_UserAgent_Raw(v *string) FcmTokens_UserAgent_Field {
+	if v == nil {
+		return FcmTokens_UserAgent_Null()
+	}
+	return FcmTokens_UserAgent(*v)
+}
+
+func FcmTokens_UserAgent_Null() FcmTokens_UserAgent_Field {
+	return FcmTokens_UserAgent_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_UserAgent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_UserAgent_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_UserAgent_Field) _Column() string { return "user_agent" }
+
+type FcmTokens_IpAddress_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func FcmTokens_IpAddress(v string) FcmTokens_IpAddress_Field {
+	return FcmTokens_IpAddress_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_IpAddress_Raw(v *string) FcmTokens_IpAddress_Field {
+	if v == nil {
+		return FcmTokens_IpAddress_Null()
+	}
+	return FcmTokens_IpAddress(*v)
+}
+
+func FcmTokens_IpAddress_Null() FcmTokens_IpAddress_Field {
+	return FcmTokens_IpAddress_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_IpAddress_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_IpAddress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_IpAddress_Field) _Column() string { return "ip_address" }
+
+type FcmTokens_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func FcmTokens_CreatedAt(v time.Time) FcmTokens_CreatedAt_Field {
+	return FcmTokens_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f FcmTokens_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_CreatedAt_Field) _Column() string { return "created_at" }
+
+type FcmTokens_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func FcmTokens_UpdatedAt(v time.Time) FcmTokens_UpdatedAt_Field {
+	return FcmTokens_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f FcmTokens_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type FcmTokens_LastUsedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func FcmTokens_LastUsedAt(v time.Time) FcmTokens_LastUsedAt_Field {
+	return FcmTokens_LastUsedAt_Field{_set: true, _value: &v}
+}
+
+func FcmTokens_LastUsedAt_Raw(v *time.Time) FcmTokens_LastUsedAt_Field {
+	if v == nil {
+		return FcmTokens_LastUsedAt_Null()
+	}
+	return FcmTokens_LastUsedAt(*v)
+}
+
+func FcmTokens_LastUsedAt_Null() FcmTokens_LastUsedAt_Field {
+	return FcmTokens_LastUsedAt_Field{_set: true, _null: true}
+}
+
+func (f FcmTokens_LastUsedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f FcmTokens_LastUsedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_LastUsedAt_Field) _Column() string { return "last_used_at" }
+
+type FcmTokens_IsActive_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func FcmTokens_IsActive(v bool) FcmTokens_IsActive_Field {
+	return FcmTokens_IsActive_Field{_set: true, _value: v}
+}
+
+func (f FcmTokens_IsActive_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (FcmTokens_IsActive_Field) _Column() string { return "is_active" }
 
 type GracefulExitProgress struct {
 	NodeId            []byte
@@ -9079,6 +9604,300 @@ func (f ProjectBandwidthDailyRollup_EgressDead_Field) value() interface{} {
 }
 
 func (ProjectBandwidthDailyRollup_EgressDead_Field) _Column() string { return "egress_dead" }
+
+type PushNotifications struct {
+	Id           []byte
+	UserId       []byte
+	TokenId      []byte
+	Title        string
+	Body         string
+	Data         []byte
+	Status       string
+	ErrorMessage *string
+	RetryCount   int
+	SentAt       *time.Time
+	CreatedAt    time.Time
+}
+
+func (PushNotifications) _Table() string { return "push_notifications" }
+
+type PushNotifications_Create_Fields struct {
+	TokenId      PushNotifications_TokenId_Field
+	Data         PushNotifications_Data_Field
+	ErrorMessage PushNotifications_ErrorMessage_Field
+	RetryCount   PushNotifications_RetryCount_Field
+	SentAt       PushNotifications_SentAt_Field
+}
+
+type PushNotifications_Update_Fields struct {
+	Data         PushNotifications_Data_Field
+	ErrorMessage PushNotifications_ErrorMessage_Field
+	RetryCount   PushNotifications_RetryCount_Field
+	SentAt       PushNotifications_SentAt_Field
+}
+
+type PushNotifications_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PushNotifications_Id(v []byte) PushNotifications_Id_Field {
+	return PushNotifications_Id_Field{_set: true, _value: v}
+}
+
+func (f PushNotifications_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_Id_Field) _Column() string { return "id" }
+
+type PushNotifications_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PushNotifications_UserId(v []byte) PushNotifications_UserId_Field {
+	return PushNotifications_UserId_Field{_set: true, _value: v}
+}
+
+func (f PushNotifications_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_UserId_Field) _Column() string { return "user_id" }
+
+type PushNotifications_TokenId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PushNotifications_TokenId(v []byte) PushNotifications_TokenId_Field {
+	return PushNotifications_TokenId_Field{_set: true, _value: v}
+}
+
+func PushNotifications_TokenId_Raw(v []byte) PushNotifications_TokenId_Field {
+	if v == nil {
+		return PushNotifications_TokenId_Null()
+	}
+	return PushNotifications_TokenId(v)
+}
+
+func PushNotifications_TokenId_Null() PushNotifications_TokenId_Field {
+	return PushNotifications_TokenId_Field{_set: true, _null: true}
+}
+
+func (f PushNotifications_TokenId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f PushNotifications_TokenId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_TokenId_Field) _Column() string { return "token_id" }
+
+type PushNotifications_Title_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PushNotifications_Title(v string) PushNotifications_Title_Field {
+	return PushNotifications_Title_Field{_set: true, _value: v}
+}
+
+func (f PushNotifications_Title_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_Title_Field) _Column() string { return "title" }
+
+type PushNotifications_Body_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PushNotifications_Body(v string) PushNotifications_Body_Field {
+	return PushNotifications_Body_Field{_set: true, _value: v}
+}
+
+func (f PushNotifications_Body_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_Body_Field) _Column() string { return "body" }
+
+type PushNotifications_Data_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PushNotifications_Data(v []byte) PushNotifications_Data_Field {
+	return PushNotifications_Data_Field{_set: true, _value: v}
+}
+
+func PushNotifications_Data_Raw(v []byte) PushNotifications_Data_Field {
+	if v == nil {
+		return PushNotifications_Data_Null()
+	}
+	return PushNotifications_Data(v)
+}
+
+func PushNotifications_Data_Null() PushNotifications_Data_Field {
+	return PushNotifications_Data_Field{_set: true, _null: true}
+}
+
+func (f PushNotifications_Data_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f PushNotifications_Data_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_Data_Field) _Column() string { return "data" }
+
+type PushNotifications_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PushNotifications_Status(v string) PushNotifications_Status_Field {
+	return PushNotifications_Status_Field{_set: true, _value: v}
+}
+
+func (f PushNotifications_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_Status_Field) _Column() string { return "status" }
+
+type PushNotifications_ErrorMessage_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func PushNotifications_ErrorMessage(v string) PushNotifications_ErrorMessage_Field {
+	return PushNotifications_ErrorMessage_Field{_set: true, _value: &v}
+}
+
+func PushNotifications_ErrorMessage_Raw(v *string) PushNotifications_ErrorMessage_Field {
+	if v == nil {
+		return PushNotifications_ErrorMessage_Null()
+	}
+	return PushNotifications_ErrorMessage(*v)
+}
+
+func PushNotifications_ErrorMessage_Null() PushNotifications_ErrorMessage_Field {
+	return PushNotifications_ErrorMessage_Field{_set: true, _null: true}
+}
+
+func (f PushNotifications_ErrorMessage_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f PushNotifications_ErrorMessage_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_ErrorMessage_Field) _Column() string { return "error_message" }
+
+type PushNotifications_RetryCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func PushNotifications_RetryCount(v int) PushNotifications_RetryCount_Field {
+	return PushNotifications_RetryCount_Field{_set: true, _value: v}
+}
+
+func (f PushNotifications_RetryCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_RetryCount_Field) _Column() string { return "retry_count" }
+
+type PushNotifications_SentAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func PushNotifications_SentAt(v time.Time) PushNotifications_SentAt_Field {
+	return PushNotifications_SentAt_Field{_set: true, _value: &v}
+}
+
+func PushNotifications_SentAt_Raw(v *time.Time) PushNotifications_SentAt_Field {
+	if v == nil {
+		return PushNotifications_SentAt_Null()
+	}
+	return PushNotifications_SentAt(*v)
+}
+
+func PushNotifications_SentAt_Null() PushNotifications_SentAt_Field {
+	return PushNotifications_SentAt_Field{_set: true, _null: true}
+}
+
+func (f PushNotifications_SentAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f PushNotifications_SentAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_SentAt_Field) _Column() string { return "sent_at" }
+
+type PushNotifications_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PushNotifications_CreatedAt(v time.Time) PushNotifications_CreatedAt_Field {
+	return PushNotifications_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f PushNotifications_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_CreatedAt_Field) _Column() string { return "created_at" }
 
 type RegistrationToken struct {
 	Secret       []byte
@@ -17339,6 +18158,129 @@ func (obj *pgxImpl) Create_Reputation(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_FcmTokens(ctx context.Context,
+	fcm_tokens_id FcmTokens_Id_Field,
+	fcm_tokens_user_id FcmTokens_UserId_Field,
+	fcm_tokens_token FcmTokens_Token_Field,
+	fcm_tokens_updated_at FcmTokens_UpdatedAt_Field,
+	optional FcmTokens_Create_Fields) (
+	fcm_tokens *FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := fcm_tokens_id.value()
+	__user_id_val := fcm_tokens_user_id.value()
+	__token_val := fcm_tokens_token.value()
+	__device_id_val := optional.DeviceId.value()
+	__device_type_val := optional.DeviceType.value()
+	__app_version_val := optional.AppVersion.value()
+	__os_version_val := optional.OsVersion.value()
+	__device_model_val := optional.DeviceModel.value()
+	__browser_name_val := optional.BrowserName.value()
+	__user_agent_val := optional.UserAgent.value()
+	__ip_address_val := optional.IpAddress.value()
+	__created_at_val := __now
+	__updated_at_val := fcm_tokens_updated_at.value()
+	__last_used_at_val := optional.LastUsedAt.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, user_id, token, device_id, device_type, app_version, os_version, device_model, browser_name, user_agent, ip_address, created_at, updated_at, last_used_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO fcm_tokens "), __clause, __sqlbundle_Literal(" RETURNING fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __token_val, __device_id_val, __device_type_val, __app_version_val, __os_version_val, __device_model_val, __browser_name_val, __user_agent_val, __ip_address_val, __created_at_val, __updated_at_val, __last_used_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsActive._set {
+		__values = append(__values, optional.IsActive.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_active"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	fcm_tokens = &FcmTokens{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return fcm_tokens, nil
+
+}
+
+func (obj *pgxImpl) Create_PushNotifications(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field,
+	push_notifications_user_id PushNotifications_UserId_Field,
+	push_notifications_title PushNotifications_Title_Field,
+	push_notifications_body PushNotifications_Body_Field,
+	push_notifications_status PushNotifications_Status_Field,
+	optional PushNotifications_Create_Fields) (
+	push_notifications *PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := push_notifications_id.value()
+	__user_id_val := push_notifications_user_id.value()
+	__token_id_val := optional.TokenId.value()
+	__title_val := push_notifications_title.value()
+	__body_val := push_notifications_body.value()
+	__data_val := optional.Data.value()
+	__status_val := push_notifications_status.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__sent_at_val := optional.SentAt.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, user_id, token_id, title, body, data, status, error_message, sent_at, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO push_notifications "), __clause, __sqlbundle_Literal(" RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __token_id_val, __title_val, __body_val, __data_val, __status_val, __error_message_val, __sent_at_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.RetryCount._set {
+		__values = append(__values, optional.RetryCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("retry_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	push_notifications = &PushNotifications{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return push_notifications, nil
+
+}
+
 func (obj *pgxImpl) CreateNoReturn_OauthClient(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field,
 	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
@@ -21413,6 +22355,386 @@ func (obj *pgxImpl) Get_Reputation_By_Id(ctx context.Context,
 		return (*Reputation)(nil), obj.makeErr(err)
 	}
 	return reputation, nil
+
+}
+
+func (obj *pgxImpl) Get_FcmTokens_By_Id(ctx context.Context,
+	fcm_tokens_id FcmTokens_Id_Field) (
+	fcm_tokens *FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active FROM fcm_tokens WHERE fcm_tokens.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	fcm_tokens = &FcmTokens{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+	if err != nil {
+		return (*FcmTokens)(nil), obj.makeErr(err)
+	}
+	return fcm_tokens, nil
+
+}
+
+func (obj *pgxImpl) Get_FcmTokens_By_Token(ctx context.Context,
+	fcm_tokens_token FcmTokens_Token_Field) (
+	fcm_tokens *FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active FROM fcm_tokens WHERE fcm_tokens.token = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_token.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		fcm_tokens, err = func() (fcm_tokens *FcmTokens, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			fcm_tokens = &FcmTokens{}
+			err = __rows.Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return fcm_tokens, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("FcmTokens_By_Token")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return fcm_tokens, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_FcmTokens_By_UserId(ctx context.Context,
+	fcm_tokens_user_id FcmTokens_UserId_Field) (
+	rows []*FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active FROM fcm_tokens WHERE fcm_tokens.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*FcmTokens, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				fcm_tokens := &FcmTokens{}
+				err = __rows.Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, fcm_tokens)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_FcmTokens_By_UserId_And_IsActive_Equal_True(ctx context.Context,
+	fcm_tokens_user_id FcmTokens_UserId_Field) (
+	rows []*FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active FROM fcm_tokens WHERE fcm_tokens.user_id = ? AND fcm_tokens.is_active = true")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*FcmTokens, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				fcm_tokens := &FcmTokens{}
+				err = __rows.Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, fcm_tokens)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_PushNotifications_By_Id(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field) (
+	push_notifications *PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	push_notifications = &PushNotifications{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	if err != nil {
+		return (*PushNotifications)(nil), obj.makeErr(err)
+	}
+	return push_notifications, nil
+
+}
+
+func (obj *pgxImpl) All_PushNotifications_By_UserId(ctx context.Context,
+	push_notifications_user_id PushNotifications_UserId_Field) (
+	rows []*PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PushNotifications, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				push_notifications := &PushNotifications{}
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, push_notifications)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_PushNotifications_By_Status(ctx context.Context,
+	push_notifications_status PushNotifications_Status_Field) (
+	rows []*PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PushNotifications, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				push_notifications := &PushNotifications{}
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, push_notifications)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Limited_PushNotifications_By_UserId(ctx context.Context,
+	push_notifications_user_id PushNotifications_UserId_Field,
+	limit int, offset int64) (
+	rows []*PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_user_id.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PushNotifications, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				push_notifications := &PushNotifications{}
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, push_notifications)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Limited_PushNotifications_By_Status(ctx context.Context,
+	push_notifications_status PushNotifications_Status_Field,
+	limit int, offset int64) (
+	rows []*PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PushNotifications, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				push_notifications := &PushNotifications{}
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, push_notifications)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -25624,6 +26946,153 @@ func (obj *pgxImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *pgxImpl) Update_FcmTokens_By_Id(ctx context.Context,
+	fcm_tokens_id FcmTokens_Id_Field,
+	update FcmTokens_Update_Fields) (
+	fcm_tokens *FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE fcm_tokens SET "), __sets, __sqlbundle_Literal(" WHERE fcm_tokens.id = ? RETURNING fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.DeviceId._set {
+		__values = append(__values, update.DeviceId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("device_id = ?"))
+	}
+
+	if update.DeviceType._set {
+		__values = append(__values, update.DeviceType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("device_type = ?"))
+	}
+
+	if update.AppVersion._set {
+		__values = append(__values, update.AppVersion.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_version = ?"))
+	}
+
+	if update.OsVersion._set {
+		__values = append(__values, update.OsVersion.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("os_version = ?"))
+	}
+
+	if update.DeviceModel._set {
+		__values = append(__values, update.DeviceModel.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("device_model = ?"))
+	}
+
+	if update.BrowserName._set {
+		__values = append(__values, update.BrowserName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("browser_name = ?"))
+	}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.IpAddress._set {
+		__values = append(__values, update.IpAddress.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("ip_address = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.LastUsedAt._set {
+		__values = append(__values, update.LastUsedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_used_at = ?"))
+	}
+
+	if update.IsActive._set {
+		__values = append(__values, update.IsActive.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_active = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, fcm_tokens_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	fcm_tokens = &FcmTokens{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return fcm_tokens, nil
+}
+
+func (obj *pgxImpl) Update_PushNotifications_By_Id(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field,
+	update PushNotifications_Update_Fields) (
+	push_notifications *PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE push_notifications SET "), __sets, __sqlbundle_Literal(" WHERE push_notifications.id = ? RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Data._set {
+		__values = append(__values, update.Data.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("data = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.RetryCount._set {
+		__values = append(__values, update.RetryCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
+	}
+
+	if update.SentAt._set {
+		__values = append(__values, update.SentAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("sent_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, push_notifications_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	push_notifications = &PushNotifications{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return push_notifications, nil
+}
+
 func (obj *pgxImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field,
 	update OauthClient_Update_Fields) (
@@ -27409,6 +28878,87 @@ func (obj *pgxImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_FcmTokens_By_Id(ctx context.Context,
+	fcm_tokens_id FcmTokens_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM fcm_tokens WHERE fcm_tokens.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_FcmTokens_By_UserId(ctx context.Context,
+	fcm_tokens_user_id FcmTokens_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM fcm_tokens WHERE fcm_tokens.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_PushNotifications_By_Id(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM push_notifications WHERE push_notifications.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_OauthClient_By_Id(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field) (
 	deleted bool, err error) {
@@ -28216,6 +29766,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM push_notifications;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_daily_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -28367,6 +29927,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM fcm_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -29685,6 +31255,129 @@ func (obj *pgxcockroachImpl) Create_Reputation(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return reputation, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_FcmTokens(ctx context.Context,
+	fcm_tokens_id FcmTokens_Id_Field,
+	fcm_tokens_user_id FcmTokens_UserId_Field,
+	fcm_tokens_token FcmTokens_Token_Field,
+	fcm_tokens_updated_at FcmTokens_UpdatedAt_Field,
+	optional FcmTokens_Create_Fields) (
+	fcm_tokens *FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := fcm_tokens_id.value()
+	__user_id_val := fcm_tokens_user_id.value()
+	__token_val := fcm_tokens_token.value()
+	__device_id_val := optional.DeviceId.value()
+	__device_type_val := optional.DeviceType.value()
+	__app_version_val := optional.AppVersion.value()
+	__os_version_val := optional.OsVersion.value()
+	__device_model_val := optional.DeviceModel.value()
+	__browser_name_val := optional.BrowserName.value()
+	__user_agent_val := optional.UserAgent.value()
+	__ip_address_val := optional.IpAddress.value()
+	__created_at_val := __now
+	__updated_at_val := fcm_tokens_updated_at.value()
+	__last_used_at_val := optional.LastUsedAt.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, user_id, token, device_id, device_type, app_version, os_version, device_model, browser_name, user_agent, ip_address, created_at, updated_at, last_used_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO fcm_tokens "), __clause, __sqlbundle_Literal(" RETURNING fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __token_val, __device_id_val, __device_type_val, __app_version_val, __os_version_val, __device_model_val, __browser_name_val, __user_agent_val, __ip_address_val, __created_at_val, __updated_at_val, __last_used_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsActive._set {
+		__values = append(__values, optional.IsActive.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_active"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	fcm_tokens = &FcmTokens{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return fcm_tokens, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_PushNotifications(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field,
+	push_notifications_user_id PushNotifications_UserId_Field,
+	push_notifications_title PushNotifications_Title_Field,
+	push_notifications_body PushNotifications_Body_Field,
+	push_notifications_status PushNotifications_Status_Field,
+	optional PushNotifications_Create_Fields) (
+	push_notifications *PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := push_notifications_id.value()
+	__user_id_val := push_notifications_user_id.value()
+	__token_id_val := optional.TokenId.value()
+	__title_val := push_notifications_title.value()
+	__body_val := push_notifications_body.value()
+	__data_val := optional.Data.value()
+	__status_val := push_notifications_status.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__sent_at_val := optional.SentAt.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, user_id, token_id, title, body, data, status, error_message, sent_at, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO push_notifications "), __clause, __sqlbundle_Literal(" RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __token_id_val, __title_val, __body_val, __data_val, __status_val, __error_message_val, __sent_at_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.RetryCount._set {
+		__values = append(__values, optional.RetryCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("retry_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	push_notifications = &PushNotifications{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return push_notifications, nil
 
 }
 
@@ -33762,6 +35455,386 @@ func (obj *pgxcockroachImpl) Get_Reputation_By_Id(ctx context.Context,
 		return (*Reputation)(nil), obj.makeErr(err)
 	}
 	return reputation, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_FcmTokens_By_Id(ctx context.Context,
+	fcm_tokens_id FcmTokens_Id_Field) (
+	fcm_tokens *FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active FROM fcm_tokens WHERE fcm_tokens.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	fcm_tokens = &FcmTokens{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+	if err != nil {
+		return (*FcmTokens)(nil), obj.makeErr(err)
+	}
+	return fcm_tokens, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_FcmTokens_By_Token(ctx context.Context,
+	fcm_tokens_token FcmTokens_Token_Field) (
+	fcm_tokens *FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active FROM fcm_tokens WHERE fcm_tokens.token = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_token.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		fcm_tokens, err = func() (fcm_tokens *FcmTokens, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			fcm_tokens = &FcmTokens{}
+			err = __rows.Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return fcm_tokens, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("FcmTokens_By_Token")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return fcm_tokens, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_FcmTokens_By_UserId(ctx context.Context,
+	fcm_tokens_user_id FcmTokens_UserId_Field) (
+	rows []*FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active FROM fcm_tokens WHERE fcm_tokens.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*FcmTokens, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				fcm_tokens := &FcmTokens{}
+				err = __rows.Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, fcm_tokens)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_FcmTokens_By_UserId_And_IsActive_Equal_True(ctx context.Context,
+	fcm_tokens_user_id FcmTokens_UserId_Field) (
+	rows []*FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active FROM fcm_tokens WHERE fcm_tokens.user_id = ? AND fcm_tokens.is_active = true")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*FcmTokens, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				fcm_tokens := &FcmTokens{}
+				err = __rows.Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, fcm_tokens)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_PushNotifications_By_Id(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field) (
+	push_notifications *PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	push_notifications = &PushNotifications{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	if err != nil {
+		return (*PushNotifications)(nil), obj.makeErr(err)
+	}
+	return push_notifications, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_PushNotifications_By_UserId(ctx context.Context,
+	push_notifications_user_id PushNotifications_UserId_Field) (
+	rows []*PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PushNotifications, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				push_notifications := &PushNotifications{}
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, push_notifications)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_PushNotifications_By_Status(ctx context.Context,
+	push_notifications_status PushNotifications_Status_Field) (
+	rows []*PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PushNotifications, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				push_notifications := &PushNotifications{}
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, push_notifications)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Limited_PushNotifications_By_UserId(ctx context.Context,
+	push_notifications_user_id PushNotifications_UserId_Field,
+	limit int, offset int64) (
+	rows []*PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_user_id.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PushNotifications, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				push_notifications := &PushNotifications{}
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, push_notifications)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Limited_PushNotifications_By_Status(ctx context.Context,
+	push_notifications_status PushNotifications_Status_Field,
+	limit int, offset int64) (
+	rows []*PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PushNotifications, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				push_notifications := &PushNotifications{}
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, push_notifications)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -37973,6 +40046,153 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context
 	return nil
 }
 
+func (obj *pgxcockroachImpl) Update_FcmTokens_By_Id(ctx context.Context,
+	fcm_tokens_id FcmTokens_Id_Field,
+	update FcmTokens_Update_Fields) (
+	fcm_tokens *FcmTokens, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE fcm_tokens SET "), __sets, __sqlbundle_Literal(" WHERE fcm_tokens.id = ? RETURNING fcm_tokens.id, fcm_tokens.user_id, fcm_tokens.token, fcm_tokens.device_id, fcm_tokens.device_type, fcm_tokens.app_version, fcm_tokens.os_version, fcm_tokens.device_model, fcm_tokens.browser_name, fcm_tokens.user_agent, fcm_tokens.ip_address, fcm_tokens.created_at, fcm_tokens.updated_at, fcm_tokens.last_used_at, fcm_tokens.is_active")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.DeviceId._set {
+		__values = append(__values, update.DeviceId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("device_id = ?"))
+	}
+
+	if update.DeviceType._set {
+		__values = append(__values, update.DeviceType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("device_type = ?"))
+	}
+
+	if update.AppVersion._set {
+		__values = append(__values, update.AppVersion.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_version = ?"))
+	}
+
+	if update.OsVersion._set {
+		__values = append(__values, update.OsVersion.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("os_version = ?"))
+	}
+
+	if update.DeviceModel._set {
+		__values = append(__values, update.DeviceModel.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("device_model = ?"))
+	}
+
+	if update.BrowserName._set {
+		__values = append(__values, update.BrowserName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("browser_name = ?"))
+	}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.IpAddress._set {
+		__values = append(__values, update.IpAddress.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("ip_address = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.LastUsedAt._set {
+		__values = append(__values, update.LastUsedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_used_at = ?"))
+	}
+
+	if update.IsActive._set {
+		__values = append(__values, update.IsActive.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_active = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, fcm_tokens_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	fcm_tokens = &FcmTokens{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&fcm_tokens.Id, &fcm_tokens.UserId, &fcm_tokens.Token, &fcm_tokens.DeviceId, &fcm_tokens.DeviceType, &fcm_tokens.AppVersion, &fcm_tokens.OsVersion, &fcm_tokens.DeviceModel, &fcm_tokens.BrowserName, &fcm_tokens.UserAgent, &fcm_tokens.IpAddress, &fcm_tokens.CreatedAt, &fcm_tokens.UpdatedAt, &fcm_tokens.LastUsedAt, &fcm_tokens.IsActive)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return fcm_tokens, nil
+}
+
+func (obj *pgxcockroachImpl) Update_PushNotifications_By_Id(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field,
+	update PushNotifications_Update_Fields) (
+	push_notifications *PushNotifications, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE push_notifications SET "), __sets, __sqlbundle_Literal(" WHERE push_notifications.id = ? RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Data._set {
+		__values = append(__values, update.Data.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("data = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.RetryCount._set {
+		__values = append(__values, update.RetryCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
+	}
+
+	if update.SentAt._set {
+		__values = append(__values, update.SentAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("sent_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, push_notifications_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	push_notifications = &PushNotifications{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return push_notifications, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field,
 	update OauthClient_Update_Fields) (
@@ -39758,6 +41978,87 @@ func (obj *pgxcockroachImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Cont
 
 }
 
+func (obj *pgxcockroachImpl) Delete_FcmTokens_By_Id(ctx context.Context,
+	fcm_tokens_id FcmTokens_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM fcm_tokens WHERE fcm_tokens.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_FcmTokens_By_UserId(ctx context.Context,
+	fcm_tokens_user_id FcmTokens_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM fcm_tokens WHERE fcm_tokens.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, fcm_tokens_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_PushNotifications_By_Id(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM push_notifications WHERE push_notifications.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, push_notifications_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_OauthClient_By_Id(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field) (
 	deleted bool, err error) {
@@ -40565,6 +42866,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM push_notifications;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_daily_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -40716,6 +43027,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM fcm_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -40972,6 +43293,14 @@ type Methods interface {
 	All_EmailSubscription(ctx context.Context) (
 		rows []*EmailSubscription, err error)
 
+	All_FcmTokens_By_UserId(ctx context.Context,
+		fcm_tokens_user_id FcmTokens_UserId_Field) (
+		rows []*FcmTokens, err error)
+
+	All_FcmTokens_By_UserId_And_IsActive_Equal_True(ctx context.Context,
+		fcm_tokens_user_id FcmTokens_UserId_Field) (
+		rows []*FcmTokens, err error)
+
 	All_NodeSmartContractUpdates(ctx context.Context) (
 		rows []*NodeSmartContractUpdates, err error)
 
@@ -41025,6 +43354,14 @@ type Methods interface {
 	All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
+
+	All_PushNotifications_By_Status(ctx context.Context,
+		push_notifications_status PushNotifications_Status_Field) (
+		rows []*PushNotifications, err error)
+
+	All_PushNotifications_By_UserId(ctx context.Context,
+		push_notifications_user_id PushNotifications_UserId_Field) (
+		rows []*PushNotifications, err error)
 
 	All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx context.Context,
 		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
@@ -41307,6 +43644,14 @@ type Methods interface {
 		optional EmailSubscription_Create_Fields) (
 		email_subscription *EmailSubscription, err error)
 
+	Create_FcmTokens(ctx context.Context,
+		fcm_tokens_id FcmTokens_Id_Field,
+		fcm_tokens_user_id FcmTokens_UserId_Field,
+		fcm_tokens_token FcmTokens_Token_Field,
+		fcm_tokens_updated_at FcmTokens_UpdatedAt_Field,
+		optional FcmTokens_Create_Fields) (
+		fcm_tokens *FcmTokens, err error)
+
 	Create_NodeEvent(ctx context.Context,
 		node_event_id NodeEvent_Id_Field,
 		node_event_email NodeEvent_Email_Field,
@@ -41352,6 +43697,15 @@ type Methods interface {
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
+
+	Create_PushNotifications(ctx context.Context,
+		push_notifications_id PushNotifications_Id_Field,
+		push_notifications_user_id PushNotifications_UserId_Field,
+		push_notifications_title PushNotifications_Title_Field,
+		push_notifications_body PushNotifications_Body_Field,
+		push_notifications_status PushNotifications_Status_Field,
+		optional PushNotifications_Create_Fields) (
+		push_notifications *PushNotifications, err error)
 
 	Create_RegistrationToken(ctx context.Context,
 		registration_token_secret RegistrationToken_Secret_Field,
@@ -41512,6 +43866,14 @@ type Methods interface {
 		developer_id Developer_Id_Field) (
 		deleted bool, err error)
 
+	Delete_FcmTokens_By_Id(ctx context.Context,
+		fcm_tokens_id FcmTokens_Id_Field) (
+		deleted bool, err error)
+
+	Delete_FcmTokens_By_UserId(ctx context.Context,
+		fcm_tokens_user_id FcmTokens_UserId_Field) (
+		count int64, err error)
+
 	Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 		count int64, err error)
@@ -41556,6 +43918,10 @@ type Methods interface {
 	Delete_Project_By_OwnerId(ctx context.Context,
 		project_owner_id Project_OwnerId_Field) (
 		count int64, err error)
+
+	Delete_PushNotifications_By_Id(ctx context.Context,
+		push_notifications_id PushNotifications_Id_Field) (
+		deleted bool, err error)
 
 	Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 		repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
@@ -41727,6 +44093,14 @@ type Methods interface {
 		email_subscription_email EmailSubscription_Email_Field) (
 		email_subscription *EmailSubscription, err error)
 
+	Get_FcmTokens_By_Id(ctx context.Context,
+		fcm_tokens_id FcmTokens_Id_Field) (
+		fcm_tokens *FcmTokens, err error)
+
+	Get_FcmTokens_By_Token(ctx context.Context,
+		fcm_tokens_token FcmTokens_Token_Field) (
+		fcm_tokens *FcmTokens, err error)
+
 	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 		graceful_exit_progress *GracefulExitProgress, err error)
@@ -41843,6 +44217,10 @@ type Methods interface {
 	Get_Project_UserSpecifiedUsageLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		row *UserSpecifiedUsageLimit_Row, err error)
+
+	Get_PushNotifications_By_Id(ctx context.Context,
+		push_notifications_id PushNotifications_Id_Field) (
+		push_notifications *PushNotifications, err error)
 
 	Get_RegistrationTokenDeveloper_By_OwnerId(ctx context.Context,
 		registration_token_developer_owner_id RegistrationTokenDeveloper_OwnerId_Field) (
@@ -41999,6 +44377,16 @@ type Methods interface {
 		project_created_at_less Project_CreatedAt_Field,
 		limit int, offset int64) (
 		rows []*Project, err error)
+
+	Limited_PushNotifications_By_Status(ctx context.Context,
+		push_notifications_status PushNotifications_Status_Field,
+		limit int, offset int64) (
+		rows []*PushNotifications, err error)
+
+	Limited_PushNotifications_By_UserId(ctx context.Context,
+		push_notifications_user_id PushNotifications_UserId_Field,
+		limit int, offset int64) (
+		rows []*PushNotifications, err error)
 
 	Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
 		storagenode_payment_node_id StoragenodePayment_NodeId_Field,
@@ -42247,6 +44635,11 @@ type Methods interface {
 		update EmailSubscription_Update_Fields) (
 		email_subscription *EmailSubscription, err error)
 
+	Update_FcmTokens_By_Id(ctx context.Context,
+		fcm_tokens_id FcmTokens_Id_Field,
+		update FcmTokens_Update_Fields) (
+		fcm_tokens *FcmTokens, err error)
+
 	Update_KeyVersion_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field,
 		update KeyVersion_Update_Fields) (
@@ -42277,6 +44670,11 @@ type Methods interface {
 		project_id Project_Id_Field,
 		update Project_Update_Fields) (
 		project *Project, err error)
+
+	Update_PushNotifications_By_Id(ctx context.Context,
+		push_notifications_id PushNotifications_Id_Field,
+		update PushNotifications_Update_Fields) (
+		push_notifications *PushNotifications, err error)
 
 	Update_RegistrationTokenDeveloper_By_Secret(ctx context.Context,
 		registration_token_developer_secret RegistrationTokenDeveloper_Secret_Field,

@@ -180,6 +180,24 @@ CREATE TABLE email_subscriptions (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( email )
 );
+CREATE TABLE fcm_tokens (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	token text NOT NULL,
+	device_id text,
+	device_type text,
+	app_version text,
+	os_version text,
+	device_model text,
+	browser_name text,
+	user_agent text,
+	ip_address text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	last_used_at timestamp with time zone,
+	is_active boolean NOT NULL DEFAULT true,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -386,6 +404,20 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_settled bigint NOT NULL,
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
+);
+CREATE TABLE push_notifications (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	token_id bytea,
+	title text NOT NULL,
+	body text NOT NULL,
+	data jsonb,
+	status text NOT NULL,
+	error_message text,
+	retry_count integer NOT NULL DEFAULT 0,
+	sent_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -766,6 +798,9 @@ CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_talli
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
+CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
+CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
+CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -783,6 +818,9 @@ CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
+CREATE INDEX push_notifications_user_id_index ON push_notifications ( user_id ) ;
+CREATE INDEX push_notifications_status_index ON push_notifications ( status ) ;
+CREATE INDEX push_notifications_created_at_index ON push_notifications ( created_at ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
