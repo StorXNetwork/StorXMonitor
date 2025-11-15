@@ -1,4 +1,4 @@
-name: Build Developer UI
+name: Build Developer UI(staging)
 
 on:
   push:
