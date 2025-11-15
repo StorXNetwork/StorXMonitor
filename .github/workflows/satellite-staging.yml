@@ -3,7 +3,7 @@ name: Build Satellite on staging server
 on:
   push:
     branches:
-      - developer_console    
+      - main    
   workflow_dispatch:
 
 env:
