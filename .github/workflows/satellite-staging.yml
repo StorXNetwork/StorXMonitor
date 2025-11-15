@@ -5,12 +5,7 @@ on:
     branches:
       - main    
   workflow_dispatch:
-    inputs:
-      branch:
-        description: "Branch to build"
-        required: true
-        default: "main"
-
+    
 env:
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
