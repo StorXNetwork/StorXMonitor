@@ -3,7 +3,13 @@ name: Build Storj Sim on staging server
 on:
   push:
     branches:
-      - main    
+      - main   
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build"
+        required: true
+        default: "main"
 
 env:
   BIN_PATH: 'D:\bin'
