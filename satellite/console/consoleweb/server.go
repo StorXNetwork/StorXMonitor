@@ -43,7 +43,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/console/consoleweb/staticapi"
-	"storj.io/storj/satellite/developerservice"
+	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -198,7 +198,7 @@ type Server struct {
 
 	config           Config
 	service          *console.Service
-	developerService *developerservice.Service
+	developerService *developer.Service
 	mailService      *mailservice.Service
 	analytics        *analytics.Service
 	abTesting        *abtesting.Service
@@ -282,7 +282,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developerservice.Service) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -445,6 +445,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch, http.MethodOptions)
+	// User developer access management
+	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility
+	authRouter.Handle("/developer-access/{clientId}/history", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccessHistory))).Methods(http.MethodGet, http.MethodOptions) // Alias for frontend compatibility
+	authRouter.Handle("/developer-access/{clientId}/revoke", server.withAuth(http.HandlerFunc(authController.RevokeUserDeveloperAccess))).Methods(http.MethodDelete, http.MethodOptions)   // Alias for frontend compatibility
+
 	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/disable", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.DisableUserMFA)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost, http.MethodOptions)
@@ -461,42 +466,44 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
 
-	newsletterController := consoleapi.NewNewsletter(logger, service)
-	newsletterRouter := router.PathPrefix("/api/v0/newsletter").Subrouter()
-	newsletterRouter.Use(server.withCORS)
-	newsletterRouter.Handle("/{action}", http.HandlerFunc(newsletterController.HandleSubscription)).Methods(http.MethodPost, http.MethodOptions)
+	// Developer endpoints moved to satellite/developer/server.go
+	// These endpoints are now handled by the separate developer server
+	/*
+		if config.DeveloperAPIEnabled {
+			developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,
+				server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
+				config.ContactInfoURL, config.GeneralRequestURL, config.DeveloperRegisterAPIKey, config.SignupActivationCodeEnabled, badPasswords)
+			developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
+			developerAuthRouter.Use(server.withCORS)
 
-	if config.DeveloperAPIEnabled {
-		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,
-			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,
-			config.ContactInfoURL, config.GeneralRequestURL, config.DeveloperRegisterAPIKey, config.SignupActivationCodeEnabled, badPasswords)
-		developerAuthRouter := router.PathPrefix("/api/v0/developer/auth").Subrouter()
-		developerAuthRouter.Use(server.withCORS)
+			developerAuthRouter.Handle("/account", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
+			developerAuthRouter.Handle("/account", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+			developerAuthRouter.Handle("/account/change-password", server.withAuthDeveloper(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
+			developerAuthRouter.Handle("/logout", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.Logout))).Methods(http.MethodPost, http.MethodOptions)
+			developerAuthRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
+			developerAuthRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Register))).Methods(http.MethodPost, http.MethodOptions)
 
-		developerAuthRouter.Handle("/account", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
-		developerAuthRouter.Handle("/account", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
-		developerAuthRouter.Handle("/account/change-password", server.withAuthDeveloper(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/logout", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.Logout))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Token))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.Register))).Methods(http.MethodPost, http.MethodOptions)
+			developerAuthRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+			developerAuthRouter.Handle("/refresh-session", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
+			developerAuthRouter.Handle("/verify-reset-token", http.HandlerFunc(developerAuthController.VerifyResetToken)).Methods(http.MethodGet, http.MethodOptions)
+			developerAuthRouter.Handle("/reset-password-with-token", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.ResetPasswordWithToken))).Methods(http.MethodPost, http.MethodOptions)
+			developerAuthRouter.Handle("/reset-password-after-login", server.withAuthDeveloper(server.userIDRateLimiter.Limit(http.HandlerFunc(developerAuthController.ResetPasswordAfterFirstLogin)))).Methods(http.MethodPost, http.MethodOptions)
+			developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.CreateOAuthClient))).Methods(http.MethodPost, http.MethodOptions)
+			developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.ListOAuthClients))).Methods(http.MethodGet, http.MethodOptions)
+			developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.DeleteOAuthClient))).Methods(http.MethodDelete, http.MethodOptions)
+			developerAuthRouter.Handle("/oauth2/clients/{id}/status", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateOAuthClientStatus))).Methods(http.MethodPatch, http.MethodOptions)
+		}
+	*/
 
-		developerAuthRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(developerAuthController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
-		developerAuthRouter.Handle("/refresh-session", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.CreateOAuthClient))).Methods(http.MethodPost, http.MethodOptions)
-		developerAuthRouter.Handle("/oauth2/clients", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.ListOAuthClients))).Methods(http.MethodGet, http.MethodOptions)
-		developerAuthRouter.Handle("/oauth2/clients/{id}", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.DeleteOAuthClient))).Methods(http.MethodDelete, http.MethodOptions)
-		developerAuthRouter.Handle("/oauth2/clients/{id}/status", server.withAuthDeveloper(http.HandlerFunc(developerAuthController.UpdateOAuthClientStatus))).Methods(http.MethodPatch, http.MethodOptions)
+	oauth2API := consoleapi.NewOAuth2API(service)
+	oauth2Router := router.PathPrefix("/api/v0/oauth2").Subrouter()
+	oauth2Router.Use(server.withCORS)
 
-		oauth2API := consoleapi.NewOAuth2API(service)
-		oauth2Router := router.PathPrefix("/api/v0/oauth2").Subrouter()
-		oauth2Router.Use(server.withCORS)
-
-		// these endpoints will be accessed by users only so we need to use WithAuth middleware
-		oauth2Router.Handle("/request", server.withAuth(http.HandlerFunc(oauth2API.CreateOAuth2Request))).Methods(http.MethodPost, http.MethodOptions)
-		oauth2Router.Handle("/consent", server.withAuth(http.HandlerFunc(oauth2API.ConsentOAuth2Request))).Methods(http.MethodPost, http.MethodOptions)
-		// token endpoint is accessed by client applications, no auth middleware needed but rate limiting is required
-		oauth2Router.Handle("/token", server.ipRateLimiter.Limit(server.withAuth(http.HandlerFunc(oauth2API.ExchangeOAuth2Code)))).Methods(http.MethodPost, http.MethodOptions)
-	}
+	// these endpoints will be accessed by users only so we need to use WithAuth middleware
+	oauth2Router.Handle("/request", server.withAuth(http.HandlerFunc(oauth2API.CreateOAuth2Request))).Methods(http.MethodPost, http.MethodOptions)
+	oauth2Router.Handle("/consent", server.withAuth(http.HandlerFunc(oauth2API.ConsentOAuth2Request))).Methods(http.MethodPost, http.MethodOptions)
+	// token endpoint is accessed by client applications, no auth middleware needed but rate limiting is required
+	oauth2Router.Handle("/token", server.ipRateLimiter.Limit(server.withAuth(http.HandlerFunc(oauth2API.ExchangeOAuth2Code)))).Methods(http.MethodPost, http.MethodOptions)
 
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)
@@ -988,6 +995,9 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 	})
 }
 
+// withAuthDeveloper middleware moved to satellite/developer/server.go
+// This middleware is now handled by the separate developer server
+/*
 // withAuth performs initial authorization before every request.
 func (server *Server) withAuthDeveloper(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1017,6 +1027,7 @@ func (server *Server) withAuthDeveloper(handler http.Handler) http.Handler {
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
 }
+*/
 
 // withRequest ensures the http request itself is reachable from the context.
 func (server *Server) withRequest(handler http.Handler) http.Handler {

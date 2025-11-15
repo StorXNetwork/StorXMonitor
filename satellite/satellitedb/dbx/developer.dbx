@@ -189,6 +189,8 @@ model developer_oauth_client (
     field client_secret text
     field name text
     field redirect_uris text
+    field scopes text
+    field description text
     field status int ( updatable )
     field created_at timestamp ( autoinsert )
     field updated_at timestamp ( updatable )

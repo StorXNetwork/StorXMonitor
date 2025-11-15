@@ -1,0 +1,180 @@
+name: Build Developer UI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+  TEMP_PATH: 'D:\deployment'
+  DEPLOY_PATH: 'D:\StorjNetwork\developer-console-ui\build'
+  UI_PATH: 'satellite/developer/ui'
+
+jobs:
+  build-developer-ui:
+    runs-on: [self-hosted, windows, staging]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: satellite/developer/ui/package-lock.json
+          
+    - name: Install dependencies
+      run: |
+        Write-Host "Installing npm dependencies..."
+        Set-Location $env:UI_PATH
+        npm ci
+        Write-Host "Dependencies installed successfully"
+        
+    - name: Build UI
+      run: |
+        $buildStart = Get-Date
+        Write-Host "Building developer UI..."
+        
+        Set-Location $env:UI_PATH
+        npm run build
+        
+        $buildTime = (Get-Date) - $buildStart
+        Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
+        
+        if (Test-Path "./build") {
+          $buildSize = (Get-ChildItem "./build" -Recurse | Measure-Object -Property Length -Sum).Sum
+          $buildFileCount = (Get-ChildItem "./build" -Recurse -File).Count
+          Write-Host "Build folder created successfully ($([math]::Round($buildSize/1MB, 2)) MB, $buildFileCount files)"
+          
+          # Verify index.html exists
+          $indexHtml = Join-Path "./build" "index.html"
+          if (-not (Test-Path $indexHtml)) {
+            Write-Error "Build failed - index.html not found in build folder"
+            exit 1
+          }
+          
+          # List build contents for debugging
+          Write-Host "Build folder contents:"
+          Get-ChildItem "./build" | Select-Object -First 10 | ForEach-Object {
+            if ($_.PSIsContainer) {
+              Write-Host "  [DIR] $($_.Name)"
+            } else {
+              Write-Host "  [FILE] $($_.Name) ($([math]::Round($_.Length/1KB, 2)) KB)"
+            }
+          }
+        } else {
+          Write-Error "Build failed - build folder not found"
+          exit 1
+        }
+        
+    - name: Move build to deployment folder
+      run: |
+        Write-Host "Moving build to deployment folder..."
+        
+        # Build folder is at satellite/developer/ui/build
+        $sourcePath = Join-Path $env:UI_PATH "build"
+        $destPath = Join-Path $env:TEMP_PATH "build"
+        
+        if (-not (Test-Path $sourcePath)) {
+          Write-Error "Build folder not found at $sourcePath"
+          exit 1
+        }
+        
+        # Create temp directory if it doesn't exist
+        if (-not (Test-Path $env:TEMP_PATH)) {
+          New-Item -ItemType Directory -Path $env:TEMP_PATH -Force | Out-Null
+        }
+        
+        # Remove old build if exists
+        if (Test-Path $destPath) {
+          Remove-Item $destPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Move build to temp folder
+        Move-Item -Path $sourcePath -Destination $destPath -Force
+        Write-Host "Build moved to deployment folder: $destPath"
+        
+    - name: Deploy to Developer UI Build Path
+      run: |
+        Write-Host "Deploying build to developer UI build path..."
+        
+        $deploymentBuildPath = Join-Path $env:TEMP_PATH "build"
+        $storjNetworkBuildPath = $env:DEPLOY_PATH
+        
+        # Check if deployment build exists
+        if (-not (Test-Path $deploymentBuildPath)) {
+          Write-Error "Deployment build not found at $deploymentBuildPath"
+          exit 1
+        }
+        
+        # Ensure parent directory exists
+        $parentPath = Split-Path $storjNetworkBuildPath -Parent
+        if (-not (Test-Path $parentPath)) {
+          Write-Host "Creating parent directory: $parentPath"
+          New-Item -ItemType Directory -Path $parentPath -Force | Out-Null
+        } else {
+          Write-Host "Parent directory exists: $parentPath"
+        }
+        
+        # Delete old build folder if it exists
+        if (Test-Path $storjNetworkBuildPath) {
+          Write-Host "Build folder exists, deleting old build folder only..."
+          Remove-Item $storjNetworkBuildPath -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Old build folder deleted"
+        } else {
+          Write-Host "Build folder does not exist, will create new one"
+        }
+        
+        # Move build to final location
+        Write-Host "Moving build to $storjNetworkBuildPath..."
+        Write-Host "Source: $deploymentBuildPath"
+        Write-Host "Destination: $storjNetworkBuildPath"
+        
+        # Verify source has files before moving
+        $sourceFileCount = (Get-ChildItem $deploymentBuildPath -Recurse -File).Count
+        Write-Host "Source contains $sourceFileCount files"
+        
+        if ($sourceFileCount -eq 0) {
+          Write-Error "Source build folder is empty! Cannot deploy."
+          exit 1
+        }
+        
+        Move-Item -Path $deploymentBuildPath -Destination $storjNetworkBuildPath -Force
+        Write-Host "Build deployed successfully to $storjNetworkBuildPath"
+        
+        # Verify deployment
+        if (Test-Path $storjNetworkBuildPath) {
+          $deployedSize = (Get-ChildItem $storjNetworkBuildPath -Recurse | Measure-Object -Property Length -Sum).Sum
+          $fileCount = (Get-ChildItem $storjNetworkBuildPath -Recurse -File).Count
+          Write-Host "Deployment verified ($([math]::Round($deployedSize/1MB, 2)) MB, $fileCount files)"
+          
+          # Verify critical files exist
+          $indexHtml = Join-Path $storjNetworkBuildPath "index.html"
+          if (-not (Test-Path $indexHtml)) {
+            Write-Error "Critical file missing: index.html not found in deployment"
+            exit 1
+          }
+          
+          # List first few files for debugging
+          Write-Host "Sample files in deployment:"
+          Get-ChildItem $storjNetworkBuildPath -File | Select-Object -First 5 | ForEach-Object {
+            Write-Host "  - $($_.Name) ($([math]::Round($_.Length/1KB, 2)) KB)"
+          }
+        } else {
+          Write-Error "Deployment verification failed - path does not exist: $storjNetworkBuildPath"
+          exit 1
+        }
+        
+    - name: Summary
+      run: |
+        Write-Host ""
+        Write-Host "===============================================================" -ForegroundColor Yellow
+        Write-Host "[SUCCESS] Developer UI successfully built and deployed!" -ForegroundColor Yellow
+        Write-Host "Deployment Path: $env:DEPLOY_PATH" -ForegroundColor Cyan
+        Write-Host "===============================================================" -ForegroundColor Yellow
+        Write-Host ""
+

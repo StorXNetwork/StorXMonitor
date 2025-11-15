@@ -474,6 +474,8 @@ CREATE TABLE developer_oauth_clients (
 	client_secret text NOT NULL,
 	name text NOT NULL,
 	redirect_uris text NOT NULL,
+	scopes text NOT NULL,
+	description text NOT NULL,
 	status integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
@@ -1412,6 +1414,8 @@ CREATE TABLE developer_oauth_clients (
 	client_secret text NOT NULL,
 	name text NOT NULL,
 	redirect_uris text NOT NULL,
+	scopes text NOT NULL,
+	description text NOT NULL,
 	status integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
@@ -4728,6 +4732,8 @@ type DeveloperOauthClient struct {
 	ClientSecret string
 	Name         string
 	RedirectUris string
+	Scopes       string
+	Description  string
 	Status       int
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -4853,6 +4859,44 @@ func (f DeveloperOauthClient_RedirectUris_Field) value() interface{} {
 }
 
 func (DeveloperOauthClient_RedirectUris_Field) _Column() string { return "redirect_uris" }
+
+type DeveloperOauthClient_Scopes_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func DeveloperOauthClient_Scopes(v string) DeveloperOauthClient_Scopes_Field {
+	return DeveloperOauthClient_Scopes_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_Scopes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_Scopes_Field) _Column() string { return "scopes" }
+
+type DeveloperOauthClient_Description_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func DeveloperOauthClient_Description(v string) DeveloperOauthClient_Description_Field {
+	return DeveloperOauthClient_Description_Field{_set: true, _value: v}
+}
+
+func (f DeveloperOauthClient_Description_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (DeveloperOauthClient_Description_Field) _Column() string { return "description" }
 
 type DeveloperOauthClient_Status_Field struct {
 	_set   bool
@@ -17696,6 +17740,8 @@ func (obj *pgxImpl) Create_DeveloperOauthClient(ctx context.Context,
 	developer_oauth_client_client_secret DeveloperOauthClient_ClientSecret_Field,
 	developer_oauth_client_name DeveloperOauthClient_Name_Field,
 	developer_oauth_client_redirect_uris DeveloperOauthClient_RedirectUris_Field,
+	developer_oauth_client_scopes DeveloperOauthClient_Scopes_Field,
+	developer_oauth_client_description DeveloperOauthClient_Description_Field,
 	developer_oauth_client_status DeveloperOauthClient_Status_Field,
 	developer_oauth_client_updated_at DeveloperOauthClient_UpdatedAt_Field) (
 	developer_oauth_client *DeveloperOauthClient, err error) {
@@ -17708,20 +17754,22 @@ func (obj *pgxImpl) Create_DeveloperOauthClient(ctx context.Context,
 	__client_secret_val := developer_oauth_client_client_secret.value()
 	__name_val := developer_oauth_client_name.value()
 	__redirect_uris_val := developer_oauth_client_redirect_uris.value()
+	__scopes_val := developer_oauth_client_scopes.value()
+	__description_val := developer_oauth_client_description.value()
 	__status_val := developer_oauth_client_status.value()
 	__created_at_val := __now
 	__updated_at_val := developer_oauth_client_updated_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developer_oauth_clients ( id, developer_id, client_id, client_secret, name, redirect_uris, status, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developer_oauth_clients ( id, developer_id, client_id, client_secret, name, redirect_uris, scopes, description, status, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __developer_id_val, __client_id_val, __client_secret_val, __name_val, __redirect_uris_val, __status_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __developer_id_val, __client_id_val, __client_secret_val, __name_val, __redirect_uris_val, __scopes_val, __description_val, __status_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	developer_oauth_client = &DeveloperOauthClient{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -21401,7 +21449,7 @@ func (obj *pgxImpl) All_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
 	rows []*DeveloperOauthClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.developer_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.developer_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, developer_oauth_client_developer_id.value())
@@ -21419,7 +21467,7 @@ func (obj *pgxImpl) All_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
 
 			for __rows.Next() {
 				developer_oauth_client := &DeveloperOauthClient{}
-				err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+				err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -21446,7 +21494,7 @@ func (obj *pgxImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
 	developer_oauth_client *DeveloperOauthClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, developer_oauth_client_id.value())
@@ -21455,7 +21503,7 @@ func (obj *pgxImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	developer_oauth_client = &DeveloperOauthClient{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 	if err != nil {
 		return (*DeveloperOauthClient)(nil), obj.makeErr(err)
 	}
@@ -21468,7 +21516,7 @@ func (obj *pgxImpl) Get_DeveloperOauthClient_By_ClientId(ctx context.Context,
 	developer_oauth_client *DeveloperOauthClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.client_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.client_id = ? LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, developer_oauth_client_client_id.value())
@@ -21492,7 +21540,7 @@ func (obj *pgxImpl) Get_DeveloperOauthClient_By_ClientId(ctx context.Context,
 			}
 
 			developer_oauth_client = &DeveloperOauthClient{}
-			err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+			err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -25668,7 +25716,7 @@ func (obj *pgxImpl) Update_DeveloperOauthClient_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE developer_oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE developer_oauth_clients.id = ? RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE developer_oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE developer_oauth_clients.id = ? RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -25697,7 +25745,7 @@ func (obj *pgxImpl) Update_DeveloperOauthClient_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	developer_oauth_client = &DeveloperOauthClient{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -30796,6 +30844,8 @@ func (obj *pgxcockroachImpl) Create_DeveloperOauthClient(ctx context.Context,
 	developer_oauth_client_client_secret DeveloperOauthClient_ClientSecret_Field,
 	developer_oauth_client_name DeveloperOauthClient_Name_Field,
 	developer_oauth_client_redirect_uris DeveloperOauthClient_RedirectUris_Field,
+	developer_oauth_client_scopes DeveloperOauthClient_Scopes_Field,
+	developer_oauth_client_description DeveloperOauthClient_Description_Field,
 	developer_oauth_client_status DeveloperOauthClient_Status_Field,
 	developer_oauth_client_updated_at DeveloperOauthClient_UpdatedAt_Field) (
 	developer_oauth_client *DeveloperOauthClient, err error) {
@@ -30808,20 +30858,22 @@ func (obj *pgxcockroachImpl) Create_DeveloperOauthClient(ctx context.Context,
 	__client_secret_val := developer_oauth_client_client_secret.value()
 	__name_val := developer_oauth_client_name.value()
 	__redirect_uris_val := developer_oauth_client_redirect_uris.value()
+	__scopes_val := developer_oauth_client_scopes.value()
+	__description_val := developer_oauth_client_description.value()
 	__status_val := developer_oauth_client_status.value()
 	__created_at_val := __now
 	__updated_at_val := developer_oauth_client_updated_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developer_oauth_clients ( id, developer_id, client_id, client_secret, name, redirect_uris, status, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO developer_oauth_clients ( id, developer_id, client_id, client_secret, name, redirect_uris, scopes, description, status, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __developer_id_val, __client_id_val, __client_secret_val, __name_val, __redirect_uris_val, __status_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __developer_id_val, __client_id_val, __client_secret_val, __name_val, __redirect_uris_val, __scopes_val, __description_val, __status_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	developer_oauth_client = &DeveloperOauthClient{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -34501,7 +34553,7 @@ func (obj *pgxcockroachImpl) All_DeveloperOauthClient_By_DeveloperId(ctx context
 	rows []*DeveloperOauthClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.developer_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.developer_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, developer_oauth_client_developer_id.value())
@@ -34519,7 +34571,7 @@ func (obj *pgxcockroachImpl) All_DeveloperOauthClient_By_DeveloperId(ctx context
 
 			for __rows.Next() {
 				developer_oauth_client := &DeveloperOauthClient{}
-				err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+				err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -34546,7 +34598,7 @@ func (obj *pgxcockroachImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
 	developer_oauth_client *DeveloperOauthClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, developer_oauth_client_id.value())
@@ -34555,7 +34607,7 @@ func (obj *pgxcockroachImpl) Get_DeveloperOauthClient_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	developer_oauth_client = &DeveloperOauthClient{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 	if err != nil {
 		return (*DeveloperOauthClient)(nil), obj.makeErr(err)
 	}
@@ -34568,7 +34620,7 @@ func (obj *pgxcockroachImpl) Get_DeveloperOauthClient_By_ClientId(ctx context.Co
 	developer_oauth_client *DeveloperOauthClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.client_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at FROM developer_oauth_clients WHERE developer_oauth_clients.client_id = ? LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, developer_oauth_client_client_id.value())
@@ -34592,7 +34644,7 @@ func (obj *pgxcockroachImpl) Get_DeveloperOauthClient_By_ClientId(ctx context.Co
 			}
 
 			developer_oauth_client = &DeveloperOauthClient{}
-			err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+			err = __rows.Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -38768,7 +38820,7 @@ func (obj *pgxcockroachImpl) Update_DeveloperOauthClient_By_Id(ctx context.Conte
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE developer_oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE developer_oauth_clients.id = ? RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE developer_oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE developer_oauth_clients.id = ? RETURNING developer_oauth_clients.id, developer_oauth_clients.developer_id, developer_oauth_clients.client_id, developer_oauth_clients.client_secret, developer_oauth_clients.name, developer_oauth_clients.redirect_uris, developer_oauth_clients.scopes, developer_oauth_clients.description, developer_oauth_clients.status, developer_oauth_clients.created_at, developer_oauth_clients.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -38797,7 +38849,7 @@ func (obj *pgxcockroachImpl) Update_DeveloperOauthClient_By_Id(ctx context.Conte
 	obj.logStmt(__stmt, __values...)
 
 	developer_oauth_client = &DeveloperOauthClient{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&developer_oauth_client.Id, &developer_oauth_client.DeveloperId, &developer_oauth_client.ClientId, &developer_oauth_client.ClientSecret, &developer_oauth_client.Name, &developer_oauth_client.RedirectUris, &developer_oauth_client.Scopes, &developer_oauth_client.Description, &developer_oauth_client.Status, &developer_oauth_client.CreatedAt, &developer_oauth_client.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -43628,6 +43680,8 @@ type Methods interface {
 		developer_oauth_client_client_secret DeveloperOauthClient_ClientSecret_Field,
 		developer_oauth_client_name DeveloperOauthClient_Name_Field,
 		developer_oauth_client_redirect_uris DeveloperOauthClient_RedirectUris_Field,
+		developer_oauth_client_scopes DeveloperOauthClient_Scopes_Field,
+		developer_oauth_client_description DeveloperOauthClient_Description_Field,
 		developer_oauth_client_status DeveloperOauthClient_Status_Field,
 		developer_oauth_client_updated_at DeveloperOauthClient_UpdatedAt_Field) (
 		developer_oauth_client *DeveloperOauthClient, err error)

@@ -2,6 +2,7 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -65,6 +66,8 @@ func (repo *developerOAuthClients) Insert(ctx context.Context, client *console.D
 		dbx.DeveloperOauthClient_ClientSecret(client.ClientSecret),
 		dbx.DeveloperOauthClient_Name(client.Name),
 		dbx.DeveloperOauthClient_RedirectUris(strings.Join(client.RedirectURIs, ",")),
+		dbx.DeveloperOauthClient_Scopes(strings.Join(client.Scopes, ",")),
+		dbx.DeveloperOauthClient_Description(client.Description),
 		dbx.DeveloperOauthClient_Status(client.Status),
 		dbx.DeveloperOauthClient_UpdatedAt(client.UpdatedAt),
 	)
@@ -103,19 +106,74 @@ func (repo *developerOAuthClients) DeleteByDeveloperID(ctx context.Context, deve
 	return err
 }
 
+func (repo *developerOAuthClients) Update(ctx context.Context, id uuid.UUID, client *console.DeveloperOAuthClient) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	updates := []string{}
+	args := []interface{}{}
+	argPos := 1
+
+	if client.ClientSecret != "" {
+		updates = append(updates, fmt.Sprintf("client_secret = $%d", argPos))
+		args = append(args, client.ClientSecret)
+		argPos++
+	}
+	if client.Name != "" {
+		updates = append(updates, fmt.Sprintf("name = $%d", argPos))
+		args = append(args, client.Name)
+		argPos++
+	}
+	if client.Description != "" {
+		updates = append(updates, fmt.Sprintf("description = $%d", argPos))
+		args = append(args, client.Description)
+		argPos++
+	}
+	if len(client.RedirectURIs) > 0 {
+		updates = append(updates, fmt.Sprintf("redirect_uris = $%d", argPos))
+		args = append(args, strings.Join(client.RedirectURIs, ","))
+		argPos++
+	}
+	if len(client.Scopes) > 0 {
+		updates = append(updates, fmt.Sprintf("scopes = $%d", argPos))
+		args = append(args, strings.Join(client.Scopes, ","))
+		argPos++
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	updates = append(updates, fmt.Sprintf("updated_at = $%d", argPos))
+	args = append(args, client.UpdatedAt)
+	argPos++
+
+	args = append(args, id[:])
+	updateSQL := fmt.Sprintf("UPDATE developer_oauth_clients SET %s WHERE id = $%d", strings.Join(updates, ", "), argPos)
+	_, err = repo.db.DB.ExecContext(ctx, updateSQL, args...)
+	return err
+}
+
 // Helper to convert DBX to console struct
 func toConsoleOAuthClient(dbxClient *dbx.DeveloperOauthClient) *console.DeveloperOAuthClient {
 	id, _ := uuid.FromBytes(dbxClient.Id)
 	developerID, _ := uuid.FromBytes(dbxClient.DeveloperId)
-	return &console.DeveloperOAuthClient{
+	client := &console.DeveloperOAuthClient{
 		ID:           id,
 		DeveloperID:  developerID,
 		ClientID:     dbxClient.ClientId,
 		ClientSecret: dbxClient.ClientSecret,
 		Name:         dbxClient.Name,
-		RedirectURIs: strings.Split(dbxClient.RedirectUris, ","),
+		Description:  dbxClient.Description,
 		Status:       dbxClient.Status,
 		CreatedAt:    dbxClient.CreatedAt,
 		UpdatedAt:    dbxClient.UpdatedAt,
 	}
+	if dbxClient.RedirectUris != "" {
+		client.RedirectURIs = strings.Split(dbxClient.RedirectUris, ",")
+	}
+	if dbxClient.Scopes != "" {
+		client.Scopes = strings.Split(dbxClient.Scopes, ",")
+	}
+	return client
 }

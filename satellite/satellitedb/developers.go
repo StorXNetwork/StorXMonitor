@@ -163,10 +163,11 @@ func (dev *developers) GetByStatus(ctx context.Context, status console.UserStatu
 	return page, nil
 }
 
-// GetAllDevelopersWithStats retrieves developers with session and OAuth client statistics using optimized JOINs.
+// GetAllDevelopersWithStats retrieves developers with session, OAuth client, and user count statistics using optimized JOINs.
 // This method handles filtering and pagination at the database level for better performance.
 // Uses CTE with window function to avoid duplicate COUNT query.
-func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (developers []*console.Developer, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, oauthClientCounts []int, totalCount int, err error) {
+// Results are ordered by total_users DESC (top developers by user count first).
+func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (developers []*console.Developer, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, oauthClientCounts, totalUserCounts, activeUserCounts []int, totalCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Build WHERE conditions - only add conditions when filters are provided
@@ -248,6 +249,8 @@ func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, off
 				s.first_session_expiry,
 				s.total_session_count,
 				COALESCE(oauth.oauth_client_count, 0) AS oauth_client_count,
+				COALESCE(user_stats.total_users, 0) AS total_users,
+				COALESCE(user_stats.active_users, 0) AS active_users,
 				COUNT(*) OVER() AS total_count
 			FROM 
 				developers d
@@ -271,14 +274,29 @@ func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, off
 				GROUP BY 
 					developer_id
 			) oauth ON oauth.developer_id = d.id
-	`
+			LEFT JOIN (
+				SELECT 
+					developer_oauth_clients.developer_id,
+					COUNT(DISTINCT oauth2_requests.user_id) AS total_users,
+					COUNT(DISTINCT CASE 
+						WHEN oauth2_requests.created_at >= NOW() - INTERVAL '30 days' 
+						THEN oauth2_requests.user_id 
+					END) AS active_users
+				FROM 
+					oauth2_requests
+				INNER JOIN developer_oauth_clients ON oauth2_requests.client_id = developer_oauth_clients.client_id
+				GROUP BY 
+					developer_oauth_clients.developer_id
+			) user_stats ON user_stats.developer_id = d.id
+		`
 
 	if len(whereConditions) > 0 {
 		query += " WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
-	// Add ORDER BY
-	query += " ORDER BY d.created_at DESC"
+	// Add ORDER BY - default to created_at DESC, but can be changed to sort by user count
+	// For "top developers by user count", use: ORDER BY total_users DESC, d.created_at DESC
+	query += " ORDER BY total_users DESC, d.created_at DESC"
 
 	// Add LIMIT and OFFSET only if limit is specified (limit > 0)
 	// When limit <= 0, fetch all records without LIMIT clause
@@ -300,7 +318,7 @@ func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, off
 
 	rows, err := dev.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, nil, nil, nil, nil, 0, err
+		return nil, nil, nil, nil, nil, nil, nil, 0, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -309,6 +327,7 @@ func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, off
 		var lastExpiry, firstExpiry sql.NullTime
 		var totalSessionCount sql.NullInt32
 		var oauthClientCount int
+		var totalUsers, activeUsers int
 		var rowTotalCount int
 
 		err = rows.Scan(
@@ -321,10 +340,12 @@ func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, off
 			&firstExpiry,
 			&totalSessionCount,
 			&oauthClientCount,
+			&totalUsers,
+			&activeUsers,
 			&rowTotalCount, // Window function count
 		)
 		if err != nil {
-			return nil, nil, nil, nil, nil, 0, err
+			return nil, nil, nil, nil, nil, nil, nil, 0, err
 		}
 
 		// Set totalCount from first row (same for all rows due to window function)
@@ -350,14 +371,16 @@ func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, off
 		firstSessionExpiry = append(firstSessionExpiry, firstExpiryPtr)
 		totalSessionCounts = append(totalSessionCounts, sessionCount)
 		oauthClientCounts = append(oauthClientCounts, oauthClientCount)
+		totalUserCounts = append(totalUserCounts, totalUsers)
+		activeUserCounts = append(activeUserCounts, activeUsers)
 	}
 
 	// Check for errors from iterating over rows (required by tagsql)
 	if err = rows.Err(); err != nil {
-		return nil, nil, nil, nil, nil, 0, err
+		return nil, nil, nil, nil, nil, nil, nil, 0, err
 	}
 
-	return developers, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, oauthClientCounts, totalCount, nil
+	return developers, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, oauthClientCounts, totalUserCounts, activeUserCounts, totalCount, nil
 }
 
 // GetDeveloperStats returns counts of developers grouped by status using optimized SQL aggregation

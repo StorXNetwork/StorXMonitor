@@ -5148,12 +5148,30 @@ func incrementVersion(v string) (string, error) {
 
 type CreateOAuthClientRequest struct {
 	Name         string   `json:"name"`
+	Description  string   `json:"description"`
 	RedirectURIs []string `json:"redirect_uris"`
+	Scopes       []string `json:"scopes"`
 }
 
 type UpdateOAuthClientRequest struct {
-	Name         string
-	RedirectURIs string
+	Name         *string   `json:"name"`
+	Description  *string   `json:"description"`
+	RedirectURIs *[]string `json:"redirect_uris"`
+	Scopes       *[]string `json:"scopes"`
+}
+
+// Redirect URI management requests
+type AddRedirectURIRequest struct {
+	URI string `json:"uri"`
+}
+
+type UpdateRedirectURIRequest struct {
+	OldURI string `json:"old_uri"`
+	NewURI string `json:"new_uri"`
+}
+
+type DeleteRedirectURIRequest struct {
+	URI string `json:"uri"`
 }
 
 func generateRandomSecret(length int) (string, error) {
@@ -5528,6 +5546,77 @@ func (s *Service) UnsubscribeNewsletter(ctx context.Context, email string) (err 
 	err = s.store.EmailSubscriptions().Unsubscribe(ctx, email)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// GetUserDeveloperAccess returns all developers with access to the current user's account
+func (s *Service) GetUserDeveloperAccess(ctx context.Context) (_ []UserDeveloperAccess, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user developer access")
+	if err != nil {
+		return nil, err
+	}
+
+	access, err := s.store.OAuth2Requests().GetUserDeveloperAccess(ctx, user.ID)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return access, nil
+}
+
+// GetUserDeveloperAccessHistory returns access history for a specific developer
+func (s *Service) GetUserDeveloperAccessHistory(ctx context.Context, clientID string) (_ []UserAccessHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user developer access history", zap.String("clientID", clientID))
+	if err != nil {
+		return nil, err
+	}
+
+	history, err := s.store.OAuth2Requests().GetUserDeveloperAccessHistory(ctx, user.ID, clientID)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return history, nil
+}
+
+// RevokeUserDeveloperAccess revokes a developer's access to the current user's account
+func (s *Service) RevokeUserDeveloperAccess(ctx context.Context, clientID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "revoke user developer access", zap.String("clientID", clientID))
+	if err != nil {
+		return err
+	}
+
+	// Verify the client exists and user has access to it
+	accessList, err := s.store.OAuth2Requests().GetUserDeveloperAccess(ctx, user.ID)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// Check if user has active access to this client
+	hasActiveAccess := false
+	for _, access := range accessList {
+		if access.ClientID == clientID && access.IsActive {
+			hasActiveAccess = true
+			break
+		}
+	}
+
+	if !hasActiveAccess {
+		return errs.New("no active access found for this developer")
+	}
+
+	// Revoke access
+	err = s.store.OAuth2Requests().RevokeUserDeveloperAccess(ctx, user.ID, clientID)
+	if err != nil {
+		return errs.Wrap(err)
 	}
 
 	return nil
