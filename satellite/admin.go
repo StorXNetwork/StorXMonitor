@@ -264,10 +264,10 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		// Continue without mail service if setup fails - emails won't be sent
 
 		// External address is required for developer service (used in activation emails)
-		if config.Console.ExternalAddress == "" {
-			return nil, errs.New("console.external-address must be set for developer service")
+		if config.Console.DeveloperExternalAddress == "" {
+			return nil, errs.New("console.developer-external-address must be set for developer service")
 		}
-		externalAddress := config.Console.ExternalAddress
+		externalAddress := config.Console.DeveloperExternalAddress
 
 		developerService, err := developer.NewServiceWithMail(
 			log.Named("developerservice"),

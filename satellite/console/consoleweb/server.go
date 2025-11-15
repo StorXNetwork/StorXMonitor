@@ -64,11 +64,12 @@ var (
 
 // Config contains configuration for console web server.
 type Config struct {
-	Address             string `help:"server address of the http api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
-	FrontendAddress     string `help:"server address of the front-end app" devDefault:"127.0.0.1:0" releaseDefault:":10200"`
-	ExternalAddress     string `help:"external endpoint of the satellite if hosted" default:""`
-	FrontendEnable      bool   `help:"feature flag to toggle whether console back-end server should also serve front-end endpoints" default:"true"`
-	BackendReverseProxy string `help:"the target URL of console back-end reverse proxy for local development when running a UI server" default:""`
+	Address                  string `help:"server address of the http api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
+	FrontendAddress          string `help:"server address of the front-end app" devDefault:"127.0.0.1:0" releaseDefault:":10200"`
+	DeveloperExternalAddress string `help:"external endpoint for developer service (falls back to ExternalAddress if not set)" default:""`
+	ExternalAddress          string `help:"external endpoint of the satellite if hosted" default:""`
+	FrontendEnable           bool   `help:"feature flag to toggle whether console back-end server should also serve front-end endpoints" default:"true"`
+	BackendReverseProxy      string `help:"the target URL of console back-end reverse proxy for local development when running a UI server" default:""`
 
 	PaymentGateway_APIKey                  string `help:"api key for payment gateway" default:""`
 	PaymentGateway_APISecret               string `help:"api secret for payment gateway" default:""`

@@ -108,6 +108,11 @@ func NewDeveloper(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseD
 			mailService = nil
 		}
 
+		// External address is required for developer service (used in activation emails)
+		if config.Console.DeveloperExternalAddress == "" {
+			return nil, errs.New("console.developer-external-address must be set for developer service")
+		}
+
 		developerService, err := developer.NewServiceWithMail(
 			log.Named("developerservice"),
 			peer.DB.Console(),
@@ -116,7 +121,7 @@ func NewDeveloper(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseD
 			config.Console.Config,
 			regTokenChecker,
 			mailService,
-			config.Console.ExternalAddress,
+			config.Console.DeveloperExternalAddress,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -153,7 +158,7 @@ func NewDeveloper(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseD
 
 		// Prepare server config
 		serverConfig := developer.DeveloperServerConfig{
-			ExternalAddress:             config.Console.ExternalAddress,
+			ExternalAddress:             config.Console.DeveloperExternalAddress,
 			SatelliteName:               config.Console.SatelliteName,
 			LetUsKnowURL:                config.Console.LetUsKnowURL,
 			TermsAndConditionsURL:       config.Console.TermsAndConditionsURL,
