@@ -128,6 +128,31 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE configs (
+	id bytea NOT NULL,
+	config_type text NOT NULL,
+	name text NOT NULL,
+	category text,
+	config_data jsonb NOT NULL,
+	metadata jsonb,
+	is_active boolean NOT NULL DEFAULT true,
+	version integer NOT NULL DEFAULT 1,
+	created_by bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( config_type, name )
+);
+CREATE TABLE config_versions (
+	id bytea NOT NULL,
+	config_id bytea NOT NULL,
+	version integer NOT NULL,
+	config_data jsonb NOT NULL,
+	metadata jsonb,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( config_id, version )
+);
 CREATE TABLE coupons (
 	code text NOT NULL,
 	discount double precision NOT NULL,
@@ -683,6 +708,19 @@ CREATE TABLE user_delete_requests (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_notification_preferences (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	config_type text NOT NULL,
+	config_id bytea,
+	category text,
+	preferences jsonb NOT NULL,
+	custom_variables jsonb,
+	is_active boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
@@ -795,6 +833,9 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
+CREATE INDEX configs_type_category_index ON configs ( config_type, category ) ;
+CREATE INDEX configs_active_type_index ON configs ( is_active, config_type ) ;
+CREATE INDEX config_versions_config_id_index ON config_versions ( config_id ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
@@ -834,6 +875,8 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
+CREATE INDEX user_notification_preferences_user_type_index ON user_notification_preferences ( user_id, config_type ) ;
+CREATE INDEX user_notification_preferences_user_config_index ON user_notification_preferences ( user_id, config_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;

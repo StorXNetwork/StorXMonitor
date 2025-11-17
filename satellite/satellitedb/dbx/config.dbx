@@ -1,0 +1,118 @@
+//--- configuration ---//
+
+// configs are used to store flexible configuration data such as templates and settings.
+model config (
+    key id
+
+    index (
+        name configs_type_category_index
+        fields config_type category
+    )
+
+    index (
+        name configs_active_type_index
+        fields is_active config_type
+    )
+
+    unique config_type name
+
+    // id is a UUID for the configuration entry.
+    field id blob
+    // config_type indicates the type of configuration (e.g. notification_template, email_settings).
+    field config_type text
+    // name is the configuration identifier (e.g. welcome_email, smtp_settings).
+    field name text
+    // category groups configurations (e.g. account, project, billing).
+    field category text ( nullable, updatable )
+    // config_data stores the configuration payload as JSON.
+    field config_data json ( updatable )
+    // metadata stores optional metadata for the configuration.
+    field metadata json ( nullable, updatable )
+    // is_active indicates whether the configuration is currently active.
+    field is_active bool ( updatable, default true )
+    // version represents the current version of the configuration.
+    field version int ( updatable, default 1 )
+    // created_by references the user who created the configuration (user.id).
+    field created_by blob
+    // created_at indicates when the configuration was created.
+    field created_at timestamp ( autoinsert )
+    // updated_at indicates when the configuration was last updated.
+    field updated_at timestamp ( updatable )
+)
+
+create config ( )
+update config ( where config.id = ? )
+delete config ( where config.id = ? )
+
+read one (
+    select config
+    where config.id = ?
+)
+
+read one (
+    select config
+    where config.config_type = ?
+    where config.name = ?
+)
+
+read all (
+    select config
+    where config.config_type = ?
+)
+
+read all (
+    select config
+    where config.config_type = ?
+    where config.category = ?
+)
+
+read all (
+    select config
+    where config.is_active = ?
+    where config.config_type = ?
+)
+
+// config_version stores version history for configurations.
+model config_version (
+    key id
+
+    index (
+        name config_versions_config_id_index
+        fields config_id
+    )
+
+    unique config_id version
+
+    // id is a UUID for the configuration version entry.
+    field id blob
+    // config_id references config.id.
+    field config_id blob
+    // version indicates the configuration version.
+    field version int
+    // config_data stores the snapshot of the configuration data for this version.
+    field config_data json
+    // metadata stores optional metadata for the version.
+    field metadata json ( nullable )
+    // created_at indicates when the version entry was created.
+    field created_at timestamp ( autoinsert )
+)
+
+create config_version ( )
+
+read all (
+    select config_version
+    where config_version.config_id = ?
+)
+
+read one (
+    select config_version
+    where config_version.config_id = ?
+    where config_version.version = ?
+)
+
+read one (
+    select config_version
+    where config_version.id = ?
+)
+
+
