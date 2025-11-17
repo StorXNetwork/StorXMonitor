@@ -143,16 +143,6 @@ CREATE TABLE configs (
 	PRIMARY KEY ( id ),
 	UNIQUE ( config_type, name )
 );
-CREATE TABLE config_versions (
-	id bytea NOT NULL,
-	config_id bytea NOT NULL,
-	version integer NOT NULL,
-	config_data jsonb NOT NULL,
-	metadata jsonb,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( config_id, version )
-);
 CREATE TABLE coupons (
 	code text NOT NULL,
 	discount double precision NOT NULL,
@@ -835,7 +825,6 @@ CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_st
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
 CREATE INDEX configs_type_category_index ON configs ( config_type, category ) ;
 CREATE INDEX configs_active_type_index ON configs ( is_active, config_type ) ;
-CREATE INDEX config_versions_config_id_index ON config_versions ( config_id ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;

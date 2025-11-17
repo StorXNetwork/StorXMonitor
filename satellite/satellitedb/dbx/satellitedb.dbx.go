@@ -456,16 +456,6 @@ CREATE TABLE configs (
 	PRIMARY KEY ( id ),
 	UNIQUE ( config_type, name )
 );
-CREATE TABLE config_versions (
-	id bytea NOT NULL,
-	config_id bytea NOT NULL,
-	version integer NOT NULL,
-	config_data jsonb NOT NULL,
-	metadata jsonb,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( config_id, version )
-);
 CREATE TABLE coupons (
 	code text NOT NULL,
 	discount double precision NOT NULL,
@@ -1148,7 +1138,6 @@ CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_st
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
 CREATE INDEX configs_type_category_index ON configs ( config_type, category ) ;
 CREATE INDEX configs_active_type_index ON configs ( is_active, config_type ) ;
-CREATE INDEX config_versions_config_id_index ON config_versions ( config_id ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
@@ -1437,16 +1426,6 @@ CREATE TABLE configs (
 	PRIMARY KEY ( id ),
 	UNIQUE ( config_type, name )
 );
-CREATE TABLE config_versions (
-	id bytea NOT NULL,
-	config_id bytea NOT NULL,
-	version integer NOT NULL,
-	config_data jsonb NOT NULL,
-	metadata jsonb,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( config_id, version )
-);
 CREATE TABLE coupons (
 	code text NOT NULL,
 	discount double precision NOT NULL,
@@ -2129,7 +2108,6 @@ CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_st
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
 CREATE INDEX configs_type_category_index ON configs ( config_type, category ) ;
 CREATE INDEX configs_active_type_index ON configs ( is_active, config_type ) ;
-CREATE INDEX config_versions_config_id_index ON config_versions ( config_id ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
@@ -4566,151 +4544,6 @@ func (f Config_UpdatedAt_Field) value() interface{} {
 }
 
 func (Config_UpdatedAt_Field) _Column() string { return "updated_at" }
-
-type ConfigVersion struct {
-	Id         []byte
-	ConfigId   []byte
-	Version    int
-	ConfigData []byte
-	Metadata   []byte
-	CreatedAt  time.Time
-}
-
-func (ConfigVersion) _Table() string { return "config_versions" }
-
-type ConfigVersion_Create_Fields struct {
-	Metadata ConfigVersion_Metadata_Field
-}
-
-type ConfigVersion_Update_Fields struct {
-}
-
-type ConfigVersion_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ConfigVersion_Id(v []byte) ConfigVersion_Id_Field {
-	return ConfigVersion_Id_Field{_set: true, _value: v}
-}
-
-func (f ConfigVersion_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ConfigVersion_Id_Field) _Column() string { return "id" }
-
-type ConfigVersion_ConfigId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ConfigVersion_ConfigId(v []byte) ConfigVersion_ConfigId_Field {
-	return ConfigVersion_ConfigId_Field{_set: true, _value: v}
-}
-
-func (f ConfigVersion_ConfigId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ConfigVersion_ConfigId_Field) _Column() string { return "config_id" }
-
-type ConfigVersion_Version_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func ConfigVersion_Version(v int) ConfigVersion_Version_Field {
-	return ConfigVersion_Version_Field{_set: true, _value: v}
-}
-
-func (f ConfigVersion_Version_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ConfigVersion_Version_Field) _Column() string { return "version" }
-
-type ConfigVersion_ConfigData_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ConfigVersion_ConfigData(v []byte) ConfigVersion_ConfigData_Field {
-	return ConfigVersion_ConfigData_Field{_set: true, _value: v}
-}
-
-func (f ConfigVersion_ConfigData_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ConfigVersion_ConfigData_Field) _Column() string { return "config_data" }
-
-type ConfigVersion_Metadata_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ConfigVersion_Metadata(v []byte) ConfigVersion_Metadata_Field {
-	return ConfigVersion_Metadata_Field{_set: true, _value: v}
-}
-
-func ConfigVersion_Metadata_Raw(v []byte) ConfigVersion_Metadata_Field {
-	if v == nil {
-		return ConfigVersion_Metadata_Null()
-	}
-	return ConfigVersion_Metadata(v)
-}
-
-func ConfigVersion_Metadata_Null() ConfigVersion_Metadata_Field {
-	return ConfigVersion_Metadata_Field{_set: true, _null: true}
-}
-
-func (f ConfigVersion_Metadata_Field) isnull() bool { return !f._set || f._null || f._value == nil }
-
-func (f ConfigVersion_Metadata_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ConfigVersion_Metadata_Field) _Column() string { return "metadata" }
-
-type ConfigVersion_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func ConfigVersion_CreatedAt(v time.Time) ConfigVersion_CreatedAt_Field {
-	return ConfigVersion_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f ConfigVersion_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ConfigVersion_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Coupon struct {
 	Code           string
@@ -18363,40 +18196,6 @@ func (obj *pgxImpl) Create_Config(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_ConfigVersion(ctx context.Context,
-	config_version_id ConfigVersion_Id_Field,
-	config_version_config_id ConfigVersion_ConfigId_Field,
-	config_version_version ConfigVersion_Version_Field,
-	config_version_config_data ConfigVersion_ConfigData_Field,
-	optional ConfigVersion_Create_Fields) (
-	config_version *ConfigVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := config_version_id.value()
-	__config_id_val := config_version_config_id.value()
-	__version_val := config_version_version.value()
-	__config_data_val := config_version_config_data.value()
-	__metadata_val := optional.Metadata.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO config_versions ( id, config_id, version, config_data, metadata, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING config_versions.id, config_versions.config_id, config_versions.version, config_versions.config_data, config_versions.metadata, config_versions.created_at")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __config_id_val, __version_val, __config_data_val, __metadata_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	config_version = &ConfigVersion{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config_version.Id, &config_version.ConfigId, &config_version.Version, &config_version.ConfigData, &config_version.Metadata, &config_version.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return config_version, nil
-
-}
-
 func (obj *pgxImpl) Create_Developer(ctx context.Context,
 	developer_id Developer_Id_Field,
 	developer_email Developer_Email_Field,
@@ -21956,96 +21755,6 @@ func (obj *pgxImpl) All_Config_By_IsActive_And_ConfigType(ctx context.Context,
 		}
 		return rows, nil
 	}
-
-}
-
-func (obj *pgxImpl) All_ConfigVersion_By_ConfigId(ctx context.Context,
-	config_version_config_id ConfigVersion_ConfigId_Field) (
-	rows []*ConfigVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT config_versions.id, config_versions.config_id, config_versions.version, config_versions.config_data, config_versions.metadata, config_versions.created_at FROM config_versions WHERE config_versions.config_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, config_version_config_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*ConfigVersion, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				config_version := &ConfigVersion{}
-				err = __rows.Scan(&config_version.Id, &config_version.ConfigId, &config_version.Version, &config_version.ConfigData, &config_version.Metadata, &config_version.CreatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, config_version)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxImpl) Get_ConfigVersion_By_ConfigId_And_Version(ctx context.Context,
-	config_version_config_id ConfigVersion_ConfigId_Field,
-	config_version_version ConfigVersion_Version_Field) (
-	config_version *ConfigVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT config_versions.id, config_versions.config_id, config_versions.version, config_versions.config_data, config_versions.metadata, config_versions.created_at FROM config_versions WHERE config_versions.config_id = ? AND config_versions.version = ?")
-
-	var __values []interface{}
-	__values = append(__values, config_version_config_id.value(), config_version_version.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	config_version = &ConfigVersion{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config_version.Id, &config_version.ConfigId, &config_version.Version, &config_version.ConfigData, &config_version.Metadata, &config_version.CreatedAt)
-	if err != nil {
-		return (*ConfigVersion)(nil), obj.makeErr(err)
-	}
-	return config_version, nil
-
-}
-
-func (obj *pgxImpl) Get_ConfigVersion_By_Id(ctx context.Context,
-	config_version_id ConfigVersion_Id_Field) (
-	config_version *ConfigVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT config_versions.id, config_versions.config_id, config_versions.version, config_versions.config_data, config_versions.metadata, config_versions.created_at FROM config_versions WHERE config_versions.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, config_version_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	config_version = &ConfigVersion{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config_version.Id, &config_version.ConfigId, &config_version.Version, &config_version.ConfigData, &config_version.Metadata, &config_version.CreatedAt)
-	if err != nil {
-		return (*ConfigVersion)(nil), obj.makeErr(err)
-	}
-	return config_version, nil
 
 }
 
@@ -31638,16 +31347,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM config_versions;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM configs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -32358,40 +32057,6 @@ func (obj *pgxcockroachImpl) Create_Config(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return config, nil
-
-}
-
-func (obj *pgxcockroachImpl) Create_ConfigVersion(ctx context.Context,
-	config_version_id ConfigVersion_Id_Field,
-	config_version_config_id ConfigVersion_ConfigId_Field,
-	config_version_version ConfigVersion_Version_Field,
-	config_version_config_data ConfigVersion_ConfigData_Field,
-	optional ConfigVersion_Create_Fields) (
-	config_version *ConfigVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := config_version_id.value()
-	__config_id_val := config_version_config_id.value()
-	__version_val := config_version_version.value()
-	__config_data_val := config_version_config_data.value()
-	__metadata_val := optional.Metadata.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO config_versions ( id, config_id, version, config_data, metadata, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING config_versions.id, config_versions.config_id, config_versions.version, config_versions.config_data, config_versions.metadata, config_versions.created_at")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __config_id_val, __version_val, __config_data_val, __metadata_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	config_version = &ConfigVersion{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config_version.Id, &config_version.ConfigId, &config_version.Version, &config_version.ConfigData, &config_version.Metadata, &config_version.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return config_version, nil
 
 }
 
@@ -35954,96 +35619,6 @@ func (obj *pgxcockroachImpl) All_Config_By_IsActive_And_ConfigType(ctx context.C
 		}
 		return rows, nil
 	}
-
-}
-
-func (obj *pgxcockroachImpl) All_ConfigVersion_By_ConfigId(ctx context.Context,
-	config_version_config_id ConfigVersion_ConfigId_Field) (
-	rows []*ConfigVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT config_versions.id, config_versions.config_id, config_versions.version, config_versions.config_data, config_versions.metadata, config_versions.created_at FROM config_versions WHERE config_versions.config_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, config_version_config_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*ConfigVersion, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				config_version := &ConfigVersion{}
-				err = __rows.Scan(&config_version.Id, &config_version.ConfigId, &config_version.Version, &config_version.ConfigData, &config_version.Metadata, &config_version.CreatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, config_version)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) Get_ConfigVersion_By_ConfigId_And_Version(ctx context.Context,
-	config_version_config_id ConfigVersion_ConfigId_Field,
-	config_version_version ConfigVersion_Version_Field) (
-	config_version *ConfigVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT config_versions.id, config_versions.config_id, config_versions.version, config_versions.config_data, config_versions.metadata, config_versions.created_at FROM config_versions WHERE config_versions.config_id = ? AND config_versions.version = ?")
-
-	var __values []interface{}
-	__values = append(__values, config_version_config_id.value(), config_version_version.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	config_version = &ConfigVersion{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config_version.Id, &config_version.ConfigId, &config_version.Version, &config_version.ConfigData, &config_version.Metadata, &config_version.CreatedAt)
-	if err != nil {
-		return (*ConfigVersion)(nil), obj.makeErr(err)
-	}
-	return config_version, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_ConfigVersion_By_Id(ctx context.Context,
-	config_version_id ConfigVersion_Id_Field) (
-	config_version *ConfigVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT config_versions.id, config_versions.config_id, config_versions.version, config_versions.config_data, config_versions.metadata, config_versions.created_at FROM config_versions WHERE config_versions.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, config_version_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	config_version = &ConfigVersion{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config_version.Id, &config_version.ConfigId, &config_version.Version, &config_version.ConfigData, &config_version.Metadata, &config_version.CreatedAt)
-	if err != nil {
-		return (*ConfigVersion)(nil), obj.makeErr(err)
-	}
-	return config_version, nil
 
 }
 
@@ -45636,16 +45211,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM config_versions;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM configs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -45822,10 +45387,6 @@ type Methods interface {
 	All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
-
-	All_ConfigVersion_By_ConfigId(ctx context.Context,
-		config_version_config_id ConfigVersion_ConfigId_Field) (
-		rows []*ConfigVersion, err error)
 
 	All_Config_By_ConfigType(ctx context.Context,
 		config_config_type Config_ConfigType_Field) (
@@ -46198,14 +45759,6 @@ type Methods interface {
 		config_updated_at Config_UpdatedAt_Field,
 		optional Config_Create_Fields) (
 		config *Config, err error)
-
-	Create_ConfigVersion(ctx context.Context,
-		config_version_id ConfigVersion_Id_Field,
-		config_version_config_id ConfigVersion_ConfigId_Field,
-		config_version_version ConfigVersion_Version_Field,
-		config_version_config_data ConfigVersion_ConfigData_Field,
-		optional ConfigVersion_Create_Fields) (
-		config_version *ConfigVersion, err error)
 
 	Create_Coupon(ctx context.Context,
 		coupon_code Coupon_Code_Field,
@@ -46685,15 +46238,6 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Versioning_Row, err error)
-
-	Get_ConfigVersion_By_ConfigId_And_Version(ctx context.Context,
-		config_version_config_id ConfigVersion_ConfigId_Field,
-		config_version_version ConfigVersion_Version_Field) (
-		config_version *ConfigVersion, err error)
-
-	Get_ConfigVersion_By_Id(ctx context.Context,
-		config_version_id ConfigVersion_Id_Field) (
-		config_version *ConfigVersion, err error)
 
 	Get_Config_By_ConfigType_And_Name(ctx context.Context,
 		config_config_type Config_ConfigType_Field,
