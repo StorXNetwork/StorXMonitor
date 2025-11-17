@@ -447,9 +447,7 @@ CREATE TABLE configs (
 	name text NOT NULL,
 	category text,
 	config_data jsonb NOT NULL,
-	metadata jsonb,
 	is_active boolean NOT NULL DEFAULT true,
-	version integer NOT NULL DEFAULT 1,
 	created_by bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
@@ -1417,9 +1415,7 @@ CREATE TABLE configs (
 	name text NOT NULL,
 	category text,
 	config_data jsonb NOT NULL,
-	metadata jsonb,
 	is_active boolean NOT NULL DEFAULT true,
-	version integer NOT NULL DEFAULT 1,
 	created_by bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
@@ -4284,9 +4280,7 @@ type Config struct {
 	Name       string
 	Category   *string
 	ConfigData []byte
-	Metadata   []byte
 	IsActive   bool
-	Version    int
 	CreatedBy  []byte
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
@@ -4296,17 +4290,13 @@ func (Config) _Table() string { return "configs" }
 
 type Config_Create_Fields struct {
 	Category Config_Category_Field
-	Metadata Config_Metadata_Field
 	IsActive Config_IsActive_Field
-	Version  Config_Version_Field
 }
 
 type Config_Update_Fields struct {
 	Category   Config_Category_Field
 	ConfigData Config_ConfigData_Field
-	Metadata   Config_Metadata_Field
 	IsActive   Config_IsActive_Field
-	Version    Config_Version_Field
 	UpdatedAt  Config_UpdatedAt_Field
 }
 
@@ -4418,38 +4408,6 @@ func (f Config_ConfigData_Field) value() interface{} {
 
 func (Config_ConfigData_Field) _Column() string { return "config_data" }
 
-type Config_Metadata_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Config_Metadata(v []byte) Config_Metadata_Field {
-	return Config_Metadata_Field{_set: true, _value: v}
-}
-
-func Config_Metadata_Raw(v []byte) Config_Metadata_Field {
-	if v == nil {
-		return Config_Metadata_Null()
-	}
-	return Config_Metadata(v)
-}
-
-func Config_Metadata_Null() Config_Metadata_Field {
-	return Config_Metadata_Field{_set: true, _null: true}
-}
-
-func (f Config_Metadata_Field) isnull() bool { return !f._set || f._null || f._value == nil }
-
-func (f Config_Metadata_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Config_Metadata_Field) _Column() string { return "metadata" }
-
 type Config_IsActive_Field struct {
 	_set   bool
 	_null  bool
@@ -4468,25 +4426,6 @@ func (f Config_IsActive_Field) value() interface{} {
 }
 
 func (Config_IsActive_Field) _Column() string { return "is_active" }
-
-type Config_Version_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func Config_Version(v int) Config_Version_Field {
-	return Config_Version_Field{_set: true, _value: v}
-}
-
-func (f Config_Version_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Config_Version_Field) _Column() string { return "version" }
 
 type Config_CreatedBy_Field struct {
 	_set   bool
@@ -18147,19 +18086,18 @@ func (obj *pgxImpl) Create_Config(ctx context.Context,
 	__name_val := config_name.value()
 	__category_val := optional.Category.value()
 	__config_data_val := config_config_data.value()
-	__metadata_val := optional.Metadata.value()
 	__created_by_val := config_created_by.value()
 	__created_at_val := __now
 	__updated_at_val := config_updated_at.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, config_type, name, category, config_data, metadata, created_by, created_at, updated_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, config_type, name, category, config_data, created_by, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO configs "), __clause, __sqlbundle_Literal(" RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO configs "), __clause, __sqlbundle_Literal(" RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __config_type_val, __name_val, __category_val, __config_data_val, __metadata_val, __created_by_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __config_type_val, __name_val, __category_val, __config_data_val, __created_by_val, __created_at_val, __updated_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -18167,12 +18105,6 @@ func (obj *pgxImpl) Create_Config(ctx context.Context,
 	if optional.IsActive._set {
 		__values = append(__values, optional.IsActive.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_active"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.Version._set {
-		__values = append(__values, optional.Version.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("version"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -18188,7 +18120,7 @@ func (obj *pgxImpl) Create_Config(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	config = &Config{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -21575,7 +21507,7 @@ func (obj *pgxImpl) Get_Config_By_Id(ctx context.Context,
 	config *Config, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, config_id.value())
@@ -21584,7 +21516,7 @@ func (obj *pgxImpl) Get_Config_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	config = &Config{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 	if err != nil {
 		return (*Config)(nil), obj.makeErr(err)
 	}
@@ -21598,7 +21530,7 @@ func (obj *pgxImpl) Get_Config_By_ConfigType_And_Name(ctx context.Context,
 	config *Config, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND configs.name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND configs.name = ?")
 
 	var __values []interface{}
 	__values = append(__values, config_config_type.value(), config_name.value())
@@ -21607,7 +21539,7 @@ func (obj *pgxImpl) Get_Config_By_ConfigType_And_Name(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	config = &Config{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 	if err != nil {
 		return (*Config)(nil), obj.makeErr(err)
 	}
@@ -21620,7 +21552,7 @@ func (obj *pgxImpl) All_Config_By_ConfigType(ctx context.Context,
 	rows []*Config, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ?")
 
 	var __values []interface{}
 	__values = append(__values, config_config_type.value())
@@ -21638,7 +21570,7 @@ func (obj *pgxImpl) All_Config_By_ConfigType(ctx context.Context,
 
 			for __rows.Next() {
 				config := &Config{}
-				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -21668,7 +21600,7 @@ func (obj *pgxImpl) All_Config_By_ConfigType_And_Category(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "configs.category", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND "), __cond_0}}
 
 	var __values []interface{}
 	__values = append(__values, config_config_type.value())
@@ -21690,7 +21622,7 @@ func (obj *pgxImpl) All_Config_By_ConfigType_And_Category(ctx context.Context,
 
 			for __rows.Next() {
 				config := &Config{}
-				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -21718,7 +21650,7 @@ func (obj *pgxImpl) All_Config_By_IsActive_And_ConfigType(ctx context.Context,
 	rows []*Config, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.is_active = ? AND configs.config_type = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.is_active = ? AND configs.config_type = ?")
 
 	var __values []interface{}
 	__values = append(__values, config_is_active.value(), config_config_type.value())
@@ -21736,7 +21668,7 @@ func (obj *pgxImpl) All_Config_By_IsActive_And_ConfigType(ctx context.Context,
 
 			for __rows.Next() {
 				config := &Config{}
-				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -26650,7 +26582,7 @@ func (obj *pgxImpl) Update_Config_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE configs SET "), __sets, __sqlbundle_Literal(" WHERE configs.id = ? RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE configs SET "), __sets, __sqlbundle_Literal(" WHERE configs.id = ? RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -26666,19 +26598,9 @@ func (obj *pgxImpl) Update_Config_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config_data = ?"))
 	}
 
-	if update.Metadata._set {
-		__values = append(__values, update.Metadata.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
-	}
-
 	if update.IsActive._set {
 		__values = append(__values, update.IsActive.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_active = ?"))
-	}
-
-	if update.Version._set {
-		__values = append(__values, update.Version.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("version = ?"))
 	}
 
 	if update.UpdatedAt._set {
@@ -26699,7 +26621,7 @@ func (obj *pgxImpl) Update_Config_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	config = &Config{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -32011,19 +31933,18 @@ func (obj *pgxcockroachImpl) Create_Config(ctx context.Context,
 	__name_val := config_name.value()
 	__category_val := optional.Category.value()
 	__config_data_val := config_config_data.value()
-	__metadata_val := optional.Metadata.value()
 	__created_by_val := config_created_by.value()
 	__created_at_val := __now
 	__updated_at_val := config_updated_at.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, config_type, name, category, config_data, metadata, created_by, created_at, updated_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, config_type, name, category, config_data, created_by, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO configs "), __clause, __sqlbundle_Literal(" RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO configs "), __clause, __sqlbundle_Literal(" RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __config_type_val, __name_val, __category_val, __config_data_val, __metadata_val, __created_by_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __config_type_val, __name_val, __category_val, __config_data_val, __created_by_val, __created_at_val, __updated_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -32031,12 +31952,6 @@ func (obj *pgxcockroachImpl) Create_Config(ctx context.Context,
 	if optional.IsActive._set {
 		__values = append(__values, optional.IsActive.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_active"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.Version._set {
-		__values = append(__values, optional.Version.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("version"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -32052,7 +31967,7 @@ func (obj *pgxcockroachImpl) Create_Config(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	config = &Config{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -35439,7 +35354,7 @@ func (obj *pgxcockroachImpl) Get_Config_By_Id(ctx context.Context,
 	config *Config, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, config_id.value())
@@ -35448,7 +35363,7 @@ func (obj *pgxcockroachImpl) Get_Config_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	config = &Config{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 	if err != nil {
 		return (*Config)(nil), obj.makeErr(err)
 	}
@@ -35462,7 +35377,7 @@ func (obj *pgxcockroachImpl) Get_Config_By_ConfigType_And_Name(ctx context.Conte
 	config *Config, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND configs.name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND configs.name = ?")
 
 	var __values []interface{}
 	__values = append(__values, config_config_type.value(), config_name.value())
@@ -35471,7 +35386,7 @@ func (obj *pgxcockroachImpl) Get_Config_By_ConfigType_And_Name(ctx context.Conte
 	obj.logStmt(__stmt, __values...)
 
 	config = &Config{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 	if err != nil {
 		return (*Config)(nil), obj.makeErr(err)
 	}
@@ -35484,7 +35399,7 @@ func (obj *pgxcockroachImpl) All_Config_By_ConfigType(ctx context.Context,
 	rows []*Config, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ?")
 
 	var __values []interface{}
 	__values = append(__values, config_config_type.value())
@@ -35502,7 +35417,7 @@ func (obj *pgxcockroachImpl) All_Config_By_ConfigType(ctx context.Context,
 
 			for __rows.Next() {
 				config := &Config{}
-				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -35532,7 +35447,7 @@ func (obj *pgxcockroachImpl) All_Config_By_ConfigType_And_Category(ctx context.C
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "configs.category", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND "), __cond_0}}
 
 	var __values []interface{}
 	__values = append(__values, config_config_type.value())
@@ -35554,7 +35469,7 @@ func (obj *pgxcockroachImpl) All_Config_By_ConfigType_And_Category(ctx context.C
 
 			for __rows.Next() {
 				config := &Config{}
-				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -35582,7 +35497,7 @@ func (obj *pgxcockroachImpl) All_Config_By_IsActive_And_ConfigType(ctx context.C
 	rows []*Config, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.is_active = ? AND configs.config_type = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.is_active = ? AND configs.config_type = ?")
 
 	var __values []interface{}
 	__values = append(__values, config_is_active.value(), config_config_type.value())
@@ -35600,7 +35515,7 @@ func (obj *pgxcockroachImpl) All_Config_By_IsActive_And_ConfigType(ctx context.C
 
 			for __rows.Next() {
 				config := &Config{}
-				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -40514,7 +40429,7 @@ func (obj *pgxcockroachImpl) Update_Config_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE configs SET "), __sets, __sqlbundle_Literal(" WHERE configs.id = ? RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.metadata, configs.is_active, configs.version, configs.created_by, configs.created_at, configs.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE configs SET "), __sets, __sqlbundle_Literal(" WHERE configs.id = ? RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -40530,19 +40445,9 @@ func (obj *pgxcockroachImpl) Update_Config_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config_data = ?"))
 	}
 
-	if update.Metadata._set {
-		__values = append(__values, update.Metadata.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
-	}
-
 	if update.IsActive._set {
 		__values = append(__values, update.IsActive.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_active = ?"))
-	}
-
-	if update.Version._set {
-		__values = append(__values, update.Version.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("version = ?"))
 	}
 
 	if update.UpdatedAt._set {
@@ -40563,7 +40468,7 @@ func (obj *pgxcockroachImpl) Update_Config_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	config = &Config{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.Metadata, &config.IsActive, &config.Version, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

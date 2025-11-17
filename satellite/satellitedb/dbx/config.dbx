@@ -26,12 +26,8 @@ model config (
     field category text ( nullable, updatable )
     // config_data stores the configuration payload as JSON.
     field config_data json ( updatable )
-    // metadata stores optional metadata for the configuration.
-    field metadata json ( nullable, updatable )
     // is_active indicates whether the configuration is currently active.
     field is_active bool ( updatable, default true )
-    // version represents the current version of the configuration.
-    field version int ( updatable, default 1 )
     // created_by references the user who created the configuration (user.id).
     field created_by blob
     // created_at indicates when the configuration was created.
