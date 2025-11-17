@@ -3183,6 +3183,52 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX push_notifications_created_at_index ON push_notifications ( created_at );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add configs table",
+				Version:     292,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE TABLE configs (
+	id bytea NOT NULL,
+	config_type text NOT NULL,
+	name text NOT NULL,
+	category text,
+	config_data jsonb NOT NULL,
+	is_active boolean NOT NULL DEFAULT true,
+	created_by bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);`,
+					`CREATE UNIQUE INDEX configs_type_name_unique ON configs ( config_type, name );`,
+					`CREATE INDEX configs_type_category_index ON configs ( config_type, category );`,
+					`CREATE INDEX configs_active_type_index ON configs ( is_active, config_type );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_notification_preferences table",
+				Version:     293,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE TABLE user_notification_preferences (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	config_type text NOT NULL,
+	config_id bytea,
+	category text,
+	preferences jsonb NOT NULL,
+	custom_variables jsonb,
+	is_active boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);`,
+					`CREATE INDEX user_notification_preferences_user_type_index ON user_notification_preferences ( user_id, config_type );`,
+					`CREATE INDEX user_notification_preferences_user_config_index ON user_notification_preferences ( user_id, config_id );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

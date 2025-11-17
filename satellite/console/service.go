@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console/configs"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/emission"
@@ -257,6 +258,16 @@ func (s *Service) SendPushNotification(ctx context.Context, userID uuid.UUID, no
 // GetPushNotifications returns the push notifications database interface.
 func (s *Service) GetPushNotifications() pushnotifications.PushNotificationDB {
 	return s.store.PushNotifications()
+}
+
+// GetConfigs returns the configs database interface.
+func (s *Service) GetConfigs() configs.DB {
+	return s.store.Configs()
+}
+
+// GetUserNotificationPreferences returns the user notification preferences database interface.
+func (s *Service) GetUserNotificationPreferences() configs.UserPreferenceDB {
+	return s.store.UserNotificationPreferences()
 }
 
 // boris

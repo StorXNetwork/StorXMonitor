@@ -477,6 +477,41 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	pushNotificationsRouter.Handle("", http.HandlerFunc(pushNotificationsController.GetTokens)).Methods(http.MethodGet, http.MethodOptions)
 	pushNotificationsRouter.Handle("/{tokenId}", http.HandlerFunc(pushNotificationsController.DeleteToken)).Methods(http.MethodDelete, http.MethodOptions)
 
+	// Configs API (read-only for users)
+	configsController := consoleapi.NewConfigs(logger, service)
+	configsRouter := router.PathPrefix("/api/v0/configs").Subrouter()
+	configsRouter.Use(server.withCORS)
+	configsRouter.Use(server.withAuth)
+
+	configsRouter.Handle("", http.HandlerFunc(configsController.ListConfigs)).Methods(http.MethodGet, http.MethodOptions)
+	configsRouter.Handle("/{id}", http.HandlerFunc(configsController.GetConfig)).Methods(http.MethodGet, http.MethodOptions)
+	configsRouter.Handle("/type/{type}/name/{name}", http.HandlerFunc(configsController.GetConfigByTypeAndName)).Methods(http.MethodGet, http.MethodOptions)
+	configsRouter.Handle("/type/{type}", http.HandlerFunc(configsController.ListConfigsByType)).Methods(http.MethodGet, http.MethodOptions)
+
+	// Notification Templates API (read-only for users)
+	notificationTemplatesController := consoleapi.NewNotificationTemplates(logger, service)
+	notificationTemplatesRouter := router.PathPrefix("/api/v0/notification-templates").Subrouter()
+	notificationTemplatesRouter.Use(server.withCORS)
+	notificationTemplatesRouter.Use(server.withAuth)
+
+	notificationTemplatesRouter.Handle("", http.HandlerFunc(notificationTemplatesController.ListTemplates)).Methods(http.MethodGet, http.MethodOptions)
+	notificationTemplatesRouter.Handle("/{id}", http.HandlerFunc(notificationTemplatesController.GetTemplate)).Methods(http.MethodGet, http.MethodOptions)
+	notificationTemplatesRouter.Handle("/name/{name}", http.HandlerFunc(notificationTemplatesController.GetTemplateByName)).Methods(http.MethodGet, http.MethodOptions)
+
+	// User Notification Preferences API
+	userNotificationPreferencesController := consoleapi.NewUserNotificationPreferences(logger, service)
+	userNotificationPreferencesRouter := router.PathPrefix("/api/v0/user/notification-preferences").Subrouter()
+	userNotificationPreferencesRouter.Use(server.withCORS)
+	userNotificationPreferencesRouter.Use(server.withAuth)
+
+	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferences)).Methods(http.MethodGet, http.MethodOptions)
+	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.SetUserPreference)).Methods(http.MethodPost, http.MethodOptions)
+	userNotificationPreferencesRouter.Handle("/type/{type}", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferencesByType)).Methods(http.MethodGet, http.MethodOptions)
+	userNotificationPreferencesRouter.Handle("/config/{configId}", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferenceByConfig)).Methods(http.MethodGet, http.MethodOptions)
+	userNotificationPreferencesRouter.Handle("/category/{category}", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferenceByCategory)).Methods(http.MethodGet, http.MethodOptions)
+	userNotificationPreferencesRouter.Handle("/{id}", http.HandlerFunc(userNotificationPreferencesController.UpdateUserPreference)).Methods(http.MethodPut, http.MethodOptions)
+	userNotificationPreferencesRouter.Handle("/{id}", http.HandlerFunc(userNotificationPreferencesController.DeleteUserPreference)).Methods(http.MethodDelete, http.MethodOptions)
+
 	if config.DeveloperAPIEnabled {
 		developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,
 			server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL,

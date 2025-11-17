@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 
+	"storj.io/storj/satellite/console/configs"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/pushnotifications"
 )
@@ -54,6 +55,12 @@ type DB interface {
 
 	// PushNotifications is a getter for PushNotifications repository.
 	PushNotifications() pushnotifications.PushNotificationDB
+
+	// Configs is a getter for Configs repository.
+	Configs() configs.DB
+
+	// UserNotificationPreferences is a getter for UserNotificationPreferences repository.
+	UserNotificationPreferences() configs.UserPreferenceDB
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

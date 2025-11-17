@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/lrucache"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/configs"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -125,6 +126,16 @@ func (db *ConsoleDB) FCMTokens() pushnotifications.DB {
 // PushNotifications is a getter for PushNotifications repository.
 func (db *ConsoleDB) PushNotifications() pushnotifications.PushNotificationDB {
 	return &pushNotifications{db: db.db}
+}
+
+// Configs is a getter for Configs repository.
+func (db *ConsoleDB) Configs() configs.DB {
+	return &configsDB{db: db.db}
+}
+
+// UserNotificationPreferences is a getter for UserNotificationPreferences repository.
+func (db *ConsoleDB) UserNotificationPreferences() configs.UserPreferenceDB {
+	return &userNotificationPreferencesDB{db: db.db}
 }
 
 // WithTx is a method for executing and retrying transaction.

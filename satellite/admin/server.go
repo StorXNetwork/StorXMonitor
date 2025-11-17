@@ -227,6 +227,19 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/restkeys/{useremail}", server.addRESTKey).Methods("POST")
 	fullAccessAPI.HandleFunc("/restkeys/{apikey}/revoke", server.revokeRESTKey).Methods("PUT")
 
+	// Config management endpoints (Admin-only CRUD)
+	fullAccessAPI.HandleFunc("/configs", server.createConfig).Methods("POST")
+	fullAccessAPI.HandleFunc("/configs", server.listConfigs).Methods("GET")
+	fullAccessAPI.HandleFunc("/configs/{id}", server.getConfig).Methods("GET")
+	fullAccessAPI.HandleFunc("/configs/{id}", server.updateConfig).Methods("PUT")
+	fullAccessAPI.HandleFunc("/configs/{id}", server.deleteConfig).Methods("DELETE")
+	fullAccessAPI.HandleFunc("/configs/type/{type}/name/{name}", server.getConfigByTypeAndName).Methods("GET")
+	fullAccessAPI.HandleFunc("/configs/type/{type}", server.listConfigsByType).Methods("GET")
+
+	// Template management endpoints (Admin-only CRUD)
+	fullAccessAPI.HandleFunc("/notification-templates", server.createTemplate).Methods("POST")
+	fullAccessAPI.HandleFunc("/notification-templates/{id}/render", server.renderTemplate).Methods("POST")
+
 	// limit update access required
 	limitUpdateAPI := api.NewRoute().Subrouter()
 	limitUpdateAPI.Use(server.WithAuth([]string{config.Groups.LimitUpdate}, false))
