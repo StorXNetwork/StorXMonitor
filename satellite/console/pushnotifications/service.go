@@ -111,9 +111,23 @@ func (s *Service) SendNotification(ctx context.Context, userID uuid.UUID, notifi
 	}
 
 	if len(tokens) == 0 {
-		s.log.Debug("No active FCM tokens found for user", zap.Stringer("user_id", userID))
+		s.log.Warn("No active FCM tokens found for user", zap.Stringer("user_id", userID))
 		return nil
 	}
+
+	// Log token info for debugging
+	tokenPreviews := make([]string, len(tokens))
+	for i, t := range tokens {
+		if len(t.Token) > 20 {
+			tokenPreviews[i] = t.Token[:20] + "..."
+		} else {
+			tokenPreviews[i] = t.Token
+		}
+	}
+	s.log.Info("Found FCM tokens for user",
+		zap.Stringer("user_id", userID),
+		zap.Int("token_count", len(tokens)),
+		zap.Strings("token_previews", tokenPreviews))
 
 	// Convert notification data to map[string]interface{} for storage
 	dataMap := make(map[string]interface{})
@@ -241,6 +255,7 @@ func (s *Service) SendNotificationToToken(ctx context.Context, token string, not
 }
 
 // SendNotificationToMultipleTokens sends to multiple tokens (batch).
+// Uses individual Send calls instead of SendMulticast to avoid /batch endpoint issues.
 func (s *Service) SendNotificationToMultipleTokens(ctx context.Context, tokens []string, notification Notification) (_ []*messaging.SendResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -252,37 +267,61 @@ func (s *Service) SendNotificationToMultipleTokens(ctx context.Context, tokens [
 		return []*messaging.SendResponse{}, nil
 	}
 
-	// Build multicast message
-	message := &messaging.MulticastMessage{
-		Tokens: tokens,
-		Notification: &messaging.Notification{
-			Title: notification.Title,
-			Body:  notification.Body,
-		},
-		Data: make(map[string]string),
-	}
+	// Build responses slice
+	responses := make([]*messaging.SendResponse, 0, len(tokens))
 
-	// Add custom data
-	for k, v := range notification.Data {
-		message.Data[k] = v
-	}
-
-	// Set priority
-	if notification.Priority == "high" {
-		message.Android = &messaging.AndroidConfig{
-			Priority: "high",
-		}
-		message.APNS = &messaging.APNSConfig{
-			Headers: map[string]string{
-				"apns-priority": "10",
+	// Send to each token individually (workaround for /batch endpoint issue)
+	// This uses the same endpoint that works in Postman (/v1/projects/{project}/messages:send)
+	for _, token := range tokens {
+		message := &messaging.Message{
+			Token: token,
+			Notification: &messaging.Notification{
+				Title: notification.Title,
+				Body:  notification.Body,
 			},
+			Data: make(map[string]string),
 		}
+
+		// Add custom data
+		for k, v := range notification.Data {
+			message.Data[k] = v
+		}
+
+		// Set priority
+		if notification.Priority == "high" {
+			message.Android = &messaging.AndroidConfig{
+				Priority: "high",
+			}
+			message.APNS = &messaging.APNSConfig{
+				Headers: map[string]string{
+					"apns-priority": "10",
+				},
+			}
+		}
+
+		// Send individual message
+		msgID, err := s.client.Send(ctx, message)
+		if err != nil {
+			// Create a response with error
+			responses = append(responses, &messaging.SendResponse{
+				Success: false,
+				Error:   err,
+			})
+			s.log.Warn("Failed to send notification to token",
+				zap.String("token", token),
+				zap.Error(err))
+			continue
+		}
+
+		// Create a success response
+		responses = append(responses, &messaging.SendResponse{
+			Success:   true,
+			MessageID: msgID,
+		})
+		s.log.Debug("Successfully sent notification to token",
+			zap.String("token", token),
+			zap.String("message_id", msgID))
 	}
 
-	br, err := s.client.SendMulticast(ctx, message)
-	if err != nil {
-		return nil, ErrService.Wrap(err)
-	}
-
-	return br.Responses, nil
+	return responses, nil
 }

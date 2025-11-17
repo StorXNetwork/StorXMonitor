@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -3136,6 +3137,23 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
+	}
+
+	// Send push notification about settings update
+	consoleUser, err := console.GetUser(ctx)
+	if err == nil {
+		notification := pushnotifications.Notification{
+			Title:    "Settings Updated",
+			Body:     "Your account settings have been successfully updated.",
+			Data:     map[string]string{"type": "settings_updated", "timestamp": time.Now().Format(time.RFC3339)},
+			Priority: "normal",
+		}
+		// Send notification asynchronously - don't fail settings update if notification fails
+		if err := a.service.SendPushNotification(ctx, consoleUser.ID, notification); err != nil {
+			a.log.Warn("Failed to send push notification for settings update",
+				zap.Stringer("user_id", consoleUser.ID),
+				zap.Error(err))
+		}
 	}
 
 	err = json.NewEncoder(w).Encode(settings)
