@@ -40,8 +40,8 @@ CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active );
 
 **Migration Details**:
 
-- Add new migration step (version 266+) in `satellite/satellitedb/migrate.go`
-- Create corresponding test migration file: `satellite/satellitedb/testdata/postgres.v266.sql`
+- Add new migration steps (version 290 for fcm_tokens, version 291 for push_notifications) in `satellite/satellitedb/migrate.go` (current latest is 289)
+- Create corresponding test migration files: `satellite/satellitedb/testdata/postgres.v290.sql` and `postgres.v291.sql`
 - Follow existing migration pattern with `SeparateTx: true` for index creation
 
 ### 2. Create `push_notifications` Table (Optional - for tracking)
@@ -89,6 +89,11 @@ model fcm_tokens (
     field device_id text ( nullable, updatable )
     field device_type text ( nullable, updatable )
     field app_version text ( nullable, updatable )
+    field os_version text ( nullable, updatable )
+    field device_model text ( nullable, updatable )
+    field browser_name text ( nullable, updatable )
+    field user_agent text ( nullable, updatable )
+    field ip_address text ( nullable, updatable )
     field created_at timestamp ( autoinsert )
     field updated_at timestamp ( updatable )
     field last_used_at timestamp ( nullable, updatable )
@@ -282,19 +287,28 @@ func (p *PushNotifications) DeleteToken(w http.ResponseWriter, r *http.Request)
 ```go
 // RegisterTokenRequest for POST /api/v0/push-notifications/tokens
 type RegisterTokenRequest struct {
-    Token      string  `json:"token"`       // Required: FCM token
-    DeviceID   *string `json:"deviceId"`    // Optional: device identifier
-    DeviceType *string `json:"deviceType"`  // Optional: "android", "ios", "web"
-    AppVersion *string `json:"appVersion"`  // Optional: app version
+    Token       string  `json:"token"`        // Required: FCM token
+    DeviceID    *string `json:"deviceId"`     // Optional: device identifier
+    DeviceType  *string `json:"deviceType"`   // Optional: "android", "ios", "web"
+    AppVersion  *string `json:"appVersion"`   // Optional: app version
+    OSVersion   *string `json:"osVersion"`    // Optional: OS version
+    DeviceModel *string `json:"deviceModel"`  // Optional: device model
+    BrowserName *string `json:"browserName"`  // Optional: browser name (web only)
+    UserAgent   *string `json:"userAgent"`    // Optional: full user agent string
+    // Note: ip_address is extracted from request on server side, not from client
 }
 
 // UpdateTokenRequest for PUT /api/v0/push-notifications/tokens/:tokenId
 type UpdateTokenRequest struct {
-    Token      *string `json:"token"`
-    DeviceID   *string `json:"deviceId"`
-    DeviceType *string `json:"deviceType"`
-    AppVersion *string `json:"appVersion"`
-    IsActive   *bool   `json:"isActive"`
+    Token       *string `json:"token"`
+    DeviceID    *string `json:"deviceId"`
+    DeviceType  *string `json:"deviceType"`
+    AppVersion  *string `json:"appVersion"`
+    OSVersion   *string `json:"osVersion"`
+    DeviceModel *string `json:"deviceModel"`
+    BrowserName *string `json:"browserName"`
+    UserAgent   *string `json:"userAgent"`
+    IsActive    *bool   `json:"isActive"`
 }
 ```
 
@@ -374,6 +388,7 @@ firebase.google.com/go/v4 v4.12.0
 8. **IP Address Extraction**: Extract client IP address from HTTP request headers (X-Forwarded-For, X-Real-IP, or RemoteAddr) on server side
 9. **Optional Fields**: All new fields (os_version, device_model, browser_name, user_agent, ip_address) are optional and nullable
 10. **Data Validation**: Validate and sanitize user-provided fields (device_model, browser_name, user_agent) to prevent injection attacks
+11. **Retry Count**: `retry_count` is stored in `push_notifications` table only (not in `fcm_tokens`), tracking retry attempts per notification
 
 ## Files to Create/Modify
 
@@ -384,6 +399,7 @@ firebase.google.com/go/v4 v4.12.0
 - `satellite/console/pushnotifications/types.go`
 - `satellite/console/consoleweb/consoleapi/pushnotifications.go`
 - `satellite/satellitedb/fcmtokens.go`
+- `satellite/satellitedb/pushnotifications.go` (NEW - for tracking sent notifications)
 
 **Modified Files**:
 
@@ -393,19 +409,100 @@ firebase.google.com/go/v4 v4.12.0
 - `satellite/console/consoleweb/server.go` (register routes)
 - `satellite/console/consoleweb/config.go` (add config)
 - `go.mod` (add dependency)
-- `satellite/satellitedb/testdata/postgres.v266.sql` (test migration)
+- `satellite/satellitedb/testdata/postgres.v290.sql` (test migration for fcm_tokens)
+- `satellite/satellitedb/testdata/postgres.v291.sql` (test migration for push_notifications)
 
 ### To-dos
 
-- [ ] Create database migration for fcm_tokens and push_notifications tables with proper indexes
-- [ ] Add fcm_tokens model definition to satellitedb.dbx file
-- [ ] Create DB interface in satellite/console/pushnotifications/db.go
-- [ ] Implement database layer in satellite/satellitedb/fcmtokens.go using dbx
-- [ ] Create FCM service package with Firebase Admin SDK integration
-- [ ] Implement SendNotification function that retrieves user tokens and sends FCM messages
-- [ ] Create API controller for token management (register, update, get, delete)
-- [ ] Register API routes in server.go with proper middleware (CORS, auth)
-- [ ] Integrate FCM service into console.Service and expose SendPushNotification method
-- [ ] Add FCM configuration to config.go and wire it through the system
-- [ ] Add Firebase Admin SDK dependency to go.mod
+**Status Check**: ✅ Implementation Complete - All core functionality implemented. Only unit tests remaining.
+
+- [x] Create database migration for fcm_tokens table with proper indexes (version 290)
+- [x] Create database migration for push_notifications table with proper indexes (version 291)
+- [x] Add fcm_tokens model definition to satellitedb.dbx file (include all fields: os_version, device_model, browser_name, user_agent, ip_address) - **Note: Already existed in notification.dbx**
+- [x] Create DB interface in satellite/console/pushnotifications/db.go
+- [x] Implement database layer in satellite/satellitedb/fcmtokens.go using dbx
+- [x] Create FCM service package with Firebase Admin SDK integration
+- [x] Implement SendNotification function that retrieves user tokens and sends FCM messages
+- [x] Create API controller for token management (register, update, get, delete) with all optional fields
+- [x] Register API routes in server.go with proper middleware (CORS, auth)
+- [x] Integrate FCM service into console.Service and expose SendPushNotification method
+- [x] Add FCM configuration to config.go and wire it through the system
+- [x] Add Firebase Admin SDK dependency to go.mod (firebase.google.com/go/v4 v4.18.0)
+- [x] Implement IP address extraction from HTTP request headers in API controller
 - [ ] Create unit tests for service, API controller, and database layer
+
+## Implementation Status
+
+### ✅ Completed Components
+
+1. **Database Layer**:
+   - ✅ Migrations created (v290 for fcm_tokens, v291 for push_notifications)
+   - ✅ DBX models exist in `satellite/satellitedb/dbx/notification.dbx`
+   - ✅ DB interface defined in `satellite/console/pushnotifications/db.go`
+   - ✅ Database implementation in `satellite/satellitedb/fcmtokens.go`
+   - ✅ Added to ConsoleDB in `satellite/satellitedb/consoledb.go`
+   - ✅ Added to console.DB interface in `satellite/console/database.go`
+
+2. **FCM Service**:
+   - ✅ Service package created in `satellite/console/pushnotifications/service.go`
+   - ✅ Firebase Admin SDK integration with proper credential handling
+   - ✅ SendNotification, SendNotificationToToken, SendNotificationToMultipleTokens methods implemented
+   - ✅ Invalid token handling and cleanup
+   - ✅ Configuration structure defined
+
+3. **API Layer**:
+   - ✅ API controller in `satellite/console/consoleweb/consoleapi/pushnotifications.go`
+   - ✅ RegisterToken, UpdateToken, GetTokens, DeleteToken endpoints
+   - ✅ IP address extraction from request headers (X-Forwarded-For, X-Real-IP, RemoteAddr)
+   - ✅ Token deduplication on registration
+   - ✅ User ownership validation
+   - ✅ Routes registered in `satellite/console/consoleweb/server.go` with CORS and auth middleware
+
+4. **Integration**:
+   - ✅ FCM service integrated into `console.Service`
+   - ✅ GetFCMTokens() and SendPushNotification() methods exposed
+   - ✅ Configuration added to `satellite/console/config.go`
+   - ✅ Service initialized in `console.NewService()`
+
+5. **Dependencies**:
+   - ✅ Firebase Admin SDK added (firebase.google.com/go/v4 v4.18.0)
+   - ✅ All required dependencies resolved
+
+### ✅ Push Notification Tracking (NEWLY IMPLEMENTED)
+
+1. **Database Layer for Push Notifications**:
+   - ✅ `PushNotificationRecord` type added to `satellite/console/pushnotifications/types.go`
+   - ✅ `PushNotificationDB` interface added to `satellite/console/pushnotifications/db.go`
+   - ✅ Database implementation in `satellite/satellitedb/pushnotifications.go`
+   - ✅ Added `PushNotifications()` getter to ConsoleDB and console.DB interface
+
+2. **Service Integration**:
+   - ✅ Service updated to accept `PushNotificationDB` parameter
+   - ✅ `SendNotification` now creates notification records before sending
+   - ✅ Tracks status: "pending" → "sent" or "failed"
+   - ✅ Stores error messages for failed notifications
+   - ✅ Updates `sent_at` timestamp on successful delivery
+   - ✅ One record per token (allows tracking individual delivery status)
+
+3. **Console Service**:
+   - ✅ `GetPushNotifications()` method added to `console.Service`
+   - ✅ Service initialization updated to pass `PushNotificationDB`
+
+### ⏳ Remaining Tasks
+
+- [ ] Create unit tests:
+  - [ ] `satellite/console/pushnotifications/service_test.go`
+  - [ ] `satellite/console/consoleweb/consoleapi/pushnotifications_test.go`
+  - [ ] `satellite/satellitedb/fcmtokens_test.go`
+  - [ ] `satellite/satellitedb/pushnotifications_test.go`
+- [ ] Create test migration files (optional):
+  - [ ] `satellite/satellitedb/testdata/postgres.v290.sql`
+  - [ ] `satellite/satellitedb/testdata/postgres.v291.sql`
+
+### 📝 Implementation Notes
+
+- **DBX Models**: The fcm_tokens and push_notifications models were already defined in `satellite/satellitedb/dbx/notification.dbx`, so no additional model definition was needed.
+- **Firebase Initialization**: Uses `google.golang.org/api/option` package for credential configuration (WithCredentialsFile, WithCredentialsJSON).
+- **Token Management**: RegisterToken endpoint checks for existing tokens and updates them instead of creating duplicates.
+- **Error Handling**: Comprehensive error handling with proper HTTP status codes and error messages.
+- **Security**: All endpoints require authentication via `withAuth` middleware, and token ownership is validated for update/delete operations.

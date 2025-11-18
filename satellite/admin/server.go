@@ -227,6 +227,21 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/restkeys/{useremail}", server.addRESTKey).Methods("POST")
 	fullAccessAPI.HandleFunc("/restkeys/{apikey}/revoke", server.revokeRESTKey).Methods("PUT")
 
+	// Config management endpoints (Admin-only CRUD)
+	configsRouter := fullAccessAPI.PathPrefix("/configs").Subrouter()
+	configsRouter.HandleFunc("", server.createConfig).Methods("POST")
+	configsRouter.HandleFunc("", server.listConfigs).Methods("GET")
+	configsRouter.HandleFunc("/{id}", server.getConfig).Methods("GET")
+	configsRouter.HandleFunc("/{id}", server.updateConfig).Methods("PUT")
+	configsRouter.HandleFunc("/{id}", server.deleteConfig).Methods("DELETE")
+	configsRouter.HandleFunc("/type/{type}/name/{name}", server.getConfigByTypeAndName).Methods("GET")
+	configsRouter.HandleFunc("/type/{type}", server.listConfigsByType).Methods("GET")
+
+	// Template management endpoints (Admin-only CRUD)
+	notificationTemplatesRouter := fullAccessAPI.PathPrefix("/notification-templates").Subrouter()
+	notificationTemplatesRouter.HandleFunc("", server.createTemplate).Methods("POST")
+	notificationTemplatesRouter.HandleFunc("/{id}/render", server.renderTemplate).Methods("POST")
+
 	// limit update access required
 	limitUpdateAPI := api.NewRoute().Subrouter()
 	limitUpdateAPI.Use(server.WithAuth([]string{config.Groups.LimitUpdate}, false))

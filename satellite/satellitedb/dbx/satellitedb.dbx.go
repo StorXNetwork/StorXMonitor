@@ -441,6 +441,19 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE configs (
+	id bytea NOT NULL,
+	config_type text NOT NULL,
+	name text NOT NULL,
+	category text,
+	config_data jsonb NOT NULL,
+	is_active boolean NOT NULL DEFAULT true,
+	created_by bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( config_type, name )
+);
 CREATE TABLE coupons (
 	code text NOT NULL,
 	discount double precision NOT NULL,
@@ -998,6 +1011,19 @@ CREATE TABLE user_delete_requests (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_notification_preferences (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	config_type text NOT NULL,
+	config_id bytea,
+	category text,
+	preferences jsonb NOT NULL,
+	custom_variables jsonb,
+	is_active boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
@@ -1110,6 +1136,8 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
+CREATE INDEX configs_type_category_index ON configs ( config_type, category ) ;
+CREATE INDEX configs_active_type_index ON configs ( is_active, config_type ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
@@ -1149,6 +1177,8 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
+CREATE INDEX user_notification_preferences_user_type_index ON user_notification_preferences ( user_id, config_type ) ;
+CREATE INDEX user_notification_preferences_user_config_index ON user_notification_preferences ( user_id, config_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
@@ -1381,6 +1411,19 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE configs (
+	id bytea NOT NULL,
+	config_type text NOT NULL,
+	name text NOT NULL,
+	category text,
+	config_data jsonb NOT NULL,
+	is_active boolean NOT NULL DEFAULT true,
+	created_by bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( config_type, name )
+);
 CREATE TABLE coupons (
 	code text NOT NULL,
 	discount double precision NOT NULL,
@@ -1938,6 +1981,19 @@ CREATE TABLE user_delete_requests (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_notification_preferences (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	config_type text NOT NULL,
+	config_id bytea,
+	category text,
+	preferences jsonb NOT NULL,
+	custom_variables jsonb,
+	is_active boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
@@ -2050,6 +2106,8 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
+CREATE INDEX configs_type_category_index ON configs ( config_type, category ) ;
+CREATE INDEX configs_active_type_index ON configs ( is_active, config_type ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
 CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
 CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
@@ -2089,6 +2147,8 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
+CREATE INDEX user_notification_preferences_user_type_index ON user_notification_preferences ( user_id, config_type ) ;
+CREATE INDEX user_notification_preferences_user_config_index ON user_notification_preferences ( user_id, config_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
@@ -4217,6 +4277,216 @@ func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
 }
 
 func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Config struct {
+	Id         []byte
+	ConfigType string
+	Name       string
+	Category   *string
+	ConfigData []byte
+	IsActive   bool
+	CreatedBy  []byte
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+func (Config) _Table() string { return "configs" }
+
+type Config_Create_Fields struct {
+	Category Config_Category_Field
+	IsActive Config_IsActive_Field
+}
+
+type Config_Update_Fields struct {
+	Category   Config_Category_Field
+	ConfigData Config_ConfigData_Field
+	IsActive   Config_IsActive_Field
+	UpdatedAt  Config_UpdatedAt_Field
+}
+
+type Config_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Config_Id(v []byte) Config_Id_Field {
+	return Config_Id_Field{_set: true, _value: v}
+}
+
+func (f Config_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_Id_Field) _Column() string { return "id" }
+
+type Config_ConfigType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Config_ConfigType(v string) Config_ConfigType_Field {
+	return Config_ConfigType_Field{_set: true, _value: v}
+}
+
+func (f Config_ConfigType_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_ConfigType_Field) _Column() string { return "config_type" }
+
+type Config_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Config_Name(v string) Config_Name_Field {
+	return Config_Name_Field{_set: true, _value: v}
+}
+
+func (f Config_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_Name_Field) _Column() string { return "name" }
+
+type Config_Category_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Config_Category(v string) Config_Category_Field {
+	return Config_Category_Field{_set: true, _value: &v}
+}
+
+func Config_Category_Raw(v *string) Config_Category_Field {
+	if v == nil {
+		return Config_Category_Null()
+	}
+	return Config_Category(*v)
+}
+
+func Config_Category_Null() Config_Category_Field {
+	return Config_Category_Field{_set: true, _null: true}
+}
+
+func (f Config_Category_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Config_Category_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_Category_Field) _Column() string { return "category" }
+
+type Config_ConfigData_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Config_ConfigData(v []byte) Config_ConfigData_Field {
+	return Config_ConfigData_Field{_set: true, _value: v}
+}
+
+func (f Config_ConfigData_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_ConfigData_Field) _Column() string { return "config_data" }
+
+type Config_IsActive_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Config_IsActive(v bool) Config_IsActive_Field {
+	return Config_IsActive_Field{_set: true, _value: v}
+}
+
+func (f Config_IsActive_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_IsActive_Field) _Column() string { return "is_active" }
+
+type Config_CreatedBy_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Config_CreatedBy(v []byte) Config_CreatedBy_Field {
+	return Config_CreatedBy_Field{_set: true, _value: v}
+}
+
+func (f Config_CreatedBy_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_CreatedBy_Field) _Column() string { return "created_by" }
+
+type Config_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Config_CreatedAt(v time.Time) Config_CreatedAt_Field {
+	return Config_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Config_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Config_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Config_UpdatedAt(v time.Time) Config_UpdatedAt_Field {
+	return Config_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Config_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Config_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type Coupon struct {
 	Code           string
@@ -14875,6 +15145,272 @@ func (f UserDeleteRequest_CreatedAt_Field) value() interface{} {
 
 func (UserDeleteRequest_CreatedAt_Field) _Column() string { return "created_at" }
 
+type UserNotificationPreference struct {
+	Id              []byte
+	UserId          []byte
+	ConfigType      string
+	ConfigId        []byte
+	Category        *string
+	Preferences     []byte
+	CustomVariables []byte
+	IsActive        bool
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (UserNotificationPreference) _Table() string { return "user_notification_preferences" }
+
+type UserNotificationPreference_Create_Fields struct {
+	ConfigId        UserNotificationPreference_ConfigId_Field
+	Category        UserNotificationPreference_Category_Field
+	CustomVariables UserNotificationPreference_CustomVariables_Field
+	IsActive        UserNotificationPreference_IsActive_Field
+}
+
+type UserNotificationPreference_Update_Fields struct {
+	ConfigId        UserNotificationPreference_ConfigId_Field
+	Category        UserNotificationPreference_Category_Field
+	Preferences     UserNotificationPreference_Preferences_Field
+	CustomVariables UserNotificationPreference_CustomVariables_Field
+	IsActive        UserNotificationPreference_IsActive_Field
+	UpdatedAt       UserNotificationPreference_UpdatedAt_Field
+}
+
+type UserNotificationPreference_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserNotificationPreference_Id(v []byte) UserNotificationPreference_Id_Field {
+	return UserNotificationPreference_Id_Field{_set: true, _value: v}
+}
+
+func (f UserNotificationPreference_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_Id_Field) _Column() string { return "id" }
+
+type UserNotificationPreference_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserNotificationPreference_UserId(v []byte) UserNotificationPreference_UserId_Field {
+	return UserNotificationPreference_UserId_Field{_set: true, _value: v}
+}
+
+func (f UserNotificationPreference_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_UserId_Field) _Column() string { return "user_id" }
+
+type UserNotificationPreference_ConfigType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func UserNotificationPreference_ConfigType(v string) UserNotificationPreference_ConfigType_Field {
+	return UserNotificationPreference_ConfigType_Field{_set: true, _value: v}
+}
+
+func (f UserNotificationPreference_ConfigType_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_ConfigType_Field) _Column() string { return "config_type" }
+
+type UserNotificationPreference_ConfigId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserNotificationPreference_ConfigId(v []byte) UserNotificationPreference_ConfigId_Field {
+	return UserNotificationPreference_ConfigId_Field{_set: true, _value: v}
+}
+
+func UserNotificationPreference_ConfigId_Raw(v []byte) UserNotificationPreference_ConfigId_Field {
+	if v == nil {
+		return UserNotificationPreference_ConfigId_Null()
+	}
+	return UserNotificationPreference_ConfigId(v)
+}
+
+func UserNotificationPreference_ConfigId_Null() UserNotificationPreference_ConfigId_Field {
+	return UserNotificationPreference_ConfigId_Field{_set: true, _null: true}
+}
+
+func (f UserNotificationPreference_ConfigId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserNotificationPreference_ConfigId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_ConfigId_Field) _Column() string { return "config_id" }
+
+type UserNotificationPreference_Category_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func UserNotificationPreference_Category(v string) UserNotificationPreference_Category_Field {
+	return UserNotificationPreference_Category_Field{_set: true, _value: &v}
+}
+
+func UserNotificationPreference_Category_Raw(v *string) UserNotificationPreference_Category_Field {
+	if v == nil {
+		return UserNotificationPreference_Category_Null()
+	}
+	return UserNotificationPreference_Category(*v)
+}
+
+func UserNotificationPreference_Category_Null() UserNotificationPreference_Category_Field {
+	return UserNotificationPreference_Category_Field{_set: true, _null: true}
+}
+
+func (f UserNotificationPreference_Category_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserNotificationPreference_Category_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_Category_Field) _Column() string { return "category" }
+
+type UserNotificationPreference_Preferences_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserNotificationPreference_Preferences(v []byte) UserNotificationPreference_Preferences_Field {
+	return UserNotificationPreference_Preferences_Field{_set: true, _value: v}
+}
+
+func (f UserNotificationPreference_Preferences_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_Preferences_Field) _Column() string { return "preferences" }
+
+type UserNotificationPreference_CustomVariables_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserNotificationPreference_CustomVariables(v []byte) UserNotificationPreference_CustomVariables_Field {
+	return UserNotificationPreference_CustomVariables_Field{_set: true, _value: v}
+}
+
+func UserNotificationPreference_CustomVariables_Raw(v []byte) UserNotificationPreference_CustomVariables_Field {
+	if v == nil {
+		return UserNotificationPreference_CustomVariables_Null()
+	}
+	return UserNotificationPreference_CustomVariables(v)
+}
+
+func UserNotificationPreference_CustomVariables_Null() UserNotificationPreference_CustomVariables_Field {
+	return UserNotificationPreference_CustomVariables_Field{_set: true, _null: true}
+}
+
+func (f UserNotificationPreference_CustomVariables_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserNotificationPreference_CustomVariables_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_CustomVariables_Field) _Column() string { return "custom_variables" }
+
+type UserNotificationPreference_IsActive_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func UserNotificationPreference_IsActive(v bool) UserNotificationPreference_IsActive_Field {
+	return UserNotificationPreference_IsActive_Field{_set: true, _value: v}
+}
+
+func (f UserNotificationPreference_IsActive_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_IsActive_Field) _Column() string { return "is_active" }
+
+type UserNotificationPreference_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func UserNotificationPreference_CreatedAt(v time.Time) UserNotificationPreference_CreatedAt_Field {
+	return UserNotificationPreference_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f UserNotificationPreference_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_CreatedAt_Field) _Column() string { return "created_at" }
+
+type UserNotificationPreference_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func UserNotificationPreference_UpdatedAt(v time.Time) UserNotificationPreference_UpdatedAt_Field {
+	return UserNotificationPreference_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f UserNotificationPreference_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserNotificationPreference_UpdatedAt_Field) _Column() string { return "updated_at" }
+
 type UserSettings struct {
 	UserId           []byte
 	SessionMinutes   *uint
@@ -17577,6 +18113,65 @@ func (obj *pgxImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_Config(ctx context.Context,
+	config_id Config_Id_Field,
+	config_config_type Config_ConfigType_Field,
+	config_name Config_Name_Field,
+	config_config_data Config_ConfigData_Field,
+	config_created_by Config_CreatedBy_Field,
+	config_updated_at Config_UpdatedAt_Field,
+	optional Config_Create_Fields) (
+	config *Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := config_id.value()
+	__config_type_val := config_config_type.value()
+	__name_val := config_name.value()
+	__category_val := optional.Category.value()
+	__config_data_val := config_config_data.value()
+	__created_by_val := config_created_by.value()
+	__created_at_val := __now
+	__updated_at_val := config_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, config_type, name, category, config_data, created_by, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO configs "), __clause, __sqlbundle_Literal(" RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __config_type_val, __name_val, __category_val, __config_data_val, __created_by_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsActive._set {
+		__values = append(__values, optional.IsActive.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_active"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	config = &Config{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return config, nil
+
+}
+
 func (obj *pgxImpl) Create_Developer(ctx context.Context,
 	developer_id Developer_Id_Field,
 	developer_email Developer_Email_Field,
@@ -18326,6 +18921,65 @@ func (obj *pgxImpl) Create_PushNotifications(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return push_notifications, nil
+
+}
+
+func (obj *pgxImpl) Create_UserNotificationPreference(ctx context.Context,
+	user_notification_preference_id UserNotificationPreference_Id_Field,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field,
+	user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
+	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
+	optional UserNotificationPreference_Create_Fields) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := user_notification_preference_id.value()
+	__user_id_val := user_notification_preference_user_id.value()
+	__config_type_val := user_notification_preference_config_type.value()
+	__config_id_val := optional.ConfigId.value()
+	__category_val := optional.Category.value()
+	__preferences_val := user_notification_preference_preferences.value()
+	__custom_variables_val := optional.CustomVariables.value()
+	__created_at_val := __now
+	__updated_at_val := user_notification_preference_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, user_id, config_type, config_id, category, preferences, custom_variables, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_notification_preferences "), __clause, __sqlbundle_Literal(" RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __config_type_val, __config_id_val, __category_val, __preferences_val, __custom_variables_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsActive._set {
+		__values = append(__values, optional.IsActive.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_active"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_notification_preference, nil
 
 }
 
@@ -20896,6 +21550,194 @@ func (obj *pgxImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_Ord
 
 }
 
+func (obj *pgxImpl) Get_Config_By_Id(ctx context.Context,
+	config_id Config_Id_Field) (
+	config *Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	config = &Config{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	if err != nil {
+		return (*Config)(nil), obj.makeErr(err)
+	}
+	return config, nil
+
+}
+
+func (obj *pgxImpl) Get_Config_By_ConfigType_And_Name(ctx context.Context,
+	config_config_type Config_ConfigType_Field,
+	config_name Config_Name_Field) (
+	config *Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND configs.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_config_type.value(), config_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	config = &Config{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	if err != nil {
+		return (*Config)(nil), obj.makeErr(err)
+	}
+	return config, nil
+
+}
+
+func (obj *pgxImpl) All_Config_By_ConfigType(ctx context.Context,
+	config_config_type Config_ConfigType_Field) (
+	rows []*Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_config_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Config, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				config := &Config{}
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, config)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_Config_By_ConfigType_And_Category(ctx context.Context,
+	config_config_type Config_ConfigType_Field,
+	config_category Config_Category_Field) (
+	rows []*Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "configs.category", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values, config_config_type.value())
+	if !config_category.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, config_category.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Config, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				config := &Config{}
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, config)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_Config_By_IsActive_And_ConfigType(ctx context.Context,
+	config_is_active Config_IsActive_Field,
+	config_config_type Config_ConfigType_Field) (
+	rows []*Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.is_active = ? AND configs.config_type = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_is_active.value(), config_config_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Config, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				config := &Config{}
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, config)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) All_Developer(ctx context.Context) (
 	rows []*Developer, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -22782,6 +23624,251 @@ func (obj *pgxImpl) Limited_PushNotifications_By_Status(ctx context.Context,
 			return nil, obj.makeErr(err)
 		}
 		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_UserNotificationPreference_By_Id(ctx context.Context,
+	user_notification_preference_id UserNotificationPreference_Id_Field) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err != nil {
+		return (*UserNotificationPreference)(nil), obj.makeErr(err)
+	}
+	return user_notification_preference, nil
+
+}
+
+func (obj *pgxImpl) All_UserNotificationPreference_By_UserId(ctx context.Context,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
+	rows []*UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*UserNotificationPreference, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				user_notification_preference := &UserNotificationPreference{}
+				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user_notification_preference)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_UserNotificationPreference_By_UserId_And_ConfigType(ctx context.Context,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+	rows []*UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND user_notification_preferences.config_type = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_user_id.value(), user_notification_preference_config_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*UserNotificationPreference, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				user_notification_preference := &UserNotificationPreference{}
+				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user_notification_preference)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId_And_ConfigId(ctx context.Context,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+	user_notification_preference_config_id UserNotificationPreference_ConfigId_Field) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.config_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_user_id.value())
+	if !user_notification_preference_config_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_notification_preference_config_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			user_notification_preference = &UserNotificationPreference{}
+			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return user_notification_preference, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_ConfigId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user_notification_preference, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId_And_Category_And_ConfigType(ctx context.Context,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+	user_notification_preference_category UserNotificationPreference_Category_Field,
+	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.category", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" AND user_notification_preferences.config_type = ? LIMIT 2")}}
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_user_id.value())
+	if !user_notification_preference_category.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_notification_preference_category.value())
+	}
+	__values = append(__values, user_notification_preference_config_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			user_notification_preference = &UserNotificationPreference{}
+			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return user_notification_preference, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category_And_ConfigType")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user_notification_preference, nil
 	}
 
 }
@@ -25536,6 +26623,62 @@ func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx cont
 	return stripecoinpayments_invoice_project_record, nil
 }
 
+func (obj *pgxImpl) Update_Config_By_Id(ctx context.Context,
+	config_id Config_Id_Field,
+	update Config_Update_Fields) (
+	config *Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE configs SET "), __sets, __sqlbundle_Literal(" WHERE configs.id = ? RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Category._set {
+		__values = append(__values, update.Category.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("category = ?"))
+	}
+
+	if update.ConfigData._set {
+		__values = append(__values, update.ConfigData.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config_data = ?"))
+	}
+
+	if update.IsActive._set {
+		__values = append(__values, update.IsActive.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_active = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, config_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	config = &Config{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return config, nil
+}
+
 func (obj *pgxImpl) Update_Developer_By_Id(ctx context.Context,
 	developer_id Developer_Id_Field,
 	update Developer_Update_Fields) (
@@ -27141,6 +28284,72 @@ func (obj *pgxImpl) Update_PushNotifications_By_Id(ctx context.Context,
 	return push_notifications, nil
 }
 
+func (obj *pgxImpl) Update_UserNotificationPreference_By_Id(ctx context.Context,
+	user_notification_preference_id UserNotificationPreference_Id_Field,
+	update UserNotificationPreference_Update_Fields) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ConfigId._set {
+		__values = append(__values, update.ConfigId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config_id = ?"))
+	}
+
+	if update.Category._set {
+		__values = append(__values, update.Category.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("category = ?"))
+	}
+
+	if update.Preferences._set {
+		__values = append(__values, update.Preferences.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("preferences = ?"))
+	}
+
+	if update.CustomVariables._set {
+		__values = append(__values, update.CustomVariables.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("custom_variables = ?"))
+	}
+
+	if update.IsActive._set {
+		__values = append(__values, update.IsActive.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_active = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_notification_preference_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_notification_preference, nil
+}
+
 func (obj *pgxImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field,
 	update OauthClient_Update_Fields) (
@@ -28545,6 +29754,33 @@ func (obj *pgxImpl) Delete_StorjscanPayment_By_Status(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_Config_By_Id(ctx context.Context,
+	config_id Config_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM configs WHERE configs.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_Developer_By_Id(ctx context.Context,
 	developer_id Developer_Id_Field) (
 	deleted bool, err error) {
@@ -28989,6 +30225,33 @@ func (obj *pgxImpl) Delete_PushNotifications_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_UserNotificationPreference_By_Id(ctx context.Context,
+	user_notification_preference_id UserNotificationPreference_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -29594,6 +30857,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_notification_preferences;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_delete_requests;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -30035,6 +31308,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupons;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM configs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -30678,6 +31961,65 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanPayment(ctx context.Context
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_Config(ctx context.Context,
+	config_id Config_Id_Field,
+	config_config_type Config_ConfigType_Field,
+	config_name Config_Name_Field,
+	config_config_data Config_ConfigData_Field,
+	config_created_by Config_CreatedBy_Field,
+	config_updated_at Config_UpdatedAt_Field,
+	optional Config_Create_Fields) (
+	config *Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := config_id.value()
+	__config_type_val := config_config_type.value()
+	__name_val := config_name.value()
+	__category_val := optional.Category.value()
+	__config_data_val := config_config_data.value()
+	__created_by_val := config_created_by.value()
+	__created_at_val := __now
+	__updated_at_val := config_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, config_type, name, category, config_data, created_by, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO configs "), __clause, __sqlbundle_Literal(" RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __config_type_val, __name_val, __category_val, __config_data_val, __created_by_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsActive._set {
+		__values = append(__values, optional.IsActive.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_active"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	config = &Config{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return config, nil
 
 }
 
@@ -31430,6 +32772,65 @@ func (obj *pgxcockroachImpl) Create_PushNotifications(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return push_notifications, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_UserNotificationPreference(ctx context.Context,
+	user_notification_preference_id UserNotificationPreference_Id_Field,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field,
+	user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
+	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
+	optional UserNotificationPreference_Create_Fields) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := user_notification_preference_id.value()
+	__user_id_val := user_notification_preference_user_id.value()
+	__config_type_val := user_notification_preference_config_type.value()
+	__config_id_val := optional.ConfigId.value()
+	__category_val := optional.Category.value()
+	__preferences_val := user_notification_preference_preferences.value()
+	__custom_variables_val := optional.CustomVariables.value()
+	__created_at_val := __now
+	__updated_at_val := user_notification_preference_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, user_id, config_type, config_id, category, preferences, custom_variables, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_notification_preferences "), __clause, __sqlbundle_Literal(" RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __config_type_val, __config_id_val, __category_val, __preferences_val, __custom_variables_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsActive._set {
+		__values = append(__values, optional.IsActive.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_active"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_notification_preference, nil
 
 }
 
@@ -34000,6 +35401,194 @@ func (obj *pgxcockroachImpl) First_StorjscanPayment_BlockNumber_By_Status_And_Ch
 
 }
 
+func (obj *pgxcockroachImpl) Get_Config_By_Id(ctx context.Context,
+	config_id Config_Id_Field) (
+	config *Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	config = &Config{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	if err != nil {
+		return (*Config)(nil), obj.makeErr(err)
+	}
+	return config, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_Config_By_ConfigType_And_Name(ctx context.Context,
+	config_config_type Config_ConfigType_Field,
+	config_name Config_Name_Field) (
+	config *Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND configs.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_config_type.value(), config_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	config = &Config{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	if err != nil {
+		return (*Config)(nil), obj.makeErr(err)
+	}
+	return config, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_Config_By_ConfigType(ctx context.Context,
+	config_config_type Config_ConfigType_Field) (
+	rows []*Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_config_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Config, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				config := &Config{}
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, config)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_Config_By_ConfigType_And_Category(ctx context.Context,
+	config_config_type Config_ConfigType_Field,
+	config_category Config_Category_Field) (
+	rows []*Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "configs.category", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.config_type = ? AND "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values, config_config_type.value())
+	if !config_category.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, config_category.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Config, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				config := &Config{}
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, config)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_Config_By_IsActive_And_ConfigType(ctx context.Context,
+	config_is_active Config_IsActive_Field,
+	config_config_type Config_ConfigType_Field) (
+	rows []*Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at FROM configs WHERE configs.is_active = ? AND configs.config_type = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_is_active.value(), config_config_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Config, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				config := &Config{}
+				err = __rows.Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, config)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) All_Developer(ctx context.Context) (
 	rows []*Developer, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -35886,6 +37475,251 @@ func (obj *pgxcockroachImpl) Limited_PushNotifications_By_Status(ctx context.Con
 			return nil, obj.makeErr(err)
 		}
 		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_Id(ctx context.Context,
+	user_notification_preference_id UserNotificationPreference_Id_Field) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err != nil {
+		return (*UserNotificationPreference)(nil), obj.makeErr(err)
+	}
+	return user_notification_preference, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_UserNotificationPreference_By_UserId(ctx context.Context,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
+	rows []*UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*UserNotificationPreference, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				user_notification_preference := &UserNotificationPreference{}
+				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user_notification_preference)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_UserNotificationPreference_By_UserId_And_ConfigType(ctx context.Context,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+	rows []*UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND user_notification_preferences.config_type = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_user_id.value(), user_notification_preference_config_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*UserNotificationPreference, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				user_notification_preference := &UserNotificationPreference{}
+				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user_notification_preference)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId_And_ConfigId(ctx context.Context,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+	user_notification_preference_config_id UserNotificationPreference_ConfigId_Field) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.config_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_user_id.value())
+	if !user_notification_preference_config_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_notification_preference_config_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			user_notification_preference = &UserNotificationPreference{}
+			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return user_notification_preference, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_ConfigId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user_notification_preference, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId_And_Category_And_ConfigType(ctx context.Context,
+	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+	user_notification_preference_category UserNotificationPreference_Category_Field,
+	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.category", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" AND user_notification_preferences.config_type = ? LIMIT 2")}}
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_user_id.value())
+	if !user_notification_preference_category.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_notification_preference_category.value())
+	}
+	__values = append(__values, user_notification_preference_config_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			user_notification_preference = &UserNotificationPreference{}
+			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return user_notification_preference, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category_And_ConfigType")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user_notification_preference, nil
 	}
 
 }
@@ -38640,6 +40474,62 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id
 	return stripecoinpayments_invoice_project_record, nil
 }
 
+func (obj *pgxcockroachImpl) Update_Config_By_Id(ctx context.Context,
+	config_id Config_Id_Field,
+	update Config_Update_Fields) (
+	config *Config, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE configs SET "), __sets, __sqlbundle_Literal(" WHERE configs.id = ? RETURNING configs.id, configs.config_type, configs.name, configs.category, configs.config_data, configs.is_active, configs.created_by, configs.created_at, configs.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Category._set {
+		__values = append(__values, update.Category.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("category = ?"))
+	}
+
+	if update.ConfigData._set {
+		__values = append(__values, update.ConfigData.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config_data = ?"))
+	}
+
+	if update.IsActive._set {
+		__values = append(__values, update.IsActive.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_active = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, config_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	config = &Config{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&config.Id, &config.ConfigType, &config.Name, &config.Category, &config.ConfigData, &config.IsActive, &config.CreatedBy, &config.CreatedAt, &config.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return config, nil
+}
+
 func (obj *pgxcockroachImpl) Update_Developer_By_Id(ctx context.Context,
 	developer_id Developer_Id_Field,
 	update Developer_Update_Fields) (
@@ -40245,6 +42135,72 @@ func (obj *pgxcockroachImpl) Update_PushNotifications_By_Id(ctx context.Context,
 	return push_notifications, nil
 }
 
+func (obj *pgxcockroachImpl) Update_UserNotificationPreference_By_Id(ctx context.Context,
+	user_notification_preference_id UserNotificationPreference_Id_Field,
+	update UserNotificationPreference_Update_Fields) (
+	user_notification_preference *UserNotificationPreference, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.config_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.custom_variables, user_notification_preferences.is_active, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ConfigId._set {
+		__values = append(__values, update.ConfigId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config_id = ?"))
+	}
+
+	if update.Category._set {
+		__values = append(__values, update.Category.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("category = ?"))
+	}
+
+	if update.Preferences._set {
+		__values = append(__values, update.Preferences.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("preferences = ?"))
+	}
+
+	if update.CustomVariables._set {
+		__values = append(__values, update.CustomVariables.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("custom_variables = ?"))
+	}
+
+	if update.IsActive._set {
+		__values = append(__values, update.IsActive.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_active = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_notification_preference_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.ConfigId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CustomVariables, &user_notification_preference.IsActive, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_notification_preference, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field,
 	update OauthClient_Update_Fields) (
@@ -41649,6 +43605,33 @@ func (obj *pgxcockroachImpl) Delete_StorjscanPayment_By_Status(ctx context.Conte
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Config_By_Id(ctx context.Context,
+	config_id Config_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM configs WHERE configs.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_Developer_By_Id(ctx context.Context,
 	developer_id Developer_Id_Field) (
 	deleted bool, err error) {
@@ -42093,6 +44076,33 @@ func (obj *pgxcockroachImpl) Delete_PushNotifications_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_UserNotificationPreference_By_Id(ctx context.Context,
+	user_notification_preference_id UserNotificationPreference_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_notification_preference_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -42698,6 +44708,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_notification_preferences;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_delete_requests;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -43148,6 +45168,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM configs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -43315,6 +45345,20 @@ type Methods interface {
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
 
+	All_Config_By_ConfigType(ctx context.Context,
+		config_config_type Config_ConfigType_Field) (
+		rows []*Config, err error)
+
+	All_Config_By_ConfigType_And_Category(ctx context.Context,
+		config_config_type Config_ConfigType_Field,
+		config_category Config_Category_Field) (
+		rows []*Config, err error)
+
+	All_Config_By_IsActive_And_ConfigType(ctx context.Context,
+		config_is_active Config_IsActive_Field,
+		config_config_type Config_ConfigType_Field) (
+		rows []*Config, err error)
+
 	All_Coupon(ctx context.Context) (
 		rows []*Coupon, err error)
 
@@ -43448,6 +45492,15 @@ type Methods interface {
 
 	All_User(ctx context.Context) (
 		rows []*User, err error)
+
+	All_UserNotificationPreference_By_UserId(ctx context.Context,
+		user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
+		rows []*UserNotificationPreference, err error)
+
+	All_UserNotificationPreference_By_UserId_And_ConfigType(ctx context.Context,
+		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+		user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+		rows []*UserNotificationPreference, err error)
 
 	All_User_By_NormalizedEmail(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (
@@ -43654,6 +45707,16 @@ type Methods interface {
 		coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
+	Create_Config(ctx context.Context,
+		config_id Config_Id_Field,
+		config_config_type Config_ConfigType_Field,
+		config_name Config_Name_Field,
+		config_config_data Config_ConfigData_Field,
+		config_created_by Config_CreatedBy_Field,
+		config_updated_at Config_UpdatedAt_Field,
+		optional Config_Create_Fields) (
+		config *Config, err error)
+
 	Create_Coupon(ctx context.Context,
 		coupon_code Coupon_Code_Field,
 		coupon_discount Coupon_Discount_Field,
@@ -43845,6 +45908,15 @@ type Methods interface {
 		optional UserDeleteRequest_Create_Fields) (
 		user_delete_request *UserDeleteRequest, err error)
 
+	Create_UserNotificationPreference(ctx context.Context,
+		user_notification_preference_id UserNotificationPreference_Id_Field,
+		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+		user_notification_preference_config_type UserNotificationPreference_ConfigType_Field,
+		user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
+		user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
+		optional UserNotificationPreference_Create_Fields) (
+		user_notification_preference *UserNotificationPreference, err error)
+
 	Create_ValueAttribution(ctx context.Context,
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
 		value_attribution_bucket_name ValueAttribution_BucketName_Field,
@@ -43894,6 +45966,10 @@ type Methods interface {
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		deleted bool, err error)
+
+	Delete_Config_By_Id(ctx context.Context,
+		config_id Config_Id_Field) (
 		deleted bool, err error)
 
 	Delete_DeveloperOauthClient_By_DeveloperId(ctx context.Context,
@@ -43998,6 +46074,10 @@ type Methods interface {
 	Delete_StorjscanPayment_By_Status(ctx context.Context,
 		storjscan_payment_status StorjscanPayment_Status_Field) (
 		count int64, err error)
+
+	Delete_UserNotificationPreference_By_Id(ctx context.Context,
+		user_notification_preference_id UserNotificationPreference_Id_Field) (
+		deleted bool, err error)
 
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
@@ -44117,6 +46197,15 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Versioning_Row, err error)
+
+	Get_Config_By_ConfigType_And_Name(ctx context.Context,
+		config_config_type Config_ConfigType_Field,
+		config_name Config_Name_Field) (
+		config *Config, err error)
+
+	Get_Config_By_Id(ctx context.Context,
+		config_id Config_Id_Field) (
+		config *Config, err error)
 
 	Get_Coupon_By_Code(ctx context.Context,
 		coupon_code Coupon_Code_Field) (
@@ -44354,6 +46443,21 @@ type Methods interface {
 	Get_UserDeleteRequest_By_UserId(ctx context.Context,
 		user_delete_request_user_id UserDeleteRequest_UserId_Field) (
 		user_delete_request *UserDeleteRequest, err error)
+
+	Get_UserNotificationPreference_By_Id(ctx context.Context,
+		user_notification_preference_id UserNotificationPreference_Id_Field) (
+		user_notification_preference *UserNotificationPreference, err error)
+
+	Get_UserNotificationPreference_By_UserId_And_Category_And_ConfigType(ctx context.Context,
+		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+		user_notification_preference_category UserNotificationPreference_Category_Field,
+		user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+		user_notification_preference *UserNotificationPreference, err error)
+
+	Get_UserNotificationPreference_By_UserId_And_ConfigId(ctx context.Context,
+		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
+		user_notification_preference_config_id UserNotificationPreference_ConfigId_Field) (
+		user_notification_preference *UserNotificationPreference, err error)
 
 	Get_UserSettings_By_UserId(ctx context.Context,
 		user_settings_user_id UserSettings_UserId_Field) (
@@ -44669,6 +46773,11 @@ type Methods interface {
 		update CoinpaymentsTransaction_Update_Fields) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
+	Update_Config_By_Id(ctx context.Context,
+		config_id Config_Id_Field,
+		update Config_Update_Fields) (
+		config *Config, err error)
+
 	Update_Coupon_By_Code(ctx context.Context,
 		coupon_code Coupon_Code_Field,
 		update Coupon_Update_Fields) (
@@ -44760,6 +46869,11 @@ type Methods interface {
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
 		update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
 		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
+
+	Update_UserNotificationPreference_By_Id(ctx context.Context,
+		user_notification_preference_id UserNotificationPreference_Id_Field,
+		update UserNotificationPreference_Update_Fields) (
+		user_notification_preference *UserNotificationPreference, err error)
 
 	Update_UserSettings_By_UserId(ctx context.Context,
 		user_settings_user_id UserSettings_UserId_Field,
