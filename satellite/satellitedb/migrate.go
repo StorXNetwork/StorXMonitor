@@ -3131,8 +3131,19 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "add fcm_tokens table",
+				Description: "add scopes and description columns to developer_oauth_clients table",
 				Version:     290,
+				Action: migrate.SQL{
+					`ALTER TABLE developer_oauth_clients ADD COLUMN scopes text;`,
+					`ALTER TABLE developer_oauth_clients ADD COLUMN description text;`,
+					`UPDATE developer_oauth_clients SET scopes = '' WHERE scopes IS NULL;`,
+					`UPDATE developer_oauth_clients SET description = '' WHERE description IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add fcm_tokens table",
+				Version:     291,
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`CREATE TABLE fcm_tokens (
@@ -3161,7 +3172,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 			{
 				DB:          &db.migrationDB,
 				Description: "add push_notifications table",
-				Version:     291,
+				Version:     292,
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`CREATE TABLE push_notifications (
@@ -3186,7 +3197,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 			{
 				DB:          &db.migrationDB,
 				Description: "add configs table",
-				Version:     292,
+				Version:     293,
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`CREATE TABLE configs (
@@ -3209,7 +3220,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 			{
 				DB:          &db.migrationDB,
 				Description: "add user_notification_preferences table",
-				Version:     293,
+				Version:     294,
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`CREATE TABLE user_notification_preferences (

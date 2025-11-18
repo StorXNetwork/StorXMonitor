@@ -14,7 +14,9 @@ type DeveloperOAuthClient struct {
 	ClientID     string    `json:"client_id"`
 	ClientSecret string    `json:"client_secret"`
 	Name         string    `json:"name"`
+	Description  string    `json:"description"`
 	RedirectURIs []string  `json:"redirect_uris"`
+	Scopes       []string  `json:"scopes"`
 	Status       int       `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -32,6 +34,8 @@ type DeveloperOAuthClients interface {
 	Insert(ctx context.Context, client *DeveloperOAuthClient) (*DeveloperOAuthClient, error)
 	// StatusUpdate updates the status of an existing OAuth client.
 	StatusUpdate(ctx context.Context, id uuid.UUID, status int, updatedAt time.Time) error
+	// Update updates an existing OAuth client.
+	Update(ctx context.Context, id uuid.UUID, client *DeveloperOAuthClient) error
 	// Delete deletes an OAuth client by its ID.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// DeleteByDeveloperID deletes all OAuth clients for a developer.

@@ -174,6 +174,8 @@ CREATE TABLE developer_oauth_clients (
 	client_secret text NOT NULL,
 	name text NOT NULL,
 	redirect_uris text NOT NULL,
+	scopes text NOT NULL,
+	description text NOT NULL,
 	status integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,

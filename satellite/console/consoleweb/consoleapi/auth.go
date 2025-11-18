@@ -3383,3 +3383,70 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		"message": "Account deleted successfully",
 	})
 }
+
+// GetUserDeveloperAccess returns all developers with access to the current user's account
+func (a *Auth) GetUserDeveloperAccess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	access, err := a.service.GetUserDeveloperAccess(ctx)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(access)
+}
+
+// GetUserDeveloperAccessHistory returns access history for a specific developer
+func (a *Auth) GetUserDeveloperAccessHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	clientID, ok := vars["clientId"]
+	if !ok {
+		a.serveJSONError(ctx, w, ErrAuthAPI.New("client_id missing"))
+		return
+	}
+
+	history, err := a.service.GetUserDeveloperAccessHistory(ctx, clientID)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(history)
+}
+
+// RevokeUserDeveloperAccess revokes a developer's access to the current user's account
+func (a *Auth) RevokeUserDeveloperAccess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	clientID, ok := vars["clientId"]
+	if !ok {
+		a.serveJSONError(ctx, w, ErrAuthAPI.New("client_id missing"))
+		return
+	}
+
+	err = a.service.RevokeUserDeveloperAccess(ctx, clientID)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Developer access revoked successfully",
+	})
+}

@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gc/bloomfilter"
@@ -178,7 +179,8 @@ type Config struct {
 
 	Placement nodeselection.ConfigurablePlacementRule `help:"detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...)."`
 
-	Admin admin.Config
+	Admin     admin.Config
+	Developer developer.Config
 
 	Contact      contact.Config
 	Overlay      overlay.Config
