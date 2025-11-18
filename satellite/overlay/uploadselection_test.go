@@ -944,7 +944,7 @@ func (m *mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.Node
 }
 
 // GetAllNodesWithFilters satisfies overlay.DB interface.
-func (m *mockdb) GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error) {
+func (m *mockdb) GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int, sortColumn, sortOrder string) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error) {
 	panic("implement me")
 }
 

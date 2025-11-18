@@ -5503,7 +5503,7 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 	}
 	fmt.Println("prefixes stage completed")
 	if len(prefixes) == 0 {
-		prefixes = []grant.SharePrefix{{}}
+		prefixes = nil
 	}
 	fmt.Println("prefixes_len stage completed")
 	// Create access grant

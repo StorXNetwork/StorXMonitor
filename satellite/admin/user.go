@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -107,12 +108,12 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = server.payments.Setup(ctx, newUser.ID, newUser.Email, newUser.SignupPromoCode)
-	if err != nil {
-		sendJSONError(w, "failed to create payment account for user",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// _, err = server.payments.Setup(ctx, newUser.ID, newUser.Email, newUser.SignupPromoCode)
+	// if err != nil {
+	// 	sendJSONError(w, "failed to create payment account for user",
+	// 		err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
 
 	// Set User Status to be activated, as we manually created it
 	newUser.Status = console.Active
@@ -1390,107 +1391,92 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	vars := mux.Vars(r)
-	userEmail, ok := vars["useremail"]
-	if !ok {
-		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+	// Parse request body to get email and password
+	var requestData struct {
+		Email string `json:"email"`
+		// Password string `json:"password"`
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
-	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+	err = json.Unmarshal(body, &requestData)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if requestData.Email == "" {
+		sendJSONError(w, "email is required",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	// Call delete account function with the provided email
+	verified, unverified, err := server.db.Console().Users().GetByEmailWithUnverified(ctx, requestData.Email)
+	if err != nil {
+		sendJSONError(w, "failed to get user by email",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var user *console.User
+	if verified != nil {
+		user = verified
+	} else if len(unverified) > 0 {
+		user = &unverified[0]
+	} else {
+		sendJSONError(w, "user not found with email",
 			"", http.StatusNotFound)
 		return
 	}
+
+	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
 	if err != nil {
-		sendJSONError(w, "failed to get user details",
+		sendJSONError(w, "failed to get user projects",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Ensure user has no own projects any longer
-	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
-	if err != nil {
-		sendJSONError(w, "unable to list projects",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
 	if len(projects) > 0 {
-		sendJSONError(w, "some projects still exist",
-			fmt.Sprintf("%v", projects), http.StatusConflict)
-		return
-	}
+		for _, project := range projects {
+			if err := server.buckets.DeleteAllBucketsByProjectID(ctx, project.ID); err != nil {
+				sendJSONError(w, "failed to delete buckets",
+					err.Error(), http.StatusInternalServerError)
+				return
+			}
 
-	// Delete memberships in foreign projects
-	members, err := server.db.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
-	if err != nil {
-		sendJSONError(w, "unable to search for user project memberships",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(members) > 0 {
-		for _, project := range members {
-			err := server.db.Console().ProjectMembers().Delete(ctx, user.ID, project.ProjectID)
-			if err != nil {
-				sendJSONError(w, "unable to delete user project membership",
+			if err := server.db.Console().APIKeys().DeleteByProjectID(ctx, project.ID); err != nil {
+				sendJSONError(w, "failed to delete API keys",
 					err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
-	}
 
-	// ensure no unpaid invoices exist.
-	invoices, err := server.payments.Invoices().List(ctx, user.ID)
-	if err != nil {
-		sendJSONError(w, "unable to list user invoices",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(invoices) > 0 {
-		for _, invoice := range invoices {
-			if invoice.Status == "draft" || invoice.Status == "open" {
-				sendJSONError(w, "user has unpaid/pending invoices",
-					"", http.StatusConflict)
-				return
-			}
+		if err := server.db.Console().Projects().DeleteByUserID(ctx, user.ID); err != nil {
+			sendJSONError(w, "failed to delete project",
+				err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 
-	hasItems, err := server.payments.Invoices().CheckPendingItems(ctx, user.ID)
-	if err != nil {
-		sendJSONError(w, "unable to list pending invoice items",
+	if err := server.db.Console().Users().Delete(ctx, user.ID); err != nil {
+		sendJSONError(w, "failed to delete user",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if hasItems {
-		sendJSONError(w, "user has pending invoice items",
-			"", http.StatusConflict)
-		return
-	}
 
-	emptyName := ""
-	emptyNamePtr := &emptyName
-	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
-	status := console.Deleted
-
-	err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
-		FullName:  &emptyName,
-		ShortName: &emptyNamePtr,
-		Email:     &deactivatedEmail,
-		Status:    &status,
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Account deleted successfully",
 	})
-	if err != nil {
-		sendJSONError(w, "unable to delete user",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	err = server.payments.CreditCards().RemoveAll(ctx, user.ID)
-	if err != nil {
-		sendJSONError(w, "unable to delete credit card(s) from stripe account",
-			err.Error(), http.StatusInternalServerError)
-	}
 }
 
 func (server *Server) createGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
@@ -1687,10 +1673,9 @@ type User struct {
 	LastSessionExpiry     *time.Time `json:"lastSessionExpiry"`
 	FirstSessionExpiry    *time.Time `json:"firstSessionExpiry"`
 	TotalSessionCount     int        `json:"totalSessionCount"`
-	// StorageUsed           int64      `json:"storageUsed"`
-	// BandwidthUsed         int64      `json:"bandwidthUsed"`
-	// SegmentUsed           int64      `json:"segmentUsed"`
-	ProjectCount int `json:"projectCount"`
+
+	ProjectCount int    `json:"projectCount"`
+	Action       string `json:"action"` // "Activate" or "Deactivate" based on status
 }
 
 // UserListFilters holds all filter parameters for user listing
@@ -1699,6 +1684,10 @@ type UserListFilters struct {
 	Limit    uint64
 	Page     uint64
 	FetchAll bool
+
+	// Sorting
+	SortColumn string // Column name to sort by
+	SortOrder  string // "asc" or "desc"
 
 	// Basic filters
 	Search       string
@@ -1709,10 +1698,6 @@ type UserListFilters struct {
 	// Date range filters
 	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
-
-	// Storage filters
-	// StorageMin *int64
-	// StorageMax *int64
 
 	// Session filters
 	HasActiveSession  *bool
@@ -1789,23 +1774,6 @@ func parseUserListFilters(r *http.Request) (*UserListFilters, error) {
 	filters.CreatedAfter = createdAfter
 	filters.CreatedBefore = createdBefore
 
-	// Parse storage filters
-	// if storageMinParam := query.Get("storage_min"); storageMinParam != "" {
-	// 	storageMin, err := strconv.ParseInt(storageMinParam, 10, 64)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("parameter 'storage_min' must be a valid number: %w", err)
-	// 	}
-	// 	filters.StorageMin = &storageMin
-	// }
-
-	// if storageMaxParam := query.Get("storage_max"); storageMaxParam != "" {
-	// 	storageMax, err := strconv.ParseInt(storageMaxParam, 10, 64)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("parameter 'storage_max' must be a valid number: %w", err)
-	// 	}
-	// 	filters.StorageMax = &storageMax
-	// }
-
 	// Parse session filters
 	hasActiveSessionFilter := query.Get("has_active_session")
 	if hasActiveSessionFilter == "true" {
@@ -1844,6 +1812,23 @@ func parseUserListFilters(r *http.Request) (*UserListFilters, error) {
 		filters.SessionCountMax = &sessionCountMax
 	}
 
+	// Parse sorting parameters
+	filters.SortColumn = query.Get("sort_column")
+	filters.SortOrder = query.Get("sort_order")
+
+	// Validate and normalize sort order
+	if filters.SortOrder != "" {
+		filters.SortOrder = strings.ToLower(filters.SortOrder)
+		if filters.SortOrder != "asc" && filters.SortOrder != "desc" {
+			return nil, fmt.Errorf("parameter 'sort_order' must be 'asc' or 'desc'")
+		}
+	} else {
+		// Default to descending if column is specified but order is not
+		if filters.SortColumn != "" {
+			filters.SortOrder = "desc"
+		}
+	}
+
 	return filters, nil
 }
 
@@ -1877,11 +1862,23 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	// Check if this is an export request first
+	queryParams := r.URL.Query()
+	format := queryParams.Get("format")
+	isExport := format == "csv" || format == "json"
+
 	// Parse all filters from query parameters
 	filters, err := parseUserListFilters(r)
 	if err != nil {
 		sendJSONError(w, "Bad request", err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	// For export requests, ignore pagination and fetch all matching records
+	if isExport {
+		filters.FetchAll = true
+		filters.Limit = 0
+		filters.Page = 1
 	}
 
 	// Calculate pagination parameters
@@ -1912,6 +1909,8 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		filters.LastSessionBefore,
 		filters.SessionCountMin,
 		filters.SessionCountMax,
+		filters.SortColumn,
+		filters.SortOrder,
 	)
 	if err != nil {
 		sendJSONError(w, "failed to get users",
@@ -1941,29 +1940,11 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			projectCount = projectCounts[i]
 		}
 
-		// // Calculate storage/bandwidth only for returned users (much faster than all users)
-		// var totalStorageUsed, totalBandwidthUsed, totalSegmentUsed int64
-		// if projectCount > 0 {
-		// 	// Only fetch projects if user has projects (optimization)
-		// 	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
-		// 	if err == nil {
-		// 		// Calculate total usage from all projects
-		// 		for _, project := range projects {
-		// 			storageUsed, bandwidthUsed, segmentUsed := server.getProjectUsageData(ctx, project.ID)
-		// 			totalStorageUsed += storageUsed
-		// 			totalBandwidthUsed += bandwidthUsed
-		// 			totalSegmentUsed += segmentUsed
-		// 		}
-		// 	}
-		// }
-
-		// // Apply storage range filter (post-query, only for returned users)
-		// if filters.StorageMin != nil && totalStorageUsed < *filters.StorageMin {
-		// 	continue // Skip this user
-		// }
-		// if filters.StorageMax != nil && totalStorageUsed > *filters.StorageMax {
-		// 	continue // Skip this user
-		// }
+		// Determine action based on status: Inactive (0) = "Activate", Active (1) = "Deactivate"
+		action := "Deactivate"
+		if user.Status == console.Inactive {
+			action = "Activate"
+		}
 
 		users = append(users, User{
 			ID:                    user.ID,
@@ -1983,26 +1964,23 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			LastSessionExpiry:     lastExp,
 			FirstSessionExpiry:    firstExp,
 			TotalSessionCount:     sessionCount,
-			// StorageUsed:           totalStorageUsed,
-			// BandwidthUsed:         totalBandwidthUsed,
-			// SegmentUsed:           totalSegmentUsed,
+
 			ProjectCount: projectCount,
+			Action:       action,
 		})
 	}
 
-	// Calculate pagination metadata
+	// For export requests, export all matching users and return early
+	if isExport {
+		server.exportUsersData(w, users, filters.Search, queryParams.Get("status"), format)
+		return
+	}
+
+	// Calculate pagination metadata (only for regular listing, not export)
 	var paginatedUsers []User
 	var totalPages uint64
 	var finalTotalCount uint64
 
-	// If storage filters were applied, adjust total count
-	// if filters.StorageMin != nil || filters.StorageMax != nil {
-	// 	// Storage filtering happens post-query, so we use the filtered count
-	// 	finalTotalCount = uint64(len(users))
-	// } else {
-	// 	// No storage filtering, use the SQL count
-	// 	finalTotalCount = uint64(totalCount)
-	// }
 	// No storage filtering, use the SQL count
 	finalTotalCount = uint64(totalCount)
 
@@ -2018,14 +1996,6 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		} else {
 			totalPages = 1
 		}
-	}
-
-	// Check if this is an export request
-	queryParams := r.URL.Query()
-	format := queryParams.Get("format")
-	if format == "csv" || format == "json" {
-		server.exportUsersData(w, users, filters.Search, queryParams.Get("status"), format)
-		return
 	}
 
 	// Regular JSON response for UI
@@ -2094,9 +2064,7 @@ func (server *Server) exportUsersData(w http.ResponseWriter, users []User, searc
 				fmt.Sprintf("%t", user.PaidTier),
 				fmt.Sprintf("%d", user.ProjectStorageLimit),
 				fmt.Sprintf("%d", user.ProjectBandwidthLimit),
-				// fmt.Sprintf("%d", user.StorageUsed),
-				// fmt.Sprintf("%d", user.BandwidthUsed),
-				// fmt.Sprintf("%d", user.SegmentUsed),
+
 				fmt.Sprintf("%d", user.ProjectCount),
 				user.Source,
 				user.UtmSource,
@@ -2319,6 +2287,76 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
 	if err != nil {
 		sendJSONError(w, "failed to deactivate user account",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated user info
+	updatedUser, err := server.db.Console().Users().Get(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get updated user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	data, err := json.Marshal(updatedUser)
+	if err != nil {
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
+func (server *Server) activateUserAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	// Use GetByEmailWithUnverified to also get inactive users
+	user, unverified, err := server.db.Console().Users().GetByEmailWithUnverified(ctx, userEmail)
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// If user is nil, check unverified users (which includes inactive users)
+	if user == nil {
+		if len(unverified) > 0 {
+			user = &unverified[0]
+		} else {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+	}
+
+	// Prevent modifications on deleted users
+	if user.Status == console.Deleted {
+		sendJSONError(w, "cannot activate deleted user",
+			"user has been deleted and cannot be modified", http.StatusForbidden)
+		return
+	}
+
+	// Activate account by setting status to Active (1)
+	userStatus := console.Active
+	updateRequest := console.UpdateUserRequest{
+		Status: &userStatus,
+	}
+
+	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
+	if err != nil {
+		sendJSONError(w, "failed to activate user account",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}

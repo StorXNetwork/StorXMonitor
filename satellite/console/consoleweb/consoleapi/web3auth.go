@@ -408,17 +408,36 @@ func (a *Web3Auth) GetSignMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.service.GetUsers().GetByEmail(ctx, email)
+	// Use GetByEmailWithUnverified to also check for unverified users
+	user, unverified, err := a.service.GetUsers().GetByEmailWithUnverified(ctx, email)
 	if err != nil {
+		// Check if it's a "not found" error (user doesn't exist yet)
+		if console.ErrEmailNotFound.Has(err) {
+			a.sendError(w, "User not found", http.StatusNotFound)
+			return
+		}
 		a.sendError(w, "Error getting user: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// If user is nil, check unverified users
 	if user == nil {
-		a.sendError(w, "User not found", http.StatusNotFound)
+		if len(unverified) > 0 {
+			// Use the first unverified user
+			user = &unverified[0]
+		} else {
+			a.sendError(w, "User not found", http.StatusNotFound)
+			return
+		}
+	}
+
+	// Check if user account is deactivated (Inactive status)
+	if user.Status == console.Inactive {
+		a.sendError(w, "Account Deactivated please contact Storx Admin at support@storx.io", http.StatusUnauthorized)
 		return
 	}
 
+	// Check if user is active (allow Active status only)
 	if user.Status != console.Active {
 		a.sendError(w, "User not active", http.StatusUnauthorized)
 		return

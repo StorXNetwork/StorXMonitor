@@ -65,35 +65,50 @@ func (server *Server) getAllNodes(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	queryParams := r.URL.Query()
 
+	// Check if this is an export request first
+	format := queryParams.Get("format")
+	isExport := format == "csv" || format == "json"
+
 	limitStr := queryParams.Get("limit")
 	fetchAll := strings.ToLower(queryParams.Get("fetchAll")) == "true" ||
 		strings.ToLower(limitStr) == "all" || limitStr == "0" || limitStr == "-1"
 
 	var limit int
-	if fetchAll {
+	var page int
+	var offset int
+
+	// For export requests, ignore pagination and fetch all matching records
+	if isExport {
+		fetchAll = true
 		limit = 0
-	} else if limitStr == "" {
-		limit = 50
-	} else if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-		if l > 500 {
-			limit = 500
-		} else {
-			limit = l
-		}
+		page = 1
+		offset = 0
 	} else {
-		limit = 50
-	}
-
-	page := 1
-	if pageStr := queryParams.Get("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
+		if fetchAll {
+			limit = 0
+		} else if limitStr == "" {
+			limit = 50
+		} else if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			if l > 500 {
+				limit = 500
+			} else {
+				limit = l
+			}
+		} else {
+			limit = 50
 		}
-	}
 
-	offset := 0
-	if !fetchAll {
-		offset = (page - 1) * limit
+		page = 1
+		if pageStr := queryParams.Get("page"); pageStr != "" {
+			if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+				page = p
+			}
+		}
+
+		offset = 0
+		if !fetchAll {
+			offset = (page - 1) * limit
+		}
 	}
 
 	// Parse filters
@@ -116,6 +131,24 @@ func (server *Server) getAllNodes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Parse sorting parameters
+	sortColumn := queryParams.Get("sort_column")
+	sortOrder := queryParams.Get("sort_order")
+
+	// Validate and normalize sort order
+	if sortOrder != "" {
+		sortOrder = strings.ToLower(sortOrder)
+		if sortOrder != "asc" && sortOrder != "desc" {
+			sendJSONError(w, "Bad request", "parameter 'sort_order' must be 'asc' or 'desc'", http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Default to descending if column is specified but order is not
+		if sortColumn != "" {
+			sortOrder = "desc"
+		}
+	}
+
 	selectedNodes, totalCount, err := server.db.OverlayCache().GetAllNodesWithFilters(
 		ctx,
 		defaultOnlineWindow,
@@ -123,6 +156,8 @@ func (server *Server) getAllNodes(w http.ResponseWriter, r *http.Request) {
 		filters,
 		limit,
 		offset,
+		sortColumn,
+		sortOrder,
 	)
 	if err != nil {
 		sendJSONError(w, "Internal server error", fmt.Sprintf("failed to fetch nodes: %v", err), http.StatusInternalServerError)
@@ -134,23 +169,9 @@ func (server *Server) getAllNodes(w http.ResponseWriter, r *http.Request) {
 		nodes[i] = convertToNode(&selectedNodes[i])
 	}
 
-	format := queryParams.Get("format")
-	if format == "csv" {
-		var exportNodes []Node
-		if fetchAll {
-			exportNodes = nodes
-		} else {
-			allNodes, _, err := server.db.OverlayCache().GetAllNodesWithFilters(ctx, defaultOnlineWindow, 0, filters, 0, 0)
-			if err != nil {
-				sendJSONError(w, "Internal server error", fmt.Sprintf("failed to fetch nodes for export: %v", err), http.StatusInternalServerError)
-				return
-			}
-			exportNodes = make([]Node, len(allNodes))
-			for i := range allNodes {
-				exportNodes[i] = convertToNode(&allNodes[i])
-			}
-		}
-		server.exportNodesData(w, exportNodes, filters.Status, strings.Join(filters.Countries, ","), format)
+	// For export requests, export all matching nodes and return early
+	if isExport {
+		server.exportNodesData(w, nodes, filters.Status, strings.Join(filters.Countries, ","), format)
 		return
 	}
 
