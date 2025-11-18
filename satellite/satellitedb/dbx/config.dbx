@@ -1,0 +1,70 @@
+//--- configuration ---//
+
+// configs are used to store flexible configuration data such as templates and settings.
+model config (
+    key id
+
+    index (
+        name configs_type_category_index
+        fields config_type category
+    )
+
+    index (
+        name configs_active_type_index
+        fields is_active config_type
+    )
+
+    unique config_type name
+
+    // id is a UUID for the configuration entry.
+    field id blob
+    // config_type indicates the type of configuration (e.g. notification_template, email_settings).
+    field config_type text
+    // name is the configuration identifier (e.g. welcome_email, smtp_settings).
+    field name text
+    // category groups configurations (e.g. account, project, billing).
+    field category text ( nullable, updatable )
+    // config_data stores the configuration payload as JSON.
+    field config_data json ( updatable )
+    // is_active indicates whether the configuration is currently active.
+    field is_active bool ( updatable, default true )
+    // created_by references the user who created the configuration (user.id).
+    field created_by blob
+    // created_at indicates when the configuration was created.
+    field created_at timestamp ( autoinsert )
+    // updated_at indicates when the configuration was last updated.
+    field updated_at timestamp ( updatable )
+)
+
+create config ( )
+update config ( where config.id = ? )
+delete config ( where config.id = ? )
+
+read one (
+    select config
+    where config.id = ?
+)
+
+read one (
+    select config
+    where config.config_type = ?
+    where config.name = ?
+)
+
+read all (
+    select config
+    where config.config_type = ?
+)
+
+read all (
+    select config
+    where config.config_type = ?
+    where config.category = ?
+)
+
+read all (
+    select config
+    where config.is_active = ?
+    where config.config_type = ?
+)
+

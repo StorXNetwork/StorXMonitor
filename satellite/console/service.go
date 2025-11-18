@@ -43,7 +43,9 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console/configs"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/nodeselection"
@@ -212,6 +214,7 @@ type Service struct {
 	mailService                *mailservice.Service
 	accountFreezeService       *AccountFreezeService
 	emission                   *emission.Service
+	pushNotificationService    *pushnotifications.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -237,6 +240,34 @@ func (s *Service) GetUsers() Users {
 // boris
 func (s *Service) GetProjects() Projects {
 	return s.store.Projects()
+}
+
+// GetFCMTokens returns the FCM tokens database interface.
+func (s *Service) GetFCMTokens() pushnotifications.DB {
+	return s.store.FCMTokens()
+}
+
+// SendPushNotification sends a push notification to a user.
+func (s *Service) SendPushNotification(ctx context.Context, userID uuid.UUID, notification pushnotifications.Notification) error {
+	if s.pushNotificationService == nil {
+		return Error.New("push notification service is not initialized")
+	}
+	return s.pushNotificationService.SendNotification(ctx, userID, notification)
+}
+
+// GetPushNotifications returns the push notifications database interface.
+func (s *Service) GetPushNotifications() pushnotifications.PushNotificationDB {
+	return s.store.PushNotifications()
+}
+
+// GetConfigs returns the configs database interface.
+func (s *Service) GetConfigs() configs.DB {
+	return s.store.Configs()
+}
+
+// GetUserNotificationPreferences returns the user notification preferences database interface.
+func (s *Service) GetUserNotificationPreferences() configs.UserPreferenceDB {
+	return s.store.UserNotificationPreferences()
 }
 
 // boris
@@ -388,6 +419,12 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		versioning.projectMap[projectID] = struct{}{}
 	}
 
+	// Initialize push notification service
+	pushNotificationService, err := pushnotifications.NewService(log.Named("pushnotifications"), store.FCMTokens(), store.PushNotifications(), config.PushNotifications)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	return &Service{
 		log:                        log,
 		auditLogger:                log.Named("auditlog"),
@@ -415,6 +452,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		varPartners:                partners,
 		versioningConfig:           versioning,
 		socialShareHelper:          socialShareHelper,
+		pushNotificationService:    pushNotificationService,
 		nowFn:                      time.Now,
 	}, nil
 }

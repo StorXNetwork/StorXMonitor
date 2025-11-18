@@ -5,7 +5,7 @@ on:
     branches:
       - main    
   workflow_dispatch:
-
+    
 env:
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
