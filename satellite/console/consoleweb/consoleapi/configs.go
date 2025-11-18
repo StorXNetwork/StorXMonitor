@@ -37,6 +37,7 @@ func NewConfigs(log *zap.Logger, service *console.Service) *Configs {
 }
 
 // GetConfig handles GET /api/v0/configs/{id} - Get configuration by ID (User-authenticated, read-only).
+// Users can only see active configs.
 func (c *Configs) GetConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -68,6 +69,12 @@ func (c *Configs) GetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Users can only see active configs
+	if !config.IsActive {
+		web.ServeJSONError(ctx, c.log, w, http.StatusNotFound, ErrConfigsAPI.New("config not found"))
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(config); err != nil {
 		c.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
@@ -75,6 +82,7 @@ func (c *Configs) GetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListConfigs handles GET /api/v0/configs - List configurations (User-authenticated, read-only).
+// Users can only see active configs (is_active=true is hardcoded).
 func (c *Configs) ListConfigs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -89,7 +97,7 @@ func (c *Configs) ListConfigs(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	configType := r.URL.Query().Get("type")
 	category := r.URL.Query().Get("category")
-	isActiveStr := r.URL.Query().Get("is_active")
+	// Note: Users can only see active configs, so is_active filter is ignored and hardcoded to true
 
 	filters := configs.ListConfigFilters{}
 
@@ -100,10 +108,9 @@ func (c *Configs) ListConfigs(w http.ResponseWriter, r *http.Request) {
 	if category != "" {
 		filters.Category = &category
 	}
-	if isActiveStr != "" {
-		isActive := isActiveStr == "true"
-		filters.IsActive = &isActive
-	}
+	// Hardcode is_active=true for users (they can only see active configs)
+	isActive := true
+	filters.IsActive = &isActive
 
 	configService := configs.NewService(c.service.GetConfigs())
 	configsList, err := configService.ListConfigs(ctx, filters)
@@ -119,6 +126,7 @@ func (c *Configs) ListConfigs(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetConfigByTypeAndName handles GET /api/v0/configs/type/{type}/name/{name} - Get configuration by type and name (User-authenticated, read-only).
+// Users can only see active configs.
 func (c *Configs) GetConfigByTypeAndName(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -150,6 +158,12 @@ func (c *Configs) GetConfigByTypeAndName(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Users can only see active configs
+	if !config.IsActive {
+		web.ServeJSONError(ctx, c.log, w, http.StatusNotFound, ErrConfigsAPI.New("config not found"))
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(config); err != nil {
 		c.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
@@ -157,6 +171,7 @@ func (c *Configs) GetConfigByTypeAndName(w http.ResponseWriter, r *http.Request)
 }
 
 // ListConfigsByType handles GET /api/v0/configs/type/{type} - List all configs of a specific type (User-authenticated, read-only).
+// Users can only see active configs.
 func (c *Configs) ListConfigsByType(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -182,8 +197,16 @@ func (c *Configs) ListConfigsByType(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Filter to only active configs for users
+	activeConfigs := make([]configs.Config, 0, len(configsList))
+	for _, config := range configsList {
+		if config.IsActive {
+			activeConfigs = append(activeConfigs, config)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err = json.NewEncoder(w).Encode(configsList); err != nil {
+	if err = json.NewEncoder(w).Encode(activeConfigs); err != nil {
 		c.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
 	}
 }

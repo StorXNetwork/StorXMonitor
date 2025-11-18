@@ -228,17 +228,19 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/restkeys/{apikey}/revoke", server.revokeRESTKey).Methods("PUT")
 
 	// Config management endpoints (Admin-only CRUD)
-	fullAccessAPI.HandleFunc("/configs", server.createConfig).Methods("POST")
-	fullAccessAPI.HandleFunc("/configs", server.listConfigs).Methods("GET")
-	fullAccessAPI.HandleFunc("/configs/{id}", server.getConfig).Methods("GET")
-	fullAccessAPI.HandleFunc("/configs/{id}", server.updateConfig).Methods("PUT")
-	fullAccessAPI.HandleFunc("/configs/{id}", server.deleteConfig).Methods("DELETE")
-	fullAccessAPI.HandleFunc("/configs/type/{type}/name/{name}", server.getConfigByTypeAndName).Methods("GET")
-	fullAccessAPI.HandleFunc("/configs/type/{type}", server.listConfigsByType).Methods("GET")
+	configsRouter := fullAccessAPI.PathPrefix("/configs").Subrouter()
+	configsRouter.HandleFunc("", server.createConfig).Methods("POST")
+	configsRouter.HandleFunc("", server.listConfigs).Methods("GET")
+	configsRouter.HandleFunc("/{id}", server.getConfig).Methods("GET")
+	configsRouter.HandleFunc("/{id}", server.updateConfig).Methods("PUT")
+	configsRouter.HandleFunc("/{id}", server.deleteConfig).Methods("DELETE")
+	configsRouter.HandleFunc("/type/{type}/name/{name}", server.getConfigByTypeAndName).Methods("GET")
+	configsRouter.HandleFunc("/type/{type}", server.listConfigsByType).Methods("GET")
 
 	// Template management endpoints (Admin-only CRUD)
-	fullAccessAPI.HandleFunc("/notification-templates", server.createTemplate).Methods("POST")
-	fullAccessAPI.HandleFunc("/notification-templates/{id}/render", server.renderTemplate).Methods("POST")
+	notificationTemplatesRouter := fullAccessAPI.PathPrefix("/notification-templates").Subrouter()
+	notificationTemplatesRouter.HandleFunc("", server.createTemplate).Methods("POST")
+	notificationTemplatesRouter.HandleFunc("/{id}/render", server.renderTemplate).Methods("POST")
 
 	// limit update access required
 	limitUpdateAPI := api.NewRoute().Subrouter()

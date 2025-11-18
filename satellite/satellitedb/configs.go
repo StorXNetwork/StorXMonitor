@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -103,10 +104,73 @@ func (c *configsDB) ListConfigs(ctx context.Context, filters configs.ListConfigF
 			dbx.Config_IsActive(*filters.IsActive),
 			dbx.Config_ConfigType(string(*filters.ConfigType)))
 	} else {
-		// If no filters, we need to get all configs
-		// Since there's no "All_Config" method, we'll need to query by type
-		// For now, return empty if no type filter
-		return []configs.Config{}, nil
+		// If no filters, query all configs using raw SQL
+		// Since there's no "All_Config" method in dbx, we use a direct query
+		query := `SELECT id, config_type, name, category, config_data, is_active, created_by, created_at, updated_at FROM configs`
+
+		var args []interface{}
+		argIndex := 1
+
+		// Apply is_active filter if provided (without type)
+		if filters.IsActive != nil {
+			query += ` WHERE is_active = $` + fmt.Sprintf("%d", argIndex)
+			args = append(args, *filters.IsActive)
+			argIndex++
+		}
+
+		query += ` ORDER BY created_at DESC`
+
+		rows, err := c.db.Query(ctx, query, args...)
+		if err != nil {
+			if errs.Is(err, sql.ErrNoRows) {
+				return []configs.Config{}, nil
+			}
+			return nil, ErrConfigs.Wrap(err)
+		}
+		defer func() { err = errs.Combine(err, rows.Close()) }()
+
+		var allConfigs []configs.Config
+		for rows.Next() {
+			var dbxConfig dbx.Config
+			var idBytes, createdByBytes []byte
+			var category sql.NullString
+
+			err := rows.Scan(
+				&idBytes,
+				&dbxConfig.ConfigType,
+				&dbxConfig.Name,
+				&category,
+				&dbxConfig.ConfigData,
+				&dbxConfig.IsActive,
+				&createdByBytes,
+				&dbxConfig.CreatedAt,
+				&dbxConfig.UpdatedAt,
+			)
+			if err != nil {
+				return nil, ErrConfigs.Wrap(err)
+			}
+
+			// Convert bytes to UUIDs
+			dbxConfig.Id = idBytes
+			dbxConfig.CreatedBy = createdByBytes
+
+			// Handle nullable category
+			if category.Valid {
+				dbxConfig.Category = &category.String
+			}
+
+			config, err := configFromDBX(&dbxConfig)
+			if err != nil {
+				return nil, ErrConfigs.Wrap(err)
+			}
+			allConfigs = append(allConfigs, config)
+		}
+
+		if err := rows.Err(); err != nil {
+			return nil, ErrConfigs.Wrap(err)
+		}
+
+		return allConfigs, nil
 	}
 
 	if queryErr != nil {
@@ -236,4 +300,3 @@ func configFromDBX(dbxConfig *dbx.Config) (configs.Config, error) {
 
 	return config, nil
 }
-
