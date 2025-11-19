@@ -1014,7 +1014,6 @@ CREATE TABLE user_delete_requests (
 CREATE TABLE user_notification_preferences (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
-	config_type text NOT NULL,
 	category text,
 	preferences jsonb NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -1174,7 +1173,6 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
-CREATE INDEX user_notification_preferences_user_type_index ON user_notification_preferences ( user_id, config_type ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
@@ -1980,7 +1978,6 @@ CREATE TABLE user_delete_requests (
 CREATE TABLE user_notification_preferences (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
-	config_type text NOT NULL,
 	category text,
 	preferences jsonb NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -2140,7 +2137,6 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
-CREATE INDEX user_notification_preferences_user_type_index ON user_notification_preferences ( user_id, config_type ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
@@ -15155,7 +15151,6 @@ func (UserDeleteRequest_CreatedAt_Field) _Column() string { return "created_at" 
 type UserNotificationPreference struct {
 	Id          []byte
 	UserId      []byte
-	ConfigType  string
 	Category    *string
 	Preferences []byte
 	CreatedAt   time.Time
@@ -15211,25 +15206,6 @@ func (f UserNotificationPreference_UserId_Field) value() interface{} {
 }
 
 func (UserNotificationPreference_UserId_Field) _Column() string { return "user_id" }
-
-type UserNotificationPreference_ConfigType_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func UserNotificationPreference_ConfigType(v string) UserNotificationPreference_ConfigType_Field {
-	return UserNotificationPreference_ConfigType_Field{_set: true, _value: v}
-}
-
-func (f UserNotificationPreference_ConfigType_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (UserNotificationPreference_ConfigType_Field) _Column() string { return "config_type" }
 
 type UserNotificationPreference_Category_Field struct {
 	_set   bool
@@ -18837,7 +18813,6 @@ func (obj *pgxImpl) Create_PushNotifications(ctx context.Context,
 func (obj *pgxImpl) Create_UserNotificationPreference(ctx context.Context,
 	user_notification_preference_id UserNotificationPreference_Id_Field,
 	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field,
 	user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
 	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
 	optional UserNotificationPreference_Create_Fields) (
@@ -18847,22 +18822,21 @@ func (obj *pgxImpl) Create_UserNotificationPreference(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_notification_preference_id.value()
 	__user_id_val := user_notification_preference_user_id.value()
-	__config_type_val := user_notification_preference_config_type.value()
 	__category_val := optional.Category.value()
 	__preferences_val := user_notification_preference_preferences.value()
 	__created_at_val := __now
 	__updated_at_val := user_notification_preference_updated_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, config_type, category, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, category, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __config_type_val, __category_val, __preferences_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __category_val, __preferences_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -23520,7 +23494,7 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_Id(ctx context.Context,
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_notification_preference_id.value())
@@ -23529,7 +23503,7 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return (*UserNotificationPreference)(nil), obj.makeErr(err)
 	}
@@ -23542,7 +23516,7 @@ func (obj *pgxImpl) All_UserNotificationPreference_By_UserId(ctx context.Context
 	rows []*UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -23560,53 +23534,7 @@ func (obj *pgxImpl) All_UserNotificationPreference_By_UserId(ctx context.Context
 
 			for __rows.Next() {
 				user_notification_preference := &UserNotificationPreference{}
-				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, user_notification_preference)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxImpl) All_UserNotificationPreference_By_UserId_And_ConfigType(ctx context.Context,
-	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
-	rows []*UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND user_notification_preferences.config_type = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_notification_preference_user_id.value(), user_notification_preference_config_type.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				user_notification_preference := &UserNotificationPreference{}
-				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -23633,7 +23561,7 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId(ctx context.Context
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -23657,7 +23585,7 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId(ctx context.Context
 			}
 
 			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -23686,16 +23614,15 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId(ctx context.Context
 
 }
 
-func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId_And_Category_And_ConfigType(ctx context.Context,
+func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId_And_Category(ctx context.Context,
 	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_category UserNotificationPreference_Category_Field,
-	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+	user_notification_preference_category UserNotificationPreference_Category_Field) (
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.category", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" AND user_notification_preferences.config_type = ? LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []interface{}
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -23703,7 +23630,6 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId_And_Category_And_Co
 		__cond_0.Null = false
 		__values = append(__values, user_notification_preference_category.value())
 	}
-	__values = append(__values, user_notification_preference_config_type.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -23724,7 +23650,7 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId_And_Category_And_Co
 			}
 
 			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -23744,7 +23670,7 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId_And_Category_And_Co
 				continue
 			}
 			if err == errTooManyRows {
-				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category_And_ConfigType")
+				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -28176,7 +28102,7 @@ func (obj *pgxImpl) Update_UserNotificationPreference_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -28210,7 +28136,7 @@ func (obj *pgxImpl) Update_UserNotificationPreference_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -32647,7 +32573,6 @@ func (obj *pgxcockroachImpl) Create_PushNotifications(ctx context.Context,
 func (obj *pgxcockroachImpl) Create_UserNotificationPreference(ctx context.Context,
 	user_notification_preference_id UserNotificationPreference_Id_Field,
 	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field,
 	user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
 	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
 	optional UserNotificationPreference_Create_Fields) (
@@ -32657,22 +32582,21 @@ func (obj *pgxcockroachImpl) Create_UserNotificationPreference(ctx context.Conte
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_notification_preference_id.value()
 	__user_id_val := user_notification_preference_user_id.value()
-	__config_type_val := user_notification_preference_config_type.value()
 	__category_val := optional.Category.value()
 	__preferences_val := user_notification_preference_preferences.value()
 	__created_at_val := __now
 	__updated_at_val := user_notification_preference_updated_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, config_type, category, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, category, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __config_type_val, __category_val, __preferences_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __category_val, __preferences_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -37330,7 +37254,7 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_Id(ctx context.Co
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_notification_preference_id.value())
@@ -37339,7 +37263,7 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_Id(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return (*UserNotificationPreference)(nil), obj.makeErr(err)
 	}
@@ -37352,7 +37276,7 @@ func (obj *pgxcockroachImpl) All_UserNotificationPreference_By_UserId(ctx contex
 	rows []*UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -37370,53 +37294,7 @@ func (obj *pgxcockroachImpl) All_UserNotificationPreference_By_UserId(ctx contex
 
 			for __rows.Next() {
 				user_notification_preference := &UserNotificationPreference{}
-				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, user_notification_preference)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) All_UserNotificationPreference_By_UserId_And_ConfigType(ctx context.Context,
-	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
-	rows []*UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND user_notification_preferences.config_type = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_notification_preference_user_id.value(), user_notification_preference_config_type.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				user_notification_preference := &UserNotificationPreference{}
-				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -37443,7 +37321,7 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId(ctx contex
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -37467,7 +37345,7 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId(ctx contex
 			}
 
 			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -37496,16 +37374,15 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId(ctx contex
 
 }
 
-func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId_And_Category_And_ConfigType(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId_And_Category(ctx context.Context,
 	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_category UserNotificationPreference_Category_Field,
-	user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+	user_notification_preference_category UserNotificationPreference_Category_Field) (
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.category", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" AND user_notification_preferences.config_type = ? LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []interface{}
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -37513,7 +37390,6 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId_And_Catego
 		__cond_0.Null = false
 		__values = append(__values, user_notification_preference_category.value())
 	}
-	__values = append(__values, user_notification_preference_config_type.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -37534,7 +37410,7 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId_And_Catego
 			}
 
 			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -37554,7 +37430,7 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId_And_Catego
 				continue
 			}
 			if err == errTooManyRows {
-				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category_And_ConfigType")
+				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -41986,7 +41862,7 @@ func (obj *pgxcockroachImpl) Update_UserNotificationPreference_By_Id(ctx context
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.config_type, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -42020,7 +41896,7 @@ func (obj *pgxcockroachImpl) Update_UserNotificationPreference_By_Id(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.ConfigType, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -45326,11 +45202,6 @@ type Methods interface {
 		user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
 		rows []*UserNotificationPreference, err error)
 
-	All_UserNotificationPreference_By_UserId_And_ConfigType(ctx context.Context,
-		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-		user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
-		rows []*UserNotificationPreference, err error)
-
 	All_User_By_NormalizedEmail(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (
 		rows []*User, err error)
@@ -45739,7 +45610,6 @@ type Methods interface {
 	Create_UserNotificationPreference(ctx context.Context,
 		user_notification_preference_id UserNotificationPreference_Id_Field,
 		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-		user_notification_preference_config_type UserNotificationPreference_ConfigType_Field,
 		user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
 		user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
 		optional UserNotificationPreference_Create_Fields) (
@@ -46280,10 +46150,9 @@ type Methods interface {
 		user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
 		user_notification_preference *UserNotificationPreference, err error)
 
-	Get_UserNotificationPreference_By_UserId_And_Category_And_ConfigType(ctx context.Context,
+	Get_UserNotificationPreference_By_UserId_And_Category(ctx context.Context,
 		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-		user_notification_preference_category UserNotificationPreference_Category_Field,
-		user_notification_preference_config_type UserNotificationPreference_ConfigType_Field) (
+		user_notification_preference_category UserNotificationPreference_Category_Field) (
 		user_notification_preference *UserNotificationPreference, err error)
 
 	Get_UserSettings_By_UserId(ctx context.Context,

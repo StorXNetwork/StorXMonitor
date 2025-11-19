@@ -701,7 +701,6 @@ CREATE TABLE user_delete_requests (
 CREATE TABLE user_notification_preferences (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
-	config_type text NOT NULL,
 	category text,
 	preferences jsonb NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -861,7 +860,6 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
-CREATE INDEX user_notification_preferences_user_type_index ON user_notification_preferences ( user_id, config_type ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;

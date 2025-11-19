@@ -153,17 +153,10 @@ read limitoffset (
 model user_notification_preference (
     key id
 
-    index (
-        name user_notification_preferences_user_type_index
-        fields user_id config_type
-    )
-
     // id is a UUID for the preference entry.
     field id blob
     // user_id references user.id.
     field user_id blob
-    // config_type categorizes the preference (e.g. template, settings).
-    field config_type text
     // category indicates the category that this preference applies to.
     field category text ( nullable, updatable )
     // preferences stores preference settings (e.g. email, push, sms, etc.).
@@ -188,12 +181,6 @@ read all (
     where user_notification_preference.user_id = ?
 )
 
-read all (
-    select user_notification_preference
-    where user_notification_preference.user_id = ?
-    where user_notification_preference.config_type = ?
-)
-
 read one (
     select user_notification_preference
     where user_notification_preference.user_id = ?
@@ -203,6 +190,5 @@ read one (
     select user_notification_preference
     where user_notification_preference.user_id = ?
     where user_notification_preference.category = ?
-    where user_notification_preference.config_type = ?
 )
 
