@@ -166,12 +166,8 @@ model user_notification_preference (
     field config_type text
     // category indicates the category that this preference applies to.
     field category text ( nullable, updatable )
-    // preferences stores preference settings (e.g. language, frequency).
+    // preferences stores preference settings (e.g. email, push, sms, etc.).
     field preferences json ( updatable )
-    // custom_variables stores overrides for template variables.
-    field custom_variables json ( nullable, updatable )
-    // is_active indicates whether the preference is active.
-    field is_active bool ( updatable, default true )
     // created_at indicates when the preference was created.
     field created_at timestamp ( autoinsert )
     // updated_at indicates when the preference was last updated.

@@ -704,8 +704,6 @@ CREATE TABLE user_notification_preferences (
 	config_type text NOT NULL,
 	category text,
 	preferences jsonb NOT NULL,
-	custom_variables jsonb,
-	is_active boolean NOT NULL DEFAULT true,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
