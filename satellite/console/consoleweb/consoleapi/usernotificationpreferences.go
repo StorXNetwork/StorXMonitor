@@ -7,11 +7,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/configs"
@@ -38,8 +36,7 @@ func NewUserNotificationPreferences(log *zap.Logger, service *console.Service) *
 
 // GetUserPreferences handles GET /api/v0/user/notification-preferences - Get current user's preferences.
 // Query parameters:
-//   - type: Filter by config type (optional)
-//   - category: Filter by category (optional, requires type)
+//   - category: Filter by category (optional)
 func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -54,32 +51,25 @@ func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, 
 	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
 
 	// Parse query parameters
-	configType := r.URL.Query().Get("type")
 	category := r.URL.Query().Get("category")
 
-	// If both type and category are provided, get single preference by category
-	if configType != "" && category != "" {
-		preference, err := preferenceService.GetUserPreferenceByCategory(ctx, user.ID, category, configType)
+	// Validate category if provided
+	if category != "" {
+		if !configs.IsValidPreferenceCategory(category) {
+			web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("invalid category. Valid categories are: billing, backup, account, vault"))
+			return
+		}
+	}
+
+	// If category is provided, get single preference by category
+	if category != "" {
+		preference, err := preferenceService.GetUserPreferenceByCategory(ctx, user.ID, category)
 		if err != nil {
 			web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err = json.NewEncoder(w).Encode(preference); err != nil {
-			u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
-		}
-		return
-	}
-
-	// If only type is provided, get preferences by type
-	if configType != "" {
-		preferences, err := preferenceService.GetUserPreferencesByType(ctx, user.ID, configType)
-		if err != nil {
-			web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err = json.NewEncoder(w).Encode(preferences); err != nil {
 			u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
 		}
 		return
@@ -98,8 +88,8 @@ func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, 
 	}
 }
 
-// SetUserPreference handles POST /api/v0/user/notification-preferences - Set user preferences.
-func (u *UserNotificationPreferences) SetUserPreference(w http.ResponseWriter, r *http.Request) {
+// UpsertUserPreference handles PUT /api/v0/user/notification-preferences - Create or update user preferences.
+func (u *UserNotificationPreferences) UpsertUserPreference(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -111,11 +101,8 @@ func (u *UserNotificationPreferences) SetUserPreference(w http.ResponseWriter, r
 	}
 
 	var req struct {
-		ConfigType      string                 `json:"config_type"`
-		Category        *string                `json:"category"`
-		Preferences     map[string]interface{} `json:"preferences"`
-		CustomVariables map[string]interface{} `json:"custom_variables"`
-		IsActive        bool                   `json:"is_active"`
+		Category    string                 `json:"category"`
+		Preferences map[string]interface{} `json:"preferences"`
 	}
 
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -123,146 +110,44 @@ func (u *UserNotificationPreferences) SetUserPreference(w http.ResponseWriter, r
 		return
 	}
 
-	if req.ConfigType == "" {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("config_type is required"))
+	// Validate category (required)
+	if req.Category == "" {
+		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("category is required"))
 		return
 	}
 
+	if !configs.IsValidPreferenceCategory(req.Category) {
+		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("invalid category. Valid categories are: billing, backup, account, vault"))
+		return
+	}
+
+	// Validate and normalize preferences
+	// Only allows keys: push, email, sms
+	// Values must be numbers 1-4 (or strings: marketing=1, info=2, warning=3, critical=4)
 	if req.Preferences == nil {
 		req.Preferences = make(map[string]interface{})
 	}
 
-	createReq := configs.CreateUserPreferenceRequest{
-		UserID:          user.ID,
-		ConfigType:      req.ConfigType,
-		Category:        req.Category,
-		Preferences:     req.Preferences,
-		CustomVariables: req.CustomVariables,
-		IsActive:        req.IsActive,
+	normalizedPreferences, err := configs.ValidateAndNormalizePreferences(req.Preferences)
+	if err != nil {
+		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.Wrap(err))
+		return
 	}
 
 	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
-	preference, err := preferenceService.SetUserPreference(ctx, createReq)
+	preference, isUpdate, err := preferenceService.UpsertUserPreference(ctx, user.ID, req.Category, normalizedPreferences)
 	if err != nil {
 		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	if isUpdate {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
 	if err = json.NewEncoder(w).Encode(preference); err != nil {
 		u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
 	}
-}
-
-// UpdateUserPreference handles PUT /api/v0/user/notification-preferences/{id} - Update user preference.
-func (u *UserNotificationPreferences) UpdateUserPreference(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := console.GetUser(ctx)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
-		return
-	}
-
-	vars := mux.Vars(r)
-	idString, ok := vars["id"]
-	if !ok {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("id missing"))
-		return
-	}
-
-	preferenceID, err := uuid.FromString(idString)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	// Verify the preference belongs to the user
-	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
-	existingPreference, err := preferenceService.GetUserPreferenceByID(ctx, preferenceID)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusNotFound, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-	if existingPreference.UserID != user.ID {
-		web.ServeJSONError(ctx, u.log, w, http.StatusForbidden, ErrUserNotificationPreferencesAPI.New("preference does not belong to user"))
-		return
-	}
-
-	var req struct {
-		Preferences     *map[string]interface{} `json:"preferences"`
-		CustomVariables *map[string]interface{} `json:"custom_variables"`
-		IsActive        *bool                   `json:"is_active"`
-	}
-
-	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	update := configs.UpdateUserPreferenceRequest{
-		Preferences:     req.Preferences,
-		CustomVariables: req.CustomVariables,
-		IsActive:        req.IsActive,
-	}
-
-	preference, err := preferenceService.UpdateUserPreference(ctx, preferenceID, update)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err = json.NewEncoder(w).Encode(preference); err != nil {
-		u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
-	}
-}
-
-// DeleteUserPreference handles DELETE /api/v0/user/notification-preferences/{id} - Delete user preference.
-func (u *UserNotificationPreferences) DeleteUserPreference(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := console.GetUser(ctx)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
-		return
-	}
-
-	vars := mux.Vars(r)
-	idString, ok := vars["id"]
-	if !ok {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("id missing"))
-		return
-	}
-
-	preferenceID, err := uuid.FromString(idString)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	// Verify the preference belongs to the user
-	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
-	existingPreference, err := preferenceService.GetUserPreferenceByID(ctx, preferenceID)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusNotFound, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-	if existingPreference.UserID != user.ID {
-		web.ServeJSONError(ctx, u.log, w, http.StatusForbidden, ErrUserNotificationPreferencesAPI.New("preference does not belong to user"))
-		return
-	}
-
-	err = preferenceService.DeleteUserPreference(ctx, preferenceID)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
 }

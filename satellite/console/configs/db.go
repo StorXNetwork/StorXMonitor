@@ -38,23 +38,14 @@ type UserPreferenceDB interface {
 	// InsertUserPreference creates a new user preference.
 	InsertUserPreference(ctx context.Context, preference UserNotificationPreference) (UserNotificationPreference, error)
 
-	// GetUserPreferenceByID retrieves a preference by ID.
-	GetUserPreferenceByID(ctx context.Context, id uuid.UUID) (UserNotificationPreference, error)
-
 	// GetUserPreferences retrieves all preferences for a user.
 	GetUserPreferences(ctx context.Context, userID uuid.UUID) ([]UserNotificationPreference, error)
 
-	// GetUserPreferencesByType retrieves preferences for a user by config type.
-	GetUserPreferencesByType(ctx context.Context, userID uuid.UUID, configType string) ([]UserNotificationPreference, error)
-
 	// GetUserPreferenceByCategory retrieves a category-level preference.
-	GetUserPreferenceByCategory(ctx context.Context, userID uuid.UUID, category string, configType string) (UserNotificationPreference, error)
+	GetUserPreferenceByCategory(ctx context.Context, userID uuid.UUID, category string) (UserNotificationPreference, error)
 
 	// UpdateUserPreference updates a user preference.
 	UpdateUserPreference(ctx context.Context, id uuid.UUID, update UpdateUserPreferenceRequest) (UserNotificationPreference, error)
-
-	// DeleteUserPreference deletes a user preference.
-	DeleteUserPreference(ctx context.Context, id uuid.UUID) error
 }
 
 // ListConfigFilters contains filters for listing configurations.
@@ -63,4 +54,3 @@ type ListConfigFilters struct {
 	Category   *string
 	IsActive   *bool
 }
-

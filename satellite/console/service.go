@@ -255,6 +255,63 @@ func (s *Service) SendPushNotification(ctx context.Context, userID uuid.UUID, no
 	return s.pushNotificationService.SendNotification(ctx, userID, notification)
 }
 
+// SendPushNotificationWithPreferences sends a push notification after checking user preferences.
+// Gets config by category, verifies it's a push template, and checks user preferences.
+// If user preference level > config level, the notification is not sent.
+func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userID uuid.UUID, category string, notification pushnotifications.Notification) error {
+	// Get configs by category
+	configsDB := s.GetConfigs()
+	configsService := configs.NewService(configsDB)
+
+	// Filter to find config with ConfigType == ConfigTypeNotificationTemplate (which is "push")
+	pushConfigType := configs.ConfigTypeNotificationTemplate
+	filters := configs.ListConfigFilters{
+		ConfigType: &pushConfigType,
+		Category:   &category,
+	}
+
+	configsList, err := configsService.ListConfigs(ctx, filters)
+	if err != nil {
+		// If we can't get configs, allow notification by default
+		return s.SendPushNotification(ctx, userID, notification)
+	}
+
+	// Find the first active push config for this category
+	var pushConfig *configs.Config
+	for i := range configsList {
+		if configsList[i].IsActive && configsList[i].ConfigType == pushConfigType {
+			pushConfig = &configsList[i]
+			break
+		}
+	}
+
+	// If no push config found, allow notification by default
+	if pushConfig == nil {
+		return s.SendPushNotification(ctx, userID, notification)
+	}
+
+	// Extract level from ConfigData
+	configLevel := configs.GetConfigLevel(pushConfig.ConfigData)
+
+	// Check preferences using ShouldSendNotification
+	preferenceDB := s.GetUserNotificationPreferences()
+	preferenceService := configs.NewPreferenceService(preferenceDB)
+
+	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, category, string(configs.NotificationTypePush), configLevel)
+	if err != nil {
+		// If we can't check preferences, allow notification by default
+		return s.SendPushNotification(ctx, userID, notification)
+	}
+
+	// If should not send, return nil (no error, just filtered)
+	if !shouldSend {
+		return nil
+	}
+
+	// If should send, call SendPushNotification
+	return s.SendPushNotification(ctx, userID, notification)
+}
+
 // GetPushNotifications returns the push notifications database interface.
 func (s *Service) GetPushNotifications() pushnotifications.PushNotificationDB {
 	return s.store.PushNotifications()

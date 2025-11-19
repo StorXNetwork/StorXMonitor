@@ -497,9 +497,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	userNotificationPreferencesRouter.Use(server.withAuth)
 
 	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferences)).Methods(http.MethodGet, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.SetUserPreference)).Methods(http.MethodPost, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("/{id}", http.HandlerFunc(userNotificationPreferencesController.UpdateUserPreference)).Methods(http.MethodPut, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("/{id}", http.HandlerFunc(userNotificationPreferencesController.DeleteUserPreference)).Methods(http.MethodDelete, http.MethodOptions)
+	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.UpsertUserPreference)).Methods(http.MethodPut, http.MethodOptions)
 	/*
 		if config.DeveloperAPIEnabled {
 			developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,

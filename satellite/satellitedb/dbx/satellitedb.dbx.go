@@ -15151,7 +15151,7 @@ func (UserDeleteRequest_CreatedAt_Field) _Column() string { return "created_at" 
 type UserNotificationPreference struct {
 	Id          []byte
 	UserId      []byte
-	Category    *string
+	Category    string
 	Preferences []byte
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
