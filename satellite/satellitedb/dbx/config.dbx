@@ -29,7 +29,7 @@ model config (
     // is_active indicates whether the configuration is currently active.
     field is_active bool ( updatable, default true )
     // created_by references the user who created the configuration (user.id).
-    field created_by blob
+    field created_by blob ( nullable, updatable )
     // created_at indicates when the configuration was created.
     field created_at timestamp ( autoinsert )
     // updated_at indicates when the configuration was last updated.
