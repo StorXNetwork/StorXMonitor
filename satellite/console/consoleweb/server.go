@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/console/consoleweb/staticapi"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
@@ -197,12 +198,13 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config           Config
-	service          *console.Service
-	developerService *developer.Service
-	mailService      *mailservice.Service
-	analytics        *analytics.Service
-	abTesting        *abtesting.Service
+	config              Config
+	service             *console.Service
+	developerService    *developer.Service
+	mailService         *mailservice.Service
+	notificationService *pushnotifications.Service
+	analytics           *analytics.Service
+	abTesting           *abtesting.Service
 
 	listener            net.Listener
 	server              http.Server
@@ -283,7 +285,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, notificationService *pushnotifications.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -293,6 +295,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		service:                         service,
 		developerService:                developerService,
 		mailService:                     mailService,
+		notificationService:             notificationService,
 		analytics:                       analytics,
 		abTesting:                       abTesting,
 		stripePublicKey:                 stripePublicKey,
@@ -410,6 +413,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	web3AuthController := consoleapi.NewWeb3Auth(logger, service, server.cookieAuth, "secret")
 	emailWebhookController := consoleapi.NewEmailWebhook(service, mailService, server.config.Config, server.config.ExternalAddress, server.config.SupportEmail)
+	pushNotificationWebhookController := consoleapi.NewPushNotificationWebhook(service, notificationService, server.config.Config, server.config.ExternalAddress, server.config.SupportEmail)
 	router.HandleFunc("/upload_backup_share", web3AuthController.UploadBackupShare)
 	router.HandleFunc("/get_backup_share", web3AuthController.GetBackupShare)
 	router.HandleFunc("/upload_social_share", web3AuthController.UploadSocialShare)
@@ -436,6 +440,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/send-email", (http.HandlerFunc(emailWebhookController.SendEmailByType))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/send-notification", (http.HandlerFunc(pushNotificationWebhookController.SendNotification))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/user", (http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
