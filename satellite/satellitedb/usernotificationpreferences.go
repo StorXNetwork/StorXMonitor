@@ -36,9 +36,6 @@ func (u *userNotificationPreferencesDB) InsertUserPreference(ctx context.Context
 	}
 
 	var optional dbx.UserNotificationPreference_Create_Fields
-	if preference.ConfigID != nil {
-		optional.ConfigId = dbx.UserNotificationPreference_ConfigId(preference.ConfigID[:])
-	}
 	if preference.Category != nil {
 		optional.Category = dbx.UserNotificationPreference_Category(*preference.Category)
 	}
@@ -129,20 +126,6 @@ func (u *userNotificationPreferencesDB) GetUserPreferencesByType(ctx context.Con
 	}
 
 	return result, nil
-}
-
-// GetUserPreferenceByConfig retrieves a preference for a specific config.
-func (u *userNotificationPreferencesDB) GetUserPreferenceByConfig(ctx context.Context, userID uuid.UUID, configID uuid.UUID) (_ configs.UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	dbxPreference, err := u.db.Get_UserNotificationPreference_By_UserId_And_ConfigId(ctx,
-		dbx.UserNotificationPreference_UserId(userID[:]),
-		dbx.UserNotificationPreference_ConfigId(configID[:]))
-	if err != nil {
-		return configs.UserNotificationPreference{}, ErrUserNotificationPreferences.Wrap(err)
-	}
-
-	return userPreferenceFromDBX(dbxPreference)
 }
 
 // GetUserPreferenceByCategory retrieves a category-level preference.
@@ -238,22 +221,14 @@ func userPreferenceFromDBX(dbxPreference *dbx.UserNotificationPreference) (confi
 	}
 
 	preference := configs.UserNotificationPreference{
-		ID:             id,
-		UserID:         userID,
-		ConfigType:     dbxPreference.ConfigType,
-		Preferences:    preferences,
+		ID:              id,
+		UserID:          userID,
+		ConfigType:      dbxPreference.ConfigType,
+		Preferences:     preferences,
 		CustomVariables: customVariables,
-		IsActive:       dbxPreference.IsActive,
-		CreatedAt:      dbxPreference.CreatedAt,
-		UpdatedAt:      dbxPreference.UpdatedAt,
-	}
-
-	if dbxPreference.ConfigId != nil {
-		configID, err := uuid.FromBytes(dbxPreference.ConfigId)
-		if err != nil {
-			return configs.UserNotificationPreference{}, ErrUserNotificationPreferences.Wrap(err)
-		}
-		preference.ConfigID = &configID
+		IsActive:        dbxPreference.IsActive,
+		CreatedAt:       dbxPreference.CreatedAt,
+		UpdatedAt:       dbxPreference.UpdatedAt,
 	}
 
 	if dbxPreference.Category != nil {
@@ -263,4 +238,3 @@ func userPreferenceFromDBX(dbxPreference *dbx.UserNotificationPreference) (confi
 
 	return preference, nil
 }
-

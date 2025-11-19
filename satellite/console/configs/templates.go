@@ -12,7 +12,7 @@ import (
 
 // TemplateService provides template-specific operations.
 type TemplateService struct {
-	service *Service
+	service  *Service
 	renderer *Renderer
 }
 
@@ -81,18 +81,9 @@ func (t *TemplateService) RenderTemplate(ctx context.Context, configID uuid.UUID
 		return "", "", "", ErrService.Wrap(err)
 	}
 
-	// Get user preferences if userID is provided
-	var userCustomVars map[string]interface{}
-	if userID != nil && preferenceDB != nil {
-		preference, err := preferenceDB.GetUserPreferenceByConfig(ctx, *userID, configID)
-		if err == nil {
-			userCustomVars = preference.CustomVariables
-		}
-		// Ignore error if preference doesn't exist
-	}
-
 	// Merge variables with user preferences
-	mergedVars := MergeUserPreferences(templateData.DefaultVariables, userCustomVars, variables)
+	// Note: User preferences lookup by config_id is no longer supported
+	mergedVars := MergeUserPreferences(templateData.DefaultVariables, nil, variables)
 
 	// Validate required variables
 	if err := ValidateVariables(templateData, mergedVars); err != nil {
@@ -122,4 +113,3 @@ func (t *TemplateService) parseTemplateData(configData map[string]interface{}) (
 
 	return templateData, nil
 }
-

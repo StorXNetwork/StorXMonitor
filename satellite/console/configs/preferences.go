@@ -38,11 +38,6 @@ func (p *PreferenceService) GetUserPreferencesByType(ctx context.Context, userID
 	return p.db.GetUserPreferencesByType(ctx, userID, configType)
 }
 
-// GetUserPreferenceByConfig retrieves a preference for a specific config.
-func (p *PreferenceService) GetUserPreferenceByConfig(ctx context.Context, userID uuid.UUID, configID uuid.UUID) (UserNotificationPreference, error) {
-	return p.db.GetUserPreferenceByConfig(ctx, userID, configID)
-}
-
 // GetUserPreferenceByCategory retrieves a category-level preference.
 func (p *PreferenceService) GetUserPreferenceByCategory(ctx context.Context, userID uuid.UUID, category string, configType string) (UserNotificationPreference, error) {
 	return p.db.GetUserPreferenceByCategory(ctx, userID, category, configType)
@@ -59,12 +54,7 @@ func (p *PreferenceService) SetUserPreference(ctx context.Context, request Creat
 	var existingPreference *UserNotificationPreference
 	var err error
 
-	if request.ConfigID != nil {
-		pref, err := p.db.GetUserPreferenceByConfig(ctx, request.UserID, *request.ConfigID)
-		if err == nil {
-			existingPreference = &pref
-		}
-	} else if request.Category != nil {
+	if request.Category != nil {
 		pref, err := p.db.GetUserPreferenceByCategory(ctx, request.UserID, *request.Category, request.ConfigType)
 		if err == nil {
 			existingPreference = &pref
@@ -88,14 +78,13 @@ func (p *PreferenceService) SetUserPreference(ctx context.Context, request Creat
 	}
 
 	preference := UserNotificationPreference{
-		ID:             preferenceID,
-		UserID:         request.UserID,
-		ConfigType:     request.ConfigType,
-		ConfigID:       request.ConfigID,
-		Category:       request.Category,
-		Preferences:    request.Preferences,
+		ID:              preferenceID,
+		UserID:          request.UserID,
+		ConfigType:      request.ConfigType,
+		Category:        request.Category,
+		Preferences:     request.Preferences,
 		CustomVariables: request.CustomVariables,
-		IsActive:       request.IsActive,
+		IsActive:        request.IsActive,
 	}
 
 	return p.db.InsertUserPreference(ctx, preference)
@@ -110,4 +99,3 @@ func (p *PreferenceService) UpdateUserPreference(ctx context.Context, id uuid.UU
 func (p *PreferenceService) DeleteUserPreference(ctx context.Context, id uuid.UUID) error {
 	return p.db.DeleteUserPreference(ctx, id)
 }
-

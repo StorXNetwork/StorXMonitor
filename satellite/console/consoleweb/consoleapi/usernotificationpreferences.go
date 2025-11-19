@@ -37,6 +37,9 @@ func NewUserNotificationPreferences(log *zap.Logger, service *console.Service) *
 }
 
 // GetUserPreferences handles GET /api/v0/user/notification-preferences - Get current user's preferences.
+// Query parameters:
+//   - type: Filter by config type (optional)
+//   - category: Filter by category (optional, requires type)
 func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -49,6 +52,40 @@ func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, 
 	}
 
 	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
+
+	// Parse query parameters
+	configType := r.URL.Query().Get("type")
+	category := r.URL.Query().Get("category")
+
+	// If both type and category are provided, get single preference by category
+	if configType != "" && category != "" {
+		preference, err := preferenceService.GetUserPreferenceByCategory(ctx, user.ID, category, configType)
+		if err != nil {
+			web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err = json.NewEncoder(w).Encode(preference); err != nil {
+			u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
+		}
+		return
+	}
+
+	// If only type is provided, get preferences by type
+	if configType != "" {
+		preferences, err := preferenceService.GetUserPreferencesByType(ctx, user.ID, configType)
+		if err != nil {
+			web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err = json.NewEncoder(w).Encode(preferences); err != nil {
+			u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
+		}
+		return
+	}
+
+	// If no filters, get all preferences
 	preferences, err := preferenceService.GetUserPreferences(ctx, user.ID)
 	if err != nil {
 		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
@@ -74,12 +111,11 @@ func (u *UserNotificationPreferences) SetUserPreference(w http.ResponseWriter, r
 	}
 
 	var req struct {
-		ConfigType     string                 `json:"config_type"`
-		ConfigID       *string                `json:"config_id"`
-		Category       *string                `json:"category"`
-		Preferences    map[string]interface{} `json:"preferences"`
+		ConfigType      string                 `json:"config_type"`
+		Category        *string                `json:"category"`
+		Preferences     map[string]interface{} `json:"preferences"`
 		CustomVariables map[string]interface{} `json:"custom_variables"`
-		IsActive       bool                   `json:"is_active"`
+		IsActive        bool                   `json:"is_active"`
 	}
 
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -96,20 +132,9 @@ func (u *UserNotificationPreferences) SetUserPreference(w http.ResponseWriter, r
 		req.Preferences = make(map[string]interface{})
 	}
 
-	var configID *uuid.UUID
-	if req.ConfigID != nil {
-		id, err := uuid.FromString(*req.ConfigID)
-		if err != nil {
-			web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.Wrap(err))
-			return
-		}
-		configID = &id
-	}
-
 	createReq := configs.CreateUserPreferenceRequest{
 		UserID:          user.ID,
 		ConfigType:      req.ConfigType,
-		ConfigID:        configID,
 		Category:        req.Category,
 		Preferences:     req.Preferences,
 		CustomVariables: req.CustomVariables,
@@ -125,114 +150,6 @@ func (u *UserNotificationPreferences) SetUserPreference(w http.ResponseWriter, r
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err = json.NewEncoder(w).Encode(preference); err != nil {
-		u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
-	}
-}
-
-// GetUserPreferencesByType handles GET /api/v0/user/notification-preferences/type/{type} - Get preferences for a config type.
-func (u *UserNotificationPreferences) GetUserPreferencesByType(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := console.GetUser(ctx)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
-		return
-	}
-
-	vars := mux.Vars(r)
-	configType, ok := vars["type"]
-	if !ok {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("type missing"))
-		return
-	}
-
-	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
-	preferences, err := preferenceService.GetUserPreferencesByType(ctx, user.ID, configType)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err = json.NewEncoder(w).Encode(preferences); err != nil {
-		u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
-	}
-}
-
-// GetUserPreferenceByConfig handles GET /api/v0/user/notification-preferences/config/{configId} - Get preference for specific config.
-func (u *UserNotificationPreferences) GetUserPreferenceByConfig(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := console.GetUser(ctx)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
-		return
-	}
-
-	vars := mux.Vars(r)
-	configIDString, ok := vars["configId"]
-	if !ok {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("configId missing"))
-		return
-	}
-
-	configID, err := uuid.FromString(configIDString)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
-	preference, err := preferenceService.GetUserPreferenceByConfig(ctx, user.ID, configID)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err = json.NewEncoder(w).Encode(preference); err != nil {
-		u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
-	}
-}
-
-// GetUserPreferenceByCategory handles GET /api/v0/user/notification-preferences/category/{category} - Get preference for category.
-func (u *UserNotificationPreferences) GetUserPreferenceByCategory(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := console.GetUser(ctx)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
-		return
-	}
-
-	vars := mux.Vars(r)
-	category, ok := vars["category"]
-	if !ok {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("category missing"))
-		return
-	}
-
-	configType := r.URL.Query().Get("type")
-	if configType == "" {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("type query parameter is required"))
-		return
-	}
-
-	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
-	preference, err := preferenceService.GetUserPreferenceByCategory(ctx, user.ID, category, configType)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(preference); err != nil {
 		u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
 	}
@@ -276,9 +193,9 @@ func (u *UserNotificationPreferences) UpdateUserPreference(w http.ResponseWriter
 	}
 
 	var req struct {
-		Preferences    *map[string]interface{} `json:"preferences"`
+		Preferences     *map[string]interface{} `json:"preferences"`
 		CustomVariables *map[string]interface{} `json:"custom_variables"`
-		IsActive       *bool                   `json:"is_active"`
+		IsActive        *bool                   `json:"is_active"`
 	}
 
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -349,4 +266,3 @@ func (u *UserNotificationPreferences) DeleteUserPreference(w http.ResponseWriter
 
 	w.WriteHeader(http.StatusNoContent)
 }
-

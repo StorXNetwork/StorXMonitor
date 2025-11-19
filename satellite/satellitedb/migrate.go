@@ -3240,6 +3240,25 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX user_notification_preferences_user_config_index ON user_notification_preferences ( user_id, config_id );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "make created_by nullable in configs table",
+				Version:     295,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE configs ALTER COLUMN created_by DROP NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "remove config_id from user_notification_preferences table",
+				Version:     296,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS user_notification_preferences_user_config_index;`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN config_id;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

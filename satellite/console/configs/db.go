@@ -47,9 +47,6 @@ type UserPreferenceDB interface {
 	// GetUserPreferencesByType retrieves preferences for a user by config type.
 	GetUserPreferencesByType(ctx context.Context, userID uuid.UUID, configType string) ([]UserNotificationPreference, error)
 
-	// GetUserPreferenceByConfig retrieves a preference for a specific config.
-	GetUserPreferenceByConfig(ctx context.Context, userID uuid.UUID, configID uuid.UUID) (UserNotificationPreference, error)
-
 	// GetUserPreferenceByCategory retrieves a category-level preference.
 	GetUserPreferenceByCategory(ctx context.Context, userID uuid.UUID, category string, configType string) (UserNotificationPreference, error)
 

@@ -35,7 +35,7 @@ type Config struct {
 	Category   *string
 	ConfigData map[string]interface{} // JSON data
 	IsActive   bool
-	CreatedBy  uuid.UUID
+	CreatedBy  *uuid.UUID
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -55,8 +55,7 @@ type UserNotificationPreference struct {
 	ID              uuid.UUID
 	UserID          uuid.UUID
 	ConfigType      string
-	ConfigID        *uuid.UUID // NULL for category-level preferences
-	Category        *string    // NULL for config-specific preferences
+	Category        *string // NULL for config-specific preferences
 	Preferences     map[string]interface{}
 	CustomVariables map[string]interface{} // User-specific variable overrides
 	IsActive        bool
@@ -71,7 +70,7 @@ type CreateConfigRequest struct {
 	Category   *string
 	ConfigData map[string]interface{}
 	IsActive   bool
-	CreatedBy  uuid.UUID
+	CreatedBy  *uuid.UUID
 }
 
 // UpdateConfigRequest represents a request to update a configuration.
@@ -85,7 +84,6 @@ type UpdateConfigRequest struct {
 type CreateUserPreferenceRequest struct {
 	UserID          uuid.UUID
 	ConfigType      string
-	ConfigID        *uuid.UUID
 	Category        *string
 	Preferences     map[string]interface{}
 	CustomVariables map[string]interface{}
