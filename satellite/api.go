@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	consoleapi "storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/secretconstants"
 	"storj.io/storj/satellite/console/userinfo"
@@ -130,6 +131,10 @@ type API struct {
 
 	Mail struct {
 		Service *mailservice.Service
+	}
+
+	PushNotification struct {
+		Service *pushnotifications.Service
 	}
 
 	Payments struct {
@@ -659,6 +664,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.Service,
 			peer.OIDC.Service,
 			peer.Mail.Service,
+			peer.PushNotification.Service,
 			peer.Analytics.Service,
 			peer.ABTesting.Service,
 			accountFreezeService,
