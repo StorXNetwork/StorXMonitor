@@ -2007,6 +2007,7 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		HasMore     bool   `json:"hasMore"`
 		Limit       uint   `json:"limit"`
 		Offset      uint64 `json:"offset"`
+		dummy       string `json:"dummy"`
 	}{
 		Users:       paginatedUsers,
 		PageCount:   uint(totalPages),
@@ -2015,6 +2016,7 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		HasMore:     !filters.FetchAll && filters.Page < totalPages,
 		Limit:       uint(actualLimit),
 		Offset:      uint64(actualOffset),
+		dummy:       "dummy",
 	}
 
 	// Stream JSON response directly
