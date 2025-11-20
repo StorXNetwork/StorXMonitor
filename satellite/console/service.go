@@ -1901,6 +1901,27 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, err
 	}
 
+	// Send push notification for successful login
+	go func() {
+		ipAddress := request.IP
+		if ipAddress == "" {
+			ipAddress = "0.0.0.0"
+		}
+		location := "Unknown Location"
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Login Successful",
+			Body:     fmt.Sprintf("You have successfully logged in at %s from %s (%s)", timestamp, location, ipAddress),
+			Data:     map[string]string{"event": "logged_in_successfully", "timestamp": timestamp, "ip_address": ipAddress, "location": location},
+			Priority: "high", // level 4
+		}
+		if err := s.SendPushNotificationWithPreferences(ctx, user.ID, "account", notification); err != nil {
+			s.log.Warn("Failed to send push notification for login",
+				zap.Stringer("user_id", user.ID),
+				zap.Error(err))
+		}
+	}()
+
 	mon.Counter("login_success").Inc(1) //mon:locked
 
 	return response, nil
@@ -2103,6 +2124,27 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 	if err != nil {
 		return nil, err
 	}
+
+	// Send push notification for successful login (Google OAuth)
+	go func() {
+		ipAddress := request.IP
+		if ipAddress == "" {
+			ipAddress = "0.0.0.0"
+		}
+		location := "Unknown Location"
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Login Successful",
+			Body:     fmt.Sprintf("You have successfully logged in at %s from %s (%s)", timestamp, location, ipAddress),
+			Data:     map[string]string{"event": "logged_in_successfully", "timestamp": timestamp, "ip_address": ipAddress, "location": location},
+			Priority: "high", // level 4
+		}
+		if err := s.SendPushNotificationWithPreferences(ctx, user.ID, "account", notification); err != nil {
+			s.log.Warn("Failed to send push notification for login",
+				zap.Stringer("user_id", user.ID),
+				zap.Error(err))
+		}
+	}()
 
 	mon.Counter("login_success").Inc(1) //mon:locked
 
