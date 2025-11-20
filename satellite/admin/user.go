@@ -26,6 +26,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -1087,7 +1088,24 @@ func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		sendJSONError(w, "failed to billing freeze user",
 			err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	// Send push notification for account frozen
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Frozen",
+			Body:     fmt.Sprintf("Your account has been frozen due to billing issues at %s", timestamp),
+			Data:     map[string]string{"event": "account_frozen", "timestamp": timestamp},
+			Priority: "high", // level 4
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account frozen",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1124,6 +1142,22 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 			err.Error(), status)
 		return
 	}
+
+	// Send push notification for account unfrozen
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Unfrozen",
+			Body:     fmt.Sprintf("Your account has been unfrozen and is now active at %s", timestamp),
+			Data:     map[string]string{"event": "account_unfrozen", "timestamp": timestamp},
+			Priority: "normal", // level 3
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account unfrozen",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) {
@@ -1159,6 +1193,22 @@ func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) 
 			err.Error(), status)
 		return
 	}
+
+	// Send push notification for account unwarned
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Warning Removed",
+			Body:     fmt.Sprintf("The billing warning on your account has been removed at %s", timestamp),
+			Data:     map[string]string{"event": "account_unwarned", "timestamp": timestamp},
+			Priority: "normal", // level 2
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account unwarned",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1203,6 +1253,22 @@ func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request
 			server.analytics.TrackViolationFrozenUnpaidInvoice(invoice.ID, u.ID, u.Email)
 		}
 	}
+
+	// Send push notification for account frozen
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Frozen",
+			Body:     fmt.Sprintf("Your account has been frozen due to violation at %s", timestamp),
+			Data:     map[string]string{"event": "account_frozen", "timestamp": timestamp},
+			Priority: "high", // level 4
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account frozen",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1237,6 +1303,22 @@ func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Reque
 			err.Error(), status)
 		return
 	}
+
+	// Send push notification for account unfrozen
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Unfrozen",
+			Body:     fmt.Sprintf("Your account has been unfrozen and is now active at %s", timestamp),
+			Data:     map[string]string{"event": "account_unfrozen", "timestamp": timestamp},
+			Priority: "normal", // level 3
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account unfrozen",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1279,6 +1361,22 @@ func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
 			server.analytics.TrackLegalHoldUnpaidInvoice(invoice.ID, u.ID, u.Email)
 		}
 	}
+
+	// Send push notification for account frozen
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Frozen",
+			Body:     fmt.Sprintf("Your account has been frozen due to legal hold at %s", timestamp),
+			Data:     map[string]string{"event": "account_frozen", "timestamp": timestamp},
+			Priority: "high", // level 4
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account frozen",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1315,6 +1413,22 @@ func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) 
 			err.Error(), status)
 		return
 	}
+
+	// Send push notification for account unfrozen
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Unfrozen",
+			Body:     fmt.Sprintf("Your account has been unfrozen and is now active at %s", timestamp),
+			Data:     map[string]string{"event": "account_unfrozen", "timestamp": timestamp},
+			Priority: "normal", // level 3
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account unfrozen",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1347,6 +1461,22 @@ func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.R
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Send push notification for account frozen
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Frozen",
+			Body:     fmt.Sprintf("Your account has been frozen due to trial expiration at %s", timestamp),
+			Data:     map[string]string{"event": "account_frozen", "timestamp": timestamp},
+			Priority: "high", // level 4
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account frozen",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1383,6 +1513,22 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 			err.Error(), status)
 		return
 	}
+
+	// Send push notification for account unfrozen
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Unfrozen",
+			Body:     fmt.Sprintf("Your account has been unfrozen and is now active at %s", timestamp),
+			Data:     map[string]string{"event": "account_unfrozen", "timestamp": timestamp},
+			Priority: "normal", // level 3
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account unfrozen",
+				zap.Stringer("user_id", u.ID),
+				zap.Error(err))
+		}
+	}()
 }
 
 func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
@@ -2322,6 +2468,22 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Send push notification for account deactivated
+	go func() {
+		timestamp := time.Now().Format(time.RFC3339)
+		notification := pushnotifications.Notification{
+			Title:    "Account Deactivated",
+			Body:     fmt.Sprintf("Your account has been deactivated at %s", timestamp),
+			Data:     map[string]string{"event": "account_deactivated", "timestamp": timestamp},
+			Priority: "high", // level 4
+		}
+		if err := server.sendPushNotificationWithPreferences(ctx, user.ID, "account", notification); err != nil {
+			server.log.Warn("Failed to send push notification for account deactivated",
+				zap.Stringer("user_id", user.ID),
+				zap.Error(err))
+		}
+	}()
 
 	// Return updated user info
 	updatedUser, err := server.db.Console().Users().Get(ctx, user.ID)

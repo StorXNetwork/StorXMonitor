@@ -3139,20 +3139,41 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send push notification about settings update
+	// Send push notifications about settings update
 	consoleUser, err := console.GetUser(ctx)
 	if err == nil {
+		// Send general settings updated notification
+		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Settings Updated",
-			Body:     "Your account settings have been successfully updated.",
-			Data:     map[string]string{"type": "settings_updated", "timestamp": time.Now().Format(time.RFC3339)},
-			Priority: "normal",
+			Body:     fmt.Sprintf("Your account settings have been successfully updated at %s", timestamp),
+			Data:     map[string]string{"event": "settings_updated", "timestamp": timestamp},
+			Priority: "normal", // level 2
 		}
 		// Send notification asynchronously - don't fail settings update if notification fails
-		if err := a.service.SendPushNotification(ctx, consoleUser.ID, notification); err != nil {
+		if err := a.service.SendPushNotificationWithPreferences(ctx, consoleUser.ID, "account", notification); err != nil {
 			a.log.Warn("Failed to send push notification for settings update",
 				zap.Stringer("user_id", consoleUser.ID),
 				zap.Error(err))
+		}
+
+		// Send specific notification for session duration change
+		if updateInfo.SessionDuration != nil {
+			sessionMinutes := int64(30) // default
+			if *updateInfo.SessionDuration != 0 {
+				sessionMinutes = int64(time.Duration(*updateInfo.SessionDuration).Minutes())
+			}
+			sessionNotification := pushnotifications.Notification{
+				Title:    "Session Settings Updated",
+				Body:     fmt.Sprintf("Your session timeout has been changed to %d minutes", sessionMinutes),
+				Data:     map[string]string{"event": "session_times_changed", "session_minutes": fmt.Sprintf("%d", sessionMinutes)},
+				Priority: "normal", // level 3
+			}
+			if err := a.service.SendPushNotificationWithPreferences(ctx, consoleUser.ID, "account", sessionNotification); err != nil {
+				a.log.Warn("Failed to send push notification for session times changed",
+					zap.Stringer("user_id", consoleUser.ID),
+					zap.Error(err))
+			}
 		}
 	}
 
