@@ -164,10 +164,10 @@ func (dev *developers) GetByStatus(ctx context.Context, status console.UserStatu
 }
 
 // GetAllDevelopersWithStats retrieves developers with session, OAuth client, and user count statistics using optimized JOINs.
-// This method handles filtering and pagination at the database level for better performance.
+// This method handles filtering, pagination, and sorting at the database level for better performance.
 // Uses CTE with window function to avoid duplicate COUNT query.
-// Results are ordered by total_users DESC (top developers by user count first).
-func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (developers []*console.Developer, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, oauthClientCounts, totalUserCounts, activeUserCounts []int, totalCount int, err error) {
+// Results can be sorted by any column using sortColumn and sortOrder parameters.
+func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (developers []*console.Developer, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, oauthClientCounts, totalUserCounts, activeUserCounts []int, totalCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Build WHERE conditions - only add conditions when filters are provided
@@ -294,9 +294,9 @@ func (dev *developers) GetAllDevelopersWithStats(ctx context.Context, limit, off
 		query += " WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
-	// Add ORDER BY - default to created_at DESC, but can be changed to sort by user count
-	// For "top developers by user count", use: ORDER BY total_users DESC, d.created_at DESC
-	query += " ORDER BY total_users DESC, d.created_at DESC"
+	// Add ORDER BY with dynamic sorting
+	orderByClause := buildDeveloperOrderByClause(sortColumn, sortOrder)
+	query += " ORDER BY " + orderByClause
 
 	// Add LIMIT and OFFSET only if limit is specified (limit > 0)
 	// When limit <= 0, fetch all records without LIMIT clause
@@ -585,4 +585,60 @@ func developerFromDBX(ctx context.Context, developer *dbx.Developer) (_ *console
 	}
 
 	return &result, nil
+}
+
+// buildDeveloperOrderByClause builds the ORDER BY clause based on sort column and order
+// Maps frontend column names to SQL column names from the developer_stats CTE
+func buildDeveloperOrderByClause(sortColumn, sortOrder string) string {
+	// Default sorting if no column specified
+	if sortColumn == "" {
+		return "total_users DESC, d.created_at DESC"
+	}
+
+	// Normalize sort order
+	order := strings.ToUpper(sortOrder)
+	if order != "ASC" && order != "DESC" {
+		order = "DESC"
+	}
+
+	// Map frontend column names to SQL column names from the CTE
+	columnMap := map[string]string{
+		"id":                 "d.id",
+		"fullName":           "d.full_name",
+		"email":              "d.email",
+		"status":             "d.status",
+		"createdAt":          "d.created_at",
+		"lastSessionExpiry":  "s.last_session_expiry",
+		"firstSessionExpiry": "s.first_session_expiry",
+		"totalSessionCount":  "s.total_session_count",
+		"oauthClientCount":   "oauth_client_count",
+		"totalUsers":         "total_users",
+		"activeUsers":        "active_users",
+	}
+
+	// Get SQL column name (case-insensitive lookup)
+	sqlColumn := ""
+	for key, value := range columnMap {
+		if strings.EqualFold(sortColumn, key) {
+			sqlColumn = value
+			break
+		}
+	}
+
+	// If column not found, use default
+	if sqlColumn == "" {
+		return "total_users DESC, d.created_at DESC"
+	}
+
+	// Handle NULLS for nullable columns
+	nullsClause := ""
+	if sqlColumn == "s.last_session_expiry" || sqlColumn == "s.first_session_expiry" {
+		if order == "DESC" {
+			nullsClause = " NULLS LAST"
+		} else {
+			nullsClause = " NULLS FIRST"
+		}
+	}
+
+	return sqlColumn + " " + order + nullsClause + ", d.created_at DESC"
 }

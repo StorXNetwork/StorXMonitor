@@ -190,7 +190,7 @@ func NewServer(
 	fullAccessAPI.Use(server.WithAuth([]string{config.Groups.LimitUpdate}, true))
 	fullAccessAPI.HandleFunc("/users", server.addUser).Methods("POST")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
-	fullAccessAPI.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
+	fullAccessAPI.HandleFunc("/user", server.deleteUser).Methods(http.MethodDelete, http.MethodOptions)
 	fullAccessAPI.HandleFunc("/developers", server.addDeveloper).Methods("POST")
 	fullAccessAPI.HandleFunc("/developers/{developerEmail}", server.updateDeveloper).Methods("PUT")
 	fullAccessAPI.HandleFunc("/developers/{developerEmail}", server.deleteDeveloper).Methods("DELETE")
@@ -198,6 +198,7 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/nodes/{nodeId}/status", server.updateNodeStatus).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}/mfa", server.disableUserMFA).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/users/{useremail}/deactivate-account", server.deactivateUserAccount).Methods("PUT")
+	fullAccessAPI.HandleFunc("/users/{useremail}/activate-account", server.activateUserAccount).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}/activate-account/disable-bot-restriction", server.disableBotRestriction).
 		Methods("PATCH")
 	fullAccessAPI.HandleFunc("/users/{useremail}/useragent", server.updateUsersUserAgent).Methods("PATCH")

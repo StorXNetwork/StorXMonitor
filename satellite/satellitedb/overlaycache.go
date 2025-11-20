@@ -517,7 +517,7 @@ func convertArrayArgs(args []interface{}) []interface{} {
 	return args
 }
 
-func (cache *overlaycache) GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error) {
+func (cache *overlaycache) GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int, sortColumn, sortOrder string) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var args []interface{}
@@ -564,7 +564,9 @@ func (cache *overlaycache) GetAllNodesWithFilters(ctx context.Context, onlineWin
 		return nil, 0, nil
 	}
 
-	query += " ORDER BY created_at DESC"
+	// Add ORDER BY with dynamic sorting
+	orderByClause := buildNodeOrderByClause(sortColumn, sortOrder)
+	query += " ORDER BY " + orderByClause
 
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
@@ -2027,4 +2029,69 @@ func (cache *overlaycache) GetNodeStats(ctx context.Context, onlineWindow time.D
 		UsedCapacity:      usedCapacity,
 		AverageLatency:    int64(averageLatency),
 	}, nil
+}
+
+// buildNodeOrderByClause builds the ORDER BY clause based on sort column and order
+// Maps frontend column names to SQL column names from the nodes table
+func buildNodeOrderByClause(sortColumn, sortOrder string) string {
+	// Default sorting if no column specified
+	if sortColumn == "" {
+		return "created_at DESC"
+	}
+
+	// Normalize sort order
+	order := strings.ToUpper(sortOrder)
+	if order != "ASC" && order != "DESC" {
+		order = "DESC"
+	}
+
+	// Map frontend column names to SQL column names
+	columnMap := map[string]string{
+		"id":                    "id",
+		"address":               "address",
+		"countryCode":           "country_code",
+		"createdAt":             "created_at",
+		"operatorEmail":         "email",
+		"wallet":                "wallet",
+		"lastNet":               "last_net",
+		"lastIPPort":            "last_ip_port",
+		"freeDisk":              "free_disk",
+		"latency90":             "latency_90",
+		"lastContactSuccess":    "last_contact_success",
+		"lastContactFailure":    "last_contact_failure",
+		"offlineSuspended":      "offline_suspended",
+		"unknownAuditSuspended": "unknown_audit_suspended",
+		"disqualified":          "disqualified",
+		"exitInitiatedAt":       "exit_initiated_at",
+		"exitFinishedAt":        "exit_finished_at",
+	}
+
+	// Get SQL column name (case-insensitive lookup)
+	sqlColumn := ""
+	for key, value := range columnMap {
+		if strings.EqualFold(sortColumn, key) {
+			sqlColumn = value
+			break
+		}
+	}
+
+	// If column not found, use default
+	if sqlColumn == "" {
+		return "created_at DESC"
+	}
+
+	// Handle NULLS for nullable columns (timestamps can be NULL)
+	nullsClause := ""
+	if sqlColumn == "last_contact_success" || sqlColumn == "last_contact_failure" ||
+		sqlColumn == "offline_suspended" || sqlColumn == "unknown_audit_suspended" ||
+		sqlColumn == "disqualified" || sqlColumn == "exit_initiated_at" ||
+		sqlColumn == "exit_finished_at" {
+		if order == "DESC" {
+			nullsClause = " NULLS LAST"
+		} else {
+			nullsClause = " NULLS FIRST"
+		}
+	}
+
+	return sqlColumn + " " + order + nullsClause
 }

@@ -46,7 +46,7 @@ type Users interface {
 	//boris: GetAllUsers is a method for querying all users from the database.
 	GetAllUsers(ctx context.Context) ([]*User, error)
 	// GetAllUsersOptimized retrieves users with all filters, session data, and project count in a single optimized query
-	GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (users []*User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error)
+	GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (users []*User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error)
 	// GetUsersCountOptimized returns total count with all filters applied
 	GetUsersCountOptimized(ctx context.Context, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (count int, err error)
 	// Insert is a method for inserting user into the database.

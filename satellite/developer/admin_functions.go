@@ -73,6 +73,7 @@ func (s *Service) GetAllDevelopersAdmin(
 	hasActiveSession *bool,
 	lastSessionAfter, lastSessionBefore *time.Time,
 	sessionCountMin, sessionCountMax *int,
+	sortColumn, sortOrder string,
 ) (_ *DeveloperListResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -89,6 +90,8 @@ func (s *Service) GetAllDevelopersAdmin(
 		lastSessionBefore,
 		sessionCountMin,
 		sessionCountMax,
+		sortColumn,
+		sortOrder,
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)

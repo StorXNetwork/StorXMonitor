@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -45,6 +46,8 @@ type DeveloperListParams struct {
 	StatusFilter  *int
 	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
+	SortColumn    string // Column name to sort by
+	SortOrder     string // "asc" or "desc"
 }
 
 func (server *Server) getAllDevelopers(w http.ResponseWriter, r *http.Request) {
@@ -140,6 +143,8 @@ func (server *Server) getAllDevelopers(w http.ResponseWriter, r *http.Request) {
 		lastSessionBefore,
 		sessionCountMin,
 		sessionCountMax,
+		params.SortColumn,
+		params.SortOrder,
 	)
 	if err != nil {
 		sendJSONError(w, "failed to get developers", err.Error(), http.StatusInternalServerError)
@@ -241,6 +246,23 @@ func parseDeveloperParams(r *http.Request) (*DeveloperListParams, error) {
 	}
 	params.CreatedAfter = createdAfter
 	params.CreatedBefore = createdBefore
+
+	// Parse sorting parameters
+	params.SortColumn = query.Get("sort_column")
+	params.SortOrder = query.Get("sort_order")
+
+	// Validate and normalize sort order
+	if params.SortOrder != "" {
+		params.SortOrder = strings.ToLower(params.SortOrder)
+		if params.SortOrder != "asc" && params.SortOrder != "desc" {
+			return nil, fmt.Errorf("parameter 'sort_order' must be 'asc' or 'desc'")
+		}
+	} else {
+		// Default to descending if column is specified but order is not
+		if params.SortColumn != "" {
+			params.SortOrder = "desc"
+		}
+	}
 
 	return params, nil
 }
