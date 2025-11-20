@@ -25,10 +25,10 @@ type Developers interface {
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *Developer, unverified []Developer, err error)
 	GetByStatus(ctx context.Context, status UserStatus, cursor DeveloperCursor) (*DeveloperPage, error)
 	// GetAllDevelopersWithStats retrieves developers with session, OAuth client, and user count statistics using optimized JOINs.
-	// This method handles filtering and pagination at the database level for better performance.
+	// This method handles filtering, pagination, and sorting at the database level for better performance.
 	// Returns developers with stats and total count for pagination.
-	// Results are ordered by total_users DESC (top developers by user count first).
-	GetAllDevelopersWithStats(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (developers []*Developer, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, oauthClientCounts, totalUserCounts, activeUserCounts []int, totalCount int, err error)
+	// Results can be sorted by any column using sortColumn and sortOrder parameters.
+	GetAllDevelopersWithStats(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (developers []*Developer, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, oauthClientCounts, totalUserCounts, activeUserCounts []int, totalCount int, err error)
 	// GetDeveloperStats returns counts of developers grouped by status using optimized SQL aggregation
 	GetDeveloperStats(ctx context.Context) (total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification int, err error)
 	// GetByEmail is a method for querying developers by verified email from the database.

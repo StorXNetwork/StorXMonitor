@@ -69,8 +69,8 @@ type DB interface {
 	// excluding nodes that have been disqualified or gracefully exited).
 	GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// GetAllNodesWithFilters returns filtered and paginated nodes with total count.
-	// All filters are applied at the database level for optimal performance.
-	GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error)
+	// All filters and sorting are applied at the database level for optimal performance.
+	GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int, sortColumn, sortOrder string) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error)
 	// GetNodeStats returns aggregated statistics about all nodes using optimized SQL query.
 	GetNodeStats(ctx context.Context, onlineWindow time.Duration) (stats *AggregateNodeStats, err error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.

@@ -301,7 +301,7 @@ func (users *users) GetAllUsers(ctx context.Context) (usersFromDB []*console.Use
 
 // GetAllUsersOptimized retrieves users with all filters, session data, and project count in a single optimized query
 // This is a production-ready method that applies all filters in SQL for maximum performance
-func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (usersList []*console.User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error) {
+func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (usersList []*console.User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Build comprehensive query with CTEs for session stats and project counts
@@ -412,8 +412,9 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 		query += " WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
-	// Add ORDER BY
-	query += " ORDER BY s.last_session_expiry DESC NULLS LAST, u.created_at DESC"
+	// Add ORDER BY with dynamic sorting
+	orderByClause := buildOrderByClause(sortColumn, sortOrder)
+	query += " ORDER BY " + orderByClause
 
 	// Add LIMIT and OFFSET only if limit is specified (limit > 0)
 	// When limit <= 0, fetch all records without LIMIT clause
@@ -501,6 +502,69 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 	}
 
 	return usersList, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, projectCounts, totalCount, rows.Err()
+}
+
+// buildOrderByClause builds the ORDER BY clause based on sort column and order
+// Maps frontend column names to SQL column names
+func buildOrderByClause(sortColumn, sortOrder string) string {
+	// Default sorting if no column specified
+	if sortColumn == "" {
+		return "s.last_session_expiry DESC NULLS LAST, u.created_at DESC"
+	}
+
+	// Normalize sort order
+	order := strings.ToUpper(sortOrder)
+	if order != "ASC" && order != "DESC" {
+		order = "DESC"
+	}
+
+	// Map frontend column names to SQL column names
+	columnMap := map[string]string{
+		"id":                    "u.id",
+		"fullName":              "u.full_name",
+		"email":                 "u.email",
+		"status":                "u.status",
+		"createdAt":             "u.created_at",
+		"paidTier":              "u.paid_tier",
+		"projectStorageLimit":   "u.project_storage_limit",
+		"projectBandwidthLimit": "u.project_bandwidth_limit",
+		"source":                "u.source",
+		"utmSource":             "u.utm_source",
+		"utmMedium":             "u.utm_medium",
+		"utmCampaign":           "u.utm_campaign",
+		"utmTerm":               "u.utm_term",
+		"utmContent":            "u.utm_content",
+		"lastSessionExpiry":     "s.last_session_expiry",
+		"firstSessionExpiry":    "s.first_session_expiry",
+		"totalSessionCount":     "s.total_session_count",
+		"projectCount":          "p.project_count",
+	}
+
+	// Get SQL column name (case-insensitive lookup)
+	sqlColumn := ""
+	for key, value := range columnMap {
+		if strings.EqualFold(sortColumn, key) {
+			sqlColumn = value
+			break
+		}
+	}
+
+	// If column not found, use default
+	if sqlColumn == "" {
+		return "s.last_session_expiry DESC NULLS LAST, u.created_at DESC"
+	}
+
+	// Handle NULLS for nullable columns
+	nullsClause := ""
+	if sqlColumn == "s.last_session_expiry" || sqlColumn == "s.first_session_expiry" {
+		if order == "DESC" {
+			nullsClause = " NULLS LAST"
+		} else {
+			nullsClause = " NULLS FIRST"
+		}
+	}
+
+	return sqlColumn + " " + order + nullsClause + ", u.created_at DESC"
 }
 
 // GetUsersCountOptimized returns total count with all filters applied
