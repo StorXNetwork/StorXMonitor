@@ -1093,6 +1093,10 @@ func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) 
 
 	// Send push notification for account frozen
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Frozen",
@@ -1100,10 +1104,15 @@ func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) 
 			Data:     map[string]string{"event": "account_frozen", "timestamp": timestamp},
 			Priority: "high", // level 4
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account frozen",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account frozen",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -1145,6 +1154,10 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 
 	// Send push notification for account unfrozen
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Unfrozen",
@@ -1152,10 +1165,15 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 			Data:     map[string]string{"event": "account_unfrozen", "timestamp": timestamp},
 			Priority: "normal", // level 3
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account unfrozen",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account unfrozen",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -1196,6 +1214,10 @@ func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) 
 
 	// Send push notification for account unwarned
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Warning Removed",
@@ -1203,10 +1225,15 @@ func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) 
 			Data:     map[string]string{"event": "account_unwarned", "timestamp": timestamp},
 			Priority: "normal", // level 2
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account unwarned",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account unwarned",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -1256,6 +1283,10 @@ func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request
 
 	// Send push notification for account frozen
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Frozen",
@@ -1263,10 +1294,15 @@ func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request
 			Data:     map[string]string{"event": "account_frozen", "timestamp": timestamp},
 			Priority: "high", // level 4
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account frozen",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account frozen",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -1306,6 +1342,10 @@ func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Reque
 
 	// Send push notification for account unfrozen
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Unfrozen",
@@ -1313,10 +1353,15 @@ func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Reque
 			Data:     map[string]string{"event": "account_unfrozen", "timestamp": timestamp},
 			Priority: "normal", // level 3
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account unfrozen",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account unfrozen",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -1364,6 +1409,10 @@ func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
 
 	// Send push notification for account frozen
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Frozen",
@@ -1371,10 +1420,15 @@ func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
 			Data:     map[string]string{"event": "account_frozen", "timestamp": timestamp},
 			Priority: "high", // level 4
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account frozen",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account frozen",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -1416,6 +1470,10 @@ func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) 
 
 	// Send push notification for account unfrozen
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Unfrozen",
@@ -1423,10 +1481,15 @@ func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) 
 			Data:     map[string]string{"event": "account_unfrozen", "timestamp": timestamp},
 			Priority: "normal", // level 3
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account unfrozen",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account unfrozen",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -1464,6 +1527,10 @@ func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.R
 
 	// Send push notification for account frozen
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Frozen",
@@ -1471,10 +1538,15 @@ func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.R
 			Data:     map[string]string{"event": "account_frozen", "timestamp": timestamp},
 			Priority: "high", // level 4
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account frozen",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account frozen",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -1516,6 +1588,10 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 
 	// Send push notification for account unfrozen
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := u.ID // Capture user ID before closure
+		notifyEmail := u.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Unfrozen",
@@ -1523,10 +1599,15 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 			Data:     map[string]string{"event": "account_unfrozen", "timestamp": timestamp},
 			Priority: "normal", // level 3
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, u.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account unfrozen",
-				zap.Stringer("user_id", u.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account unfrozen",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 }
@@ -2471,6 +2552,10 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 
 	// Send push notification for account deactivated
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := user.ID // Capture user ID before closure
+		notifyEmail := user.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "Account Deactivated",
@@ -2478,10 +2563,15 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 			Data:     map[string]string{"event": "account_deactivated", "timestamp": timestamp},
 			Priority: "high", // level 4
 		}
-		if err := server.sendPushNotificationWithPreferences(ctx, user.ID, "account", notification); err != nil {
+		if err := server.sendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			server.log.Warn("Failed to send push notification for account deactivated",
-				zap.Stringer("user_id", user.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for account deactivated",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 

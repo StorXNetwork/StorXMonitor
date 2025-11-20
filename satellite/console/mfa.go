@@ -112,6 +112,10 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 
 	// Send push notification for MFA enabled
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := user.ID   // Capture user ID before closure
+		notifyEmail := user.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "MFA Enabled",
@@ -119,10 +123,15 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 			Data:     map[string]string{"event": "mfa_enabled", "timestamp": timestamp},
 			Priority: "info",
 		}
-		if err := s.SendPushNotificationWithPreferences(ctx, user.ID, "account", notification); err != nil {
+		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			s.log.Warn("Failed to send push notification for MFA enabled",
-				zap.Stringer("user_id", user.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			s.log.Debug("Successfully sent push notification for MFA enabled",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 
@@ -186,6 +195,10 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 
 	// Send push notification for MFA disabled
 	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		notifyUserID := user.ID   // Capture user ID before closure
+		notifyEmail := user.Email // Capture email before closure
 		timestamp := time.Now().Format(time.RFC3339)
 		notification := pushnotifications.Notification{
 			Title:    "MFA Disabled",
@@ -193,10 +206,15 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 			Data:     map[string]string{"event": "mfa_disabled", "timestamp": timestamp},
 			Priority: "high", // level 4
 		}
-		if err := s.SendPushNotificationWithPreferences(ctx, user.ID, "account", notification); err != nil {
+		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
 			s.log.Warn("Failed to send push notification for MFA disabled",
-				zap.Stringer("user_id", user.ID),
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail),
 				zap.Error(err))
+		} else {
+			s.log.Debug("Successfully sent push notification for MFA disabled",
+				zap.Stringer("user_id", notifyUserID),
+				zap.String("email", notifyEmail))
 		}
 	}()
 
