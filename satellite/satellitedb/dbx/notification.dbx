@@ -153,32 +153,14 @@ read limitoffset (
 model user_notification_preference (
     key id
 
-    index (
-        name user_notification_preferences_user_type_index
-        fields user_id config_type
-    )
-
-    index (
-        name user_notification_preferences_user_config_index
-        fields user_id config_id
-    )
-
     // id is a UUID for the preference entry.
     field id blob
     // user_id references user.id.
     field user_id blob
-    // config_type categorizes the preference (e.g. template, settings).
-    field config_type text
-    // config_id references a specific configuration; nullable for category-level preferences.
-    field config_id blob ( nullable, updatable )
     // category indicates the category that this preference applies to.
     field category text ( nullable, updatable )
-    // preferences stores preference settings (e.g. language, frequency).
+    // preferences stores preference settings (e.g. email, push, sms, etc.).
     field preferences json ( updatable )
-    // custom_variables stores overrides for template variables.
-    field custom_variables json ( nullable, updatable )
-    // is_active indicates whether the preference is active.
-    field is_active bool ( updatable, default true )
     // created_at indicates when the preference was created.
     field created_at timestamp ( autoinsert )
     // updated_at indicates when the preference was last updated.
@@ -199,22 +181,14 @@ read all (
     where user_notification_preference.user_id = ?
 )
 
-read all (
-    select user_notification_preference
-    where user_notification_preference.user_id = ?
-    where user_notification_preference.config_type = ?
-)
-
 read one (
     select user_notification_preference
     where user_notification_preference.user_id = ?
-    where user_notification_preference.config_id = ?
 )
 
 read one (
     select user_notification_preference
     where user_notification_preference.user_id = ?
     where user_notification_preference.category = ?
-    where user_notification_preference.config_type = ?
 )
 
