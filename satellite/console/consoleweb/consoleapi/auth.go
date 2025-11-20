@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -3148,15 +3147,8 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 			notifyCtx := context.Background()
 			notifyUserID := consoleUser.ID   // Capture user ID before closure
 			notifyEmail := consoleUser.Email // Capture email before closure
-			timestamp := time.Now().Format(time.RFC3339)
-			notification := pushnotifications.Notification{
-				Title:    "Settings Updated",
-				Body:     fmt.Sprintf("Your account settings have been successfully updated at %s", timestamp),
-				Data:     map[string]string{"event": "settings_updated", "timestamp": timestamp},
-				Priority: "normal", // level 2
-			}
 			// Send notification asynchronously - don't fail settings update if notification fails
-			if err := a.service.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+			if err := a.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "settings_updated", "account", nil); err != nil {
 				a.log.Warn("Failed to send push notification for settings update",
 					zap.Stringer("user_id", notifyUserID),
 					zap.String("email", notifyEmail),
@@ -3175,17 +3167,12 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 				notifyCtx := context.Background()
 				notifyUserID := consoleUser.ID   // Capture user ID before closure
 				notifyEmail := consoleUser.Email // Capture email before closure
-				sessionMinutes := int64(30)      // default
-				if *updateInfo.SessionDuration != 0 {
-					sessionMinutes = int64(time.Duration(*updateInfo.SessionDuration).Minutes())
+				// Convert duration from nanoseconds to minutes
+				sessionMinutes := int(*updateInfo.SessionDuration / int64(time.Minute))
+				variables := map[string]interface{}{
+					"session_minutes": sessionMinutes,
 				}
-				sessionNotification := pushnotifications.Notification{
-					Title:    "Session Settings Updated",
-					Body:     fmt.Sprintf("Your session timeout has been changed to %d minutes", sessionMinutes),
-					Data:     map[string]string{"event": "session_times_changed", "session_minutes": fmt.Sprintf("%d", sessionMinutes)},
-					Priority: "normal", // level 3
-				}
-				if err := a.service.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", sessionNotification); err != nil {
+				if err := a.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "session_times_changed", "account", variables); err != nil {
 					a.log.Warn("Failed to send push notification for session times changed",
 						zap.Stringer("user_id", notifyUserID),
 						zap.String("email", notifyEmail),

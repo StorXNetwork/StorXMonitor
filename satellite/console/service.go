@@ -312,6 +312,122 @@ func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userI
 	return s.SendPushNotification(ctx, userID, notification)
 }
 
+// SendPushNotificationByEventName sends a push notification by fetching config by event name,
+// rendering templates from config_data, and sending the notification.
+// Variables can be nil - defaults from config_data will be used. Runtime variables override defaults.
+func (s *Service) SendPushNotificationByEventName(ctx context.Context, userID uuid.UUID, eventName string, category string, variables map[string]interface{}) error {
+	// Convert event name (e.g., "account_frozen") to config name (e.g., "account frozen")
+	configName := strings.ReplaceAll(eventName, "_", " ")
+
+	// Get configs service
+	configsDB := s.GetConfigs()
+	configsService := configs.NewService(configsDB)
+
+	// Get config by name
+	pushConfigType := configs.ConfigTypeNotificationTemplate
+	config, err := configsService.GetConfigByName(ctx, pushConfigType, configName)
+	if err != nil {
+		// If config not found, log warning and return (don't send notification)
+		s.log.Warn("Failed to get push notification config by name",
+			zap.String("event_name", eventName),
+			zap.String("config_name", configName),
+			zap.String("category", category),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return Error.Wrap(err)
+	}
+
+	// Parse template data from config
+	var templateData configs.TemplateData
+	configDataJSON, err := json.Marshal(config.ConfigData)
+	if err != nil {
+		s.log.Warn("Failed to marshal config data",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return Error.Wrap(err)
+	}
+	if err := json.Unmarshal(configDataJSON, &templateData); err != nil {
+		s.log.Warn("Failed to parse template data",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return Error.Wrap(err)
+	}
+
+	// Merge default variables with runtime variables (runtime variables override defaults)
+	mergedVars := configs.MergeUserPreferences(templateData.DefaultVariables, nil, variables)
+
+	// Handle special "now" timestamp
+	if timestamp, ok := mergedVars["timestamp"]; ok {
+		if tsStr, ok := timestamp.(string); ok && tsStr == "now" {
+			mergedVars["timestamp"] = time.Now().Format(time.RFC3339)
+		}
+	}
+
+	// Validate required variables
+	if err := configs.ValidateVariables(templateData, mergedVars); err != nil {
+		s.log.Warn("Failed to validate template variables",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return Error.Wrap(err)
+	}
+
+	// Render templates
+	renderer := configs.NewRenderer()
+	title, body, _, err := renderer.RenderTemplate(templateData, mergedVars)
+	if err != nil {
+		s.log.Warn("Failed to render push notification template",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return Error.Wrap(err)
+	}
+
+	// Extract level from config_data and map to priority
+	configLevel := configs.GetConfigLevel(config.ConfigData)
+	priority := mapLevelToPriority(configLevel)
+
+	// Build data map - include event name and all variables as strings
+	data := make(map[string]string)
+	data["event"] = eventName
+	for k, v := range mergedVars {
+		if v != nil {
+			data[k] = fmt.Sprintf("%v", v)
+		}
+	}
+
+	// Build notification
+	notification := pushnotifications.Notification{
+		Title:    title,
+		Body:     body,
+		Data:     data,
+		Priority: priority,
+	}
+
+	// Send notification with preferences check
+	return s.SendPushNotificationWithPreferences(ctx, userID, category, notification)
+}
+
+// mapLevelToPriority maps config level (1-4) to priority string.
+// Level 1 = marketing, 2 = info, 3 = warning, 4 = critical
+func mapLevelToPriority(level int) string {
+	switch level {
+	case 1:
+		return "marketing"
+	case 2:
+		return "info"
+	case 3:
+		return "warning"
+	case 4:
+		return "critical"
+	default:
+		// Default to "normal" for unknown levels
+		return "normal"
+	}
+}
+
 // GetPushNotifications returns the push notifications database interface.
 func (s *Service) GetPushNotifications() pushnotifications.PushNotificationDB {
 	return s.store.PushNotifications()
@@ -666,32 +782,13 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
 		notifyUserID := user.ID // Capture user ID before closure
-		lastFour := ""
-		cardType := ""
-		if card.Last4 != "" {
-			lastFour = card.Last4
+		cardLast4 := card.Last4
+		cardBrand := card.Brand
+		variables := map[string]interface{}{
+			"last_four": cardLast4,
+			"card_type": cardBrand,
 		}
-		if card.Brand != "" {
-			cardType = card.Brand
-		}
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title: "Payment Method Added",
-			Body: fmt.Sprintf("A credit card%s%s has been added to your account at %s", func() string {
-				if cardType != "" {
-					return fmt.Sprintf(" (%s)", cardType)
-				}
-				return ""
-			}(), func() string {
-				if lastFour != "" {
-					return fmt.Sprintf(" ending in %s", lastFour)
-				}
-				return ""
-			}(), timestamp),
-			Data:     map[string]string{"event": "credit_card_added", "last_four": lastFour, "card_type": cardType, "timestamp": timestamp},
-			Priority: "normal", // level 3
-		}
-		if err := payment.service.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "billing", notification); err != nil {
+		if err := payment.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "credit_card_added", "billing", variables); err != nil {
 			payment.service.log.Warn("Failed to send push notification for credit card added",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -734,32 +831,13 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
 		notifyUserID := user.ID // Capture user ID before closure
-		lastFour := ""
-		cardType := ""
-		if card.Last4 != "" {
-			lastFour = card.Last4
+		cardLast4 := card.Last4
+		cardBrand := card.Brand
+		variables := map[string]interface{}{
+			"last_four": cardLast4,
+			"card_type": cardBrand,
 		}
-		if card.Brand != "" {
-			cardType = card.Brand
-		}
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title: "Payment Method Added",
-			Body: fmt.Sprintf("A credit card%s%s has been added to your account at %s", func() string {
-				if cardType != "" {
-					return fmt.Sprintf(" (%s)", cardType)
-				}
-				return ""
-			}(), func() string {
-				if lastFour != "" {
-					return fmt.Sprintf(" ending in %s", lastFour)
-				}
-				return ""
-			}(), timestamp),
-			Data:     map[string]string{"event": "credit_card_added", "last_four": lastFour, "card_type": cardType, "timestamp": timestamp},
-			Priority: "normal", // level 3
-		}
-		if err := payment.service.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "billing", notification); err != nil {
+		if err := payment.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "credit_card_added", "billing", variables); err != nil {
 			payment.service.log.Warn("Failed to send push notification for credit card added",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -847,14 +925,7 @@ func (payment Payments) MakeCreditCardDefault(ctx context.Context, cardID string
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
 		notifyUserID := user.ID // Capture user ID before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Default Credit Card Changed",
-			Body:     fmt.Sprintf("Your default credit card has been updated at %s", timestamp),
-			Data:     map[string]string{"event": "default_credit_card_changed", "timestamp": timestamp},
-			Priority: "normal", // level 2
-		}
-		if err := payment.service.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "billing", notification); err != nil {
+		if err := payment.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "default_credit_card_changed", "billing", nil); err != nil {
 			payment.service.log.Warn("Failed to send push notification for default credit card changed",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -902,6 +973,18 @@ func (payment Payments) RemoveCreditCard(ctx context.Context, cardID string) (er
 		return Error.Wrap(err)
 	}
 
+	// Get card info before removing
+	cards, err := payment.service.accounts.CreditCards().List(ctx, user.ID)
+	var cardLast4 string
+	if err == nil {
+		for _, card := range cards {
+			if card.ID == cardID {
+				cardLast4 = card.Last4
+				break
+			}
+		}
+	}
+
 	err = payment.service.accounts.CreditCards().Remove(ctx, user.ID, cardID)
 	if err != nil {
 		return Error.Wrap(err)
@@ -912,14 +995,10 @@ func (payment Payments) RemoveCreditCard(ctx context.Context, cardID string) (er
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
 		notifyUserID := user.ID // Capture user ID before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Payment Method Removed",
-			Body:     fmt.Sprintf("A credit card has been removed from your account at %s", timestamp),
-			Data:     map[string]string{"event": "credit_card_removed", "timestamp": timestamp},
-			Priority: "normal", // level 3
+		variables := map[string]interface{}{
+			"last_four": cardLast4,
 		}
-		if err := payment.service.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "billing", notification); err != nil {
+		if err := payment.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "credit_card_removed", "billing", variables); err != nil {
 			payment.service.log.Warn("Failed to send push notification for credit card removed",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -1421,14 +1500,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		notifyCtx := context.Background()
 		notifyUserID := u.ID   // Capture user ID before closure
 		notifyEmail := u.Email // Capture email before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Welcome to StorX",
-			Body:     fmt.Sprintf("Welcome! Your account has been created successfully at %s", timestamp),
-			Data:     map[string]string{"event": "user_sign_up", "email": notifyEmail, "timestamp": timestamp},
-			Priority: "normal", // level 1
+		variables := map[string]interface{}{
+			"email": notifyEmail,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "user_sign_up", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for user sign up",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail),
@@ -1446,14 +1521,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		notifyCtx := context.Background()
 		notifyUserID := u.ID   // Capture user ID before closure
 		notifyEmail := u.Email // Capture email before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Registration Successful",
-			Body:     fmt.Sprintf("Your account has been registered successfully at %s", timestamp),
-			Data:     map[string]string{"event": "registered_successfully", "email": notifyEmail, "timestamp": timestamp},
-			Priority: "high", // level 4
+		variables := map[string]interface{}{
+			"email": notifyEmail,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "registered_successfully", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for registered successfully",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail),
@@ -1630,14 +1701,10 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 		notifyCtx := context.Background()
 		notifyUserID := user.ID   // Capture user ID before closure
 		notifyEmail := user.Email // Capture email before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Account Activated",
-			Body:     fmt.Sprintf("Your account has been successfully activated at %s", timestamp),
-			Data:     map[string]string{"event": "account_activated", "email": notifyEmail, "timestamp": timestamp},
-			Priority: "high", // level 4
+		variables := map[string]interface{}{
+			"email": notifyEmail,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "account_activated", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for account activated",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail),
@@ -1969,15 +2036,12 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		if ipAddress == "" {
 			ipAddress = "0.0.0.0"
 		}
-		location := "Unknown Location"
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Login Successful",
-			Body:     fmt.Sprintf("You have successfully logged in at %s from %s (%s)", timestamp, location, ipAddress),
-			Data:     map[string]string{"event": "logged_in_successfully", "timestamp": timestamp, "ip_address": ipAddress, "location": location},
-			Priority: "high", // level 4
+		location := "Unknown Location" // Could be enhanced with geolocation lookup
+		variables := map[string]interface{}{
+			"ip_address": ipAddress,
+			"location":   location,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "logged_in_successfully", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for login",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -2132,15 +2196,12 @@ func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutP
 		if ipAddress == "" {
 			ipAddress = "0.0.0.0"
 		}
-		location := "Unknown Location"
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Login Successful",
-			Body:     fmt.Sprintf("You have successfully logged in at %s from %s (%s)", timestamp, location, ipAddress),
-			Data:     map[string]string{"event": "logged_in_successfully", "timestamp": timestamp, "ip_address": ipAddress, "location": location},
-			Priority: "high", // level 4
+		location := "Unknown Location" // Could be enhanced with geolocation lookup
+		variables := map[string]interface{}{
+			"ip_address": ipAddress,
+			"location":   location,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "logged_in_successfully", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for login",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -2209,15 +2270,12 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 		if ipAddress == "" {
 			ipAddress = "0.0.0.0"
 		}
-		location := "Unknown Location"
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Login Successful",
-			Body:     fmt.Sprintf("You have successfully logged in at %s from %s (%s)", timestamp, location, ipAddress),
-			Data:     map[string]string{"event": "logged_in_successfully", "timestamp": timestamp, "ip_address": ipAddress, "location": location},
-			Priority: "high", // level 4
+		location := "Unknown Location" // Could be enhanced with geolocation lookup
+		variables := map[string]interface{}{
+			"ip_address": ipAddress,
+			"location":   location,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "logged_in_successfully", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for Google login",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -2405,6 +2463,7 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		return ErrValidation.Wrap(err)
 	}
 
+	oldName := user.FullName // Capture old name before update
 	user.FullName = fullName
 	user.ShortName = shortName
 	shortNamePtr := &user.ShortName
@@ -2421,22 +2480,11 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
 		notifyUserID := user.ID // Capture user ID before closure
-		oldName := ""
-		if user.FullName != fullName {
-			oldName = user.FullName
+		variables := map[string]interface{}{
+			"old_name": oldName,
+			"new_name": fullName,
 		}
-		notification := pushnotifications.Notification{
-			Title: "Name Updated",
-			Body: fmt.Sprintf("Your account name has been successfully changed%s to %s", func() string {
-				if oldName != "" {
-					return fmt.Sprintf(" from %s", oldName)
-				}
-				return ""
-			}(), fullName),
-			Data:     map[string]string{"event": "name_changed_successfully", "old_name": oldName, "new_name": fullName},
-			Priority: "normal", // level 2
-		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "name_changed_successfully", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for name change",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -2475,14 +2523,7 @@ func (s *Service) UpdateAccountInfo(ctx context.Context, updateinfo *UpdateUserS
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
 		notifyUserID := user.ID // Capture user ID before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Profile Updated",
-			Body:     fmt.Sprintf("Your profile has been successfully updated at %s", timestamp),
-			Data:     map[string]string{"event": "profile_updated", "timestamp": timestamp},
-			Priority: "normal", // level 2
-		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "profile_updated", "account", nil); err != nil {
 			s.log.Warn("Failed to send push notification for profile update",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -2625,16 +2666,9 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
 		notifyUserID := user.ID // Capture user ID before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		ipAddress := extractIPFromRequest(GetRequest(ctx))
-		location := "Unknown Location" // Placeholder
-		notification := pushnotifications.Notification{
-			Title:    "Password Changed",
-			Body:     fmt.Sprintf("Your password has been successfully changed at %s from %s (%s)", timestamp, location, ipAddress),
-			Data:     map[string]string{"event": "password_changed_successfully", "timestamp": timestamp, "ip_address": ipAddress, "location": location},
-			Priority: "high", // level 4
-		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		// IP and location not easily accessible here, will use defaults
+		variables := map[string]interface{}{}
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "password_changed_successfully", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for password changed",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -2945,14 +2979,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 				// Use background context to avoid cancellation when HTTP request completes
 				notifyCtx := context.Background()
 				notifyUserID := user.ID // Capture user ID before closure
-				timestamp := time.Now().Format(time.RFC3339)
-				notification := pushnotifications.Notification{
-					Title:    "Project Limit Exceeded",
-					Body:     fmt.Sprintf("Project limit error: You have reached your project limit at %s", timestamp),
-					Data:     map[string]string{"event": "project_limit_error", "limit_type": "project", "timestamp": timestamp},
-					Priority: "high", // level 4
+				projectName := p.Name   // Capture project name
+				variables := map[string]interface{}{
+					"project_name": projectName,
+					"limit_type":   "project",
 				}
-				if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+				if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_limit_error", "account", variables); err != nil {
 					s.log.Warn("Failed to send push notification for project limit error",
 						zap.Stringer("user_id", notifyUserID),
 						zap.String("email", user.Email),
@@ -2986,16 +3018,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	go func() {
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		projectName := p.Name   // Capture project name before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Project Created",
-			Body:     fmt.Sprintf("A new project '%s' has been created at %s", projectName, timestamp),
-			Data:     map[string]string{"event": "project_created", "project_name": projectName, "timestamp": timestamp},
-			Priority: "normal", // level 2
+		notifyUserID := user.ID         // Capture user ID before closure
+		projectName := projectInfo.Name // Capture project name from input
+		variables := map[string]interface{}{
+			"project_name": projectName,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_created", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for project created",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -3039,12 +3067,12 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 		return Error.Wrap(err)
 	}
 
-	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	projectName := p.Name // Save project name before deletion
+	projectName := project.Name // Capture project name before deletion
 
 	err = s.checkProjectCanBeDeleted(ctx, user, projectID)
 	if err != nil {
@@ -3061,14 +3089,10 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
 		notifyUserID := user.ID // Capture user ID before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Project Deleted",
-			Body:     fmt.Sprintf("Project '%s' has been deleted at %s", projectName, timestamp),
-			Data:     map[string]string{"event": "project_deleted", "project_name": projectName, "timestamp": timestamp},
-			Priority: "normal", // level 2
+		variables := map[string]interface{}{
+			"project_name": projectName,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_deleted", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for project deleted",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", user.Email),
@@ -3221,17 +3245,15 @@ func (s *Service) UpdatingProject(ctx context.Context, userID, projectID uuid.UU
 	go func() {
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
-		notifyUserID := userID      // Capture userID before closure
-		projectName := project.Name // Capture project name before closure
-		timestamp := time.Now().Format(time.RFC3339)
+		notifyUserID := userID // Capture userID before closure
+		projectName := project.Name
 		if oldStorageLimit != nil && *oldStorageLimit != updatedProject.StorageLimit {
-			notification := pushnotifications.Notification{
-				Title:    "Storage Limit Updated",
-				Body:     fmt.Sprintf("Storage limit for project %s has been updated from %s to %s at %s", projectName, oldStorageLimit.String(), updatedProject.StorageLimit.String(), timestamp),
-				Data:     map[string]string{"event": "project_storage_limit_updated", "project_name": projectName, "old_limit": oldStorageLimit.String(), "new_limit": updatedProject.StorageLimit.String(), "timestamp": timestamp},
-				Priority: "normal", // level 3
+			variables := map[string]interface{}{
+				"project_name": projectName,
+				"old_limit":    oldStorageLimit.String(),
+				"new_limit":    updatedProject.StorageLimit.String(),
 			}
-			if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_storage_limit_updated", "account", variables); err != nil {
 				s.log.Warn("Failed to send push notification for project storage limit updated",
 					zap.Stringer("user_id", notifyUserID),
 					zap.Error(err))
@@ -3241,13 +3263,12 @@ func (s *Service) UpdatingProject(ctx context.Context, userID, projectID uuid.UU
 			}
 		}
 		if oldBandwidthLimit != nil && *oldBandwidthLimit != updatedProject.BandwidthLimit {
-			notification := pushnotifications.Notification{
-				Title:    "Bandwidth Limit Updated",
-				Body:     fmt.Sprintf("Bandwidth limit for project %s has been updated from %s to %s at %s", projectName, oldBandwidthLimit.String(), updatedProject.BandwidthLimit.String(), timestamp),
-				Data:     map[string]string{"event": "project_bandwidth_limit_updated", "project_name": projectName, "old_limit": oldBandwidthLimit.String(), "new_limit": updatedProject.BandwidthLimit.String(), "timestamp": timestamp},
-				Priority: "normal", // level 3
+			variables := map[string]interface{}{
+				"project_name": projectName,
+				"old_limit":    oldBandwidthLimit.String(),
+				"new_limit":    updatedProject.BandwidthLimit.String(),
 			}
-			if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_bandwidth_limit_updated", "account", variables); err != nil {
 				s.log.Warn("Failed to send push notification for project bandwidth limit updated",
 					zap.Stringer("user_id", notifyUserID),
 					zap.Error(err))
@@ -3298,15 +3319,12 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		notifyCtx := context.Background()
 		notifyUserID := user.ID   // Capture user ID before closure
 		notifyEmail := user.Email // Capture email before closure
-		timestamp := time.Now().Format(time.RFC3339)
 		if oldName != updatedProject.Name {
-			notification := pushnotifications.Notification{
-				Title:    "Project Name Updated",
-				Body:     fmt.Sprintf("Project name has been updated from %s to %s at %s", oldName, updatedProject.Name, timestamp),
-				Data:     map[string]string{"event": "project_name_updated", "old_name": oldName, "new_name": updatedProject.Name, "timestamp": timestamp},
-				Priority: "normal", // level 2
+			variables := map[string]interface{}{
+				"old_name": oldName,
+				"new_name": updatedProject.Name,
 			}
-			if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_name_updated", "account", variables); err != nil {
 				s.log.Warn("Failed to send push notification for project name updated",
 					zap.Stringer("user_id", notifyUserID),
 					zap.String("email", notifyEmail),
@@ -3318,13 +3336,10 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 			}
 		}
 		if project.Description != updatedProject.Description {
-			notification := pushnotifications.Notification{
-				Title:    "Project Description Updated",
-				Body:     fmt.Sprintf("Project description for %s has been updated at %s", updatedProject.Name, timestamp),
-				Data:     map[string]string{"event": "project_description_updated", "project_name": updatedProject.Name, "timestamp": timestamp},
-				Priority: "normal", // level 2
+			variables := map[string]interface{}{
+				"project_name": updatedProject.Name,
 			}
-			if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_description_updated", "account", variables); err != nil {
 				s.log.Warn("Failed to send push notification for project description updated",
 					zap.Stringer("user_id", notifyUserID),
 					zap.String("email", notifyEmail),
@@ -3424,18 +3439,14 @@ func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID,
 	go func() {
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
-		notifyUserID := user.ID     // Capture user ID before closure
-		notifyEmail := user.Email   // Capture email before closure
-		projectName := project.Name // Capture project name before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		requestedLimit := info.DesiredLimit.String()
-		notification := pushnotifications.Notification{
-			Title:    "Limit Increase Requested",
-			Body:     fmt.Sprintf("Limit increase request for %s to %s for project %s has been submitted at %s", info.LimitType, requestedLimit, projectName, timestamp),
-			Data:     map[string]string{"event": "limit_increase_requested", "project_name": projectName, "limit_type": info.LimitType, "requested_limit": requestedLimit, "timestamp": timestamp},
-			Priority: "normal", // level 2
+		notifyUserID := user.ID   // Capture user ID before closure
+		notifyEmail := user.Email // Capture email before closure
+		variables := map[string]interface{}{
+			"project_name":    project.Name,
+			"limit_type":      info.LimitType,
+			"requested_limit": info.DesiredLimit.String(),
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "limit_increase_requested", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for limit increase requested",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail),
@@ -3484,14 +3495,11 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 		notifyCtx := context.Background()
 		notifyUserID := user.ID   // Capture user ID before closure
 		notifyEmail := user.Email // Capture email before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Limit Increase Requested",
-			Body:     fmt.Sprintf("Limit increase request for projects to %s has been submitted at %s", limit, timestamp),
-			Data:     map[string]string{"event": "limit_increase_requested", "limit_type": "projects", "requested_limit": limit, "timestamp": timestamp},
-			Priority: "normal", // level 2
+		variables := map[string]interface{}{
+			"limit_type":      "projects",
+			"requested_limit": limit,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "limit_increase_requested", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for project limit increase requested",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail),
@@ -3664,18 +3672,15 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	go func() {
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
-		projectName := isMember.project.Name // Capture project name before closure
+		projectName := isMember.project.Name
 		for _, addedUser := range users {
 			notifyUserID := addedUser.ID   // Capture user ID for each iteration
 			notifyEmail := addedUser.Email // Capture email for each iteration
-			timestamp := time.Now().Format(time.RFC3339)
-			notification := pushnotifications.Notification{
-				Title:    "Project Member Added",
-				Body:     fmt.Sprintf("A new member (%s) has been added to project %s at %s", notifyEmail, projectName, timestamp),
-				Data:     map[string]string{"event": "project_member_added", "project_name": projectName, "member_email": notifyEmail, "timestamp": timestamp},
-				Priority: "normal", // level 3
+			variables := map[string]interface{}{
+				"project_name": projectName,
+				"member_email": notifyEmail,
 			}
-			if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_member_added", "account", variables); err != nil {
 				s.log.Warn("Failed to send push notification for project member added",
 					zap.Stringer("user_id", notifyUserID),
 					zap.String("email", notifyEmail),
@@ -3763,21 +3768,18 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	go func() {
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
-		projectName := isMember.project.Name // Capture project name before closure
+		projectName := isMember.project.Name
 		for _, email := range emails {
 			// Try to get user to send notification
 			deletedUser, err := s.store.Users().GetByEmail(notifyCtx, email)
 			if err == nil {
 				notifyUserID := deletedUser.ID   // Capture user ID
 				notifyEmail := deletedUser.Email // Capture email
-				timestamp := time.Now().Format(time.RFC3339)
-				notification := pushnotifications.Notification{
-					Title:    "Project Member Removed",
-					Body:     fmt.Sprintf("Member %s has been removed from project %s at %s", notifyEmail, projectName, timestamp),
-					Data:     map[string]string{"event": "project_member_deleted", "project_name": projectName, "member_email": notifyEmail, "timestamp": timestamp},
-					Priority: "normal", // level 3
+				variables := map[string]interface{}{
+					"project_name": projectName,
+					"member_email": notifyEmail,
 				}
-				if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+				if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_member_deleted", "account", variables); err != nil {
 					s.log.Warn("Failed to send push notification for project member deleted",
 						zap.Stringer("user_id", notifyUserID),
 						zap.String("email", notifyEmail),
@@ -5474,15 +5476,11 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 			notifyCtx := context.Background()
 			notifyUserID := user.ID   // Capture user ID before closure
 			notifyEmail := user.Email // Capture email before closure
-			projectName := proj.Name  // Capture project name before closure
-			timestamp := time.Now().Format(time.RFC3339)
-			notification := pushnotifications.Notification{
-				Title:    "Project Invitation Declined",
-				Body:     fmt.Sprintf("Invitation to project %s has been declined by %s at %s", projectName, notifyEmail, timestamp),
-				Data:     map[string]string{"event": "project_invitation_declined", "project_name": projectName, "invitee_email": notifyEmail, "timestamp": timestamp},
-				Priority: "normal", // level 2
+			variables := map[string]interface{}{
+				"project_name":  proj.Name,
+				"invitee_email": notifyEmail,
 			}
-			if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_invitation_declined", "account", variables); err != nil {
 				s.log.Warn("Failed to send push notification for project invitation declined",
 					zap.Stringer("user_id", notifyUserID),
 					zap.String("email", notifyEmail),
@@ -5510,15 +5508,11 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		notifyCtx := context.Background()
 		notifyUserID := user.ID   // Capture user ID before closure
 		notifyEmail := user.Email // Capture email before closure
-		projectName := proj.Name  // Capture project name before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "Project Invitation Accepted",
-			Body:     fmt.Sprintf("Invitation to project %s has been accepted by %s at %s", projectName, notifyEmail, timestamp),
-			Data:     map[string]string{"event": "project_invitation_accepted", "project_name": projectName, "invitee_email": notifyEmail, "timestamp": timestamp},
-			Priority: "normal", // level 2
+		variables := map[string]interface{}{
+			"project_name":  proj.Name,
+			"invitee_email": notifyEmail,
 		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_invitation_accepted", "account", variables); err != nil {
 			s.log.Warn("Failed to send push notification for project invitation accepted",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail),

@@ -5,6 +5,10 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -99,4 +103,126 @@ func (server *Server) sendPushNotificationWithPreferences(ctx context.Context, u
 
 	// Push notifications are disabled
 	return nil
+}
+
+// sendPushNotificationByEventName sends a push notification by fetching config by event name,
+// rendering templates from config_data, and sending the notification.
+// Variables can be nil - defaults from config_data will be used. Runtime variables override defaults.
+func (server *Server) sendPushNotificationByEventName(ctx context.Context, userID uuid.UUID, eventName string, category string, variables map[string]interface{}) error {
+	// If console service is available, use it
+	if server.consoleService != nil {
+		return server.consoleService.SendPushNotificationByEventName(ctx, userID, eventName, category, variables)
+	}
+
+	// Otherwise, use database directly
+	// Convert event name (e.g., "account_frozen") to config name (e.g., "account frozen")
+	configName := strings.ReplaceAll(eventName, "_", " ")
+
+	// Get configs service
+	configsDB := server.db.Console().Configs()
+	configsService := configs.NewService(configsDB)
+
+	// Get config by name
+	pushConfigType := configs.ConfigTypeNotificationTemplate
+	config, err := configsService.GetConfigByName(ctx, pushConfigType, configName)
+	if err != nil {
+		// If config not found, log warning and return (don't send notification)
+		server.log.Warn("Failed to get push notification config by name",
+			zap.String("event_name", eventName),
+			zap.String("config_name", configName),
+			zap.String("category", category),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return err
+	}
+
+	// Parse template data from config
+	var templateData configs.TemplateData
+	configDataJSON, err := json.Marshal(config.ConfigData)
+	if err != nil {
+		server.log.Warn("Failed to marshal config data",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return err
+	}
+	if err := json.Unmarshal(configDataJSON, &templateData); err != nil {
+		server.log.Warn("Failed to parse template data",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return err
+	}
+
+	// Merge default variables with runtime variables (runtime variables override defaults)
+	mergedVars := configs.MergeUserPreferences(templateData.DefaultVariables, nil, variables)
+
+	// Handle special "now" timestamp
+	if timestamp, ok := mergedVars["timestamp"]; ok {
+		if tsStr, ok := timestamp.(string); ok && tsStr == "now" {
+			mergedVars["timestamp"] = time.Now().Format(time.RFC3339)
+		}
+	}
+
+	// Validate required variables
+	if err := configs.ValidateVariables(templateData, mergedVars); err != nil {
+		server.log.Warn("Failed to validate template variables",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return err
+	}
+
+	// Render templates
+	renderer := configs.NewRenderer()
+	title, body, _, err := renderer.RenderTemplate(templateData, mergedVars)
+	if err != nil {
+		server.log.Warn("Failed to render push notification template",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return err
+	}
+
+	// Extract level from config_data and map to priority
+	configLevel := configs.GetConfigLevel(config.ConfigData)
+	priority := mapLevelToPriority(configLevel)
+
+	// Build data map - include event name and all variables as strings
+	data := make(map[string]string)
+	data["event"] = eventName
+	for k, v := range mergedVars {
+		if v != nil {
+			data[k] = fmt.Sprintf("%v", v)
+		}
+	}
+
+	// Build notification
+	notification := pushnotifications.Notification{
+		Title:    title,
+		Body:     body,
+		Data:     data,
+		Priority: priority,
+	}
+
+	// Send notification with preferences check
+	return server.sendPushNotificationWithPreferences(ctx, userID, category, notification)
+}
+
+// mapLevelToPriority maps config level (1-4) to priority string.
+// Level 1 = marketing, 2 = info, 3 = warning, 4 = critical
+func mapLevelToPriority(level int) string {
+	switch level {
+	case 1:
+		return "marketing"
+	case 2:
+		return "info"
+	case 3:
+		return "warning"
+	case 4:
+		return "critical"
+	default:
+		// Default to "normal" for unknown levels
+		return "normal"
+	}
 }

@@ -6,7 +6,6 @@ package console
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/pquerna/otp/totp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/satellite/console/pushnotifications"
 )
 
 const (
@@ -116,14 +114,7 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 		notifyCtx := context.Background()
 		notifyUserID := user.ID   // Capture user ID before closure
 		notifyEmail := user.Email // Capture email before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "MFA Enabled",
-			Body:     fmt.Sprintf("Multi-factor authentication has been enabled at %s", timestamp),
-			Data:     map[string]string{"event": "mfa_enabled", "timestamp": timestamp},
-			Priority: "info",
-		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "mfa_enabled", "account", nil); err != nil {
 			s.log.Warn("Failed to send push notification for MFA enabled",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail),
@@ -199,14 +190,7 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 		notifyCtx := context.Background()
 		notifyUserID := user.ID   // Capture user ID before closure
 		notifyEmail := user.Email // Capture email before closure
-		timestamp := time.Now().Format(time.RFC3339)
-		notification := pushnotifications.Notification{
-			Title:    "MFA Disabled",
-			Body:     fmt.Sprintf("Multi-factor authentication has been successfully disabled for your account at %s", timestamp),
-			Data:     map[string]string{"event": "mfa_disabled", "timestamp": timestamp},
-			Priority: "high", // level 4
-		}
-		if err := s.SendPushNotificationWithPreferences(notifyCtx, notifyUserID, "account", notification); err != nil {
+		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "mfa_disabled", "account", nil); err != nil {
 			s.log.Warn("Failed to send push notification for MFA disabled",
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail),
