@@ -6,7 +6,6 @@ package developer
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"math"
 	"math/big"
@@ -796,7 +795,7 @@ func (s *Service) CreateDeveloperOAuthClient(ctx context.Context, req console.Cr
 		return nil, err
 	}
 	// Encode secret as base64 for safe display
-	created.ClientSecret = base64.URLEncoding.EncodeToString(clientSecret) // Return plaintext only once
+	created.ClientSecret = string(hashedSecret)
 	return created, nil
 }
 
@@ -904,7 +903,7 @@ func (s *Service) RegenerateDeveloperOAuthClientSecret(ctx context.Context, id u
 	}
 
 	// Encode secret as base64 for safe display
-	client.ClientSecret = base64.URLEncoding.EncodeToString(clientSecret) // Return plaintext only once
+	client.ClientSecret = string(hashedSecret)
 	return client, nil
 }
 
