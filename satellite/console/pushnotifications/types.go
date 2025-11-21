@@ -47,7 +47,7 @@ type Notification struct {
 	Body     string
 	Data     map[string]string
 	ImageURL string
-	Priority string // "normal" or "high"
+	Priority string // "marketing", "info", "warning", "critical"
 }
 
 // PushNotificationRecord represents a push notification record stored in the database.

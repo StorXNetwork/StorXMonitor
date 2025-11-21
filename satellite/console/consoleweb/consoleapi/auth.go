@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -3139,20 +3138,51 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send push notification about settings update
+	// Send push notifications about settings update
 	consoleUser, err := console.GetUser(ctx)
 	if err == nil {
-		notification := pushnotifications.Notification{
-			Title:    "Settings Updated",
-			Body:     "Your account settings have been successfully updated.",
-			Data:     map[string]string{"type": "settings_updated", "timestamp": time.Now().Format(time.RFC3339)},
-			Priority: "normal",
-		}
-		// Send notification asynchronously - don't fail settings update if notification fails
-		if err := a.service.SendPushNotification(ctx, consoleUser.ID, notification); err != nil {
-			a.log.Warn("Failed to send push notification for settings update",
-				zap.Stringer("user_id", consoleUser.ID),
-				zap.Error(err))
+		// Send general settings updated notification
+		go func() {
+			// Use background context to avoid cancellation when HTTP request completes
+			notifyCtx := context.Background()
+			notifyUserID := consoleUser.ID   // Capture user ID before closure
+			notifyEmail := consoleUser.Email // Capture email before closure
+			// Send notification asynchronously - don't fail settings update if notification fails
+			if err := a.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "settings_updated", "account", nil); err != nil {
+				a.log.Warn("Failed to send push notification for settings update",
+					zap.Stringer("user_id", notifyUserID),
+					zap.String("email", notifyEmail),
+					zap.Error(err))
+			} else {
+				a.log.Debug("Successfully sent push notification for settings update",
+					zap.Stringer("user_id", notifyUserID),
+					zap.String("email", notifyEmail))
+			}
+		}()
+
+		// Send specific notification for session duration change
+		if updateInfo.SessionDuration != nil {
+			go func() {
+				// Use background context to avoid cancellation when HTTP request completes
+				notifyCtx := context.Background()
+				notifyUserID := consoleUser.ID   // Capture user ID before closure
+				notifyEmail := consoleUser.Email // Capture email before closure
+				// Convert duration from nanoseconds to minutes
+				sessionMinutes := int(*updateInfo.SessionDuration / int64(time.Minute))
+				variables := map[string]interface{}{
+					"session_minutes": sessionMinutes,
+				}
+				if err := a.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "session_times_changed", "account", variables); err != nil {
+					a.log.Warn("Failed to send push notification for session times changed",
+						zap.Stringer("user_id", notifyUserID),
+						zap.String("email", notifyEmail),
+						zap.Error(err))
+				} else {
+					a.log.Debug("Successfully sent push notification for session times changed",
+						zap.Stringer("user_id", notifyUserID),
+						zap.String("email", notifyEmail))
+				}
+			}()
 		}
 	}
 

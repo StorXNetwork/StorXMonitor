@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
 
 var ErrNewsletterAPI = errs.Class("consoleapi newsletter error")
@@ -56,6 +57,11 @@ func (n *Newsletter) HandleSubscription(w http.ResponseWriter, r *http.Request) 
 
 	if req.Email == "" {
 		web.ServeJSONError(ctx, n.log, w, http.StatusBadRequest, ErrNewsletterAPI.New("email is required"))
+		return
+	}
+
+	if !utils.ValidateEmail(req.Email) {
+		web.ServeJSONError(ctx, n.log, w, http.StatusBadRequest, ErrNewsletterAPI.New("invalid email format"))
 		return
 	}
 

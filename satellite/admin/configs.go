@@ -86,7 +86,7 @@ func (server *Server) createConfig(w http.ResponseWriter, r *http.Request) {
 		Category:   input.Category,
 		ConfigData: input.ConfigData,
 		IsActive:   input.IsActive,
-		CreatedBy:  adminUser.ID,
+		CreatedBy:  &adminUser.ID,
 	})
 	if err != nil {
 		sendJSONError(w, "failed to insert config",
@@ -439,7 +439,7 @@ func (server *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 		Category:   input.Category,
 		ConfigData: configData,
 		IsActive:   input.IsActive,
-		CreatedBy:  adminUser.ID,
+		CreatedBy:  &adminUser.ID,
 	})
 	if err != nil {
 		sendJSONError(w, "failed to insert template",

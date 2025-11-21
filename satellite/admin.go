@@ -303,6 +303,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			adminConfig,
 			placement,
 			developerService,
+			nil, // consoleService - not available in admin peer, will use helper function instead
 		)
 		if err != nil {
 			return nil, err

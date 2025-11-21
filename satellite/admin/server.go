@@ -109,6 +109,7 @@ type Server struct {
 	analytics               *analytics.Service
 	freezeAccounts          *console.AccountFreezeService
 	developerserviceService developer.Service
+	consoleService          *console.Service // Optional: for sending push notifications
 
 	nowFn func() time.Time
 
@@ -134,6 +135,7 @@ func NewServer(
 	config Config,
 	placement nodeselection.PlacementDefinitions,
 	developerserviceService *developer.Service,
+	consoleService *console.Service, // Optional: for sending push notifications
 ) (*Server, error) {
 	server := &Server{
 		log: log,
@@ -148,6 +150,7 @@ func NewServer(
 		analytics:               analyticsService,
 		freezeAccounts:          freezeAccounts,
 		developerserviceService: *developerserviceService,
+		consoleService:          consoleService,
 		nowFn:                   time.Now,
 
 		console:   console,

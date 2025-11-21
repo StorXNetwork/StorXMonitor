@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/console/consoleweb/staticapi"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
@@ -197,12 +198,13 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config           Config
-	service          *console.Service
-	developerService *developer.Service
-	mailService      *mailservice.Service
-	analytics        *analytics.Service
-	abTesting        *abtesting.Service
+	config              Config
+	service             *console.Service
+	developerService    *developer.Service
+	mailService         *mailservice.Service
+	notificationService *pushnotifications.Service
+	analytics           *analytics.Service
+	abTesting           *abtesting.Service
 
 	listener            net.Listener
 	server              http.Server
@@ -283,7 +285,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, notificationService *pushnotifications.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -293,6 +295,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		service:                         service,
 		developerService:                developerService,
 		mailService:                     mailService,
+		notificationService:             notificationService,
 		analytics:                       analytics,
 		abTesting:                       abTesting,
 		stripePublicKey:                 stripePublicKey,
@@ -410,6 +413,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	web3AuthController := consoleapi.NewWeb3Auth(logger, service, server.cookieAuth, "secret")
 	emailWebhookController := consoleapi.NewEmailWebhook(service, mailService, server.config.Config, server.config.ExternalAddress, server.config.SupportEmail)
+	pushNotificationWebhookController := consoleapi.NewPushNotificationWebhook(service, notificationService, server.config.Config, server.config.ExternalAddress, server.config.SupportEmail)
 	router.HandleFunc("/upload_backup_share", web3AuthController.UploadBackupShare)
 	router.HandleFunc("/get_backup_share", web3AuthController.GetBackupShare)
 	router.HandleFunc("/upload_social_share", web3AuthController.UploadSocialShare)
@@ -436,6 +440,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/send-email", (http.HandlerFunc(emailWebhookController.SendEmailByType))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/send-notification", (http.HandlerFunc(pushNotificationWebhookController.SendNotification))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/user", (http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
@@ -485,27 +490,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	pushNotificationsRouter.Handle("", http.HandlerFunc(pushNotificationsController.GetTokens)).Methods(http.MethodGet, http.MethodOptions)
 	pushNotificationsRouter.Handle("/{tokenId}", http.HandlerFunc(pushNotificationsController.DeleteToken)).Methods(http.MethodDelete, http.MethodOptions)
 
-	// Configs API (read-only for users)
-	configsController := consoleapi.NewConfigs(logger, service)
-	configsRouter := router.PathPrefix("/api/v0/configs").Subrouter()
-	configsRouter.Use(server.withCORS)
-	configsRouter.Use(server.withAuth)
-
-	configsRouter.Handle("", http.HandlerFunc(configsController.ListConfigs)).Methods(http.MethodGet, http.MethodOptions)
-	configsRouter.Handle("/{id}", http.HandlerFunc(configsController.GetConfig)).Methods(http.MethodGet, http.MethodOptions)
-	configsRouter.Handle("/type/{type}/name/{name}", http.HandlerFunc(configsController.GetConfigByTypeAndName)).Methods(http.MethodGet, http.MethodOptions)
-	configsRouter.Handle("/type/{type}", http.HandlerFunc(configsController.ListConfigsByType)).Methods(http.MethodGet, http.MethodOptions)
-
-	// Notification Templates API (read-only for users)
-	notificationTemplatesController := consoleapi.NewNotificationTemplates(logger, service)
-	notificationTemplatesRouter := router.PathPrefix("/api/v0/notification-templates").Subrouter()
-	notificationTemplatesRouter.Use(server.withCORS)
-	notificationTemplatesRouter.Use(server.withAuth)
-
-	notificationTemplatesRouter.Handle("", http.HandlerFunc(notificationTemplatesController.ListTemplates)).Methods(http.MethodGet, http.MethodOptions)
-	notificationTemplatesRouter.Handle("/{id}", http.HandlerFunc(notificationTemplatesController.GetTemplate)).Methods(http.MethodGet, http.MethodOptions)
-	notificationTemplatesRouter.Handle("/name/{name}", http.HandlerFunc(notificationTemplatesController.GetTemplateByName)).Methods(http.MethodGet, http.MethodOptions)
-
 	// User Notification Preferences API
 	userNotificationPreferencesController := consoleapi.NewUserNotificationPreferences(logger, service)
 	userNotificationPreferencesRouter := router.PathPrefix("/api/v0/user/notification-preferences").Subrouter()
@@ -513,12 +497,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	userNotificationPreferencesRouter.Use(server.withAuth)
 
 	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferences)).Methods(http.MethodGet, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.SetUserPreference)).Methods(http.MethodPost, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("/type/{type}", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferencesByType)).Methods(http.MethodGet, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("/config/{configId}", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferenceByConfig)).Methods(http.MethodGet, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("/category/{category}", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferenceByCategory)).Methods(http.MethodGet, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("/{id}", http.HandlerFunc(userNotificationPreferencesController.UpdateUserPreference)).Methods(http.MethodPut, http.MethodOptions)
-	userNotificationPreferencesRouter.Handle("/{id}", http.HandlerFunc(userNotificationPreferencesController.DeleteUserPreference)).Methods(http.MethodDelete, http.MethodOptions)
+	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.UpsertUserPreference)).Methods(http.MethodPut, http.MethodOptions)
 	/*
 		if config.DeveloperAPIEnabled {
 			developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,

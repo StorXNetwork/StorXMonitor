@@ -43,13 +43,15 @@ func (c *configsDB) InsertConfig(ctx context.Context, config configs.Config) (_ 
 	if !config.IsActive {
 		optional.IsActive = dbx.Config_IsActive(config.IsActive)
 	}
+	if config.CreatedBy != nil {
+		optional.CreatedBy = dbx.Config_CreatedBy(config.CreatedBy[:])
+	}
 
 	dbxConfig, err := c.db.Create_Config(ctx,
 		dbx.Config_Id(config.ID[:]),
 		dbx.Config_ConfigType(string(config.ConfigType)),
 		dbx.Config_Name(config.Name),
 		dbx.Config_ConfigData(configDataJSON),
-		dbx.Config_CreatedBy(config.CreatedBy[:]),
 		dbx.Config_UpdatedAt(time.Now()),
 		optional)
 	if err != nil {
@@ -150,9 +152,13 @@ func (c *configsDB) ListConfigs(ctx context.Context, filters configs.ListConfigF
 				return nil, ErrConfigs.Wrap(err)
 			}
 
-			// Convert bytes to UUIDs
+			// Convert bytes to UUID
 			dbxConfig.Id = idBytes
-			dbxConfig.CreatedBy = createdByBytes
+
+			// Handle nullable created_by (bytea can be NULL, which results in empty []byte)
+			if len(createdByBytes) > 0 {
+				dbxConfig.CreatedBy = createdByBytes
+			}
 
 			// Handle nullable category
 			if category.Valid {
@@ -270,9 +276,13 @@ func configFromDBX(dbxConfig *dbx.Config) (configs.Config, error) {
 		return configs.Config{}, ErrConfigs.Wrap(err)
 	}
 
-	createdBy, err := uuid.FromBytes(dbxConfig.CreatedBy)
-	if err != nil {
-		return configs.Config{}, ErrConfigs.Wrap(err)
+	var createdBy *uuid.UUID
+	if len(dbxConfig.CreatedBy) > 0 {
+		createdByUUID, err := uuid.FromBytes(dbxConfig.CreatedBy)
+		if err != nil {
+			return configs.Config{}, ErrConfigs.Wrap(err)
+		}
+		createdBy = &createdByUUID
 	}
 
 	var configData map[string]interface{}
