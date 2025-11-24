@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/stripe"
 )
 
@@ -92,6 +93,8 @@ type DB interface {
 	OverlayCache() overlay.DB
 	// LiveAccounting returns database for caching project usage data
 	LiveAccounting() accounting.Cache
+	// Billing returns database for billing and payment transactions
+	Billing() billing.TransactionsDB
 }
 
 // Server provides endpoints for administrative tasks.
@@ -240,6 +243,15 @@ func NewServer(
 	configsRouter.HandleFunc("/{id}", server.deleteConfig).Methods("DELETE")
 	configsRouter.HandleFunc("/type/{type}/name/{name}", server.getConfigByTypeAndName).Methods("GET")
 	configsRouter.HandleFunc("/type/{type}", server.listConfigsByType).Methods("GET")
+
+	// Coupon management endpoints (Admin-only CRUD)
+	couponsRouter := fullAccessAPI.PathPrefix("/coupons").Subrouter()
+	couponsRouter.HandleFunc("", server.createCoupon).Methods("POST")
+	couponsRouter.HandleFunc("", server.listCoupons).Methods("GET")
+	couponsRouter.HandleFunc("/stats", server.getCouponStats).Methods("GET")
+	couponsRouter.HandleFunc("/{code}", server.getCoupon).Methods("GET")
+	couponsRouter.HandleFunc("/{code}", server.updateCoupon).Methods("PUT")
+	couponsRouter.HandleFunc("/{code}", server.deleteCoupon).Methods("DELETE")
 
 	// Template management endpoints (Admin-only CRUD)
 	notificationTemplatesRouter := fullAccessAPI.PathPrefix("/notification-templates").Subrouter()

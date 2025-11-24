@@ -85,6 +85,21 @@ type TransactionsDB interface {
 	GetCouponByCode(ctx context.Context, code string) (*Coupons, error)
 
 	GetCoupons(ctx context.Context) ([]Coupons, error)
+
+	// GetCouponsWithFilters returns coupons with filters and pagination applied at database level
+	GetCouponsWithFilters(ctx context.Context, filters CouponFilters) (coupons []Coupons, total int64, err error)
+
+	// GetCouponStats returns statistics about coupons (total, active, expired, upcoming)
+	GetCouponStats(ctx context.Context) (stats CouponStats, err error)
+
+	// CreateCoupon creates a new coupon in the database
+	CreateCoupon(ctx context.Context, coupon Coupons) (*Coupons, error)
+
+	// UpdateCoupon updates an existing coupon
+	UpdateCoupon(ctx context.Context, code string, coupon Coupons) (*Coupons, error)
+
+	// DeleteCoupon deletes a coupon by code
+	DeleteCoupon(ctx context.Context, code string) error
 }
 
 // PaymentType is an interface which defines functionality required for all billing payment types. Payment types can
@@ -164,6 +179,40 @@ type Coupons struct {
 	ValidFrom      time.Time `json:"valid_from"`
 	ValidTo        time.Time `json:"valid_to"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+// CouponFilters defines filters and pagination for coupon queries
+type CouponFilters struct {
+	// Status filters coupons by status: 1=active, 2=expired, 3=upcoming
+	Status *int `json:"status,omitempty"`
+
+	// DiscountType filters by discount type ("percentage" or "fixed")
+	DiscountType *string `json:"discount_type,omitempty"`
+
+	// This finds coupons valid/active during the specified period
+	ValidDuringStart *time.Time `json:"valid_during_start,omitempty"`
+	ValidDuringEnd   *time.Time `json:"valid_during_end,omitempty"`
+
+	// Code filters by coupon code (partial match)
+	Code *string `json:"code,omitempty"`
+
+	// Pagination
+	Limit  int `json:"limit"`  // Number of records to return (default: 100, max: 1000)
+	Offset int `json:"offset"` // Number of records to skip (default: 0)
+
+	// OrderBy field name for sorting (default: "created_at")
+	OrderBy string `json:"order_by,omitempty"`
+
+	// OrderDirection "ASC" or "DESC" (default: "DESC")
+	OrderDirection string `json:"order_direction,omitempty"`
+}
+
+// CouponStats contains statistics about coupons
+type CouponStats struct {
+	Total    int64 `json:"total"`    // Total number of coupons
+	Active   int64 `json:"active"`   // Coupons currently valid (valid_from <= now <= valid_to)
+	Expired  int64 `json:"expired"`  // Coupons that have expired (valid_to < now)
+	Upcoming int64 `json:"upcoming"` // Coupons not yet active (valid_from > now)
 }
 
 // CalculateBonusAmount calculates bonus for given currency amount and bonus rate.

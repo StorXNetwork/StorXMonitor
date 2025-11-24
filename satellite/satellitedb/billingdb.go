@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -175,6 +177,166 @@ func (db billingDB) GetCoupons(ctx context.Context) (coupons []billing.Coupons, 
 	return coupons, Error.Wrap(err)
 }
 
+func (db billingDB) GetCouponsWithFilters(ctx context.Context, f billing.CouponFilters) ([]billing.Coupons, int64, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	var (
+		where []string
+		args  []interface{}
+	)
+
+	// Helper to add WHERE conditions cleanly
+	add := func(cond string, val interface{}) {
+		where = append(where, fmt.Sprintf("%s $%d", cond, len(args)+1))
+		args = append(args, val)
+	}
+
+	// Filters
+	if f.DiscountType != nil && *f.DiscountType != "" {
+		add("discount_type =", *f.DiscountType)
+	}
+
+	// Status filter: 1=active, 2=expired, 3=upcoming
+	if f.Status != nil {
+		now := time.Now().UTC()
+		switch *f.Status {
+		case 1: // Active: valid_from <= now <= valid_to
+			where = append(where, fmt.Sprintf("valid_from <= $%d AND valid_to >= $%d", len(args)+1, len(args)+2))
+			args = append(args, now, now)
+		case 2: // Expired: valid_to < now
+			where = append(where, fmt.Sprintf("valid_to < $%d", len(args)+1))
+			args = append(args, now)
+		case 3: // Upcoming: valid_from > now
+			where = append(where, fmt.Sprintf("valid_from > $%d", len(args)+1))
+			args = append(args, now)
+		}
+	}
+
+	// Overlap filter: find coupons valid during a date range
+	// Coupon overlaps with range if: coupon.valid_from <= range_end AND coupon.valid_to >= range_start
+	if f.ValidDuringStart != nil && f.ValidDuringEnd != nil {
+		where = append(where, fmt.Sprintf("valid_from <= $%d AND valid_to >= $%d", len(args)+1, len(args)+2))
+		args = append(args, *f.ValidDuringEnd, *f.ValidDuringStart)
+	}
+
+	if f.Code != nil && *f.Code != "" {
+		add("LOWER(code) LIKE LOWER", "%"+*f.Code+"%")
+	}
+
+	// WHERE clause
+	whereSQL := ""
+	if len(where) > 0 {
+		whereSQL = "WHERE " + strings.Join(where, " AND ")
+	}
+
+	// OrderBy validation
+	allowedOrder := map[string]bool{
+		"code":             true,
+		"discount":         true,
+		"discount_type":    true,
+		"max_discount":     true,
+		"min_order_amount": true,
+		"valid_from":       true,
+		"valid_to":         true,
+		"created_at":       true,
+	}
+
+	orderBy := f.OrderBy
+	if orderBy == "" || !allowedOrder[orderBy] {
+		orderBy = "created_at"
+	}
+
+	orderDir := strings.ToUpper(f.OrderDirection)
+	if orderDir != "ASC" && orderDir != "DESC" {
+		orderDir = "DESC"
+	}
+
+	// Pagination
+	limit := f.Limit
+	offset := f.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Count Query
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM coupons %s", whereSQL)
+	var total int64
+	if err := db.db.DB.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+
+	// Main Query - conditionally add LIMIT/OFFSET only when pagination is needed
+	baseQuery := fmt.Sprintf(`
+		SELECT code, discount, discount_type, max_discount, min_order_amount,
+		       valid_from, valid_to, created_at
+		FROM coupons
+		%s
+		ORDER BY %s %s
+	`, whereSQL, orderBy, orderDir)
+
+	var query string
+	var queryArgs []interface{}
+
+	if limit > 0 {
+		// Add pagination
+		query = baseQuery + fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
+		queryArgs = append(args, limit, offset)
+	} else {
+		// No pagination - return all records
+		query = baseQuery
+		queryArgs = args
+	}
+
+	rows, err := db.db.DB.QueryContext(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+	defer rows.Close()
+
+	var coupons []billing.Coupons
+	for rows.Next() {
+		var c billing.Coupons
+		if err := rows.Scan(
+			&c.Code, &c.Discount, &c.DiscountType,
+			&c.MaxDiscount, &c.MinOrderAmount,
+			&c.ValidFrom, &c.ValidTo, &c.CreatedAt,
+		); err != nil {
+			return nil, 0, Error.Wrap(err)
+		}
+		coupons = append(coupons, c)
+	}
+
+	return coupons, total, rows.Err()
+}
+
+func (db billingDB) GetCouponStats(ctx context.Context) (stats billing.CouponStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now().UTC()
+
+	// Single query to get all counts efficiently
+	query := `
+		SELECT 
+			COUNT(*) as total,
+			COUNT(*) FILTER (WHERE valid_from <= $1 AND valid_to >= $1) as active,
+			COUNT(*) FILTER (WHERE valid_to < $1) as expired,
+			COUNT(*) FILTER (WHERE valid_from > $1) as upcoming
+		FROM coupons
+	`
+
+	err = db.db.DB.QueryRowContext(ctx, query, now).Scan(
+		&stats.Total,
+		&stats.Active,
+		&stats.Expired,
+		&stats.Upcoming,
+	)
+	if err != nil {
+		return billing.CouponStats{}, Error.Wrap(err)
+	}
+
+	return stats, nil
+}
+
 func (db billingDB) GetActiveCoupons(ctx context.Context) (coupons []billing.Coupons, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -202,6 +364,90 @@ func (db billingDB) GetCouponByCode(ctx context.Context, code string) (coupon *b
 	}
 
 	return &c, nil
+}
+
+func (db billingDB) CreateCoupon(ctx context.Context, coupon billing.Coupons) (createdCoupon *billing.Coupons, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Check if coupon already exists
+	existing, err := db.db.Get_Coupon_By_Code(ctx, dbx.Coupon_Code(coupon.Code))
+	if err == nil && existing != nil {
+		return nil, Error.New("coupon with code %s already exists", coupon.Code)
+	}
+
+	// Create new coupon
+	dbxCoupon, err := db.db.Create_Coupon(ctx,
+		dbx.Coupon_Code(coupon.Code),
+		dbx.Coupon_Discount(coupon.Discount),
+		dbx.Coupon_DiscountType(coupon.DiscountType),
+		dbx.Coupon_MaxDiscount(coupon.MaxDiscount),
+		dbx.Coupon_MinOrderAmount(coupon.MinOrderAmount),
+		dbx.Coupon_ValidFrom(coupon.ValidFrom),
+		dbx.Coupon_ValidTo(coupon.ValidTo),
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	c, err := fromDBXCoupon(dbxCoupon)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &c, nil
+}
+
+func (db billingDB) UpdateCoupon(ctx context.Context, code string, coupon billing.Coupons) (updatedCoupon *billing.Coupons, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Check if coupon exists
+	_, err = db.db.Get_Coupon_By_Code(ctx, dbx.Coupon_Code(code))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// Update coupon
+	updateFields := dbx.Coupon_Update_Fields{
+		Discount:       dbx.Coupon_Discount(coupon.Discount),
+		DiscountType:   dbx.Coupon_DiscountType(coupon.DiscountType),
+		MaxDiscount:    dbx.Coupon_MaxDiscount(coupon.MaxDiscount),
+		MinOrderAmount: dbx.Coupon_MinOrderAmount(coupon.MinOrderAmount),
+		ValidFrom:      dbx.Coupon_ValidFrom(coupon.ValidFrom),
+		ValidTo:        dbx.Coupon_ValidTo(coupon.ValidTo),
+	}
+
+	dbxCoupon, err := db.db.Update_Coupon_By_Code(ctx,
+		dbx.Coupon_Code(code),
+		updateFields,
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	c, err := fromDBXCoupon(dbxCoupon)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &c, nil
+}
+
+func (db billingDB) DeleteCoupon(ctx context.Context, code string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Check if coupon exists
+	_, err = db.db.Get_Coupon_By_Code(ctx, dbx.Coupon_Code(code))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// Delete coupon using raw SQL (dbx doesn't have Delete_Coupon method)
+	_, err = db.db.DB.ExecContext(ctx, "DELETE FROM coupons WHERE code = $1", code)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 func (db billingDB) FailPendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) (err error) {
