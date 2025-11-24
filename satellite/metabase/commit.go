@@ -521,6 +521,10 @@ type CommitObject struct {
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
 	Versioned bool
+
+	// VerifyLimits holds a callback by which the caller can interrupt the commit
+	// if it turns out the commit would exceed a limit.
+	VerifyLimits func(encryptedObjectSize int64, nSegments int64) error
 }
 
 // Verify verifies reqest fields.
@@ -589,6 +593,14 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		for _, seg := range finalSegments {
 			totalPlainSize += int64(seg.PlainSize)
 			totalEncryptedSize += int64(seg.EncryptedSize)
+		}
+
+		// Verify limits before committing if callback is provided
+		if opts.VerifyLimits != nil {
+			err = opts.VerifyLimits(totalEncryptedSize, int64(len(segments)))
+			if err != nil {
+				return err
+			}
 		}
 
 		nextStatus := committedWhereVersioned(opts.Versioned)
