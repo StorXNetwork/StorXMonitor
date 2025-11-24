@@ -666,6 +666,186 @@ func extractIPFromRequest(req *http.Request) string {
 	return ip
 }
 
+// parseDeviceInfo extracts device and browser information from User-Agent string.
+func parseDeviceInfo(userAgent string) (device, browser string) {
+	if userAgent == "" {
+		return "Unknown Device", "Unknown Browser"
+	}
+
+	ua := strings.ToLower(userAgent)
+
+	// Detect device type
+	device = "Desktop"
+	if strings.Contains(ua, "mobile") || strings.Contains(ua, "android") || strings.Contains(ua, "iphone") || strings.Contains(ua, "ipod") {
+		device = "Mobile"
+	} else if strings.Contains(ua, "tablet") || strings.Contains(ua, "ipad") {
+		device = "Tablet"
+	}
+
+	// Detect browser
+	browser = "Unknown Browser"
+	browserVersion := ""
+
+	// Chrome
+	if strings.Contains(ua, "chrome") && !strings.Contains(ua, "edg") && !strings.Contains(ua, "opr") {
+		browser = "Chrome"
+		if match := regexp.MustCompile(`chrome/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "safari") && !strings.Contains(ua, "chrome") && !strings.Contains(ua, "crios") {
+		browser = "Safari"
+		if match := regexp.MustCompile(`version/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "firefox") {
+		browser = "Firefox"
+		if match := regexp.MustCompile(`firefox/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "edg") {
+		browser = "Edge"
+		if match := regexp.MustCompile(`edg/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "opr") || strings.Contains(ua, "opera") {
+		browser = "Opera"
+		if match := regexp.MustCompile(`opr/([\d.]+)|opera/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			if match[1] != "" {
+				browserVersion = match[1]
+			} else if len(match) > 2 && match[2] != "" {
+				browserVersion = match[2]
+			}
+		}
+	}
+
+	// Detect OS and append to device
+	os := ""
+	if strings.Contains(ua, "windows") {
+		os = "Windows"
+	} else if strings.Contains(ua, "mac os x") || strings.Contains(ua, "macintosh") {
+		os = "macOS"
+	} else if strings.Contains(ua, "linux") {
+		os = "Linux"
+	} else if strings.Contains(ua, "android") {
+		os = "Android"
+		if match := regexp.MustCompile(`android ([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			os += " " + match[1]
+		}
+	} else if strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod") {
+		os = "iOS"
+		if match := regexp.MustCompile(`os ([\d_]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			os += " " + strings.ReplaceAll(match[1], "_", ".")
+		}
+	}
+
+	// Format device string
+	if os != "" {
+		device = device + " (" + os + ")"
+	}
+
+	// Format browser string
+	if browserVersion != "" {
+		browser = browser + " " + browserVersion
+	}
+
+	return device, browser
+}
+
+// getLocationFromIP gets location information from IP address.
+// Returns location string with state if available, otherwise country or "Unknown Location".
+// This can be enhanced with MaxMind City DB or geolocation API service.
+func getLocationFromIP(ipAddress string) (location, state string) {
+	if ipAddress == "" || ipAddress == "0.0.0.0" || ipAddress == "127.0.0.1" || ipAddress == "::1" {
+		return "Unknown Location", ""
+	}
+
+	// TODO: Enhance this with MaxMind GeoIP2 City database or geolocation API
+	// For now, return a placeholder that can be enhanced
+	// Example implementation would use MaxMind City DB:
+	// - Lookup IP in MaxMind City database
+	// - Extract state/region (subdivisions_iso_code or subdivisions_name)
+	// - Extract country
+	// - Format as "State, Country" or "Country" if state not available
+
+	// Placeholder: Return formatted string
+	// In production, this should use MaxMind City DB or a geolocation API
+	location = "Unknown Location"
+	state = ""
+
+	// For now, we'll return a generic location
+	// This should be replaced with actual geolocation lookup
+	return location, state
+}
+
+// sendLoginNotificationEmail sends email notification for successful login.
+func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ipAddress, userAgent string) {
+	if s.mailService == nil {
+		return
+	}
+
+	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		emailCtx := context.Background()
+		emailUserID := user.ID       // Capture user ID before closure
+		emailUserEmail := user.Email // Capture email before closure
+		emailUserName := user.ShortName
+		if emailUserName == "" {
+			emailUserName = user.FullName
+		}
+		emailIPAddress := ipAddress
+		if emailIPAddress == "" {
+			emailIPAddress = "0.0.0.0"
+		}
+		emailUserAgent := userAgent
+
+		// Parse device and browser information
+		device, browser := parseDeviceInfo(emailUserAgent)
+
+		// Get location from IP
+		location, state := getLocationFromIP(emailIPAddress)
+		locationStr := location
+		if state != "" {
+			locationStr = state + ", " + location
+		}
+
+		// Format login time
+		loginTime := time.Now().Format("January 2, 2006 at 3:04 PM MST")
+
+		// Prepare satellite address
+		satelliteAddress := s.satelliteAddress
+		if satelliteAddress == "" {
+			satelliteAddress = "https://storj.io/"
+		}
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+
+		signInLink := satelliteAddress + "login"
+		contactInfoURL := "https://forum.storj.io" // Default contact info URL
+
+		s.mailService.SendRenderedAsync(
+			emailCtx,
+			[]post.Address{{Address: emailUserEmail, Name: emailUserName}},
+			&LoginNotificationEmail{
+				Username:       emailUserName,
+				Device:         device,
+				Browser:        browser,
+				Location:       locationStr,
+				State:          state,
+				IPAddress:      emailIPAddress,
+				LoginTime:      loginTime,
+				SignInLink:     signInLink,
+				ContactInfoURL: contactInfoURL,
+			},
+		)
+		s.log.Debug("Sent login notification email",
+			zap.Stringer("user_id", emailUserID),
+			zap.String("email", emailUserEmail),
+			zap.String("device", device),
+			zap.String("location", locationStr))
+	}()
+}
+
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
 	sourceIP, forwardedForIP := getRequestingIP(ctx)
 	fields := append(
@@ -2053,6 +2233,9 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 	}()
 
+	// Send email notification for successful login
+	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
+
 	mon.Counter("login_success").Inc(1) //mon:locked
 
 	return response, nil
@@ -2213,6 +2396,9 @@ func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutP
 		}
 	}()
 
+	// Send email notification for successful login
+	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
+
 	return response, nil
 }
 
@@ -2286,6 +2472,9 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 				zap.String("email", user.Email))
 		}
 	}()
+
+	// Send email notification for successful login
+	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
 
 	mon.Counter("login_success").Inc(1) //mon:locked
 

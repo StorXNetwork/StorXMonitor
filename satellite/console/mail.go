@@ -317,5 +317,60 @@ func (*DeveloperAccountCreationEmail) Template() string { return "DeveloperAccou
 
 // Subject gets email subject.
 func (*DeveloperAccountCreationEmail) Subject() string {
-	return "Welcome to StorX Developer Console - Reset Your Password"
+	return "Developer Account Creation"
+}
+
+// AccountActivatedEmail is mailservice template for account activation by admin.
+type AccountActivatedEmail struct {
+	Username              string
+	Origin                string
+	SignInLink            string
+	ContactInfoURL        string
+	TermsAndConditionsURL string
+}
+
+// Template returns email template name.
+func (*AccountActivatedEmail) Template() string { return "AccountActivated" }
+
+// Subject gets email subject.
+func (*AccountActivatedEmail) Subject() string {
+	return "Your Account Has Been Activated"
+}
+
+// AccountDeactivatedEmail is mailservice template for account deactivation by admin.
+type AccountDeactivatedEmail struct {
+	Username              string
+	Origin                string
+	ContactInfoURL        string
+	TermsAndConditionsURL string
+	SupportURL            string
+}
+
+// Template returns email template name.
+func (*AccountDeactivatedEmail) Template() string { return "AccountDeactivated" }
+
+// Subject gets email subject.
+func (*AccountDeactivatedEmail) Subject() string {
+	return "Your Account Has Been Deactivated"
+}
+
+// LoginNotificationEmail is mailservice template for login notifications with device and location.
+type LoginNotificationEmail struct {
+	Username       string
+	Device         string
+	Browser        string
+	Location       string
+	State          string
+	IPAddress      string
+	LoginTime      string
+	SignInLink     string
+	ContactInfoURL string
+}
+
+// Template returns email template name.
+func (*LoginNotificationEmail) Template() string { return "LoginNotification" }
+
+// Subject gets email subject.
+func (*LoginNotificationEmail) Subject() string {
+	return "New Login to Your StorX Account"
 }
