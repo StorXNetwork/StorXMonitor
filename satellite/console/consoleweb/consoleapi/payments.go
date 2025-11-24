@@ -937,17 +937,21 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 
 	timestamp := strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
 
+	// Generate unique client order ID (userID + timestamp)
+	clientOrderID := fmt.Sprintf("%s-%d", user.ID.String(), time.Now().UnixNano())
+
 	requestData := map[string]interface{}{
-		"nonce":        timestamp,
-		"requestURL":   "/api/payment",
-		"email":        user.Email,
-		"amount":       fmt.Sprintf("%0.2f", plan.Price),
-		"currency":     generatePaymentLinkRequest.CryptoMode,
-		"successUrl":   p.gatewayConfig.Pay_Success_RedirectUrl,
-		"description":  "payment is for the new transfer",
-		"failureUrl":   p.gatewayConfig.Pay_Failed_RedirectUrl,
-		"network":      network,
-		"fiatCurrency": "usd",
+		"nonce":         timestamp,
+		"requestURL":    "/api/payment",
+		"email":         user.Email,
+		"amount":        fmt.Sprintf("%0.2f", plan.Price),
+		"currency":      generatePaymentLinkRequest.CryptoMode,
+		"successUrl":    p.gatewayConfig.Pay_Success_RedirectUrl,
+		"description":   "payment is for the new transfer",
+		"failureUrl":    p.gatewayConfig.Pay_Failed_RedirectUrl,
+		"network":       network,
+		"fiatCurrency":  "usd",
+		"clientOrderId": clientOrderID,
 	}
 
 	requestBody, err := json.Marshal(requestData)
