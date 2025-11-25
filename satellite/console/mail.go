@@ -374,3 +374,40 @@ func (*LoginNotificationEmail) Template() string { return "LoginNotification" }
 func (*LoginNotificationEmail) Subject() string {
 	return "New Login to Your StorX Account"
 }
+
+// WelcomeEmail is mailservice template for user registration welcome email.
+type WelcomeEmail struct {
+	Username              string
+	Origin                string
+	SignInLink            string
+	ContactInfoURL        string
+	TermsAndConditionsURL string
+}
+
+// Template returns email template name.
+func (*WelcomeEmail) Template() string { return "Welcome" }
+
+// Subject gets email subject.
+func (*WelcomeEmail) Subject() string {
+	return "Welcome to StorX"
+}
+
+// PlanPurchasedEmail is mailservice template for plan purchase confirmation.
+type PlanPurchasedEmail struct {
+	Username              string
+	PlanName              string
+	Price                 string
+	Credit                string
+	Origin                string
+	SignInLink            string
+	ContactInfoURL        string
+	TermsAndConditionsURL string
+}
+
+// Template returns email template name.
+func (*PlanPurchasedEmail) Template() string { return "PlanPurchased" }
+
+// Subject gets email subject.
+func (*PlanPurchasedEmail) Subject() string {
+	return "Plan Purchase Confirmation - StorX"
+}

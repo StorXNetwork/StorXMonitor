@@ -90,6 +90,33 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		keys.log.Error("failed to write json create api key response", zap.Error(ErrAPIKeysAPI.Wrap(err)))
+		return
+	}
+
+	// Send push notification for API key created (unless it's "Web file browser API key")
+	if !strings.Contains(name, "Web file browser API key") {
+		go func() {
+			// Use background context to avoid cancellation when HTTP request completes
+			notifyCtx := context.Background()
+			consoleUser, err := console.GetUser(ctx)
+			if err == nil {
+				notifyUserID := consoleUser.ID
+				variables := map[string]interface{}{
+					"api_key_name": name,
+					"project_id":   projectID.String(),
+				}
+				if err := keys.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "api_key_created", "account", variables); err != nil {
+					keys.log.Warn("Failed to send push notification for API key created",
+						zap.Stringer("user_id", notifyUserID),
+						zap.String("api_key_name", name),
+						zap.Error(err))
+				} else {
+					keys.log.Debug("Successfully sent push notification for API key created",
+						zap.Stringer("user_id", notifyUserID),
+						zap.String("api_key_name", name))
+				}
+			}
+		}()
 	}
 }
 
@@ -248,7 +275,34 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(accessGrantStr)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
 	}
+
+	// Send push notification for access created (vault category)
+	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+		consoleUser, err := console.GetUser(ctx)
+		if err == nil {
+			notifyUserID := consoleUser.ID
+			creationTime := time.Now().Format(time.RFC3339)
+			variables := map[string]interface{}{
+				"project_id":    id.String(),
+				"creation_time": creationTime,
+				"access_grant":  "created",
+			}
+			if err := keys.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "access_created", "vault", variables); err != nil {
+				keys.log.Warn("Failed to send push notification for access created",
+					zap.Stringer("user_id", notifyUserID),
+					zap.Stringer("project_id", id),
+					zap.Error(err))
+			} else {
+				keys.log.Debug("Successfully sent push notification for access created",
+					zap.Stringer("user_id", notifyUserID),
+					zap.Stringer("project_id", id))
+			}
+		}
+	}()
 }
 
 func createPermissionFromRequest(r *http.Request) *grant.Permission {
@@ -472,6 +526,32 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
+	}
+
+	// Send push notification for API key deleted (skip notification for "Web file browser API key")
+	if !strings.Contains(name, "Web file browser API key") {
+		go func() {
+			// Use background context to avoid cancellation when HTTP request completes
+			notifyCtx := context.Background()
+			consoleUser, err := console.GetUser(ctx)
+			if err == nil {
+				notifyUserID := consoleUser.ID
+				variables := map[string]interface{}{
+					"api_key_name": name,
+					"project_id":   projectID.String(),
+				}
+				if err := keys.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "api_key_deleted", "account", variables); err != nil {
+					keys.log.Warn("Failed to send push notification for API key deleted",
+						zap.Stringer("user_id", notifyUserID),
+						zap.String("api_key_name", name),
+						zap.Error(err))
+				} else {
+					keys.log.Debug("Successfully sent push notification for API key deleted",
+						zap.Stringer("user_id", notifyUserID),
+						zap.String("api_key_name", name))
+				}
+			}
+		}()
 	}
 }
 

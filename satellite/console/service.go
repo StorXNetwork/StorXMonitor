@@ -814,14 +814,14 @@ func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ip
 		// Prepare satellite address
 		satelliteAddress := s.satelliteAddress
 		if satelliteAddress == "" {
-			satelliteAddress = "https://storj.io/"
+			satelliteAddress = "https://storx.io/"
 		}
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
 
 		signInLink := satelliteAddress + "login"
-		contactInfoURL := "https://forum.storj.io" // Default contact info URL
+		contactInfoURL := "https://forum.storx.io" // Default contact info URL
 
 		s.mailService.SendRenderedAsync(
 			emailCtx,
@@ -1714,6 +1714,51 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 				zap.Stringer("user_id", notifyUserID),
 				zap.String("email", notifyEmail))
 		}
+	}()
+
+	// Send welcome email for user registration (all types: regular, Google, LinkedIn)
+	go func() {
+		if s.mailService == nil {
+			s.log.Debug("Mail service not configured, skipping welcome email.")
+			return
+		}
+
+		emailCtx := context.Background()
+		emailUserID := u.ID
+		emailUserEmail := u.Email
+		emailUserName := u.FullName
+		if emailUserName == "" {
+			emailUserName = u.Email
+		}
+
+		// Prepare satellite address
+		origin := s.satelliteAddress
+		if origin == "" {
+			origin = "https://storx.io/"
+		}
+		if !strings.HasSuffix(origin, "/") {
+			origin += "/"
+		}
+
+		signInLink := origin + "login"
+		contactInfoURL := "https://forum.storx.io"                        // Default contact info URL
+		termsAndConditionsURL := "https://www.storj.io/terms-of-service/" // Default terms URL
+
+		s.mailService.SendRenderedAsync(
+			emailCtx,
+			[]post.Address{{Address: emailUserEmail, Name: emailUserName}},
+			&WelcomeEmail{
+				Username:              emailUserName,
+				Origin:                origin,
+				SignInLink:            signInLink,
+				ContactInfoURL:        contactInfoURL,
+				TermsAndConditionsURL: termsAndConditionsURL,
+			},
+		)
+		s.log.Debug("Sent welcome email for user registration",
+			zap.Stringer("user_id", emailUserID),
+			zap.String("email", emailUserEmail),
+			zap.String("source", user.Source))
 	}()
 
 	return u, nil

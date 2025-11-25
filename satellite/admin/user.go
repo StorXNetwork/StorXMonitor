@@ -2508,7 +2508,7 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 
 			origin := server.console.ExternalAddress
 			if origin == "" {
-				origin = "https://storj.io/"
+				origin = "https://storx.io/"
 			}
 			if !strings.HasSuffix(origin, "/") {
 				origin += "/"
@@ -2516,7 +2516,7 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 
 			contactInfoURL := server.console.ContactInfoURL
 			if contactInfoURL == "" {
-				contactInfoURL = "https://forum.storj.io"
+				contactInfoURL = "https://forum.storx.io"
 			}
 			termsAndConditionsURL := server.console.TermsAndConditionsURL
 			if termsAndConditionsURL == "" {
@@ -2649,7 +2649,7 @@ func (server *Server) activateUserAccount(w http.ResponseWriter, r *http.Request
 
 			origin := server.console.ExternalAddress
 			if origin == "" {
-				origin = "https://storj.io/"
+				origin = "https://storx.io/"
 			}
 			if !strings.HasSuffix(origin, "/") {
 				origin += "/"
@@ -2658,7 +2658,7 @@ func (server *Server) activateUserAccount(w http.ResponseWriter, r *http.Request
 			signInLink := origin + "login"
 			contactInfoURL := server.console.ContactInfoURL
 			if contactInfoURL == "" {
-				contactInfoURL = "https://forum.storj.io"
+				contactInfoURL = "https://forum.storx.io"
 			}
 			termsAndConditionsURL := server.console.TermsAndConditionsURL
 			if termsAndConditionsURL == "" {

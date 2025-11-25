@@ -34,6 +34,7 @@ type Config struct {
 	EnableTrialExpirationReminders bool          `help:"enable sending emails about trial expirations" default:"false"`
 	Enable                         bool          `help:"enable sending emails reminding users to verify their email" default:"true"`
 	EnableStorageUsageReminders    bool          `help:"enable sending emails about storage usage" default:"true"`
+	EnableBandwidthUsageReminders  bool          `help:"enable sending push notifications about bandwidth usage" default:"true"`
 }
 
 // Chore checks whether any emails need to be re-sent.
@@ -53,10 +54,12 @@ type Chore struct {
 	useBlockingSend    bool
 	liveAccounting     accounting.Cache
 	projectsDB         console.Projects
+	consoleService     *console.Service    // Optional: for sending push notifications
+	projectUsage       *accounting.Service // For getting bandwidth usage
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.Users, projectsDB console.Projects, liveAccounting accounting.Cache, mailservice *mailservice.Service, config Config, address, supportURL, scheduleMeetingURL string) *Chore {
+func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.Users, projectsDB console.Projects, liveAccounting accounting.Cache, mailservice *mailservice.Service, config Config, address, supportURL, scheduleMeetingURL string, consoleService *console.Service, projectUsage *accounting.Service) *Chore {
 	if !strings.HasSuffix(address, "/") {
 		address += "/"
 	}
@@ -73,6 +76,8 @@ func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.User
 		supportURL:         supportURL,
 		scheduleMeetingURL: scheduleMeetingURL,
 		useBlockingSend:    false,
+		consoleService:     consoleService,
+		projectUsage:       projectUsage,
 	}
 }
 
@@ -96,6 +101,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			err = chore.sendStorageUsageReminders(ctx)
 			if err != nil {
 				chore.log.Error("sending storage usage reminders", zap.Error(err))
+			}
+		}
+		if chore.config.EnableBandwidthUsageReminders {
+			err = chore.sendBandwidthUsageReminders(ctx)
+			if err != nil {
+				chore.log.Error("sending bandwidth usage reminders", zap.Error(err))
 			}
 		}
 		return nil
@@ -308,6 +319,30 @@ func (chore *Chore) sendStorageUsageReminders(ctx context.Context) (err error) {
 			continue
 		}
 
+		// Send push notification when storage reaches 90% (level 3)
+		if currentLevel == 3 && chore.consoleService != nil {
+			go func() {
+				notifyCtx := context.Background()
+				variables := map[string]interface{}{
+					"storage_used_percentage": fmt.Sprintf("%.2f", storageUsed),
+					"project_name":            project.Name,
+					"storage_limit":           fmt.Sprintf("%.2f", project.StorageLimit.GiB()),
+					"storage_used":            fmt.Sprintf("%.2f", float64(usage.Storage)/(1024*1024*1024)), // Convert to GB
+				}
+				if err := chore.consoleService.SendPushNotificationByEventName(notifyCtx, user.ID, "storage_usage_90_percent", "storage", variables); err != nil {
+					chore.log.Warn("Failed to send push notification for storage usage 90%",
+						zap.Stringer("user_id", user.ID),
+						zap.Stringer("project_id", projectID),
+						zap.Error(err))
+				} else {
+					chore.log.Debug("Sent push notification for storage usage 90%",
+						zap.Stringer("user_id", user.ID),
+						zap.Stringer("project_id", projectID),
+						zap.Float64("storage_used_percentage", storageUsed))
+				}
+			}()
+		}
+
 		err = chore.projectsDB.UpdateStorageUsedPercentage(ctx, projectID, storageUsed)
 		if err != nil {
 			chore.log.Error("error updating storage used percentage", zap.Error(err))
@@ -326,4 +361,75 @@ func getStorageUsedLevel(storageUsed float64) int {
 		return 2
 	}
 	return 3
+}
+
+// sendBandwidthUsageReminders sends push notifications to users about their bandwidth usage
+func (chore *Chore) sendBandwidthUsageReminders(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if chore.projectUsage == nil {
+		chore.log.Debug("Project usage service not available, skipping bandwidth usage reminders")
+		return nil
+	}
+
+	// Get all projects
+	projects, err := chore.projectsDB.GetAll(ctx)
+	if err != nil {
+		return errs.New("error getting all projects: %w", err)
+	}
+
+	for _, project := range projects {
+		if project.BandwidthLimit == nil {
+			continue
+		}
+
+		// Get bandwidth usage (past 30 days)
+		bandwidthUsed, err := chore.projectUsage.GetProjectBandwidthTotals(ctx, project.ID)
+		if err != nil {
+			chore.log.Error("error getting bandwidth totals", zap.Stringer("project_id", project.ID), zap.Error(err))
+			continue
+		}
+
+		// Calculate bandwidth percentage
+		bandwidthUsedPercentage := (float64(bandwidthUsed) * 100) / float64(*project.BandwidthLimit)
+
+		// Check if bandwidth reaches 90% (level 3)
+		currentLevel := getStorageUsedLevel(bandwidthUsedPercentage)
+		if currentLevel < 3 {
+			continue
+		}
+
+		// Get project owner
+		user, err := chore.usersDB.Get(ctx, project.OwnerID)
+		if err != nil {
+			chore.log.Error("error getting user", zap.Stringer("project_id", project.ID), zap.Error(err))
+			continue
+		}
+
+		// Send push notification when bandwidth reaches 90% (level 3)
+		if chore.consoleService != nil {
+			go func() {
+				notifyCtx := context.Background()
+				variables := map[string]interface{}{
+					"bandwidth_used_percentage": fmt.Sprintf("%.2f", bandwidthUsedPercentage),
+					"project_name":              project.Name,
+					"bandwidth_limit":           fmt.Sprintf("%.2f", project.BandwidthLimit.GiB()),
+					"bandwidth_used":            fmt.Sprintf("%.2f", float64(bandwidthUsed)/(1024*1024*1024)), // Convert to GB
+				}
+				if err := chore.consoleService.SendPushNotificationByEventName(notifyCtx, user.ID, "bandwidth_usage_90_percent", "bandwidth", variables); err != nil {
+					chore.log.Warn("Failed to send push notification for bandwidth usage 90%",
+						zap.Stringer("user_id", user.ID),
+						zap.Stringer("project_id", project.ID),
+						zap.Error(err))
+				} else {
+					chore.log.Debug("Sent push notification for bandwidth usage 90%",
+						zap.Stringer("user_id", user.ID),
+						zap.Stringer("project_id", project.ID),
+						zap.Float64("bandwidth_used_percentage", bandwidthUsedPercentage))
+				}
+			}()
+		}
+	}
+
+	return nil
 }

@@ -3389,6 +3389,28 @@ true, NOW(), NOW()),
 true, NOW(), NOW());`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "insert API key and vault notification configurations",
+				Version:     298,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`INSERT INTO configs (id, config_type, name, category, config_data, is_active, created_at, updated_at)
+VALUES 
+(decode(replace(gen_random_uuid()::text, '-', ''), 'hex'), 'push', 'api key created', 'account',
+'{"type": "push", "level": 2, "variables": {"api_key_name": {"type": "string", "required": true}, "project_id": {"type": "string", "required": true}, "timestamp": {"type": "string", "required": true}}, "body_template": "API key ''{{.api_key_name}}'' has been created for project {{.project_id}} at {{.timestamp}}", "title_template": "API Key Created", "default_variables": {"api_key_name": "API Key", "project_id": "", "timestamp": "now"}}'::jsonb,
+true, NOW(), NOW()),
+(decode(replace(gen_random_uuid()::text, '-', ''), 'hex'), 'push', 'api key deleted', 'account',
+'{"type": "push", "level": 2, "variables": {"api_key_name": {"type": "string", "required": true}, "project_id": {"type": "string", "required": true}, "timestamp": {"type": "string", "required": true}}, "body_template": "API key ''{{.api_key_name}}'' has been deleted from project {{.project_id}} at {{.timestamp}}", "title_template": "API Key Deleted", "default_variables": {"api_key_name": "API Key", "project_id": "", "timestamp": "now"}}'::jsonb,
+true, NOW(), NOW()),
+(decode(replace(gen_random_uuid()::text, '-', ''), 'hex'), 'push', 'data shared', 'vault',
+'{"type": "push", "level": 2, "variables": {"share_id": {"type": "string", "required": true}, "timestamp": {"type": "string", "required": true}}, "body_template": "Data has been shared{{if .share_id}} (share ID: {{.share_id}}){{end}} at {{.timestamp}}", "title_template": "Data Shared", "default_variables": {"share_id": "", "timestamp": "now"}}'::jsonb,
+true, NOW(), NOW()),
+(decode(replace(gen_random_uuid()::text, '-', ''), 'hex'), 'push', 'access created', 'vault',
+'{"type": "push", "level": 2, "variables": {"project_id": {"type": "string", "required": true}, "creation_time": {"type": "string", "required": true}, "access_grant": {"type": "string", "required": false}, "timestamp": {"type": "string", "required": true}}, "body_template": "Access grant has been created for project {{.project_id}}{{if .creation_time}} at {{.creation_time}}{{else}} at {{.timestamp}}{{end}}", "title_template": "Access Created", "default_variables": {"project_id": "", "creation_time": "now", "access_grant": "created", "timestamp": "now"}}'::jsonb,
+true, NOW(), NOW());`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

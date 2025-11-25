@@ -127,7 +127,7 @@ type Config struct {
 	AuthTokenSecret  string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 	AuthCookieDomain string `help:"optional domain for cookies to use" default:""`
 
-	ContactInfoURL                  string        `help:"url link to contacts page" default:"https://forum.storj.io"`
+	ContactInfoURL                  string        `help:"url link to contacts page" default:"https://forum.storx.io"`
 	ScheduleMeetingURL              string        `help:"url link to schedule a meeting with a storj representative" default:"https://meetings.hubspot.com/tom144/meeting-with-tom-troy"`
 	LetUsKnowURL                    string        `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                             string        `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
@@ -1424,6 +1424,52 @@ func (server *Server) handleContactUs(w http.ResponseWriter, r *http.Request) {
 			Message: contactUsRequest.Message,
 		},
 	)
+
+	// Send push notification to user confirming their query was received
+	go func() {
+		notifyCtx := context.Background()
+		var user *console.User
+		var err error
+
+		// Try to get user from context first (if authenticated)
+		user, err = console.GetUser(ctx)
+		if err != nil {
+			// If not found in context, try to get user by email
+			verifiedUser, _, lookupErr := server.service.GetUserByEmailWithUnverified(notifyCtx, contactUsRequest.Email)
+			if lookupErr == nil && verifiedUser != nil {
+				user = verifiedUser
+			} else {
+				// User not found, skip notification
+				server.log.Debug("User not found for contact us notification",
+					zap.String("email", contactUsRequest.Email),
+					zap.Error(err))
+				return
+			}
+		}
+
+		// Truncate message preview if too long (max 100 characters)
+		messagePreview := contactUsRequest.Message
+		if len(messagePreview) > 100 {
+			messagePreview = messagePreview[:100] + "..."
+		}
+
+		variables := map[string]interface{}{
+			"name":            contactUsRequest.Name,
+			"email":           contactUsRequest.Email,
+			"message_preview": messagePreview,
+		}
+
+		if err := server.service.SendPushNotificationByEventName(notifyCtx, user.ID, "contact_us_submitted", "support", variables); err != nil {
+			server.log.Warn("Failed to send push notification for contact us submission",
+				zap.Stringer("user_id", user.ID),
+				zap.String("email", contactUsRequest.Email),
+				zap.Error(err))
+		} else {
+			server.log.Debug("Successfully sent push notification for contact us submission",
+				zap.Stringer("user_id", user.ID),
+				zap.String("email", contactUsRequest.Email))
+		}
+	}()
 
 	w.WriteHeader(http.StatusNoContent)
 }
