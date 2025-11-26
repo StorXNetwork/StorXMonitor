@@ -90,6 +90,19 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		keys.log.Error("failed to write json create api key response", zap.Error(ErrAPIKeysAPI.Wrap(err)))
+		return
+	}
+
+	// Send push notification for API key created (unless it's "Web file browser API key")
+	if !strings.Contains(name, "Web file browser API key") {
+		consoleUser, err := console.GetUser(ctx)
+		if err == nil {
+			variables := map[string]interface{}{
+				"api_key_name": name,
+				"project_id":   projectID.String(),
+			}
+			keys.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "api_key_created", "account", variables)
+		}
 	}
 }
 
@@ -248,6 +261,19 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(accessGrantStr)
 	if err != nil {
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Send push notification for access created (vault category)
+	consoleUser, err := console.GetUser(ctx)
+	if err == nil {
+		creationTime := time.Now().Format(time.RFC3339)
+		variables := map[string]interface{}{
+			"project_id":    id.String(),
+			"creation_time": creationTime,
+			"access_grant":  "created",
+		}
+		keys.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "access_created", "vault", variables)
 	}
 }
 
@@ -472,6 +498,18 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
+	}
+
+	// Send push notification for API key deleted (skip notification for "Web file browser API key")
+	if !strings.Contains(name, "Web file browser API key") {
+		consoleUser, err := console.GetUser(ctx)
+		if err == nil {
+			variables := map[string]interface{}{
+				"api_key_name": name,
+				"project_id":   projectID.String(),
+			}
+			keys.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "api_key_deleted", "account", variables)
+		}
 	}
 }
 

@@ -130,6 +130,7 @@ type Core struct {
 		Rollup                *rollup.Service
 		RollupArchiveChore    *rolluparchive.Chore
 		ProjectBWCleanupChore *projectbwcleanup.Chore
+		ProjectUsage          *accounting.Service
 	}
 
 	LiveAccounting struct {
@@ -234,31 +235,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "mail:service",
 			Close: peer.Mail.Service.Close,
 		})
-	}
-
-	{ // setup email reminders
-		if config.EmailReminders.Enable {
-			authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
-
-			peer.Mail.EmailReminders = emailreminders.NewChore(
-				peer.Log.Named("console:chore"),
-				authTokens,
-				peer.DB.Console().Users(),
-				peer.DB.Console().Projects(),
-				liveAccounting,
-				peer.Mail.Service,
-				config.EmailReminders,
-				config.Console.ExternalAddress,
-				config.Console.GeneralRequestURL,
-				config.Console.ScheduleMeetingURL,
-			)
-
-			peer.Services.Add(lifecycle.Item{
-				Name:  "mail:email-reminders",
-				Run:   peer.Mail.EmailReminders.Run,
-				Close: peer.Mail.EmailReminders.Close,
-			})
-		}
 	}
 
 	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
@@ -433,6 +409,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Project Bandwidth Rollup", peer.Accounting.ProjectBWCleanupChore.Loop))
 
+		// Setup accounting project usage
+		peer.Accounting.ProjectUsage = accounting.NewService(
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Cache,
+			*metabaseDB,
+			config.LiveAccounting.BandwidthCacheTTL,
+			config.Console.Config.UsageLimits.Storage.Free,
+			config.Console.Config.UsageLimits.Bandwidth.Free,
+			config.Console.Config.UsageLimits.Segment.Free,
+			config.LiveAccounting.AsOfSystemInterval,
+		)
+
 		if config.RollupArchive.Enabled {
 			peer.Accounting.RollupArchiveChore = rolluparchive.New(peer.Log.Named("accounting:rollup-archive"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), config.RollupArchive)
 			peer.Services.Add(lifecycle.Item{
@@ -455,6 +443,33 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Analytics.Service.Run,
 			Close: peer.Analytics.Service.Close,
 		})
+	}
+
+	{ // setup email reminders (after accounting to have access to ProjectUsage)
+		if config.EmailReminders.Enable {
+			authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
+
+			peer.Mail.EmailReminders = emailreminders.NewChore(
+				peer.Log.Named("console:chore"),
+				authTokens,
+				peer.DB.Console().Users(),
+				peer.DB.Console().Projects(),
+				liveAccounting,
+				peer.Mail.Service,
+				config.EmailReminders,
+				config.Console.ExternalAddress,
+				config.Console.GeneralRequestURL,
+				config.Console.ScheduleMeetingURL,
+				nil,                          // consoleService not available in core.go, pass nil
+				peer.Accounting.ProjectUsage, // Pass projectUsage service
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "mail:email-reminders",
+				Run:   peer.Mail.EmailReminders.Run,
+				Close: peer.Mail.EmailReminders.Close,
+			})
+		}
 	}
 
 	// TODO: remove in future, should be in API

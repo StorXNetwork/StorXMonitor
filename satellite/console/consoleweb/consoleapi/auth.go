@@ -3142,47 +3142,16 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	consoleUser, err := console.GetUser(ctx)
 	if err == nil {
 		// Send general settings updated notification
-		go func() {
-			// Use background context to avoid cancellation when HTTP request completes
-			notifyCtx := context.Background()
-			notifyUserID := consoleUser.ID   // Capture user ID before closure
-			notifyEmail := consoleUser.Email // Capture email before closure
-			// Send notification asynchronously - don't fail settings update if notification fails
-			if err := a.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "settings_updated", "account", nil); err != nil {
-				a.log.Warn("Failed to send push notification for settings update",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail),
-					zap.Error(err))
-			} else {
-				a.log.Debug("Successfully sent push notification for settings update",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail))
-			}
-		}()
+		a.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "settings_updated", "account", nil)
 
 		// Send specific notification for session duration change
 		if updateInfo.SessionDuration != nil {
-			go func() {
-				// Use background context to avoid cancellation when HTTP request completes
-				notifyCtx := context.Background()
-				notifyUserID := consoleUser.ID   // Capture user ID before closure
-				notifyEmail := consoleUser.Email // Capture email before closure
-				// Convert duration from nanoseconds to minutes
-				sessionMinutes := int(*updateInfo.SessionDuration / int64(time.Minute))
-				variables := map[string]interface{}{
-					"session_minutes": sessionMinutes,
-				}
-				if err := a.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "session_times_changed", "account", variables); err != nil {
-					a.log.Warn("Failed to send push notification for session times changed",
-						zap.Stringer("user_id", notifyUserID),
-						zap.String("email", notifyEmail),
-						zap.Error(err))
-				} else {
-					a.log.Debug("Successfully sent push notification for session times changed",
-						zap.Stringer("user_id", notifyUserID),
-						zap.String("email", notifyEmail))
-				}
-			}()
+			// Convert duration from nanoseconds to minutes
+			sessionMinutes := int(*updateInfo.SessionDuration / int64(time.Minute))
+			variables := map[string]interface{}{
+				"session_minutes": sessionMinutes,
+			}
+			a.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "session_times_changed", "account", variables)
 		}
 	}
 

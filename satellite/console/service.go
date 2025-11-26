@@ -277,13 +277,7 @@ func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userI
 	}
 
 	// Find the first active push config for this category
-	var pushConfig *configs.Config
-	for i := range configsList {
-		if configsList[i].IsActive && configsList[i].ConfigType == pushConfigType {
-			pushConfig = &configsList[i]
-			break
-		}
-	}
+	pushConfig := s.findActivePushConfig(configsList, pushConfigType)
 
 	// If no push config found, allow notification by default
 	if pushConfig == nil {
@@ -316,98 +310,141 @@ func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userI
 // rendering templates from config_data, and sending the notification.
 // Variables can be nil - defaults from config_data will be used. Runtime variables override defaults.
 func (s *Service) SendPushNotificationByEventName(ctx context.Context, userID uuid.UUID, eventName string, category string, variables map[string]interface{}) error {
-	// Convert event name (e.g., "account_frozen") to config name (e.g., "account frozen")
-	configName := strings.ReplaceAll(eventName, "_", " ")
-
-	// Get configs service
-	configsDB := s.GetConfigs()
-	configsService := configs.NewService(configsDB)
-
-	// Get config by name
-	pushConfigType := configs.ConfigTypeNotificationTemplate
-	config, err := configsService.GetConfigByName(ctx, pushConfigType, configName)
+	notification, err := s.buildNotificationFromEvent(ctx, userID, eventName, variables)
 	if err != nil {
-		// If config not found, log warning and return (don't send notification)
+		return err
+	}
+
+	return s.SendPushNotificationWithPreferences(ctx, userID, category, notification)
+}
+
+// SendNotificationAsync sends a push notification asynchronously in a goroutine.
+// This function handles context creation, error logging, and all the boilerplate
+// required for sending notifications without blocking the HTTP request.
+func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventName string, category string, variables map[string]interface{}) {
+	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		notifyCtx := context.Background()
+
+		// Create a descriptive log message based on event name
+		eventDescription := strings.ReplaceAll(eventName, "_", " ")
+
+		if err := s.SendPushNotificationByEventName(notifyCtx, userID, eventName, category, variables); err != nil {
+			s.log.Warn("Failed to send push notification",
+				zap.String("event", eventName),
+				zap.String("description", eventDescription),
+				zap.Stringer("user_id", userID),
+				zap.String("email", email),
+				zap.Error(err))
+		} else {
+			s.log.Debug("Successfully sent push notification",
+				zap.String("event", eventName),
+				zap.String("description", eventDescription),
+				zap.Stringer("user_id", userID),
+				zap.String("email", email))
+		}
+	}()
+}
+
+// buildNotificationFromEvent builds a notification from event name and variables.
+func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UUID, eventName string, variables map[string]interface{}) (pushnotifications.Notification, error) {
+	configName := strings.ReplaceAll(eventName, "_", " ")
+	templateData, configData, err := s.getTemplateData(ctx, eventName, configName, userID)
+	if err != nil {
+		return pushnotifications.Notification{}, err
+	}
+
+	mergedVars := configs.MergeUserPreferences(templateData.DefaultVariables, nil, variables)
+	s.handleSpecialVariables(mergedVars)
+
+	if err := configs.ValidateVariables(templateData, mergedVars); err != nil {
+		s.log.Warn("Failed to validate template variables",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return pushnotifications.Notification{}, Error.Wrap(err)
+	}
+
+	title, body, _, err := configs.NewRenderer().RenderTemplate(templateData, mergedVars)
+	if err != nil {
+		s.log.Warn("Failed to render push notification template",
+			zap.String("event_name", eventName),
+			zap.Stringer("user_id", userID),
+			zap.Error(err))
+		return pushnotifications.Notification{}, Error.Wrap(err)
+	}
+
+	return pushnotifications.Notification{
+		Title:    title,
+		Body:     body,
+		Data:     s.buildNotificationData(eventName, mergedVars),
+		Priority: mapLevelToPriority(configs.GetConfigLevel(configData)),
+	}, nil
+}
+
+// getTemplateData retrieves and parses template data for a notification event.
+func (s *Service) getTemplateData(ctx context.Context, eventName, configName string, userID uuid.UUID) (configs.TemplateData, map[string]interface{}, error) {
+	var templateData configs.TemplateData
+
+	config, err := configs.NewService(s.GetConfigs()).GetConfigByName(ctx, configs.ConfigTypeNotificationTemplate, configName)
+	if err != nil {
 		s.log.Warn("Failed to get push notification config by name",
 			zap.String("event_name", eventName),
 			zap.String("config_name", configName),
-			zap.String("category", category),
 			zap.Stringer("user_id", userID),
 			zap.Error(err))
-		return Error.Wrap(err)
+		return templateData, nil, Error.Wrap(err)
 	}
 
-	// Parse template data from config
-	var templateData configs.TemplateData
 	configDataJSON, err := json.Marshal(config.ConfigData)
 	if err != nil {
 		s.log.Warn("Failed to marshal config data",
 			zap.String("event_name", eventName),
 			zap.Stringer("user_id", userID),
 			zap.Error(err))
-		return Error.Wrap(err)
+		return templateData, nil, Error.Wrap(err)
 	}
+
 	if err := json.Unmarshal(configDataJSON, &templateData); err != nil {
 		s.log.Warn("Failed to parse template data",
 			zap.String("event_name", eventName),
 			zap.Stringer("user_id", userID),
 			zap.Error(err))
-		return Error.Wrap(err)
+		return templateData, nil, Error.Wrap(err)
 	}
 
-	// Merge default variables with runtime variables (runtime variables override defaults)
-	mergedVars := configs.MergeUserPreferences(templateData.DefaultVariables, nil, variables)
+	return templateData, config.ConfigData, nil
+}
 
-	// Handle special "now" timestamp
-	if timestamp, ok := mergedVars["timestamp"]; ok {
-		if tsStr, ok := timestamp.(string); ok && tsStr == "now" {
-			mergedVars["timestamp"] = time.Now().Format(time.RFC3339)
+// findActivePushConfig finds the first active push config in the list.
+func (s *Service) findActivePushConfig(configsList []configs.Config, configType configs.ConfigType) *configs.Config {
+	for i := range configsList {
+		if configsList[i].IsActive && configsList[i].ConfigType == configType {
+			return &configsList[i]
 		}
 	}
+	return nil
+}
 
-	// Validate required variables
-	if err := configs.ValidateVariables(templateData, mergedVars); err != nil {
-		s.log.Warn("Failed to validate template variables",
-			zap.String("event_name", eventName),
-			zap.Stringer("user_id", userID),
-			zap.Error(err))
-		return Error.Wrap(err)
+// handleSpecialVariables processes special variable values like "now" timestamp.
+func (s *Service) handleSpecialVariables(variables map[string]interface{}) {
+	if timestamp, ok := variables["timestamp"]; ok {
+		if tsStr, ok := timestamp.(string); ok && tsStr == "now" {
+			variables["timestamp"] = time.Now().Format(time.RFC3339)
+		}
 	}
+}
 
-	// Render templates
-	renderer := configs.NewRenderer()
-	title, body, _, err := renderer.RenderTemplate(templateData, mergedVars)
-	if err != nil {
-		s.log.Warn("Failed to render push notification template",
-			zap.String("event_name", eventName),
-			zap.Stringer("user_id", userID),
-			zap.Error(err))
-		return Error.Wrap(err)
-	}
-
-	// Extract level from config_data and map to priority
-	configLevel := configs.GetConfigLevel(config.ConfigData)
-	priority := mapLevelToPriority(configLevel)
-
-	// Build data map - include event name and all variables as strings
+// buildNotificationData builds the data map for the notification.
+func (s *Service) buildNotificationData(eventName string, variables map[string]interface{}) map[string]string {
 	data := make(map[string]string)
 	data["event"] = eventName
-	for k, v := range mergedVars {
+	for k, v := range variables {
 		if v != nil {
 			data[k] = fmt.Sprintf("%v", v)
 		}
 	}
-
-	// Build notification
-	notification := pushnotifications.Notification{
-		Title:    title,
-		Body:     body,
-		Data:     data,
-		Priority: priority,
-	}
-
-	// Send notification with preferences check
-	return s.SendPushNotificationWithPreferences(ctx, userID, category, notification)
+	return data
 }
 
 // mapLevelToPriority maps config level (1-4) to priority string.
@@ -637,33 +674,184 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 	return "", ""
 }
 
-// extractIPFromRequest extracts IP address from HTTP request
-func extractIPFromRequest(req *http.Request) string {
-	// Check X-Forwarded-For header (first IP in the chain)
-	forwarded := req.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		ips := strings.Split(forwarded, ",")
-		if len(ips) > 0 {
-			ip := strings.TrimSpace(ips[0])
-			if ip != "" {
-				return ip
+// parseDeviceInfo extracts device and browser information from User-Agent string.
+func parseDeviceInfo(userAgent string) (device, browser string) {
+	if userAgent == "" {
+		return "Unknown Device", "Unknown Browser"
+	}
+
+	ua := strings.ToLower(userAgent)
+
+	// Detect device type
+	device = "Desktop"
+	if strings.Contains(ua, "mobile") || strings.Contains(ua, "android") || strings.Contains(ua, "iphone") || strings.Contains(ua, "ipod") {
+		device = "Mobile"
+	} else if strings.Contains(ua, "tablet") || strings.Contains(ua, "ipad") {
+		device = "Tablet"
+	}
+
+	// Detect browser
+	browser = "Unknown Browser"
+	browserVersion := ""
+
+	// Chrome
+	if strings.Contains(ua, "chrome") && !strings.Contains(ua, "edg") && !strings.Contains(ua, "opr") {
+		browser = "Chrome"
+		if match := regexp.MustCompile(`chrome/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "safari") && !strings.Contains(ua, "chrome") && !strings.Contains(ua, "crios") {
+		browser = "Safari"
+		if match := regexp.MustCompile(`version/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "firefox") {
+		browser = "Firefox"
+		if match := regexp.MustCompile(`firefox/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "edg") {
+		browser = "Edge"
+		if match := regexp.MustCompile(`edg/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "opr") || strings.Contains(ua, "opera") {
+		browser = "Opera"
+		if match := regexp.MustCompile(`opr/([\d.]+)|opera/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			if match[1] != "" {
+				browserVersion = match[1]
+			} else if len(match) > 2 && match[2] != "" {
+				browserVersion = match[2]
 			}
 		}
 	}
 
-	// Check X-Real-IP header
-	realIP := req.Header.Get("X-Real-IP")
-	if realIP != "" {
-		return strings.TrimSpace(realIP)
+	// Detect OS and append to device
+	os := ""
+	if strings.Contains(ua, "windows") {
+		os = "Windows"
+	} else if strings.Contains(ua, "mac os x") || strings.Contains(ua, "macintosh") {
+		os = "macOS"
+	} else if strings.Contains(ua, "linux") {
+		os = "Linux"
+	} else if strings.Contains(ua, "android") {
+		os = "Android"
+		if match := regexp.MustCompile(`android ([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			os += " " + match[1]
+		}
+	} else if strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod") {
+		os = "iOS"
+		if match := regexp.MustCompile(`os ([\d_]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			os += " " + strings.ReplaceAll(match[1], "_", ".")
+		}
 	}
 
-	// Fall back to RemoteAddr
-	ip := req.RemoteAddr
-	// Remove port if present (format: "IP:port")
-	if idx := strings.LastIndex(ip, ":"); idx != -1 {
-		ip = ip[:idx]
+	// Format device string
+	if os != "" {
+		device = device + " (" + os + ")"
 	}
-	return ip
+
+	// Format browser string
+	if browserVersion != "" {
+		browser = browser + " " + browserVersion
+	}
+
+	return device, browser
+}
+
+// getLocationFromIP gets location information from IP address.
+// Returns location string with state if available, otherwise country or "Unknown Location".
+// This can be enhanced with MaxMind City DB or geolocation API service.
+func getLocationFromIP(ipAddress string) (location, state string) {
+	if ipAddress == "" || ipAddress == "0.0.0.0" || ipAddress == "127.0.0.1" || ipAddress == "::1" {
+		return "Unknown Location", ""
+	}
+
+	// TODO: Enhance this with MaxMind GeoIP2 City database or geolocation API
+	// For now, return a placeholder that can be enhanced
+	// Example implementation would use MaxMind City DB:
+	// - Lookup IP in MaxMind City database
+	// - Extract state/region (subdivisions_iso_code or subdivisions_name)
+	// - Extract country
+	// - Format as "State, Country" or "Country" if state not available
+
+	// Placeholder: Return formatted string
+	// In production, this should use MaxMind City DB or a geolocation API
+	location = "Unknown Location"
+	state = ""
+
+	// For now, we'll return a generic location
+	// This should be replaced with actual geolocation lookup
+	return location, state
+}
+
+// sendLoginNotificationEmail sends email notification for successful login.
+func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ipAddress, userAgent string) {
+	if s.mailService == nil {
+		return
+	}
+
+	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		emailCtx := context.Background()
+		emailUserID := user.ID       // Capture user ID before closure
+		emailUserEmail := user.Email // Capture email before closure
+		emailUserName := user.ShortName
+		if emailUserName == "" {
+			emailUserName = user.FullName
+		}
+		emailIPAddress := ipAddress
+		if emailIPAddress == "" {
+			emailIPAddress = "0.0.0.0"
+		}
+		emailUserAgent := userAgent
+
+		// Parse device and browser information
+		device, browser := parseDeviceInfo(emailUserAgent)
+
+		// Get location from IP
+		location, state := getLocationFromIP(emailIPAddress)
+		locationStr := location
+		if state != "" {
+			locationStr = state + ", " + location
+		}
+
+		// Format login time
+		loginTime := time.Now().Format("January 2, 2006 at 3:04 PM MST")
+
+		// Prepare satellite address
+		satelliteAddress := s.satelliteAddress
+		if satelliteAddress == "" {
+			satelliteAddress = "https://storx.io/"
+		}
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+
+		signInLink := satelliteAddress + "login"
+		contactInfoURL := "https://forum.storx.io" // Default contact info URL
+
+		s.mailService.SendRenderedAsync(
+			emailCtx,
+			[]post.Address{{Address: emailUserEmail, Name: emailUserName}},
+			&LoginNotificationEmail{
+				Username:       emailUserName,
+				Device:         device,
+				Browser:        browser,
+				Location:       locationStr,
+				State:          state,
+				IPAddress:      emailIPAddress,
+				LoginTime:      loginTime,
+				SignInLink:     signInLink,
+				ContactInfoURL: contactInfoURL,
+			},
+		)
+		s.log.Debug("Sent login notification email",
+			zap.Stringer("user_id", emailUserID),
+			zap.String("email", emailUserEmail),
+			zap.String("device", device),
+			zap.String("location", locationStr))
+	}()
 }
 
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
@@ -688,6 +876,24 @@ func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.U
 	s.auditLogger.Info("console activity", fields...)
 }
 
+// convertToHTTPError converts a regular error to HTTPError with appropriate status.
+// If user is not authenticated, returns 401. Otherwise uses defaultStatus.
+func (s *Service) convertToHTTPError(ctx context.Context, err error, defaultStatus int) api.HTTPError {
+	if err == nil {
+		return api.HTTPError{}
+	}
+	status := defaultStatus
+	if _, ctxErr := GetUser(ctx); ctxErr != nil {
+		status = http.StatusUnauthorized
+	} else if ErrUnauthorized.Has(err) {
+		status = http.StatusUnauthorized
+	}
+	return api.HTTPError{
+		Status: status,
+		Err:    err,
+	}
+}
+
 func (s *Service) getUserAndAuditLog(ctx context.Context, operation string, extra ...zap.Field) (*User, error) {
 	user, err := GetUser(ctx)
 	if err != nil {
@@ -706,23 +912,9 @@ func (s *Service) getUserAndAuditLog(ctx context.Context, operation string, extr
 	return user, nil
 }
 
-// boris
+// GetUserAndAuditLog is a public wrapper for getUserAndAuditLog.
 func (s *Service) GetUserAndAuditLog(ctx context.Context, operation string, extra ...zap.Field) (*User, error) {
-	user, err := GetUser(ctx)
-	if err != nil {
-		sourceIP, forwardedForIP := getRequestingIP(ctx)
-		s.auditLogger.Info("console activity unauthorized",
-			append(append(
-				make([]zap.Field, 0, len(extra)+4),
-				zap.String("operation", operation),
-				zap.Error(err),
-				zap.String("source-ip", sourceIP),
-				zap.String("forwarded-for-ip", forwardedForIP),
-			), extra...)...)
-		return nil, err
-	}
-	s.auditLog(ctx, operation, &user.ID, user.Email, extra...)
-	return user, nil
+	return s.getUserAndAuditLog(ctx, operation, extra...)
 }
 
 // Payments separates all payment related functionality.
@@ -778,27 +970,11 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 	}
 
 	// Send push notification for credit card added
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		cardLast4 := card.Last4
-		cardBrand := card.Brand
-		variables := map[string]interface{}{
-			"last_four": cardLast4,
-			"card_type": cardBrand,
-		}
-		if err := payment.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "credit_card_added", "billing", variables); err != nil {
-			payment.service.log.Warn("Failed to send push notification for credit card added",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			payment.service.log.Debug("Successfully sent push notification for credit card added",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	variables := map[string]interface{}{
+		"last_four": card.Last4,
+		"card_type": card.Brand,
+	}
+	payment.service.SendNotificationAsync(user.ID, user.Email, "credit_card_added", "billing", variables)
 
 	return card, nil
 }
@@ -827,27 +1003,11 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 	}
 
 	// Send push notification for credit card added (by payment method ID)
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		cardLast4 := card.Last4
-		cardBrand := card.Brand
-		variables := map[string]interface{}{
-			"last_four": cardLast4,
-			"card_type": cardBrand,
-		}
-		if err := payment.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "credit_card_added", "billing", variables); err != nil {
-			payment.service.log.Warn("Failed to send push notification for credit card added",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			payment.service.log.Debug("Successfully sent push notification for credit card added",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	variables := map[string]interface{}{
+		"last_four": card.Last4,
+		"card_type": card.Brand,
+	}
+	payment.service.SendNotificationAsync(user.ID, user.Email, "credit_card_added", "billing", variables)
 
 	return card, nil
 }
@@ -921,21 +1081,7 @@ func (payment Payments) MakeCreditCardDefault(ctx context.Context, cardID string
 	}
 
 	// Send push notification for default credit card changed
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		if err := payment.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "default_credit_card_changed", "billing", nil); err != nil {
-			payment.service.log.Warn("Failed to send push notification for default credit card changed",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			payment.service.log.Debug("Successfully sent push notification for default credit card changed",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	payment.service.SendNotificationAsync(user.ID, user.Email, "default_credit_card_changed", "billing", nil)
 
 	return nil
 }
@@ -991,24 +1137,10 @@ func (payment Payments) RemoveCreditCard(ctx context.Context, cardID string) (er
 	}
 
 	// Send push notification for credit card removed
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		variables := map[string]interface{}{
-			"last_four": cardLast4,
-		}
-		if err := payment.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "credit_card_removed", "billing", variables); err != nil {
-			payment.service.log.Warn("Failed to send push notification for credit card removed",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			payment.service.log.Debug("Successfully sent push notification for credit card removed",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	variables := map[string]interface{}{
+		"last_four": cardLast4,
+	}
+	payment.service.SendNotificationAsync(user.ID, user.Email, "credit_card_removed", "billing", variables)
 
 	return nil
 }
@@ -1495,45 +1627,60 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	mon.Counter("create_user_success").Inc(1) //mon:locked
 
 	// Send push notification for user sign up
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-		variables := map[string]interface{}{
-			"email": notifyEmail,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "user_sign_up", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for user sign up",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for user sign up",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	variables := map[string]interface{}{
+		"email": u.Email,
+	}
+	s.SendNotificationAsync(u.ID, u.Email, "user_sign_up", "account", variables)
 
 	// Send push notification for registered successfully
+	variables = map[string]interface{}{
+		"email": u.Email,
+	}
+	s.SendNotificationAsync(u.ID, u.Email, "registered_successfully", "account", variables)
+
+	// Send welcome email for user registration (all types: regular, Google, LinkedIn)
 	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-		variables := map[string]interface{}{
-			"email": notifyEmail,
+		if s.mailService == nil {
+			s.log.Debug("Mail service not configured, skipping welcome email.")
+			return
 		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "registered_successfully", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for registered successfully",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for registered successfully",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
+
+		emailCtx := context.Background()
+		emailUserID := u.ID
+		emailUserEmail := u.Email
+		emailUserName := u.FullName
+		if emailUserName == "" {
+			emailUserName = u.Email
 		}
+
+		// Prepare satellite address
+		origin := s.satelliteAddress
+		if origin == "" {
+			origin = "https://storx.io/"
+		}
+		if !strings.HasSuffix(origin, "/") {
+			origin += "/"
+		}
+
+		signInLink := origin + "login"
+		contactInfoURL := "https://forum.storx.io"                        // Default contact info URL
+		termsAndConditionsURL := "https://www.storj.io/terms-of-service/" // Default terms URL
+
+		s.mailService.SendRenderedAsync(
+			emailCtx,
+			[]post.Address{{Address: emailUserEmail, Name: emailUserName}},
+			&WelcomeEmail{
+				Username:              emailUserName,
+				Origin:                origin,
+				SignInLink:            signInLink,
+				ContactInfoURL:        contactInfoURL,
+				TermsAndConditionsURL: termsAndConditionsURL,
+			},
+		)
+		s.log.Debug("Sent welcome email for user registration",
+			zap.Stringer("user_id", emailUserID),
+			zap.String("email", emailUserEmail),
+			zap.String("source", user.Source))
 	}()
 
 	return u, nil
@@ -1696,25 +1843,10 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
 
 	// Send push notification for account activated
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID   // Capture user ID before closure
-		notifyEmail := user.Email // Capture email before closure
-		variables := map[string]interface{}{
-			"email": notifyEmail,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "account_activated", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for account activated",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for account activated",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	variables := map[string]interface{}{
+		"email": user.Email,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "account_activated", "account", variables)
 
 	return nil
 }
@@ -2028,30 +2160,19 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	}
 
 	// Send push notification for successful login
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		ipAddress := request.IP
-		if ipAddress == "" {
-			ipAddress = "0.0.0.0"
-		}
-		location := "Unknown Location" // Could be enhanced with geolocation lookup
-		variables := map[string]interface{}{
-			"ip_address": ipAddress,
-			"location":   location,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "logged_in_successfully", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for login",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for login",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	ipAddress := request.IP
+	if ipAddress == "" {
+		ipAddress = "0.0.0.0"
+	}
+	location := "Unknown Location" // Could be enhanced with geolocation lookup
+	variables := map[string]interface{}{
+		"ip_address": ipAddress,
+		"location":   location,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+
+	// Send email notification for successful login
+	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
 
 	mon.Counter("login_success").Inc(1) //mon:locked
 
@@ -2188,30 +2309,19 @@ func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutP
 	}
 
 	// Send push notification for successful login (MFA flow)
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		ipAddress := request.IP
-		if ipAddress == "" {
-			ipAddress = "0.0.0.0"
-		}
-		location := "Unknown Location" // Could be enhanced with geolocation lookup
-		variables := map[string]interface{}{
-			"ip_address": ipAddress,
-			"location":   location,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "logged_in_successfully", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for login",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for login",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	ipAddress := request.IP
+	if ipAddress == "" {
+		ipAddress = "0.0.0.0"
+	}
+	location := "Unknown Location" // Could be enhanced with geolocation lookup
+	variables := map[string]interface{}{
+		"ip_address": ipAddress,
+		"location":   location,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+
+	// Send email notification for successful login
+	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
 
 	return response, nil
 }
@@ -2262,30 +2372,19 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 	}
 
 	// Send push notification for successful login (Google OAuth)
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		ipAddress := request.IP
-		if ipAddress == "" {
-			ipAddress = "0.0.0.0"
-		}
-		location := "Unknown Location" // Could be enhanced with geolocation lookup
-		variables := map[string]interface{}{
-			"ip_address": ipAddress,
-			"location":   location,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "logged_in_successfully", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for Google login",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for Google login",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	ipAddress := request.IP
+	if ipAddress == "" {
+		ipAddress = "0.0.0.0"
+	}
+	location := "Unknown Location" // Could be enhanced with geolocation lookup
+	variables := map[string]interface{}{
+		"ip_address": ipAddress,
+		"location":   location,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+
+	// Send email notification for successful login
+	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
 
 	mon.Counter("login_success").Inc(1) //mon:locked
 
@@ -2363,10 +2462,7 @@ func (s *Service) GenGetUser(ctx context.Context) (*ResponseUser, api.HTTPError)
 
 	user, err := s.getUserAndAuditLog(ctx, "get user")
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	respUser := &ResponseUser{
@@ -2476,25 +2572,11 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	}
 
 	// Send push notification for name change
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		variables := map[string]interface{}{
-			"old_name": oldName,
-			"new_name": fullName,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "name_changed_successfully", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for name change",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for name change",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	variables := map[string]interface{}{
+		"old_name": oldName,
+		"new_name": fullName,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "name_changed_successfully", "account", variables)
 
 	return nil
 }
@@ -2519,21 +2601,7 @@ func (s *Service) UpdateAccountInfo(ctx context.Context, updateinfo *UpdateUserS
 	}
 
 	// Send push notification for profile update
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "profile_updated", "account", nil); err != nil {
-			s.log.Warn("Failed to send push notification for profile update",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for profile update",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	s.SendNotificationAsync(user.ID, user.Email, "profile_updated", "account", nil)
 
 	return nil
 }
@@ -2662,23 +2730,8 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	}
 
 	// Send push notification for password changed successfully
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		// IP and location not easily accessible here, will use defaults
-		variables := map[string]interface{}{}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "password_changed_successfully", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for password changed",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for password changed",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	variables := map[string]interface{}{}
+	s.SendNotificationAsync(user.ID, user.Email, "password_changed_successfully", "account", variables)
 
 	return nil
 }
@@ -2868,18 +2921,12 @@ func (s *Service) GenGetUsersProjects(ctx context.Context) (ps []Project, httpEr
 
 	user, err := s.getUserAndAuditLog(ctx, "get users projects")
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	ps, err = s.store.Projects().GetByUserID(ctx, user.ID)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	return
@@ -2975,26 +3022,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		if numBefore >= limit {
 			s.analytics.TrackProjectLimitError(user.ID, user.Email)
 			// Send push notification for project limit error (before returning error)
-			go func() {
-				// Use background context to avoid cancellation when HTTP request completes
-				notifyCtx := context.Background()
-				notifyUserID := user.ID // Capture user ID before closure
-				projectName := p.Name   // Capture project name
-				variables := map[string]interface{}{
-					"project_name": projectName,
-					"limit_type":   "project",
-				}
-				if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_limit_error", "account", variables); err != nil {
-					s.log.Warn("Failed to send push notification for project limit error",
-						zap.Stringer("user_id", notifyUserID),
-						zap.String("email", user.Email),
-						zap.Error(err))
-				} else {
-					s.log.Debug("Successfully sent push notification for project limit error",
-						zap.Stringer("user_id", notifyUserID),
-						zap.String("email", user.Email))
-				}
-			}()
+			variables := map[string]interface{}{
+				"project_name": p.Name,
+				"limit_type":   "project",
+			}
+			s.SendNotificationAsync(user.ID, user.Email, "project_limit_error", "account", variables)
 			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
 		}
 
@@ -3015,25 +3047,10 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1)
 
 	// Send push notification for project created
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID         // Capture user ID before closure
-		projectName := projectInfo.Name // Capture project name from input
-		variables := map[string]interface{}{
-			"project_name": projectName,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_created", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for project created",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for project created",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	variables := map[string]interface{}{
+		"project_name": projectInfo.Name,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "project_created", "account", variables)
 
 	return p, nil
 }
@@ -3045,14 +3062,7 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo UpsertProjec
 
 	p, err = s.CreateProject(ctx, projectInfo)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if _, ctxErr := GetUser(ctx); ctxErr != nil {
-			status = http.StatusUnauthorized
-		}
-		return nil, api.HTTPError{
-			Status: status,
-			Err:    err,
-		}
+		return nil, s.convertToHTTPError(ctx, err, http.StatusInternalServerError)
 	}
 
 	return p, httpError
@@ -3085,24 +3095,10 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 	}
 
 	// Send push notification for project deleted
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID // Capture user ID before closure
-		variables := map[string]interface{}{
-			"project_name": projectName,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_deleted", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for project deleted",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for project deleted",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", user.Email))
-		}
-	}()
+	variables := map[string]interface{}{
+		"project_name": projectName,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "project_deleted", "account", variables)
 
 	return nil
 }
@@ -3114,22 +3110,12 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
 	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if ErrUnauthorized.Has(err) {
-			status = http.StatusUnauthorized
-		}
-		return api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+		return s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	projectID = p.ID
@@ -3144,10 +3130,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	err = s.store.Projects().Delete(ctx, projectID)
 	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	return httpError
@@ -3242,10 +3225,8 @@ func (s *Service) UpdatingProject(ctx context.Context, userID, projectID uuid.UU
 	}
 
 	// Send push notifications for project limit updates
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := userID // Capture userID before closure
+	user, err := s.store.Users().Get(ctx, userID)
+	if err == nil {
 		projectName := project.Name
 		if oldStorageLimit != nil && *oldStorageLimit != updatedProject.StorageLimit {
 			variables := map[string]interface{}{
@@ -3253,14 +3234,7 @@ func (s *Service) UpdatingProject(ctx context.Context, userID, projectID uuid.UU
 				"old_limit":    oldStorageLimit.String(),
 				"new_limit":    updatedProject.StorageLimit.String(),
 			}
-			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_storage_limit_updated", "account", variables); err != nil {
-				s.log.Warn("Failed to send push notification for project storage limit updated",
-					zap.Stringer("user_id", notifyUserID),
-					zap.Error(err))
-			} else {
-				s.log.Debug("Successfully sent push notification for project storage limit updated",
-					zap.Stringer("user_id", notifyUserID))
-			}
+			s.SendNotificationAsync(userID, user.Email, "project_storage_limit_updated", "account", variables)
 		}
 		if oldBandwidthLimit != nil && *oldBandwidthLimit != updatedProject.BandwidthLimit {
 			variables := map[string]interface{}{
@@ -3268,16 +3242,9 @@ func (s *Service) UpdatingProject(ctx context.Context, userID, projectID uuid.UU
 				"old_limit":    oldBandwidthLimit.String(),
 				"new_limit":    updatedProject.BandwidthLimit.String(),
 			}
-			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_bandwidth_limit_updated", "account", variables); err != nil {
-				s.log.Warn("Failed to send push notification for project bandwidth limit updated",
-					zap.Stringer("user_id", notifyUserID),
-					zap.Error(err))
-			} else {
-				s.log.Debug("Successfully sent push notification for project bandwidth limit updated",
-					zap.Stringer("user_id", notifyUserID))
-			}
+			s.SendNotificationAsync(userID, user.Email, "project_bandwidth_limit_updated", "account", variables)
 		}
-	}()
+	}
 
 	return project, nil
 }
@@ -3314,43 +3281,19 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	project.PrevDaysUntilExpiration = updatedProject.PrevDaysUntilExpiration
 
 	// Send push notifications for project name/description updates
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID   // Capture user ID before closure
-		notifyEmail := user.Email // Capture email before closure
-		if oldName != updatedProject.Name {
-			variables := map[string]interface{}{
-				"old_name": oldName,
-				"new_name": updatedProject.Name,
-			}
-			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_name_updated", "account", variables); err != nil {
-				s.log.Warn("Failed to send push notification for project name updated",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail),
-					zap.Error(err))
-			} else {
-				s.log.Debug("Successfully sent push notification for project name updated",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail))
-			}
+	if oldName != updatedProject.Name {
+		variables := map[string]interface{}{
+			"old_name": oldName,
+			"new_name": updatedProject.Name,
 		}
-		if project.Description != updatedProject.Description {
-			variables := map[string]interface{}{
-				"project_name": updatedProject.Name,
-			}
-			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_description_updated", "account", variables); err != nil {
-				s.log.Warn("Failed to send push notification for project description updated",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail),
-					zap.Error(err))
-			} else {
-				s.log.Debug("Successfully sent push notification for project description updated",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail))
-			}
+		s.SendNotificationAsync(user.ID, user.Email, "project_name_updated", "account", variables)
+	}
+	if project.Description != updatedProject.Description {
+		variables := map[string]interface{}{
+			"project_name": updatedProject.Name,
 		}
-	}()
+		s.SendNotificationAsync(user.ID, user.Email, "project_description_updated", "account", variables)
+	}
 
 	if user.PaidTier {
 		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
@@ -3436,27 +3379,12 @@ func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID,
 	})
 
 	// Send push notification for limit increase requested
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID   // Capture user ID before closure
-		notifyEmail := user.Email // Capture email before closure
-		variables := map[string]interface{}{
-			"project_name":    project.Name,
-			"limit_type":      info.LimitType,
-			"requested_limit": info.DesiredLimit.String(),
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "limit_increase_requested", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for limit increase requested",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for limit increase requested",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	variables := map[string]interface{}{
+		"project_name":    project.Name,
+		"limit_type":      info.LimitType,
+		"requested_limit": info.DesiredLimit.String(),
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "limit_increase_requested", "account", variables)
 
 	return nil
 }
@@ -3490,26 +3418,11 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 	})
 
 	// Send push notification for project limit increase requested
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID   // Capture user ID before closure
-		notifyEmail := user.Email // Capture email before closure
-		variables := map[string]interface{}{
-			"limit_type":      "projects",
-			"requested_limit": limit,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "limit_increase_requested", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for project limit increase requested",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for project limit increase requested",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	variables := map[string]interface{}{
+		"limit_type":      "projects",
+		"requested_limit": limit,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "limit_increase_requested", "account", variables)
 
 	return nil
 }
@@ -3521,10 +3434,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 
 	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
 	if err != nil {
@@ -3536,10 +3446,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 	project := isMember.project
 	project.Name = projectInfo.Name
@@ -3581,10 +3488,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 
 		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
 		if err != nil {
-			return nil, api.HTTPError{
-				Status: http.StatusInternalServerError,
-				Err:    Error.Wrap(err),
-			}
+			return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 		}
 		if projectInfo.StorageLimit.Int64() < storageUsed {
 			return nil, api.HTTPError{
@@ -3595,10 +3499,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 
 		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
 		if err != nil {
-			return nil, api.HTTPError{
-				Status: http.StatusInternalServerError,
-				Err:    Error.Wrap(err),
-			}
+			return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 		}
 		if projectInfo.BandwidthLimit.Int64() < bandwidthUsed {
 			return nil, api.HTTPError{
@@ -3615,10 +3516,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 
 	err = s.store.Projects().Update(ctx, project)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	return project, httpError
@@ -3669,29 +3567,14 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	s.analytics.TrackProjectMemberAddition(user.ID, user.Email)
 
 	// Send push notifications for project members added
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		projectName := isMember.project.Name
-		for _, addedUser := range users {
-			notifyUserID := addedUser.ID   // Capture user ID for each iteration
-			notifyEmail := addedUser.Email // Capture email for each iteration
-			variables := map[string]interface{}{
-				"project_name": projectName,
-				"member_email": notifyEmail,
-			}
-			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_member_added", "account", variables); err != nil {
-				s.log.Warn("Failed to send push notification for project member added",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail),
-					zap.Error(err))
-			} else {
-				s.log.Debug("Successfully sent push notification for project member added",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail))
-			}
+	projectName := isMember.project.Name
+	for _, addedUser := range users {
+		variables := map[string]interface{}{
+			"project_name": projectName,
+			"member_email": addedUser.Email,
 		}
-	}()
+		s.SendNotificationAsync(addedUser.ID, addedUser.Email, "project_member_added", "account", variables)
+	}
 
 	return users, nil
 }
@@ -3765,30 +3648,19 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email)
 
 	// Send push notifications for project members deleted
+	projectName := isMember.project.Name
 	go func() {
 		// Use background context to avoid cancellation when HTTP request completes
 		notifyCtx := context.Background()
-		projectName := isMember.project.Name
 		for _, email := range emails {
 			// Try to get user to send notification
 			deletedUser, err := s.store.Users().GetByEmail(notifyCtx, email)
 			if err == nil {
-				notifyUserID := deletedUser.ID   // Capture user ID
-				notifyEmail := deletedUser.Email // Capture email
 				variables := map[string]interface{}{
 					"project_name": projectName,
-					"member_email": notifyEmail,
+					"member_email": deletedUser.Email,
 				}
-				if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_member_deleted", "account", variables); err != nil {
-					s.log.Warn("Failed to send push notification for project member deleted",
-						zap.Stringer("user_id", notifyUserID),
-						zap.String("email", notifyEmail),
-						zap.Error(err))
-				} else {
-					s.log.Debug("Successfully sent push notification for project member deleted",
-						zap.Stringer("user_id", notifyUserID),
-						zap.String("email", notifyEmail))
-				}
+				s.SendNotificationAsync(deletedUser.ID, deletedUser.Email, "project_member_deleted", "account", variables)
 			}
 		}
 	}()
@@ -3875,10 +3747,7 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 
 	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("projectID", requestInfo.ProjectID))
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	reqProjectID, err := uuid.FromString(requestInfo.ProjectID)
@@ -3891,10 +3760,7 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 
 	isMember, err := s.isProjectMember(ctx, user.ID, reqProjectID)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	projectID := isMember.project.ID
@@ -3909,18 +3775,12 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 
 	secret, err := macaroon.NewSecret()
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	key, err := macaroon.NewAPIKey(secret)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	apikey := APIKeyInfo{
@@ -3932,10 +3792,7 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	// in case the project ID from the request is the public ID, replace projectID with reqProjectID
@@ -3956,16 +3813,11 @@ func (s *Service) GenDeleteAPIKey(ctx context.Context, keyID uuid.UUID) (httpErr
 		}
 
 		status := http.StatusInternalServerError
-		if ErrUnauthorized.Has(err) {
-			status = http.StatusUnauthorized
-		} else if ErrAPIKeyRequest.Has(err) {
+		if ErrAPIKeyRequest.Has(err) {
 			status = http.StatusBadRequest
 		}
 
-		return api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+		return s.convertToHTTPError(ctx, Error.Wrap(err), status)
 	}
 
 	return httpError
@@ -3982,16 +3834,11 @@ func (s *Service) GenGetAPIKeys(ctx context.Context, projectID uuid.UUID, search
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
-		if ErrUnauthorized.Has(err) {
-			status = http.StatusUnauthorized
-		} else if ErrAPIKeyRequest.Has(err) {
+		if ErrAPIKeyRequest.Has(err) {
 			status = http.StatusBadRequest
 		}
 
-		return nil, api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), status)
 	}
 
 	return akp, api.HTTPError{}
@@ -4452,28 +4299,19 @@ func (s *Service) GenGetBucketUsageRollups(ctx context.Context, reqProjectID uui
 
 	user, err := s.getUserAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", reqProjectID.String()))
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	isMember, err := s.isProjectMember(ctx, user.ID, reqProjectID)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	projectID := isMember.project.ID
 
 	rollups, err = s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	// if project ID from request is public ID, replace rollup's project ID with public ID
@@ -4493,28 +4331,19 @@ func (s *Service) GenGetSingleBucketUsageRollup(ctx context.Context, reqProjectI
 
 	user, err := s.getUserAndAuditLog(ctx, "get single bucket usage rollup", zap.String("projectID", reqProjectID.String()))
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	isMember, err := s.isProjectMember(ctx, user.ID, reqProjectID)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
 
 	projectID := isMember.project.ID
 
 	rollup, err = s.projectAccounting.GetSingleBucketUsageRollup(ctx, projectID, bucket, since, before)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusInternalServerError)
 	}
 
 	// make sure to replace rollup project ID with reqProjectID in case it is the public ID
@@ -5471,26 +5300,11 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		}
 
 		// Send push notification for project invitation declined
-		go func() {
-			// Use background context to avoid cancellation when HTTP request completes
-			notifyCtx := context.Background()
-			notifyUserID := user.ID   // Capture user ID before closure
-			notifyEmail := user.Email // Capture email before closure
-			variables := map[string]interface{}{
-				"project_name":  proj.Name,
-				"invitee_email": notifyEmail,
-			}
-			if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_invitation_declined", "account", variables); err != nil {
-				s.log.Warn("Failed to send push notification for project invitation declined",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail),
-					zap.Error(err))
-			} else {
-				s.log.Debug("Successfully sent push notification for project invitation declined",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("email", notifyEmail))
-			}
-		}()
+		variables := map[string]interface{}{
+			"project_name":  proj.Name,
+			"invitee_email": user.Email,
+		}
+		s.SendNotificationAsync(user.ID, user.Email, "project_invitation_declined", "account", variables)
 
 		return nil
 	}
@@ -5503,26 +5317,11 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	deleteWithLog()
 
 	// Send push notification for project invitation accepted
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID   // Capture user ID before closure
-		notifyEmail := user.Email // Capture email before closure
-		variables := map[string]interface{}{
-			"project_name":  proj.Name,
-			"invitee_email": notifyEmail,
-		}
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "project_invitation_accepted", "account", variables); err != nil {
-			s.log.Warn("Failed to send push notification for project invitation accepted",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for project invitation accepted",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	variables := map[string]interface{}{
+		"project_name":  proj.Name,
+		"invitee_email": user.Email,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "project_invitation_accepted", "account", variables)
 
 	return nil
 }

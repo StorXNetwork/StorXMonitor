@@ -26,6 +26,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 )
@@ -1092,23 +1093,7 @@ func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Send push notification for account frozen
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_frozen", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account frozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account frozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_frozen", "account", nil)
 }
 
 func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1147,23 +1132,7 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 	}
 
 	// Send push notification for account unfrozen
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_unfrozen", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account unfrozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account unfrozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_unfrozen", "account", nil)
 }
 
 func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) {
@@ -1201,22 +1170,7 @@ func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Send push notification for account unwarned
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_unwarned", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account unwarned",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account unwarned",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_unwarned", "account", nil)
 }
 
 func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1263,23 +1217,7 @@ func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request
 	}
 
 	// Send push notification for account frozen
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_frozen", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account frozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account frozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_frozen", "account", nil)
 }
 
 func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1316,23 +1254,7 @@ func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Send push notification for account unfrozen
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_unfrozen", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account unfrozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account unfrozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_unfrozen", "account", nil)
 }
 
 func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1377,23 +1299,7 @@ func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send push notification for account frozen
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_frozen", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account frozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account frozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_frozen", "account", nil)
 }
 
 func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1432,22 +1338,7 @@ func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Send push notification for account unfrozen
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_unfrozen", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account unfrozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account unfrozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_unfrozen", "account", nil)
 }
 
 func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1482,23 +1373,7 @@ func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.R
 	}
 
 	// Send push notification for account frozen
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_frozen", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account frozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account frozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_frozen", "account", nil)
 }
 
 func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http.Request) {
@@ -1537,22 +1412,7 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 	}
 
 	// Send push notification for account unfrozen
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID   // Capture user ID before closure
-		notifyEmail := u.Email // Capture email before closure
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_unfrozen", "account", nil); err != nil {
-			server.log.Warn("Failed to send push notification for account unfrozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account unfrozen",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	server.sendNotificationAsync(u.ID, u.Email, "account_unfrozen", "account", nil)
 }
 
 func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
@@ -2462,26 +2322,71 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Delete all sessions for the user to log them out
+	_, err = server.db.Console().WebappSessions().DeleteAllByUserID(ctx, user.ID)
+	if err != nil {
+		// Log the error but don't fail the deactivation
+		server.log.Warn("Failed to delete user sessions during account deactivation",
+			zap.Stringer("user_id", user.ID),
+			zap.String("email", user.Email),
+			zap.Error(err))
+	}
+
 	// Send push notification for account deactivated
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID   // Capture user ID before closure
-		notifyEmail := user.Email // Capture email before closure
-		variables := map[string]interface{}{
-			"email": notifyEmail,
-		}
-		if err := server.sendPushNotificationByEventName(notifyCtx, notifyUserID, "account_deactivated", "account", variables); err != nil {
-			server.log.Warn("Failed to send push notification for account deactivated",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for account deactivated",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	variables := map[string]interface{}{
+		"email": user.Email,
+	}
+	server.sendNotificationAsync(user.ID, user.Email, "account_deactivated", "account", variables)
+
+	// Send email notification for account deactivated
+	if server.mailService != nil {
+		go func() {
+			// Use background context to avoid cancellation when HTTP request completes
+			emailCtx := context.Background()
+			emailUserID := user.ID       // Capture user ID before closure
+			emailUserEmail := user.Email // Capture email before closure
+			emailUserName := user.ShortName
+			if emailUserName == "" {
+				emailUserName = user.FullName
+			}
+
+			origin := server.console.ExternalAddress
+			if origin == "" {
+				origin = "https://storx.io/"
+			}
+			if !strings.HasSuffix(origin, "/") {
+				origin += "/"
+			}
+
+			contactInfoURL := server.console.ContactInfoURL
+			if contactInfoURL == "" {
+				contactInfoURL = "https://forum.storx.io"
+			}
+			termsAndConditionsURL := server.console.TermsAndConditionsURL
+			if termsAndConditionsURL == "" {
+				termsAndConditionsURL = "https://www.storj.io/terms-of-service/"
+			}
+			supportURL := server.console.GeneralRequestURL
+			if supportURL == "" {
+				supportURL = "https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"
+			}
+
+			server.mailService.SendRenderedAsync(
+				emailCtx,
+				[]post.Address{{Address: emailUserEmail, Name: emailUserName}},
+				&console.AccountDeactivatedEmail{
+					Username:              emailUserName,
+					Origin:                origin,
+					ContactInfoURL:        contactInfoURL,
+					TermsAndConditionsURL: termsAndConditionsURL,
+					SupportURL:            supportURL,
+				},
+			)
+			server.log.Debug("Sent account deactivated email",
+				zap.Stringer("user_id", emailUserID),
+				zap.String("email", emailUserEmail))
+		}()
+	}
 
 	// Return updated user info
 	updatedUser, err := server.db.Console().Users().Get(ctx, user.ID)
@@ -2551,6 +2456,59 @@ func (server *Server) activateUserAccount(w http.ResponseWriter, r *http.Request
 		sendJSONError(w, "failed to activate user account",
 			err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Send push notification for account activated
+	variables := map[string]interface{}{
+		"email": user.Email,
+	}
+	server.sendNotificationAsync(user.ID, user.Email, "account_activated", "account", variables)
+
+	// Send email notification for account activated
+	if server.mailService != nil {
+		go func() {
+			// Use background context to avoid cancellation when HTTP request completes
+			emailCtx := context.Background()
+			emailUserID := user.ID       // Capture user ID before closure
+			emailUserEmail := user.Email // Capture email before closure
+			emailUserName := user.ShortName
+			if emailUserName == "" {
+				emailUserName = user.FullName
+			}
+
+			origin := server.console.ExternalAddress
+			if origin == "" {
+				origin = "https://storx.io/"
+			}
+			if !strings.HasSuffix(origin, "/") {
+				origin += "/"
+			}
+
+			signInLink := origin + "login"
+			contactInfoURL := server.console.ContactInfoURL
+			if contactInfoURL == "" {
+				contactInfoURL = "https://forum.storx.io"
+			}
+			termsAndConditionsURL := server.console.TermsAndConditionsURL
+			if termsAndConditionsURL == "" {
+				termsAndConditionsURL = "https://www.storj.io/terms-of-service/"
+			}
+
+			server.mailService.SendRenderedAsync(
+				emailCtx,
+				[]post.Address{{Address: emailUserEmail, Name: emailUserName}},
+				&console.AccountActivatedEmail{
+					Username:              emailUserName,
+					Origin:                origin,
+					SignInLink:            signInLink,
+					ContactInfoURL:        contactInfoURL,
+					TermsAndConditionsURL: termsAndConditionsURL,
+				},
+			)
+			server.log.Debug("Sent account activated email",
+				zap.Stringer("user_id", emailUserID),
+				zap.String("email", emailUserEmail))
+		}()
 	}
 
 	// Return updated user info

@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/developer"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/overlay"
@@ -113,6 +114,7 @@ type Server struct {
 	freezeAccounts          *console.AccountFreezeService
 	developerserviceService developer.Service
 	consoleService          *console.Service // Optional: for sending push notifications
+	mailService             *mailservice.Service
 
 	nowFn func() time.Time
 
@@ -139,6 +141,7 @@ func NewServer(
 	placement nodeselection.PlacementDefinitions,
 	developerserviceService *developer.Service,
 	consoleService *console.Service, // Optional: for sending push notifications
+	mailService *mailservice.Service,
 ) (*Server, error) {
 	server := &Server{
 		log: log,
@@ -154,6 +157,7 @@ func NewServer(
 		freezeAccounts:          freezeAccounts,
 		developerserviceService: *developerserviceService,
 		consoleService:          consoleService,
+		mailService:             mailService,
 		nowFn:                   time.Now,
 
 		console:   console,

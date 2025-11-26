@@ -41,39 +41,18 @@ type Service struct {
 	notificationDB PushNotificationDB
 	client         *messaging.Client
 	config         Config
-	enabled        bool
 }
 
 // NewService creates a new FCM service.
 func NewService(log *zap.Logger, db DB, notificationDB PushNotificationDB, config Config) (*Service, error) {
-	service := &Service{
-		log:            log,
-		db:             db,
-		notificationDB: notificationDB,
-		config:         config,
-		enabled:        config.Enabled,
-	}
-
 	if !config.Enabled {
 		log.Info("FCM push notifications are disabled")
-		return service, nil
+		return &Service{log: log, db: db, notificationDB: notificationDB, config: config}, nil
 	}
 
-	// Initialize Firebase Admin SDK
-	var opts []option.ClientOption
-
-	if config.CredentialsPath != "" {
-		// Load credentials from file
-		opts = append(opts, option.WithCredentialsFile(config.CredentialsPath))
-	} else if config.CredentialsJSON != "" {
-		// Load credentials from JSON string
-		opts = append(opts, option.WithCredentialsJSON([]byte(config.CredentialsJSON)))
-	} else {
-		// Try to use default credentials (e.g., from environment variable GOOGLE_APPLICATION_CREDENTIALS)
-		// If GOOGLE_APPLICATION_CREDENTIALS is set, it will be used automatically
-		if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") == "" {
-			return nil, ErrService.New("Firebase credentials not provided. Set GOOGLE_APPLICATION_CREDENTIALS environment variable, or provide credentials path or JSON in config")
-		}
+	opts, err := createFirebaseOptions(config)
+	if err != nil {
+		return nil, ErrService.Wrap(err)
 	}
 
 	app, err := firebase.NewApp(context.Background(), &firebase.Config{
@@ -83,28 +62,37 @@ func NewService(log *zap.Logger, db DB, notificationDB PushNotificationDB, confi
 		return nil, ErrService.Wrap(fmt.Errorf("failed to initialize Firebase app: %w", err))
 	}
 
-	// Create FCM messaging client
 	client, err := app.Messaging(context.Background())
 	if err != nil {
 		return nil, ErrService.Wrap(fmt.Errorf("failed to create FCM messaging client: %w", err))
 	}
 
-	service.client = client
 	log.Info("FCM push notifications service initialized", zap.String("project_id", config.ProjectID))
+	return &Service{log: log, db: db, notificationDB: notificationDB, client: client, config: config}, nil
+}
 
-	return service, nil
+// createFirebaseOptions creates Firebase client options based on config.
+func createFirebaseOptions(config Config) ([]option.ClientOption, error) {
+	switch {
+	case config.CredentialsPath != "":
+		return []option.ClientOption{option.WithCredentialsFile(config.CredentialsPath)}, nil
+	case config.CredentialsJSON != "":
+		return []option.ClientOption{option.WithCredentialsJSON([]byte(config.CredentialsJSON))}, nil
+	case os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") != "":
+		return []option.ClientOption{}, nil // Use default credentials
+	default:
+		return nil, ErrService.New("Firebase credentials not provided")
+	}
 }
 
 // SendNotification sends a push notification to a user.
-// This is the main function that will be called to send notifications.
 func (s *Service) SendNotification(ctx context.Context, userID uuid.UUID, notification Notification) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !s.enabled {
+	if !s.config.Enabled {
 		return ErrService.New("FCM push notifications are disabled")
 	}
 
-	// Retrieve all active FCM tokens for the user
 	tokens, err := s.db.GetTokensByUserID(ctx, userID)
 	if err != nil {
 		return ErrService.Wrap(err)
@@ -115,32 +103,90 @@ func (s *Service) SendNotification(ctx context.Context, userID uuid.UUID, notifi
 		return nil
 	}
 
-	// Log token info for debugging
-	tokenPreviews := make([]string, len(tokens))
-	for i, t := range tokens {
-		if len(t.Token) > 20 {
-			tokenPreviews[i] = t.Token[:20] + "..."
-		} else {
-			tokenPreviews[i] = t.Token
-		}
-	}
 	s.log.Info("Found FCM tokens for user",
 		zap.Stringer("user_id", userID),
 		zap.Int("token_count", len(tokens)),
-		zap.Strings("token_previews", tokenPreviews))
+		zap.Strings("token_previews", s.getTokenPreviews(tokens)))
 
-	// Convert notification data to map[string]interface{} for storage
-	dataMap := make(map[string]interface{})
-	for k, v := range notification.Data {
-		dataMap[k] = v
+	// Create notification records
+	records, err := s.createNotificationRecords(ctx, userID, tokens, notification)
+	if err != nil {
+		return ErrService.Wrap(err)
 	}
 
-	// Create notification records for tracking
-	notificationRecords := make([]PushNotificationRecord, 0, len(tokens))
+	// Send notifications
+	tokenStrings := s.extractTokenStrings(tokens)
+	results, err := s.SendNotificationToMultipleTokens(ctx, tokenStrings, notification)
+	if err != nil {
+		s.updateRecordsStatus(ctx, records, "failed", err.Error())
+		return ErrService.Wrap(err)
+	}
+
+	// Process results
+	s.processSendResults(ctx, records, tokenStrings, tokens, results)
+	return nil
+}
+
+// SendNotificationToToken sends a push notification to a specific token.
+func (s *Service) SendNotificationToToken(ctx context.Context, token string, notification Notification) error {
+	if !s.config.Enabled {
+		return ErrService.New("FCM push notifications are disabled")
+	}
+
+	message := s.buildMessage(token, notification)
+	_, err := s.client.Send(ctx, message)
+	return ErrService.Wrap(err)
+}
+
+// SendNotificationToMultipleTokens sends to multiple tokens.
+func (s *Service) SendNotificationToMultipleTokens(ctx context.Context, tokens []string, notification Notification) ([]*messaging.SendResponse, error) {
+	if !s.config.Enabled {
+		return nil, ErrService.New("FCM push notifications are disabled")
+	}
+
+	responses := make([]*messaging.SendResponse, 0, len(tokens))
+	for _, token := range tokens {
+		message := s.buildMessage(token, notification)
+		msgID, err := s.client.Send(ctx, message)
+
+		response := &messaging.SendResponse{
+			Success: err == nil,
+			Error:   err,
+		}
+		if err == nil {
+			response.MessageID = msgID
+			s.log.Debug("Successfully sent notification", zap.String("token", token), zap.String("message_id", msgID))
+		} else {
+			s.log.Warn("Failed to send notification", zap.String("token", token), zap.Error(err))
+		}
+		responses = append(responses, response)
+	}
+
+	return responses, nil
+}
+
+// Helper methods
+
+func (s *Service) getTokenPreviews(tokens []FCMToken) []string {
+	previews := make([]string, len(tokens))
+	for i, t := range tokens {
+		if len(t.Token) > 20 {
+			previews[i] = t.Token[:20] + "..."
+		} else {
+			previews[i] = t.Token
+		}
+	}
+	return previews
+}
+
+func (s *Service) createNotificationRecords(ctx context.Context, userID uuid.UUID, tokens []FCMToken, notification Notification) ([]PushNotificationRecord, error) {
+	records := make([]PushNotificationRecord, 0, len(tokens))
+	dataMap := s.convertDataToMap(notification.Data)
+
 	for _, token := range tokens {
 		recordID, err := uuid.New()
 		if err != nil {
-			return ErrService.Wrap(err)
+			return nil, err
 		}
 
 		record := PushNotificationRecord{
@@ -154,174 +200,83 @@ func (s *Service) SendNotification(ctx context.Context, userID uuid.UUID, notifi
 			RetryCount: 0,
 		}
 
-		// Insert notification record
 		createdRecord, err := s.notificationDB.InsertNotification(ctx, record)
 		if err != nil {
 			s.log.Warn("Failed to create notification record", zap.Error(err))
 			continue
 		}
-		notificationRecords = append(notificationRecords, createdRecord)
+		records = append(records, createdRecord)
 	}
+	return records, nil
+}
 
-	// Send to all tokens
-	var tokenStrings []string
-	for _, token := range tokens {
-		tokenStrings = append(tokenStrings, token.Token)
+func (s *Service) extractTokenStrings(tokens []FCMToken) []string {
+	tokenStrings := make([]string, len(tokens))
+	for i, token := range tokens {
+		tokenStrings[i] = token.Token
 	}
+	return tokenStrings
+}
 
-	results, err := s.SendNotificationToMultipleTokens(ctx, tokenStrings, notification)
-	if err != nil {
-		// Update all records to failed status
-		errorMsg := err.Error()
-		for _, record := range notificationRecords {
-			_ = s.notificationDB.UpdateNotificationStatus(ctx, record.ID, "failed", &errorMsg, nil)
-		}
-		return ErrService.Wrap(err)
+func (s *Service) updateRecordsStatus(ctx context.Context, records []PushNotificationRecord, status, errorMsg string) {
+	for _, record := range records {
+		_ = s.notificationDB.UpdateNotificationStatus(ctx, record.ID, status, &errorMsg, nil)
 	}
+}
 
-	// Handle results and update notification records
+func (s *Service) processSendResults(ctx context.Context, records []PushNotificationRecord, tokenStrings []string, tokens []FCMToken, results []*messaging.SendResponse) {
 	now := time.Now()
 	for i, result := range results {
-		if i >= len(notificationRecords) {
+		if i >= len(records) {
 			break
 		}
 
-		record := notificationRecords[i]
+		record := records[i]
 		if result.Error != nil {
 			errorMsg := result.Error.Error()
 			_ = s.notificationDB.UpdateNotificationStatus(ctx, record.ID, "failed", &errorMsg, nil)
-
-			s.log.Warn("Failed to send notification to token",
-				zap.String("token", tokenStrings[i]),
-				zap.Error(result.Error))
-
-			// Check if token is invalid and should be removed
-			if messaging.IsInvalidArgument(result.Error) || messaging.IsRegistrationTokenNotRegistered(result.Error) {
-				s.log.Info("Removing invalid FCM token", zap.String("token", tokenStrings[i]))
-				if err := s.db.DeleteToken(ctx, tokens[i].ID); err != nil {
-					s.log.Error("Failed to delete invalid token", zap.Error(err))
-				}
-			}
+			s.handleFailedToken(ctx, tokenStrings[i], tokens[i], result.Error)
 		} else {
-			// Update to sent status
 			_ = s.notificationDB.UpdateNotificationStatus(ctx, record.ID, "sent", nil, &now)
-			s.log.Debug("Successfully sent notification to token", zap.String("token", tokenStrings[i]))
 		}
 	}
-
-	return nil
 }
 
-// SendNotificationToToken sends a push notification to a specific token.
-func (s *Service) SendNotificationToToken(ctx context.Context, token string, notification Notification) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (s *Service) handleFailedToken(ctx context.Context, token string, fcmToken FCMToken, sendErr error) {
+	s.log.Warn("Failed to send notification", zap.String("token", token), zap.Error(sendErr))
 
-	if !s.enabled {
-		return ErrService.New("FCM push notifications are disabled")
+	if messaging.IsInvalidArgument(sendErr) || messaging.IsRegistrationTokenNotRegistered(sendErr) {
+		s.log.Info("Removing invalid FCM token", zap.String("token", token))
+		if err := s.db.DeleteToken(ctx, fcmToken.ID); err != nil {
+			s.log.Error("Failed to delete invalid token", zap.Error(err))
+		}
 	}
+}
 
+func (s *Service) buildMessage(token string, notification Notification) *messaging.Message {
 	message := &messaging.Message{
 		Token: token,
 		Notification: &messaging.Notification{
 			Title: notification.Title,
 			Body:  notification.Body,
 		},
-		Data: make(map[string]string),
+		Data: notification.Data, // Direct assignment since both are map[string]string
 	}
 
-	// Add custom data
-	for k, v := range notification.Data {
-		message.Data[k] = v
-	}
-
-	// Set priority
 	if notification.Priority == "high" {
-		message.Android = &messaging.AndroidConfig{
-			Priority: "high",
-		}
+		message.Android = &messaging.AndroidConfig{Priority: "high"}
 		message.APNS = &messaging.APNSConfig{
-			Headers: map[string]string{
-				"apns-priority": "10",
-			},
+			Headers: map[string]string{"apns-priority": "10"},
 		}
 	}
 
-	_, err = s.client.Send(ctx, message)
-	if err != nil {
-		return ErrService.Wrap(err)
-	}
-
-	return nil
+	return message
 }
 
-// SendNotificationToMultipleTokens sends to multiple tokens (batch).
-// Uses individual Send calls instead of SendMulticast to avoid /batch endpoint issues.
-func (s *Service) SendNotificationToMultipleTokens(ctx context.Context, tokens []string, notification Notification) (_ []*messaging.SendResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if !s.enabled {
-		return nil, ErrService.New("FCM push notifications are disabled")
+func (s *Service) convertDataToMap(data map[string]string) map[string]interface{} {
+	dataMap := make(map[string]interface{})
+	for k, v := range data {
+		dataMap[k] = v
 	}
-
-	if len(tokens) == 0 {
-		return []*messaging.SendResponse{}, nil
-	}
-
-	// Build responses slice
-	responses := make([]*messaging.SendResponse, 0, len(tokens))
-
-	// Send to each token individually (workaround for /batch endpoint issue)
-	// This uses the same endpoint that works in Postman (/v1/projects/{project}/messages:send)
-	for _, token := range tokens {
-		message := &messaging.Message{
-			Token: token,
-			Notification: &messaging.Notification{
-				Title: notification.Title,
-				Body:  notification.Body,
-			},
-			Data: make(map[string]string),
-		}
-
-		// Add custom data
-		for k, v := range notification.Data {
-			message.Data[k] = v
-		}
-
-		// Set priority
-		if notification.Priority == "high" {
-			message.Android = &messaging.AndroidConfig{
-				Priority: "high",
-			}
-			message.APNS = &messaging.APNSConfig{
-				Headers: map[string]string{
-					"apns-priority": "10",
-				},
-			}
-		}
-
-		// Send individual message
-		msgID, err := s.client.Send(ctx, message)
-		if err != nil {
-			// Create a response with error
-			responses = append(responses, &messaging.SendResponse{
-				Success: false,
-				Error:   err,
-			})
-			s.log.Warn("Failed to send notification to token",
-				zap.String("token", token),
-				zap.Error(err))
-			continue
-		}
-
-		// Create a success response
-		responses = append(responses, &messaging.SendResponse{
-			Success:   true,
-			MessageID: msgID,
-		})
-		s.log.Debug("Successfully sent notification to token",
-			zap.String("token", token),
-			zap.String("message_id", msgID))
-	}
-
-	return responses, nil
+	return dataMap
 }

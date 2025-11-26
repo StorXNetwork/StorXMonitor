@@ -816,6 +816,65 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
+
+	// Send plan purchase email notification
+	go func() {
+		if p.mailService == nil {
+			p.log.Debug("Mail service not configured, skipping plan purchase email.")
+			return
+		}
+
+		emailCtx := context.Background()
+		emailUserID := u.ID
+		emailUserEmail := u.Email
+		userName := u.FullName
+		if userName == "" {
+			userName = u.Email
+		}
+
+		// Format price and credit from cents to dollars
+		priceStr := fmt.Sprintf("$%.2f", float64(pkg.Price)/100.0)
+		creditStr := fmt.Sprintf("$%.2f", float64(pkg.Credit)/100.0)
+
+		// Prepare URLs - use defaults if not available
+		origin := "https://storx.io/"
+		signInLink := origin + "login"
+		contactInfoURL := "https://forum.storx.io"
+		termsAndConditionsURL := "https://www.storj.io/terms-of-service/"
+
+		p.mailService.SendRenderedAsync(
+			emailCtx,
+			[]post.Address{{Address: emailUserEmail, Name: userName}},
+			&console.PlanPurchasedEmail{
+				Username:              userName,
+				PlanName:              description,
+				Price:                 priceStr,
+				Credit:                creditStr,
+				Origin:                origin,
+				SignInLink:            signInLink,
+				ContactInfoURL:        contactInfoURL,
+				TermsAndConditionsURL: termsAndConditionsURL,
+			},
+		)
+		p.log.Debug("Sent plan purchase email",
+			zap.Stringer("user_id", emailUserID),
+			zap.String("email", emailUserEmail),
+			zap.String("plan_name", description),
+			zap.Int64("price_cents", pkg.Price),
+			zap.Int64("credit_cents", pkg.Credit))
+	}()
+
+	// Send push notification for plan purchase
+	variables := map[string]interface{}{
+		"plan_name":      description,
+		"price":          fmt.Sprintf("$%.2f", float64(pkg.Price)/100.0),
+		"credit":         fmt.Sprintf("$%.2f", float64(pkg.Credit)/100.0),
+		"price_cents":    fmt.Sprintf("%d", pkg.Price),
+		"credit_cents":   fmt.Sprintf("%d", pkg.Credit),
+		"price_dollars":  fmt.Sprintf("%.2f", float64(pkg.Price)/100.0),
+		"credit_dollars": fmt.Sprintf("%.2f", float64(pkg.Credit)/100.0),
+	}
+	p.service.SendNotificationAsync(u.ID, u.Email, "plan_purchased", "billing", variables)
 }
 
 // PackageAvailable returns whether a package plan is configured for the user's partner.

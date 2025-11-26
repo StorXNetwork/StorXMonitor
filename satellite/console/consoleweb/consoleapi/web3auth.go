@@ -287,6 +287,15 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+
+	// Send push notification for data shared (vault category)
+	consoleUser, err := console.GetUser(ctx)
+	if err == nil {
+		variables := map[string]interface{}{
+			"share_id": id,
+		}
+		a.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "data_shared", "vault", variables)
+	}
 }
 
 func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
