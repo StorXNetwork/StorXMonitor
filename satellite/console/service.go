@@ -277,13 +277,7 @@ func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userI
 	}
 
 	// Find the first active push config for this category
-	var pushConfig *configs.Config
-	for i := range configsList {
-		if configsList[i].IsActive && configsList[i].ConfigType == pushConfigType {
-			pushConfig = &configsList[i]
-			break
-		}
-	}
+	pushConfig := s.findActivePushConfig(configsList, pushConfigType)
 
 	// If no push config found, allow notification by default
 	if pushConfig == nil {
@@ -350,45 +344,6 @@ func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventNam
 				zap.String("email", email))
 		}
 	}()
-}
-
-// shouldSendNotification checks if notification should be sent based on user preferences.
-func (s *Service) shouldSendNotification(ctx context.Context, userID uuid.UUID, category string) (bool, error) {
-	configsService := configs.NewService(s.GetConfigs())
-
-	pushConfigType := configs.ConfigTypeNotificationTemplate
-	filters := configs.ListConfigFilters{
-		ConfigType: &pushConfigType,
-		Category:   &category,
-	}
-
-	configsList, err := configsService.ListConfigs(ctx, filters)
-	if err != nil {
-		s.log.Debug("Failed to get push notification configs, sending notification by default",
-			zap.Stringer("user_id", userID),
-			zap.String("category", category),
-			zap.Error(err))
-		return true, nil
-	}
-
-	// Find active push config
-	pushConfig := s.findActivePushConfig(configsList, pushConfigType)
-	if pushConfig == nil {
-		return true, nil // No config found, send by default
-	}
-
-	// Check user preferences
-	preferenceService := configs.NewPreferenceService(s.GetUserNotificationPreferences())
-	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, category, string(configs.NotificationTypePush), configs.GetConfigLevel(pushConfig.ConfigData))
-	if err != nil {
-		s.log.Debug("Failed to check user notification preferences, sending notification by default",
-			zap.Stringer("user_id", userID),
-			zap.String("category", category),
-			zap.Error(err))
-		return true, nil
-	}
-
-	return shouldSend, nil
 }
 
 // buildNotificationFromEvent builds a notification from event name and variables.
@@ -717,35 +672,6 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 		return req.RemoteAddr, req.Header.Get("X-Forwarded-For")
 	}
 	return "", ""
-}
-
-// extractIPFromRequest extracts IP address from HTTP request
-func extractIPFromRequest(req *http.Request) string {
-	// Check X-Forwarded-For header (first IP in the chain)
-	forwarded := req.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		ips := strings.Split(forwarded, ",")
-		if len(ips) > 0 {
-			ip := strings.TrimSpace(ips[0])
-			if ip != "" {
-				return ip
-			}
-		}
-	}
-
-	// Check X-Real-IP header
-	realIP := req.Header.Get("X-Real-IP")
-	if realIP != "" {
-		return strings.TrimSpace(realIP)
-	}
-
-	// Fall back to RemoteAddr
-	ip := req.RemoteAddr
-	// Remove port if present (format: "IP:port")
-	if idx := strings.LastIndex(ip, ":"); idx != -1 {
-		ip = ip[:idx]
-	}
-	return ip
 }
 
 // parseDeviceInfo extracts device and browser information from User-Agent string.
