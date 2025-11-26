@@ -312,6 +312,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, err
 	}
 
+	// Add VerifyLimits callback to check limits with actual object size
+	request.VerifyLimits = func(encryptedObjectSize int64, nSegments int64) error {
+		return endpoint.addStorageUsageUpToLimit(ctx, keyInfo, encryptedObjectSize, nSegments)
+	}
+
 	object, err := endpoint.metabase.CommitObject(ctx, request)
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)

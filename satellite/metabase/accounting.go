@@ -58,8 +58,11 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 	err = withRows(db.db.QueryContext(ctx, `
 			SELECT
 				project_id, bucket_name,
-				SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0),
-				count(*), count(*) FILTER (WHERE status = `+statusPending+`)
+				SUM(total_encrypted_size) FILTER (WHERE status <> `+statusPending+`), 
+				SUM(segment_count) FILTER (WHERE status <> `+statusPending+`), 
+				COALESCE(SUM(length(encrypted_metadata)) FILTER (WHERE status <> `+statusPending+`), 0),
+				count(*) FILTER (WHERE status <> `+statusPending+`), 
+				count(*) FILTER (WHERE status = `+statusPending+`)
 			FROM objects
 			`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
 			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
