@@ -1459,16 +1459,7 @@ func (server *Server) handleContactUs(w http.ResponseWriter, r *http.Request) {
 			"message_preview": messagePreview,
 		}
 
-		if err := server.service.SendPushNotificationByEventName(notifyCtx, user.ID, "contact_us_submitted", "support", variables); err != nil {
-			server.log.Warn("Failed to send push notification for contact us submission",
-				zap.Stringer("user_id", user.ID),
-				zap.String("email", contactUsRequest.Email),
-				zap.Error(err))
-		} else {
-			server.log.Debug("Successfully sent push notification for contact us submission",
-				zap.Stringer("user_id", user.ID),
-				zap.String("email", contactUsRequest.Email))
-		}
+		server.service.SendNotificationAsync(user.ID, user.Email, "contact_us_submitted", "support", variables)
 	}()
 
 	w.WriteHeader(http.StatusNoContent)

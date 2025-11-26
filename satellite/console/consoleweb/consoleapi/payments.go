@@ -865,31 +865,16 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Send push notification for plan purchase
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := u.ID // Capture user ID before closure
-		variables := map[string]interface{}{
-			"plan_name":      description,
-			"price":          fmt.Sprintf("$%.2f", float64(pkg.Price)/100.0),
-			"credit":         fmt.Sprintf("$%.2f", float64(pkg.Credit)/100.0),
-			"price_cents":    fmt.Sprintf("%d", pkg.Price),
-			"credit_cents":   fmt.Sprintf("%d", pkg.Credit),
-			"price_dollars":  fmt.Sprintf("%.2f", float64(pkg.Price)/100.0),
-			"credit_dollars": fmt.Sprintf("%.2f", float64(pkg.Credit)/100.0),
-		}
-		if err := p.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "plan_purchased", "billing", variables); err != nil {
-			p.log.Warn("Failed to send push notification for plan purchase",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", u.Email),
-				zap.Error(err))
-		} else {
-			p.log.Debug("Successfully sent push notification for plan purchase",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", u.Email),
-				zap.String("plan_name", description))
-		}
-	}()
+	variables := map[string]interface{}{
+		"plan_name":      description,
+		"price":          fmt.Sprintf("$%.2f", float64(pkg.Price)/100.0),
+		"credit":         fmt.Sprintf("$%.2f", float64(pkg.Credit)/100.0),
+		"price_cents":    fmt.Sprintf("%d", pkg.Price),
+		"credit_cents":   fmt.Sprintf("%d", pkg.Credit),
+		"price_dollars":  fmt.Sprintf("%.2f", float64(pkg.Price)/100.0),
+		"credit_dollars": fmt.Sprintf("%.2f", float64(pkg.Credit)/100.0),
+	}
+	p.service.SendNotificationAsync(u.ID, u.Email, "plan_purchased", "billing", variables)
 }
 
 // PackageAvailable returns whether a package plan is configured for the user's partner.

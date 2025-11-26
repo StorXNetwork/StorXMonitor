@@ -12,7 +12,6 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 )
 
 const (
@@ -109,22 +108,7 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 	}
 
 	// Send push notification for MFA enabled
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID   // Capture user ID before closure
-		notifyEmail := user.Email // Capture email before closure
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "mfa_enabled", "account", nil); err != nil {
-			s.log.Warn("Failed to send push notification for MFA enabled",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for MFA enabled",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	s.SendNotificationAsync(user.ID, user.Email, "mfa_enabled", "account", nil)
 
 	return nil
 }
@@ -185,22 +169,7 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 	}
 
 	// Send push notification for MFA disabled
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		notifyUserID := user.ID   // Capture user ID before closure
-		notifyEmail := user.Email // Capture email before closure
-		if err := s.SendPushNotificationByEventName(notifyCtx, notifyUserID, "mfa_disabled", "account", nil); err != nil {
-			s.log.Warn("Failed to send push notification for MFA disabled",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail),
-				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification for MFA disabled",
-				zap.Stringer("user_id", notifyUserID),
-				zap.String("email", notifyEmail))
-		}
-	}()
+	s.SendNotificationAsync(user.ID, user.Email, "mfa_disabled", "account", nil)
 
 	return nil
 }

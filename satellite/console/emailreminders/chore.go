@@ -321,26 +321,13 @@ func (chore *Chore) sendStorageUsageReminders(ctx context.Context) (err error) {
 
 		// Send push notification when storage reaches 90% (level 3)
 		if currentLevel == 3 && chore.consoleService != nil {
-			go func() {
-				notifyCtx := context.Background()
-				variables := map[string]interface{}{
-					"storage_used_percentage": fmt.Sprintf("%.2f", storageUsed),
-					"project_name":            project.Name,
-					"storage_limit":           fmt.Sprintf("%.2f", project.StorageLimit.GiB()),
-					"storage_used":            fmt.Sprintf("%.2f", float64(usage.Storage)/(1024*1024*1024)), // Convert to GB
-				}
-				if err := chore.consoleService.SendPushNotificationByEventName(notifyCtx, user.ID, "storage_usage_90_percent", "storage", variables); err != nil {
-					chore.log.Warn("Failed to send push notification for storage usage 90%",
-						zap.Stringer("user_id", user.ID),
-						zap.Stringer("project_id", projectID),
-						zap.Error(err))
-				} else {
-					chore.log.Debug("Sent push notification for storage usage 90%",
-						zap.Stringer("user_id", user.ID),
-						zap.Stringer("project_id", projectID),
-						zap.Float64("storage_used_percentage", storageUsed))
-				}
-			}()
+			variables := map[string]interface{}{
+				"storage_used_percentage": fmt.Sprintf("%.2f", storageUsed),
+				"project_name":            project.Name,
+				"storage_limit":           fmt.Sprintf("%.2f", project.StorageLimit.GiB()),
+				"storage_used":            fmt.Sprintf("%.2f", float64(usage.Storage)/(1024*1024*1024)), // Convert to GB
+			}
+			chore.consoleService.SendNotificationAsync(user.ID, user.Email, "storage_usage_90_percent", "storage", variables)
 		}
 
 		err = chore.projectsDB.UpdateStorageUsedPercentage(ctx, projectID, storageUsed)
@@ -408,26 +395,13 @@ func (chore *Chore) sendBandwidthUsageReminders(ctx context.Context) (err error)
 
 		// Send push notification when bandwidth reaches 90% (level 3)
 		if chore.consoleService != nil {
-			go func() {
-				notifyCtx := context.Background()
-				variables := map[string]interface{}{
-					"bandwidth_used_percentage": fmt.Sprintf("%.2f", bandwidthUsedPercentage),
-					"project_name":              project.Name,
-					"bandwidth_limit":           fmt.Sprintf("%.2f", project.BandwidthLimit.GiB()),
-					"bandwidth_used":            fmt.Sprintf("%.2f", float64(bandwidthUsed)/(1024*1024*1024)), // Convert to GB
-				}
-				if err := chore.consoleService.SendPushNotificationByEventName(notifyCtx, user.ID, "bandwidth_usage_90_percent", "bandwidth", variables); err != nil {
-					chore.log.Warn("Failed to send push notification for bandwidth usage 90%",
-						zap.Stringer("user_id", user.ID),
-						zap.Stringer("project_id", project.ID),
-						zap.Error(err))
-				} else {
-					chore.log.Debug("Sent push notification for bandwidth usage 90%",
-						zap.Stringer("user_id", user.ID),
-						zap.Stringer("project_id", project.ID),
-						zap.Float64("bandwidth_used_percentage", bandwidthUsedPercentage))
-				}
-			}()
+			variables := map[string]interface{}{
+				"bandwidth_used_percentage": fmt.Sprintf("%.2f", bandwidthUsedPercentage),
+				"project_name":              project.Name,
+				"bandwidth_limit":           fmt.Sprintf("%.2f", project.BandwidthLimit.GiB()),
+				"bandwidth_used":            fmt.Sprintf("%.2f", float64(bandwidthUsed)/(1024*1024*1024)), // Convert to GB
+			}
+			chore.consoleService.SendNotificationAsync(user.ID, user.Email, "bandwidth_usage_90_percent", "bandwidth", variables)
 		}
 	}
 

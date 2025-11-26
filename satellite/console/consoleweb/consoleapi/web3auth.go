@@ -2,7 +2,6 @@ package consoleapi
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -290,27 +289,13 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	// Send push notification for data shared (vault category)
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
-		consoleUser, err := console.GetUser(ctx)
-		if err == nil {
-			notifyUserID := consoleUser.ID
-			variables := map[string]interface{}{
-				"share_id": id,
-			}
-			if err := a.service.SendPushNotificationByEventName(notifyCtx, notifyUserID, "data_shared", "vault", variables); err != nil {
-				a.log.Warn("Failed to send push notification for data shared",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("share_id", id),
-					zap.Error(err))
-			} else {
-				a.log.Debug("Successfully sent push notification for data shared",
-					zap.Stringer("user_id", notifyUserID),
-					zap.String("share_id", id))
-			}
+	consoleUser, err := console.GetUser(ctx)
+	if err == nil {
+		variables := map[string]interface{}{
+			"share_id": id,
 		}
-	}()
+		a.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "data_shared", "vault", variables)
+	}
 }
 
 func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
