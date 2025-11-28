@@ -5,7 +5,6 @@ package satellite
 
 import (
 	"context"
-	"errors"
 	"net"
 	"runtime/pprof"
 	"time"
@@ -116,13 +115,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 	}
 
 	{ // setup debug
-		var err error
 		if config.Debug.Addr != "" {
-			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Addr)
-			if err != nil {
-				withoutStack := errors.New(err.Error())
-				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-			}
+			peer.Debug.Listener, _ = net.Listen("tcp", config.Debug.Addr)
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Admin"
@@ -136,12 +130,6 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 	{
 		if !versionInfo.IsZero() {
-			peer.Log.Debug("Version info",
-				zap.Stringer("Version", versionInfo.Version.Version),
-				zap.String("Commit Hash", versionInfo.CommitHash),
-				zap.Stringer("Build Timestamp", versionInfo.Timestamp),
-				zap.Bool("Release Build", versionInfo.Release),
-			)
 		}
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = checker.NewChore(peer.Version.Service, config.Version.CheckInterval)

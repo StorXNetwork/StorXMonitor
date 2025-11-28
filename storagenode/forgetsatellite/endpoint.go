@@ -50,7 +50,6 @@ func (e *Endpoint) InitForgetSatellite(ctx context.Context, req *internalpb.Init
 	}
 
 	if satellite.SatelliteID.IsZero() {
-		logger.Debug("satellite not found")
 		if !req.ForceCleanup {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, "satellite not found")
 		}
@@ -66,12 +65,10 @@ func (e *Endpoint) InitForgetSatellite(ctx context.Context, req *internalpb.Init
 	}
 
 	if satellite.Status == satellites.CleanupInProgress {
-		logger.Debug("satellite is already being cleaned up")
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "satellite is already being cleaned up")
 	}
 
 	if !req.ForceCleanup && satellite.Status != satellites.Untrusted {
-		logger.Debug("satellite is not untrusted")
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "satellite is not untrusted")
 	}
 
@@ -92,15 +89,12 @@ func (e *Endpoint) InitForgetSatellite(ctx context.Context, req *internalpb.Init
 func (e *Endpoint) ForgetSatelliteStatus(ctx context.Context, req *internalpb.ForgetSatelliteStatusRequest) (_ *internalpb.ForgetSatelliteStatusResponse, err error) {
 	defer mon.Task()(&ctx, req.SatelliteId)(&err)
 
-	logger := e.log.With(zap.Stringer("satelliteID", req.SatelliteId)).With(zap.String("action", "ForgetSatelliteStatus"))
-
 	satellite, err := e.satellites.GetSatellite(ctx, req.SatelliteId)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	if satellite.SatelliteID.IsZero() {
-		logger.Debug("satellite not found")
 		return nil, rpcstatus.Error(rpcstatus.NotFound, "satellite not found")
 	}
 

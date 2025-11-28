@@ -385,7 +385,6 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	segmentsBelowMinReqCounter.Inc(0)
 	pieces := segment.Pieces
 	if len(pieces) == 0 {
-		fork.log.Debug("no pieces on remote segment")
 		return nil
 	}
 

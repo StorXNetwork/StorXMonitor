@@ -257,7 +257,6 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 	}
 	defer func() { err = errs.Combine(err, service.Close()) }()
 
-	log.Debug("starting", zap.Any("config", service.config), zap.String("command", cmd.Name()))
 	return commandFunc(ctx, service)
 }
 

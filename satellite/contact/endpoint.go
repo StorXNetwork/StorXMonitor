@@ -106,10 +106,6 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	// check wallet features
 	if req.Operator != nil {
 		if err := nodeoperator.DefaultWalletFeaturesValidation.Validate(req.Operator.WalletFeatures); err != nil {
-			endpoint.log.Debug("ignoring invalid wallet features",
-				zap.Stringer("Node ID", nodeID),
-				zap.Strings("Wallet Features", req.Operator.WalletFeatures))
-
 			// TODO: Update CheckInResponse to include wallet feature validation error
 			req.Operator.WalletFeatures = nil
 		}
@@ -143,7 +139,6 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
-	endpoint.log.Debug("checking in", zap.Stringer("Node ID", nodeID), zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
 	return &pb.CheckInResponse{
 		PingNodeSuccess:     pingNodeSuccess,
 		PingNodeSuccessQuic: pingNodeSuccessQUIC,
@@ -189,14 +184,13 @@ func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPS
 func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (_ *pb.GetTimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	peerID, err := identity.PeerIdentityFromContext(ctx)
+	_, err = identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		endpoint.log.Info("failed to get node ID from context", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 
 	currentTimestamp := time.Now().UTC()
-	endpoint.log.Debug("get system current time", zap.Stringer("timestamp", currentTimestamp), zap.Stringer("node id", peerID.ID))
 	return &pb.GetTimeResponse{
 		Timestamp: currentTimestamp,
 	}, nil

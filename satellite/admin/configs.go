@@ -387,11 +387,12 @@ func (server *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 
 	// Determine config_type based on template type
 	var configType configs.ConfigType
-	if input.Type == "email" {
+	switch input.Type {
+	case "email":
 		configType = configs.ConfigTypeEmailTemplate
-	} else if input.Type == "push" {
+	case "push":
 		configType = configs.ConfigTypePushTemplate
-	} else {
+	default:
 		sendJSONError(w, "invalid type", "type must be 'email' or 'push'", http.StatusBadRequest)
 		return
 	}

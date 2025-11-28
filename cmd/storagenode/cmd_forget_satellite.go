@@ -145,7 +145,7 @@ func cmdForgetSatellite(ctx context.Context, log *zap.Logger, cfg *forgetSatelli
 	defer func() {
 		err = errs.Combine(err, client.close())
 		if err != nil {
-			log.Debug("error closing forget-satellite client", zap.Error(err))
+			log.Warn("error closing forget-satellite client", zap.Error(err))
 		}
 	}()
 
@@ -221,7 +221,7 @@ func cmdForgetSatelliteStatus(ctx context.Context, log *zap.Logger, cfg *forgetS
 	defer func() {
 		err = errs.Combine(err, client.close())
 		if err != nil {
-			log.Debug("error closing forget-satellite client", zap.Error(err))
+			log.Warn("error closing forget-satellite client", zap.Error(err))
 		}
 	}()
 

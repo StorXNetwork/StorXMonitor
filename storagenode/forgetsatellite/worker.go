@@ -33,8 +33,5 @@ func NewWorker(log *zap.Logger, cleaner *Cleaner, satellite storj.NodeID) *Worke
 func (w *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	w.log.Debug("worker started")
-	defer w.log.Debug("worker finished")
-
 	return w.cleaner.Run(ctx, w.satellite)
 }

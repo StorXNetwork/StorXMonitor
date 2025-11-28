@@ -131,8 +131,6 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 		User:     map[storj.NodeID]UserLogin{},
 	}
 
-	planetUplink.Log.Debug("id=" + identity.ID.String())
-
 	planetUplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 	for j, satellite := range planet.Satellites {

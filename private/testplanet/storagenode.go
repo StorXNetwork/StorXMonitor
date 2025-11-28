@@ -99,7 +99,6 @@ func (planet *Planet) newStorageNodes(ctx context.Context, count int, whiteliste
 			return nil, errs.Wrap(err)
 		}
 
-		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
 		xs = append(xs, system)
 		planet.peers = append(planet.peers, newClosablePeer(system))
 	}

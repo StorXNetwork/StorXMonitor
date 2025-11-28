@@ -108,7 +108,6 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}()
 
 	if segment.Expired(verifier.nowFn()) {
-		verifier.log.Debug("segment expired before Verify")
 		return Report{}, nil
 	}
 
@@ -118,7 +117,6 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	})
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
-			verifier.log.Debug("segment deleted before Verify")
 			return Report{}, nil
 		}
 		return Report{}, err
@@ -154,7 +152,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	// the skip list
 	offlineNodes = getOfflineNodes(segmentInfo, orderLimits, skip)
 	if len(offlineNodes) > 0 {
-		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)",
+		verifier.log.Info("Verify: order limits not created for some nodes (offline/disqualified)",
 			zap.Strings("Node IDs", offlineNodes.Strings()),
 			zap.String("Segment", segmentInfoString(segment)))
 	}
@@ -169,11 +167,9 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	err = verifier.checkIfSegmentAltered(ctx, segmentInfo)
 	if err != nil {
 		if ErrSegmentDeleted.Has(err) {
-			verifier.log.Debug("segment deleted during Verify")
 			return Report{}, nil
 		}
 		if ErrSegmentModified.Has(err) {
-			verifier.log.Debug("segment modified during Verify")
 			return Report{}, nil
 		}
 		return Report{
@@ -200,7 +196,6 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		case DialFailure:
 			// dial failed -- offline node
 			offlineNodes = append(offlineNodes, share.NodeID)
-			errLogger.Debug("Verify: dial failed (offline)")
 			continue
 
 		case RequestFailure:
@@ -405,7 +400,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		}
 		ps, err = piecestore.Dial(rpcpool.WithForceDial(timedCtx), verifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
-			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
+			log.Warn("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
 		}
 	}
 

@@ -76,7 +76,7 @@ func TestPurchasePackage(t *testing.T) {
 				}, 1)
 				require.NoError(t, err)
 
-				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "payments/purchase-package", strings.NewReader(tt.cardToken))
+				_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, "payments/purchase-package", strings.NewReader(tt.cardToken))
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedStatus, status)
 			})
@@ -117,7 +117,7 @@ func TestPackageAvailable(t *testing.T) {
 				}, 1)
 				require.NoError(t, err)
 
-				body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "payments/package-available", nil)
+				body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, "payments/package-available", nil)
 				require.NoError(t, err)
 
 				require.Equal(t, http.StatusOK, status)

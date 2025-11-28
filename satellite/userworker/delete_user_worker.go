@@ -48,8 +48,6 @@ func NewDeleteUserWorker(log *zap.Logger, queue DeleteUserQueue, projects consol
 func (worker *DeleteUserWorker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	worker.log.Info("DeleteUserWorker started")
-
 	return worker.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		err = worker.process(ctx)
 		if err == nil {

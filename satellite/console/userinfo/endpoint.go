@@ -130,7 +130,7 @@ func (e *Endpoint) getAPIKey(ctx context.Context, header *pb.RequestHeader) (key
 	key, err = macaroon.ParseRawAPIKey(header.ApiKey)
 	if err != nil {
 		err = Error.Wrap(err)
-		e.log.Debug("Invalid credentials", zap.Error(err))
+		e.log.Warn("Invalid credentials", zap.Error(err))
 		return nil, err
 	}
 

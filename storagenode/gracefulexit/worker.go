@@ -45,9 +45,6 @@ func NewWorker(log *zap.Logger, service *Service, dialer rpc.Dialer, satelliteUR
 func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	worker.log.Debug("started")
-	defer worker.log.Debug("finished")
-
 	conn, err := worker.dialer.DialNodeURL(ctx, worker.satelliteURL)
 	if err != nil {
 		return errs.Wrap(err)

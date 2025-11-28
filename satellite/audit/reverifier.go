@@ -153,24 +153,20 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	})
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
-			logger.Debug("segment no longer exists")
 			return OutcomeNotNecessary, reputation, nil
 		}
 		return OutcomeNotPerformed, reputation, Error.Wrap(err)
 	}
 	if segment.Expired(reverifier.nowFn()) {
-		logger.Debug("segment expired before ReverifyPiece")
 		return OutcomeNotNecessary, reputation, nil
 	}
 	piece, found := segment.Pieces.FindByNum(locator.PieceNum)
 	if !found || piece.StorageNode != locator.NodeID {
-		logger.Debug("piece is no longer held by the indicated node")
 		return OutcomeNotNecessary, reputation, nil
 	}
 
 	// TODO remove this when old entries with empty StreamID will be deleted
 	if locator.StreamID.IsZero() {
-		logger.Debug("ReverifyPiece: skip pending audit with empty StreamID")
 		return OutcomeNotNecessary, reputation, nil
 	}
 
@@ -179,15 +175,12 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	limit, piecePrivateKey, cachedNodeInfo, err := reverifier.orders.CreateAuditPieceOrderLimit(ctx, locator.NodeID, uint16(locator.PieceNum), segment.RootPieceID, int32(pieceSize))
 	if err != nil {
 		if overlay.ErrNodeDisqualified.Has(err) {
-			logger.Debug("ReverifyPiece: order limit not created (node is already disqualified)")
 			return OutcomeNotNecessary, reputation, nil
 		}
 		if overlay.ErrNodeFinishedGE.Has(err) {
-			logger.Debug("ReverifyPiece: order limit not created (node has completed graceful exit)")
 			return OutcomeNotNecessary, reputation, nil
 		}
 		if overlay.ErrNodeOffline.Has(err) {
-			logger.Debug("ReverifyPiece: order limit not created (node considered offline)")
 			return OutcomeNodeOffline, reputation, nil
 		}
 		return OutcomeNotPerformed, reputation, Error.Wrap(err)
@@ -214,7 +207,6 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 			err := reverifier.checkIfSegmentAltered(ctx, segment)
 			if err != nil {
 				// if so, we skip this audit
-				logger.Debug("ReverifyPiece: audit source segment changed during reverification", zap.Error(err))
 				return OutcomeNotNecessary, reputation, nil
 			}
 			// missing share
@@ -269,7 +261,6 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	}
 
 	if err := reverifier.checkIfSegmentAltered(ctx, segment); err != nil {
-		logger.Debug("ReverifyPiece: audit source segment changed during reverification", zap.Error(err))
 		return OutcomeNotNecessary, reputation, nil
 	}
 	if outcome == OutcomeFailure {
@@ -319,7 +310,7 @@ func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedO
 		}
 		ps, err = piecestore.Dial(timedCtx, reverifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
-			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
+			log.Warn("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
 		}
 	}
 

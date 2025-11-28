@@ -65,7 +65,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 
 	err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations)
 	if err != nil {
-		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		endpoint.log.Warn("unauthorized request", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
@@ -110,7 +110,7 @@ func (endpoint *Endpoint) validateAuthN(ctx context.Context, header *pb.RequestH
 			*p.actionPermitted = err == nil
 		}
 		if err != nil && !p.optional {
-			endpoint.log.Debug("unauthorized request", zap.Error(err))
+			endpoint.log.Warn("unauthorized request", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 		}
 	}
@@ -142,7 +142,7 @@ func (endpoint *Endpoint) validateAuthAny(ctx context.Context, header *pb.Reques
 		combinedErrs = errs.Combine(combinedErrs, err)
 	}
 
-	endpoint.log.Debug("unauthorized request", zap.Error(combinedErrs))
+	endpoint.log.Warn("unauthorized request", zap.Error(combinedErrs))
 	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 }
 
@@ -151,13 +151,13 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 
 	key, err := getAPIKey(ctx, header)
 	if err != nil {
-		endpoint.log.Debug("invalid request", zap.Error(err))
+		endpoint.log.Warn("invalid request", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
 	}
 
 	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
-		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		endpoint.log.Warn("unauthorized request", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
@@ -172,7 +172,7 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 	)
 
 	if err = endpoint.checkRate(ctx, keyInfo); err != nil {
-		endpoint.log.Debug("rate check failed", zap.Error(err))
+		endpoint.log.Warn("rate check failed", zap.Error(err))
 		return nil, nil, err
 	}
 

@@ -61,7 +61,6 @@ func (chore *Chore) AddMissing(ctx context.Context) (err error) {
 	if len(geSatellites) == 0 {
 		return nil
 	}
-	chore.log.Debug("exiting", zap.Int("satellites", len(geSatellites)))
 
 	for _, satellite := range geSatellites {
 		mon.Meter("satellite_gracefulexit_request").Mark(1) //mon:locked
@@ -70,7 +69,6 @@ func (chore *Chore) AddMissing(ctx context.Context) (err error) {
 		worker := NewWorker(chore.log, chore.service, chore.dialer, satellite.NodeURL, chore.config)
 		if _, ok := chore.exitingMap.LoadOrStore(satellite.SatelliteID, worker); ok {
 			// already running a worker for this satellite
-			chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", satellite.SatelliteID))
 			continue
 		}
 

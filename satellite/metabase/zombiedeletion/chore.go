@@ -78,7 +78,6 @@ func (chore *Chore) TestingSetNow(nowFn func() time.Time) {
 
 func (chore *Chore) deleteZombieObjects(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	chore.log.Debug("deleting zombie objects")
 
 	opts := metabase.DeleteZombieObjects{
 		DeadlineBefore:     chore.nowFn(),

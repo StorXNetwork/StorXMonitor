@@ -347,7 +347,6 @@ func (planet *Planet) newSatellites(ctx context.Context, count int, databases sa
 			return nil, errs.Wrap(err)
 		}
 
-		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
 		satellites = append(satellites, system)
 		planet.peers = append(planet.peers, newClosablePeer(system))
 	}

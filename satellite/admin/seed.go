@@ -108,8 +108,6 @@ func createSuperAdmin(ctx context.Context, log *zap.Logger, adminDB Users) {
 	if err := ensureAdminActive(ctx, log, adminDB, createdAdmin); err != nil {
 		return
 	}
-
-	logSuperAdminSuccess(log, createdAdmin.ID)
 }
 
 // prepareAdminUser creates and configures the admin user object
@@ -189,19 +187,4 @@ func ensureAdminActive(ctx context.Context, log *zap.Logger, adminDB Users, admi
 		zap.String("email", updatedAdmin.Email),
 		zap.Int("status", int(updatedAdmin.Status)))
 	return nil
-}
-
-// logSuperAdminSuccess logs successful admin creation (without password in production)
-func logSuperAdminSuccess(log *zap.Logger, adminID uuid.UUID) {
-	// In production, you might want to omit the password from logs
-	if log.Core().Enabled(zap.DebugLevel) {
-		log.Debug("Super admin seeded successfully",
-			zap.String("email", superAdminEmail),
-			zap.String("id", adminID.String()),
-			zap.String("password", defaultPassword))
-	} else {
-		log.Info("Super admin seeded successfully",
-			zap.String("email", superAdminEmail),
-			zap.String("id", adminID.String()))
-	}
 }

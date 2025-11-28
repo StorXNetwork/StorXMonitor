@@ -96,8 +96,6 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 			return err
 		})
 	}
-
-	group.log.Debug("started", zap.Strings("items", started))
 }
 
 func (group *Group) logStackTrace() {

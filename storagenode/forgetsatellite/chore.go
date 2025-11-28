@@ -61,7 +61,6 @@ func (chore *Chore) RunOnce(ctx context.Context) (err error) {
 	for _, satellite := range sats {
 		worker := NewWorker(chore.log.With(zap.Stringer("satelliteID", satellite)), chore.cleaner, satellite)
 		if _, ok := chore.satelliteMap.LoadOrStore(satellite, worker); ok {
-			chore.log.Debug("forget-satellite already in progress", zap.Stringer("satellite", satellite))
 			continue
 		}
 

@@ -240,7 +240,6 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.Blob
 		return err
 	}
 	blobs.Update(ctx, satelliteID, -pieceTotal, -pieceContentSize, 0)
-	blobs.log.Debug("deleted piece", zap.String("Satellite ID", satelliteID.String()), zap.Int64("disk space freed in bytes", pieceContentSize))
 	return nil
 }
 

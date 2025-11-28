@@ -61,10 +61,9 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 	for _, link := range clicker.FindLinks(body) {
 		req, err := http.NewRequestWithContext(ctx, "GET", link, nil)
 		if err != nil {
-			continue
-		}
-		clicker.log.Debug("clicking", zap.String("url", link))
-		client := &http.Client{}
+		continue
+	}
+	client := &http.Client{}
 		client.Timeout = 5 * time.Second
 		response, err := client.Do(req)
 		if err != nil {

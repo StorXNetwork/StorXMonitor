@@ -59,8 +59,6 @@ func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err er
 		return errs.New("Bucket is not set")
 	}
 
-	obs.log.Debug("collecting bloom filters started")
-
 	// load last piece counts from overlay db
 	lastPieceCounts, err := obs.overlay.ActiveNodesPieceCounts(ctx)
 	if err != nil {
@@ -96,7 +94,6 @@ func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
 	if err := obs.upload.UploadBloomFilters(ctx, obs.latestCreationTime, obs.retainInfos); err != nil {
 		return err
 	}
-	obs.log.Debug("collecting bloom filters finished")
 	return nil
 }
 

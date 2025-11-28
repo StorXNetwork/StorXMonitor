@@ -285,7 +285,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *o
 		return nil, err
 	}
 
-	return convertDBNode(ctx, node)
+	return convertDBNode(node)
 }
 
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
@@ -892,7 +892,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 		return nil, Error.Wrap(err)
 	}
 
-	return convertDBNode(ctx, updatedDBNode)
+	return convertDBNode(updatedDBNode)
 }
 
 // DisqualifyNode disqualifies a storage node.
@@ -1200,7 +1200,7 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 		return nil, Error.Wrap(errs.New("unable to get node by ID: %v", nodeID))
 	}
 
-	return convertDBNode(ctx, dbNode)
+	return convertDBNode(dbNode)
 }
 
 func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {
@@ -1220,7 +1220,7 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 	return dbxUpdateFields
 }
 
-func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
+func convertDBNode(info *dbx.Node) (_ *overlay.NodeDossier, err error) {
 	if info == nil {
 		return nil, Error.New("missing info")
 	}
@@ -1809,7 +1809,7 @@ func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(c
 		}
 
 		for _, node := range dbxNodes {
-			dossier, err := convertDBNode(ctx, node)
+			dossier, err := convertDBNode(node)
 			if err != nil {
 				return err
 			}

@@ -206,17 +206,11 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 			info = &satelliteInfoCache{
 				url: url,
 			}
-			pool.log.Debug("Satellite is trusted", zap.String("id", url.ID.String()))
 			pool.satellites[url.ID] = info
 		}
 
 		// update the URL address and reset the identity if it changed
 		if info.url.Address != url.Address {
-			pool.log.Debug("Satellite address updated; identity cache purged",
-				zap.String("id", url.ID.String()),
-				zap.String("old", info.url.Address),
-				zap.String("new", url.Address),
-			)
 			info.url.Address = url.Address
 			info.identity = nil
 		}
@@ -225,7 +219,6 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 	// remove trusted IDs that are no longer in the URL list
 	for id, info := range pool.satellites {
 		if _, ok := trustedIDs[id]; !ok {
-			pool.log.Debug("Satellite is no longer trusted", zap.String("id", id.String()))
 			delete(pool.satellites, id)
 			err := pool.satellitesDB.UpdateSatelliteStatus(ctx, id, satellites.Untrusted)
 			if err != nil {

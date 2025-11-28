@@ -120,8 +120,6 @@ func (c *Cleaner) Run(ctx context.Context, satelliteID storj.NodeID) (err error)
 		return err
 	}
 
-	logger.Info("cleanup completed")
-
 	return nil
 }
 

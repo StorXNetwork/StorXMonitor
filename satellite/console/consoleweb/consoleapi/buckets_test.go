@@ -64,7 +64,7 @@ func TestAllBucketNames(t *testing.T) {
 		require.NoError(t, err)
 
 		testRequest := func(endpointSuffix string) {
-			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "buckets/bucket-names"+endpointSuffix, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, "buckets/bucket-names"+endpointSuffix, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 
@@ -139,7 +139,7 @@ func TestBucketMetadata(t *testing.T) {
 		require.NoError(t, err)
 
 		testRequest := func(path string, requireVersioning bool) {
-			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, path, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, path, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 

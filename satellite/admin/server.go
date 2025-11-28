@@ -410,7 +410,7 @@ func (server *Server) SetAllowedOauthHost(host string) {
 }
 
 // adminTokenAuth validates JWT token and returns authenticated context with admin user.
-func (server *Server) adminTokenAuth(ctx context.Context, tokenString string, authTime time.Time) (_ context.Context, err error) {
+func (server *Server) adminTokenAuth(ctx context.Context, tokenString string) (_ context.Context, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	claims, err := server.auth.ValidateToken(ctx, tokenString)
@@ -474,7 +474,7 @@ func (server *Server) WithAuth(allowedGroups []string, requireAPIKey bool) func(
 
 				if tokenString != "" {
 					// Validate token and get authenticated context (like console's TokenAuth)
-					newCtx, err := server.adminTokenAuth(ctx, tokenString, time.Now())
+					newCtx, err := server.adminTokenAuth(ctx, tokenString)
 					if err != nil {
 						if foundInCookie {
 							server.cookieAuth.RemoveTokenCookie(w)

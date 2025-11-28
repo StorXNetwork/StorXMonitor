@@ -261,25 +261,11 @@ func (bl *BackupLogger) LogBackupFailed(backupDate string, err error) {
 
 // LogPageStarted logs the start of a page processing operation
 func (bl *BackupLogger) LogPageStarted(backupDate string, pageNumber int, startIndex, count uint64) {
-	bl.log.Debug("Page processing started",
-		zap.String("backup_date", backupDate),
-		zap.Int("page_number", pageNumber),
-		zap.Uint64("start_index", startIndex),
-		zap.Uint64("count", count),
-	)
 	bl.metrics.RecordPageStarted()
 }
 
 // LogPageCompleted logs the successful completion of a page processing operation
 func (bl *BackupLogger) LogPageCompleted(backupDate string, pageNumber int, duration time.Duration, keysCount int64, filePath string, fileSize int64) {
-	bl.log.Debug("Page processing completed",
-		zap.String("backup_date", backupDate),
-		zap.Int("page_number", pageNumber),
-		zap.Duration("duration", duration),
-		zap.Int64("keys_count", keysCount),
-		zap.String("file_path", filePath),
-		zap.Int64("file_size", fileSize),
-	)
 	bl.metrics.RecordPageCompleted(duration, keysCount)
 }
 
@@ -323,12 +309,6 @@ func (bl *BackupLogger) LogFileOperation(operation string, filePath string, file
 			zap.Error(err),
 		)
 	} else {
-		bl.log.Debug("File operation completed",
-			zap.String("operation", operation),
-			zap.String("file_path", filePath),
-			zap.Int64("file_size", fileSize),
-		)
-
 		if operation == "create" {
 			bl.metrics.RecordFileCreated(fileSize)
 		} else if operation == "delete" {
@@ -349,11 +329,6 @@ func (bl *BackupLogger) LogChecksumError(filePath string, expectedChecksum, actu
 
 // LogResourceUsage logs current resource usage
 func (bl *BackupLogger) LogResourceUsage(memoryUsage, diskUsage, concurrencyLevel int64) {
-	bl.log.Debug("Resource usage",
-		zap.Int64("memory_usage_bytes", memoryUsage),
-		zap.Int64("disk_usage_bytes", diskUsage),
-		zap.Int64("concurrency_level", concurrencyLevel),
-	)
 	bl.metrics.RecordResourceUsage(memoryUsage, diskUsage, concurrencyLevel)
 }
 

@@ -99,11 +99,6 @@ func (server *Server) sendNotificationAsync(userID uuid.UUID, email string, even
 				zap.String("email", email),
 				zap.Error(err))
 		} else {
-			server.log.Debug("Successfully sent push notification",
-				zap.String("event", eventName),
-				zap.String("description", eventDescription),
-				zap.Stringer("user_id", userID),
-				zap.String("email", email))
 		}
 	}()
 }
@@ -121,10 +116,6 @@ func (server *Server) checkNotificationPreferences(ctx context.Context, userID u
 
 	configsList, err := configsService.ListConfigs(ctx, filters)
 	if err != nil {
-		server.log.Debug("Failed to get push notification configs, sending notification by default",
-			zap.Stringer("user_id", userID),
-			zap.String("category", category),
-			zap.Error(err))
 		return true, nil // Default to sending on error
 	}
 
@@ -145,10 +136,6 @@ func (server *Server) checkNotificationPreferences(ctx context.Context, userID u
 	preferenceService := configs.NewPreferenceService(server.db.Console().UserNotificationPreferences())
 	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, category, string(configs.NotificationTypePush), configs.GetConfigLevel(pushConfig.ConfigData))
 	if err != nil {
-		server.log.Debug("Failed to check user notification preferences, sending notification by default",
-			zap.Stringer("user_id", userID),
-			zap.String("category", category),
-			zap.Error(err))
 		return true, nil // Default to sending on error
 	}
 

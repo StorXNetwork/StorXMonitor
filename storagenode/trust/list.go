@@ -97,7 +97,6 @@ func (list *List) fetchEntries(ctx context.Context) (_ []Entry, err error) {
 			}
 			sourceLog.Warn("Failed to fetch URLs from source; used cache", zap.Error(err))
 		} else {
-			sourceLog.Debug("Fetched URLs from source; updating cache", zap.Int("count", len(entries)))
 			list.updateCache(source, entries)
 		}
 

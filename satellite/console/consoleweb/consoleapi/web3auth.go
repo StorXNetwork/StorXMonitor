@@ -73,8 +73,6 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	// Add logging to help debug
-	a.log.Debug("Web3Auth Token request received")
 
 	type Web3AuthRequest struct {
 		Email           string `json:"email"`

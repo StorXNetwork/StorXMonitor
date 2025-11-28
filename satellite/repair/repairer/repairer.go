@@ -193,7 +193,6 @@ func (service *Service) process(ctx context.Context) (err error) {
 		cancel()
 		return err
 	}
-	service.log.Debug("Retrieved segment from repair queue")
 
 	// this goroutine inherits the JobLimiter semaphore acquisition and is now responsible
 	// for releasing it.
@@ -213,14 +212,11 @@ func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (
 
 	workerStartTime := service.nowFn().UTC()
 
-	service.log.Debug("Limiter running repair on segment")
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, seg)
 	if shouldDelete {
 		if err != nil {
 			service.log.Error("unexpected error repairing segment!", zap.Error(err))
-		} else {
-			service.log.Debug("removing repaired segment from repair queue")
 		}
 
 		delErr := service.queue.Delete(ctx, seg)

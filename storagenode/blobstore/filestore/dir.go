@@ -593,7 +593,6 @@ func (dir *Dir) listTrashDayDirs(ctx context.Context, namespace []byte) (dirTime
 	openDir, err := os.Open(namespaceTrashDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			dir.log.Debug("directory not found", zap.String("dir", namespaceTrashDir))
 			// job accomplished: there are no day dirs in this namespace!
 			return nil, nil
 		}
@@ -826,7 +825,6 @@ func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, ns
 	openDir, err := os.Open(nsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			dir.log.Debug("directory not found", zap.String("dir", nsDir))
 			// job accomplished: there are no blobs in this namespace!
 			return nil
 		}

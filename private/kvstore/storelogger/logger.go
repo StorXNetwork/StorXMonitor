@@ -34,50 +34,35 @@ func New(log *zap.Logger, store kvstore.Store) *Logger {
 // Put adds a value to store.
 func (store *Logger) Put(ctx context.Context, key kvstore.Key, value kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("Put", zap.ByteString("key", key), zap.Int("value length", len(value)), zap.Binary("truncated value", truncate(value)))
 	return store.store.Put(ctx, key, value)
 }
 
 // Get gets a value to store.
 func (store *Logger) Get(ctx context.Context, key kvstore.Key) (_ kvstore.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("Get", zap.ByteString("key", key))
 	return store.store.Get(ctx, key)
 }
 
 // Delete deletes key and the value.
 func (store *Logger) Delete(ctx context.Context, key kvstore.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("Delete", zap.ByteString("key", key))
 	return store.store.Delete(ctx, key)
 }
 
 // Range iterates over all items in unspecified order.
 func (store *Logger) Range(ctx context.Context, fn func(context.Context, kvstore.Key, kvstore.Value) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("Range")
-	return store.store.Range(ctx, func(ctx context.Context, key kvstore.Key, value kvstore.Value) error {
-		store.log.Debug("  ",
-			zap.ByteString("key", key),
-			zap.Int("value length", len(value)),
-			zap.Binary("truncated value", truncate(value)),
-		)
-		return fn(ctx, key, value)
-	})
+	return store.store.Range(ctx, fn)
 }
 
 // Close closes the store.
 func (store *Logger) Close() error {
-	store.log.Debug("Close")
 	return store.store.Close()
 }
 
 // CompareAndSwap atomically compares and swaps oldValue with newValue.
 func (store *Logger) CompareAndSwap(ctx context.Context, key kvstore.Key, oldValue, newValue kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("CompareAndSwap", zap.ByteString("key", key),
-		zap.Int("old value length", len(oldValue)), zap.Int("new value length", len(newValue)),
-		zap.Binary("truncated old value", truncate(oldValue)), zap.Binary("truncated new value", truncate(newValue)))
 	return store.store.CompareAndSwap(ctx, key, oldValue, newValue)
 }
 

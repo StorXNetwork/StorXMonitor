@@ -65,8 +65,6 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 		return err
 	}
 
-	obs.log.Debug("collecting bloom filters started")
-
 	// load last piece counts from overlay db
 	lastPieceCounts, err := obs.overlay.ActiveNodesPieceCounts(ctx)
 	if err != nil {
@@ -126,7 +124,6 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 	if err := obs.upload.UploadBloomFilters(ctx, obs.latestCreationTime, obs.retainInfos); err != nil {
 		return err
 	}
-	obs.log.Debug("collecting bloom filters finished")
 	return nil
 }
 

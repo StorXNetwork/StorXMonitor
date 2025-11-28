@@ -820,12 +820,10 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	// Send plan purchase email notification
 	go func() {
 		if p.mailService == nil {
-			p.log.Debug("Mail service not configured, skipping plan purchase email.")
 			return
 		}
 
 		emailCtx := context.Background()
-		emailUserID := u.ID
 		emailUserEmail := u.Email
 		userName := u.FullName
 		if userName == "" {
@@ -856,12 +854,6 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 				TermsAndConditionsURL: termsAndConditionsURL,
 			},
 		)
-		p.log.Debug("Sent plan purchase email",
-			zap.Stringer("user_id", emailUserID),
-			zap.String("email", emailUserEmail),
-			zap.String("plan_name", description),
-			zap.Int64("price_cents", pkg.Price),
-			zap.Int64("credit_cents", pkg.Credit))
 	}()
 
 	// Send push notification for plan purchase
@@ -910,7 +902,7 @@ func (p *Payments) GetCoupons(w http.ResponseWriter, r *http.Request) {
 	coupons, err := p.service.GetActiveCoupons(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			http.Error(w, fmt.Sprintf("No coupons found"), http.StatusNotFound)
+			http.Error(w, "No coupons found", http.StatusNotFound)
 			return
 		}
 		http.Error(w, fmt.Sprintf("Failed to get coupons: %v", err), http.StatusInternalServerError)
@@ -960,15 +952,16 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if coupon.ValidFrom.After(time.Now().UTC()) || coupon.ValidTo.Before(time.Now().UTC()) {
-			http.Error(w, fmt.Sprintf("Coupon is not valid"), http.StatusBadRequest)
+			http.Error(w, "Coupon is not valid", http.StatusBadRequest)
 			return
 		}
 
 		if coupon.MinOrderAmount <= plan.Price {
 			discountAmount := float64(0)
-			if coupon.DiscountType == "percentage" {
+			switch coupon.DiscountType {
+			case "percentage":
 				discountAmount = plan.Price * (coupon.Discount / 100)
-			} else if coupon.DiscountType == "fixed" {
+			case "fixed":
 				discountAmount = coupon.Discount
 			}
 
@@ -1206,11 +1199,12 @@ func (p *Payments) getPaymentdetail(paidPaymentID string) (paymentStatus string)
 			getPaymentStatusResponse.Message, getPaymentStatusResponse.Status, getPaymentStatusResponse.StatusCode, getPaymentStatusResponse.Data)
 		fmt.Printf("*******PaymentStatus: %s\n*******Payment ID: %s\n", getPaymentStatusResponse.Data.Status, getPaymentStatusResponse.Data.PaymentID)
 
-		if getPaymentStatusResponse.Data.Status == "COMPLETED" {
+		switch getPaymentStatusResponse.Data.Status {
+		case "COMPLETED":
 			paymentStatus = "COMPLETED"
-		} else if getPaymentStatusResponse.Data.Status == "PENDING" {
+		case "PENDING":
 			paymentStatus = "PENDING"
-		} else if getPaymentStatusResponse.Data.Status == "EXPIRED" {
+		case "EXPIRED":
 			paymentStatus = "EXPIRED"
 		}
 	} else {

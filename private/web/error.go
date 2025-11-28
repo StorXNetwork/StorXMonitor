@@ -35,8 +35,6 @@ func ServeCustomJSONError(ctx context.Context, log *zap.Logger, w http.ResponseW
 		return
 	case http.StatusInternalServerError:
 		log.Error("returning error to client", fields...)
-	case http.StatusBadRequest:
-		log.Debug("returning error to client", fields...)
 	case http.StatusTooManyRequests:
 	default:
 		log.Info("returning error to client", fields...)

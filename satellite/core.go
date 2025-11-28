@@ -5,7 +5,6 @@ package satellite
 
 import (
 	"context"
-	"errors"
 	"net"
 	"runtime/pprof"
 
@@ -178,13 +177,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup debug
-		var err error
 		if config.Debug.Addr != "" {
-			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Addr)
-			if err != nil {
-				withoutStack := errors.New(err.Error())
-				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-			}
+			peer.Debug.Listener, _ = net.Listen("tcp", config.Debug.Addr)
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Core"
@@ -535,9 +529,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.StorjscanClient,
 			pc.Storjscan.Confirmations,
 			pc.BonusRate)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
 		peer.Payments.StorjscanChore = storjscan.NewChore(
 			peer.Log.Named("payments.storjscan:chore"),

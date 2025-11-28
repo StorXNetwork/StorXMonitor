@@ -182,7 +182,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 
 	nodes, err := service.overlay.CachedGetOnlineNodesForGet(ctx, nodeIDs)
 	if err != nil {
-		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		service.log.Warn("error getting nodes from overlay", zap.Error(err))
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -335,7 +335,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment meta
 
 	nodes, err := service.overlay.GetOnlineNodesForAuditRepair(ctx, nodeIDs)
 	if err != nil {
-		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		service.log.Warn("error getting nodes from overlay", zap.Error(err))
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
 
@@ -458,7 +458,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, segment 
 
 	nodes, err := service.overlay.GetOnlineNodesForAuditRepair(ctx, nodeIDs)
 	if err != nil {
-		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		service.log.Warn("error getting nodes from overlay", zap.Error(err))
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
 

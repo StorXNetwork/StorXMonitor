@@ -56,8 +56,6 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	p.log.Info("starting subprocess")
-
 	var buf bytes.Buffer
 
 	// encode the struct and write it to the buffer
@@ -82,19 +80,15 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 		return errLazyFilewalker.Wrap(err)
 	}
 
-	p.log.Info("subprocess started")
-
 	if err := p.cmd.Wait(); err != nil {
 		var exitErr *execabs.ExitError
 		if errors.As(err, &exitErr) {
-			p.log.Info("subprocess exited with status", zap.Int("status", exitErr.ExitCode()), zap.Error(exitErr))
+			p.log.Error("subprocess exited with error", zap.Int("status", exitErr.ExitCode()), zap.Error(exitErr))
 		} else {
 			p.log.Error("subprocess exited with error", zap.Error(err))
 		}
 		return errLazyFilewalker.Wrap(err)
 	}
-
-	p.log.Info("subprocess finished successfully")
 
 	// Decode and receive the response data struct from the subprocess
 	decoder := json.NewDecoder(p.stdout)

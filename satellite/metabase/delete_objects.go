@@ -135,13 +135,6 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 					return scanErrClass.Wrap(err)
 				}
 
-				db.log.Debug("selected zombie object for deleting it",
-					zap.Stringer("Project", last.ProjectID),
-					zap.String("Bucket", last.BucketName),
-					zap.String("Object Key", string(last.ObjectKey)),
-					zap.Int64("Version", int64(last.Version)),
-					zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
-				)
 				objects = append(objects, last)
 			}
 

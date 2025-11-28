@@ -5,7 +5,6 @@ package storagenode
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"net"
@@ -333,13 +332,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup debug
-		var err error
 		if config.Debug.Addr != "" {
-			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Addr)
-			if err != nil {
-				withoutStack := errors.New(err.Error())
-				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-			}
+			peer.Debug.Listener, _ = net.Listen("tcp", config.Debug.Addr)
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Storage Node"
@@ -355,12 +349,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // version setup
 		if !versionInfo.IsZero() {
-			peer.Log.Debug("Version info",
-				zap.Stringer("Version", versionInfo.Version.Version),
-				zap.String("Commit Hash", versionInfo.CommitHash),
-				zap.Stringer("Build Timestamp", versionInfo.Timestamp),
-				zap.Bool("Release Build", versionInfo.Release),
-			)
 		}
 
 		if !config.Version.RunMode.Disabled() {
