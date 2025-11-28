@@ -307,8 +307,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		packagePlans:                    packagePlans,
 	}
 
-	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
-
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
 		Path: "/",
@@ -724,8 +722,6 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 		stripePublicKey: stripePublicKey,
 	}
 
-	logger.Debug("Starting Satellite UI server.", zap.Stringer("Address", server.listener.Addr()))
-
 	router := mux.NewRouter()
 
 	// N.B. This middleware has to be the first one because it has to be called
@@ -742,7 +738,6 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 			return nil, Error.Wrap(err)
 		}
 		proxy := httputil.NewSingleHostReverseProxy(target)
-		logger.Debug("Reverse proxy targeting", zap.String("address", config.BackendReverseProxy))
 
 		router.PathPrefix("/api").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			proxy.ServeHTTP(w, r)
@@ -1189,28 +1184,16 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		if console.ErrTokenInvalid.Has(err) {
-			server.log.Debug("account activation",
-				zap.String("token", activationToken),
-				zap.Error(err),
-			)
 			server.serveError(w, http.StatusBadRequest)
 			return
 		}
 
 		if console.ErrTokenExpiration.Has(err) {
-			server.log.Debug("account activation",
-				zap.String("token", activationToken),
-				zap.Error(err),
-			)
 			http.Redirect(w, r, server.config.ExternalAddress+"activate?expired=true", http.StatusTemporaryRedirect)
 			return
 		}
 
 		if console.ErrEmailUsed.Has(err) {
-			server.log.Debug("account activation",
-				zap.String("token", activationToken),
-				zap.Error(err),
-			)
 			http.Redirect(w, r, server.config.ExternalAddress+"login?activated=false", http.StatusTemporaryRedirect)
 			return
 		}
@@ -1440,9 +1423,6 @@ func (server *Server) handleContactUs(w http.ResponseWriter, r *http.Request) {
 				user = verifiedUser
 			} else {
 				// User not found, skip notification
-				server.log.Debug("User not found for contact us notification",
-					zap.String("email", contactUsRequest.Email),
-					zap.Error(err))
 				return
 			}
 		}

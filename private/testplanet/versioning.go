@@ -61,8 +61,6 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 		return nil, err
 	}
 
-	log.Debug(" addr= " + peer.Addr())
-
 	return peer, nil
 }
 

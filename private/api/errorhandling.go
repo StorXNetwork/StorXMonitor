@@ -34,8 +34,6 @@ func ServeError(log *zap.Logger, w http.ResponseWriter, status int, err error) {
 		return
 	} else if status/100 == 5 { // Check for 5XX status.
 		log.Error("returning error to client", fields...)
-	} else {
-		log.Debug("returning error to client", fields...)
 	}
 
 	w.WriteHeader(status)
@@ -44,6 +42,6 @@ func ServeError(log *zap.Logger, w http.ResponseWriter, status int, err error) {
 		"error": msg,
 	})
 	if err != nil {
-		log.Debug("failed to write json error response", zap.Error(err))
+		log.Warn("failed to write json error response", zap.Error(err))
 	}
 }

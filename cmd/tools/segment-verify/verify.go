@@ -97,11 +97,6 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 	if !methodUnimplemented(err) && !errWrongNodeVersion.Has(err) {
 		return verifiedCount, err
 	}
-	if err != nil {
-		service.log.Debug("fallback to download method", zap.Error(err))
-	}
-
-	service.log.Debug("verify segments by downloading pieces")
 
 	var client *piecestore.Client
 	defer func() {
@@ -263,8 +258,6 @@ func (service *NodeVerifier) VerifyWithExists(ctx context.Context, alias metabas
 		return 0, errWrongNodeVersion.New("too old version")
 	}
 
-	service.log.Debug("verify segments using Exists method", zap.Stringer("node-id", target.ID))
-
 	var conn *rpc.Conn
 	var client pb.DRPCPiecestoreClient
 	defer func() {
@@ -331,10 +324,6 @@ func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, clien
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	service.log.Debug("Exists response",
-		zap.Int("request-count", len(pieceIds)),
-		zap.Int("missing-count", len(response.Missing)))
 
 	if len(response.Missing) == 0 {
 		for i := range segments {

@@ -90,11 +90,11 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	newNodesCondition, err := nodeSelectionCondition(ctx, criteria, excludedIDs, excludedNetworks, true)
+	newNodesCondition, err := nodeSelectionCondition(criteria, excludedIDs, excludedNetworks, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	reputableNodesCondition, err := nodeSelectionCondition(ctx, criteria, excludedIDs, excludedNetworks, false)
+	reputableNodesCondition, err := nodeSelectionCondition(criteria, excludedIDs, excludedNetworks, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -161,7 +161,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 }
 
 // nodeSelectionCondition creates a condition with arguments that corresponds to the arguments.
-func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
+func nodeSelectionCondition(criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
 	var conds conditions
 	conds.add(`disqualified IS NULL`)
 	conds.add(`unknown_audit_suspended IS NULL`)

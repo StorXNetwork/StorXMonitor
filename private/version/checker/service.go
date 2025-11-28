@@ -151,10 +151,7 @@ func (service *Service) checkVersion(ctx context.Context) (_ version.SemVer, all
 		minimum = minOld
 	}
 
-	service.log.Debug("Allowed minimum version from control server.", zap.Stringer("Minimum Version", minimum.Version))
-
 	if service.Info.Version.Compare(minimum) >= 0 {
-		service.log.Debug("Running on allowed version.", zap.Stringer("Version", service.Info.Version.Version))
 		return suggestedVersion, true
 	}
 	service.log.Warn("version not allowed/outdated",

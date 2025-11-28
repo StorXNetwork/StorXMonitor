@@ -153,9 +153,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 // CleanArchive removes all archived orders that were archived before the deleteBefore time.
 func (service *Service) CleanArchive(ctx context.Context, deleteBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	service.log.Debug("cleaning")
 
-	deleted, err := service.orders.CleanArchive(ctx, deleteBefore)
+	_, err = service.orders.CleanArchive(ctx, deleteBefore)
 	if err != nil {
 		service.log.Error("cleaning DB archive", zap.Error(err))
 		return nil
@@ -167,14 +166,12 @@ func (service *Service) CleanArchive(ctx context.Context, deleteBefore time.Time
 		return nil
 	}
 
-	service.log.Debug("cleanup finished", zap.Int("items deleted", deleted))
 	return nil
 }
 
 // SendOrders sends the orders using now as the current time.
 func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 	defer mon.Task()(&ctx)(nil)
-	service.log.Debug("sending")
 
 	errorSatellites := make(map[storj.NodeID]struct{})
 	var errorSatellitesMu sync.Mutex
@@ -192,7 +189,6 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 			service.log.Error("listing orders", zap.Error(err))
 		}
 		if len(ordersBySatellite) == 0 {
-			service.log.Debug("no orders to send")
 			break
 		}
 
@@ -257,9 +253,6 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 
 func (service *Service) settleWindow(ctx context.Context, log *zap.Logger, nodeURL storj.NodeURL, orders []*ordersfile.Info) (status pb.SettlementWithWindowResponse_Status, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	log.Info("sending", zap.Int("count", len(orders)))
-	defer log.Info("finished")
 
 	conn, err := service.dialer.DialNodeURL(ctx, nodeURL)
 	if err != nil {

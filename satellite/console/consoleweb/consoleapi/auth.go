@@ -20,15 +20,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 
 	"golang.org/x/oauth2"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -140,7 +137,8 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 	var email string
 	var name string
 
-	if migrationType == "google" {
+	switch migrationType {
+	case "google":
 		googleuser, err := socialmedia.GetGoogleUserByAccessToken(body.AccessToken)
 		if err != nil {
 			a.sendJsonResponse(w, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
@@ -150,7 +148,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 
 		email = googleuser.Email
 		name = googleuser.Name
-	} else if migrationType == "linkedin" {
+	case "linkedin":
 		linkedinuser, err := socialmedia.GetLinkedinUserByAccessToken(ctx, body.AccessToken, true)
 		if err != nil {
 			a.sendJsonResponse(w, "Error getting user details from LinkedIn!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
@@ -159,7 +157,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 
 		email = linkedinuser.Email
 		name = linkedinuser.Name
-	} else if migrationType == "apple" {
+	case "apple":
 		appleuser, err := socialmedia.GetAppleUser(ctx, body.AccessToken)
 		if err != nil {
 			a.sendJsonResponse(w, "Error getting user details from Apple!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
@@ -167,7 +165,7 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 		}
 
 		email = appleuser.Email
-	} else {
+	default:
 		a.sendJsonResponse(w, "Invalid migration type!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -175,7 +173,6 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	verifier := socialmedia.NewVerifierDataFromString(state)
 	if r.URL.Query().Has("zoho-insert") {
-		a.log.Debug("inserting lead in Zoho CRM")
 
 		go zohoInsertLead(context.Background(), name, email, a.log, verifier)
 	}
@@ -360,8 +357,6 @@ func CreateToken(ttl time.Duration, payload interface{}, privateKey string) (str
 	return token, nil
 }
 
-const clientID = "220941885214-8mv3upmgkvbgbnntua98m4gded4i8hmb.apps.googleusercontent.com" // Replace with your actual client ID
-
 type UserInfo struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified"`
@@ -400,7 +395,6 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	verifier := socialmedia.NewVerifierDataFromString(state)
 	if r.URL.Query().Has("zoho-insert") {
-		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
 
 		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, verifier)
@@ -624,16 +618,6 @@ func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Requ
 			PackageName:         "@uauth/js",
 			PackageVersion:      "3.0.1",
 		},
-		Headers: map[string]string{
-			"User-Agent":                "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
-			"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-			"Accept-Language":           "en-US,en;q=0.5",
-			"Upgrade-Insecure-Requests": "1",
-			"Sec-Fetch-Dest":            "document",
-			"Sec-Fetch-Mode":            "navigate",
-			"Sec-Fetch-Site":            "cross-site",
-			"Sec-Fetch-User":            "?1",
-		},
 	}
 	// Parse the base URL
 	parsedURL, err := url.Parse(options.BaseURL)
@@ -698,16 +682,6 @@ func (a *Auth) InitUnstoppableDomainLogin(w http.ResponseWriter, r *http.Request
 			ResponseType:        "code",
 			PackageName:         "@uauth/js",
 			PackageVersion:      "3.0.1",
-		},
-		Headers: map[string]string{
-			"User-Agent":                "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
-			"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-			"Accept-Language":           "en-US,en;q=0.5",
-			"Upgrade-Insecure-Requests": "1",
-			"Sec-Fetch-Dest":            "document",
-			"Sec-Fetch-Mode":            "navigate",
-			"Sec-Fetch-Site":            "cross-site",
-			"Sec-Fetch-User":            "?1",
 		},
 	}
 	// Parse the base URL
@@ -830,7 +804,6 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Has("zoho-insert") {
-		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
 		go zohoInsertLead(context.Background(), userI.Data.Name, userI.Data.Username+"@no-email.com", a.log, reqOps)
 	}
@@ -976,7 +949,6 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	}
 
 	if r.URL.Query().Has("zoho-insert") {
-		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
 		go zohoInsertLead(context.Background(), responseBody.Sub, responseBody.Sub+"@ud.me", a.log, reqOps)
 	}
@@ -1303,7 +1275,7 @@ func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.loginUserConfirmFromIdtokeAndAccessToken(w, r, body.IDToken, body.AccessToken)
+	a.loginUserConfirmFromIdtokeAndAccessToken(w, r, body.AccessToken)
 }
 
 func (a *Auth) LoginUserConfirm(w http.ResponseWriter, r *http.Request) {
@@ -1328,15 +1300,19 @@ func (a *Auth) LoginUserConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.loginUserConfirmFromIdtokeAndAccessToken(w, r, tokenRes.Id_token, tokenRes.Access_token)
+	a.loginUserConfirmFromIdtokeAndAccessToken(w, r, tokenRes.Access_token)
 }
 
-func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r *http.Request, idToken, accessToken string) {
+func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r *http.Request, accessToken string) {
 	cnf := socialmedia.GetConfig()
 
 	ctx := r.Context()
 
-	googleuser, err := socialmedia.GetGoogleUser(accessToken, idToken)
+	googleuser, err := socialmedia.GetGoogleUserByAccessToken(accessToken)
+	if err != nil {
+		a.SendResponse(w, r, "Error getting user details from Google", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
 
 	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
@@ -1438,7 +1414,6 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 
 	reqOps, err := socialmedia.GetReqOptions(state)
 	if r.URL.Query().Has("zoho-insert") {
-		a.log.Debug("inserting lead in Zoho CRM")
 		if err != nil {
 			a.log.Error("Error getting request options", zap.Error(err))
 		}
@@ -1694,7 +1669,6 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("Error getting request options", zap.Error(err))
 	}
 	if r.URL.Query().Has("zoho-insert") {
-		a.log.Debug("inserting lead in Zoho CRM")
 		// Inserting lead in Zoho CRM
 		go zohoInsertLead(context.Background(), LinkedinUserDetails.Name, LinkedinUserDetails.Email, a.log, reqOps)
 	}
@@ -2771,29 +2745,6 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("Default Bucket Creation:" + bucket.Name)
 		//a.log.Error(bucket.Name)
 	*/
-}
-
-func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
-	return buckets.Bucket{
-		ID:                  testrand.UUID(),
-		Name:                name,
-		ProjectID:           projectID,
-		PathCipher:          storj.EncAESGCM,
-		DefaultSegmentsSize: 65536,
-		DefaultRedundancyScheme: storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			ShareSize:      9,
-			RequiredShares: 10,
-			RepairShares:   11,
-			OptimalShares:  12,
-			TotalShares:    13,
-		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
-			BlockSize:   9 * 10,
-		},
-		Placement: storj.EU,
-	}
 }
 
 // EnableUserMFA enables multi-factor authentication for the user.

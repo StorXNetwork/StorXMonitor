@@ -73,7 +73,7 @@ func TestTotalUsageLimits(t *testing.T) {
 		err = sat.DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, project2.ID, expectedLimit)
 		require.NoError(t, err)
 
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "projects/usage-limits", nil)
+		body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, "projects/usage-limits", nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -156,7 +156,7 @@ func TestDailyUsage(t *testing.T) {
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
 		endpoint := fmt.Sprintf("projects/%s/daily-usage?from=%s&to=%s", projectID.String(), since, before)
-		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -203,7 +203,7 @@ func TestTotalUsageReport(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint := fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, notAllowedBefore)
-		_, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		_, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusForbidden, status)
 
@@ -242,7 +242,7 @@ func TestTotalUsageReport(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, before)
-		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -268,7 +268,7 @@ func TestTotalUsageReport(t *testing.T) {
 		}
 
 		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=%s", since, before, project1.PublicID)
-		body, status, err = doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		body, status, err = doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 

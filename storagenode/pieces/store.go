@@ -346,11 +346,7 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	}
 
 	// delete expired piece records
-	err = store.DeleteExpired(ctx, satellite, pieceID)
-	if err == nil {
-		store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()),
-			zap.String("Piece ID", pieceID.String()))
-	}
+	_ = store.DeleteExpired(ctx, satellite, pieceID)
 
 	return Error.Wrap(err)
 }

@@ -69,7 +69,7 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Addr)
 			if err != nil {
 				withoutStack := errors.New(err.Error())
-				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+				peer.Log.Warn("failed to start debug endpoints", zap.Error(withoutStack))
 			}
 		}
 		debugConfig := config.Debug

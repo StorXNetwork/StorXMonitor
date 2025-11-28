@@ -83,8 +83,6 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 		return rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
 	}
 
-	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", peer.ID))
-
 	return endpoint.processTimeBased(ctx, stream, peer.ID)
 }
 
@@ -294,8 +292,6 @@ func (endpoint *Endpoint) GracefulExitFeasibility(ctx context.Context, req *pb.G
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
 	}
-
-	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", peer.ID))
 
 	var response pb.GracefulExitFeasibilityResponse
 

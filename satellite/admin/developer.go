@@ -79,10 +79,11 @@ func (server *Server) getAllDevelopers(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	hasActiveSessionFilter := query.Get("has_active_session") // "true", "false", or ""
 	var hasActiveSessionFilterBool *bool
-	if hasActiveSessionFilter == "true" {
+	switch hasActiveSessionFilter {
+	case "true":
 		val := true
 		hasActiveSessionFilterBool = &val
-	} else if hasActiveSessionFilter == "false" {
+	case "false":
 		val := false
 		hasActiveSessionFilterBool = &val
 	}

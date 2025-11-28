@@ -32,7 +32,6 @@ import (
 
 func doRequestWithAuth(
 	ctx context.Context,
-	t *testing.T,
 	sat *testplanet.Satellite,
 	user *console.User,
 	method string,
@@ -332,7 +331,7 @@ func TestMFAEndpoints(t *testing.T) {
 			require.NoError(t, err)
 			buf := bytes.NewBuffer(bodyBytes)
 
-			responseBody, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/mfa"+endpointSuffix, buf)
+			responseBody, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, "auth/mfa"+endpointSuffix, buf)
 			require.NoError(t, err)
 
 			return responseBody, status
@@ -741,7 +740,7 @@ func TestIncreaseLimit(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			_, status, err := doRequestWithAuth(ctx, t, sat, tt.user, http.MethodPatch, endpoint, bytes.NewBuffer([]byte(tt.input)))
+			_, status, err := doRequestWithAuth(ctx, sat, tt.user, http.MethodPatch, endpoint, bytes.NewBuffer([]byte(tt.input)))
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedStatus, status)
 		}
@@ -1120,7 +1119,7 @@ func TestAuth_SetupAccount(t *testing.T) {
 
 			payload, err := json.Marshal(tt)
 			require.NoError(t, err)
-			_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPatch, "auth/account/setup", bytes.NewBuffer(payload))
+			_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPatch, "auth/account/setup", bytes.NewBuffer(payload))
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 

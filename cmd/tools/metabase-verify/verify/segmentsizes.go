@@ -55,14 +55,14 @@ func (verify *SegmentSizes) Process(ctx context.Context, segments []rangedloop.S
 	defer verify.mu.Unlock()
 
 	for _, segment := range segments {
-		if err := verify.advanceSegment(ctx, segment); err != nil {
+		if err := verify.advanceSegment(segment); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (verify *SegmentSizes) advanceSegment(ctx context.Context, seg rangedloop.Segment) error {
+func (verify *SegmentSizes) advanceSegment(seg rangedloop.Segment) error {
 	if verify.segmentState.StreamID != seg.StreamID {
 		verify.segmentState = segmentState{
 			StreamID: seg.StreamID,

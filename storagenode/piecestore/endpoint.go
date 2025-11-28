@@ -250,7 +250,6 @@ func (endpoint *Endpoint) Exists(
 				if errs.Is(err, os.ErrNotExist) {
 					addMissing(index)
 				}
-				endpoint.log.Debug("failed to stat piece", zap.String("Piece ID", pieceID.String()), zap.String("Satellite ID", peer.ID.String()), zap.Error(err))
 				return
 			}
 		})
@@ -372,7 +371,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if errors.Is(err, context.Canceled) {
 				// Context cancellation is common in normal operation, and shouldn't throw a full error.
 				log.Info("upload canceled (race lost or node shutdown)")
-				log.Debug("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
 
 			} else {
 				log.Error("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
@@ -388,7 +386,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 	}()
 
-	log.Info("upload started", zap.Int64("Available Space", availableSpace))
 	mon.Counter("upload_started_count").Inc(1)
 
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm)
@@ -615,8 +612,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		zap.Int64("Size", chunk.ChunkSize),
 		zap.String("Remote Address", remoteAddr))
 
-	log.Info("download started")
-
 	mon.Counter("download_started_count", actionSeriesTag).Inc(1)
 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
@@ -653,7 +648,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			mon.FloatVal("download_failure_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
 			if errors.Is(err, context.Canceled) {
 				log.Info("download canceled (race lost or node shutdown)")
-				log.Debug("download canceled", zap.Error(err))
 			} else {
 				log.Error("download failed", zap.Error(err))
 			}

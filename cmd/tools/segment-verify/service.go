@@ -463,7 +463,6 @@ func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSourc
 		return Error.Wrap(err)
 	}
 	service.aliasMap = aliasMap
-	service.log.Debug("got aliasMap", zap.Int("length", service.aliasMap.Size()))
 
 	streamIDs := make([]uuid.UUID, 0, service.config.BatchSize)
 	exhausted := false

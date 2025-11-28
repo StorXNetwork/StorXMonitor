@@ -78,11 +78,6 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	const batchSize = 1000
 
 	var count int64
-	defer func() {
-		if count > 0 {
-			service.log.Info("collect", zap.Int64("count", count))
-		}
-	}()
 
 	for k := 0; k < maxBatches; k++ {
 		infos, err := service.pieces.GetExpired(ctx, now, batchSize)

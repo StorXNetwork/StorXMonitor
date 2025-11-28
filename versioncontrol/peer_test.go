@@ -211,7 +211,6 @@ func TestPeerEndpoint(t *testing.T) {
 				require.NoError(t, resp.Body.Close())
 
 				require.Equal(t, url, string(b))
-				log.Debug(string(b))
 			})
 		}
 	})

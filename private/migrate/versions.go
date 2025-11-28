@@ -142,13 +142,6 @@ func (migration *Migration) ValidateVersions(ctx context.Context, log *zap.Logge
 		}
 	}
 
-	if len(migration.Steps) > 0 {
-		last := migration.Steps[len(migration.Steps)-1]
-		log.Debug("Database version is up to date", zap.Int("version", last.Version))
-	} else {
-		log.Debug("No Versions")
-	}
-
 	return nil
 }
 
@@ -174,12 +167,12 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
 
-		err = migration.ensureVersionTable(ctx, log, db)
+		err = migration.ensureVersionTable(ctx, db)
 		if err != nil {
 			return Error.New("creating version table failed: %w", err)
 		}
 
-		version, err := migration.getLatestVersion(ctx, log, db)
+		version, err := migration.getLatestVersion(ctx, db)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -228,7 +221,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 }
 
 // ensureVersionTable creates migration.Table table if not exists.
-func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) error {
+func (migration *Migration) ensureVersionTable(ctx context.Context, db tagsql.DB) error {
 	if err := migration.ValidTableName(); err != nil {
 		return Error.Wrap(err)
 	}
@@ -242,7 +235,7 @@ func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Log
 
 // getLatestVersion finds the latest version in migration.Table.
 // It returns -1 if there aren't rows or version is null.
-func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
+func (migration *Migration) getLatestVersion(ctx context.Context, db tagsql.DB) (int, error) {
 	err := migration.ValidTableName()
 	if err != nil {
 		return 0, err
@@ -281,11 +274,11 @@ func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tag
 
 // CurrentVersion finds the latest version for the db.
 func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
-	err := migration.ensureVersionTable(ctx, log, db)
+	err := migration.ensureVersionTable(ctx, db)
 	if err != nil {
 		return -1, Error.Wrap(err)
 	}
-	return migration.getLatestVersion(ctx, log, db)
+	return migration.getLatestVersion(ctx, db)
 }
 
 // SQL statements that are executed on the database.

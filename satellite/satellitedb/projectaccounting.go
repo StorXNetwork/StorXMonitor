@@ -649,9 +649,6 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 		}
 
 		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket), since, before, pb.PieceAction_GET)
-		if err != nil {
-			return nil, err
-		}
 
 		var egress int64
 		if err = totalEgressRow.Scan(&egress); err != nil {

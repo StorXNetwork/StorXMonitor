@@ -11,7 +11,6 @@ import (
 	"io"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/calebcase/tmpfile"
@@ -201,18 +200,10 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					pieceAudit := audit.PieceAuditFromErr(err)
 					switch pieceAudit {
 					case audit.PieceAuditFailure:
-						ec.log.Debug("Failed to download piece for repair: piece not found (audit failed)",
-							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
-							zap.Stringer("Piece ID", limit.Limit.PieceId),
-							zap.Error(err))
 						pieces.Failed = append(pieces.Failed, PieceFetchResult{Piece: piece, Err: err})
 						errorCount++
 
 					case audit.PieceAuditOffline:
-						ec.log.Debug("Failed to download piece for repair: dial timeout (offline)",
-							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
-							zap.Stringer("Piece ID", limit.Limit.PieceId),
-							zap.Error(err))
 						pieces.Offline = append(pieces.Offline, PieceFetchResult{Piece: piece, Err: err})
 						errorCount++
 
@@ -458,18 +449,10 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
-	ec.log.Debug("Starting a timer for repair so that the number of pieces will be closer to the success threshold",
-		zap.Duration("Timer", timeout),
-		zap.Int("Node Count", nonNilCount(limits)),
-		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
-	)
 
 	var successfulCount, failureCount, cancellationCount int32
 	timer := time.AfterFunc(timeout, func() {
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			ec.log.Debug("Timer expired. Canceling the long tail...",
-				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
-			)
 			cancel()
 		}
 	})
@@ -493,10 +476,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 				)
 			} else {
 				cancellationCount++
-				ec.log.Debug("Repair to storage node cancelled",
-					zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
-					zap.Error(info.err),
-				)
 			}
 			continue
 		}
@@ -509,13 +488,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		successfulCount++
 
 		if successfulCount >= int32(successfulNeeded) {
-			// if this is logged more than once for a given repair operation, it is because
-			// an upload succeeded right after we called cancel(), before that upload could
-			// actually be canceled. So, successfulCount should increase by one with each
-			// repeated logging.
-			ec.log.Debug("Number of successful uploads met. Canceling the long tail...",
-				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
-			)
 			cancel()
 		}
 	}
@@ -535,10 +507,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	if successfulCount == 0 {
 		return nil, nil, Error.New("repair to all nodes failed")
 	}
-
-	ec.log.Debug("Successfully repaired",
-		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
-	)
 
 	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))           //mon:locked
 	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount)) //mon:locked
@@ -574,7 +542,7 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 		Address: limit.GetStorageNodeAddress().Address,
 	})
 	if err != nil {
-		ec.log.Debug("Failed dialing for putting piece to node",
+		ec.log.Warn("Failed dialing for putting piece to node",
 			zap.Stringer("Piece ID", pieceID),
 			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
@@ -588,31 +556,10 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 		if errors.Is(ctx.Err(), context.Canceled) {
 			// Canceled context means the piece upload was interrupted by user or due
 			// to slow connection. No error logging for this case.
-			if errors.Is(parent.Err(), context.Canceled) {
-				ec.log.Debug("Upload to node canceled by user",
-					zap.Stringer("Node ID", storageNodeID),
-					zap.Stringer("Piece ID", pieceID))
-			} else {
-				ec.log.Debug("Node cut from upload due to slow connection",
-					zap.Stringer("Node ID", storageNodeID),
-					zap.Stringer("Piece ID", pieceID))
-			}
 
 			// make sure context.Canceled is the primary error in the error chain
 			// for later errors.Is/errs2.IsCanceled checking
 			err = errs.Combine(context.Canceled, err)
-		} else {
-			nodeAddress := "nil"
-			if limit.GetStorageNodeAddress() != nil {
-				nodeAddress = limit.GetStorageNodeAddress().GetAddress()
-			}
-
-			ec.log.Debug("Failed uploading piece to node",
-				zap.Stringer("Piece ID", pieceID),
-				zap.Stringer("Node ID", storageNodeID),
-				zap.String("Node Address", nodeAddress),
-				zap.Error(err),
-			)
 		}
 	}
 

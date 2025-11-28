@@ -33,15 +33,12 @@ func ZohoRefreshTokenInit(ctx context.Context, clientID, clientSecret, refreshTo
 	}
 
 	for {
-		log.Debug("zohoRefreshToken started")
 		err := zohoRefreshToken(ctx, clientID, clientSecret, refreshToken)
 		if err != nil {
 			log.Error("zohoRefreshToken", zap.Error(err))
 			time.Sleep(time.Second)
 			continue
 		}
-
-		log.Debug("zohoRefreshToken success")
 
 		time.Sleep(zoho_RefreshTokenFreq)
 	}

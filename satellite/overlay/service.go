@@ -614,10 +614,6 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
 		if err != nil {
 			failureMeter.Mark(1)
-			service.log.Debug("failed to resolve country code for node",
-				zap.String("node address", node.Address.Address),
-				zap.Stringer("Node ID", node.NodeID),
-				zap.Error(err))
 		}
 
 		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
@@ -646,10 +642,6 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
 	if err != nil {
 		failureMeter.Mark(1)
-		service.log.Debug("failed to resolve country code for node",
-			zap.String("node address", node.Address.Address),
-			zap.Stringer("Node ID", node.NodeID),
-			zap.Error(err))
 	}
 
 	if service.config.SendNodeEmails && service.config.Node.MinimumVersion != "" {
@@ -691,9 +683,6 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		return nil
 	}
 
-	service.log.Debug("ignoring unnecessary check-in",
-		zap.String("node address", node.Address.Address),
-		zap.Stringer("Node ID", node.NodeID))
 	mon.Event("unnecessary_node_check_in")
 
 	return nil

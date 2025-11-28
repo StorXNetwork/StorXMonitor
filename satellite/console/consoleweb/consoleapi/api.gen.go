@@ -147,7 +147,7 @@ func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter,
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenCreateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+		h.log.Warn("failed to write json GenCreateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
@@ -191,7 +191,7 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenUpdateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+		h.log.Warn("failed to write json GenUpdateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
@@ -249,7 +249,7 @@ func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWrit
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenGetUsersProjects response", zap.Error(ErrProjectsAPI.Wrap(err)))
+		h.log.Warn("failed to write json GenGetUsersProjects response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
@@ -317,7 +317,7 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenGetSingleBucketUsageRollup response", zap.Error(ErrProjectsAPI.Wrap(err)))
+		h.log.Warn("failed to write json GenGetSingleBucketUsageRollup response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
@@ -379,7 +379,7 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenGetBucketUsageRollups response", zap.Error(ErrProjectsAPI.Wrap(err)))
+		h.log.Warn("failed to write json GenGetBucketUsageRollups response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
@@ -475,7 +475,7 @@ func (h *ProjectManagementHandler) handleGenGetAPIKeys(w http.ResponseWriter, r 
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenGetAPIKeys response", zap.Error(ErrProjectsAPI.Wrap(err)))
+		h.log.Warn("failed to write json GenGetAPIKeys response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
@@ -507,7 +507,7 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenCreateAPIKey response", zap.Error(ErrApikeysAPI.Wrap(err)))
+		h.log.Warn("failed to write json GenCreateAPIKey response", zap.Error(ErrApikeysAPI.Wrap(err)))
 	}
 }
 
@@ -565,6 +565,6 @@ func (h *UserManagementHandler) handleGenGetUser(w http.ResponseWriter, r *http.
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenGetUser response", zap.Error(ErrUsersAPI.Wrap(err)))
+		h.log.Warn("failed to write json GenGetUser response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }

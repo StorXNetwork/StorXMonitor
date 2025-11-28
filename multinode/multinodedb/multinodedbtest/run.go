@@ -83,7 +83,6 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 	}
 
 	schemaSuffix := SchemaSuffix()
-	log.Debug("creating", zap.String("suffix", schemaSuffix))
 	schema := SchemaName(name, category, index, schemaSuffix)
 
 	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)

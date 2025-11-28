@@ -155,7 +155,6 @@ func (s *Service) SendNotificationToMultipleTokens(ctx context.Context, tokens [
 		}
 		if err == nil {
 			response.MessageID = msgID
-			s.log.Debug("Successfully sent notification", zap.String("token", token), zap.String("message_id", msgID))
 		} else {
 			s.log.Warn("Failed to send notification", zap.String("token", token), zap.Error(err))
 		}

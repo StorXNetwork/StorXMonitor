@@ -69,7 +69,6 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (*DB, error)
 		return nil, Error.New("failed opening database via DBX at %q: %v",
 			source, err)
 	}
-	log.Debug("Connected to:", zap.String("db source", source))
 
 	dbutil.Configure(ctx, dbxDB.DB, "multinodedb", mon)
 

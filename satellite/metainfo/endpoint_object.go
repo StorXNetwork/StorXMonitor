@@ -177,7 +177,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream id")
 	}
 
-	endpoint.log.Debug("Object Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
 	mon.Meter("req_put_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
@@ -458,7 +457,6 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
-	endpoint.log.Debug("Object Get", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
 	mon.Meter("req_get_object").Mark(1)
 
 	return &pb.ObjectGetResponse{Object: object}, nil
@@ -610,7 +608,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			}
 			endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
-			endpoint.log.Debug("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
 			mon.Meter("req_get_inline").Mark(1)
 			mon.Counter("req_get_inline_bytes").Inc(int64(len(segment.InlineData)))
 
@@ -651,7 +648,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		}
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
-		endpoint.log.Debug("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
 		mon.Meter("req_get_remote").Mark(1)
 
 		return []*pb.SegmentDownloadResponse{{
@@ -696,7 +692,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to convert stream list")
 	}
 
-	endpoint.log.Debug("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "download"), zap.String("type", "object"))
 	mon.Meter("req_download_object").Mark(1)
 
 	return &pb.ObjectDownloadResponse{
@@ -1099,7 +1094,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			return nil, endpoint.convertMetabaseErr(err)
 		}
 	}
-	endpoint.log.Debug("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
 	mon.Meter("req_list_object").Mark(1)
 
 	return resp, nil
@@ -1195,8 +1189,6 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		resp.More = len(resp.Items) > limit
 		resp.Items = resp.Items[:limit]
 	}
-
-	endpoint.log.Debug("List pending object streams", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
 
 	mon.Meter("req_list_pending_object_streams").Mark(1)
 
@@ -1306,7 +1298,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		}
 	}
 
-	endpoint.log.Debug("Object Delete", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "delete"), zap.String("type", "object"))
 	mon.Meter("req_delete_object").Mark(1)
 
 	return &pb.ObjectBeginDeleteResponse{
@@ -1871,7 +1862,6 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream id")
 	}
 
-	endpoint.log.Debug("Object Move Begins", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "move"), zap.String("type", "object"))
 	mon.Meter("req_move_object_begins").Mark(1)
 
 	response.StreamId = satStreamID
@@ -1994,7 +1984,6 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	endpoint.log.Debug("Object Move Finished", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "move"), zap.String("type", "object"))
 	mon.Meter("req_move_object_finished").Mark(1)
 
 	return &pb.ObjectFinishMoveResponse{}, nil
@@ -2117,7 +2106,6 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream ID")
 	}
 
-	endpoint.log.Debug("Object Copy Begins", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "copy"), zap.String("type", "object"))
 	mon.Meter("req_copy_object_begins").Mark(1)
 
 	response.StreamId = satStreamID
@@ -2229,7 +2217,6 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
-	endpoint.log.Debug("Object Copy Finished", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "copy"), zap.String("type", "object"))
 	mon.Meter("req_copy_object_finished").Mark(1)
 
 	return &pb.ObjectFinishCopyResponse{

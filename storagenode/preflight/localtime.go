@@ -47,7 +47,6 @@ func NewLocalTime(log *zap.Logger, config Config, trust *trust.Pool, dialer rpc.
 func (localTime *LocalTime) Check(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !localTime.config.LocalTimeCheck {
-		localTime.log.Debug("local system clock check is not enabled")
 		return nil
 	}
 

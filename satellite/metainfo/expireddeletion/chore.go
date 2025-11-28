@@ -77,7 +77,6 @@ func (chore *Chore) SetNow(nowFn func() time.Time) {
 
 func (chore *Chore) deleteExpiredObjects(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	chore.log.Debug("deleting expired objects")
 
 	// TODO log error instead of crashing core until we will be sure
 	// that queries for deleting expired objects are stable

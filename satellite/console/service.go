@@ -336,12 +336,6 @@ func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventNam
 				zap.Stringer("user_id", userID),
 				zap.String("email", email),
 				zap.Error(err))
-		} else {
-			s.log.Debug("Successfully sent push notification",
-				zap.String("event", eventName),
-				zap.String("description", eventDescription),
-				zap.Stringer("user_id", userID),
-				zap.String("email", email))
 		}
 	}()
 }
@@ -846,9 +840,7 @@ func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ip
 				ContactInfoURL: contactInfoURL,
 			},
 		)
-		s.log.Debug("Sent login notification email",
-			zap.Stringer("user_id", emailUserID),
-			zap.String("email", emailUserEmail),
+		s.auditLog(emailCtx, "login notification email sent", &emailUserID, emailUserEmail,
 			zap.String("device", device),
 			zap.String("location", locationStr))
 	}()
@@ -1641,12 +1633,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	// Send welcome email for user registration (all types: regular, Google, LinkedIn)
 	go func() {
 		if s.mailService == nil {
-			s.log.Debug("Mail service not configured, skipping welcome email.")
 			return
 		}
 
 		emailCtx := context.Background()
-		emailUserID := u.ID
 		emailUserEmail := u.Email
 		emailUserName := u.FullName
 		if emailUserName == "" {
@@ -1677,10 +1667,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 				TermsAndConditionsURL: termsAndConditionsURL,
 			},
 		)
-		s.log.Debug("Sent welcome email for user registration",
-			zap.Stringer("user_id", emailUserID),
-			zap.String("email", emailUserEmail),
-			zap.String("source", user.Source))
 	}()
 
 	return u, nil
@@ -5810,23 +5796,6 @@ type UpdateRedirectURIRequest struct {
 
 type DeleteRedirectURIRequest struct {
 	URI string `json:"uri"`
-}
-
-func generateRandomSecret(length int) (string, error) {
-	b := make([]byte, length)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", b), nil
-}
-
-func hashSecret(secret string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hash), nil
 }
 
 // --- OAuth2Request Service Layer ---

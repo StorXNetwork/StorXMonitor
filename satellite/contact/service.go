@@ -92,7 +92,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q",
 			nodeurl.ID, nodeurl.Address, err,
 		)
-		service.log.Debug("pingBack failed to dial storage node",
+		service.log.Warn("pingBack failed to dial storage node",
 			zap.String("pingErrorMessage", pingErrorMessage),
 		)
 		return pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, nil
@@ -104,7 +104,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 		mon.Event("failed_ping_node") //mon:locked
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
-		service.log.Debug("pingBack pingNode error",
+		service.log.Warn("pingBack pingNode error",
 			zap.Stringer("Node ID", nodeurl.ID),
 			zap.String("pingErrorMessage", pingErrorMessage),
 		)

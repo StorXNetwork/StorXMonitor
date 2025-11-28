@@ -60,7 +60,7 @@ func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 				require.NoError(t, err)
 
 				endpoint := "api-keys/delete-by-name?name=" + apikey.Name
-				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
+				_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, status)
 
@@ -130,7 +130,7 @@ func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint := "api-keys/api-key-names?projectID=" + project.ID.String()
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 

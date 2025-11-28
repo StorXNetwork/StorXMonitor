@@ -355,7 +355,6 @@ func (chore *Chore) sendBandwidthUsageReminders(ctx context.Context) (err error)
 	defer mon.Task()(&ctx)(&err)
 
 	if chore.projectUsage == nil {
-		chore.log.Debug("Project usage service not available, skipping bandwidth usage reminders")
 		return nil
 	}
 

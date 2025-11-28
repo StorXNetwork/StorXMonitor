@@ -232,7 +232,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		endpoint.log.Debug("err peer identity from context", zap.Error(err))
+		endpoint.log.Warn("err peer identity from context", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
@@ -249,7 +249,6 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	}
 
 	log := endpoint.log.Named(peer.ID.String())
-	log.Debug("SettlementWithWindow")
 
 	type bandwidthAmount struct {
 		Settled int64
@@ -269,14 +268,14 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			log.Debug("err streaming order request", zap.Error(err))
+			log.Warn("err streaming order request", zap.Error(err))
 			return rpcstatus.Error(rpcstatus.Unknown, err.Error())
 		}
 		receivedCount++
 
 		orderLimit := request.Limit
 		if orderLimit == nil {
-			log.Debug("request.OrderLimit is nil")
+			log.Warn("request.OrderLimit is nil")
 			continue
 		}
 		if window == 0 {
@@ -284,7 +283,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		}
 		order := request.Order
 		if order == nil {
-			log.Debug("request.Order is nil")
+			log.Warn("request.Order is nil")
 			continue
 		}
 		serialNum := order.SerialNumber
@@ -296,7 +295,6 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		// don't process orders with serial numbers we've already seen
 		if _, ok := seenSerials[serialNum]; ok {
-			log.Debug("seen serial", zap.String("serial number", serialNum.String()))
 			continue
 		}
 		seenSerials[serialNum] = struct{}{}
@@ -314,7 +312,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		metadata, err := endpoint.ordersService.DecryptOrderMetadata(ctx, orderLimit)
 		if err != nil {
-			log.Debug("decrypt order metadata err:", zap.Error(err))
+			log.Warn("decrypt order metadata err:", zap.Error(err))
 			mon.Event("bucketinfo_from_orders_metadata_error_1")
 			continue
 		}
@@ -324,19 +322,19 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		case len(metadata.CompactProjectBucketPrefix) > 0:
 			bucketInfo, err = metabase.ParseCompactBucketPrefix(metadata.GetCompactProjectBucketPrefix())
 			if err != nil {
-				log.Debug("decrypt order: ParseCompactBucketPrefix", zap.Error(err))
+				log.Warn("decrypt order: ParseCompactBucketPrefix", zap.Error(err))
 				mon.Event("bucketinfo_from_orders_metadata_error_compact")
 				continue
 			}
 		case len(metadata.ProjectBucketPrefix) > 0:
 			bucketInfo, err = metabase.ParseBucketPrefix(metabase.BucketPrefix(metadata.GetProjectBucketPrefix()))
 			if err != nil {
-				log.Debug("decrypt order: ParseBucketPrefix", zap.Error(err))
+				log.Warn("decrypt order: ParseBucketPrefix", zap.Error(err))
 				mon.Event("bucketinfo_from_orders_metadata_error_uncompact")
 				continue
 			}
 		default:
-			log.Debug("decrypt order: project bucket prefix missing", zap.Error(err))
+			log.Warn("decrypt order: project bucket prefix missing", zap.Error(err))
 			mon.Event("bucketinfo_from_orders_metadata_error_default")
 			continue
 		}
@@ -365,7 +363,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	}
 
 	if len(storagenodeSettled) == 0 {
-		log.Debug("no orders were successfully processed", zap.Int("received count", receivedCount))
+		log.Info("no orders were successfully processed", zap.Int("received count", receivedCount))
 		status = pb.SettlementWithWindowResponse_REJECTED
 		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
 			Status:        status,
@@ -376,10 +374,10 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		ctx, peer.ID, storagenodeSettled, time.Unix(0, window),
 	)
 	if err != nil {
-		log.Debug("err updating storagenode bandwidth settle", zap.Error(err))
+		log.Warn("err updating storagenode bandwidth settle", zap.Error(err))
 		return err
 	}
-	log.Debug("orders processed",
+	log.Info("orders processed",
 		zap.Int("total orders received", receivedCount),
 		zap.Time("window", time.Unix(0, window)),
 		zap.String("status", status.String()),
@@ -410,42 +408,42 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order,
 	orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
 	if orderLimit.StorageNodeId != peerID {
-		log.Debug("storage node id mismatch")
+		log.Warn("storage node id mismatch")
 		mon.Event("order_not_valid_storagenodeid")
 		return false
 	}
 	// check expiration first before the signatures so that we can throw out the large amount
 	// of expired orders being sent to us before doing expensive signature verification.
 	if orderLimit.OrderExpiration.Before(time.Now().UTC()) {
-		log.Debug("invalid settlement: order limit expired")
+		log.Warn("invalid settlement: order limit expired")
 		mon.Event("order_not_valid_expired")
 		return false
 	}
 	// satellite verifies that it signed the order limit
 	if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
-		log.Debug("invalid settlement: unable to verify order limit")
+		log.Warn("invalid settlement: unable to verify order limit")
 		mon.Event("order_not_valid_satellite_signature")
 		return false
 	}
 	// satellite verifies that the order signature matches pub key in order limit
 	if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
-		log.Debug("invalid settlement: unable to verify order")
+		log.Warn("invalid settlement: unable to verify order")
 		mon.Event("order_not_valid_uplink_signature")
 		return false
 	}
 	if orderLimit.SerialNumber != order.SerialNumber {
-		log.Debug("invalid settlement: invalid serial number")
+		log.Warn("invalid settlement: invalid serial number")
 		mon.Event("order_not_valid_serialnum_mismatch")
 		return false
 	}
 	// verify the 1 hr windows match
 	if window != date.TruncateToHourInNano(orderLimit.OrderCreation) {
-		log.Debug("invalid settlement: window mismatch")
+		log.Warn("invalid settlement: window mismatch")
 		mon.Event("order_not_valid_window_mismatch")
 		return false
 	}
 	if orderLimit.Limit < order.Amount {
-		log.Debug("invalid settlement: amounts mismatch")
+		log.Warn("invalid settlement: amounts mismatch")
 		mon.Event("order_not_valid_amounts_mismatch")
 		return false
 	}

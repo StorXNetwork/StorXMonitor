@@ -391,9 +391,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, segmentVerificationError.Wrap(checkSegmentError)
 	}
 
-	if len(piecesReport.Contained) > 0 {
-		log.Debug("unexpected contained pieces during repair", zap.Int("count", len(piecesReport.Contained)))
-	}
 
 	if err != nil {
 		// If the context was closed during the Get phase, it will appear here as though

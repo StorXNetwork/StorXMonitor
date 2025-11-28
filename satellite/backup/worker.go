@@ -384,7 +384,6 @@ func (worker *Worker) savePageData(backupDate string, pageNumber int, data []Key
 		mon.Counter("backup_worker_process_save_page_data_write_failures").Inc(1)
 		return "", Error.Wrap(err)
 	}
-	worker.log.Debug("Page data saved", zap.String("file_path", filePath), zap.Int("keys_count", len(data)))
 	return filePath, nil
 }
 
@@ -527,7 +526,6 @@ func (worker *Worker) cleanupPageFiles(backupDate string) {
 				mon.Counter("backup_worker_process_cleanup_page_files_remove_page_file_failures").Inc(1)
 				worker.log.Warn("Failed to remove page file", zap.String("file_path", pageFilePath), zap.Error(err))
 			} else {
-				worker.log.Debug("Removed page file", zap.String("file_path", pageFilePath))
 				mon.Counter("backup_worker_process_cleanup_page_files_remove_page_file_successes").Inc(1)
 			}
 		}

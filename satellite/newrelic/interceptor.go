@@ -17,10 +17,36 @@ type LogInterceptor struct {
 	logLevel zapcore.Level
 }
 
-// NewLogInterceptor creates a new LogInterceptor with log level filtering
+// parseLogLevelString parses a log level string to zapcore.Level
+// Handles common variations: "debug", "DEBUG", "info", "INFO", "warn", "WARN", "error", "ERROR"
+// Defaults to InfoLevel if parsing fails (safer than DebugLevel)
+func parseLogLevelString(levelStr string) zapcore.Level {
+	levelStr = strings.ToLower(strings.TrimSpace(levelStr))
+	switch levelStr {
+	case "panic", "fatal":
+		return zapcore.PanicLevel
+	case "error":
+		return zapcore.ErrorLevel
+	case "warn", "warning":
+		return zapcore.WarnLevel
+	case "info":
+		return zapcore.InfoLevel
+	case "debug", "trace":
+		return zapcore.DebugLevel
+	default:
+		// Default to InfoLevel for safety (blocks DEBUG logs from New Relic)
+		return zapcore.InfoLevel
+	}
+}
+
+// NewLogInterceptor creates a new LogInterceptor with log level filtering.
+// Recommended log level: "info" or higher to minimize New Relic storage consumption.
+// If logLevel is empty or invalid, defaults to InfoLevel (blocks DEBUG logs).
 func NewLogInterceptor(apiKey string, logLevel string, newRelicTimeInterval time.Duration, newRelicMaxBufferSize int, newRelicMaxRetries int) *LogInterceptor {
+	parsedLevel := parseLogLevelString(logLevel)
 	return &LogInterceptor{
-		sender: NewSender(apiKey, newRelicTimeInterval, newRelicMaxBufferSize, newRelicMaxRetries),
+		sender:   NewSender(apiKey, newRelicTimeInterval, newRelicMaxBufferSize, newRelicMaxRetries),
+		logLevel: parsedLevel,
 	}
 }
 

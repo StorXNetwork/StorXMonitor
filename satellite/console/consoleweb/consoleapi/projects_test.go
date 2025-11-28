@@ -126,7 +126,7 @@ func TestGetProjectMembersAndInvitationsOrdering(t *testing.T) {
 
 		for _, tt := range tests {
 			endpoint := fmt.Sprintf("projects/%s/members?limit=100&page=1&order=%d&order-direction=%d", p.String(), tt.order, tt.orderDir)
-			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 
@@ -250,7 +250,7 @@ func TestGetProjectMembersAndInvitationsSearch(t *testing.T) {
 			params.Add("search", tt.search)
 			endpoint += params.Encode()
 
-			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 
@@ -298,7 +298,7 @@ func TestGetProjectMembersAndInvitationsLimitAndPage(t *testing.T) {
 			params.Add("page", fmt.Sprint(page))
 			endpoint += params.Encode()
 
-			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 
@@ -354,7 +354,7 @@ func TestDeleteProjectMembers(t *testing.T) {
 		params.Add("emails", emails)
 		endpoint += params.Encode()
 
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 		require.NotContains(t, string(body), "error")
@@ -370,7 +370,7 @@ func TestDeleteProjectMembers(t *testing.T) {
 		params.Add("emails", "nonmember@storj.test")
 		endpoint += params.Encode()
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, nil)
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, status)
 		require.Contains(t, string(body), "error")
@@ -450,7 +450,7 @@ func TestEdgeURLOverrides(t *testing.T) {
 				require.NoError(t, err)
 				require.EqualValues(t, 1, count)
 
-				body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "projects", nil)
+				body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, "projects", nil)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, status)
 

@@ -69,7 +69,6 @@ func (planet *Planet) newMultinodes(ctx context.Context, prefix string, count in
 			return nil, errs.Wrap(err)
 		}
 
-		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
 		xs = append(xs, system)
 		planet.peers = append(planet.peers, newClosablePeer(system))
 	}
@@ -128,8 +127,6 @@ func (planet *Planet) newMultinode(ctx context.Context, prefix string, index int
 	}
 
 	planet.databases = append(planet.databases, db)
-
-	log.Debug(peer.Console.Listener.Addr().String())
 
 	return &Multinode{
 		Name:   prefix,

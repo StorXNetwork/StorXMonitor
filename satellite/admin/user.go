@@ -1783,10 +1783,11 @@ func parseUserListFilters(r *http.Request) (*UserListFilters, error) {
 
 	// Parse tier filter
 	tierFilter := query.Get("tier")
-	if tierFilter == "paid" {
+	switch tierFilter {
+	case "paid":
 		paidTier := true
 		filters.PaidTier = &paidTier
-	} else if tierFilter == "free" {
+	case "free":
 		paidTier := false
 		filters.PaidTier = &paidTier
 	}
@@ -1805,10 +1806,11 @@ func parseUserListFilters(r *http.Request) (*UserListFilters, error) {
 
 	// Parse session filters
 	hasActiveSessionFilter := query.Get("has_active_session")
-	if hasActiveSessionFilter == "true" {
+	switch hasActiveSessionFilter {
+	case "true":
 		val := true
 		filters.HasActiveSession = &val
-	} else if hasActiveSessionFilter == "false" {
+	case "false":
 		val := false
 		filters.HasActiveSession = &val
 	}
@@ -2036,7 +2038,7 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		HasMore     bool   `json:"hasMore"`
 		Limit       uint   `json:"limit"`
 		Offset      uint64 `json:"offset"`
-		dummy       string `json:"dummy"`
+		Dummy       string `json:"dummy"`
 	}{
 		Users:       paginatedUsers,
 		PageCount:   uint(totalPages),
@@ -2045,7 +2047,7 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		HasMore:     !filters.FetchAll && filters.Page < totalPages,
 		Limit:       uint(actualLimit),
 		Offset:      uint64(actualOffset),
-		dummy:       "dummy",
+		Dummy:       "dummy",
 	}
 
 	// Stream JSON response directly
@@ -2343,7 +2345,6 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 		go func() {
 			// Use background context to avoid cancellation when HTTP request completes
 			emailCtx := context.Background()
-			emailUserID := user.ID       // Capture user ID before closure
 			emailUserEmail := user.Email // Capture email before closure
 			emailUserName := user.ShortName
 			if emailUserName == "" {
@@ -2382,9 +2383,6 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 					SupportURL:            supportURL,
 				},
 			)
-			server.log.Debug("Sent account deactivated email",
-				zap.Stringer("user_id", emailUserID),
-				zap.String("email", emailUserEmail))
 		}()
 	}
 
@@ -2469,7 +2467,6 @@ func (server *Server) activateUserAccount(w http.ResponseWriter, r *http.Request
 		go func() {
 			// Use background context to avoid cancellation when HTTP request completes
 			emailCtx := context.Background()
-			emailUserID := user.ID       // Capture user ID before closure
 			emailUserEmail := user.Email // Capture email before closure
 			emailUserName := user.ShortName
 			if emailUserName == "" {
@@ -2505,9 +2502,6 @@ func (server *Server) activateUserAccount(w http.ResponseWriter, r *http.Request
 					TermsAndConditionsURL: termsAndConditionsURL,
 				},
 			)
-			server.log.Debug("Sent account activated email",
-				zap.Stringer("user_id", emailUserID),
-				zap.String("email", emailUserEmail))
 		}()
 	}
 

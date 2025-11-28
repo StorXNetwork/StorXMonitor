@@ -55,8 +55,6 @@ func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storj.Node
 
 	if stats.Audit.Score < rep.Audit.Score || stats.OnlineScore < rep.OnlineScore || stats.Audit.UnknownScore < rep.Audit.UnknownScore {
 		s.log.Warn("node scores worsened", report...)
-	} else {
-		s.log.Info("node scores updated", report...)
 	}
 
 	err = s.db.Store(ctx, stats)

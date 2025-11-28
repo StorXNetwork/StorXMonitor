@@ -173,7 +173,6 @@ func (peer *Peer) updateResponse() (err error) {
 		return err
 	}
 
-	peer.Log.Debug("Setting version info.", zap.ByteString("Value", response.serialized))
 	peer.mu.Lock()
 	defer peer.mu.Unlock()
 	peer.response = response

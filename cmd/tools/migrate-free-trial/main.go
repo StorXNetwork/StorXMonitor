@@ -170,14 +170,7 @@ func Migrate(ctx context.Context, log *zap.Logger, conn *pgx.Conn, trialExpirati
 			}
 		}
 
-		fields := []zap.Field{zap.Int("count", len(ids))}
-		if len(uuids) > 0 {
-			fields = append(fields, zap.Strings("IDs", uuids))
-		}
-
-		log.Debug("selected users for update", fields...)
-
-		if config.DryRun {
+	if config.DryRun {
 			continue
 		}
 
@@ -257,13 +250,6 @@ func MigrateLimited(ctx context.Context, log *zap.Logger, conn *pgx.Conn, trialE
 			uuids = append(uuids, _uuid.String())
 		}
 	}
-
-	fields := []zap.Field{zap.Int("count", len(selected))}
-	if len(uuids) > 0 {
-		fields = append(fields, zap.Strings("IDs", uuids))
-	}
-
-	log.Debug("selected users for update", fields...)
 
 	if config.DryRun {
 		return nil
