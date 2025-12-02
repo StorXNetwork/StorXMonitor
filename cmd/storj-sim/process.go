@@ -201,6 +201,7 @@ type Process struct {
 	stderr WriterFlusher
 
 	NewRelicConfig NewRelicConfig
+	newRelicWriter *newRelicWriter // Store reference for cleanup
 }
 
 // New creates a process which can be run in the specified directory.
@@ -246,16 +247,39 @@ func (w *newRelicWriter) Write(p []byte) (n int, err error) {
 		return len(p), nil
 	}
 
-	logTime := w.parseLogTime(line)
+	// Try to parse as JSON first (most common format)
+	var logTime time.Time
+	var logLevel zapcore.Level
+
+	// Check if it's JSON format
+	var logData map[string]interface{}
+	if err := json.Unmarshal([]byte(line), &logData); err == nil {
+		// JSON format - extract timestamp and level
+		logTime = w.parseLogTimeFromJSON(logData)
+		logLevel = w.parseLogLevelFromJSON(logData)
+	} else {
+		// Try tab-separated format: LEVEL\tLOGGER\tCALLER\tMESSAGE\t{JSON}
+		parts := strings.Split(line, "\t")
+		if len(parts) >= 4 {
+			// Tab-separated format
+			logTime = w.parseLogTimeFromTabSeparated(parts)
+			logLevel = w.parseLogLevelFromTabSeparated(parts[0])
+		} else {
+			// Plain text format - use defaults
+			logTime = time.Now()
+			logLevel = zapcore.InfoLevel
+		}
+	}
+
 	if logTime.IsZero() {
 		logTime = time.Now()
 	}
 
-	logLevel := w.parseLogLevel(line)
 	var stack string
 	if logLevel == zapcore.ErrorLevel || logLevel == zapcore.PanicLevel {
 		stack = string(debug.Stack())
 	}
+
 	entry := zapcore.Entry{
 		Level:      logLevel,
 		Time:       logTime,
@@ -269,49 +293,79 @@ func (w *newRelicWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// parseLogTime extracts timestamp from JSON log
-func (w *newRelicWriter) parseLogTime(line string) time.Time {
-	var logData map[string]interface{}
-	if err := json.Unmarshal([]byte(line), &logData); err == nil {
-		if timestamp, ok := logData["T"].(string); ok {
-			// Try multiple common timestamp formats
-			formats := []string{
-				"2006-01-02T15:04:05.000Z",      // 2024-01-15T10:30:45.123Z
-				"2006-01-02T15:04:05.000Z07:00", // 2024-01-15T10:30:45.123+05:30
-				time.RFC3339,                    // 2024-01-15T10:30:45Z
-				"2006-01-02T15:04:05Z07:00",     // 2024-01-15T10:30:45+05:30
-			}
+// Close flushes remaining logs and closes the New Relic interceptor
+func (w *newRelicWriter) Close() error {
+	if w.core != nil {
+		w.core.Close()
+	}
+	return nil
+}
 
-			for _, format := range formats {
-				if t, err := time.Parse(format, timestamp); err == nil {
-					return t
-				}
+// parseLogTimeFromJSON extracts timestamp from JSON log data
+func (w *newRelicWriter) parseLogTimeFromJSON(logData map[string]interface{}) time.Time {
+	if timestamp, ok := logData["T"].(string); ok {
+		// Try multiple common timestamp formats
+		formats := []string{
+			"2006-01-02T15:04:05.000Z",      // 2024-01-15T10:30:45.123Z
+			"2006-01-02T15:04:05.000Z07:00", // 2024-01-15T10:30:45.123+05:30
+			time.RFC3339,                    // 2024-01-15T10:30:45Z
+			"2006-01-02T15:04:05Z07:00",     // 2024-01-15T10:30:45+05:30
+			"2006-01-02T15:04:05.000Z0700",  // 2024-01-15T10:30:45.123+0530
+		}
+
+		for _, format := range formats {
+			if t, err := time.Parse(format, timestamp); err == nil {
+				return t
 			}
 		}
 	}
 	return time.Time{}
 }
 
-// parseLogLevel extracts log level from JSON
-func (w *newRelicWriter) parseLogLevel(line string) zapcore.Level {
-	var logData map[string]interface{}
-	if err := json.Unmarshal([]byte(line), &logData); err == nil {
-		if level, ok := logData["L"].(string); ok {
-			switch level {
-			case "panic", "fatal":
-				return zapcore.PanicLevel
-			case "error":
-				return zapcore.ErrorLevel
-			case "warn", "warning":
-				return zapcore.WarnLevel
-			case "info":
-				return zapcore.InfoLevel
-			case "debug", "trace":
-				return zapcore.DebugLevel
-			}
-		}
+// parseLogLevelFromJSON extracts log level from JSON log data
+func (w *newRelicWriter) parseLogLevelFromJSON(logData map[string]interface{}) zapcore.Level {
+	if level, ok := logData["L"].(string); ok {
+		return w.parseLogLevelString(level)
 	}
 	return zapcore.InfoLevel
+}
+
+// parseLogTimeFromTabSeparated extracts timestamp from tab-separated log parts
+func (w *newRelicWriter) parseLogTimeFromTabSeparated(parts []string) time.Time {
+	// Tab-separated format: LEVEL\tLOGGER\tCALLER\tMESSAGE\t{JSON}
+	// Timestamp might be in JSON part (parts[4+]) or not present
+	if len(parts) > 4 {
+		jsonStr := strings.Join(parts[4:], "\t")
+		var jsonData map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonStr), &jsonData); err == nil {
+			return w.parseLogTimeFromJSON(jsonData)
+		}
+	}
+	return time.Time{}
+}
+
+// parseLogLevelFromTabSeparated extracts log level from tab-separated format
+func (w *newRelicWriter) parseLogLevelFromTabSeparated(levelStr string) zapcore.Level {
+	return w.parseLogLevelString(levelStr)
+}
+
+// parseLogLevelString parses a log level string to zapcore.Level
+func (w *newRelicWriter) parseLogLevelString(levelStr string) zapcore.Level {
+	levelStr = strings.ToLower(strings.TrimSpace(levelStr))
+	switch levelStr {
+	case "panic", "fatal":
+		return zapcore.PanicLevel
+	case "error":
+		return zapcore.ErrorLevel
+	case "warn", "warning":
+		return zapcore.WarnLevel
+	case "info":
+		return zapcore.InfoLevel
+	case "debug", "trace":
+		return zapcore.DebugLevel
+	default:
+		return zapcore.InfoLevel
+	}
 }
 
 // Exec runs the process using the arguments for a given command.
@@ -368,11 +422,11 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	if process.NewRelicConfig.NewRelicAPIKey != "" {
 		// Create New Relic interceptor with log level filtering
 		newRelicCore := newrelic.NewLogInterceptor(process.NewRelicConfig.NewRelicAPIKey, process.NewRelicConfig.LogLevel, process.NewRelicConfig.NewRelicTimeInterval, process.NewRelicConfig.NewRelicMaxBufferSize, process.NewRelicConfig.NewRelicMaxRetries)
-		newRelicWriter := &newRelicWriter{core: newRelicCore, processName: process.Name}
+		process.newRelicWriter = &newRelicWriter{core: newRelicCore, processName: process.Name}
 
 		// Send both to console and New Relic (with level filtering)
-		cmd.Stdout = io.MultiWriter(process.stdout, newRelicWriter)
-		cmd.Stderr = io.MultiWriter(process.stderr, newRelicWriter)
+		cmd.Stdout = io.MultiWriter(process.stdout, process.newRelicWriter)
+		cmd.Stderr = io.MultiWriter(process.stderr, process.newRelicWriter)
 	} else {
 		// Simple output - no New Relic
 		cmd.Stdout = process.stdout
@@ -477,7 +531,15 @@ func tryConnect(address string) bool {
 }
 
 // Close closes process resources.
-func (process *Process) Close() error { return nil }
+func (process *Process) Close() error {
+	// Flush and close New Relic writer if it exists
+	if process.newRelicWriter != nil {
+		if err := process.newRelicWriter.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func exe(name string) string {
 	if runtime.GOOS == "windows" {
