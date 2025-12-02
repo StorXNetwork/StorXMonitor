@@ -6,6 +6,7 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/accounting"
@@ -31,15 +33,19 @@ var (
 
 // Buckets is an api controller that exposes all buckets related functionality.
 type Buckets struct {
-	log     *zap.Logger
-	service *console.Service
+	log                     *zap.Logger
+	service                 *console.Service
+	billingURL              string
+	storageWarningThreshold float64
 }
 
 // NewBuckets is a constructor for api buckets controller.
-func NewBuckets(log *zap.Logger, service *console.Service) *Buckets {
+func NewBuckets(log *zap.Logger, service *console.Service, billingURL string, storageWarningThreshold float64) *Buckets {
 	return &Buckets{
-		log:     log,
-		service: service,
+		log:                     log,
+		service:                 service,
+		billingURL:              billingURL,
+		storageWarningThreshold: storageWarningThreshold,
 	}
 }
 
@@ -301,6 +307,140 @@ func (b *Buckets) GetBucketTotalsForReservedBucket(w http.ResponseWriter, r *htt
 	err = json.NewEncoder(w).Encode(totals)
 	if err != nil {
 		b.log.Error("failed to write json bucket totals response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
+func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var req struct {
+		ProjectID string `json:"project_id"`
+		FileSize  *int64 `json:"file_size,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest,
+			errs.New("invalid request body: %w", err))
+		return
+	}
+
+	if req.ProjectID == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest,
+			errs.New("project_id is required"))
+		return
+	}
+
+	projectIDParam, err := uuid.FromString(req.ProjectID)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest,
+			errs.New("invalid project_id: %w", err))
+		return
+	}
+
+	// Get project first - this handles both id and public_id
+	// Then use the actual project.ID (not public_id) for storage queries
+	project, err := b.service.GetProject(ctx, projectIDParam)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Get storage usage and limit using actual project ID
+	storageUsed, err := b.service.GetProjectStorageTotals(ctx, project.ID)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	storageLimitSize, err := b.service.GetProjectStorageLimit(ctx, project.ID)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+	storageLimit := storageLimitSize.Int64()
+
+	// Calculate remaining space (safe: already handles negative)
+	remaining := storageLimit - storageUsed
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Safe usage percent calculation (avoid division by zero)
+	usagePercent := 0.0
+	if storageLimit > 0 {
+		usagePercent = float64(storageUsed) / float64(storageLimit) * 100
+	}
+
+	// Validate file size if provided
+	var fileSize int64
+	if req.FileSize != nil {
+		fileSize = *req.FileSize
+		if fileSize <= 0 {
+			b.serveJSONError(ctx, w, http.StatusBadRequest,
+				errs.New("file_size must be > 0"))
+			return
+		}
+
+		// Check if file exceeds remaining space
+		if remaining < fileSize {
+			b.sendResponse(w, storageLimit, remaining, usagePercent, true, false,
+				fmt.Sprintf("Uploading %s exceeds your storage limit. Remaining: %s / Total: %s.",
+					memory.Size(fileSize).Base10String(), memory.Size(remaining).Base10String(), memory.Size(storageLimit).Base10String()))
+			return
+		}
+	}
+
+	// Determine response based on usage
+	allowUpload := true
+	popup := false
+	message := ""
+
+	if usagePercent >= 100 {
+		allowUpload = false
+		popup = true
+		message = fmt.Sprintf("Storage limit reached. Used %s of %s. Please upgrade.",
+			memory.Size(storageUsed).Base10String(), memory.Size(storageLimit).Base10String())
+	} else if usagePercent >= b.storageWarningThreshold {
+		popup = true
+		message = fmt.Sprintf("You are using %s of %s (%.1f%%). Consider upgrading.",
+			memory.Size(storageUsed).Base10String(), memory.Size(storageLimit).Base10String(), usagePercent)
+	}
+
+	b.sendResponse(w, storageLimit, remaining, usagePercent, popup, allowUpload, message)
+}
+
+// sendResponse sends the check upload response
+func (b *Buckets) sendResponse(w http.ResponseWriter, totalSpace, remainingSpace int64, usagePercent float64, popupShow, allowUpload bool, message string) {
+	resp := struct {
+		PopupShow        bool    `json:"popup_show"`
+		AllowUpload      bool    `json:"allow_upload"`
+		TotalSpace       int64   `json:"total_space"`
+		RemainingSpace   int64   `json:"remaining_space"`
+		UsagePercent     float64 `json:"usage_percent"`
+		WarningThreshold float64 `json:"warning_threshold"`
+		Message          string  `json:"message"`
+		UpgradeURL       string  `json:"upgrade_url"`
+	}{
+		PopupShow:        popupShow,
+		AllowUpload:      allowUpload,
+		TotalSpace:       totalSpace,
+		RemainingSpace:   remainingSpace,
+		UsagePercent:     usagePercent,
+		WarningThreshold: b.storageWarningThreshold,
+		Message:          message,
+		UpgradeURL:       b.billingURL,
+	}
+
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		// Error encoding response - response already started, can't send error
 	}
 }
 

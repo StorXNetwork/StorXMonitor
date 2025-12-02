@@ -2778,6 +2778,20 @@ func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte
 	return s.store.Projects().GetSalt(ctx, isMember.project.ID)
 }
 
+// GetProjectStorageTotals returns total storage used by project.
+func (s *Service) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	fmt.Println("GetProjectStorageTotals projectID", projectID)
+	return s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+}
+
+// GetProjectStorageLimit returns the storage limit for a project.
+// If project.StorageLimit is nil, returns the appropriate default based on user tier.
+func (s *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (memory.Size, error) {
+	fmt.Println("GetProjectStorageLimit projectID", projectID)
+	return s.projectUsage.GetProjectStorageLimit(ctx, projectID)
+}
+
 // EmissionImpactResponse represents emission impact response to be returned to client.
 type EmissionImpactResponse struct {
 	StorjImpact       float64 `json:"storjImpact"`
