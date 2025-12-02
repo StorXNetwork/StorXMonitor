@@ -5,6 +5,7 @@ package newrelic
 
 import (
 	"encoding/json"
+	"log"
 	"strings"
 	"time"
 
@@ -76,9 +77,12 @@ func (li *LogInterceptor) InterceptLog(entry zapcore.Entry) {
 	}
 
 	// Send to New Relic
-	if jsonData, err := json.Marshal(logData); err == nil {
-		li.sender.SendLog(jsonData)
+	jsonData, err := json.Marshal(logData)
+	if err != nil {
+		log.Printf("[New Relic] Error marshaling log entry to JSON: %v. Message: %s", err, parsedEntry.Message)
+		return
 	}
+	li.sender.SendLog(jsonData)
 }
 
 // parseLog parses Storj's structured log format: LEVEL\tLOGGER\tCALLER\tMESSAGE\t{JSON}
