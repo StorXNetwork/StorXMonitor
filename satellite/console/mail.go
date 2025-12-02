@@ -237,6 +237,21 @@ func (*ContactUsForm) Subject() string {
 	return "Contact Us form on Storx"
 }
 
+// ContactUsSubmittedEmail is mailservice template for confirmation email sent to user after submitting contact form.
+type ContactUsSubmittedEmail struct {
+	Email   string
+	Name    string
+	Message string
+}
+
+// Template returns email template name.
+func (*ContactUsSubmittedEmail) Template() string { return "ContactUsSubmitted" }
+
+// Subject gets email subject.
+func (*ContactUsSubmittedEmail) Subject() string {
+	return "Thank you for contacting us - StorX"
+}
+
 // LoginLockAccountEmail is mailservice template with login lock account data.
 type LoginLockAccountEmail struct {
 	LockoutDuration   time.Duration

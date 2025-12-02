@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/console/consoleweb/staticapi"
 	"storj.io/storj/satellite/console/pushnotifications"
@@ -1401,6 +1402,11 @@ func (server *Server) handleContactUs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !utils.ValidateEmail(contactUsRequest.Email) {
+		web.ServeCustomJSONError(ctx, server.log, w, http.StatusBadRequest, nil, "invalid email")
+		return
+	}
+
 	server.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: server.config.SupportEmail}},
@@ -1411,39 +1417,21 @@ func (server *Server) handleContactUs(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	// Send push notification to user confirming their query was received
-	go func() {
-		notifyCtx := context.Background()
-		var user *console.User
-		var err error
+	// Truncate message preview if too long (max 100 characters)
+	messagePreview := contactUsRequest.Message
+	if len(messagePreview) > 100 {
+		messagePreview = messagePreview[:100] + "..."
+	}
 
-		// Try to get user from context first (if authenticated)
-		user, err = console.GetUser(ctx)
-		if err != nil {
-			// If not found in context, try to get user by email
-			verifiedUser, _, lookupErr := server.service.GetUserByEmailWithUnverified(notifyCtx, contactUsRequest.Email)
-			if lookupErr == nil && verifiedUser != nil {
-				user = verifiedUser
-			} else {
-				// User not found, skip notification
-				return
-			}
-		}
-
-		// Truncate message preview if too long (max 100 characters)
-		messagePreview := contactUsRequest.Message
-		if len(messagePreview) > 100 {
-			messagePreview = messagePreview[:100] + "..."
-		}
-
-		variables := map[string]interface{}{
-			"name":            contactUsRequest.Name,
-			"email":           contactUsRequest.Email,
-			"message_preview": messagePreview,
-		}
-
-		server.service.SendNotificationAsync(user.ID, user.Email, "contact_us_submitted", "support", variables)
-	}()
+	server.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: contactUsRequest.Email}},
+		&console.ContactUsSubmittedEmail{
+			Name:    contactUsRequest.Name,
+			Email:   contactUsRequest.Email,
+			Message: messagePreview,
+		},
+	)
 
 	w.WriteHeader(http.StatusNoContent)
 }
