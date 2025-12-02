@@ -73,7 +73,6 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-
 	type Web3AuthRequest struct {
 		Email           string `json:"email"`
 		Payload         string `json:"payload"`
@@ -247,6 +246,8 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	mon.Counter("web3auth_upload_social_share_attempts").Inc(1)
+
 	id := r.URL.Query().Get("id")
 	share, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -294,6 +295,7 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 		}
 		a.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "data_shared", "vault", variables)
 	}
+	mon.Counter("web3auth_upload_social_share_success").Inc(1)
 }
 
 func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
