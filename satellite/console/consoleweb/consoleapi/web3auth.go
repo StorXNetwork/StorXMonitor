@@ -19,6 +19,21 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 )
 
+// Package-level Counter definitions - ensures they're registered with monkit at package load time
+var (
+	web3authUploadBackupShareErrorUploadingShare    = mon.Counter("web3auth_upload_backup_share_error_uploading_share")
+	web3authTokenErrorInvalidSignature              = mon.Counter("web3auth_token_error_invalid_signature")
+	web3authTokenErrorAuthenticationFailed          = mon.Counter("web3auth_token_error_authentication_failed")
+	web3authGetBackupShareErrorRetrieving           = mon.Counter("web3auth_get_backup_share_error_retrieving")
+	web3authUploadSocialShareAttempts               = mon.Counter("web3auth_upload_social_share_attempts")
+	web3authUploadSocialShareErrorUpdate            = mon.Counter("web3auth_upload_social_share_error_update")
+	web3authUploadSocialShareErrorCreate            = mon.Counter("web3auth_upload_social_share_error_create")
+	web3authUploadSocialShareSuccess                = mon.Counter("web3auth_upload_social_share_success")
+	web3authGetSocialShareErrorRetrieving           = mon.Counter("web3auth_get_social_share_error_retrieving")
+	web3authGetPaginatedSocialSharesErrorRetrieving = mon.Counter("web3auth_get_paginated_social_shares_error_retrieving")
+	web3authGetTotalSocialSharesErrorRetrieving     = mon.Counter("web3auth_get_total_social_shares_error_retrieving")
+)
+
 type Web3Auth struct {
 	log     *zap.Logger
 	service *console.Service
@@ -61,7 +76,7 @@ func (a *Web3Auth) UploadBackupShare(w http.ResponseWriter, r *http.Request) {
 	err = a.service.UploadBackupShare(r.Context(), backupIDStr, share)
 	if err != nil {
 		a.sendError(w, "Error uploading backup share: "+err.Error(), http.StatusInternalServerError)
-		mon.Counter("web3auth_upload_backup_share_error_uploading_share").Inc(1)
+		web3authUploadBackupShareErrorUploadingShare.Inc(1)
 		return
 	}
 
@@ -147,7 +162,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	if !bytes.Equal([]byte(pubKey), []byte(user.WalletId)) {
 		a.sendError(w, "invalid signature", http.StatusBadRequest)
-		mon.Counter("web3auth_token_error_invalid_signature").Inc(1)
+		web3authTokenErrorInvalidSignature.Inc(1)
 		return
 	}
 
@@ -192,7 +207,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", request.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.sendError(w, "Failed to authenticate token request", http.StatusInternalServerError)
-			mon.Counter("web3auth_token_error_authentication_failed").Inc(1)
+			web3authTokenErrorAuthenticationFailed.Inc(1)
 		}
 		return
 	}
@@ -222,7 +237,7 @@ func (a *Web3Auth) GetBackupShare(w http.ResponseWriter, r *http.Request) {
 	share, err := a.service.GetBackupShare(r.Context(), backupIDStr)
 	if err != nil {
 		a.sendError(w, "Error getting backup share: "+err.Error(), http.StatusInternalServerError)
-		mon.Counter("web3auth_get_backup_share_error_retrieving").Inc(1)
+		web3authGetBackupShareErrorRetrieving.Inc(1)
 		return
 	}
 
@@ -246,7 +261,7 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	mon.Counter("web3auth_upload_social_share_attempts").Inc(1)
+	web3authUploadSocialShareAttempts.Inc(1)
 
 	id := r.URL.Query().Get("id")
 	share, err := io.ReadAll(r.Body)
@@ -273,14 +288,14 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 		err = a.service.UpdateSocialShare(ctx, id, string(share))
 		if err != nil {
 			a.sendError(w, "Error uploading social share: "+err.Error(), http.StatusInternalServerError)
-			mon.Counter("web3auth_upload_social_share_error_update").Inc(1)
+			web3authUploadSocialShareErrorUpdate.Inc(1)
 			return
 		}
 	} else {
 		err = a.service.CreateSocialShare(ctx, id, string(share))
 		if err != nil {
 			a.sendError(w, "Error uploading social share: "+err.Error(), http.StatusInternalServerError)
-			mon.Counter("web3auth_upload_social_share_error_create").Inc(1)
+			web3authUploadSocialShareErrorCreate.Inc(1)
 			return
 		}
 	}
@@ -295,7 +310,7 @@ func (a *Web3Auth) UploadSocialShare(w http.ResponseWriter, r *http.Request) {
 		}
 		a.service.SendNotificationAsync(consoleUser.ID, consoleUser.Email, "data_shared", "vault", variables)
 	}
-	mon.Counter("web3auth_upload_social_share_success").Inc(1)
+	web3authUploadSocialShareSuccess.Inc(1)
 }
 
 func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
@@ -312,7 +327,7 @@ func (a *Web3Auth) GetSocialShare(w http.ResponseWriter, r *http.Request) {
 	share, err := a.service.GetSocialShare(ctx, id)
 	if err != nil {
 		a.sendError(w, "Error getting social share: "+err.Error(), http.StatusInternalServerError)
-		mon.Counter("web3auth_get_social_share_error_retrieving").Inc(1)
+		web3authGetSocialShareErrorRetrieving.Inc(1)
 		return
 	}
 
@@ -352,7 +367,7 @@ func (a *Web3Auth) GetPaginatedSocialShares(w http.ResponseWriter, r *http.Reque
 	keys, values, versionIds, err := a.service.GetPaginatedSocialShares(ctx, startIndex, count)
 	if err != nil {
 		a.sendError(w, "Error getting paginated social shares: "+err.Error(), http.StatusInternalServerError)
-		mon.Counter("web3auth_get_paginated_social_shares_error_retrieving").Inc(1)
+		web3authGetPaginatedSocialSharesErrorRetrieving.Inc(1)
 		return
 	}
 
@@ -389,7 +404,7 @@ func (a *Web3Auth) GetTotalSocialShares(w http.ResponseWriter, r *http.Request) 
 	total, err := a.service.GetTotalSocialShares(ctx)
 	if err != nil {
 		a.sendError(w, "Error getting total social shares: "+err.Error(), http.StatusInternalServerError)
-		mon.Counter("web3auth_get_total_social_shares_error_retrieving").Inc(1)
+		web3authGetTotalSocialSharesErrorRetrieving.Inc(1)
 		return
 	}
 
