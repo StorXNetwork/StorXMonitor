@@ -500,15 +500,6 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 
 			segmentsBelowMinReqCounter.Inc(1)
 			stats.segmentStats.segmentsBelowMinReq.Inc(1)
-
-			var missingNodes []string
-			for _, piece := range pieces {
-				if piecesCheck.Missing.Contains(int(piece.Number)) {
-					missingNodes = append(missingNodes, piece.StorageNode.String())
-				}
-			}
-			fork.log.Warn("checker found irreparable segment", zap.String("Segment StreamID", segment.StreamID.String()), zap.Int("Segment Position",
-				int(segment.Position.Encode())), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.String("unavailable node IDs", strings.Join(missingNodes, ",")))
 		} else if piecesCheck.Clumped.Count() > 0 && piecesCheck.Healthy.Count()+piecesCheck.Clumped.Count() > repairThreshold && piecesCheck.ForcingRepair.Count() == 0 {
 			// This segment is to be repaired because of clumping (it wouldn't need repair yet
 			// otherwise). Produce a brief report of where the clumping occurred so that we have

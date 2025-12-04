@@ -226,10 +226,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
 		stats.repairerNodesUnavailable.Mark(1)
 
-		log.Warn("irreparable segment",
-			zap.Int("piecesAvailable", piecesCheck.Retrievable.Count()),
-			zap.Int16("piecesRequired", newRedundancy.RequiredShares),
-		)
 		return false, nil
 	}
 
@@ -308,12 +304,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 			stats.repairerSegmentsBelowMinReq.Inc(1)
 			mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
 			stats.repairerNodesUnavailable.Mark(1)
-
-			log.Warn("irreparable segment: too many nodes offline",
-				zap.Int("piecesAvailable", len(retrievablePieces)),
-				zap.Int16("piecesRequired", segment.Redundancy.RequiredShares),
-				zap.Error(err),
-			)
 		}
 		return false, orderLimitFailureError.New("could not create GET_REPAIR order limits: %w", err)
 	}
@@ -390,7 +380,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		}
 		return false, segmentVerificationError.Wrap(checkSegmentError)
 	}
-
 
 	if err != nil {
 		// If the context was closed during the Get phase, it will appear here as though
