@@ -658,6 +658,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/blog-list", server.withCORS(http.HandlerFunc(staticapi.HandleBlogList)))
 	router.Handle("/user-guideline-html", server.withCORS(http.HandlerFunc(staticapi.HandleUserGuideline)))
 	router.Handle("/resources-list", server.withCORS(http.HandlerFunc(staticapi.HandleResources)))
+	router.Handle("/user-guideline-for-app", server.withCORS(http.HandlerFunc(staticapi.HandleUserGuidelineforApp)))
 
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
