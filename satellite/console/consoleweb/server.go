@@ -361,6 +361,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
 	projectsController := consoleapi.NewProjects(logger, service)
+
+	// Public endpoint for Backup-Tools (no auth required - validates access grant itself)
+	publicProjectsRouter := router.PathPrefix("/api/v0/public/projects").Subrouter()
+	publicProjectsRouter.Use(server.withCORS)
+	publicProjectsRouter.Handle("/project-id-from-access-grant", http.HandlerFunc(projectsController.GetProjectIDFromAccessGrant)).Methods(http.MethodPost, http.MethodOptions)
+
+	// Authenticated routes
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
 	projectsRouter.Use(server.withCORS)
 	projectsRouter.Use(server.withAuth)

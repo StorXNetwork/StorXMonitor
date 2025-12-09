@@ -242,6 +242,11 @@ func (s *Service) GetProjects() Projects {
 	return s.store.Projects()
 }
 
+// GetAPIKeysStore returns the API keys database interface.
+func (s *Service) GetAPIKeysStore() APIKeys {
+	return s.store.APIKeys()
+}
+
 // GetFCMTokens returns the FCM tokens database interface.
 func (s *Service) GetFCMTokens() pushnotifications.DB {
 	return s.store.FCMTokens()
