@@ -507,7 +507,7 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 }
 
 // boris
-func (service *Service) CreateTokenPaymentBillingTransaction(ctx context.Context, user *console.User, amountTemp string) (err error) {
+func (service *Service) CreateTokenPaymentBillingTransaction(ctx context.Context, user *console.User, amountTemp string, planID *int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	amount, err := strconv.ParseFloat(amountTemp, 64)
@@ -521,6 +521,7 @@ func (service *Service) CreateTokenPaymentBillingTransaction(ctx context.Context
 		Type:        billing.TransactionTypeDebit,
 		Timestamp:   time.Now(),
 		CreatedAt:   time.Now(),
+		PlanID:      planID,
 	}
 
 	err = service.billingDB.Inserts(ctx, transaction)

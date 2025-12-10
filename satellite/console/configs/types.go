@@ -21,6 +21,8 @@ const (
 	ConfigTypeEmailTemplate ConfigType = "email"
 	// ConfigTypePushTemplate represents push notification templates.
 	ConfigTypePushTemplate ConfigType = "sms"
+	// ConfigTypeDashboardCards represents dashboard cards configuration.
+	ConfigTypeDashboardCards ConfigType = "dashboard_cards"
 )
 
 // PreferenceCategory represents the category for user notification preferences.

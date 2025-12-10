@@ -155,6 +155,7 @@ type Transactions struct {
 	Metadata    []byte
 	Timestamp   time.Time
 	CreatedAt   time.Time
+	PlanID      *int64 // Plan ID associated with the transaction (nullable)
 }
 
 type PaymentPlans struct {

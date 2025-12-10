@@ -88,6 +88,8 @@ type Config struct {
 
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
+	BackupToolsURL string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+
 	GoogleClientID               string `help:"client id for google oauth" default:""`
 	GoogleClientSecret           string `help:"client secret for google oauth" default:""`
 	GoogleSigupRedirectURLstring string `help:"redirect url for google oauth" default:""`
@@ -402,7 +404,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords, server.config.BackupToolsURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
