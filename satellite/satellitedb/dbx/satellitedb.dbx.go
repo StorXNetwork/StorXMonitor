@@ -385,6 +385,7 @@ CREATE TABLE billing_transactions (
 	amount bigint NOT NULL,
 	currency text NOT NULL,
 	description text NOT NULL,
+	plan_id bigint,
 	source text NOT NULL,
 	status text NOT NULL,
 	type text NOT NULL,
@@ -1349,6 +1350,7 @@ CREATE TABLE billing_transactions (
 	amount bigint NOT NULL,
 	currency text NOT NULL,
 	description text NOT NULL,
+	plan_id bigint,
 	source text NOT NULL,
 	status text NOT NULL,
 	type text NOT NULL,
@@ -3277,6 +3279,7 @@ type BillingTransaction struct {
 	Amount      int64
 	Currency    string
 	Description string
+	PlanId      *int64
 	Source      string
 	Status      string
 	Type        string
@@ -3286,6 +3289,10 @@ type BillingTransaction struct {
 }
 
 func (BillingTransaction) _Table() string { return "billing_transactions" }
+
+type BillingTransaction_Create_Fields struct {
+	PlanId BillingTransaction_PlanId_Field
+}
 
 type BillingTransaction_Update_Fields struct {
 	Status   BillingTransaction_Status_Field
@@ -3386,6 +3393,38 @@ func (f BillingTransaction_Description_Field) value() interface{} {
 }
 
 func (BillingTransaction_Description_Field) _Column() string { return "description" }
+
+type BillingTransaction_PlanId_Field struct {
+	_set   bool
+	_null  bool
+	_value *int64
+}
+
+func BillingTransaction_PlanId(v int64) BillingTransaction_PlanId_Field {
+	return BillingTransaction_PlanId_Field{_set: true, _value: &v}
+}
+
+func BillingTransaction_PlanId_Raw(v *int64) BillingTransaction_PlanId_Field {
+	if v == nil {
+		return BillingTransaction_PlanId_Null()
+	}
+	return BillingTransaction_PlanId(*v)
+}
+
+func BillingTransaction_PlanId_Null() BillingTransaction_PlanId_Field {
+	return BillingTransaction_PlanId_Field{_set: true, _null: true}
+}
+
+func (f BillingTransaction_PlanId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f BillingTransaction_PlanId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_PlanId_Field) _Column() string { return "plan_id" }
 
 type BillingTransaction_Source_Field struct {
 	_set   bool
@@ -15151,7 +15190,7 @@ func (UserDeleteRequest_CreatedAt_Field) _Column() string { return "created_at" 
 type UserNotificationPreference struct {
 	Id          []byte
 	UserId      []byte
-	Category    string
+	Category    *string
 	Preferences []byte
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -17691,7 +17730,8 @@ func (obj *pgxImpl) Create_BillingTransaction(ctx context.Context,
 	billing_transaction_status BillingTransaction_Status_Field,
 	billing_transaction_type BillingTransaction_Type_Field,
 	billing_transaction_metadata BillingTransaction_Metadata_Field,
-	billing_transaction_timestamp BillingTransaction_Timestamp_Field) (
+	billing_transaction_timestamp BillingTransaction_Timestamp_Field,
+	optional BillingTransaction_Create_Fields) (
 	billing_transaction *BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -17700,6 +17740,7 @@ func (obj *pgxImpl) Create_BillingTransaction(ctx context.Context,
 	__amount_val := billing_transaction_amount.value()
 	__currency_val := billing_transaction_currency.value()
 	__description_val := billing_transaction_description.value()
+	__plan_id_val := optional.PlanId.value()
 	__source_val := billing_transaction_source.value()
 	__status_val := billing_transaction_status.value()
 	__type_val := billing_transaction_type.value()
@@ -17707,16 +17748,16 @@ func (obj *pgxImpl) Create_BillingTransaction(ctx context.Context,
 	__timestamp_val := billing_transaction_timestamp.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( user_id, amount, currency, description, plan_id, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __user_id_val, __amount_val, __currency_val, __description_val, __source_val, __status_val, __type_val, __metadata_val, __timestamp_val, __created_at_val)
+	__values = append(__values, __user_id_val, __amount_val, __currency_val, __description_val, __plan_id_val, __source_val, __status_val, __type_val, __metadata_val, __timestamp_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	billing_transaction = &BillingTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -20622,7 +20663,7 @@ func (obj *pgxImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 	billing_transaction *BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_id.value())
@@ -20631,7 +20672,7 @@ func (obj *pgxImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	billing_transaction = &BillingTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 	if err != nil {
 		return (*BillingTransaction)(nil), obj.makeErr(err)
 	}
@@ -20666,7 +20707,7 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx 
 	rows []*BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.timestamp DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.timestamp DESC")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_user_id.value())
@@ -20684,7 +20725,7 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx 
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
-				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -20712,7 +20753,7 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_Tim
 	rows []*BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.source = ? ORDER BY billing_transactions.timestamp DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.source = ? ORDER BY billing_transactions.timestamp DESC")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_user_id.value(), billing_transaction_source.value())
@@ -20730,7 +20771,7 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_Tim
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
-				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -20758,7 +20799,7 @@ func (obj *pgxImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Cre
 	billing_transaction *BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_source.value(), billing_transaction_type.value())
@@ -20782,7 +20823,7 @@ func (obj *pgxImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Cre
 			}
 
 			billing_transaction = &BillingTransaction{}
-			err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+			err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -31451,7 +31492,8 @@ func (obj *pgxcockroachImpl) Create_BillingTransaction(ctx context.Context,
 	billing_transaction_status BillingTransaction_Status_Field,
 	billing_transaction_type BillingTransaction_Type_Field,
 	billing_transaction_metadata BillingTransaction_Metadata_Field,
-	billing_transaction_timestamp BillingTransaction_Timestamp_Field) (
+	billing_transaction_timestamp BillingTransaction_Timestamp_Field,
+	optional BillingTransaction_Create_Fields) (
 	billing_transaction *BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -31460,6 +31502,7 @@ func (obj *pgxcockroachImpl) Create_BillingTransaction(ctx context.Context,
 	__amount_val := billing_transaction_amount.value()
 	__currency_val := billing_transaction_currency.value()
 	__description_val := billing_transaction_description.value()
+	__plan_id_val := optional.PlanId.value()
 	__source_val := billing_transaction_source.value()
 	__status_val := billing_transaction_status.value()
 	__type_val := billing_transaction_type.value()
@@ -31467,16 +31510,16 @@ func (obj *pgxcockroachImpl) Create_BillingTransaction(ctx context.Context,
 	__timestamp_val := billing_transaction_timestamp.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( user_id, amount, currency, description, plan_id, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __user_id_val, __amount_val, __currency_val, __description_val, __source_val, __status_val, __type_val, __metadata_val, __timestamp_val, __created_at_val)
+	__values = append(__values, __user_id_val, __amount_val, __currency_val, __description_val, __plan_id_val, __source_val, __status_val, __type_val, __metadata_val, __timestamp_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	billing_transaction = &BillingTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -34382,7 +34425,7 @@ func (obj *pgxcockroachImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 	billing_transaction *BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_id.value())
@@ -34391,7 +34434,7 @@ func (obj *pgxcockroachImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	billing_transaction = &BillingTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 	if err != nil {
 		return (*BillingTransaction)(nil), obj.makeErr(err)
 	}
@@ -34426,7 +34469,7 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_Times
 	rows []*BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.timestamp DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.timestamp DESC")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_user_id.value())
@@ -34444,7 +34487,7 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_Times
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
-				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -34472,7 +34515,7 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy
 	rows []*BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.source = ? ORDER BY billing_transactions.timestamp DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.source = ? ORDER BY billing_transactions.timestamp DESC")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_user_id.value(), billing_transaction_source.value())
@@ -34490,7 +34533,7 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
-				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -34518,7 +34561,7 @@ func (obj *pgxcockroachImpl) First_BillingTransaction_By_Source_And_Type_OrderBy
 	billing_transaction *BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.plan_id, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_source.value(), billing_transaction_type.value())
@@ -34542,7 +34585,7 @@ func (obj *pgxcockroachImpl) First_BillingTransaction_By_Source_And_Type_OrderBy
 			}
 
 			billing_transaction = &BillingTransaction{}
-			err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+			err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.PlanId, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -45376,7 +45419,8 @@ type Methods interface {
 		billing_transaction_status BillingTransaction_Status_Field,
 		billing_transaction_type BillingTransaction_Type_Field,
 		billing_transaction_metadata BillingTransaction_Metadata_Field,
-		billing_transaction_timestamp BillingTransaction_Timestamp_Field) (
+		billing_transaction_timestamp BillingTransaction_Timestamp_Field,
+		optional BillingTransaction_Create_Fields) (
 		billing_transaction *BillingTransaction, err error)
 
 	Create_BucketMetainfo(ctx context.Context,

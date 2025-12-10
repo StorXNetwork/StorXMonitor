@@ -3411,6 +3411,15 @@ true, NOW(), NOW()),
 true, NOW(), NOW());`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add plan_id column to billing_transactions table",
+				Version:     299,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE billing_transactions ADD COLUMN plan_id INT64;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
