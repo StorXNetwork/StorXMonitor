@@ -109,7 +109,8 @@ func (db billingDB) tryInserts(ctx context.Context, primaryTx billing.Transactio
 			dbx.BillingTransaction_Status(string(billingTX.Status)),
 			dbx.BillingTransaction_Type(string(billingTX.Type)),
 			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
-			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
+			dbx.BillingTransaction_Timestamp(billingTX.Timestamp),
+			dbx.BillingTransaction_Create_Fields{})
 		if err != nil {
 			return Error.Wrap(err)
 		}

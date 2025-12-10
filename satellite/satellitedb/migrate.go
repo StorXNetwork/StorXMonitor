@@ -3417,7 +3417,7 @@ true, NOW(), NOW());`,
 				Version:     299,
 				SeparateTx:  true,
 				Action: migrate.SQL{
-					`ALTER TABLE billing_transactions ADD COLUMN plan_id INT64;`,
+					`ALTER TABLE billing_transactions ADD COLUMN plan_id BIGINT;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

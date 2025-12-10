@@ -3400,3 +3400,324 @@ func (a *Auth) RevokeUserDeveloperAccess(w http.ResponseWriter, r *http.Request)
 		"message": "Developer access revoked successfully",
 	})
 }
+
+// CardIcon represents icon configuration for a dashboard card
+type CardIcon struct {
+	Type  string `json:"type"`  // Icon type: "sync", "shield", "network", "credit-card"
+	Color string `json:"color"` // Icon color: "purple", "orange", "light-green", "light-blue"
+	URL   string `json:"url"`   // Icon URL
+}
+
+// AutoSyncCard represents AutoSync card data
+type AutoSyncCard struct {
+	Title            string   `json:"title"`            // Card title
+	Description      string   `json:"description"`      // Card description
+	Icon             CardIcon `json:"icon"`             // Icon configuration
+	Status           string   `json:"status"`           // Status: "active", "inactive", "error"
+	ButtonLink       *string  `json:"buttonLink"`       // Button link/route (null for now)
+	ActiveSyncs      int      `json:"activeSyncs"`      // Number of active syncs
+	ActiveSyncsLabel string   `json:"activeSyncsLabel"` // Label for active syncs
+	FailedSyncs      int      `json:"failedSyncs"`      // Number of failed syncs
+	FailedSyncsLabel string   `json:"failedSyncsLabel"` // Label for failed syncs
+}
+
+// VaultCard represents Vault card data
+type VaultCard struct {
+	Title                string   `json:"title"`                // Card title
+	Description          string   `json:"description"`          // Card description
+	Icon                 CardIcon `json:"icon"`                 // Icon configuration
+	Status               string   `json:"status"`               // Status: "active", "inactive"
+	ButtonLink           *string  `json:"buttonLink"`           // Button link/route (null for now)
+	StorageUsedGB        float64  `json:"storageUsedGB"`        // Storage used in GB
+	StorageUsedGBLabel   string   `json:"storageUsedGBLabel"`   // Label for storage used
+	BandwidthUsedGB      float64  `json:"bandwidthUsedGB"`      // Bandwidth used in GB
+	BandwidthUsedGBLabel string   `json:"bandwidthUsedGBLabel"` // Label for bandwidth used
+	VaultsCount          int      `json:"vaultsCount"`          // Number of vaults
+	VaultsCountLabel     string   `json:"vaultsCountLabel"`     // Label for vaults count
+}
+
+// AccessCard represents Access card data
+type AccessCard struct {
+	Title            string   `json:"title"`            // Card title
+	Description      string   `json:"description"`      // Card description
+	Icon             CardIcon `json:"icon"`             // Icon configuration
+	Status           string   `json:"status"`           // Status: "ok", "warning", "error"
+	ButtonLink       *string  `json:"buttonLink"`       // Button link/route (null for now)
+	ActiveUsers      int      `json:"activeUsers"`      // Number of active users
+	ActiveUsersLabel string   `json:"activeUsersLabel"` // Label for active users
+	AdminUsers       int      `json:"adminUsers"`       // Number of admin users
+	AdminUsersLabel  string   `json:"adminUsersLabel"`  // Label for admin users
+}
+
+// BillingCard represents Billing card data
+type BillingCard struct {
+	Title              string   `json:"title"`              // Card title
+	Description        string   `json:"description"`        // Card description
+	Icon               CardIcon `json:"icon"`               // Icon configuration
+	Status             string   `json:"status"`             // Status: "active", "expired", "none"
+	ButtonLink         *string  `json:"buttonLink"`         // Button link/route (null for now)
+	MonthlyAmount      float64  `json:"monthlyAmount"`      // Monthly subscription amount in USD
+	MonthlyAmountLabel string   `json:"monthlyAmountLabel"` // Label for monthly amount
+	DaysLeft           int      `json:"daysLeft"`           // Days remaining in subscription
+	DaysLeftLabel      string   `json:"daysLeftLabel"`      // Label for days left
+}
+
+// DashboardCardsResponse represents the complete dashboard cards data structure
+// Response in object-wise format matching UI
+type DashboardCardsResponse struct {
+	AutoSync AutoSyncCard `json:"autoSync"` // AutoSync card data
+	Vault    VaultCard    `json:"vault"`    // Vault card data
+	Access   AccessCard   `json:"access"`   // Access card data
+	Billing  BillingCard  `json:"billing"`  // Billing card data
+}
+
+// GetHardcodedDashboardCards returns hardcoded dashboard cards data matching the UI design
+// This function provides sample data for UI team to build the dashboard interface
+func GetHardcodedDashboardCards() DashboardCardsResponse {
+	return DashboardCardsResponse{
+		AutoSync: AutoSyncCard{
+			Title:       "AutoSync",
+			Description: "Automated data synchronization",
+			Icon: CardIcon{
+				Type:  "sync",
+				Color: "purple",
+				URL:   "/icons/autosync-purple.svg",
+			},
+			Status:           "active",
+			ButtonLink:       nil,
+			ActiveSyncs:      4,
+			ActiveSyncsLabel: "Active Syncs",
+			FailedSyncs:      0,
+			FailedSyncsLabel: "Failed",
+		},
+		Vault: VaultCard{
+			Title:       "Vault",
+			Description: "Secure storage for your data",
+			Icon: CardIcon{
+				Type:  "shield",
+				Color: "orange",
+				URL:   "/icons/vault-orange.svg",
+			},
+			Status:               "active",
+			ButtonLink:           nil,
+			StorageUsedGB:        1.2,
+			StorageUsedGBLabel:   "Used",
+			BandwidthUsedGB:      2.0,
+			BandwidthUsedGBLabel: "Bandwidth",
+			VaultsCount:          3,
+			VaultsCountLabel:     "Vaults",
+		},
+		Access: AccessCard{
+			Title:       "Access",
+			Description: "Control permissions and users",
+			Icon: CardIcon{
+				Type:  "network",
+				Color: "light-green",
+				URL:   "/icons/access-light-green.svg",
+			},
+			Status:           "ok",
+			ButtonLink:       nil,
+			ActiveUsers:      24,
+			ActiveUsersLabel: "Active Users",
+			AdminUsers:       8,
+			AdminUsersLabel:  "Admin Users",
+		},
+		Billing: BillingCard{
+			Title:       "Billing",
+			Description: "Manage your subscription",
+			Icon: CardIcon{
+				Type:  "credit-card",
+				Color: "light-blue",
+				URL:   "/icons/billing-light-blue.svg",
+			},
+			Status:             "active",
+			ButtonLink:         nil,
+			MonthlyAmount:      49.99,
+			MonthlyAmountLabel: "Monthly",
+			DaysLeft:           15,
+			DaysLeftLabel:      "Days Left",
+		},
+	}
+}
+
+// GetDashboardStats returns hardcoded dashboard cards data matching the UI design
+// This function uses GetHardcodedDashboardCards() to provide sample data for UI team
+func (a *Auth) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	response := GetHardcodedDashboardCards()
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		a.log.Error("failed to encode dashboard cards json response", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+}
+
+// GetDashboardStats returns dashboard statistics (vaults, storage, bandwidth, access grants, active users, billing, autosync) for the authenticated user.
+// func (a *Auth) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
+// 	ctx := r.Context()
+// 	var err error
+// 	defer mon.Task()(&ctx)(&err)
+
+// 	w.Header().Set("Content-Type", "application/json")
+
+// 	consoleUser, err := console.GetUser(ctx)
+// 	if err != nil {
+// 		a.serveJSONError(ctx, w, err)
+// 		return
+// 	}
+
+// 	projects, err := a.service.GetUsersProjects(ctx)
+// 	if err != nil {
+// 		a.serveJSONError(ctx, w, err)
+// 		return
+// 	}
+
+// 	// Initialize response with defaults
+// 	response := struct {
+// 		VaultsCount       int64    `json:"vaultsCount"`             // Number of buckets/vaults
+// 		StorageUsed       float64  `json:"storageUsed"`             // Storage used in GB
+// 		BandwidthUsed     float64  `json:"bandwidthUsed"`           // Bandwidth used in GB
+// 		AccessGrantsCount uint64   `json:"accessGrantsCount"`       // Number of API keys
+// 		ActiveUsersCount  uint64   `json:"activeUsersCount"`        // Total project members (owner + members)
+// 		Billing           string   `json:"billing"`                 // "free" or "paid"
+// 		BillingAmount     *float64 `json:"billingAmount,omitempty"` // Monthly cost in USD
+// 		PlanStatus        string   `json:"planStatus"`              // "active", "expired", "none"
+// 		DaysLeft          *int     `json:"daysLeft,omitempty"`      // Days remaining in subscription
+// 		AutoSyncActive    int      `json:"autoSyncActive"`          // Active syncs count (from Backup-Tools)
+// 		AutoSyncFailed    int      `json:"autoSyncFailed"`          // Failed syncs count (from Backup-Tools)
+// 		AutoSyncStatus    string   `json:"autoSyncStatus"`          // "active", "inactive", "error"
+// 		AccessStatus      string   `json:"accessStatus"`            // "ok", "warning", "error"
+// 	}{
+// 		Billing:        "free",
+// 		PlanStatus:     "none",
+// 		AutoSyncStatus: "inactive",
+// 		AccessStatus:   "ok",
+// 	}
+
+// 	if consoleUser.PaidTier {
+// 		response.Billing = "paid"
+// 	}
+
+// 	// Get billing info from billing transactions (not Stripe)
+// 	// Check if user has paid tier and get latest transaction to determine plan
+// 	if consoleUser.PaidTier {
+// 		response.PlanStatus = "active"
+
+// 		// Get user's billing transactions to find active plan (using Lists like existing billing routes)
+// 		if transactions, err := a.service.GetBillingTransactions(ctx, consoleUser.ID); err == nil && len(transactions) > 0 {
+// 			// Find the latest completed transaction (payment)
+// 			var latestPayment *billing.Transactions
+// 			for i := len(transactions) - 1; i >= 0; i-- {
+// 				if transactions[i].Status == billing.TransactionStatusCompleted &&
+// 					transactions[i].Type == billing.TransactionTypeDebit {
+// 					latestPayment = &transactions[i]
+// 					break
+// 				}
+// 			}
+
+// 			// If we have a payment, try to match with payment plans
+// 			if latestPayment != nil {
+// 				// Get all payment plans
+// 				plans, err := a.service.GetPaymentPlans(ctx)
+// 				if err == nil {
+// 					// Try to match transaction description or amount with a plan
+// 					for _, plan := range plans {
+// 						// Match by price (plan.Price is in USD, transaction.Amount is float64)
+// 						planPriceUSD := plan.Price
+// 						paymentAmountUSD := latestPayment.Amount
+
+// 						// Check if amounts match (within 1% tolerance for rounding)
+// 						if paymentAmountUSD > 0 &&
+// 							(planPriceUSD == paymentAmountUSD ||
+// 								(paymentAmountUSD >= planPriceUSD*0.99 &&
+// 									paymentAmountUSD <= planPriceUSD*1.01)) {
+// 							monthlyCost := plan.Price
+// 							response.BillingAmount = &monthlyCost
+
+// 							// Calculate days left based on validity period from purchase time
+// 							var validityDuration time.Duration
+// 							switch plan.ValidityUnit {
+// 							case "day", "days":
+// 								validityDuration = time.Duration(plan.Validity) * 24 * time.Hour
+// 							case "month", "months":
+// 								validityDuration = time.Duration(plan.Validity) * 30 * 24 * time.Hour
+// 							case "year", "years":
+// 								validityDuration = time.Duration(plan.Validity) * 365 * 24 * time.Hour
+// 							default:
+// 								validityDuration = time.Duration(plan.Validity) * 24 * time.Hour // Default to days
+// 							}
+
+// 							expirationTime := latestPayment.Timestamp.Add(validityDuration)
+// 							now := time.Now()
+
+// 							if expirationTime.After(now) {
+// 								daysLeft := int(expirationTime.Sub(now).Hours() / 24)
+// 								response.DaysLeft = &daysLeft
+// 							} else {
+// 								daysLeft := 0
+// 								response.DaysLeft = &daysLeft
+// 								response.PlanStatus = "expired"
+// 							}
+// 							break
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	// Get stats from user's project (one project per account)
+// 	if len(projects) == 0 {
+// 		json.NewEncoder(w).Encode(response)
+// 		return
+// 	}
+
+// 	projectID := projects[0].ID
+
+// 	// Get vaults count (buckets)
+// 	if bucketTotals, err := a.service.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
+// 		response.VaultsCount = int64(bucketTotals.TotalCount)
+// 	}
+
+// 	// Get storage and bandwidth usage (convert bytes to GB)
+// 	if usageLimits, err := a.service.GetProjectUsageLimits(ctx, projectID); err == nil {
+// 		// Convert bytes to GB (1 GB = 1024^3 bytes)
+// 		response.StorageUsed = float64(usageLimits.StorageUsed) / (1024 * 1024 * 1024)
+// 		response.BandwidthUsed = float64(usageLimits.BandwidthUsed) / (1024 * 1024 * 1024)
+// 	}
+
+// 	// Get access grants count (API keys)
+// 	if apiKeysPage, err := a.service.GetAPIKeysStore().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+// 		Limit: 1, Page: 1, Order: console.CreationDate, OrderDirection: console.Descending,
+// 	}); err == nil {
+// 		response.AccessGrantsCount = apiKeysPage.TotalCount
+// 		// Set access status based on API keys
+// 		if apiKeysPage.TotalCount == 0 {
+// 			response.AccessStatus = "warning"
+// 		} else {
+// 			response.AccessStatus = "ok"
+// 		}
+// 	}
+
+// 	// Get active users count (project members + owner)
+// 	if membersPage, err := a.service.GetProjectMembersAndInvitations(ctx, projectID, console.ProjectMembersCursor{
+// 		Limit: 1, Page: 1,
+// 	}); err == nil {
+// 		// Active users = owner (1) + members (TotalCount)
+// 		response.ActiveUsersCount = membersPage.TotalCount + 1
+// 	}
+
+// 	// AutoSync stats - Note: This would need to be fetched from Backup-Tools service
+// 	// For now, returning default values. In production, you'd make an API call to Backup-Tools
+// 	// response.AutoSyncActive = ... (from Backup-Tools API)
+// 	// response.AutoSyncFailed = ... (from Backup-Tools API)
+// 	// response.AutoSyncStatus = ... (based on active/failed counts)
+
+// 	if err := json.NewEncoder(w).Encode(response); err != nil {
+// 		a.log.Error("failed to encode dashboard stats response", zap.Error(ErrAuthAPI.Wrap(err)))
+// 	}
+// }

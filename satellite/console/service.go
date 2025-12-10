@@ -502,6 +502,17 @@ func (s *Service) GetCoupons(ctx context.Context) (coupons []billing.Coupons, er
 	return s.billing.GetCoupons(ctx)
 }
 
+// GetBillingTransactions returns all billing transactions for a user (using Lists to match existing billing routes).
+func (s *Service) GetBillingTransactions(ctx context.Context, userID uuid.UUID) ([]billing.Transactions, error) {
+	defer mon.Task()(&ctx)(nil)
+	return s.billing.Lists(ctx, userID)
+}
+
+// GetAPIKeysStore returns the API keys store interface.
+func (s *Service) GetAPIKeysStore() APIKeys {
+	return s.store.APIKeys()
+}
+
 func (s *Service) GetBackupShare(ctx context.Context, backupID string) (share []byte, err error) {
 	return s.store.Web3Auth().GetBackupShare(ctx, backupID)
 }

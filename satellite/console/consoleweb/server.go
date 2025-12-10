@@ -452,6 +452,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/account/dashboard-stats", server.withAuth(http.HandlerFunc(authController.GetDashboardStats))).Methods(http.MethodGet, http.MethodOptions)
 	// User developer access management
 	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility
 	authRouter.Handle("/developer-access/{clientId}/history", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccessHistory))).Methods(http.MethodGet, http.MethodOptions) // Alias for frontend compatibility
