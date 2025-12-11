@@ -79,6 +79,8 @@ model billing_transaction (
 	field currency         text
 	// description contains extra information about the transaction.
 	field description      text
+	// plan_id is the id of the plan that was purchased.
+	field plan_id          int64   ( nullable )
 	// source indicates where the transfer came from.
 	field source           text
 	// status indicates the processing status of this transaction.

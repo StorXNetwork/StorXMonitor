@@ -152,11 +152,12 @@ func userPreferenceFromDBX(dbxPreference *dbx.UserNotificationPreference) (confi
 	preference := configs.UserNotificationPreference{
 		ID:          id,
 		UserID:      userID,
-		Category:    dbxPreference.Category,
+		Category:    *dbxPreference.Category,
 		Preferences: preferences,
 		CreatedAt:   dbxPreference.CreatedAt,
 		UpdatedAt:   dbxPreference.UpdatedAt,
 	}
 
 	return preference, nil
+
 }

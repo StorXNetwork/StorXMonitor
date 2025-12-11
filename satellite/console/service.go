@@ -228,6 +228,7 @@ type Service struct {
 
 	versioningConfig  VersioningConfig
 	socialShareHelper smartcontract.SocialShareHelper
+	backupToolsURL    string
 
 	nowFn func() time.Time
 }
@@ -502,6 +503,17 @@ func (s *Service) GetCoupons(ctx context.Context) (coupons []billing.Coupons, er
 	return s.billing.GetCoupons(ctx)
 }
 
+// GetBillingTransactions returns all billing transactions for a user (using Lists to match existing billing routes).
+func (s *Service) GetBillingTransactions(ctx context.Context, userID uuid.UUID) ([]billing.Transactions, error) {
+	defer mon.Task()(&ctx)(nil)
+	return s.billing.Lists(ctx, userID)
+}
+
+// GetAPIKeysStore returns the API keys store interface.
+func (s *Service) GetAPIKeysStore() APIKeys {
+	return s.store.APIKeys()
+}
+
 func (s *Service) GetBackupShare(ctx context.Context, backupID string) (share []byte, err error) {
 	return s.store.Web3Auth().GetBackupShare(ctx, backupID)
 }
@@ -581,7 +593,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, satelliteNodeAddress string,
 	maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config,
-	socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+	socialShareHelper smartcontract.SocialShareHelper, backupToolsURL string) (*Service, error) {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -657,6 +669,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		versioningConfig:           versioning,
 		socialShareHelper:          socialShareHelper,
 		pushNotificationService:    pushNotificationService,
+		backupToolsURL:             backupToolsURL,
 		nowFn:                      time.Now,
 	}, nil
 }
@@ -6241,4 +6254,240 @@ func (s *Service) RevokeUserDeveloperAccess(ctx context.Context, clientID string
 	}
 
 	return nil
+}
+
+type Icon struct {
+	Type  string `json:"type"`
+	Color string `json:"color"`
+	URL   string `json:"url"`
+}
+
+type BaseCard struct {
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Icon        Icon    `json:"icon"`
+	Status      string  `json:"status"`
+	ButtonLink  *string `json:"buttonLink"`
+}
+
+type AutoSyncCard struct {
+	BaseCard
+	ActiveSyncs      int    `json:"activeSyncs"`
+	ActiveSyncsLabel string `json:"activeSyncsLabel"`
+	FailedSyncs      int    `json:"failedSyncs"`
+	FailedSyncsLabel string `json:"failedSyncsLabel"`
+}
+
+type VaultCard struct {
+	BaseCard
+	StorageUsedGB        float64 `json:"storageUsedGB"`
+	StorageUsedGBLabel   string  `json:"storageUsedGBLabel"`
+	BandwidthUsedGB      float64 `json:"bandwidthUsedGB"`
+	BandwidthUsedGBLabel string  `json:"bandwidthUsedGBLabel"`
+	VaultsCount          int     `json:"vaultsCount"`
+	VaultsCountLabel     string  `json:"vaultsCountLabel"`
+}
+
+type AccessCard struct {
+	BaseCard
+	AccessCount      int    `json:"accessCount"`
+	AccessCountLabel string `json:"accessCountLabel"`
+}
+
+type BillingCard struct {
+	BaseCard
+	MonthlyAmount      float64 `json:"monthlyAmount"`
+	MonthlyAmountLabel string  `json:"monthlyAmountLabel"`
+	DaysLeft           int     `json:"daysLeft"`
+	DaysLeftLabel      string  `json:"daysLeftLabel"`
+}
+
+type DashboardCardsResponse struct {
+	AutoSync AutoSyncCard `json:"autoSync"`
+	Vault    VaultCard    `json:"vault"`
+	Access   AccessCard   `json:"access"`
+	Billing  BillingCard  `json:"billing"`
+}
+
+type AutoSyncStats struct {
+	ActiveSyncs int    `json:"active_syncs"`
+	FailedSyncs int    `json:"failed_syncs"`
+	Status      string `json:"status"`
+}
+
+func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, tokenGetter func() (string, error)) ([]interface{}, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	projects, err := s.GetUsersProjects(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	response := s.loadDashboardCardConfig(ctx)
+
+	s.enrichBillingCard(ctx, &response.Billing, user)
+
+	if len(projects) > 0 {
+		projectID := projects[0].ID
+		s.enrichVaultCard(ctx, &response.Vault, projectID)
+		s.enrichAccessCard(ctx, &response.Access, projectID)
+	}
+
+	if s.backupToolsURL != "" && tokenGetter != nil {
+		s.enrichAutoSyncCard(ctx, &response.AutoSync, tokenGetter)
+	}
+
+	result := []interface{}{
+		response.AutoSync,
+		response.Vault,
+		response.Access,
+		response.Billing,
+	}
+
+	return result, nil
+}
+
+func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsResponse {
+	response := DashboardCardsResponse{}
+
+	configService := configs.NewService(s.GetConfigs())
+	dbConfig, err := configService.GetConfigByName(ctx, configs.ConfigTypeDashboardCards, "default")
+	if err != nil || !dbConfig.IsActive {
+		return response
+	}
+
+	configJSON, err := json.Marshal(dbConfig.ConfigData)
+	if err != nil {
+		return response
+	}
+
+	if err := json.Unmarshal(configJSON, &response); err != nil {
+		return response
+	}
+
+	return response
+}
+
+func (s *Service) enrichBillingCard(ctx context.Context, card *BillingCard, user *User) {
+	card.Status = "none"
+	if !user.PaidTier {
+		return
+	}
+
+	card.Status = "active"
+
+	payment, err := s.billing.GetLatestCompletedDebitTransaction(ctx, user.ID)
+	if err != nil || payment == nil || payment.PlanID == nil {
+		return
+	}
+
+	plan, err := s.GetPaymentPlansByID(ctx, *payment.PlanID)
+	if err != nil || plan == nil {
+		return
+	}
+
+	card.MonthlyAmount = plan.Price
+
+	expiry := payment.Timestamp.Add(s.convertValidityToDuration(plan))
+	if expiry.After(time.Now()) {
+		card.DaysLeft = int(expiry.Sub(time.Now()).Hours() / 24)
+	} else {
+		card.DaysLeft = 0
+		card.Status = "expired"
+	}
+}
+
+func (s *Service) convertValidityToDuration(plan *billing.PaymentPlans) time.Duration {
+	switch plan.ValidityUnit {
+	case "month", "months":
+		return time.Duration(plan.Validity) * 30 * 24 * time.Hour
+	case "year", "years":
+		return time.Duration(plan.Validity) * 365 * 24 * time.Hour
+	default:
+		return time.Duration(plan.Validity) * 24 * time.Hour
+	}
+}
+
+func (s *Service) enrichVaultCard(ctx context.Context, card *VaultCard, projectID uuid.UUID) {
+	card.Status = "active"
+
+	if bucketTotals, err := s.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
+		card.VaultsCount = int(bucketTotals.TotalCount)
+	}
+
+	if usageLimits, err := s.GetProjectUsageLimits(ctx, projectID); err == nil {
+		const bytesPerGB = 1024 * 1024 * 1024
+		card.StorageUsedGB = float64(usageLimits.StorageUsed) / bytesPerGB
+		card.BandwidthUsedGB = float64(usageLimits.BandwidthUsed) / bytesPerGB
+	}
+}
+
+func (s *Service) enrichAccessCard(ctx context.Context, card *AccessCard, projectID uuid.UUID) {
+	apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{
+		Limit: 1, Page: 1, Order: CreationDate, OrderDirection: Descending,
+	})
+	if err != nil {
+		card.AccessCount = 0
+		return
+	}
+	card.AccessCount = int(apiKeys.TotalCount)
+}
+
+func (s *Service) enrichAutoSyncCard(ctx context.Context, card *AutoSyncCard, tokenGetter func() (string, error)) {
+	stats, err := s.fetchAutoSyncStats(ctx, tokenGetter)
+	if err != nil {
+		s.log.Warn("failed to fetch AutoSync stats", zap.Error(err))
+		return
+	}
+
+	card.ActiveSyncs = stats.ActiveSyncs
+	card.FailedSyncs = stats.FailedSyncs
+	card.Status = stats.Status
+}
+
+func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (string, error)) (*AutoSyncStats, error) {
+	if s.backupToolsURL == "" {
+		return nil, Error.New("Backup-Tools URL not configured")
+	}
+
+	tokenString, err := tokenGetter()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	url := strings.TrimSuffix(s.backupToolsURL, "/") + "/autosync/stats"
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	req.Header.Set("token_key", tokenString)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, Error.New("Backup-Tools returned status %d", resp.StatusCode)
+	}
+
+	var stats AutoSyncStats
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &stats, nil
 }

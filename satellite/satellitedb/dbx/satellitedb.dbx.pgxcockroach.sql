@@ -72,6 +72,7 @@ CREATE TABLE billing_transactions (
 	amount bigint NOT NULL,
 	currency text NOT NULL,
 	description text NOT NULL,
+	plan_id bigint,
 	source text NOT NULL,
 	status text NOT NULL,
 	type text NOT NULL,

@@ -104,6 +104,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			console.VersioningConfig{},
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 			nil,
+			"",
 		)
 
 		require.NoError(t, err)
