@@ -71,6 +71,8 @@ type TransactionsDB interface {
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 	// boris
 	Lists(ctx context.Context, userID uuid.UUID) ([]Transactions, error)
+	// GetLatestCompletedDebitTransaction returns the latest completed debit transaction for the specified user.
+	GetLatestCompletedDebitTransaction(ctx context.Context, userID uuid.UUID) (*Transactions, error)
 	// ListSource returns all transactions for the specified user and source.
 	ListSource(ctx context.Context, userID uuid.UUID, txSource string) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
