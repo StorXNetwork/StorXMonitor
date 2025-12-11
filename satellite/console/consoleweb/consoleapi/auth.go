@@ -3400,36 +3400,3 @@ func (a *Auth) RevokeUserDeveloperAccess(w http.ResponseWriter, r *http.Request)
 		"message": "Developer access revoked successfully",
 	})
 }
-
-// GetDashboardStats returns dashboard cards data (autoSync, vault, access, billing) for the authenticated user.
-func (a *Auth) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	user, err := console.GetUser(ctx)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	// Service handles all business logic
-	cards, err := a.service.GetDashboardStats(ctx, user.ID, func() (string, error) {
-		tokenInfo, err := a.cookieAuth.GetToken(r)
-		if err != nil {
-			return "", ErrAuthAPI.Wrap(err)
-		}
-		return tokenInfo.Token.String(), nil
-	})
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	// Controller only handles HTTP response encoding
-	if err := json.NewEncoder(w).Encode(cards); err != nil {
-		a.log.Error("failed to encode dashboard cards json response", zap.Error(ErrAuthAPI.Wrap(err)))
-	}
-}
