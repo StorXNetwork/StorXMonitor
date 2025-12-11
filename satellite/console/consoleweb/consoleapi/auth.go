@@ -25,14 +25,11 @@ import (
 	"golang.org/x/oauth2"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/configs"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/billing"
 )
 
 var (
@@ -68,7 +65,6 @@ type Auth struct {
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	cookieAuth                *consolewebauth.CookieAuth
-	backupToolsURL            string
 }
 
 // ErrorResponse is struct for sending error message with code.
@@ -99,7 +95,7 @@ type UserDetails struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}, backupToolsURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -118,7 +114,6 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		cookieAuth:                cookieAuth,
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
-		backupToolsURL:            backupToolsURL,
 	}
 }
 
@@ -3406,69 +3401,6 @@ func (a *Auth) RevokeUserDeveloperAccess(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-type CardIcon struct {
-	Type  string `json:"type"`
-	Color string `json:"color"`
-	URL   string `json:"url"`
-}
-
-type AutoSyncCard struct {
-	Title            string   `json:"title"`
-	Description      string   `json:"description"`
-	Icon             CardIcon `json:"icon"`
-	Status           string   `json:"status"`
-	ButtonLink       *string  `json:"buttonLink"`
-	ActiveSyncs      int      `json:"activeSyncs"`
-	ActiveSyncsLabel string   `json:"activeSyncsLabel"`
-	FailedSyncs      int      `json:"failedSyncs"`
-	FailedSyncsLabel string   `json:"failedSyncsLabel"`
-}
-
-type VaultCard struct {
-	Title                string   `json:"title"`
-	Description          string   `json:"description"`
-	Icon                 CardIcon `json:"icon"`
-	Status               string   `json:"status"`
-	ButtonLink           *string  `json:"buttonLink"`
-	StorageUsedGB        float64  `json:"storageUsedGB"`
-	StorageUsedGBLabel   string   `json:"storageUsedGBLabel"`
-	BandwidthUsedGB      float64  `json:"bandwidthUsedGB"`
-	BandwidthUsedGBLabel string   `json:"bandwidthUsedGBLabel"`
-	VaultsCount          int      `json:"vaultsCount"`
-	VaultsCountLabel     string   `json:"vaultsCountLabel"`
-}
-
-type AccessCard struct {
-	Title            string   `json:"title"`
-	Description      string   `json:"description"`
-	Icon             CardIcon `json:"icon"`
-	Status           string   `json:"status"`
-	ButtonLink       *string  `json:"buttonLink"`
-	ActiveUsers      int      `json:"activeUsers"`
-	ActiveUsersLabel string   `json:"activeUsersLabel"`
-	AdminUsers       int      `json:"adminUsers"`
-	AdminUsersLabel  string   `json:"adminUsersLabel"`
-}
-
-type BillingCard struct {
-	Title              string   `json:"title"`
-	Description        string   `json:"description"`
-	Icon               CardIcon `json:"icon"`
-	Status             string   `json:"status"`
-	ButtonLink         *string  `json:"buttonLink"`
-	MonthlyAmount      float64  `json:"monthlyAmount"`
-	MonthlyAmountLabel string   `json:"monthlyAmountLabel"`
-	DaysLeft           int      `json:"daysLeft"`
-	DaysLeftLabel      string   `json:"daysLeftLabel"`
-}
-
-type DashboardCardsResponse struct {
-	AutoSync AutoSyncCard `json:"autoSync"`
-	Vault    VaultCard    `json:"vault"`
-	Access   AccessCard   `json:"access"`
-	Billing  BillingCard  `json:"billing"`
-}
-
 // GetDashboardStats returns dashboard cards data (autoSync, vault, access, billing) for the authenticated user.
 func (a *Auth) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -3483,228 +3415,21 @@ func (a *Auth) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projects, err := a.service.GetUsersProjects(ctx)
+	// Service handles all business logic
+	cards, err := a.service.GetDashboardStats(ctx, user.ID, func() (string, error) {
+		tokenInfo, err := a.cookieAuth.GetToken(r)
+		if err != nil {
+			return "", ErrAuthAPI.Wrap(err)
+		}
+		return tokenInfo.Token.String(), nil
+	})
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	// Load base card templates from database
-	response := a.loadDashboardCardConfig(ctx)
-
-	// Enrich each card with dynamic data
-	a.enrichBillingCard(ctx, &response.Billing, user)
-
-	if len(projects) > 0 {
-		projectID := projects[0].ID
-		a.enrichVaultCard(ctx, &response.Vault, projectID)
-		a.enrichAccessCard(ctx, &response.Access, projectID)
-	}
-
-	if a.backupToolsURL != "" {
-		a.enrichAutoSyncCard(ctx, &response.AutoSync, r)
-	}
-
-	// Return as array format
-	result := []interface{}{
-		response.AutoSync,
-		response.Vault,
-		response.Access,
-		response.Billing,
-	}
-
-	if err := json.NewEncoder(w).Encode(result); err != nil {
+	// Controller only handles HTTP response encoding
+	if err := json.NewEncoder(w).Encode(cards); err != nil {
 		a.log.Error("failed to encode dashboard cards json response", zap.Error(ErrAuthAPI.Wrap(err)))
 	}
-}
-
-// loadDashboardCardConfig loads dashboard card configuration from database
-func (a *Auth) loadDashboardCardConfig(ctx context.Context) DashboardCardsResponse {
-	response := DashboardCardsResponse{}
-
-	configService := configs.NewService(a.service.GetConfigs())
-	dbConfig, err := configService.GetConfigByName(ctx, configs.ConfigTypeDashboardCards, "default")
-	if err != nil || !dbConfig.IsActive {
-		return response
-	}
-
-	// ConfigData is stored as map[string]interface{} - convert directly to response struct
-	configJSON, err := json.Marshal(dbConfig.ConfigData)
-	if err != nil {
-		return response
-	}
-
-	// Unmarshal directly into DashboardCardsResponse (object format: {autoSync: {...}, vault: {...}, ...})
-	if err := json.Unmarshal(configJSON, &response); err != nil {
-		return response
-	}
-
-	return response
-}
-
-// enrichBillingCard populates billing card with dynamic data
-func (a *Auth) enrichBillingCard(ctx context.Context, card *BillingCard, user *console.User) {
-	card.Status = "none"
-	if !user.PaidTier {
-		return
-	}
-
-	card.Status = "active"
-	transactions, err := a.service.GetBillingTransactions(ctx, user.ID)
-	if err != nil || len(transactions) == 0 {
-		return
-	}
-
-	// Find latest completed debit payment
-	var payment *billing.Transactions
-	for i := len(transactions) - 1; i >= 0; i-- {
-		t := transactions[i]
-		// Check for both "complete" and "completed" status (database might have either)
-		statusMatch := t.Status == billing.TransactionStatusCompleted || string(t.Status) == "completed"
-		typeMatch := t.Type == billing.TransactionTypeDebit
-
-		if statusMatch && typeMatch {
-			payment = &t
-			break
-		}
-	}
-
-	if payment == nil || payment.PlanID == nil {
-		return
-	}
-
-	plan, err := a.service.GetPaymentPlansByID(ctx, *payment.PlanID)
-	if err != nil || plan == nil {
-		return
-	}
-
-	card.MonthlyAmount = plan.Price
-
-	// Calculate expiration
-	expiry := payment.Timestamp.Add(a.convertValidityToDuration(plan))
-	if expiry.After(time.Now()) {
-		card.DaysLeft = int(expiry.Sub(time.Now()).Hours() / 24)
-	} else {
-		card.DaysLeft = 0
-		card.Status = "expired"
-	}
-}
-
-// convertValidityToDuration converts plan validity to time.Duration
-func (a *Auth) convertValidityToDuration(plan *billing.PaymentPlans) time.Duration {
-	switch plan.ValidityUnit {
-	case "month", "months":
-		return time.Duration(plan.Validity) * 30 * 24 * time.Hour
-	case "year", "years":
-		return time.Duration(plan.Validity) * 365 * 24 * time.Hour
-	default:
-		return time.Duration(plan.Validity) * 24 * time.Hour
-	}
-}
-
-// enrichVaultCard populates vault card with dynamic data
-func (a *Auth) enrichVaultCard(ctx context.Context, card *VaultCard, projectID uuid.UUID) {
-	card.Status = "active"
-
-	// Get vaults count (buckets)
-	if bucketTotals, err := a.service.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
-		card.VaultsCount = int(bucketTotals.TotalCount)
-	}
-
-	// Get storage and bandwidth usage
-	if usageLimits, err := a.service.GetProjectUsageLimits(ctx, projectID); err == nil {
-		const bytesPerGB = 1024 * 1024 * 1024
-		card.StorageUsedGB = float64(usageLimits.StorageUsed) / bytesPerGB
-		card.BandwidthUsedGB = float64(usageLimits.BandwidthUsed) / bytesPerGB
-	}
-}
-
-// enrichAccessCard populates access card with dynamic data
-func (a *Auth) enrichAccessCard(ctx context.Context, card *AccessCard, projectID uuid.UUID) {
-	card.Status = "ok"
-
-	// Get API keys status
-	if apiKeys, err := a.service.GetAPIKeysStore().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
-		Limit: 1, Page: 1, Order: console.CreationDate, OrderDirection: console.Descending,
-	}); err == nil {
-		if apiKeys.TotalCount == 0 {
-			card.Status = "warning"
-		}
-	}
-
-	// Get active users count
-	if members, err := a.service.GetProjectMembersAndInvitations(ctx, projectID, console.ProjectMembersCursor{
-		Limit: 1, Page: 1,
-	}); err == nil {
-		card.ActiveUsers = int(members.TotalCount) + 1 // + owner
-		card.AdminUsers = 1
-	}
-}
-
-// enrichAutoSyncCard populates AutoSync card with dynamic data
-func (a *Auth) enrichAutoSyncCard(ctx context.Context, card *AutoSyncCard, r *http.Request) {
-	stats, err := a.fetchAutoSyncStats(ctx, r)
-	if err != nil {
-		a.log.Warn("failed to fetch AutoSync stats", zap.Error(err))
-		return
-	}
-
-	card.ActiveSyncs = stats.ActiveSyncs
-	card.FailedSyncs = stats.FailedSyncs
-	card.Status = stats.Status
-}
-
-// AutoSyncStats represents the response from Backup-Tools AutoSync stats endpoint
-type AutoSyncStats struct {
-	ActiveSyncs int    `json:"active_syncs"`
-	FailedSyncs int    `json:"failed_syncs"`
-	Status      string `json:"status"`
-}
-
-// fetchAutoSyncStats fetches AutoSync statistics from Backup-Tools service
-func (a *Auth) fetchAutoSyncStats(ctx context.Context, r *http.Request) (*AutoSyncStats, error) {
-	if a.backupToolsURL == "" {
-		return nil, errs.New("Backup-Tools URL not configured")
-	}
-
-	// Get token from the current request (from cookie)
-	tokenInfo, err := a.cookieAuth.GetToken(r)
-	if err != nil {
-		return nil, ErrAuthAPI.Wrap(err)
-	}
-
-	// Get token string to send to Backup-Tools
-	tokenString := tokenInfo.Token.String()
-
-	// Make HTTP request to Backup-Tools
-	url := strings.TrimSuffix(a.backupToolsURL, "/") + "/autosync/stats"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, ErrAuthAPI.Wrap(err)
-	}
-
-	// Backup-Tools expects token_key header (not Authorization Bearer)
-	req.Header.Set("token_key", tokenString)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, ErrAuthAPI.Wrap(err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, ErrAuthAPI.New("Backup-Tools returned status %d", resp.StatusCode)
-	}
-
-	var stats AutoSyncStats
-	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
-		return nil, ErrAuthAPI.Wrap(err)
-	}
-
-	return &stats, nil
 }

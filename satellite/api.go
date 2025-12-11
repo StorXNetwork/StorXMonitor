@@ -636,6 +636,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			},
 			consoleConfig.Config,
 			web3AuthSocialShareHelper,
+			consoleConfig.BackupToolsURL,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

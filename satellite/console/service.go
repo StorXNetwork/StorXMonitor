@@ -228,6 +228,7 @@ type Service struct {
 
 	versioningConfig  VersioningConfig
 	socialShareHelper smartcontract.SocialShareHelper
+	backupToolsURL    string
 
 	nowFn func() time.Time
 }
@@ -592,7 +593,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, satelliteNodeAddress string,
 	maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config,
-	socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+	socialShareHelper smartcontract.SocialShareHelper, backupToolsURL string) (*Service, error) {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -668,6 +669,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		versioningConfig:           versioning,
 		socialShareHelper:          socialShareHelper,
 		pushNotificationService:    pushNotificationService,
+		backupToolsURL:             backupToolsURL,
 		nowFn:                      time.Now,
 	}, nil
 }
@@ -6252,4 +6254,299 @@ func (s *Service) RevokeUserDeveloperAccess(ctx context.Context, clientID string
 	}
 
 	return nil
+}
+
+// Dashboard card types for GetDashboardStats
+type CardIcon struct {
+	Type  string `json:"type"`
+	Color string `json:"color"`
+	URL   string `json:"url"`
+}
+
+type AutoSyncCard struct {
+	Title            string   `json:"title"`
+	Description      string   `json:"description"`
+	Icon             CardIcon `json:"icon"`
+	Status           string   `json:"status"`
+	ButtonLink       *string  `json:"buttonLink"`
+	ActiveSyncs      int      `json:"activeSyncs"`
+	ActiveSyncsLabel string   `json:"activeSyncsLabel"`
+	FailedSyncs      int      `json:"failedSyncs"`
+	FailedSyncsLabel string   `json:"failedSyncsLabel"`
+}
+
+type VaultCard struct {
+	Title                string   `json:"title"`
+	Description          string   `json:"description"`
+	Icon                 CardIcon `json:"icon"`
+	Status               string   `json:"status"`
+	ButtonLink           *string  `json:"buttonLink"`
+	StorageUsedGB        float64  `json:"storageUsedGB"`
+	StorageUsedGBLabel   string   `json:"storageUsedGBLabel"`
+	BandwidthUsedGB      float64  `json:"bandwidthUsedGB"`
+	BandwidthUsedGBLabel string   `json:"bandwidthUsedGBLabel"`
+	VaultsCount          int      `json:"vaultsCount"`
+	VaultsCountLabel     string   `json:"vaultsCountLabel"`
+}
+
+type AccessCard struct {
+	Title            string   `json:"title"`
+	Description      string   `json:"description"`
+	Icon             CardIcon `json:"icon"`
+	Status           string   `json:"status"`
+	ButtonLink       *string  `json:"buttonLink"`
+	ActiveUsers      int      `json:"activeUsers"`
+	ActiveUsersLabel string   `json:"activeUsersLabel"`
+	AdminUsers       int      `json:"adminUsers"`
+	AdminUsersLabel  string   `json:"adminUsersLabel"`
+}
+
+type BillingCard struct {
+	Title              string   `json:"title"`
+	Description        string   `json:"description"`
+	Icon               CardIcon `json:"icon"`
+	Status             string   `json:"status"`
+	ButtonLink         *string  `json:"buttonLink"`
+	MonthlyAmount      float64  `json:"monthlyAmount"`
+	MonthlyAmountLabel string   `json:"monthlyAmountLabel"`
+	DaysLeft           int      `json:"daysLeft"`
+	DaysLeftLabel      string   `json:"daysLeftLabel"`
+}
+
+type DashboardCardsResponse struct {
+	AutoSync AutoSyncCard `json:"autoSync"`
+	Vault    VaultCard    `json:"vault"`
+	Access   AccessCard   `json:"access"`
+	Billing  BillingCard  `json:"billing"`
+}
+
+// AutoSyncStats represents the response from Backup-Tools AutoSync stats endpoint
+type AutoSyncStats struct {
+	ActiveSyncs int    `json:"active_syncs"`
+	FailedSyncs int    `json:"failed_syncs"`
+	Status      string `json:"status"`
+}
+
+// GetDashboardStats aggregates dashboard cards data for a user.
+// tokenGetter is a function that returns the authentication token for external API calls.
+func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, tokenGetter func() (string, error)) ([]interface{}, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	projects, err := s.GetUsersProjects(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// Load base card templates from database
+	response := s.loadDashboardCardConfig(ctx)
+
+	// Enrich each card with dynamic data
+	s.enrichBillingCard(ctx, &response.Billing, user)
+
+	if len(projects) > 0 {
+		projectID := projects[0].ID
+		s.enrichVaultCard(ctx, &response.Vault, projectID)
+		s.enrichAccessCard(ctx, &response.Access, projectID)
+	}
+
+	if s.backupToolsURL != "" && tokenGetter != nil {
+		s.enrichAutoSyncCard(ctx, &response.AutoSync, tokenGetter)
+	}
+
+	// Return as array format
+	result := []interface{}{
+		response.AutoSync,
+		response.Vault,
+		response.Access,
+		response.Billing,
+	}
+
+	return result, nil
+}
+
+// loadDashboardCardConfig loads dashboard card configuration from database
+func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsResponse {
+	response := DashboardCardsResponse{}
+
+	configService := configs.NewService(s.GetConfigs())
+	dbConfig, err := configService.GetConfigByName(ctx, configs.ConfigTypeDashboardCards, "default")
+	if err != nil || !dbConfig.IsActive {
+		return response
+	}
+
+	// ConfigData is stored as map[string]interface{} - convert directly to response struct
+	configJSON, err := json.Marshal(dbConfig.ConfigData)
+	if err != nil {
+		return response
+	}
+
+	// Unmarshal directly into DashboardCardsResponse (object format: {autoSync: {...}, vault: {...}, ...})
+	if err := json.Unmarshal(configJSON, &response); err != nil {
+		return response
+	}
+
+	return response
+}
+
+// enrichBillingCard populates billing card with dynamic data
+func (s *Service) enrichBillingCard(ctx context.Context, card *BillingCard, user *User) {
+	card.Status = "none"
+	if !user.PaidTier {
+		return
+	}
+
+	card.Status = "active"
+	transactions, err := s.GetBillingTransactions(ctx, user.ID)
+	if err != nil || len(transactions) == 0 {
+		return
+	}
+
+	// Find latest completed debit payment
+	var payment *billing.Transactions
+	for i := len(transactions) - 1; i >= 0; i-- {
+		t := transactions[i]
+		// Check for both "complete" and "completed" status (database might have either)
+		statusMatch := t.Status == billing.TransactionStatusCompleted || string(t.Status) == "completed"
+		typeMatch := t.Type == billing.TransactionTypeDebit
+
+		if statusMatch && typeMatch {
+			payment = &t
+			break
+		}
+	}
+
+	if payment == nil || payment.PlanID == nil {
+		return
+	}
+
+	plan, err := s.GetPaymentPlansByID(ctx, *payment.PlanID)
+	if err != nil || plan == nil {
+		return
+	}
+
+	card.MonthlyAmount = plan.Price
+
+	// Calculate expiration
+	expiry := payment.Timestamp.Add(s.convertValidityToDuration(plan))
+	if expiry.After(time.Now()) {
+		card.DaysLeft = int(expiry.Sub(time.Now()).Hours() / 24)
+	} else {
+		card.DaysLeft = 0
+		card.Status = "expired"
+	}
+}
+
+// convertValidityToDuration converts plan validity to time.Duration
+func (s *Service) convertValidityToDuration(plan *billing.PaymentPlans) time.Duration {
+	switch plan.ValidityUnit {
+	case "month", "months":
+		return time.Duration(plan.Validity) * 30 * 24 * time.Hour
+	case "year", "years":
+		return time.Duration(plan.Validity) * 365 * 24 * time.Hour
+	default:
+		return time.Duration(plan.Validity) * 24 * time.Hour
+	}
+}
+
+// enrichVaultCard populates vault card with dynamic data
+func (s *Service) enrichVaultCard(ctx context.Context, card *VaultCard, projectID uuid.UUID) {
+	card.Status = "active"
+
+	// Get vaults count (buckets)
+	if bucketTotals, err := s.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
+		card.VaultsCount = int(bucketTotals.TotalCount)
+	}
+
+	// Get storage and bandwidth usage
+	if usageLimits, err := s.GetProjectUsageLimits(ctx, projectID); err == nil {
+		const bytesPerGB = 1024 * 1024 * 1024
+		card.StorageUsedGB = float64(usageLimits.StorageUsed) / bytesPerGB
+		card.BandwidthUsedGB = float64(usageLimits.BandwidthUsed) / bytesPerGB
+	}
+}
+
+// enrichAccessCard populates access card with dynamic data
+func (s *Service) enrichAccessCard(ctx context.Context, card *AccessCard, projectID uuid.UUID) {
+	card.Status = "ok"
+
+	// Get API keys status
+	if apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{
+		Limit: 1, Page: 1, Order: CreationDate, OrderDirection: Descending,
+	}); err == nil {
+		if apiKeys.TotalCount == 0 {
+			card.Status = "warning"
+		}
+	}
+
+	// Get active users count
+	if members, err := s.GetProjectMembersAndInvitations(ctx, projectID, ProjectMembersCursor{
+		Limit: 1, Page: 1,
+	}); err == nil {
+		card.ActiveUsers = int(members.TotalCount) + 1 // + owner
+		card.AdminUsers = 1
+	}
+}
+
+// enrichAutoSyncCard populates AutoSync card with dynamic data
+func (s *Service) enrichAutoSyncCard(ctx context.Context, card *AutoSyncCard, tokenGetter func() (string, error)) {
+	stats, err := s.fetchAutoSyncStats(ctx, tokenGetter)
+	if err != nil {
+		s.log.Warn("failed to fetch AutoSync stats", zap.Error(err))
+		return
+	}
+
+	card.ActiveSyncs = stats.ActiveSyncs
+	card.FailedSyncs = stats.FailedSyncs
+	card.Status = stats.Status
+}
+
+// fetchAutoSyncStats fetches AutoSync statistics from Backup-Tools service
+func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (string, error)) (*AutoSyncStats, error) {
+	if s.backupToolsURL == "" {
+		return nil, Error.New("Backup-Tools URL not configured")
+	}
+
+	// Get token from tokenGetter
+	tokenString, err := tokenGetter()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// Make HTTP request to Backup-Tools
+	url := strings.TrimSuffix(s.backupToolsURL, "/") + "/autosync/stats"
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// Backup-Tools expects token_key header (not Authorization Bearer)
+	req.Header.Set("token_key", tokenString)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, Error.New("Backup-Tools returned status %d", resp.StatusCode)
+	}
+
+	var stats AutoSyncStats
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &stats, nil
 }
