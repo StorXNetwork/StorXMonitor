@@ -6257,21 +6257,33 @@ func (s *Service) RevokeUserDeveloperAccess(ctx context.Context, clientID string
 }
 
 type Icon struct {
-	Type  string `json:"type"`
-	Color string `json:"color"`
-	URL   string `json:"url"`
+	BackgroundColor string `json:"backgroundColor"`
+	URL             string `json:"url"`
+}
+
+type Button struct {
+	Link      string `json:"link"`
+	Color     string `json:"color"`
+	Text      string `json:"text"`
+	TextColor string `json:"textColor"`
+}
+
+type Status struct {
+	Value           string `json:"value"`
+	BackgroundColor string `json:"backgroundColor"`
+	TextColor       string `json:"textColor"`
 }
 
 type BaseCard struct {
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
 	Icon        Icon    `json:"icon"`
-	Status      string  `json:"status"`
-	ButtonLink  *string `json:"buttonLink"`
+	Button      *Button `json:"button"`
 }
 
 type AutoSyncCard struct {
 	BaseCard
+	Status           Status `json:"status"`
 	ActiveSyncs      int    `json:"activeSyncs"`
 	ActiveSyncsLabel string `json:"activeSyncsLabel"`
 	FailedSyncs      int    `json:"failedSyncs"`
@@ -6280,12 +6292,14 @@ type AutoSyncCard struct {
 
 type VaultCard struct {
 	BaseCard
-	StorageUsedGB        float64 `json:"storageUsedGB"`
-	StorageUsedGBLabel   string  `json:"storageUsedGBLabel"`
-	BandwidthUsedGB      float64 `json:"bandwidthUsedGB"`
-	BandwidthUsedGBLabel string  `json:"bandwidthUsedGBLabel"`
-	VaultsCount          int     `json:"vaultsCount"`
-	VaultsCountLabel     string  `json:"vaultsCountLabel"`
+	StorageUsedGB              float64 `json:"storageUsedGB"`
+	StorageUsedGBLabel         string  `json:"storageUsedGBLabel"`
+	BandwidthUsedGB            float64 `json:"bandwidthUsedGB"`
+	BandwidthUsedGBLabel       string  `json:"bandwidthUsedGBLabel"`
+	VaultsCount                int     `json:"vaultsCount"`
+	VaultsCountLabel           string  `json:"vaultsCountLabel"`
+	VaultStatusBackgroundColor string  `json:"vaultStatusBackgroundColor"`
+	VaultStatusTextColor       string  `json:"vaultStatusTextColor"`
 }
 
 type AccessCard struct {
@@ -6296,6 +6310,8 @@ type AccessCard struct {
 
 type BillingCard struct {
 	BaseCard
+	Status             Status  `json:"status"`
+	PlanName           string  `json:"planName"`
 	MonthlyAmount      float64 `json:"monthlyAmount"`
 	MonthlyAmountLabel string  `json:"monthlyAmountLabel"`
 	DaysLeft           int     `json:"daysLeft"`
@@ -6374,13 +6390,42 @@ func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsRes
 	return response
 }
 
+func (s *Service) getStatus(statusValue string) Status {
+	var backgroundColor, textColor string
+
+	switch statusValue {
+	case "active", "success":
+		backgroundColor = "#18DB351A"
+		textColor = "#388E3C"
+	case "failed", "expired":
+		backgroundColor = "#DC26261A"
+		textColor = "#DC2626"
+	case "partial_success":
+		backgroundColor = "#F59E0B1A"
+		textColor = "#F59E0B"
+	case "inactive":
+		backgroundColor = "#6B72801A"
+		textColor = "#6B7280"
+	default:
+		backgroundColor = "#6B72801A"
+		textColor = "#6B7280"
+	}
+
+	return Status{
+		Value:           statusValue,
+		BackgroundColor: backgroundColor,
+		TextColor:       textColor,
+	}
+}
+
 func (s *Service) enrichBillingCard(ctx context.Context, card *BillingCard, user *User) {
-	card.Status = "none"
 	if !user.PaidTier {
+		card.PlanName = "Free"
+		card.Status = s.getStatus("active")
 		return
 	}
 
-	card.Status = "active"
+	card.Status = s.getStatus("active")
 
 	payment, err := s.billing.GetLatestCompletedDebitTransaction(ctx, user.ID)
 	if err != nil || payment == nil || payment.PlanID == nil {
@@ -6392,6 +6437,7 @@ func (s *Service) enrichBillingCard(ctx context.Context, card *BillingCard, user
 		return
 	}
 
+	card.PlanName = plan.Name
 	card.MonthlyAmount = plan.Price
 
 	expiry := payment.Timestamp.Add(s.convertValidityToDuration(plan))
@@ -6399,7 +6445,7 @@ func (s *Service) enrichBillingCard(ctx context.Context, card *BillingCard, user
 		card.DaysLeft = int(expiry.Sub(time.Now()).Hours() / 24)
 	} else {
 		card.DaysLeft = 0
-		card.Status = "expired"
+		card.Status = s.getStatus("expired")
 	}
 }
 
@@ -6415,7 +6461,6 @@ func (s *Service) convertValidityToDuration(plan *billing.PaymentPlans) time.Dur
 }
 
 func (s *Service) enrichVaultCard(ctx context.Context, card *VaultCard, projectID uuid.UUID) {
-	card.Status = "active"
 
 	if bucketTotals, err := s.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
 		card.VaultsCount = int(bucketTotals.TotalCount)
@@ -6448,7 +6493,7 @@ func (s *Service) enrichAutoSyncCard(ctx context.Context, card *AutoSyncCard, to
 
 	card.ActiveSyncs = stats.ActiveSyncs
 	card.FailedSyncs = stats.FailedSyncs
-	card.Status = stats.Status
+	card.Status = s.getStatus(stats.Status)
 }
 
 func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (string, error)) (*AutoSyncStats, error) {
