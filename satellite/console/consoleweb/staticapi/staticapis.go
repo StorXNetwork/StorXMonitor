@@ -14,6 +14,9 @@ var userGuideline []byte
 //go:embed resources.json
 var resources []byte
 
+//go:embed app-resources.json
+var appResources []byte
+
 //go:embed user-guideline-for-app.html
 var userGuidelineforApp []byte
 
@@ -23,8 +26,14 @@ func HandleUserGuideline(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleResources(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(resources)
+
+	if r.URL.Query().Get("app") == "true" {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(appResources)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(resources)
+	}
 }
 
 func HandleBlogList(w http.ResponseWriter, r *http.Request) {

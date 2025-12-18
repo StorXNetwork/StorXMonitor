@@ -1,0 +1,21 @@
+[
+    {
+      "name": "Usage Guidelines",
+      "desc": "Learn everything you need to know about StorX Usage",
+      "type": "url",
+      "link": "https://storx.io/user-guideline-for-app"
+    },
+    {
+      "name": "Blogs",
+      "desc": "Access wealth of information, shares on our articles",
+      "type": "url",
+      "link": "https://medium.com/storx-network"
+    },
+    {
+      "name": "Still Need Help?",
+      "desc": "Can't find what you're looking for?",
+      "type": "contact",
+      "link": ""
+    }
+  ]
+  
