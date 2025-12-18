@@ -6263,6 +6263,7 @@ type Icon struct {
 
 type Button struct {
 	Link      string `json:"link"`
+	Click     string `json:"click"`
 	Color     string `json:"color"`
 	Text      string `json:"text"`
 	TextColor string `json:"textColor"`
@@ -6273,56 +6274,23 @@ type Status struct {
 	BackgroundColor string `json:"backgroundColor"`
 	TextColor       string `json:"textColor"`
 }
-
 type BaseCard struct {
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Icon        Icon    `json:"icon"`
-	Button      *Button `json:"button"`
-}
-
-type AutoSyncCard struct {
-	BaseCard
-	Status           Status `json:"status"`
-	ActiveSyncs      int    `json:"activeSyncs"`
-	ActiveSyncsLabel string `json:"activeSyncsLabel"`
-	FailedSyncs      int    `json:"failedSyncs"`
-	FailedSyncsLabel string `json:"failedSyncsLabel"`
-}
-
-type VaultCard struct {
-	BaseCard
-	StorageUsedGB              float64 `json:"storageUsedGB"`
-	StorageUsedGBLabel         string  `json:"storageUsedGBLabel"`
-	BandwidthUsedGB            float64 `json:"bandwidthUsedGB"`
-	BandwidthUsedGBLabel       string  `json:"bandwidthUsedGBLabel"`
-	VaultsCount                int     `json:"vaultsCount"`
-	VaultsCountLabel           string  `json:"vaultsCountLabel"`
-	VaultStatusBackgroundColor string  `json:"vaultStatusBackgroundColor"`
-	VaultStatusTextColor       string  `json:"vaultStatusTextColor"`
-}
-
-type AccessCard struct {
-	BaseCard
-	AccessCount      int    `json:"accessCount"`
-	AccessCountLabel string `json:"accessCountLabel"`
-}
-
-type BillingCard struct {
-	BaseCard
-	Status             Status  `json:"status"`
-	PlanName           string  `json:"planName"`
-	MonthlyAmount      float64 `json:"monthlyAmount"`
-	MonthlyAmountLabel string  `json:"monthlyAmountLabel"`
-	DaysLeft           int     `json:"daysLeft"`
-	DaysLeftLabel      string  `json:"daysLeftLabel"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Icon        Icon        `json:"icon"`
+	Button      *Button     `json:"button"`
+	Status      *Status     `json:"status"`
+	Value1      interface{} `json:"value_1,omitempty"`
+	Value1Label string      `json:"value_1_label,omitempty"`
+	Value2      interface{} `json:"value_2,omitempty"`
+	Value2Label string      `json:"value_2_label,omitempty"`
 }
 
 type DashboardCardsResponse struct {
-	AutoSync AutoSyncCard `json:"autoSync"`
-	Vault    VaultCard    `json:"vault"`
-	Access   AccessCard   `json:"access"`
-	Billing  BillingCard  `json:"billing"`
+	AutoSync BaseCard `json:"autoSync"`
+	Vault    BaseCard `json:"vault"`
+	Access   BaseCard `json:"access"`
+	Billing  BaseCard `json:"billing"`
 }
 
 type AutoSyncStats struct {
@@ -6418,82 +6386,125 @@ func (s *Service) getStatus(statusValue string) Status {
 	}
 }
 
-func (s *Service) enrichBillingCard(ctx context.Context, card *BillingCard, user *User) {
+func (s *Service) enrichBillingCard(ctx context.Context, card *BaseCard, user *User) {
+	now := time.Now()
+
 	if !user.PaidTier {
-		card.PlanName = "Free"
-		card.Status = s.getStatus("active")
+		status := s.getStatus("active")
+		card.Status = &status
+		card.Value1 = "Free"
+		card.Value2 = nil
+		card.Value2Label = ""
 		return
 	}
 
-	card.Status = s.getStatus("active")
+	status := s.getStatus("active")
+	card.Status = &status
 
 	payment, err := s.billing.GetLatestCompletedDebitTransaction(ctx, user.ID)
 	if err != nil || payment == nil || payment.PlanID == nil {
+		card.Value1 = "Free"
+		card.Value2 = nil
+		card.Value2Label = ""
 		return
 	}
 
 	plan, err := s.GetPaymentPlansByID(ctx, *payment.PlanID)
 	if err != nil || plan == nil {
+		card.Value1 = "Free"
+		card.Value2 = nil
+		card.Value2Label = ""
 		return
 	}
 
-	card.PlanName = plan.Name
-	card.MonthlyAmount = plan.Price
+	expiry := s.calculateExpiry(payment.Timestamp, plan)
+	daysLeft := int(expiry.Sub(now).Hours() / 24)
 
-	expiry := payment.Timestamp.Add(s.convertValidityToDuration(plan))
-	if expiry.After(time.Now()) {
-		card.DaysLeft = int(expiry.Sub(time.Now()).Hours() / 24)
-	} else {
-		card.DaysLeft = 0
-		card.Status = s.getStatus("expired")
+	if !expiry.After(now) {
+		expiredStatus := s.getStatus("expired")
+		card.Status = &expiredStatus
+		card.Value1 = plan.Price
+		// Calculate days past expiration as positive number
+		daysPastExpiration := int(now.Sub(expiry).Hours() / 24)
+		card.Value2 = daysPastExpiration
+		card.Value2Label = "Days Past Expiration"
+		return
 	}
+
+	card.Value1 = plan.Price
+	card.Value2 = daysLeft
 }
 
-func (s *Service) convertValidityToDuration(plan *billing.PaymentPlans) time.Duration {
+func (s *Service) calculateExpiry(start time.Time, plan *billing.PaymentPlans) time.Time {
 	switch plan.ValidityUnit {
 	case "month", "months":
-		return time.Duration(plan.Validity) * 30 * 24 * time.Hour
+		return start.AddDate(0, int(plan.Validity), 0)
 	case "year", "years":
-		return time.Duration(plan.Validity) * 365 * 24 * time.Hour
+		return start.AddDate(int(plan.Validity), 0, 0)
 	default:
-		return time.Duration(plan.Validity) * 24 * time.Hour
+		return start.AddDate(0, 0, int(plan.Validity))
 	}
 }
 
-func (s *Service) enrichVaultCard(ctx context.Context, card *VaultCard, projectID uuid.UUID) {
+func (s *Service) enrichVaultCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
+	const bytesPerGB = 1024 * 1024 * 1024
 
-	if bucketTotals, err := s.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
-		card.VaultsCount = int(bucketTotals.TotalCount)
-	}
+	var storageUsedGB, bandwidthUsedGB float64
+	var vaultsCount int
 
 	if usageLimits, err := s.GetProjectUsageLimits(ctx, projectID); err == nil {
-		const bytesPerGB = 1024 * 1024 * 1024
-		card.StorageUsedGB = float64(usageLimits.StorageUsed) / bytesPerGB
-		card.BandwidthUsedGB = float64(usageLimits.BandwidthUsed) / bytesPerGB
+		storageUsedGB = float64(usageLimits.StorageUsed) / bytesPerGB
+		bandwidthUsedGB = float64(usageLimits.BandwidthUsed) / bytesPerGB
 	}
+
+	if bucketTotals, err := s.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
+		vaultsCount = int(bucketTotals.TotalCount)
+	}
+
+	vaultText := "vaults"
+	if vaultsCount == 1 {
+		vaultText = "vault"
+	}
+	status := s.getStatus("active")
+	status.Value = fmt.Sprintf("%d %s", vaultsCount, vaultText)
+	card.Status = &status
+
+	card.Value1 = storageUsedGB
+	card.Value2 = bandwidthUsedGB
 }
 
-func (s *Service) enrichAccessCard(ctx context.Context, card *AccessCard, projectID uuid.UUID) {
-	apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{
+func (s *Service) enrichAccessCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
+	card.Status = nil
+
+	var accessCount int
+	if apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{
 		Limit: 1, Page: 1, Order: CreationDate, OrderDirection: Descending,
-	})
-	if err != nil {
-		card.AccessCount = 0
-		return
+	}); err == nil {
+		accessCount = int(apiKeys.TotalCount)
 	}
-	card.AccessCount = int(apiKeys.TotalCount)
+
+	card.Value1 = accessCount
+	card.Value2 = nil
+	card.Value2Label = ""
 }
 
-func (s *Service) enrichAutoSyncCard(ctx context.Context, card *AutoSyncCard, tokenGetter func() (string, error)) {
+func (s *Service) enrichAutoSyncCard(ctx context.Context, card *BaseCard, tokenGetter func() (string, error)) {
 	stats, err := s.fetchAutoSyncStats(ctx, tokenGetter)
 	if err != nil {
 		s.log.Warn("failed to fetch AutoSync stats", zap.Error(err))
+		card.Value1 = 0
+		card.Value2 = 0
+		if card.Status == nil {
+			inactiveStatus := s.getStatus("inactive")
+			card.Status = &inactiveStatus
+		}
 		return
 	}
 
-	card.ActiveSyncs = stats.ActiveSyncs
-	card.FailedSyncs = stats.FailedSyncs
-	card.Status = s.getStatus(stats.Status)
+	card.Value1 = stats.ActiveSyncs
+	card.Value2 = stats.FailedSyncs
+	status := s.getStatus(stats.Status)
+	card.Status = &status
 }
 
 func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (string, error)) (*AutoSyncStats, error) {
