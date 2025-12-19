@@ -6294,9 +6294,10 @@ type DashboardCardsResponse struct {
 }
 
 type AutoSyncStats struct {
-	ActiveSyncs int    `json:"active_syncs"`
-	FailedSyncs int    `json:"failed_syncs"`
-	Status      string `json:"status"`
+	ActiveSyncs   int    `json:"active_syncs"`
+	FailedSyncs   int    `json:"failed_syncs"`
+	TotalAccounts int    `json:"total_accounts"`
+	Status        string `json:"status"`
 }
 
 func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, tokenGetter func() (string, error)) ([]interface{}, error) {
@@ -6374,6 +6375,9 @@ func (s *Service) getStatus(statusValue string) Status {
 	case "inactive":
 		backgroundColor = "#6B72801A"
 		textColor = "#6B7280"
+	case "add accounts":
+		backgroundColor = "#9CA3AF1A"
+		textColor = "#9CA3AF"
 	default:
 		backgroundColor = "#6B72801A"
 		textColor = "#6B7280"
@@ -6446,15 +6450,25 @@ func (s *Service) calculateExpiry(start time.Time, plan *billing.PaymentPlans) t
 	}
 }
 
-func (s *Service) enrichVaultCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
+func formatBytes(bytes int64) string {
 	const bytesPerGB = 1024 * 1024 * 1024
+	const bytesPerMB = 1024 * 1024
 
-	var storageUsedGB, bandwidthUsedGB float64
+	gb := float64(bytes) / bytesPerGB
+	if gb < 1.0 {
+		mb := float64(bytes) / bytesPerMB
+		return fmt.Sprintf("%.2f MB", mb)
+	}
+	return fmt.Sprintf("%.2f GB", gb)
+}
+
+func (s *Service) enrichVaultCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
 	var vaultsCount int
+	var storageBytes, bandwidthBytes int64
 
 	if usageLimits, err := s.GetProjectUsageLimits(ctx, projectID); err == nil {
-		storageUsedGB = float64(usageLimits.StorageUsed) / bytesPerGB
-		bandwidthUsedGB = float64(usageLimits.BandwidthUsed) / bytesPerGB
+		storageBytes = usageLimits.StorageUsed
+		bandwidthBytes = usageLimits.BandwidthUsed
 	}
 
 	if bucketTotals, err := s.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
@@ -6469,8 +6483,8 @@ func (s *Service) enrichVaultCard(ctx context.Context, card *BaseCard, projectID
 	status.Value = fmt.Sprintf("%d %s", vaultsCount, vaultText)
 	card.Status = &status
 
-	card.Value1 = storageUsedGB
-	card.Value2 = bandwidthUsedGB
+	card.Value1 = formatBytes(storageBytes)
+	card.Value2 = formatBytes(bandwidthBytes)
 }
 
 func (s *Service) enrichAccessCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
