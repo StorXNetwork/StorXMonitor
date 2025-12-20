@@ -107,105 +107,8 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 			return ctx.Err()
 		}
 
-		if reputation.LastContactSuccess == nil ||
-			reputation.PieceCount == 0 ||
-			reputation.LastContactSuccess.Before(time.Now().Add(-time.Hour*24*30)) {
-			worker.log.Info("skipping node", zap.String("wallet", reputation.Wallet), zap.Time("lastContactSuccess", *reputation.LastContactSuccess))
-			mon.Counter("reputation_push_worker_skipped_nodes").Inc(1) //mon:locked
-			err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("skipping node: %v", reputation.Wallet))
-			smartContractErr.Add(err)
-			continue
-		}
-
-		func() {
-			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-			defer cancel()
-
-			var isStaker bool
-
-			worker.log.Info("processing reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
-			reputationVal := int64(reputation.AuditReputationAlpha) * 5
-			mon.IntVal("reputation_push_worker_processing_nodes").Observe(1)             //mon:locked
-			mon.IntVal("reputation_push_worker_reputation_value").Observe(reputationVal) //mon:locked
-			if (reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero()) ||
-				(reputation.ExitInitiatedAt != nil && reputation.ExitInitiatedAt.IsZero()) ||
-				(reputation.ExitFinishedAt != nil && reputation.ExitFinishedAt.IsZero()) ||
-				(reputation.ExitSuccess != nil && *reputation.ExitSuccess) ||
-				(reputation.UnderReview != nil && !(*reputation.UnderReview).IsZero()) {
-				worker.log.Info("disqualified node", zap.String("wallet", reputation.Wallet), zap.Time("disqualified", *reputation.Disqualified))
-				mon.Counter("reputation_push_worker_disqualified_nodes").Inc(1) //mon:locked
-				reputationVal = 0
-			}
-
-			reputationFromContract, err := worker.connector.GetReputation(ctx, reputation.Wallet)
-			if err != nil {
-				worker.log.Error("failed to get reputation from contract", zap.Error(err))
-				return
-			}
-
-			if reputationFromContract == reputationVal {
-				worker.log.Info("reputation already pushed", zap.String("wallet", reputation.Wallet), zap.Int64("reputationFromContract", reputationFromContract), zap.Int64("reputation", reputationVal))
-				mon.Counter("reputation_push_worker_already_pushed").Inc(1) //mon:locked
-				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("reputation already pushed: %v", reputationVal))
-				smartContractErr.Add(err)
-				return
-			}
-
-			worker.log.Info("checking if wallet is staker", zap.String("wallet", reputation.Wallet))
-			isStaker, err = worker.connector.IsStaker(ctx, reputation.Wallet)
-			if err != nil {
-				worker.log.Error("failed to check if wallet is staker", zap.Error(err))
-				worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to check if wallet is staker: %v", err))
-				return
-			}
-
-			if isStaker {
-				worker.log.Info("pushing reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
-				err = worker.connector.PushReputation(ctx, reputation.Wallet, reputationVal)
-				if err != nil {
-					worker.log.Error("failed to push reputation", zap.Error(err))
-					mon.Counter("reputation_push_worker_push_reputation_failures").Inc(1) //mon:locked
-					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to push reputation: %v", err))
-					smartContractErr.Add(err)
-					return
-				}
-				worker.log.Info("pushed reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
-				mon.Counter("reputation_push_worker_push_reputation_successes").Inc(1) //mon:locked
-				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("pushed reputation: %v", reputationVal))
-				smartContractErr.Add(err)
-			} else {
-				worker.log.Info("adding staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
-				err = worker.connector.AddStaker(ctx, reputation.Wallet, reputationVal)
-				if err != nil {
-					worker.log.Error("failed to add staker", zap.Error(err))
-					mon.Counter("reputation_push_worker_add_staker_failures").Inc(1) //mon:locked
-					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to add staker: %v", err))
-					smartContractErr.Add(err)
-					return
-				}
-				worker.log.Info("added staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
-				mon.Counter("reputation_push_worker_add_staker_successes").Inc(1) //mon:locked
-				err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("added staker: %v", reputationVal))
-				smartContractErr.Add(err)
-			}
-
-			time.Sleep(time.Minute) // if we are calling smart contract, we need to wait for some time. just for safety
-
-			if reputation.Inactive {
-				// make this node active
-				err = worker.db.ActivateNode(ctx, reputation.NodeID)
-				if err != nil {
-					worker.log.Error("failed to activate node", zap.Error(err))
-					mon.Counter("reputation_push_worker_activate_node_failures").Inc(1) //mon:locked
-					err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to activate node: %v", err))
-					smartContractErr.Add(err)
-					return
-				}
-				mon.Counter("reputation_push_worker_activate_node_successes").Inc(1) //mon:locked
-			}
-
-			worker.log.Info("processed reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
-		}()
+		err = worker.processReputation(ctx, reputation)
+		smartContractErr.Add(err)
 
 	}
 
@@ -219,6 +122,168 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 	}
 
 	return smartContractErr.Err()
+}
+
+// processReputation processes a single reputation entry and pushes it to the smart contract.
+func (worker *ReputationPushWorker) processReputation(ctx context.Context, reputation NodeReputationEntry) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	worker.log.Info("processing reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
+
+	reputationVal := worker.calculateReputationValue(reputation)
+
+	// Handle inactive nodes: add as staker if needed and activate the node
+	if reputation.Inactive {
+		shouldContinue, err := worker.handleInactiveNode(ctx, reputation, reputationVal)
+		if err != nil {
+			return err
+		}
+		if !shouldContinue {
+			return nil
+		}
+	}
+
+	// Push reputation to contract if needed
+	if err := worker.pushReputationIfNeeded(ctx, reputation, reputationVal); err != nil {
+		return err
+	}
+
+	time.Sleep(time.Minute) // if we are calling smart contract, we need to wait for some time. just for safety
+
+	worker.log.Info("processed reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
+	return nil
+}
+
+// calculateReputationValue calculates the reputation value based on audit reputation and node status.
+func (worker *ReputationPushWorker) calculateReputationValue(reputation NodeReputationEntry) int64 {
+	reputationVal := int64(reputation.AuditReputationAlpha) * 5
+	mon.IntVal("reputation_push_worker_processing_nodes").Observe(1)             //mon:locked
+	mon.IntVal("reputation_push_worker_reputation_value").Observe(reputationVal) //mon:locked
+
+	// Check if node is disqualified
+	if worker.isNodeDisqualified(reputation) {
+		worker.log.Info("disqualified node", zap.String("wallet", reputation.Wallet))
+		mon.Counter("reputation_push_worker_disqualified_nodes").Inc(1) //mon:locked
+		return 0
+	}
+
+	// Check if node is inactive (no recent contact or no pieces)
+	if worker.isNodeInactive(reputation) {
+		worker.log.Info("node is inactive", zap.String("wallet", reputation.Wallet))
+		mon.Counter("reputation_push_worker_inactive_nodes").Inc(1) //mon:locked
+		return 5                                                    // default reputation value
+	}
+
+	return reputationVal
+}
+
+// isNodeDisqualified checks if a node is disqualified based on various status flags.
+func (worker *ReputationPushWorker) isNodeDisqualified(reputation NodeReputationEntry) bool {
+	return (reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero()) ||
+		(reputation.ExitInitiatedAt != nil && reputation.ExitInitiatedAt.IsZero()) ||
+		(reputation.ExitFinishedAt != nil && reputation.ExitFinishedAt.IsZero()) ||
+		(reputation.ExitSuccess != nil && *reputation.ExitSuccess) ||
+		(reputation.UnderReview != nil && !(*reputation.UnderReview).IsZero())
+}
+
+// isNodeInactive checks if a node is considered inactive.
+func (worker *ReputationPushWorker) isNodeInactive(reputation NodeReputationEntry) bool {
+	return reputation.LastContactSuccess == nil ||
+		reputation.PieceCount == 0 ||
+		reputation.LastContactSuccess.Before(time.Now().Add(-time.Hour*24*30))
+}
+
+// handleInactiveNode handles inactive nodes by checking if they're stakers, adding them if needed, and activating them.
+// Returns true if processing should continue, false if it should stop.
+func (worker *ReputationPushWorker) handleInactiveNode(ctx context.Context, reputation NodeReputationEntry, reputationVal int64) (shouldContinue bool, err error) {
+	worker.log.Info("checking if wallet is staker", zap.String("wallet", reputation.Wallet))
+	isStaker, err := worker.connector.IsStaker(ctx, reputation.Wallet)
+	if err != nil {
+		worker.log.Error("failed to check if wallet is staker", zap.Error(err))
+		worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to check if wallet is staker: %v", err))
+		return false, err
+	}
+
+	// Add staker if not already a staker
+	if !isStaker {
+		if err := worker.addStaker(ctx, reputation, reputationVal); err != nil {
+			return false, err
+		}
+	}
+
+	// Activate the node
+	if err := worker.activateNode(ctx, reputation); err != nil {
+		return false, err
+	}
+
+	// If we just added a new staker, we're done processing this node
+	return isStaker, nil
+}
+
+// addStaker adds a wallet as a staker with the given reputation value.
+func (worker *ReputationPushWorker) addStaker(ctx context.Context, reputation NodeReputationEntry, reputationVal int64) error {
+	worker.log.Info("adding staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
+	err := worker.connector.AddStaker(ctx, reputation.Wallet, reputationVal)
+	if err != nil {
+		worker.log.Error("failed to add staker", zap.Error(err))
+		mon.Counter("reputation_push_worker_add_staker_failures").Inc(1) //mon:locked
+		err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to add staker: %v", err))
+		return err
+	}
+	worker.log.Info("added staker", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
+	mon.Counter("reputation_push_worker_add_staker_successes").Inc(1) //mon:locked
+	err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("added staker: %v", reputationVal))
+	return err
+}
+
+// activateNode activates a node in the database.
+func (worker *ReputationPushWorker) activateNode(ctx context.Context, reputation NodeReputationEntry) error {
+	err := worker.db.ActivateNode(ctx, reputation.NodeID)
+	if err != nil {
+		worker.log.Error("failed to activate node", zap.Error(err))
+		mon.Counter("reputation_push_worker_activate_node_failures").Inc(1) //mon:locked
+		err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to activate node: %v", err))
+		return err
+	}
+	mon.Counter("reputation_push_worker_activate_node_successes").Inc(1) //mon:locked
+	return nil
+}
+
+// pushReputationIfNeeded checks if reputation is already pushed to the contract, and pushes it if needed.
+func (worker *ReputationPushWorker) pushReputationIfNeeded(ctx context.Context, reputation NodeReputationEntry, reputationVal int64) error {
+	reputationFromContract, err := worker.connector.GetReputation(ctx, reputation.Wallet)
+	if err != nil {
+		worker.log.Error("failed to get reputation from contract", zap.Error(err))
+		return err
+	}
+
+	// Skip if reputation is already up to date
+	if reputationFromContract == reputationVal {
+		worker.log.Info("reputation already pushed", zap.String("wallet", reputation.Wallet), zap.Int64("reputationFromContract", reputationFromContract), zap.Int64("reputation", reputationVal))
+		mon.Counter("reputation_push_worker_already_pushed").Inc(1) //mon:locked
+		err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("reputation already pushed: %v", reputationVal))
+		return err
+	}
+
+	// Push reputation to contract
+	return worker.pushReputation(ctx, reputation, reputationVal)
+}
+
+// pushReputation pushes the reputation value to the smart contract.
+func (worker *ReputationPushWorker) pushReputation(ctx context.Context, reputation NodeReputationEntry, reputationVal int64) error {
+	worker.log.Info("pushing reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
+	err := worker.connector.PushReputation(ctx, reputation.Wallet, reputationVal)
+	if err != nil {
+		worker.log.Error("failed to push reputation", zap.Error(err))
+		mon.Counter("reputation_push_worker_push_reputation_failures").Inc(1) //mon:locked
+		err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "error", fmt.Sprintf("failed to push reputation: %v", err))
+		return err
+	}
+	worker.log.Info("pushed reputation", zap.String("wallet", reputation.Wallet), zap.Int64("reputation", reputationVal))
+	mon.Counter("reputation_push_worker_push_reputation_successes").Inc(1) //mon:locked
+	err = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", fmt.Sprintf("pushed reputation: %v", reputationVal))
+	return err
 }
 
 // Close halts the worker.
