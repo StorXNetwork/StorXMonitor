@@ -34,6 +34,15 @@ type DB interface {
 	DeleteTokensByUserID(ctx context.Context, userID uuid.UUID) error
 }
 
+// NotificationPage represents a paginated page of notifications.
+type NotificationPage struct {
+	Notifications []PushNotificationRecord
+	TotalCount    int
+	Limit         int
+	Page          int
+	PageCount     int
+}
+
 // PushNotificationDB defines database operations for push notification tracking.
 type PushNotificationDB interface {
 	// InsertNotification inserts a new push notification record.
@@ -50,4 +59,16 @@ type PushNotificationDB interface {
 
 	// GetNotificationByID retrieves a notification by ID.
 	GetNotificationByID(ctx context.Context, id uuid.UUID) (PushNotificationRecord, error)
+
+	// ListNotifications retrieves paginated notifications for a user with optional filter.
+	ListNotifications(ctx context.Context, userID uuid.UUID, limit, page int, filter NotificationFilter) (*NotificationPage, error)
+
+	// MarkNotificationAsRead marks a single notification as read (updates status to "read").
+	MarkNotificationAsRead(ctx context.Context, notificationID, userID uuid.UUID) error
+
+	// MarkAllNotificationsAsRead marks all unread notifications for a user as read (updates status to "read").
+	MarkAllNotificationsAsRead(ctx context.Context, userID uuid.UUID) error
+
+	// GetUnreadCount returns the count of unread notifications for a user.
+	GetUnreadCount(ctx context.Context, userID uuid.UUID) (int, error)
 }
