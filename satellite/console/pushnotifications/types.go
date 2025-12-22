@@ -9,6 +9,32 @@ import (
 	"storj.io/common/uuid"
 )
 
+// Status constants for push notifications
+const (
+	StatusPending = "pending"
+	StatusSent    = "sent"
+	StatusFailed  = "failed"
+	StatusRead    = "read"
+)
+
+// IsRead checks if a notification status indicates it has been read.
+func IsRead(status string) bool {
+	return status == StatusRead
+}
+
+// MarkAsRead returns the "read" status value.
+func MarkAsRead() string {
+	return StatusRead
+}
+
+// NotificationFilter represents the filter type for listing notifications.
+type NotificationFilter string
+
+const (
+	FilterAll    NotificationFilter = "all"
+	FilterUnread NotificationFilter = "unread"
+)
+
 // FCMToken represents an FCM token stored in the database.
 type FCMToken struct {
 	ID          uuid.UUID
@@ -58,7 +84,7 @@ type PushNotificationRecord struct {
 	Title        string
 	Body         string
 	Data         map[string]interface{}
-	Status       string // "pending", "sent", "failed"
+	Status       string // "pending", "sent", "failed", "read"
 	ErrorMessage *string
 	RetryCount   int
 	SentAt       *time.Time
