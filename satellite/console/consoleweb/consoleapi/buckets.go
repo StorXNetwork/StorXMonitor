@@ -365,25 +365,20 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 	bandwidthLimit := usageLimits.BandwidthLimit
 	bandwidthUsed := usageLimits.BandwidthUsed
 
-	// Calculate remaining space (safe: already handles negative)
+	if storageLimit == 0 && storageUsed == 0 && bandwidthLimit == 0 && bandwidthUsed == 0 {
+		b.sendResponse(w, 0, 0, 0.0, 0, 0, 0.0, false, true, "")
+		return
+	}
+
+	// Calculate remaining space and bandwidth
 	remaining := storageLimit - storageUsed
-	if remaining < 0 {
-		remaining = 0
-	}
-
-	// Calculate remaining bandwidth (safe: already handles negative)
 	remainingBandwidth := bandwidthLimit - bandwidthUsed
-	if remainingBandwidth < 0 {
-		remainingBandwidth = 0
-	}
 
-	// Safe usage percent calculation (avoid division by zero)
-	usagePercent := 0.0
+	// Calculate usage percentages (avoid division by zero)
+	var usagePercent, bandwidthUsagePercent float64
 	if storageLimit > 0 {
 		usagePercent = float64(storageUsed) / float64(storageLimit) * 100
 	}
-
-	bandwidthUsagePercent := 0.0
 	if bandwidthLimit > 0 {
 		bandwidthUsagePercent = float64(bandwidthUsed) / float64(bandwidthLimit) * 100
 	}
