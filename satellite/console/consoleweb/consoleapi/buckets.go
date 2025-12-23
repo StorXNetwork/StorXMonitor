@@ -353,19 +353,17 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get storage usage and limit using actual project ID
-	storageUsed, err := b.service.GetProjectStorageTotals(ctx, project.ID)
+	// Get usage limits (includes both storage and bandwidth)
+	usageLimits, err := b.service.GetProjectUsageLimits(ctx, project.ID)
 	if err != nil {
 		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
-	storageLimitSize, err := b.service.GetProjectStorageLimit(ctx, project.ID)
-	if err != nil {
-		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-	storageLimit := storageLimitSize.Int64()
+	storageLimit := usageLimits.StorageLimit
+	storageUsed := usageLimits.StorageUsed
+	bandwidthLimit := usageLimits.BandwidthLimit
+	bandwidthUsed := usageLimits.BandwidthUsed
 
 	// Calculate remaining space (safe: already handles negative)
 	remaining := storageLimit - storageUsed
@@ -373,10 +371,21 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		remaining = 0
 	}
 
+	// Calculate remaining bandwidth (safe: already handles negative)
+	remainingBandwidth := bandwidthLimit - bandwidthUsed
+	if remainingBandwidth < 0 {
+		remainingBandwidth = 0
+	}
+
 	// Safe usage percent calculation (avoid division by zero)
 	usagePercent := 0.0
 	if storageLimit > 0 {
 		usagePercent = float64(storageUsed) / float64(storageLimit) * 100
+	}
+
+	bandwidthUsagePercent := 0.0
+	if bandwidthLimit > 0 {
+		bandwidthUsagePercent = float64(bandwidthUsed) / float64(bandwidthLimit) * 100
 	}
 
 	// Validate file size if provided
@@ -391,9 +400,17 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 
 		// Check if file exceeds remaining space
 		if remaining < fileSize {
-			b.sendResponse(w, storageLimit, remaining, usagePercent, true, false,
+			b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, true, false,
 				fmt.Sprintf("Uploading %s exceeds your storage limit. Remaining: %s / Total: %s.",
 					memory.Size(fileSize).Base10String(), memory.Size(remaining).Base10String(), memory.Size(storageLimit).Base10String()))
+			return
+		}
+
+		// Check if file exceeds remaining bandwidth
+		if remainingBandwidth < fileSize {
+			b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, true, false,
+				fmt.Sprintf("Uploading %s exceeds your bandwidth limit. Remaining: %s / Total: %s.",
+					memory.Size(fileSize).Base10String(), memory.Size(remainingBandwidth).Base10String(), memory.Size(bandwidthLimit).Base10String()))
 			return
 		}
 	}
@@ -410,33 +427,51 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 			memory.Size(storageUsed).Base10String(), memory.Size(storageLimit).Base10String())
 	} else if usagePercent >= b.storageWarningThreshold {
 		popup = true
-		message = fmt.Sprintf("You are using %s of %s (%.1f%%). Consider upgrading.",
+		message = fmt.Sprintf("You're nearing your storage limit—%s of %s used (%.1f%%). Upgrade now to avoid interruptions.",
 			memory.Size(storageUsed).Base10String(), memory.Size(storageLimit).Base10String(), usagePercent)
 	}
 
-	b.sendResponse(w, storageLimit, remaining, usagePercent, popup, allowUpload, message)
+	// Check bandwidth limits (bandwidth warnings take precedence if both are over threshold)
+	if bandwidthUsagePercent >= 100 {
+		allowUpload = false
+		popup = true
+		message = fmt.Sprintf("Bandwidth limit reached. Used %s of %s. Please upgrade.",
+			memory.Size(bandwidthUsed).Base10String(), memory.Size(bandwidthLimit).Base10String())
+	} else if bandwidthUsagePercent >= b.storageWarningThreshold && !popup {
+		popup = true
+		message = fmt.Sprintf("You're nearing your bandwidth limit—%s of %s used (%.1f%%). Upgrade now to avoid interruptions.",
+			memory.Size(bandwidthUsed).Base10String(), memory.Size(bandwidthLimit).Base10String(), bandwidthUsagePercent)
+	}
+
+	b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, popup, allowUpload, message)
 }
 
 // sendResponse sends the check upload response
-func (b *Buckets) sendResponse(w http.ResponseWriter, totalSpace, remainingSpace int64, usagePercent float64, popupShow, allowUpload bool, message string) {
+func (b *Buckets) sendResponse(w http.ResponseWriter, totalSpace, remainingSpace int64, storageUsagePercent float64, totalBandwidth, remainingBandwidth int64, bandwidthUsagePercent float64, popupShow, allowUpload bool, message string) {
 	resp := struct {
-		PopupShow        bool    `json:"popup_show"`
-		AllowUpload      bool    `json:"allow_upload"`
-		TotalSpace       int64   `json:"total_space"`
-		RemainingSpace   int64   `json:"remaining_space"`
-		UsagePercent     float64 `json:"usage_percent"`
-		WarningThreshold float64 `json:"warning_threshold"`
-		Message          string  `json:"message"`
-		UpgradeURL       string  `json:"upgrade_url"`
+		PopupShow             bool    `json:"popup_show"`
+		AllowUpload           bool    `json:"allow_upload"`
+		TotalSpace            int64   `json:"total_space"`
+		RemainingSpace        int64   `json:"remaining_space"`
+		StorageUsagePercent   float64 `json:"storage_usage_percent"`
+		TotalBandwidth        int64   `json:"total_bandwidth"`
+		RemainingBandwidth    int64   `json:"remaining_bandwidth"`
+		BandwidthUsagePercent float64 `json:"bandwidth_usage_percent"`
+		WarningThreshold      float64 `json:"warning_threshold"`
+		Message               string  `json:"message"`
+		UpgradeURL            string  `json:"upgrade_url"`
 	}{
-		PopupShow:        popupShow,
-		AllowUpload:      allowUpload,
-		TotalSpace:       totalSpace,
-		RemainingSpace:   remainingSpace,
-		UsagePercent:     usagePercent,
-		WarningThreshold: b.storageWarningThreshold,
-		Message:          message,
-		UpgradeURL:       b.billingURL,
+		PopupShow:             popupShow,
+		AllowUpload:           allowUpload,
+		TotalSpace:            totalSpace,
+		RemainingSpace:        remainingSpace,
+		StorageUsagePercent:   storageUsagePercent,
+		TotalBandwidth:        totalBandwidth,
+		RemainingBandwidth:    remainingBandwidth,
+		BandwidthUsagePercent: bandwidthUsagePercent,
+		WarningThreshold:      b.storageWarningThreshold,
+		Message:               message,
+		UpgradeURL:            b.billingURL,
 	}
 
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
