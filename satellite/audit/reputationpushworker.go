@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -131,7 +132,7 @@ func (worker *ReputationPushWorker) processReputation(ctx context.Context, reput
 
 	worker.log.Info("processing reputation", zap.String("wallet", reputation.Wallet), zap.Float64("reputation", reputation.AuditReputationAlpha))
 
-	reputationVal := worker.calculateReputationValue(reputation)
+	reputationVal := worker.calculateReputationValue(ctx, reputation)
 
 	// Handle inactive nodes: add as staker if needed and activate the node
 	if reputation.Inactive {
@@ -156,7 +157,7 @@ func (worker *ReputationPushWorker) processReputation(ctx context.Context, reput
 }
 
 // calculateReputationValue calculates the reputation value based on audit reputation and node status.
-func (worker *ReputationPushWorker) calculateReputationValue(reputation NodeReputationEntry) int64 {
+func (worker *ReputationPushWorker) calculateReputationValue(ctx context.Context, reputation NodeReputationEntry) int64 {
 	reputationVal := int64(reputation.AuditReputationAlpha) * 5
 	mon.IntVal("reputation_push_worker_processing_nodes").Observe(1)             //mon:locked
 	mon.IntVal("reputation_push_worker_reputation_value").Observe(reputationVal) //mon:locked
@@ -172,7 +173,8 @@ func (worker *ReputationPushWorker) calculateReputationValue(reputation NodeRepu
 	if worker.isNodeInactive(reputation) {
 		worker.log.Info("node is inactive", zap.String("wallet", reputation.Wallet))
 		mon.Counter("reputation_push_worker_inactive_nodes").Inc(1) //mon:locked
-		return 5                                                    // default reputation value
+		reputationJson, _ := json.Marshal(reputation)
+		worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", "node is inactive because: "+string(reputationJson))
 	}
 
 	return reputationVal
