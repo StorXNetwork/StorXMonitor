@@ -204,3 +204,154 @@ func pushNotificationFromDBX(dbxNotification *dbx.PushNotifications) (pushnotifi
 
 	return notification, nil
 }
+
+// ListNotifications retrieves paginated notifications for a user with optional filter.
+func (p *pushNotifications) ListNotifications(ctx context.Context, userID uuid.UUID, limit, page int, filter pushnotifications.NotificationFilter) (_ *pushnotifications.NotificationPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if limit <= 0 {
+		limit = 50
+	}
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	where := "user_id = $1"
+	args := []interface{}{userID[:]}
+	if filter == pushnotifications.FilterUnread {
+		where += " AND status = $2"
+		args = append(args, pushnotifications.StatusSent)
+	}
+
+	// Query A: Fetch paginated notifications
+	query := fmt.Sprintf(`SELECT id, user_id, token_id, title, body, data, status, error_message, retry_count, sent_at, created_at
+		FROM push_notifications
+		WHERE %s
+		ORDER BY created_at DESC
+		LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+
+	rows, err := p.db.QueryContext(ctx, p.db.Rebind(query), append(args, limit, offset)...)
+	if err != nil {
+		return nil, ErrPushNotifications.Wrap(err)
+	}
+	defer rows.Close()
+
+	var dbxNotifications []*dbx.PushNotifications
+	for rows.Next() {
+		var n dbx.PushNotifications
+		var tokenID, data []byte
+		var errorMsg sql.NullString
+		if err := rows.Scan(
+			&n.Id,
+			&n.UserId,
+			&tokenID,
+			&n.Title,
+			&n.Body,
+			&data,
+			&n.Status,
+			&errorMsg,
+			&n.RetryCount,
+			&n.SentAt,
+			&n.CreatedAt,
+		); err != nil {
+			return nil, ErrPushNotifications.Wrap(err)
+		}
+		if len(tokenID) > 0 {
+			n.TokenId = tokenID
+		}
+		if len(data) > 0 {
+			n.Data = data
+		}
+		if errorMsg.Valid {
+			n.ErrorMessage = &errorMsg.String
+		}
+		dbxNotifications = append(dbxNotifications, &n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, ErrPushNotifications.Wrap(err)
+	}
+
+	// Query B: Count total notifications
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM push_notifications WHERE %s", where)
+	var totalCount int
+	if err := p.db.QueryRowContext(ctx, p.db.Rebind(countQuery), args...).Scan(&totalCount); err != nil {
+		return nil, ErrPushNotifications.Wrap(err)
+	}
+
+	// Convert DBX to API model
+	notifications := make([]pushnotifications.PushNotificationRecord, 0, len(dbxNotifications))
+	for _, dbxNotif := range dbxNotifications {
+		notif, err := pushNotificationFromDBX(dbxNotif)
+		if err != nil {
+			return nil, ErrPushNotifications.Wrap(err)
+		}
+		notifications = append(notifications, notif)
+	}
+
+	pageCount := (totalCount + limit - 1) / limit
+	if pageCount == 0 {
+		pageCount = 1
+	}
+
+	return &pushnotifications.NotificationPage{
+		Notifications: notifications,
+		TotalCount:    totalCount,
+		Limit:         limit,
+		Page:          page,
+		PageCount:     pageCount,
+	}, nil
+}
+
+// MarkNotificationAsRead marks a single notification as read (updates status to "read").
+func (p *pushNotifications) MarkNotificationAsRead(ctx context.Context, notificationID, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `UPDATE push_notifications
+		SET status = $1
+		WHERE id = $2
+		  AND user_id = $3
+		  AND status = $4`
+	res, err := p.db.ExecContext(
+		ctx,
+		p.db.Rebind(query),
+		pushnotifications.MarkAsRead(),
+		notificationID[:],
+		userID[:],
+		pushnotifications.StatusSent,
+	)
+	if err != nil {
+		return ErrPushNotifications.Wrap(err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return ErrPushNotifications.Wrap(err)
+	}
+	if rowsAffected == 0 {
+		return nil
+	}
+	return nil
+}
+
+// MarkAllNotificationsAsRead marks all unread notifications for a user as read (updates status to "read").
+func (p *pushNotifications) MarkAllNotificationsAsRead(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	newStatus := pushnotifications.MarkAsRead()
+	query := "UPDATE push_notifications SET status = $1 WHERE user_id = $2 AND status = $3"
+	_, err = p.db.ExecContext(ctx, p.db.Rebind(query), newStatus, userID[:], pushnotifications.StatusSent)
+	return ErrPushNotifications.Wrap(err)
+}
+
+// GetUnreadCount returns the count of unread notifications for a user.
+func (p *pushNotifications) GetUnreadCount(ctx context.Context, userID uuid.UUID) (_ int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := "SELECT COUNT(*) FROM push_notifications WHERE user_id = $1 AND status = $2"
+	var count int
+	err = p.db.QueryRowContext(ctx, p.db.Rebind(query), userID[:], pushnotifications.StatusSent).Scan(&count)
+	if err != nil {
+		return 0, ErrPushNotifications.Wrap(err)
+	}
+	return count, nil
+}

@@ -88,6 +88,8 @@ type Config struct {
 
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
+	BackupToolsURL string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+
 	GoogleClientID               string `help:"client id for google oauth" default:""`
 	GoogleClientSecret           string `help:"client secret for google oauth" default:""`
 	GoogleSigupRedirectURLstring string `help:"redirect url for google oauth" default:""`
@@ -459,6 +461,14 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch, http.MethodOptions)
+
+	// Dashboard controller
+	dashboardController := consoleapi.NewDashboard(logger, service, server.cookieAuth)
+	dashboardRouter := router.PathPrefix("/api/v0/dashboard").Subrouter()
+	dashboardRouter.Use(server.withCORS)
+	dashboardRouter.Use(server.withAuth)
+	dashboardRouter.Handle("/stats", http.HandlerFunc(dashboardController.GetDashboardStats)).Methods(http.MethodGet, http.MethodOptions)
+
 	// User developer access management
 	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility
 	authRouter.Handle("/developer-access/{clientId}/history", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccessHistory))).Methods(http.MethodGet, http.MethodOptions) // Alias for frontend compatibility
@@ -506,6 +516,18 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.GetUserPreferences)).Methods(http.MethodGet, http.MethodOptions)
 	userNotificationPreferencesRouter.Handle("", http.HandlerFunc(userNotificationPreferencesController.UpsertUserPreference)).Methods(http.MethodPut, http.MethodOptions)
+
+	// Notifications API
+	notificationsController := consoleapi.NewNotifications(logger, service)
+	notificationsRouter := router.PathPrefix("/api/v0/notifications").Subrouter()
+	notificationsRouter.Use(server.withCORS)
+	notificationsRouter.Use(server.withAuth)
+
+	notificationsRouter.Handle("", http.HandlerFunc(notificationsController.ListNotifications)).Methods(http.MethodGet, http.MethodOptions)
+	notificationsRouter.Handle("/count", http.HandlerFunc(notificationsController.GetUnreadCount)).Methods(http.MethodGet, http.MethodOptions)
+	notificationsRouter.Handle("/{id}", http.HandlerFunc(notificationsController.GetNotificationDetails)).Methods(http.MethodGet, http.MethodOptions)
+	notificationsRouter.Handle("/read-all", http.HandlerFunc(notificationsController.MarkAllAsRead)).Methods(http.MethodPut, http.MethodOptions)
+
 	/*
 		if config.DeveloperAPIEnabled {
 			developerAuthController := consoleapi.NewDeveloperAuth(logger, service, server.developerService, accountFreezeService, mailService, server.developerCookieAuth,
@@ -665,6 +687,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/blog-list", server.withCORS(http.HandlerFunc(staticapi.HandleBlogList)))
 	router.Handle("/user-guideline-html", server.withCORS(http.HandlerFunc(staticapi.HandleUserGuideline)))
 	router.Handle("/resources-list", server.withCORS(http.HandlerFunc(staticapi.HandleResources)))
+	router.Handle("/user-guideline-for-app", server.withCORS(http.HandlerFunc(staticapi.HandleUserGuidelineforApp)))
 
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))

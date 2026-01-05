@@ -1108,7 +1108,8 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 							Bandwidth: bandwidth,
 						},
 					)
-					p.stripe.CreateTokenPaymentBillingTransaction(newCtx, user, "planPrice")
+					planID := plan.ID
+					p.stripe.CreateTokenPaymentBillingTransaction(newCtx, user, "planPrice", &planID)
 					return
 				}
 			}

@@ -100,6 +100,10 @@ func (db billingDB) tryInserts(ctx context.Context, primaryTx billing.Transactio
 
 	createTransaction := func(ctx context.Context, tx *dbx.Tx, billingTX *billing.Transactions) error {
 		amount := billingTX.Amount
+		createFields := dbx.BillingTransaction_Create_Fields{}
+		if billingTX.PlanID != nil {
+			createFields.PlanId = dbx.BillingTransaction_PlanId(*billingTX.PlanID)
+		}
 		_, err := tx.Create_BillingTransaction(ctx,
 			dbx.BillingTransaction_UserId(billingTX.UserID[:]),
 			dbx.BillingTransaction_Amount(int64(amount)),
@@ -109,7 +113,8 @@ func (db billingDB) tryInserts(ctx context.Context, primaryTx billing.Transactio
 			dbx.BillingTransaction_Status(string(billingTX.Status)),
 			dbx.BillingTransaction_Type(string(billingTX.Type)),
 			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
-			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
+			dbx.BillingTransaction_Timestamp(billingTX.Timestamp),
+			createFields)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -609,6 +614,7 @@ func fromDBXBillingTransactions(dbxTX *dbx.BillingTransaction) (billing.Transact
 		Metadata:    dbxTX.Metadata,
 		Timestamp:   dbxTX.Timestamp,
 		CreatedAt:   dbxTX.CreatedAt,
+		PlanID:      dbxTX.PlanId,
 	}, nil
 }
 
@@ -687,4 +693,33 @@ func handleMetaDataZeroValue(metaData []byte) []byte {
 		return metaData
 	}
 	return []byte(`{}`)
+}
+
+func (db billingDB) GetLatestCompletedDebitTransaction(ctx context.Context, userID uuid.UUID) (tx *billing.Transactions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	query := `SELECT id, user_id, amount, description, source, status, type, metadata, timestamp, created_at, plan_id 
+	FROM billing_transactions 
+	WHERE 
+	user_id = $1 AND 
+	type = $2 AND 
+	status = $3
+	ORDER BY timestamp DESC LIMIT 1`
+	var dbxTX dbx.BillingTransaction
+	err = db.db.DB.QueryRowContext(ctx, query, userID[:],
+		string(billing.TransactionTypeDebit),
+		string(billing.TransactionStatusCompleted),
+	).Scan(
+		&dbxTX.Id, &dbxTX.UserId, &dbxTX.Amount, &dbxTX.Description, &dbxTX.Source, &dbxTX.Status, &dbxTX.Type, &dbxTX.Metadata, &dbxTX.Timestamp, &dbxTX.CreatedAt, &dbxTX.PlanId,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, Error.Wrap(err)
+	}
+	result, err := fromDBXBillingTransactions(&dbxTX)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &result, nil
 }
