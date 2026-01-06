@@ -519,6 +519,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	notificationsRouter.Handle("", http.HandlerFunc(notificationsController.ListNotifications)).Methods(http.MethodGet, http.MethodOptions)
 	notificationsRouter.Handle("/count", http.HandlerFunc(notificationsController.GetUnreadCount)).Methods(http.MethodGet, http.MethodOptions)
 	notificationsRouter.Handle("/{id}", http.HandlerFunc(notificationsController.GetNotificationDetails)).Methods(http.MethodGet, http.MethodOptions)
+	notificationsRouter.Handle("/{id}/dismiss", http.HandlerFunc(notificationsController.DismissNotification)).Methods(http.MethodPut, http.MethodOptions)
 	notificationsRouter.Handle("/read-all", http.HandlerFunc(notificationsController.MarkAllAsRead)).Methods(http.MethodPut, http.MethodOptions)
 
 	/*
