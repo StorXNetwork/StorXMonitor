@@ -71,17 +71,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Build replication config from binding config
-	replicationConfig := replication.Config{
-		SourceDB:             runCfg.Replication.SourceDB,
-		SlotName:             runCfg.Replication.SlotName,
-		PublicationName:      runCfg.Replication.PublicationName,
-		WebhookURL:           runCfg.Replication.WebhookURL,
-		WebhookPublicKey:     runCfg.Replication.WebhookPublicKey,
-		MaxRetries:           runCfg.Replication.MaxRetries,
-		RetryDelay:           runCfg.Replication.RetryDelay,
-		StatusUpdateInterval: runCfg.Replication.StatusUpdateInterval,
-		WebhookTimeout:       runCfg.Replication.WebhookTimeout,
-	}
+	replicationConfig := runCfg.Replication
 
 	// Load tables from YAML config file (for YAML config support, cfgstruct handles JSON flags)
 	tables, err := loadTablesFromConfig(confDir)

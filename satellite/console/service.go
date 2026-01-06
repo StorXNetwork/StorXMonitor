@@ -514,11 +514,6 @@ func (s *Service) GetBillingTransactions(ctx context.Context, userID uuid.UUID) 
 	return s.billing.Lists(ctx, userID)
 }
 
-// GetAPIKeysStore returns the API keys store interface.
-func (s *Service) GetAPIKeysStore() APIKeys {
-	return s.store.APIKeys()
-}
-
 func (s *Service) GetBackupShare(ctx context.Context, backupID string) (share []byte, err error) {
 	return s.store.Web3Auth().GetBackupShare(ctx, backupID)
 }
