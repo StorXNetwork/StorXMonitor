@@ -431,6 +431,7 @@ CREATE TABLE push_notifications (
 	status text NOT NULL,
 	error_message text,
 	retry_count integer NOT NULL DEFAULT 0,
+	hide boolean NOT NULL DEFAULT false,
 	sent_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )

@@ -114,6 +114,8 @@ model push_notifications (
     field error_message text ( nullable, updatable )
     // retry_count is the number of retry attempts for this notification.
     field retry_count int ( updatable, default 0 )
+    // hide to hide notification from quick list.
+    field hide bool ( updatable, default false )
     // sent_at indicates when the notification was sent.
     field sent_at timestamp ( nullable, updatable )
     // created_at indicates when the notification was created.
