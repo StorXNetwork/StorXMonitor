@@ -3420,6 +3420,15 @@ true, NOW(), NOW());`,
 					`ALTER TABLE billing_transactions ADD COLUMN plan_id BIGINT;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add hide column to push_notifications table",
+				Version:     300,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE push_notifications ADD COLUMN hide BOOLEAN NOT NULL DEFAULT FALSE;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

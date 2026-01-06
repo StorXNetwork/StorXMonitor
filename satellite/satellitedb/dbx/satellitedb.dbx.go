@@ -744,6 +744,7 @@ CREATE TABLE push_notifications (
 	status text NOT NULL,
 	error_message text,
 	retry_count integer NOT NULL DEFAULT 0,
+	hide boolean NOT NULL DEFAULT false,
 	sent_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
@@ -1709,6 +1710,7 @@ CREATE TABLE push_notifications (
 	status text NOT NULL,
 	error_message text,
 	retry_count integer NOT NULL DEFAULT 0,
+	hide boolean NOT NULL DEFAULT false,
 	sent_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
@@ -9971,6 +9973,7 @@ type PushNotifications struct {
 	Status       string
 	ErrorMessage *string
 	RetryCount   int
+	Hide         bool
 	SentAt       *time.Time
 	CreatedAt    time.Time
 }
@@ -9982,6 +9985,7 @@ type PushNotifications_Create_Fields struct {
 	Data         PushNotifications_Data_Field
 	ErrorMessage PushNotifications_ErrorMessage_Field
 	RetryCount   PushNotifications_RetryCount_Field
+	Hide         PushNotifications_Hide_Field
 	SentAt       PushNotifications_SentAt_Field
 }
 
@@ -9989,6 +9993,7 @@ type PushNotifications_Update_Fields struct {
 	Data         PushNotifications_Data_Field
 	ErrorMessage PushNotifications_ErrorMessage_Field
 	RetryCount   PushNotifications_RetryCount_Field
+	Hide         PushNotifications_Hide_Field
 	SentAt       PushNotifications_SentAt_Field
 }
 
@@ -10203,6 +10208,25 @@ func (f PushNotifications_RetryCount_Field) value() interface{} {
 }
 
 func (PushNotifications_RetryCount_Field) _Column() string { return "retry_count" }
+
+type PushNotifications_Hide_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func PushNotifications_Hide(v bool) PushNotifications_Hide_Field {
+	return PushNotifications_Hide_Field{_set: true, _value: v}
+}
+
+func (f PushNotifications_Hide_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PushNotifications_Hide_Field) _Column() string { return "hide" }
 
 type PushNotifications_SentAt_Field struct {
 	_set   bool
@@ -18817,7 +18841,7 @@ func (obj *pgxImpl) Create_PushNotifications(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO push_notifications "), __clause, __sqlbundle_Literal(" RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO push_notifications "), __clause, __sqlbundle_Literal(" RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __user_id_val, __token_id_val, __title_val, __body_val, __data_val, __status_val, __error_message_val, __sent_at_val, __created_at_val)
@@ -18828,6 +18852,12 @@ func (obj *pgxImpl) Create_PushNotifications(ctx context.Context,
 	if optional.RetryCount._set {
 		__values = append(__values, optional.RetryCount.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("retry_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Hide._set {
+		__values = append(__values, optional.Hide.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("hide"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -18843,7 +18873,7 @@ func (obj *pgxImpl) Create_PushNotifications(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	push_notifications = &PushNotifications{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -23325,7 +23355,7 @@ func (obj *pgxImpl) Get_PushNotifications_By_Id(ctx context.Context,
 	push_notifications *PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_id.value())
@@ -23334,7 +23364,7 @@ func (obj *pgxImpl) Get_PushNotifications_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	push_notifications = &PushNotifications{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 	if err != nil {
 		return (*PushNotifications)(nil), obj.makeErr(err)
 	}
@@ -23347,7 +23377,7 @@ func (obj *pgxImpl) All_PushNotifications_By_UserId(ctx context.Context,
 	rows []*PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_user_id.value())
@@ -23365,7 +23395,7 @@ func (obj *pgxImpl) All_PushNotifications_By_UserId(ctx context.Context,
 
 			for __rows.Next() {
 				push_notifications := &PushNotifications{}
-				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -23392,7 +23422,7 @@ func (obj *pgxImpl) All_PushNotifications_By_Status(ctx context.Context,
 	rows []*PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_status.value())
@@ -23410,7 +23440,7 @@ func (obj *pgxImpl) All_PushNotifications_By_Status(ctx context.Context,
 
 			for __rows.Next() {
 				push_notifications := &PushNotifications{}
-				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -23438,7 +23468,7 @@ func (obj *pgxImpl) Limited_PushNotifications_By_UserId(ctx context.Context,
 	rows []*PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ? LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_user_id.value())
@@ -23458,7 +23488,7 @@ func (obj *pgxImpl) Limited_PushNotifications_By_UserId(ctx context.Context,
 
 			for __rows.Next() {
 				push_notifications := &PushNotifications{}
-				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -23487,7 +23517,7 @@ func (obj *pgxImpl) Limited_PushNotifications_By_Status(ctx context.Context,
 	rows []*PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ? LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_status.value())
@@ -23507,7 +23537,7 @@ func (obj *pgxImpl) Limited_PushNotifications_By_Status(ctx context.Context,
 
 			for __rows.Next() {
 				push_notifications := &PushNotifications{}
-				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -28087,7 +28117,7 @@ func (obj *pgxImpl) Update_PushNotifications_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE push_notifications SET "), __sets, __sqlbundle_Literal(" WHERE push_notifications.id = ? RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE push_notifications SET "), __sets, __sqlbundle_Literal(" WHERE push_notifications.id = ? RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -28108,6 +28138,11 @@ func (obj *pgxImpl) Update_PushNotifications_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
 	}
 
+	if update.Hide._set {
+		__values = append(__values, update.Hide.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hide = ?"))
+	}
+
 	if update.SentAt._set {
 		__values = append(__values, update.SentAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("sent_at = ?"))
@@ -28126,7 +28161,7 @@ func (obj *pgxImpl) Update_PushNotifications_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	push_notifications = &PushNotifications{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -32579,7 +32614,7 @@ func (obj *pgxcockroachImpl) Create_PushNotifications(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO push_notifications "), __clause, __sqlbundle_Literal(" RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO push_notifications "), __clause, __sqlbundle_Literal(" RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __user_id_val, __token_id_val, __title_val, __body_val, __data_val, __status_val, __error_message_val, __sent_at_val, __created_at_val)
@@ -32590,6 +32625,12 @@ func (obj *pgxcockroachImpl) Create_PushNotifications(ctx context.Context,
 	if optional.RetryCount._set {
 		__values = append(__values, optional.RetryCount.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("retry_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Hide._set {
+		__values = append(__values, optional.Hide.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("hide"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -32605,7 +32646,7 @@ func (obj *pgxcockroachImpl) Create_PushNotifications(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	push_notifications = &PushNotifications{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -37087,7 +37128,7 @@ func (obj *pgxcockroachImpl) Get_PushNotifications_By_Id(ctx context.Context,
 	push_notifications *PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_id.value())
@@ -37096,7 +37137,7 @@ func (obj *pgxcockroachImpl) Get_PushNotifications_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	push_notifications = &PushNotifications{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 	if err != nil {
 		return (*PushNotifications)(nil), obj.makeErr(err)
 	}
@@ -37109,7 +37150,7 @@ func (obj *pgxcockroachImpl) All_PushNotifications_By_UserId(ctx context.Context
 	rows []*PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_user_id.value())
@@ -37127,7 +37168,7 @@ func (obj *pgxcockroachImpl) All_PushNotifications_By_UserId(ctx context.Context
 
 			for __rows.Next() {
 				push_notifications := &PushNotifications{}
-				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -37154,7 +37195,7 @@ func (obj *pgxcockroachImpl) All_PushNotifications_By_Status(ctx context.Context
 	rows []*PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_status.value())
@@ -37172,7 +37213,7 @@ func (obj *pgxcockroachImpl) All_PushNotifications_By_Status(ctx context.Context
 
 			for __rows.Next() {
 				push_notifications := &PushNotifications{}
-				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -37200,7 +37241,7 @@ func (obj *pgxcockroachImpl) Limited_PushNotifications_By_UserId(ctx context.Con
 	rows []*PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ? LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.user_id = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_user_id.value())
@@ -37220,7 +37261,7 @@ func (obj *pgxcockroachImpl) Limited_PushNotifications_By_UserId(ctx context.Con
 
 			for __rows.Next() {
 				push_notifications := &PushNotifications{}
-				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -37249,7 +37290,7 @@ func (obj *pgxcockroachImpl) Limited_PushNotifications_By_Status(ctx context.Con
 	rows []*PushNotifications, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ? LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at FROM push_notifications WHERE push_notifications.status = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, push_notifications_status.value())
@@ -37269,7 +37310,7 @@ func (obj *pgxcockroachImpl) Limited_PushNotifications_By_Status(ctx context.Con
 
 			for __rows.Next() {
 				push_notifications := &PushNotifications{}
-				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+				err = __rows.Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -41849,7 +41890,7 @@ func (obj *pgxcockroachImpl) Update_PushNotifications_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE push_notifications SET "), __sets, __sqlbundle_Literal(" WHERE push_notifications.id = ? RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.sent_at, push_notifications.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE push_notifications SET "), __sets, __sqlbundle_Literal(" WHERE push_notifications.id = ? RETURNING push_notifications.id, push_notifications.user_id, push_notifications.token_id, push_notifications.title, push_notifications.body, push_notifications.data, push_notifications.status, push_notifications.error_message, push_notifications.retry_count, push_notifications.hide, push_notifications.sent_at, push_notifications.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -41870,6 +41911,11 @@ func (obj *pgxcockroachImpl) Update_PushNotifications_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
 	}
 
+	if update.Hide._set {
+		__values = append(__values, update.Hide.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hide = ?"))
+	}
+
 	if update.SentAt._set {
 		__values = append(__values, update.SentAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("sent_at = ?"))
@@ -41888,7 +41934,7 @@ func (obj *pgxcockroachImpl) Update_PushNotifications_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	push_notifications = &PushNotifications{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.SentAt, &push_notifications.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&push_notifications.Id, &push_notifications.UserId, &push_notifications.TokenId, &push_notifications.Title, &push_notifications.Body, &push_notifications.Data, &push_notifications.Status, &push_notifications.ErrorMessage, &push_notifications.RetryCount, &push_notifications.Hide, &push_notifications.SentAt, &push_notifications.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
