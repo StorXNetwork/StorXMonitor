@@ -60,8 +60,8 @@ type PushNotificationDB interface {
 	// GetNotificationByID retrieves a notification by ID.
 	GetNotificationByID(ctx context.Context, id uuid.UUID) (PushNotificationRecord, error)
 
-	// ListNotifications retrieves paginated notifications for a user with optional filter.
-	ListNotifications(ctx context.Context, userID uuid.UUID, limit, page int, filter NotificationFilter) (*NotificationPage, error)
+	// ListNotifications retrieves paginated notifications for a user with optional filter and time filter.
+	ListNotifications(ctx context.Context, userID uuid.UUID, limit, page int, filter NotificationFilter, timeFilter *time.Time) (*NotificationPage, error)
 
 	// MarkNotificationAsRead marks a single notification as read (updates status to "read").
 	MarkNotificationAsRead(ctx context.Context, notificationID, userID uuid.UUID) error
@@ -71,4 +71,7 @@ type PushNotificationDB interface {
 
 	// GetUnreadCount returns the count of unread notifications for a user.
 	GetUnreadCount(ctx context.Context, userID uuid.UUID) (int, error)
+
+	// DismissNotification hides a notification from the notification bar (sets hide = true).
+	DismissNotification(ctx context.Context, notificationID, userID uuid.UUID) error
 }

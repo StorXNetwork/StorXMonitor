@@ -175,6 +175,7 @@ func pushNotificationFromDBX(dbxNotification *dbx.PushNotifications) (pushnotifi
 		Status:     dbxNotification.Status,
 		RetryCount: dbxNotification.RetryCount,
 		CreatedAt:  dbxNotification.CreatedAt,
+		Hide:       dbxNotification.Hide,
 	}
 
 	if dbxNotification.TokenId != nil {
@@ -205,8 +206,8 @@ func pushNotificationFromDBX(dbxNotification *dbx.PushNotifications) (pushnotifi
 	return notification, nil
 }
 
-// ListNotifications retrieves paginated notifications for a user with optional filter.
-func (p *pushNotifications) ListNotifications(ctx context.Context, userID uuid.UUID, limit, page int, filter pushnotifications.NotificationFilter) (_ *pushnotifications.NotificationPage, err error) {
+// ListNotifications retrieves paginated notifications for a user with optional filter and time filter.
+func (p *pushNotifications) ListNotifications(ctx context.Context, userID uuid.UUID, limit, page int, filter pushnotifications.NotificationFilter, timeFilter *time.Time) (_ *pushnotifications.NotificationPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if limit <= 0 {
@@ -219,17 +220,29 @@ func (p *pushNotifications) ListNotifications(ctx context.Context, userID uuid.U
 
 	where := "user_id = $1"
 	args := []interface{}{userID[:]}
+	argIndex := 2
+
 	if filter == pushnotifications.FilterUnread {
-		where += " AND status = $2"
+		where += fmt.Sprintf(" AND status = $%d", argIndex)
 		args = append(args, pushnotifications.StatusSent)
+		argIndex++
+	}
+
+	// Add time filter if provided
+	if timeFilter != nil {
+		where += fmt.Sprintf(" AND created_at >= $%d", argIndex)
+		args = append(args, *timeFilter)
+		argIndex++
 	}
 
 	// Query A: Fetch paginated notifications
-	query := fmt.Sprintf(`SELECT id, user_id, token_id, title, body, data, status, error_message, retry_count, sent_at, created_at
+	limitIndex := argIndex
+	offsetIndex := argIndex + 1
+	query := fmt.Sprintf(`SELECT id, user_id, token_id, title, body, data, status, error_message, retry_count, sent_at, created_at, hide
 		FROM push_notifications
 		WHERE %s
 		ORDER BY created_at DESC
-		LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+		LIMIT $%d OFFSET $%d`, where, limitIndex, offsetIndex)
 
 	rows, err := p.db.QueryContext(ctx, p.db.Rebind(query), append(args, limit, offset)...)
 	if err != nil {
@@ -254,6 +267,7 @@ func (p *pushNotifications) ListNotifications(ctx context.Context, userID uuid.U
 			&n.RetryCount,
 			&n.SentAt,
 			&n.CreatedAt,
+			&n.Hide,
 		); err != nil {
 			return nil, ErrPushNotifications.Wrap(err)
 		}
@@ -354,4 +368,31 @@ func (p *pushNotifications) GetUnreadCount(ctx context.Context, userID uuid.UUID
 		return 0, ErrPushNotifications.Wrap(err)
 	}
 	return count, nil
+}
+
+// DismissNotification hides a notification from the notification bar (sets hide = true).
+func (p *pushNotifications) DismissNotification(ctx context.Context, notificationID, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `UPDATE push_notifications
+		SET hide = true
+		WHERE id = $1
+		  AND user_id = $2`
+	res, err := p.db.ExecContext(
+		ctx,
+		p.db.Rebind(query),
+		notificationID[:],
+		userID[:],
+	)
+	if err != nil {
+		return ErrPushNotifications.Wrap(err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return ErrPushNotifications.Wrap(err)
+	}
+	if rowsAffected == 0 {
+		return ErrPushNotifications.New("notification not found or does not belong to user")
+	}
+	return nil
 }

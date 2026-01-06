@@ -89,4 +89,5 @@ type PushNotificationRecord struct {
 	RetryCount   int
 	SentAt       *time.Time
 	CreatedAt    time.Time
+	Hide         bool // Hide notification from notification bar (but show in listing page)
 }
