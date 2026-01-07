@@ -3429,6 +3429,16 @@ true, NOW(), NOW());`,
 					`ALTER TABLE push_notifications ADD COLUMN hide BOOLEAN NOT NULL DEFAULT FALSE;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add immutability_rules column to bucket_metainfos table",
+				Version:     301,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN immutability_rules JSON;`,
+					`UPDATE bucket_metainfos SET immutability_rules = '{}';`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -78,6 +78,9 @@ model bucket_metainfo (
 	//    4 - migration_failed
 	field migration_status int (updatable, default 0)
 
+	// immutability_rules is the immutability rules in json format for the bucket.
+	field immutability_rules json (nullable, updatable)
+
 	// created_by is an UUID of the user created this bucket.
 	field created_by user.id restrict (nullable)
 )

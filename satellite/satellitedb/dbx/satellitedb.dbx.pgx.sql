@@ -790,6 +790,7 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_total_shares integer NOT NULL,
 	placement integer,
 	migration_status integer NOT NULL DEFAULT 0,
+	immutability_rules jsonb,
 	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( project_id, name )
 );
