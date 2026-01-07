@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/grant"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
@@ -788,6 +789,60 @@ func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Re
 			return
 		}
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// GetProjectIDFromAccessGrant returns project_id from access grant.
+// This endpoint is used by Backup-Tools to identify the project associated with an access grant.
+// It accepts an access grant in the request body and returns the project's public ID.
+func (p *Projects) GetProjectIDFromAccessGrant(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse request body
+	var request struct {
+		AccessGrant string `json:"access_grant"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if request.AccessGrant == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("access_grant is required"))
+		return
+	}
+
+	// Parse access grant
+	access, err := grant.ParseAccess(request.AccessGrant)
+	if err != nil {
+		p.log.Info("Failed to parse access grant", zap.Error(err))
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid access grant format"))
+		return
+	}
+
+	apiKeyHead := access.APIKey.Head()
+
+	apiKeyInfo, err := p.service.GetAPIKeysStore().GetByHead(ctx, apiKeyHead)
+	if err != nil {
+		p.log.Info("Failed to get API key info", zap.Error(err))
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, errs.New("invalid access grant or API key not found"))
+		return
+	}
+
+	response := struct {
+		ProjectID string `json:"project_id"`
+	}{
+		ProjectID: apiKeyInfo.ProjectID.String(),
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
 	}
 }
 
