@@ -1669,6 +1669,15 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 	}
 
 	var result metabase.DeleteObjectResult
+	// Check immutability rules
+	bucketData, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
+	if err == nil && bucketData.ImmutabilityRules.Immutability {
+		expiry := bucketData.ImmutabilityRules.UpdatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
+		if time.Now().Before(expiry) {
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("object is immutable until %s", expiry.Format(time.RFC3339)))
+		}
+	}
+
 	if len(version) == 0 {
 		versioned := false
 		suspended := false

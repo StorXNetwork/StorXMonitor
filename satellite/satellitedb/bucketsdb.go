@@ -6,7 +6,9 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"time"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
@@ -34,6 +36,14 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	if !bucket.CreatedBy.IsZero() {
 		optionalFields.CreatedBy = dbx.BucketMetainfo_CreatedBy(bucket.CreatedBy[:])
 	}
+	if bucket.ImmutabilityRules.UpdatedAt.IsZero() {
+		bucket.ImmutabilityRules.UpdatedAt = time.Now()
+	}
+	rules, err := json.Marshal(bucket.ImmutabilityRules)
+	if err != nil {
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	}
+	optionalFields.ImmutabilityRules = dbx.BucketMetainfo_ImmutabilityRules(rules)
 	optionalFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	row, err := db.db.Create_BucketMetainfo(ctx,
@@ -207,6 +217,15 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	}
 
 	updateFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
+	if bucket.ImmutabilityRules.UpdatedAt.IsZero() {
+		bucket.ImmutabilityRules.UpdatedAt = time.Now()
+	}
+
+	rules, err := json.Marshal(bucket.ImmutabilityRules)
+	if err != nil {
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	}
+	updateFields.ImmutabilityRules = dbx.BucketMetainfo_ImmutabilityRules(rules)
 
 	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]), dbx.BucketMetainfo_Name([]byte(bucket.Name)), updateFields)
 	if err != nil {
@@ -224,6 +243,30 @@ func (db *bucketsDB) UpdateBucketMigrationStatus(ctx context.Context, bucketName
 		dbx.BucketMetainfo_Name(bucketName),
 		dbx.BucketMetainfo_Update_Fields{
 			MigrationStatus: dbx.BucketMetainfo_MigrationStatus(status),
+		},
+	)
+
+	return err
+}
+
+// UpdateBucketImmutabilityRules updates the immutability rules of a bucket.
+func (db *bucketsDB) UpdateBucketImmutabilityRules(ctx context.Context, bucketName []byte, projectID uuid.UUID, rules buckets.ImmutabilityRules) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if rules.UpdatedAt.IsZero() {
+		rules.UpdatedAt = time.Now()
+	}
+
+	marshaledRules, err := json.Marshal(rules)
+	if err != nil {
+		return buckets.ErrBucket.Wrap(err)
+	}
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		dbx.BucketMetainfo_Update_Fields{
+			ImmutabilityRules: dbx.BucketMetainfo_ImmutabilityRules(marshaledRules),
 		},
 	)
 
@@ -392,6 +435,13 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
 		Versioning: buckets.Versioning(dbxBucket.Versioning),
+	}
+
+	if dbxBucket.ImmutabilityRules != nil {
+		err = json.Unmarshal(dbxBucket.ImmutabilityRules, &bucket.ImmutabilityRules)
+		if err != nil {
+			return bucket, buckets.ErrBucket.Wrap(err)
+		}
 	}
 
 	if dbxBucket.Placement != nil {

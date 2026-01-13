@@ -18,6 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 )
 
@@ -37,15 +38,17 @@ type Buckets struct {
 	service                 *console.Service
 	billingURL              string
 	storageWarningThreshold float64
+	secreteKey              string
 }
 
 // NewBuckets is a constructor for api buckets controller.
-func NewBuckets(log *zap.Logger, service *console.Service, billingURL string, storageWarningThreshold float64) *Buckets {
+func NewBuckets(log *zap.Logger, service *console.Service, billingURL string, storageWarningThreshold float64, secreteKey string) *Buckets {
 	return &Buckets{
 		log:                     log,
 		service:                 service,
 		billingURL:              billingURL,
 		storageWarningThreshold: storageWarningThreshold,
+		secreteKey:              secreteKey,
 	}
 }
 
@@ -139,6 +142,88 @@ func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		b.log.Error("failed to write json all bucket names response", zap.Error(ErrBucketsAPI.Wrap(err)))
 	}
+}
+
+// UpdateImmutabilityRules updates the immutability rules of a bucket with re-authentication.
+func (b *Buckets) UpdateImmutabilityRules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "projectID"))
+		return
+	}
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, projectIDString, "projectID", err))
+		return
+	}
+
+	bucketName := r.URL.Query().Get("bucketName")
+	if bucketName == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "bucketName"))
+		return
+	}
+
+	var request struct {
+		Immutability    bool `json:"immutability"`
+		RetentionPeriod int  `json:"retentionPeriod"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := console.GetUser(ctx)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	// Re-authentication logic
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	mfaPasscode := r.Header.Get("X-MFA-Passcode")
+	mfaRecoveryCode := r.Header.Get("X-MFA-Recovery-Code")
+
+	// Call login function (TokenWithoutPassword) to check if user is able to relogin
+	_, err = b.service.TokenWithoutPassword(ctx, console.AuthWithoutPassword{
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       r.UserAgent(),
+		MFAPasscode:     mfaPasscode,
+		MFARecoveryCode: mfaRecoveryCode,
+	})
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusUnauthorized, errs.New("re-authentication failed: %v", err))
+		return
+	}
+
+	// Update immutability rules
+	rules := buckets.ImmutabilityRules{
+		Immutability:    request.Immutability,
+		RetentionPeriod: request.RetentionPeriod,
+		UpdatedAt:       time.Now(),
+	}
+
+	if !rules.Immutability {
+		rules.RetentionPeriod = 0
+	}
+
+	err = b.service.UpdateBucketImmutabilityRules(ctx, []byte(bucketName), projectID, rules)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Request) {
