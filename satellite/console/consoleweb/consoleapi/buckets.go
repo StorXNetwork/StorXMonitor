@@ -223,7 +223,11 @@ func (b *Buckets) UpdateImmutabilityRules(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(rules)
+	if err != nil {
+		b.log.Error("failed to write json update immutability rules response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
 }
 
 func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Request) {
@@ -277,7 +281,14 @@ func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Migration status updated successfully",
+	})
+	if err != nil {
+		b.log.Error("failed to write json update migration status response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
 }
 
 // GetBucketTotals returns a page of bucket usage totals since project creation.
