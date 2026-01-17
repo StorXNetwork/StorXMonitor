@@ -6,6 +6,7 @@ package metainfo
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -300,6 +301,15 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
+	// Check immutability rules
+	bucketData, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+	if err == nil && bucketData.ImmutabilityRules.Immutability {
+		expiry := bucketData.ImmutabilityRules.UpdatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
+		if time.Now().Before(expiry) {
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("bucket is immutable until %s", expiry.Format(time.RFC3339)))
+		}
+	}
+
 	var (
 		bucket     buckets.MinimalBucket
 		convBucket *pb.Bucket
@@ -408,6 +418,15 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	bucket, err := endpoint.buckets.GetBucket(ctx, bucketName, projectID)
+	if err != nil {
+		return 0, err
+	}
+
+	if bucket.ImmutabilityRules.Immutability {
+		return 0, rpcstatus.Error(rpcstatus.PermissionDenied, "bulk deletion is not allowed for immutable buckets; objects must be deleted individually after their retention period expires")
+	}
+
 	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: string(bucketName)}
 	deletedObjects, err := endpoint.metabase.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 		Bucket: bucketLocation,
@@ -492,12 +511,31 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 		return buckets.Bucket{}, err
 	}
 
-	return buckets.Bucket{
+	bucket = buckets.Bucket{
 		ID:        bucketID,
 		Name:      string(req.GetName()),
 		ProjectID: keyInfo.ProjectID,
 		CreatedBy: keyInfo.CreatedBy,
-	}, nil
+	}
+
+	// Set default immutability rules for automated backup buckets
+	bucketName := strings.ToLower(bucket.Name)
+	now := time.Now()
+	if bucketName == "gmail" || bucketName == "google-drive" || bucketName == "google-photos" || bucketName == "outlook" {
+		bucket.ImmutabilityRules = buckets.ImmutabilityRules{
+			Immutability:    true,
+			RetentionPeriod: 90,
+			UpdatedAt:       now,
+		}
+	} else {
+		bucket.ImmutabilityRules = buckets.ImmutabilityRules{
+			Immutability:    false,
+			RetentionPeriod: 0,
+			UpdatedAt:       now,
+		}
+	}
+
+	return bucket, nil
 }
 
 func convertMinimalBucketToProto(bucket buckets.MinimalBucket, rs *pb.RedundancyScheme, maxSegmentSize memory.Size) (pbBucket *pb.Bucket, err error) {

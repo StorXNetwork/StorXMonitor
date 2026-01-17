@@ -44,6 +44,14 @@ type Bucket struct {
 	DefaultEncryptionParameters storj.EncryptionParameters
 	Placement                   storj.PlacementConstraint
 	Versioning                  Versioning
+	ImmutabilityRules           ImmutabilityRules
+}
+
+// ImmutabilityRules represents the immutability rules of a bucket.
+type ImmutabilityRules struct {
+	Immutability    bool      `json:"immutability"`
+	RetentionPeriod int       `json:"retention_period"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // ListDirection specifies listing direction.
@@ -131,6 +139,8 @@ type DB interface {
 	UpdateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
 	// UpdateBucketMigrationStatus updates the migration status of a bucket.
 	UpdateBucketMigrationStatus(ctx context.Context, bucketName []byte, projectID uuid.UUID, status int) error
+	// UpdateBucketImmutabilityRules updates the immutability rules of a bucket.
+	UpdateBucketImmutabilityRules(ctx context.Context, bucketName []byte, projectID uuid.UUID, rules ImmutabilityRules) error
 	// UpdateUserAgent updates buckets user agent.
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
 	// DeleteBucket deletes a bucket

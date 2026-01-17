@@ -4173,6 +4173,28 @@ func (s *Service) UpdateBucketMigrationStatus(ctx context.Context, bucketName []
 	return nil
 }
 
+// UpdateBucketImmutabilityRules updates the immutability rules of a bucket.
+func (s *Service) UpdateBucketImmutabilityRules(ctx context.Context, bucketName []byte, projectID uuid.UUID, rules buckets.ImmutabilityRules) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update bucket immutability rules", zap.String("bucketName", string(bucketName)), zap.String("projectID", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	err = s.buckets.UpdateBucketImmutabilityRules(ctx, bucketName, isMember.project.ID, rules)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // GetAllBucketNames retrieves all bucket names of a specific project.
 // projectID here may be Project.ID or Project.PublicID.
 func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
@@ -4245,6 +4267,7 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 				DefaultPlacement: bucket.Placement,
 				Location:         s.placements[bucket.Placement].Name,
 			},
+			ImmutabilityRules: bucket.ImmutabilityRules,
 		})
 	}
 
