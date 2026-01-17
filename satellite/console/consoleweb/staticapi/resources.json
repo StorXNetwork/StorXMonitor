@@ -1,15 +1,33 @@
 [
   {
-    "name": " Usage Guidelines",
+    "name": "Usage Guidelines",
     "desc": "Learn everything you need to know about StorX Usage",
     "type": "url",
-    "link": "https://storx.io/user-guideline-html"
+    "link": "/guides?type=usage-guideline"
   },
   {
     "name": "Blogs",
     "desc": "Access wealth of information, shares on our articles",
     "type": "url",
     "link": "https://medium.com/storx-network"
+  },
+  {
+    "name": "Google Backup Guide",
+    "desc": "Step-by-step guide to backup Google Workspace data",
+    "type": "url",
+    "link": "/guides?type=google-backup"
+  },
+  {
+    "name": "Microsoft Backup Guide",
+    "desc": "Step-by-step guide to backup Microsoft Outlook data",
+    "type": "url",
+    "link": "/guides?type=microsoft-backup"
+  },
+  {
+    "name": "Signup Guide",
+    "desc": "Step-by-step guide to sign up on StorX",
+    "type": "url",
+    "link": "/guides?type=signup"
   },
   {
     "name": "Still Need Help?",

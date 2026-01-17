@@ -686,7 +686,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 	router.Handle("/contactus", server.withCORS(http.HandlerFunc(server.handleContactUs)))
 	router.Handle("/blog-list", server.withCORS(http.HandlerFunc(staticapi.HandleBlogList)))
-	router.Handle("/user-guideline-html", server.withCORS(http.HandlerFunc(staticapi.HandleUserGuideline)))
+	router.Handle("/guides", server.withCORS(http.HandlerFunc(staticapi.HandleGuides)))
 	router.Handle("/resources-list", server.withCORS(http.HandlerFunc(staticapi.HandleResources)))
 	router.Handle("/user-guideline-for-app", server.withCORS(http.HandlerFunc(staticapi.HandleUserGuidelineforApp)))
 

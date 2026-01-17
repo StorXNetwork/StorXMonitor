@@ -20,10 +20,14 @@ var appResources []byte
 //go:embed user-guideline-for-app.html
 var userGuidelineforApp []byte
 
-func HandleUserGuideline(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	w.Write(userGuideline)
-}
+//go:embed google-backup-guide.html
+var googleBackupGuide []byte
+
+//go:embed microsoft-backup-guide.html
+var microsoftBackupGuide []byte
+
+//go:embed signup-guide.html
+var signupGuide []byte
 
 func HandleResources(w http.ResponseWriter, r *http.Request) {
 
@@ -44,4 +48,30 @@ func HandleBlogList(w http.ResponseWriter, r *http.Request) {
 func HandleUserGuidelineforApp(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write(userGuidelineforApp)
+}
+
+func HandleGuides(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+
+	switch r.URL.Query().Get("type") {
+	case "usage-guideline":
+		w.Write(userGuideline)
+
+	case "google-backup":
+		w.Write(googleBackupGuide)
+
+	case "microsoft-backup":
+		w.Write(microsoftBackupGuide)
+
+	case "signup":
+		w.Write(signupGuide)
+
+	default:
+		http.Error(w, "Guide not found", http.StatusNotFound)
+	}
 }
