@@ -13,9 +13,9 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestProjectRecords(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	segmentverify "storj.io/storj/cmd/tools/segment-verify"
-	"storj.io/storj/satellite/metabase"
+	segmentverify "github.com/StorXNetwork/StorXMonitor/cmd/tools/segment-verify"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 func TestCSVWriter(t *testing.T) {

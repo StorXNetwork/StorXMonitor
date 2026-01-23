@@ -17,14 +17,14 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/storj/multinode/bandwidth"
-	"storj.io/storj/multinode/console/controllers"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/multinode/operators"
-	"storj.io/storj/multinode/payouts"
-	"storj.io/storj/multinode/reputation"
-	"storj.io/storj/multinode/storage"
-	"storj.io/storj/private/web"
+	"github.com/StorXNetwork/StorXMonitor/multinode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/multinode/console/controllers"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/multinode/operators"
+	"github.com/StorXNetwork/StorXMonitor/multinode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/multinode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/multinode/storage"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
 )
 
 var (

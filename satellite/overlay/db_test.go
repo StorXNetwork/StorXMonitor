@@ -15,12 +15,12 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/teststorj"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
 )
 
 func TestDQNodesLastSeenBefore(t *testing.T) {

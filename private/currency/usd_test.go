@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/private/currency"
+	"github.com/StorXNetwork/StorXMonitor/private/currency"
 )
 
 func TestCentDollarString(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore/testsuite"
-	"storj.io/storj/private/testredis"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore/testsuite"
+	"github.com/StorXNetwork/StorXMonitor/private/testredis"
 )
 
 func TestSuite(t *testing.T) {

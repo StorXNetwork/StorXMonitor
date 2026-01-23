@@ -11,9 +11,9 @@ import (
 	stripeLib "github.com/stripe/stripe-go/v75"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func TestCreditCards_List(t *testing.T) {

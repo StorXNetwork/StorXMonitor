@@ -25,9 +25,9 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )

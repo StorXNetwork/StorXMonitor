@@ -18,8 +18,8 @@ import (
 	"storj.io/common/peertls/testpeertls"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
-	"storj.io/storj/private/testrevocation"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/testrevocation"
 )
 
 func TestRevocationDB_Get(t *testing.T) {

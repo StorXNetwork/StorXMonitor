@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
 	"storj.io/common/process"
-	"storj.io/storj/certificate/authorization"
 )
 
 var (

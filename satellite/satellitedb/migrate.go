@@ -15,7 +15,7 @@ import (
 	"storj.io/common/dbutil/cockroachutil"
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/tagsql"
-	"storj.io/storj/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
 )
 
 //go:generate go run migrate_gen.go

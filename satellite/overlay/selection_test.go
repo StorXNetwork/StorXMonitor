@@ -27,10 +27,10 @@ import (
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 func TestMinimumDiskSpace(t *testing.T) {

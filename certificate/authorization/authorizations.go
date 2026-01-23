@@ -15,11 +15,11 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate/certificatepb"
 	"storj.io/common/base58"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
-	"storj.io/storj/certificate/certificatepb"
 )
 
 const (

@@ -20,7 +20,7 @@ import (
 	"storj.io/common/process"
 	"storj.io/common/storj"
 	"storj.io/common/tagsql"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 var mon = monkit.Package()

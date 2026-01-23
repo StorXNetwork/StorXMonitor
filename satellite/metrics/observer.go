@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 var (

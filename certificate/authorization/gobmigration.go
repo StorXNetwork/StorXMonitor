@@ -13,7 +13,7 @@ import (
 	"errors"
 	"io"
 
-	"storj.io/storj/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 
 const gobUint64Size = 8

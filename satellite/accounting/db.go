@@ -11,10 +11,10 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 )
 
 // RollupStats is a convenience alias.

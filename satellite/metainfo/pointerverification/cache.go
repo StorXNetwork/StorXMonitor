@@ -9,7 +9,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // IdentityCache implements caching of *identity.PeerIdentity.

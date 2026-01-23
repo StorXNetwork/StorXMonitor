@@ -20,7 +20,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 var (

@@ -18,6 +18,10 @@ import (
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 
+	"github.com/StorXNetwork/StorXMonitor/multinode"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
@@ -25,10 +29,6 @@ import (
 	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/multinode"
-	"storj.io/storj/multinode/multinodedb"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodeauth"
 )
 
 // Config defines multinode configuration.

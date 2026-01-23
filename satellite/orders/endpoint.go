@@ -21,9 +21,9 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/date"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeapiversion"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeapiversion"
 )
 
 // DB implements saving order after receiving from storage node.

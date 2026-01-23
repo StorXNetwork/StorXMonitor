@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // ReliabilityCache caches known nodes for the specified staleness duration

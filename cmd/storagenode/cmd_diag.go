@@ -19,8 +19,8 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/process"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 type diagCfg struct {

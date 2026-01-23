@@ -9,7 +9,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 // ErrGCProgress represents errors from the filewalker database.

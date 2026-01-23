@@ -21,10 +21,10 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
 )
 
 func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.UUID, owner *uuid.UUID) (_ map[uuid.UUID]console.User, _ map[string]console.User) {

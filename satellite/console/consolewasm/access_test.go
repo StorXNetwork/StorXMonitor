@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	console "storj.io/storj/satellite/console/consolewasm"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	console "github.com/StorXNetwork/StorXMonitor/satellite/console/consolewasm"
 	"storj.io/uplink"
 )
 

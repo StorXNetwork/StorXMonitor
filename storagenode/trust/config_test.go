@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 func TestSourcesConfig(t *testing.T) {

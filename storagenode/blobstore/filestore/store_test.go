@@ -23,8 +23,8 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
 )
 
 const (

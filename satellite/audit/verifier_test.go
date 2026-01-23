@@ -30,13 +30,13 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/testblobs"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/testblobs"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares

@@ -10,7 +10,7 @@ import (
 	"github.com/stripe/stripe-go/v75"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 // ensures that coupons implements payments.Coupons.

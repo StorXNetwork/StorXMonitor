@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 // UploadSelectionDB implements the database for upload selection cache.

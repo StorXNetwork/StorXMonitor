@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"storj.io/common/memory"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 )
 
 var _ billing.Observer = (*UpgradeUserObserver)(nil)

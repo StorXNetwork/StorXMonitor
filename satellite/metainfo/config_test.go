@@ -11,7 +11,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
 )
 
 func TestRSConfigValidation(t *testing.T) {

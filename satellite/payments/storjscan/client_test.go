@@ -16,9 +16,9 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	"storj.io/storj/satellite/payments/storjscan/storjscantest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/storjscantest"
 )
 
 func TestClientMocked(t *testing.T) {

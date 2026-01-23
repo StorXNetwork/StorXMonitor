@@ -16,7 +16,7 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/web"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
 )
 
 func TestNewIPRateLimiter(t *testing.T) {

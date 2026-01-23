@@ -6,7 +6,7 @@ package rangedlooptest
 import (
 	"context"
 
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 var _ rangedloop.RangeSplitter = (*InfiniteSegmentProvider)(nil)

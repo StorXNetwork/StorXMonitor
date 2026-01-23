@@ -14,8 +14,8 @@ import (
 	"storj.io/common/dbutil/dbschema"
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestMigration(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func TestBalances(t *testing.T) {

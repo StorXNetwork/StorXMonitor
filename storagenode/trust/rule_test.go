@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 func TestRulesIsTrusted(t *testing.T) {

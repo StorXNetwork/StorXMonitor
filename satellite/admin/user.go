@@ -26,9 +26,9 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {

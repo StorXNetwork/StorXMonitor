@@ -21,11 +21,11 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	version_checker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/gc/sender"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/sender"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // GarbageCollection is the satellite garbage collection process.

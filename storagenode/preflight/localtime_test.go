@@ -20,12 +20,12 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/preflight"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/preflight"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 type mockServer struct {

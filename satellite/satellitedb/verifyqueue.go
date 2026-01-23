@@ -13,7 +13,7 @@ import (
 	"storj.io/common/dbutil"
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 	VerifyRetryInterval = 4 * time.Hour
 )
 
-// verifyQueue implements storj.io/storj/satellite/audit.VerifyQueue.
+// verifyQueue implements github.com/StorXNetwork/StorXMonitor/satellite/audit.VerifyQueue.
 type verifyQueue struct {
 	db *satelliteDB
 }

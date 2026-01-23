@@ -18,10 +18,10 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	migrator "storj.io/storj/cmd/tools/migrate-public-ids"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	migrator "github.com/StorXNetwork/StorXMonitor/cmd/tools/migrate-public-ids"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 // Test no entries in table doesn't error.

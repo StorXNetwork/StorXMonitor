@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Error is the default audit errs class.

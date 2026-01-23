@@ -10,10 +10,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/private/date"
-	"storj.io/storj/private/multinodepb"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 )
 
 var _ multinodepb.DRPCBandwidthServer = (*BandwidthEndpoint)(nil)

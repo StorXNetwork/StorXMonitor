@@ -20,7 +20,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 // generateGracefulExitCSV creates a report with graceful exit data for exiting or exited nodes in a given period.

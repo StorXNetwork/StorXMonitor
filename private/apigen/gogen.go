@@ -148,7 +148,7 @@ func (a *API) generateGo() ([]byte, error) {
 				paramStr += "request " + a.handleTypesPackage(reflect.TypeOf(e.Request)) + ", "
 			}
 
-			i("context", "storj.io/storj/private/api")
+			i("context", "github.com/StorXNetwork/StorXMonitor/private/api")
 			if e.Response != nil {
 				responseType := reflect.TypeOf(e.Response)
 				returnParam := a.handleTypesPackage(responseType)

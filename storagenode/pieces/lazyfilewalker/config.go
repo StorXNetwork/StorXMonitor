@@ -6,7 +6,7 @@ package lazyfilewalker
 import (
 	"fmt"
 
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
 )
 
 // Config is the config for lazyfilewalker process.

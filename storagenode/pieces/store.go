@@ -19,9 +19,9 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/process"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
 )
 
 var (

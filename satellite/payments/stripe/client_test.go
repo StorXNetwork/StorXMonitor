@@ -17,7 +17,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/time2"
-	stripe1 "storj.io/storj/satellite/payments/stripe"
+	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 var backendError = &stripe.Error{

@@ -13,11 +13,11 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 )
 
 var (

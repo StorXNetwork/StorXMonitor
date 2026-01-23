@@ -9,7 +9,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
 )
 
 // MakeStorageUsageStamps creates storage usage stamps and expected summaries for provided satellites.

@@ -29,9 +29,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 func TestCommandLineTool(t *testing.T) {

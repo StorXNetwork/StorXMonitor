@@ -5,9 +5,9 @@ package repair
 
 import (
 	"storj.io/common/storj/location"
-	"storj.io/storj/private/intset"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/private/intset"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 // PiecesCheckResult contains all necessary aggregate information about the state of pieces in a

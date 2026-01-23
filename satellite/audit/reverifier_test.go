@@ -14,9 +14,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 func TestReverifyPiece(t *testing.T) {

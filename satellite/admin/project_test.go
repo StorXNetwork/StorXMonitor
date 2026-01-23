@@ -20,13 +20,13 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func TestProjectGet(t *testing.T) {

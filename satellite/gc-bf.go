@@ -17,11 +17,11 @@ import (
 	"storj.io/common/debug"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // GarbageCollectionBF is the satellite garbage collection process which collects bloom filters.

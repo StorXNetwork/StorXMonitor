@@ -18,9 +18,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testredis"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
+	"github.com/StorXNetwork/StorXMonitor/private/testredis"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
 )
 
 func TestAddGetProjectStorageAndBandwidthUsage(t *testing.T) {

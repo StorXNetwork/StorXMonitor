@@ -15,8 +15,8 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	segmentverify "storj.io/storj/cmd/tools/segment-verify"
-	"storj.io/storj/private/testplanet"
+	segmentverify "github.com/StorXNetwork/StorXMonitor/cmd/tools/segment-verify"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 )
 
 func TestProcess(t *testing.T) {

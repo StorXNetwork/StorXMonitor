@@ -25,9 +25,9 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )

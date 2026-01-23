@@ -17,9 +17,9 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
 )
 
 func TestStoragenodeContactEndpoint(t *testing.T) {

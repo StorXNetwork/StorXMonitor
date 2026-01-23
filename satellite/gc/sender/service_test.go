@@ -16,11 +16,11 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"storj.io/uplink"
 )
 

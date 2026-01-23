@@ -25,11 +25,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 const encryptedKeySize = 48

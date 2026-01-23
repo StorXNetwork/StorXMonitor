@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 
 func newItem(key, value string, isPrefix bool) kvstore.Item {

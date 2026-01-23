@@ -8,7 +8,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 func TestEmitEventkitEvent(t *testing.T) {

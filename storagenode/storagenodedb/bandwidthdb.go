@@ -15,8 +15,8 @@ import (
 	"storj.io/common/dbutil"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 )
 
 // ErrBandwidth represents errors from the bandwidthdb database.

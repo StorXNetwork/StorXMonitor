@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 func TestUserFromDbx(t *testing.T) {

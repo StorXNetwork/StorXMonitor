@@ -16,10 +16,10 @@ import (
 	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	migrator "storj.io/storj/cmd/tools/migrate-free-trial"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	migrator "github.com/StorXNetwork/StorXMonitor/cmd/tools/migrate-free-trial"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 // Test no entries in table doesn't error.

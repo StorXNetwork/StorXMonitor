@@ -13,7 +13,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 func TestState_SelectNonDistinct(t *testing.T) {

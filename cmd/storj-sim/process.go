@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	"storj.io/storj/satellite/newrelic"
+	"github.com/StorXNetwork/StorXMonitor/satellite/newrelic"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zapcore"

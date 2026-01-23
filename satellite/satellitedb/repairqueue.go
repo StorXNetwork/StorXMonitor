@@ -17,15 +17,15 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // RepairQueueSelectLimit defines how many items can be selected at the same time.
 const RepairQueueSelectLimit = 1000
 
-// repairQueue implements storj.io/storj/satellite/repair/queue.RepairQueue.
+// repairQueue implements github.com/StorXNetwork/StorXMonitor/satellite/repair/queue.RepairQueue.
 type repairQueue struct {
 	db *satelliteDB
 }

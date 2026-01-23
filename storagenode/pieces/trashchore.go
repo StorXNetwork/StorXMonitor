@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // TrashChore is the chore that periodically empties the trash.

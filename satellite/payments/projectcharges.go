@@ -7,7 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 // ProjectCharge contains project usage and how much it will cost at the end of the month.

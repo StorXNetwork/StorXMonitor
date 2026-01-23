@@ -11,8 +11,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // DB is an interface for storing reputation data.

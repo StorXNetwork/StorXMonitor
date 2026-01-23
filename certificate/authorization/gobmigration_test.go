@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/testredis"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
-	"storj.io/storj/private/testredis"
 )
 
 var (

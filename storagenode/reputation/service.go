@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
 )
 
 // Service is the reputation service.

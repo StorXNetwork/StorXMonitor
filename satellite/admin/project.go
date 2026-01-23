@@ -22,9 +22,9 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) {

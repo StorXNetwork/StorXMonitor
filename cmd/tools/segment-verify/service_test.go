@@ -20,11 +20,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	segmentverify "storj.io/storj/cmd/tools/segment-verify"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	segmentverify "github.com/StorXNetwork/StorXMonitor/cmd/tools/segment-verify"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 func TestService_EmptyRange(t *testing.T) {

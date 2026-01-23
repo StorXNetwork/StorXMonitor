@@ -37,7 +37,7 @@ import (
 	"storj.io/drpc/drpcserver"
 	"storj.io/drpc/drpcstats"
 	jaeger "storj.io/monkit-jaeger"
-	"storj.io/storj/private/server/debounce"
+	"github.com/StorXNetwork/StorXMonitor/private/server/debounce"
 )
 
 const (

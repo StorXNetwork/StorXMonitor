@@ -16,7 +16,7 @@ import (
 	"storj.io/common/leak"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 var (
@@ -28,7 +28,7 @@ var (
 
 	mon = monkit.Package()
 	// for backwards compatibility.
-	monStorage = monkit.ScopeNamed("storj.io/storj/storage/filestore")
+	monStorage = monkit.ScopeNamed("github.com/StorXNetwork/StorXMonitor/storage/filestore")
 
 	_ blobstore.Blobs = (*blobStore)(nil)
 )

@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 )
 
 func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID, bucket []byte, err error) {

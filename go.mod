@@ -1,4 +1,4 @@
-module storj.io/storj
+module github.com/StorXNetwork/StorXMonitor
 
 go 1.23.0
 

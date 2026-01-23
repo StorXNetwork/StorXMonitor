@@ -9,8 +9,8 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
-	"storj.io/storj/cmd/storagenode/internalcmd"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
 )
 
 // StorageNodeFlags defines storage node configuration.

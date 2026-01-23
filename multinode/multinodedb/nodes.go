@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/multinode/multinodedb/dbx"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
 )
 
 // ErrNodesDB indicates about internal NodesDB error.

@@ -13,10 +13,10 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // Endpoint implements private inspector for Graceful Exit.

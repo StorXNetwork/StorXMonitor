@@ -17,14 +17,14 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/cmd/storagenode/internalcmd"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestDBInit(t *testing.T) {

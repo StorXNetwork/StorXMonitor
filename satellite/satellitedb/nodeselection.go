@@ -16,8 +16,8 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/version"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *overlay.NodeCriteria) (nodes []*nodeselection.SelectedNode, err error) {

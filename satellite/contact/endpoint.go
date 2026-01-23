@@ -18,8 +18,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcctx"
 	"storj.io/eventkit"
-	"storj.io/storj/private/nodeoperator"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/nodeoperator"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 var (

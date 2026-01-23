@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 )
 
 func TestBytesToAddress(t *testing.T) {

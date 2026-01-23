@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/pb"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 )
 
 func mergeAuditHistory(ctx context.Context, oldHistory []byte, addHistory []*pb.AuditWindow, config reputation.AuditHistoryConfig) (res *reputation.UpdateAuditHistoryResponse, err error) {

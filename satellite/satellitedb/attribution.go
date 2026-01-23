@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 const (

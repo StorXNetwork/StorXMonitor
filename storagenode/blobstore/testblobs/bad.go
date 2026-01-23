@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 // ErrorBlobs is the interface of blobstore.Blobs with the SetError method added.

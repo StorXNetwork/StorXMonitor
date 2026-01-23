@@ -37,22 +37,22 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console/configs"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/pushnotifications"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/smartcontract"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
 )
 
 var mon = monkit.Package()
@@ -4391,7 +4391,7 @@ func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID,
 // GetProjectUsageLimits returns project limits and current usage.
 //
 // Among others,it can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Service, wrapped Error.
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Service, wrapped Error.
 func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 

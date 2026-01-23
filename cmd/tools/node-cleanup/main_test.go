@@ -16,9 +16,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
-	nodecleanup "storj.io/storj/cmd/tools/node-cleanup"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	nodecleanup "github.com/StorXNetwork/StorXMonitor/cmd/tools/node-cleanup"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestDelete(t *testing.T) {

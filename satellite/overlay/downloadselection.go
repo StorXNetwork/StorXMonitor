@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 // DownloadSelectionDB implements the database for download selection cache.

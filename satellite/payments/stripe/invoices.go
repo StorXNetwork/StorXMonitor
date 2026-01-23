@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 // invoices is an implementation of payments.Invoices.

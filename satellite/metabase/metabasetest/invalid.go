@@ -7,7 +7,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // InvalidObjectStream contains info about an invalid stream.

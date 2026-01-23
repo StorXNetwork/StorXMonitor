@@ -6,8 +6,8 @@ package ultest
 import (
 	"context"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
 	"storj.io/uplink"
 )
 

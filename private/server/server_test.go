@@ -24,8 +24,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 )
 
 func TestServer(t *testing.T) {

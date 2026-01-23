@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
 )
 
 // ErrNoAPIKey represents no api key error.

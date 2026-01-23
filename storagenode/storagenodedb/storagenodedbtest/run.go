@@ -15,8 +15,8 @@ import (
 
 	"storj.io/common/dbutil/utccheck"
 	"storj.io/common/testcontext"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 func init() {

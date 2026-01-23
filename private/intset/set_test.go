@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/intset"
+	"github.com/StorXNetwork/StorXMonitor/private/intset"
 )
 
 func TestSet(t *testing.T) {

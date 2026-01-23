@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 func TestSatelliteURLAddress(t *testing.T) {

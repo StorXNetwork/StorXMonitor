@@ -13,8 +13,8 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 var _ nodeevents.DB = (*nodeEvents)(nil)

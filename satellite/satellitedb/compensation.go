@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/currency"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/private/currency"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 type compensationDB struct {

@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
 )
 
 // ensures that payoutDB implements payouts.DB interface.

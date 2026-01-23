@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
 )
 
 // TransactionsDB is an interface which defines functionality

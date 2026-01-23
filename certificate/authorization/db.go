@@ -10,12 +10,12 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore/boltdb"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore/redis"
 	"storj.io/common/dbutil"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
-	"storj.io/storj/private/kvstore"
-	"storj.io/storj/private/kvstore/boltdb"
-	"storj.io/storj/private/kvstore/redis"
 )
 
 var (

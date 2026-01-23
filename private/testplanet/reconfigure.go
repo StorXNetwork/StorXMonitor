@@ -11,11 +11,11 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/storj/multinode"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/multinode"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
 )
 
 // Reconfigure allows to change node configurations.

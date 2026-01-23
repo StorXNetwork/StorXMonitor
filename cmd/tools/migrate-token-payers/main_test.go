@@ -18,13 +18,13 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	migrator "storj.io/storj/cmd/tools/migrate-token-payers"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	migrator "github.com/StorXNetwork/StorXMonitor/cmd/tools/migrate-token-payers"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 // Test no entries in table doesn't error.

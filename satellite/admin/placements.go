@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
 )
 
 // PlacementInfo contains the ID and location of a placement rule.

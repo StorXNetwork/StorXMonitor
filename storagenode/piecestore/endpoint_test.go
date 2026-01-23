@@ -27,11 +27,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/date"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/blobstore/testblobs"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/testblobs"
 	"storj.io/uplink/private/piecestore"
 )
 

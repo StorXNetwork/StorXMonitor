@@ -15,14 +15,14 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	stripe1 "storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func TestAutoFreezeChore(t *testing.T) {

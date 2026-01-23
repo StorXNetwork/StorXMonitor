@@ -16,7 +16,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/storj/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
 	"storj.io/uplink"
 	"storj.io/uplink/private/testuplink"
 )

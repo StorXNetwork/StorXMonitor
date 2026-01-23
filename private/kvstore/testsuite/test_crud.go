@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 
 func testCRUD(t *testing.T, ctx *testcontext.Context, store kvstore.Store) {

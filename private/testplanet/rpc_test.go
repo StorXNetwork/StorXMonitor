@@ -20,9 +20,9 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
 )
 
 func TestDialNodeURL(t *testing.T) {

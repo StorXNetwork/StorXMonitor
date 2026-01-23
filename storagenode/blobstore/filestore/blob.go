@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/leak"
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 const (

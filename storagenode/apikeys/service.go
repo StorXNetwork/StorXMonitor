@@ -10,7 +10,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
 )
 
 var (

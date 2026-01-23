@@ -32,17 +32,17 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/version"
-	"storj.io/storj/cmd/satellite/reports"
-	"storj.io/storj/private/revocation"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/cmd/satellite/reports"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 // Satellite defines satellite configuration.

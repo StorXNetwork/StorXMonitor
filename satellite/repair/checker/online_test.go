@@ -15,10 +15,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
 )
 
 func TestReliabilityCache_Concurrent(t *testing.T) {

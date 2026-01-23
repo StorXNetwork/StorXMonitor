@@ -16,9 +16,9 @@ import (
 
 	"storj.io/common/debug"
 	"storj.io/common/storj"
-	"storj.io/storj/multinode"
-	"storj.io/storj/multinode/console/server"
-	"storj.io/storj/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/multinode"
+	"github.com/StorXNetwork/StorXMonitor/multinode/console/server"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
 )
 
 // Multinode contains all the processes needed to run a full multinode setup.

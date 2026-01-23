@@ -14,7 +14,7 @@ import (
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/process"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 const (

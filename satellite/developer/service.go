@@ -13,10 +13,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 var mon = monkit.Package()

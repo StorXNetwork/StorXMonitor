@@ -10,11 +10,11 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/lrucache"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/configs"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/pushnotifications"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // ensures that ConsoleDB implements console.DB.

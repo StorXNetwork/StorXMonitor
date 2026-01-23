@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 var (
@@ -91,7 +91,7 @@ func (observer *Observer) Join(ctx context.Context, partial rangedloop.Partial) 
 }
 
 // for backwards compatibility.
-var monRangedTally = monkit.ScopeNamed("storj.io/storj/satellite/accounting/tally")
+var monRangedTally = monkit.ScopeNamed("github.com/StorXNetwork/StorXMonitor/satellite/accounting/tally")
 
 // Finish calculates byte*hours from per node storage usage and save tallies to DB.
 func (observer *Observer) Finish(ctx context.Context) (err error) {

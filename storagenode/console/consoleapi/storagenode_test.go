@@ -17,13 +17,13 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/storagenode/payouts/estimatedpayouts"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts/estimatedpayouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 )
 
 var (

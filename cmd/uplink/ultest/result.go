@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 // Result captures all the output of running a command for inspection.

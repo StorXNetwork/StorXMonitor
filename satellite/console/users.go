@@ -14,7 +14,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 )
 
 // Users exposes methods to manage User table in database.

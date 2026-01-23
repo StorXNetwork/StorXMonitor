@@ -13,8 +13,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/version"
-	"storj.io/storj/private/version/checker"
-	"storj.io/storj/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
 )
 
 var (

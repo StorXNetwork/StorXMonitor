@@ -15,10 +15,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 )
 
 func TestObserverForkProcess(t *testing.T) {

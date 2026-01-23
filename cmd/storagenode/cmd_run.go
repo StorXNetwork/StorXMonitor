@@ -12,9 +12,9 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/process"
 	"storj.io/common/version"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 // runCfg defines configuration for run command.

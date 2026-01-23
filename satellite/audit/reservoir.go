@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 const maxReservoirSize = 3

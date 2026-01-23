@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/crashcollect"
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/process"
-	"storj.io/storj/crashcollect"
 )
 
 // Config defines storj crash collect service configuration.

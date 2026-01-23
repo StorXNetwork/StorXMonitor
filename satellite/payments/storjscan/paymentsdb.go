@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/currency"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 // ErrNoPayments represents err when there is no payments in the DB.

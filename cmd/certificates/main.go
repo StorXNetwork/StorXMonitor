@@ -8,13 +8,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate"
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/process"
-	"storj.io/storj/certificate"
-	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/private/revocation"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 )
 
 var (

@@ -20,7 +20,7 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
 	"storj.io/common/tagsql"
-	"storj.io/storj/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
 )
 
 var (

@@ -17,8 +17,8 @@ import (
 
 	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 var (

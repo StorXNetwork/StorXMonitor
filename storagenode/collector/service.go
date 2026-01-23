@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore/usedserials"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
 )
 
 var mon = monkit.Package()

@@ -3,7 +3,7 @@
 
 package testdata
 
-import "storj.io/storj/storagenode/storagenodedb"
+import "github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 
 var v23 = MultiDBState{
 	Version: 23,

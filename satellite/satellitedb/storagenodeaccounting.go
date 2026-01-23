@@ -14,9 +14,9 @@ import (
 	"storj.io/common/dbutil/cockroachutil"
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface.

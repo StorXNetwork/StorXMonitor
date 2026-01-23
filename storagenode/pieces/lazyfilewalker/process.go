@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/execabs"
 
-	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker/execwrapper"
 )
 
 // process is a subprocess that can be used to perform filewalker operations.

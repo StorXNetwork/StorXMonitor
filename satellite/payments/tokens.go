@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 )
 
 // StorjTokens defines all payments STORJ token related functionality.

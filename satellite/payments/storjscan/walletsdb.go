@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 )
 
 // WalletsDB is an interface which defines functionality

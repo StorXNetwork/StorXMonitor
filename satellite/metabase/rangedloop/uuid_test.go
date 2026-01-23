@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 func TestMakeUuids(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 // ProgressObserver counts and prints progress of metabase loop.

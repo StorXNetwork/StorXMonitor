@@ -15,8 +15,8 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 )
 
 type mockAPIKeys struct {

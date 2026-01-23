@@ -14,9 +14,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestInsertSelect(t *testing.T) {

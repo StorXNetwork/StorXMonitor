@@ -16,7 +16,7 @@ import (
 	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
 )
 
 func TestCreate_Sqlite(t *testing.T) {

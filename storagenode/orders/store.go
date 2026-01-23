@@ -16,8 +16,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
 )
 
 // activeWindow represents a window with active operations waiting to finish to enqueue

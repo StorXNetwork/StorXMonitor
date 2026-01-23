@@ -15,9 +15,9 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // Service exposes methods to manage GE progress.

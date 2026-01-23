@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
 )
 
 func TestNewDB(t *testing.T) {

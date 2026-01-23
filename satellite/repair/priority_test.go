@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/satellite/repair"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair"
 )
 
 func TestSegmentHealth(t *testing.T) {

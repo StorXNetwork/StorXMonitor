@@ -13,8 +13,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
 )
 
 func TestUpdateSegmentPieces(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
-	"storj.io/storj/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
 )
 
 // Config defines values needed by mailservice service.

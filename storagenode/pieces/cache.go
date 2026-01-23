@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 // CacheService updates the space used cache.

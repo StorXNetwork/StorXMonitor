@@ -20,11 +20,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 )
 
 func TestChore(t *testing.T) {

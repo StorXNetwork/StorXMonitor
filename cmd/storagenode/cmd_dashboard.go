@@ -23,7 +23,7 @@ import (
 	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/version"
-	"storj.io/storj/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
 )
 
 const contactWindow = time.Hour * 2

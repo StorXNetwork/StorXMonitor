@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 )
 
 const (

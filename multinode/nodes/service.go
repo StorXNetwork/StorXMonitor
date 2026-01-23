@@ -15,7 +15,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/storj/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
 )
 
 var (

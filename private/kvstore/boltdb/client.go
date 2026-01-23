@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.etcd.io/bbolt"
 
-	"storj.io/storj/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 
 var mon = monkit.Package()

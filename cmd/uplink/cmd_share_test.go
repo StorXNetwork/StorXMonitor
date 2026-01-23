@@ -17,7 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
-	"storj.io/storj/cmd/uplink/ultest"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
 )
 
 const testAPIKey = "13Yqe3oHi5dcnGhMu2ru3cmePC9iEYv6nDrYMbLRh4wre1KtVA9SFwLNAuuvWwc43b9swRsrfsnrbuTHQ6TJKVt4LjGnaARN9PhxJEu"

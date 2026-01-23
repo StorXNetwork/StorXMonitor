@@ -19,8 +19,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 func TestGetOrderLimits(t *testing.T) {

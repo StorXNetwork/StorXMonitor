@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // DeveloperListResult contains paginated developer list with stats.

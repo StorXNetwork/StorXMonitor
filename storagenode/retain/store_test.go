@@ -14,7 +14,7 @@ import (
 	"storj.io/common/bloomfilter"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
 )
 
 func TestNewRequestStore(t *testing.T) {

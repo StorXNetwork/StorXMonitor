@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 var (

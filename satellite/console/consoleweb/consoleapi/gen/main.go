@@ -15,10 +15,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
-	"storj.io/storj/private/apigen"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // main defines the structure of the API and generates its associated frontend and backend code.
@@ -29,7 +29,7 @@ func main() {
 		Version:     "v1",
 		BasePath:    "/public",
 		Description: "Interacts with projects",
-		PackagePath: "storj.io/storj/satellite/console/consoleweb/consoleapi",
+		PackagePath: "github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi",
 	}
 
 	{

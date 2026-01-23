@@ -8,8 +8,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
 	"storj.io/common/process"
-	"storj.io/storj/certificate/authorization"
 )
 
 var (

@@ -13,8 +13,8 @@ import (
 
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // ensures that *webappSessions implements consoleauth.WebappSessions.

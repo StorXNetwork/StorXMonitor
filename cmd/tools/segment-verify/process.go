@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Verify verifies a collection of segments.

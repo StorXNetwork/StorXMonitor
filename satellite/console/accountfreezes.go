@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 )
 
 // ErrAccountFreeze is the class for errors that occur during operation of the account freeze service.

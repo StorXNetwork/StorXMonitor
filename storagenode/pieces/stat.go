@@ -10,7 +10,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 var sizes = sizeCategory()

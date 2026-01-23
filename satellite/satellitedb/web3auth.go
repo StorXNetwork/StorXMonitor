@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"storj.io/storj/satellite/backup"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/backup"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 var _ console.Web3Auth = (*web3Auth)(nil)

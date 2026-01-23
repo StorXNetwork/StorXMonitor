@@ -17,11 +17,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 func TestServiceHeldAmountHistory(t *testing.T) {

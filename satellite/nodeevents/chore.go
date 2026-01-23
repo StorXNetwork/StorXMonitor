@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 )
 
 var (

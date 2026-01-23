@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/mail"
 
-	"storj.io/storj/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
 )
 
 // NoMail doesn't send out any mail.

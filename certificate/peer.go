@@ -12,13 +12,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
-	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/private/server"
 )
 
 var (

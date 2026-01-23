@@ -19,8 +19,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 func newConsoleEndpoints(address string) *consoleEndpoints {

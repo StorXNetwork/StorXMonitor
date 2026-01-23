@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/configs"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 )
 
 // createConfig handles POST /api/configs - Create configuration (Admin-only).

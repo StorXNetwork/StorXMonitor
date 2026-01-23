@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 type cmdRm struct {

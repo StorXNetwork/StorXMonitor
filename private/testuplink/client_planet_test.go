@@ -20,8 +20,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 	"storj.io/uplink/private/ecclient"
 	"storj.io/uplink/private/eestream"
 )

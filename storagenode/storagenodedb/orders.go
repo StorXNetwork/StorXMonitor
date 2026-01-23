@@ -14,8 +14,8 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/tagsql"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
 )
 
 // ErrOrders represents errors from the ordersdb database.

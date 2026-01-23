@@ -16,7 +16,7 @@ import (
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 var (

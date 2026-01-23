@@ -19,8 +19,8 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/storj/private/server"
-	"storj.io/storj/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
 )
 
 // forgetSatelliteCfg defines configuration for forget-satellite command.

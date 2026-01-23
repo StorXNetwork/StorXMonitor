@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/multinode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/multinode/reputation"
 )
 
 var (

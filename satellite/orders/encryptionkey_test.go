@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 )
 
 func TestEncryptionKeys_New(t *testing.T) {

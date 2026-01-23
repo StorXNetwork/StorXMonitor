@@ -14,10 +14,10 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 )
 
 func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {

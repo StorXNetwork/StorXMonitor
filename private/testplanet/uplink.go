@@ -22,7 +22,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/object"

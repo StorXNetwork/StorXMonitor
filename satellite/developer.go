@@ -17,12 +17,12 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/developer"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Developer is the satellite core process that runs developer console.

@@ -24,11 +24,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/version"
-	"storj.io/storj/private/teststorj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/teststorj"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestGetOfflineNodesForEmail(t *testing.T) {

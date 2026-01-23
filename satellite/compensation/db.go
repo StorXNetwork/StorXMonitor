@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/currency"
+	"github.com/StorXNetwork/StorXMonitor/private/currency"
 )
 
 // TotalAmounts holds the amounts held and disposed.

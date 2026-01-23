@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 type clientsDBX struct {

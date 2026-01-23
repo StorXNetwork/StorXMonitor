@@ -10,8 +10,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
 )
 
 func TestService_GetDashboardData(t *testing.T) {

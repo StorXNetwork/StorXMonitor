@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/tagsql"
-	"storj.io/storj/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
 )
 
 // StorageUsageDBName represents the database name.

@@ -12,8 +12,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/zeebo/errs"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 )
 
 type PushNotificationWebhook struct {

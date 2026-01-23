@@ -14,10 +14,10 @@ import (
 	"storj.io/common/dbutil"
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/tagsql"
-	"storj.io/storj/multinode"
-	"storj.io/storj/multinode/multinodedb/dbx"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/multinode"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
 )
 
 var (

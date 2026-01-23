@@ -9,8 +9,8 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 type cmdMb struct {

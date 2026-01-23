@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"storj.io/storj/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 )
 
 // Ensure that web3Helper implements audit.ReputationConnector.

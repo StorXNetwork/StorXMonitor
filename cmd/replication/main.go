@@ -13,12 +13,12 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
+	_ "github.com/StorXNetwork/StorXMonitor/private/version"
+	"github.com/StorXNetwork/StorXMonitor/replication"
 	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/common/process"
-	_ "storj.io/storj/private/version"
-	"storj.io/storj/replication"
 )
 
 var (

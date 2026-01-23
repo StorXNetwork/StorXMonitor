@@ -15,10 +15,10 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker/execwrapper"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 	"storj.io/common/process"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
-	"storj.io/storj/storagenode/storagenodedb"
 )
 
 // FilewalkerCfg is the config structure for the lazyfilewalker commands.

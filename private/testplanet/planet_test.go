@@ -12,7 +12,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 )
 
 func TestBasic(t *testing.T) {

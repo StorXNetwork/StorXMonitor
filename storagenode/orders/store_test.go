@@ -16,9 +16,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
 )
 
 func TestOrdersStore_Enqueue_GracePeriodFailure(t *testing.T) {

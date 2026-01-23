@@ -16,9 +16,9 @@ import (
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/drpc/drpccache"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // MaxUserAgentLength is the maximum allowable length of the User Agent.

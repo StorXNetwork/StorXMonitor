@@ -13,9 +13,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestNotificationsDB(t *testing.T) {

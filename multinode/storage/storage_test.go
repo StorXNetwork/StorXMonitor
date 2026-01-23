@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/multinode/storage"
+	"github.com/StorXNetwork/StorXMonitor/multinode/storage"
 )
 
 func TestUsageStampDailyCache(t *testing.T) {

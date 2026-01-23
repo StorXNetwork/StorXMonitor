@@ -18,13 +18,13 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/StorXNetwork/StorXMonitor/private/cui"
 	"storj.io/common/cfgstruct"
 	"storj.io/common/identity"
 	"storj.io/common/peertls"
 	"storj.io/common/pkcrypto"
 	"storj.io/common/process"
 	"storj.io/common/storj"
-	"storj.io/storj/private/cui"
 )
 
 var (

@@ -18,10 +18,10 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 var (

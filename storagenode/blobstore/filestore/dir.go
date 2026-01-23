@@ -21,7 +21,7 @@ import (
 
 	"storj.io/common/experiment"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 const (

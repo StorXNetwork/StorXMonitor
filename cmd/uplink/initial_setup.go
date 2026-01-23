@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 )
 
 func saveInitialConfig(ctx context.Context, ex ulext.External, interactiveFlag bool, analyticsFlag *bool) error {

@@ -10,10 +10,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/private/multinodepb"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
 )
 
 var _ multinodepb.DRPCStorageServer = (*StorageEndpoint)(nil)

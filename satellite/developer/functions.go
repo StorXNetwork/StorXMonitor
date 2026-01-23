@@ -19,9 +19,9 @@ import (
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 )
 
 // CreateUserFromDeveloper creates User without password and active state.

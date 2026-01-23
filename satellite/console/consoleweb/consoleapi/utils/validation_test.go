@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 )
 
 func TestEmailValidation(t *testing.T) {

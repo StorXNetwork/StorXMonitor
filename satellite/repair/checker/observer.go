@@ -21,11 +21,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 )
 
 var (

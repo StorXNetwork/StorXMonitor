@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/html"
 
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 var mon = monkit.Package()

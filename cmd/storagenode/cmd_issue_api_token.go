@@ -12,9 +12,9 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/process"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 type issueCfg struct {

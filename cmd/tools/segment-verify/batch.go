@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // CreateBatches creates load-balanced queues of segments to verify.

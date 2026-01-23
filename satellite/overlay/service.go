@@ -17,9 +17,9 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/common/version"
-	"storj.io/storj/satellite/geoip"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/geoip"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.

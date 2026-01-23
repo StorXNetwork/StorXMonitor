@@ -19,7 +19,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 var (

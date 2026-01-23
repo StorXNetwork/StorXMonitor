@@ -23,9 +23,9 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/tagsql"
 	"storj.io/common/version"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 var (

@@ -11,10 +11,10 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/teststorj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/teststorj"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestNodeEvents(t *testing.T) {

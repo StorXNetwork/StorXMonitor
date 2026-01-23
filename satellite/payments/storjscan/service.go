@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 )
 
 // ErrService is storjscan service error class.

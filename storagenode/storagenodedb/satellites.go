@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/tagsql"
-	"storj.io/storj/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 )
 
 // ErrSatellitesDB represents errors from the satellites database.

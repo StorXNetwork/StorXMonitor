@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj/location"
-	"storj.io/storj/satellite/geoip"
+	"github.com/StorXNetwork/StorXMonitor/satellite/geoip"
 )
 
 func TestEmptyIP2CountryMock(t *testing.T) {

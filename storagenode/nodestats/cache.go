@@ -16,12 +16,12 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // Config defines nodestats cache configuration.

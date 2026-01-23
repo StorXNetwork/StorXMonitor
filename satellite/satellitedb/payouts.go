@@ -9,8 +9,8 @@ import (
 	"errors"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/snopayouts"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
 )
 
 // snopayoutsDB is payment data for specific storagenode for some specific period by working with satellite.

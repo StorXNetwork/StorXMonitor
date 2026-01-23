@@ -15,8 +15,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
-	"storj.io/storj/private/apigen/example/myapi"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen/example/myapi"
 )
 
 const dateLayout = "2006-01-02T15:04:05.999Z"

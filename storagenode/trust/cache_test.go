@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 func TestCacheLoadCreatesDirectory(t *testing.T) {

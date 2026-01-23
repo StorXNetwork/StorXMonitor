@@ -26,9 +26,9 @@ import (
 	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 // Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"storj.io/storj/private/kvstore/testsuite"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore/testsuite"
 )
 
 func TestSuite(t *testing.T) {

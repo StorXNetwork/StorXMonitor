@@ -15,10 +15,10 @@ import (
 	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
-	cmd "storj.io/storj/cmd/tools/metabase-orphaned-segments"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	cmd "github.com/StorXNetwork/StorXMonitor/cmd/tools/metabase-orphaned-segments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestOrphanedSegment(t *testing.T) {

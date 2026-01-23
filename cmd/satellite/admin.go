@@ -8,13 +8,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 	"storj.io/common/process"
 	"storj.io/common/version"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
 )
 
 func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {

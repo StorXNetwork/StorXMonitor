@@ -14,6 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate"
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
+	"github.com/StorXNetwork/StorXMonitor/certificate/certificateclient"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
@@ -23,10 +27,6 @@ import (
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/certificate"
-	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/private/server"
 )
 
 // TODO: test sad path.

@@ -27,7 +27,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/version"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
 )
 
 const (
@@ -55,7 +55,7 @@ func TestAutoUpdater(t *testing.T) {
 	}
 
 	// build real bin with old version, will be used for both storagenode and updater
-	oldBin := CompileWithVersion(ctx, "storj.io/storj/cmd/storagenode-updater", oldInfo)
+	oldBin := CompileWithVersion(ctx, "github.com/StorXNetwork/StorXMonitor/cmd/storagenode-updater", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
 	copyBin(ctx, t, oldBin, storagenodePath)
 
@@ -69,7 +69,7 @@ func TestAutoUpdater(t *testing.T) {
 		Version:    newSemVer,
 		Release:    false,
 	}
-	newBin := CompileWithVersion(ctx, "storj.io/storj/cmd/storagenode-updater", newInfo)
+	newBin := CompileWithVersion(ctx, "github.com/StorXNetwork/StorXMonitor/cmd/storagenode-updater", newInfo)
 
 	updateBins := map[string]string{
 		"storagenode":         newBin,

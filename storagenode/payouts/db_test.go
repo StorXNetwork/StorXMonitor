@@ -13,9 +13,9 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestHeldAmountDB(t *testing.T) {

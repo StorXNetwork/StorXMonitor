@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // MetabaseRangeSplitter implements RangeSplitter.

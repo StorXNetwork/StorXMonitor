@@ -12,9 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	"storj.io/common/cfgstruct"
 	"storj.io/common/process"
-	"storj.io/storj/private/revocation"
 )
 
 var (

@@ -17,9 +17,9 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 // RunWithConfig runs tests with specific metabase configuration.

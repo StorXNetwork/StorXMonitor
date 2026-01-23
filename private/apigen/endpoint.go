@@ -328,7 +328,7 @@ type Middleware interface {
 	//
 	// type middlewareImpl struct {
 	// 	 log  *zap.Logger // Import path: "go.uber.org/zap"
-	//   auth api.Auth   // Import path: "storj.io/storj/private/api"
+	//   auth api.Auth   // Import path: "github.com/StorXNetwork/StorXMonitor/private/api"
 	// }
 	//
 	// The generated code can access to log and auth through h.log and h.auth.

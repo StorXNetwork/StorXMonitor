@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker/execwrapper"
 )
 
 const (

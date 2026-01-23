@@ -12,8 +12,8 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 func TestClassifySegmentPieces(t *testing.T) {

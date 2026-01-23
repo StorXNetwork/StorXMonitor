@@ -15,10 +15,10 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 )
 
 // millis for the transfer queue building ticker.

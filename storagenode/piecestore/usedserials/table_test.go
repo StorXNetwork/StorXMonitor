@@ -14,7 +14,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/piecestore/usedserials"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
 )
 
 type Serial struct {

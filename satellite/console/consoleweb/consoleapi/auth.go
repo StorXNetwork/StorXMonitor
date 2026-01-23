@@ -23,13 +23,13 @@ import (
 	"storj.io/common/uuid"
 
 	"golang.org/x/oauth2"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
-	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 var (

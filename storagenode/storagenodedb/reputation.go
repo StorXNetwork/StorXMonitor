@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
 )
 
 // ErrReputation represents errors from the reputation database.

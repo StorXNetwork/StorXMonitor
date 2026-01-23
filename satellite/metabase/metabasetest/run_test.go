@@ -10,8 +10,8 @@ import (
 
 	_ "storj.io/common/dbutil/cockroachutil" // register cockroach driver
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
 )
 
 func TestSetup(t *testing.T) {

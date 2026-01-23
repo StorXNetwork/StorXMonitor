@@ -15,7 +15,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 var mon = monkit.Package()

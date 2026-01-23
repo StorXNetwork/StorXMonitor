@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 // generateNodeUsageCSV creates a report with node usage data for all nodes in a given period which can be used for payments.

@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 )
 
 // Config keeps track of core console service configuration parameters.

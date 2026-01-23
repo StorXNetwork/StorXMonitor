@@ -17,8 +17,8 @@ import (
 	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/satellite/console/consoleweb"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
 )
 
 // UI is the satellite UI process.

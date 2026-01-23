@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/multinode/operators"
+	"github.com/StorXNetwork/StorXMonitor/multinode/operators"
 )
 
 var (

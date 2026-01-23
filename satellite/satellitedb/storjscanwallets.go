@@ -9,10 +9,10 @@ import (
 	"errors"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // ensure that storjscanWalletsDB implements storjscan.WalletsDB.

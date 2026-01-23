@@ -12,7 +12,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 // Config contains configurable values for rollup.

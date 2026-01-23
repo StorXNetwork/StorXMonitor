@@ -15,7 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // ErrClockOutOfSyncMinor is the error class for system clock is off by more than 10m.

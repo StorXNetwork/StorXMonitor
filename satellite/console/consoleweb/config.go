@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/memory"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // FrontendConfig holds the configuration for the satellite frontend.

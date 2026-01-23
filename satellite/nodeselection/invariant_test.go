@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 func TestClumpingByAnyTag(t *testing.T) {

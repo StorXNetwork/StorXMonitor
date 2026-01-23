@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"storj.io/common/strictcsv"
-	"storj.io/storj/private/currency"
+	"github.com/StorXNetwork/StorXMonitor/private/currency"
 )
 
 // Payment represents an actual payment that happened.

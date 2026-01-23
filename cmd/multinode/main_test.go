@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/encoding/unicode"
 
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
 	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodeauth"
 )
 
 func TestUnmarshalJSONNodes(t *testing.T) {

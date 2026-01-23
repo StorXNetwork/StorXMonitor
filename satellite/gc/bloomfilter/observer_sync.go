@@ -13,8 +13,8 @@ import (
 
 	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // SyncObserver implements a rangedloop observer to collect bloom filters for the garbage collection.

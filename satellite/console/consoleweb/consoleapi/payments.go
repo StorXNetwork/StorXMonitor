@@ -25,14 +25,14 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 var (

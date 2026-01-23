@@ -25,13 +25,13 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 )
 
 var (

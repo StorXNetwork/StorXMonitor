@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/pb"
 	_ "storj.io/common/rpc/quic" // include quic connector
-	"storj.io/storj/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 	"storj.io/uplink/private/piecestore"
 )
 

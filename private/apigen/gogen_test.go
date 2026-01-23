@@ -22,10 +22,10 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
-	"storj.io/storj/private/apigen"
-	"storj.io/storj/private/apigen/example"
-	"storj.io/storj/private/apigen/example/myapi"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen/example"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen/example/myapi"
 )
 
 type (

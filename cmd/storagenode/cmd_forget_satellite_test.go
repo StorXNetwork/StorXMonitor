@@ -18,10 +18,10 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 )
 
 func TestNewForgetSatelliteCmd_Error(t *testing.T) {

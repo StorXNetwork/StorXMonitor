@@ -10,7 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
 )
 
 func TestNodeWithheldPercent(t *testing.T) {

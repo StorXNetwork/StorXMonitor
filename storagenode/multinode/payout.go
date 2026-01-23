@@ -10,10 +10,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/private/multinodepb"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/payouts/estimatedpayouts"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts/estimatedpayouts"
 )
 
 var _ multinodepb.DRPCPayoutServer = (*PayoutEndpoint)(nil)

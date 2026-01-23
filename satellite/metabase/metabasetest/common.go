@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // DeleteAll deletes all data from metabase.

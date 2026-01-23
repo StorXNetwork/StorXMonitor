@@ -5,7 +5,7 @@ package console
 
 import (
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 )
 
 // Placement contains placement info.

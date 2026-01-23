@@ -23,12 +23,12 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/storj/private/emptyfs"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/private/emptyfs"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 // Note: Error and mon are defined in service.go

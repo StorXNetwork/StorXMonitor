@@ -14,7 +14,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls"
 	"storj.io/common/peertls/extensions"
-	"storj.io/storj/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 
 var (

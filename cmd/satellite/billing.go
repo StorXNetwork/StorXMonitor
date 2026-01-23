@@ -11,13 +11,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 	"storj.io/common/process"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb"
 )
 
 func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripe.Service, satellite.DB) error) error {

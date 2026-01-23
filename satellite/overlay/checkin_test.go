@@ -15,9 +15,9 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // TestCheckIn ensures that redundant node check-ins aren't sent to the database.

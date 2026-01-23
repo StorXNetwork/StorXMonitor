@@ -14,6 +14,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate/certificateclient"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
@@ -23,10 +27,6 @@ import (
 	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/version"
-	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/private/revocation"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/private/version/checker"
 )
 
 const (

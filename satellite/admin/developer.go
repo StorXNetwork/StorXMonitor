@@ -18,8 +18,8 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
 )
 
 // Developer represents a developer in the API response

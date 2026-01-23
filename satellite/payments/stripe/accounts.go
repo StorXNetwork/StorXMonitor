@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 // ensures that accounts implements payments.Accounts.

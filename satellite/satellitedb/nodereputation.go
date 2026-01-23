@@ -9,8 +9,8 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 // VerifyRetryInterval = 4 * time.Hour
 )
 
-// nodeReputation implements storj.io/storj/satellite/audit.NodeReputation.
+// nodeReputation implements github.com/StorXNetwork/StorXMonitor/satellite/audit.NodeReputation.
 type nodeReputation struct {
 	db *satelliteDB
 }

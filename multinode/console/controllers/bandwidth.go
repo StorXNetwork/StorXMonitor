@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/multinode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/multinode/bandwidth"
 )
 
 var (

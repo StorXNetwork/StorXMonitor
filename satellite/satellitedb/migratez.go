@@ -3,7 +3,7 @@
 
 package satellitedb
 
-import "storj.io/storj/private/migrate"
+import "github.com/StorXNetwork/StorXMonitor/private/migrate"
 
 // testMigration returns migration that can be used for testing.
 func (db *satelliteDB) testMigration() *migrate.Migration {

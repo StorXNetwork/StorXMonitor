@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"storj.io/common/rpc/rpcpool"
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
 	"storj.io/uplink/private/testuplink"

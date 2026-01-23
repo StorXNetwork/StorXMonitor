@@ -14,13 +14,13 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 var mon = monkit.Package()

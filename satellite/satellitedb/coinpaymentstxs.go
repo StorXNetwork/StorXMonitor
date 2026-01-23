@@ -12,9 +12,9 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.

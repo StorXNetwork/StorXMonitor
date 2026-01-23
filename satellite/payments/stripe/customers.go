@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // ErrNoCustomer is error class defining that there is no customer for user.

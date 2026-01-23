@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.

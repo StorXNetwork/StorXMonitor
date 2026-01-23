@@ -24,11 +24,11 @@ import (
 	"storj.io/common/tagsql"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
-	satbuckets "storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	satbuckets "github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // ensure that ProjectAccounting implements accounting.ProjectAccounting.

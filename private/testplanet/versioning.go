@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"storj.io/common/version"
-	"storj.io/storj/private/version/checker"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
 )
 
 // newVersionControlServer initializes the Versioning Server.

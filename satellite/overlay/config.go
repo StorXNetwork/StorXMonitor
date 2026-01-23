@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 var (

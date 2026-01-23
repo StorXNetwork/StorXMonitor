@@ -18,9 +18,9 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 var (

@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 )
 
 func TestGroup(t *testing.T) {

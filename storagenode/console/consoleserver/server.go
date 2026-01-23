@@ -18,11 +18,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/storj/private/web"
-	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/console/consoleapi"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
 )
 
 var (

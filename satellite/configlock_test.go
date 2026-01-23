@@ -30,7 +30,7 @@ func TestConfigLock(t *testing.T) {
 
 	// run the satellite executable to create a config file
 	tempDir := ctx.Dir("", "satellite-cfg-lock-")
-	satelliteExe := ctx.Compile("storj.io/storj/cmd/satellite")
+	satelliteExe := ctx.Compile("github.com/StorXNetwork/StorXMonitor/cmd/satellite")
 	satelliteCmd := exec.Command(satelliteExe, "--config-dir", tempDir, "--defaults", "release", "setup")
 	out, err := satelliteCmd.CombinedOutput()
 	assert.NoErrorf(t, err, "Error running satellite", string(out))

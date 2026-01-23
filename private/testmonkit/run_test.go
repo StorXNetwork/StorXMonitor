@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/private/testmonkit"
+	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
 )
 
 func TestBasic(t *testing.T) {

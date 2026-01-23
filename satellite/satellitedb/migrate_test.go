@@ -29,9 +29,9 @@ import (
 	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/migrate"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 const maxMigrationsToTest = 10

@@ -22,11 +22,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/orders/ordersfile"
-	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestDatabase(t *testing.T) {

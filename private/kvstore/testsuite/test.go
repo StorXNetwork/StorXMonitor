@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 
 // RunTests runs common kvstore.Store tests.

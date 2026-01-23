@@ -11,8 +11,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/teststorj"
 )
 
 // Simple test for ensuring the service runs Rollups in the Loop.

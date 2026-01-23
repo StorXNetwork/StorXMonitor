@@ -18,7 +18,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 func TestNewList(t *testing.T) {

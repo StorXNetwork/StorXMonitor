@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/clingy"
 
-	"storj.io/storj/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 	"storj.io/uplink"
 )
 

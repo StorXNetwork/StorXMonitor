@@ -22,10 +22,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 )
 
 // BeginObject begins object.

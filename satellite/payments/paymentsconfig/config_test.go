@@ -12,8 +12,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
 )
 
 func TestProjectUsagePriceOverrides(t *testing.T) {

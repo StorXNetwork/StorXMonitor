@@ -14,11 +14,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
 )
 
 var (

@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/apigen"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
 )
 
 // TestGeneratedAPIs checks whether the generated APIs are up-to-date.

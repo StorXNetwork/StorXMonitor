@@ -14,7 +14,7 @@ import (
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/process"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
 )
 
 var (

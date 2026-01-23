@@ -11,9 +11,9 @@ import (
 
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 var (

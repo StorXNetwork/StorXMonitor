@@ -11,8 +11,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/version"
-	"storj.io/storj/private/version/checker"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
 )
 
 func TestVersion(t *testing.T) {

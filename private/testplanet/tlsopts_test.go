@@ -15,7 +15,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 )
 
 func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {

@@ -13,10 +13,10 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/useragent"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 // Error is payments config err class.

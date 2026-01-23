@@ -16,9 +16,9 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consolewasm"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consolewasm"
 )
 
 const (

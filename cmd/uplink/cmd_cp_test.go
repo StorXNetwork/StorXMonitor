@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
-	"storj.io/storj/cmd/uplink/ultest"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
 )
 
 func TestCpDownload(t *testing.T) {

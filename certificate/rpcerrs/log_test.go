@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate/rpcerrs"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
-	"storj.io/storj/certificate/rpcerrs"
 )
 
 func TestLoggingSanitizer_Error(t *testing.T) {

@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/assert"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/multinodeauth"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestAPIKeysDB(t *testing.T) {

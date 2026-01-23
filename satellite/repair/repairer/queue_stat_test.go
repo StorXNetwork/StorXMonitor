@@ -17,10 +17,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestStatChore(t *testing.T) {
@@ -70,13 +70,13 @@ func TestStatChore(t *testing.T) {
 		}
 
 		stat := collectMonkitStat()
-		require.Zero(t, stat["attempted=false,placement=1,scope=storj.io/storj/satellite/repair/repairer count"])
+		require.Zero(t, stat["attempted=false,placement=1,scope=github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer count"])
 
 		chore.RunOnce(ctx)
 		stat = collectMonkitStat()
 
-		require.Equal(t, float64(0), stat["attempted=false,placement=0,scope=storj.io/storj/satellite/repair/repairer count"])
-		require.Equal(t, float64(1), stat["attempted=false,placement=1,scope=storj.io/storj/satellite/repair/repairer count"])
-		require.Equal(t, float64(2), stat["attempted=false,placement=2,scope=storj.io/storj/satellite/repair/repairer count"])
+		require.Equal(t, float64(0), stat["attempted=false,placement=0,scope=github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer count"])
+		require.Equal(t, float64(1), stat["attempted=false,placement=1,scope=github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer count"])
+		require.Equal(t, float64(2), stat["attempted=false,placement=2,scope=github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer count"])
 	})
 }

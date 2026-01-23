@@ -11,7 +11,7 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 func TestParsedConfig(t *testing.T) {

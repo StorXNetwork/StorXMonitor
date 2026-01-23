@@ -17,8 +17,8 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testmonkit"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 // Run runs testplanet in multiple configurations.

@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
 )
 
 var (

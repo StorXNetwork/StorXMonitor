@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/configs"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 )
 
 var (

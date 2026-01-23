@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 var _ rangedloop.Observer = (*CountObserver)(nil)

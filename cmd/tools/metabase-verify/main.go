@@ -9,8 +9,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/process"
-	"storj.io/storj/cmd/tools/metabase-verify/verify"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/cmd/tools/metabase-verify/verify"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Error is the default error class for the package.

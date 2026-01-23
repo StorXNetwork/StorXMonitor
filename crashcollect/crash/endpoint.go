@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/private/crashreportpb"
+	"github.com/StorXNetwork/StorXMonitor/private/crashreportpb"
 )
 
 // ensures that Endpoint implements crashreportpb.DRPCCrashReportServer.

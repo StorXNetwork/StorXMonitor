@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
 )
 
 // Credits exposes all needed functionality to manage credits.

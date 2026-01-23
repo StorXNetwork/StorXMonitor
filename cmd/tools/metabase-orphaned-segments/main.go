@@ -17,7 +17,7 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/process"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 var mon = monkit.Package()

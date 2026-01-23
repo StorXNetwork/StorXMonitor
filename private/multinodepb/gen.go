@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	mainpkg = flag.String("pkg", "storj.io/storj/private/multinodepb", "main package name")
+	mainpkg = flag.String("pkg", "github.com/StorXNetwork/StorXMonitor/private/multinodepb", "main package name")
 	protoc  = flag.String("protoc", "protoc", "protoc compiler")
 )
 

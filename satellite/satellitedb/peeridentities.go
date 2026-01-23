@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 type peerIdentities struct {

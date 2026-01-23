@@ -16,10 +16,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 var (

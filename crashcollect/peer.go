@@ -14,9 +14,9 @@ import (
 	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
-	"storj.io/storj/crashcollect/crash"
-	"storj.io/storj/private/crashreportpb"
-	"storj.io/storj/private/server"
+	"github.com/StorXNetwork/StorXMonitor/crashcollect/crash"
+	"github.com/StorXNetwork/StorXMonitor/private/crashreportpb"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
 )
 
 // Config is the global configuration for storj crash collect service.

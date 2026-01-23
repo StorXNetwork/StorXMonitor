@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
 )
 
 func TestGCBFUseRangedLoop(t *testing.T) {

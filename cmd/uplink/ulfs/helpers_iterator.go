@@ -3,7 +3,7 @@
 
 package ulfs
 
-import "storj.io/storj/cmd/uplink/ulloc"
+import "github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 
 // filteredObjectIterator removes any iteration entries that do not begin with the filter.
 // all entries must begin with the trim string which is removed before checking for the

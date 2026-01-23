@@ -6,7 +6,7 @@ package version
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
 )
 
 // Config is the config for the Storagenode Version Checker.

@@ -13,9 +13,9 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {

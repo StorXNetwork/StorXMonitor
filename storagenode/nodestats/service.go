@@ -14,10 +14,10 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 var (

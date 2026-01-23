@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 var mon = monkit.Package()

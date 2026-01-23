@@ -15,8 +15,8 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/oidc"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 )
 
 type mockGenerateService struct {

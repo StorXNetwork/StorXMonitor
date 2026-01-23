@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
 )
 
 func TestGetCheckoutURL(t *testing.T) {

@@ -17,7 +17,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 var _ DB = (*CachingDB)(nil)

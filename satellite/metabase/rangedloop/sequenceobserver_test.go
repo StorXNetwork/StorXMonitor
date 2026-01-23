@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop/rangedlooptest"
 )
 
 func TestSequenceObserver(t *testing.T) {

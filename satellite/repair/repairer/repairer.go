@@ -19,7 +19,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 )
 
 // Error is a standard error class for this package.

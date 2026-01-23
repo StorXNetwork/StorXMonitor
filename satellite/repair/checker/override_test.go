@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
 )
 
 func TestRepairOverrideConfigValidation(t *testing.T) {

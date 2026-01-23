@@ -14,7 +14,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"storj.io/uplink/private/eestream"
 )
 

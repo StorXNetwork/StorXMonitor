@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // UUIDAuthorizeGenerate generates an auth code using Storj's uuid.

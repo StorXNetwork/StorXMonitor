@@ -16,7 +16,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
 )
 
 // Version is a type for defining different file versions.

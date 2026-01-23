@@ -20,7 +20,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 )
 
 // Error is the default error class.

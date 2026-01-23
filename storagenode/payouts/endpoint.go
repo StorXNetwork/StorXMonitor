@@ -13,8 +13,8 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // Client encapsulates HeldAmountClient with underlying connection.

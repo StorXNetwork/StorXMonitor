@@ -21,7 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/smartcontract"
+	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
 )
 
 var mon = monkit.Package()

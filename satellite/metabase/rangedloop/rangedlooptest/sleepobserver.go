@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 // SleepObserver is a subscriber to the segment loop which sleeps for every batch.

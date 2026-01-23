@@ -13,12 +13,12 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
-// reverifyQueue implements storj.io/storj/satellite/audit.ReverifyQueue.
+// reverifyQueue implements github.com/StorXNetwork/StorXMonitor/satellite/audit.ReverifyQueue.
 type reverifyQueue struct {
 	db *satelliteDB
 }

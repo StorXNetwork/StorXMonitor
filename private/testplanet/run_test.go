@@ -12,9 +12,9 @@ import (
 
 	"storj.io/common/dbutil/pgtest"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testmonkit"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestRun(t *testing.T) {

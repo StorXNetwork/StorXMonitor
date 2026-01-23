@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // DefaultRedundancy contains default redundancy scheme.

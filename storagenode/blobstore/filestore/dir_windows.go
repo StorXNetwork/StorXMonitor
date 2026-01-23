@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {

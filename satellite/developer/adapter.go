@@ -6,7 +6,7 @@ package developer
 import (
 	"context"
 
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // ConsoleServiceAdapter adapts console.Service to RegistrationTokenChecker interface.

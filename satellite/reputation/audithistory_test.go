@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 )
 
 func TestAddAuditToHistory(t *testing.T) {

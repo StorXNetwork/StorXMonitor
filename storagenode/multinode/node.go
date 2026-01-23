@@ -10,12 +10,12 @@ import (
 
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/version"
-	"storj.io/storj/private/multinodepb"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/operator"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/operator"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // ensures that NodeEndpoint implements multinodepb.DRPCNodeServer.

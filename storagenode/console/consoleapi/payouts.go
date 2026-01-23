@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
 )
 
 // ErrPayoutAPI - console payouts api error type.

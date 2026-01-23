@@ -14,10 +14,10 @@ import (
 
 	"storj.io/common/process"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 func verifySegmentsNodeCheck(cmd *cobra.Command, args []string) error {

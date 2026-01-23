@@ -14,8 +14,8 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // ErrSigner is default error class for Signer.

@@ -13,8 +13,8 @@ import (
 
 	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // ensure that invoiceProjectRecords implements stripecoinpayments.ProjectRecordsDB.

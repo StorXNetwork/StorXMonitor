@@ -13,9 +13,9 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Error is a standard error class for this package.
@@ -369,4 +369,4 @@ func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.Bu
 }
 
 // using custom name to avoid breaking monitoring.
-var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
+var monAccounting = monkit.ScopeNamed("github.com/StorXNetwork/StorXMonitor/satellite/accounting")

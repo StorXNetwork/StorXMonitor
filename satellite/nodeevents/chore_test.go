@@ -14,12 +14,12 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/teststorj"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
 )
 
 type TestNotifier struct {

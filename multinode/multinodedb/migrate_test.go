@@ -23,7 +23,7 @@ import (
 	"storj.io/common/dbutil/sqliteutil"
 	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
-	"storj.io/storj/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
 )
 
 func TestMigrateSQLite3(t *testing.T) {

@@ -13,9 +13,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/multinode/storage"
-	"storj.io/storj/private/compensation"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/multinode/storage"
+	"github.com/StorXNetwork/StorXMonitor/private/compensation"
 )
 
 var (

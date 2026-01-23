@@ -14,7 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // Endpoint implements the contact service Endpoints.

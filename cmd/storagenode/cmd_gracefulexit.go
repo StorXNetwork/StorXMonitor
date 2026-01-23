@@ -21,10 +21,10 @@ import (
 	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/private/prompt"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/prompt"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
 )
 
 type gracefulExitCfg struct {

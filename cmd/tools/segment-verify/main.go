@@ -22,12 +22,12 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 // Satellite defines satellite configuration.

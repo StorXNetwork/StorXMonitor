@@ -16,10 +16,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/orders/ordersfile"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestDB(t *testing.T) {

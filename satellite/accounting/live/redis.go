@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 // ErrGetProjectLimitCache error for getting project limits from cache.

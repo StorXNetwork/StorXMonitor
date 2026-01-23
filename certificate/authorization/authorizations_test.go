@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate/certificateclient"
 	"storj.io/common/base58"
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
@@ -19,7 +20,6 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/certificate/certificateclient"
 )
 
 var (

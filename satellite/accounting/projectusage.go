@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 var mon = monkit.Package()
@@ -63,7 +63,7 @@ func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, met
 // expansion factor, so that the uplinks have a raw limit.
 //
 // Among others,it can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache except the ErrKeyNotFound, wrapped
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache except the ErrKeyNotFound, wrapped
 // by ErrProjectUsage.
 func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, limits ProjectLimits) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -191,7 +191,7 @@ func (usage *Service) AddProjectUsageUpToLimit(ctx context.Context, projectID uu
 // GetProjectStorageTotals returns total amount of storage used by project.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.GetProjectStorageUsage except the
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.GetProjectStorageUsage except the
 // ErrKeyNotFound, wrapped by ErrProjectUsage.
 func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
@@ -294,7 +294,7 @@ func (usage *Service) GetProjectSegmentLimit(ctx context.Context, projectID uuid
 // GetProjectBandwidthUsage get the current bandwidth usage from cache.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.GetProjectBandwidthUsage, wrapped
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.GetProjectBandwidthUsage, wrapped
 // by ErrProjectUsage.
 func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
 	return usage.liveAccounting.GetProjectBandwidthUsage(ctx, projectID, usage.nowFn())
@@ -303,7 +303,7 @@ func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uu
 // UpdateProjectBandwidthUsage increments the bandwidth cache key for a specific project.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.UpdateProjectBandwidthUsage, wrapped
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.UpdateProjectBandwidthUsage, wrapped
 // by ErrProjectUsage.
 func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
 	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
@@ -312,7 +312,7 @@ func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID
 // GetProjectSegmentUsage get the current segment usage from cache.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.GetProjectSegmentUsage.
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.GetProjectSegmentUsage.
 func (usage *Service) GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
 	return usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
 }
@@ -320,7 +320,7 @@ func (usage *Service) GetProjectSegmentUsage(ctx context.Context, projectID uuid
 // UpdateProjectSegmentUsage increments the segment cache key for a specific project.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.UpdatProjectSegmentUsage.
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.UpdatProjectSegmentUsage.
 func (usage *Service) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
 	return usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment)
 }
@@ -330,7 +330,7 @@ func (usage *Service) UpdateProjectSegmentUsage(ctx context.Context, projectID u
 // perspective; i.e. segment size).
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.AddProjectStorageUsage, wrapped by
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.AddProjectStorageUsage, wrapped by
 // ErrProjectUsage.
 func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
 	defer mon.Task()(&ctx, projectID)(&err)

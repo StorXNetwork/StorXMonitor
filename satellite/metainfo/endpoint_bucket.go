@@ -15,9 +15,9 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // GetBucket returns a bucket.

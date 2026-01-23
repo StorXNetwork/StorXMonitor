@@ -21,7 +21,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 )
 
 const oneWeek = 7 * 24 * time.Hour

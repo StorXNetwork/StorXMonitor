@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/configs"
-	"storj.io/storj/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 )
 
 // sendPushNotificationWithPreferences sends a push notification after checking user preferences.

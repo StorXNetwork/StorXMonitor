@@ -12,11 +12,11 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/dbutil/pgutil"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 var _ storjscan.PaymentsDB = (*storjscanPayments)(nil)

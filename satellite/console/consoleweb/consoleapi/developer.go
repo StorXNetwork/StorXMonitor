@@ -27,14 +27,14 @@ import (
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
-	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
 
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 var (

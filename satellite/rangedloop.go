@@ -17,17 +17,17 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/debug"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/satellite/accounting/nodetally"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/durability"
-	"storj.io/storj/satellite/gc/piecetracker"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metrics"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/nodetally"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/durability"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/piecetracker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metrics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
 )
 
 // RangedLoop is the satellite ranged loop process.

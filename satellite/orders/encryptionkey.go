@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 )
 
 // ErrEncryptionKey is error class used for keys.

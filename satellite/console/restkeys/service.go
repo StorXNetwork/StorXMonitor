@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/oidc"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 )
 
 var mon = monkit.Package()

@@ -20,9 +20,9 @@ import (
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 )
 
 var (

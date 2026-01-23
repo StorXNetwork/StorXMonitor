@@ -14,10 +14,10 @@ import (
 
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/geoip"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/geoip"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
 )
 
 func TestGeoIPMock(t *testing.T) {

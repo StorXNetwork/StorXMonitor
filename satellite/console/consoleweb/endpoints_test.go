@@ -20,12 +20,12 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/apigen"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
 )
 
 func TestAuth(t *testing.T) {

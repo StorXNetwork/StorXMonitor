@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
-	"storj.io/storj/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 	"storj.io/uplink"
 )
 

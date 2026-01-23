@@ -8,12 +8,12 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
+	"github.com/StorXNetwork/StorXMonitor/certificate/rpcerrs"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/certificate/rpcerrs"
 )
 
 // Endpoint implements pb.CertificatesServer.

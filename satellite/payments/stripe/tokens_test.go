@@ -15,10 +15,10 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/coinpayments"
-	stripe1 "storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func TestTokens_ListDepositBonuses(t *testing.T) {

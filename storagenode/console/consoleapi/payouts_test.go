@@ -16,9 +16,9 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
 )
 
 func TestHeldAmountApi(t *testing.T) {

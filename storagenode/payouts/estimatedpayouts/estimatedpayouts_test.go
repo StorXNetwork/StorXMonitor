@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/storagenode/payouts/estimatedpayouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts/estimatedpayouts"
 )
 
 func TestCurrentMonthExpectations(t *testing.T) {

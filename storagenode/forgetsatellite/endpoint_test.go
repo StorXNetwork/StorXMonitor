@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 )
 
 func TestEndpoint_InitForgetSatellite(t *testing.T) {

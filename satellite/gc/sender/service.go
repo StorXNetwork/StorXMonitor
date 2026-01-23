@@ -18,9 +18,9 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"storj.io/uplink"
 	"storj.io/uplink/private/piecestore"
 )

@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/kvstore/teststore"
-	"storj.io/storj/private/kvstore/testsuite"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore/teststore"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore/testsuite"
 )
 
 func TestSuite(t *testing.T) {

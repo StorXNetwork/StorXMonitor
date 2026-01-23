@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/console"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console"
 )
 
 // ErrStorageNodeAPI - console storagenode api error type.

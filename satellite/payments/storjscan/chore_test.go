@@ -16,12 +16,12 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	"storj.io/storj/satellite/payments/storjscan/storjscantest"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/storjscantest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestChore(t *testing.T) {

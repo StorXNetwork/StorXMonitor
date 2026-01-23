@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 var (

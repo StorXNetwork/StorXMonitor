@@ -15,7 +15,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 type testReadHandle struct {

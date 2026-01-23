@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/process"
-	"storj.io/storj/storagenode/iopriority"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/iopriority"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 // NewTrashFilewalkerCmd creates a new cobra command for running a trash cleanup filewalker.
