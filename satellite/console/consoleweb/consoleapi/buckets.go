@@ -14,11 +14,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/configs"
 )
 
 const (
@@ -33,19 +33,21 @@ var (
 
 // Buckets is an api controller that exposes all buckets related functionality.
 type Buckets struct {
-	log                     *zap.Logger
-	service                 *console.Service
-	billingURL              string
-	storageWarningThreshold float64
+	log                       *zap.Logger
+	service                   *console.Service
+	billingURL                string
+	storageWarningThreshold   float64
+	bandwidthWarningThreshold float64
 }
 
 // NewBuckets is a constructor for api buckets controller.
-func NewBuckets(log *zap.Logger, service *console.Service, billingURL string, storageWarningThreshold float64) *Buckets {
+func NewBuckets(log *zap.Logger, service *console.Service, billingURL string, storageWarningThreshold float64, bandwidthWarningThreshold float64) *Buckets {
 	return &Buckets{
-		log:                     log,
-		service:                 service,
-		billingURL:              billingURL,
-		storageWarningThreshold: storageWarningThreshold,
+		log:                       log,
+		service:                   service,
+		billingURL:                billingURL,
+		storageWarningThreshold:   storageWarningThreshold,
+		bandwidthWarningThreshold: bandwidthWarningThreshold,
 	}
 }
 
@@ -320,6 +322,7 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ProjectID string `json:"project_id"`
 		FileSize  *int64 `json:"file_size,omitempty"`
+		Operation string `json:"operation"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -334,6 +337,18 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Operation == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest,
+			errs.New("operation is required"))
+		return
+	}
+
+	if req.Operation != "login" && req.Operation != "download" && req.Operation != "upload" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest,
+			errs.New("operation must be one of: login, download, upload"))
+		return
+	}
+
 	projectIDParam, err := uuid.FromString(req.ProjectID)
 	if err != nil {
 		b.serveJSONError(ctx, w, http.StatusBadRequest,
@@ -341,8 +356,6 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get project first - this handles both id and public_id
-	// Then use the actual project.ID (not public_id) for storage queries
 	project, err := b.service.GetProject(ctx, projectIDParam)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
@@ -353,7 +366,6 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get usage limits (includes both storage and bandwidth)
 	usageLimits, err := b.service.GetProjectUsageLimits(ctx, project.ID)
 	if err != nil {
 		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
@@ -366,15 +378,13 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 	bandwidthUsed := usageLimits.BandwidthUsed
 
 	if storageLimit == 0 && storageUsed == 0 && bandwidthLimit == 0 && bandwidthUsed == 0 {
-		b.sendResponse(w, 0, 0, 0.0, 0, 0, 0.0, false, true, "")
+		b.sendResponse(w, 0, 0, 0.0, 0, 0, 0.0, false, true, true, "")
 		return
 	}
 
-	// Calculate remaining space and bandwidth
 	remaining := storageLimit - storageUsed
 	remainingBandwidth := bandwidthLimit - bandwidthUsed
 
-	// Calculate usage percentages (avoid division by zero)
 	var usagePercent, bandwidthUsagePercent float64
 	if storageLimit > 0 {
 		usagePercent = float64(storageUsed) / float64(storageLimit) * 100
@@ -383,95 +393,184 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		bandwidthUsagePercent = float64(bandwidthUsed) / float64(bandwidthLimit) * 100
 	}
 
-	// Validate file size if provided
-	var fileSize int64
-	if req.FileSize != nil {
-		fileSize = *req.FileSize
+	storageAtLimit := storageLimit > 0 && storageUsed >= storageLimit
+	bandwidthAtLimit := bandwidthLimit > 0 && bandwidthUsed >= bandwidthLimit
+	storageAtThreshold := usagePercent >= b.storageWarningThreshold
+	bandwidthAtThreshold := bandwidthUsagePercent >= b.bandwidthWarningThreshold
+
+	allowUpload := !storageAtLimit
+	allowDownload := !bandwidthAtLimit
+
+	popupMessages := b.loadPopupMessagesConfig(ctx)
+
+	// Validate file size based on operation
+	if req.FileSize != nil && req.Operation != "login" {
+		fileSize := *req.FileSize
 		if fileSize <= 0 {
 			b.serveJSONError(ctx, w, http.StatusBadRequest,
 				errs.New("file_size must be > 0"))
 			return
 		}
 
-		// Check if file exceeds remaining space
-		if remaining < fileSize {
-			b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, true, false,
-				fmt.Sprintf("Uploading %s exceeds your storage limit. Remaining: %s / Total: %s.",
-					memory.Size(fileSize).Base10String(), memory.Size(remaining).Base10String(), memory.Size(storageLimit).Base10String()))
+		// For upload: check storage limit
+		if req.Operation == "upload" && remaining < fileSize {
+			b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, true, false, allowDownload, popupMessages.FileSize.StorageExceeded)
 			return
 		}
 
-		// Check if file exceeds remaining bandwidth
-		if remainingBandwidth < fileSize {
-			b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, true, false,
-				fmt.Sprintf("Uploading %s exceeds your bandwidth limit. Remaining: %s / Total: %s.",
-					memory.Size(fileSize).Base10String(), memory.Size(remainingBandwidth).Base10String(), memory.Size(bandwidthLimit).Base10String()))
+		// For download: check bandwidth limit
+		if req.Operation == "download" && remainingBandwidth < fileSize {
+			b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, true, allowUpload, false, popupMessages.FileSize.BandwidthExceeded)
 			return
 		}
 	}
 
-	// Determine response based on usage
-	allowUpload := true
-	popup := false
-	message := ""
+	popup, message := b.determinePopupMessage(req.Operation, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold, popupMessages)
 
-	if usagePercent >= 100 {
-		allowUpload = false
-		popup = true
-		message = fmt.Sprintf("Storage limit reached. Used %s of %s. Please upgrade.",
-			memory.Size(storageUsed).Base10String(), memory.Size(storageLimit).Base10String())
-	} else if usagePercent >= b.storageWarningThreshold {
-		popup = true
-		message = fmt.Sprintf("You're nearing your storage limit—%s of %s used (%.1f%%). Upgrade now to avoid interruptions.",
-			memory.Size(storageUsed).Base10String(), memory.Size(storageLimit).Base10String(), usagePercent)
+	b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, popup, allowUpload, allowDownload, message)
+}
+
+// formatMessage formats message with storage threshold if message is not empty.
+func (b *Buckets) formatMessage(msg string) string {
+	if msg == "" {
+		return ""
 	}
+	return fmt.Sprintf(msg, b.storageWarningThreshold)
+}
 
-	// Check bandwidth limits (bandwidth warnings take precedence if both are over threshold)
-	if bandwidthUsagePercent >= 100 {
-		allowUpload = false
-		popup = true
-		message = fmt.Sprintf("Bandwidth limit reached. Used %s of %s. Please upgrade.",
-			memory.Size(bandwidthUsed).Base10String(), memory.Size(bandwidthLimit).Base10String())
-	} else if bandwidthUsagePercent >= b.storageWarningThreshold && !popup {
-		popup = true
-		message = fmt.Sprintf("You're nearing your bandwidth limit—%s of %s used (%.1f%%). Upgrade now to avoid interruptions.",
-			memory.Size(bandwidthUsed).Base10String(), memory.Size(bandwidthLimit).Base10String(), bandwidthUsagePercent)
+// formatMessageWithBandwidth formats message with bandwidth threshold if message is not empty.
+func (b *Buckets) formatMessageWithBandwidth(msg string) string {
+	if msg == "" {
+		return ""
 	}
+	return fmt.Sprintf(msg, b.bandwidthWarningThreshold)
+}
 
-	b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, popup, allowUpload, message)
+// formatMessageWithBoth formats message with both thresholds if message is not empty.
+func (b *Buckets) formatMessageWithBoth(msg string) string {
+	if msg == "" {
+		return ""
+	}
+	return fmt.Sprintf(msg, b.storageWarningThreshold, b.bandwidthWarningThreshold)
+}
+
+// determinePopupMessage determines popup and message based on operation and limits.
+func (b *Buckets) determinePopupMessage(operation string, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold bool, popupMessages PopupMessagesResponse) (bool, string) {
+	switch operation {
+	case "login":
+		if storageAtLimit && bandwidthAtThreshold {
+			return true, b.formatMessageWithBoth(popupMessages.Login.StorageLimitAndBandwidthThreshold)
+		}
+		if bandwidthAtLimit && storageAtThreshold {
+			return true, b.formatMessageWithBoth(popupMessages.Login.BandwidthLimitAndStorageThreshold)
+		}
+		if storageAtThreshold && bandwidthAtThreshold {
+			return true, b.formatMessageWithBoth(popupMessages.Login.StorageAndBandwidthThreshold)
+		}
+		if storageAtThreshold {
+			return true, b.formatMessage(popupMessages.Login.StorageThreshold)
+		}
+		if bandwidthAtThreshold {
+			return true, b.formatMessageWithBandwidth(popupMessages.Login.BandwidthThreshold)
+		}
+	case "download":
+		if bandwidthAtLimit {
+			return true, popupMessages.Download.BandwidthLimit
+		}
+		if bandwidthAtThreshold {
+			return true, b.formatMessageWithBandwidth(popupMessages.Download.BandwidthWarning)
+		}
+	case "upload":
+		if storageAtLimit {
+			return true, popupMessages.Upload.StorageLimit
+		}
+		if storageAtThreshold {
+			return true, b.formatMessage(popupMessages.Upload.StorageWarning)
+		}
+	}
+	return false, ""
 }
 
 // sendResponse sends the check upload response
-func (b *Buckets) sendResponse(w http.ResponseWriter, totalSpace, remainingSpace int64, storageUsagePercent float64, totalBandwidth, remainingBandwidth int64, bandwidthUsagePercent float64, popupShow, allowUpload bool, message string) {
+func (b *Buckets) sendResponse(w http.ResponseWriter, totalSpace, remainingSpace int64, storageUsagePercent float64, totalBandwidth, remainingBandwidth int64, bandwidthUsagePercent float64, popupShow, allowUpload, allowDownload bool, message string) {
 	resp := struct {
-		PopupShow             bool    `json:"popup_show"`
-		AllowUpload           bool    `json:"allow_upload"`
-		TotalSpace            int64   `json:"total_space"`
-		RemainingSpace        int64   `json:"remaining_space"`
-		StorageUsagePercent   float64 `json:"storage_usage_percent"`
-		TotalBandwidth        int64   `json:"total_bandwidth"`
-		RemainingBandwidth    int64   `json:"remaining_bandwidth"`
-		BandwidthUsagePercent float64 `json:"bandwidth_usage_percent"`
-		WarningThreshold      float64 `json:"warning_threshold"`
-		Message               string  `json:"message"`
-		UpgradeURL            string  `json:"upgrade_url"`
+		PopupShow                 bool    `json:"popup_show"`
+		AllowUpload               bool    `json:"allow_upload"`
+		AllowDownload             bool    `json:"allow_download"`
+		TotalSpace                int64   `json:"total_space"`
+		RemainingSpace            int64   `json:"remaining_space"`
+		StorageUsagePercent       float64 `json:"storage_usage_percent"`
+		TotalBandwidth            int64   `json:"total_bandwidth"`
+		RemainingBandwidth        int64   `json:"remaining_bandwidth"`
+		BandwidthUsagePercent     float64 `json:"bandwidth_usage_percent"`
+		StorageWarningThreshold   float64 `json:"storage_warning_threshold"`
+		BandwidthWarningThreshold float64 `json:"bandwidth_warning_threshold"`
+		Message                   string  `json:"message"`
+		UpgradeURL                string  `json:"upgrade_url"`
 	}{
-		PopupShow:             popupShow,
-		AllowUpload:           allowUpload,
-		TotalSpace:            totalSpace,
-		RemainingSpace:        remainingSpace,
-		StorageUsagePercent:   storageUsagePercent,
-		TotalBandwidth:        totalBandwidth,
-		RemainingBandwidth:    remainingBandwidth,
-		BandwidthUsagePercent: bandwidthUsagePercent,
-		WarningThreshold:      b.storageWarningThreshold,
-		Message:               message,
-		UpgradeURL:            b.billingURL,
+		PopupShow:                 popupShow,
+		AllowUpload:               allowUpload,
+		AllowDownload:             allowDownload,
+		TotalSpace:                totalSpace,
+		RemainingSpace:            remainingSpace,
+		StorageUsagePercent:       storageUsagePercent,
+		TotalBandwidth:            totalBandwidth,
+		RemainingBandwidth:        remainingBandwidth,
+		BandwidthUsagePercent:     bandwidthUsagePercent,
+		StorageWarningThreshold:   b.storageWarningThreshold,
+		BandwidthWarningThreshold: b.bandwidthWarningThreshold,
+		Message:                   message,
+		UpgradeURL:                b.billingURL,
 	}
 
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		// Error encoding response - response already started, can't send error
 	}
+}
+
+// PopupMessagesResponse represents popup messages configuration from database.
+type PopupMessagesResponse struct {
+	Login struct {
+		StorageAndBandwidthThreshold      string `json:"storage_and_bandwidth_threshold"`
+		StorageThreshold                  string `json:"storage_threshold"`
+		BandwidthThreshold                string `json:"bandwidth_threshold"`
+		StorageLimitAndBandwidthThreshold string `json:"storage_limit_and_bandwidth_threshold"`
+		BandwidthLimitAndStorageThreshold string `json:"bandwidth_limit_and_storage_threshold"`
+	} `json:"login"`
+	Download struct {
+		BandwidthLimit   string `json:"bandwidth_limit"`
+		BandwidthWarning string `json:"bandwidth_warning"`
+	} `json:"download"`
+	Upload struct {
+		StorageLimit   string `json:"storage_limit"`
+		StorageWarning string `json:"storage_warning"`
+	} `json:"upload"`
+	FileSize struct {
+		StorageExceeded   string `json:"storage_exceeded"`
+		BandwidthExceeded string `json:"bandwidth_exceeded"`
+	} `json:"file_size"`
+}
+
+// loadPopupMessagesConfig loads popup messages configuration from database.
+func (b *Buckets) loadPopupMessagesConfig(ctx context.Context) PopupMessagesResponse {
+	response := PopupMessagesResponse{}
+
+	configService := configs.NewService(b.service.GetConfigs())
+	dbConfig, err := configService.GetConfigByName(ctx, configs.ConfigTypePopupMessages, "popup")
+	if err != nil || !dbConfig.IsActive {
+		return response
+	}
+
+	configJSON, err := json.Marshal(dbConfig.ConfigData)
+	if err != nil {
+		return response
+	}
+
+	if err := json.Unmarshal(configJSON, &response); err != nil {
+		return response
+	}
+
+	return response
 }
 
 // serveJSONError writes JSON error to response output stream.
