@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/bloomfilter"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // SyncObserver implements a rangedloop observer to collect bloom filters for the garbage collection.
@@ -26,11 +26,11 @@ type SyncObserver struct {
 
 	// The following fields are reset for each loop.
 	startTime       time.Time
-	lastPieceCounts map[storj.NodeID]int64
+	lastPieceCounts map[storxnetwork.NodeID]int64
 	seed            byte
 
 	mu          sync.Mutex
-	retainInfos map[storj.NodeID]*RetainInfo
+	retainInfos map[storxnetwork.NodeID]*RetainInfo
 	// LatestCreationTime will be used to set bloom filter CreationDate.
 	// Because bloom filter service needs to be run against immutable database snapshot
 	// we can set CreationDate for bloom filters as a latest segment CreatedAt value.
@@ -66,12 +66,12 @@ func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err er
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int64)
+		lastPieceCounts = make(map[storxnetwork.NodeID]int64)
 	}
 
 	obs.startTime = startTime
 	obs.lastPieceCounts = lastPieceCounts
-	obs.retainInfos = make(map[storj.NodeID]*RetainInfo, len(lastPieceCounts))
+	obs.retainInfos = make(map[storxnetwork.NodeID]*RetainInfo, len(lastPieceCounts))
 	obs.latestCreationTime = time.Time{}
 	obs.seed = bloomfilter.GenerateSeed()
 	return nil
@@ -135,7 +135,7 @@ func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segm
 }
 
 // add adds a pieceID to the relevant node's RetainInfo.
-func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
+func (obs *SyncObserver) add(nodeID storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	obs.mu.Lock()
 	defer obs.mu.Unlock()
 

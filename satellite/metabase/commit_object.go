@@ -11,10 +11,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/txutil"
-	"storj.io/common/tagsql"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // CommitObjectWithSegments contains arguments necessary for committing an object.

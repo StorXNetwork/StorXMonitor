@@ -15,7 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 
 	"github.com/StorXNetwork/StorXMonitor/private/api"
 	"github.com/StorXNetwork/StorXMonitor/private/apigen"

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 const (

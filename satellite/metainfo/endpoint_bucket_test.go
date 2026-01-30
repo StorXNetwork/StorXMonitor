@@ -14,20 +14,20 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 func TestBucketExistenceCheck(t *testing.T) {
@@ -103,8 +103,8 @@ func TestBucketNameValidation(t *testing.T) {
 				EncryptedObjectKey: []byte("123"),
 				Version:            0,
 				ExpiresAt:          time.Now().Add(16 * 24 * time.Hour),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -282,7 +282,7 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 
 		// change the default_placement of the project
 		project, err := planet.Satellites[0].API.DB.Console().Projects().Get(ctx, projectID)
-		project.DefaultPlacement = storj.EU
+		project.DefaultPlacement = storxnetwork.EU
 		require.NoError(t, err)
 		err = planet.Satellites[0].API.DB.Console().Projects().Update(ctx, project)
 		require.NoError(t, err)
@@ -297,7 +297,7 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 		// check if placement is set
 		placement, err := planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte("eu1"), projectID)
 		require.NoError(t, err)
-		require.Equal(t, storj.EU, placement)
+		require.Equal(t, storxnetwork.EU, placement)
 
 	})
 }
@@ -374,7 +374,7 @@ func TestGetBucketLocation(t *testing.T) {
 		_, err = satellite.DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "test-bucket",
-			Placement: storj.PlacementConstraint(40),
+			Placement: storxnetwork.PlacementConstraint(40),
 		})
 		require.NoError(t, err)
 

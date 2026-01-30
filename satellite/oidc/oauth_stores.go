@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-oauth2/oauth2/v4"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ClientStore provides a simple adapter for the oauth implementation.

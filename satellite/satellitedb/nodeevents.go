@@ -10,11 +10,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var _ nodeevents.DB = (*nodeEvents)(nil)
@@ -24,7 +24,7 @@ type nodeEvents struct {
 }
 
 // Insert a node event into the node events table.
-func (ne *nodeEvents) Insert(ctx context.Context, email string, lastIPPort *string, nodeID storj.NodeID, eventType nodeevents.Type) (nodeEvent nodeevents.NodeEvent, err error) {
+func (ne *nodeEvents) Insert(ctx context.Context, email string, lastIPPort *string, nodeID storxnetwork.NodeID, eventType nodeevents.Type) (nodeEvent nodeevents.NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	id, err := uuid.New()
@@ -114,7 +114,7 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 		if err != nil {
 			return nil, err
 		}
-		nodeID, err := storj.NodeIDFromBytes(nodeIDBytes)
+		nodeID, err := storxnetwork.NodeIDFromBytes(nodeIDBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +135,7 @@ func fromDBX(dbxNE *dbx.NodeEvent) (event nodeevents.NodeEvent, err error) {
 	if err != nil {
 		return event, err
 	}
-	nodeID, err := storj.NodeIDFromBytes(dbxNE.NodeId)
+	nodeID, err := storxnetwork.NodeIDFromBytes(dbxNE.NodeId)
 	if err != nil {
 		return event, err
 	}

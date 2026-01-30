@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop/rangedlooptest"
 )

@@ -13,8 +13,8 @@ import (
 	"github.com/go-oauth2/oauth2/v4/models"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 )

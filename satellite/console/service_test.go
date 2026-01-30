@@ -21,14 +21,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"storj.io/common/currency"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
@@ -44,6 +36,14 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestService(t *testing.T) {
@@ -316,7 +316,7 @@ func TestService(t *testing.T) {
 			t.Run("CreateProject with placement", func(t *testing.T) {
 				uid := planet.Uplinks[2].Projects[0].Owner.ID
 				err := sat.API.DB.Console().Users().Update(ctx, uid, console.UpdateUserRequest{
-					DefaultPlacement: storj.EU,
+					DefaultPlacement: storxnetwork.EU,
 				})
 				require.NoError(t, err)
 
@@ -332,7 +332,7 @@ func TestService(t *testing.T) {
 					CreatedAt:   time.Now(),
 				})
 				require.NoError(t, err)
-				require.Equal(t, storj.EU, p.DefaultPlacement)
+				require.Equal(t, storxnetwork.EU, p.DefaultPlacement)
 			})
 
 			t.Run("UpdateProject", func(t *testing.T) {
@@ -749,9 +749,9 @@ func TestService(t *testing.T) {
 				list, err := sat.DB.Buckets().ListBuckets(ctx, up2Proj.ID, buckets.ListOptions{Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
 				require.NoError(t, err)
 				for i, item := range list.Items {
-					item.Placement = storj.PlacementConstraint(i)
+					item.Placement = storxnetwork.PlacementConstraint(i)
 					if i > len(placements)-1 {
-						item.Placement = storj.PlacementConstraint(len(placements) - 1)
+						item.Placement = storxnetwork.PlacementConstraint(len(placements) - 1)
 					}
 					b, err := sat.DB.Buckets().UpdateBucket(ctx, item)
 					require.NoError(t, err)

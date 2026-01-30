@@ -9,11 +9,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -38,11 +38,11 @@ type Bucket struct {
 	CreatedBy                   uuid.UUID
 	UserAgent                   []byte
 	Created                     time.Time
-	PathCipher                  storj.CipherSuite
+	PathCipher                  storxnetwork.CipherSuite
 	DefaultSegmentsSize         int64
-	DefaultRedundancyScheme     storj.RedundancyScheme
-	DefaultEncryptionParameters storj.EncryptionParameters
-	Placement                   storj.PlacementConstraint
+	DefaultRedundancyScheme     storxnetwork.RedundancyScheme
+	DefaultEncryptionParameters storxnetwork.EncryptionParameters
+	Placement                   storxnetwork.PlacementConstraint
 	Versioning                  Versioning
 }
 
@@ -116,7 +116,7 @@ type DB interface {
 	// GetBucket returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket Bucket, err error)
 	// GetBucketPlacement returns with the placement constraint identifier.
-	GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storj.PlacementConstraint, err error)
+	GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storxnetwork.PlacementConstraint, err error)
 	// GetBucketVersioningState returns with the versioning state of the bucket.
 	GetBucketVersioningState(ctx context.Context, bucketName []byte, projectID uuid.UUID) (versioningState Versioning, err error)
 	// EnableBucketVersioning enables versioning for a bucket.

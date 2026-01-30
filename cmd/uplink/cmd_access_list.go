@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/clingy"
 
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 type cmdAccessList struct {

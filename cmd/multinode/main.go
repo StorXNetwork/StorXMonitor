@@ -22,13 +22,13 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
 	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
 	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Config defines multinode configuration.
@@ -199,7 +199,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if hasRequiredFlags {
-		nodeID, err := storj.NodeIDFromString(addCfg.NodeID)
+		nodeID, err := storxnetwork.NodeIDFromString(addCfg.NodeID)
 		if err != nil {
 			return err
 		}

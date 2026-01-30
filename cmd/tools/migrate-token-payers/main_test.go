@@ -13,11 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/currency"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	migrator "github.com/StorXNetwork/StorXMonitor/cmd/tools/migrate-token-payers"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
@@ -25,6 +20,11 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Test no entries in table doesn't error.

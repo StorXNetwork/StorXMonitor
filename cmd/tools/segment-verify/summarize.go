@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func summarizeVerificationLog(cmd *cobra.Command, args []string) error {
@@ -23,7 +23,7 @@ func summarizeVerificationLog(cmd *cobra.Command, args []string) error {
 	}
 	defer func() { _ = f.Close() }()
 
-	count := map[storj.NodeID]int{}
+	count := map[storxnetwork.NodeID]int{}
 
 	s := bufio.NewScanner(f)
 	for s.Scan() {
@@ -41,7 +41,7 @@ func summarizeVerificationLog(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid line %q", line)
 		}
 
-		id, err := storj.NodeIDFromString(line[:end])
+		id, err := storxnetwork.NodeIDFromString(line[:end])
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -53,7 +53,7 @@ func summarizeVerificationLog(cmd *cobra.Command, args []string) error {
 	}
 
 	type Pair struct {
-		Key   storj.NodeID
+		Key   storxnetwork.NodeID
 		Value int
 	}
 	var pairs []Pair

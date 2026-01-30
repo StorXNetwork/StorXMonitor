@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestAdminProjectGeofenceAPI(t *testing.T) {
@@ -71,7 +71,7 @@ func TestAdminProjectGeofenceAPI(t *testing.T) {
 					t.Run("Set", func(t *testing.T) {
 						project, err := sat.DB.Console().Projects().Get(ctx, testCase.project)
 						require.NoError(t, err)
-						require.Equal(t, storj.EU, project.DefaultPlacement)
+						require.Equal(t, storxnetwork.EU, project.DefaultPlacement)
 
 						expected, err := json.Marshal(project)
 						require.NoError(t, err, "failed to json encode expected bucket")
@@ -83,7 +83,7 @@ func TestAdminProjectGeofenceAPI(t *testing.T) {
 
 						project, err := sat.DB.Console().Projects().Get(ctx, testCase.project)
 						require.NoError(t, err)
-						require.Equal(t, storj.DefaultPlacement, project.DefaultPlacement)
+						require.Equal(t, storxnetwork.DefaultPlacement, project.DefaultPlacement)
 
 						expected, err := json.Marshal(project)
 						require.NoError(t, err)

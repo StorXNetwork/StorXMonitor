@@ -13,10 +13,10 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 
-	"storj.io/common/pb"
-	_ "storj.io/common/rpc/quic" // include quic connector
+	"github.com/StorXNetwork/common/pb"
+	_ "github.com/StorXNetwork/common/rpc/quic" // include quic connector
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var mon = monkit.Package()

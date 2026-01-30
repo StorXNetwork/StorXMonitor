@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/kvstore/testsuite"
 	"github.com/StorXNetwork/StorXMonitor/private/testredis"
 )

@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestUntilEmpty(t *testing.T) {

@@ -16,16 +16,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/common/tagsql"
-	"storj.io/common/version"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/cockroachutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
+	"github.com/StorXNetwork/common/version"
 )
 
 var (
@@ -205,7 +205,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 // GetNodesNetwork returns the /24 subnet for each storage node. Order is not guaranteed.
 // If a requested node is not in the database, no corresponding last_net will be returned
 // for that node.
-func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
+func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storxnetwork.NodeID) (nodeNets []string, err error) {
 	query := `
 		SELECT last_net FROM nodes
 			WHERE id = any($1::bytea[])
@@ -227,7 +227,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 // GetNodesNetworkInOrder returns the /24 subnet for each storage node, in order. If a
 // requested node is not in the database, an empty string will be returned corresponding
 // to that node's last_net.
-func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
+func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storxnetwork.NodeID) (nodeNets []string, err error) {
 	query := `
 		SELECT coalesce(n.last_net, '')
 		FROM unnest($1::bytea[]) WITH ORDINALITY AS input(node_id, ord)
@@ -248,7 +248,7 @@ func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs [
 	return nodeNets, err
 }
 
-func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID, query string) (nodeNets []string, err error) {
+func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storxnetwork.NodeID, query string) (nodeNets []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
@@ -270,7 +270,7 @@ func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.
 }
 
 // Get looks up the node by nodeID.
-func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *overlay.NodeDossier, err error) {
+func (cache *overlaycache) Get(ctx context.Context, id storxnetwork.NodeID) (dossier *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if id.IsZero() {
@@ -289,7 +289,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *o
 }
 
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
-func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.NodeReputation, err error) {
+func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storxnetwork.NodeID, onlineWindow time.Duration) (nodes map[storxnetwork.NodeID]*overlay.NodeReputation, err error) {
 	for {
 		nodes, err = cache.getOnlineNodesForAuditRepair(ctx, nodeIDs, onlineWindow)
 		if err != nil {
@@ -304,7 +304,7 @@ func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nod
 	return nodes, err
 }
 
-func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
+func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storxnetwork.NodeID, onlineWindow time.Duration) (_ map[storxnetwork.NodeID]*overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
@@ -322,7 +322,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	nodes := make(map[storj.NodeID]*overlay.NodeReputation)
+	nodes := make(map[storxnetwork.NodeID]*overlay.NodeReputation)
 	for rows.Next() {
 		var node overlay.NodeReputation
 		node.Address = &pb.NodeAddress{}
@@ -347,11 +347,11 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 // GetOfflineNodesForEmail gets nodes that we want to send an email to. These are non-disqualified, non-exited nodes where
 // last_contact_success is between two points: the point where it is considered offline (offlineWindow), and the point where we don't want
 // to send more emails (cutoff). It also filters nodes where last_offline_email is too recent (cooldown).
-func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineWindow, cutoff, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error) {
+func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineWindow, cutoff, cooldown time.Duration, limit int) (nodes map[storxnetwork.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now()
-	nodes = make(map[storj.NodeID]string)
+	nodes = make(map[storxnetwork.NodeID]string)
 	rows, err := cache.db.QueryContext(ctx, `
 		SELECT id, email
 		FROM nodes
@@ -370,10 +370,10 @@ func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineW
 
 	var idBytes []byte
 	var email string
-	var nodeID storj.NodeID
+	var nodeID storxnetwork.NodeID
 	for rows.Next() {
 		err = rows.Scan(&idBytes, &email)
-		nodeID, err = storj.NodeIDFromBytes(idBytes)
+		nodeID, err = storxnetwork.NodeIDFromBytes(idBytes)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -384,7 +384,7 @@ func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineW
 }
 
 // UpdateLastOfflineEmail updates last_offline_email for a list of nodes.
-func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error) {
+func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs storxnetwork.NodeIDList, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = cache.db.ExecContext(ctx, `
@@ -400,7 +400,7 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 // returned in a slice of the same length as the input nodeIDs, and each index of the returned
 // list corresponds to the same index in nodeIDs. If a node is not known, or is disqualified
 // or exited, the corresponding returned SelectedNode will have a zero value.
-func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
+func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storxnetwork.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -508,7 +508,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 func convertArrayArgs(args []interface{}) []interface{} {
 	for i, a := range args {
 		switch v := a.(type) {
-		case []storj.NodeID:
+		case []storxnetwork.NodeID:
 			args[i] = pgutil.NodeIDArray(v)
 		case []string:
 			args[i] = pgutil.TextArray(v)
@@ -608,14 +608,14 @@ func (cache *overlaycache) GetAllNodesWithFilters(ctx context.Context, onlineWin
 
 // nullNodeID represents a NodeID that may be null.
 type nullNodeID struct {
-	NodeID storj.NodeID
+	NodeID storxnetwork.NodeID
 	Valid  bool
 }
 
 // Scan implements the sql.Scanner interface.
 func (n *nullNodeID) Scan(value any) error {
 	if value == nil {
-		n.NodeID = storj.NodeID{}
+		n.NodeID = storxnetwork.NodeID{}
 		n.Valid = false
 		return nil
 	}
@@ -797,13 +797,13 @@ func (cache *overlaycache) addNodeTagsFromFullScan(ctx context.Context, nodes []
 		return Error.Wrap(err)
 	}
 
-	tagsByNode := map[storj.NodeID]nodeselection.NodeTags{}
+	tagsByNode := map[storxnetwork.NodeID]nodeselection.NodeTags{}
 	for _, row := range rows {
-		nodeID, err := storj.NodeIDFromBytes(row.NodeId)
+		nodeID, err := storxnetwork.NodeIDFromBytes(row.NodeId)
 		if err != nil {
 			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
 		}
-		signerID, err := storj.NodeIDFromBytes(row.Signer)
+		signerID, err := storxnetwork.NodeIDFromBytes(row.Signer)
 		if err != nil {
 			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
 		}
@@ -824,7 +824,7 @@ func (cache *overlaycache) addNodeTagsFromFullScan(ctx context.Context, nodes []
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields in ReputationUpdate.
-func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request overlay.ReputationUpdate) (err error) {
+func (cache *overlaycache) UpdateReputation(ctx context.Context, id storxnetwork.NodeID, request overlay.ReputationUpdate) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.Node_Update_Fields{}
@@ -855,7 +855,7 @@ func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID
 
 // UpdateNodeInfo updates the following fields for a given node ID:
 // wallet, email for node operator, free disk, and version.
-func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *overlay.InfoResponse) (stats *overlay.NodeDossier, err error) {
+func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storxnetwork.NodeID, nodeInfo *overlay.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var updateFields dbx.Node_Update_Fields
@@ -896,7 +896,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (email string, err error) {
+func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (email string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.Disqualified = dbx.Node_Disqualified(disqualifiedAt.UTC())
@@ -913,7 +913,7 @@ func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.Node
 }
 
 // TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
-func (cache *overlaycache) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+func (cache *overlaycache) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(suspendedAt.UTC())
@@ -929,7 +929,7 @@ func (cache *overlaycache) TestSuspendNodeUnknownAudit(ctx context.Context, node
 }
 
 // TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-func (cache *overlaycache) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (cache *overlaycache) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Null()
@@ -947,7 +947,7 @@ func (cache *overlaycache) TestUnsuspendNodeUnknownAudit(ctx context.Context, no
 // ActiveNodesPieceCounts returns a map of node IDs to piece counts from the db. Returns only pieces for
 // nodes that are not disqualified.
 // NB: a valid, partial piece map can be returned even if node ID parsing error(s) are returned.
-func (cache *overlaycache) ActiveNodesPieceCounts(ctx context.Context) (_ map[storj.NodeID]int64, err error) {
+func (cache *overlaycache) ActiveNodesPieceCounts(ctx context.Context) (_ map[storxnetwork.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// NB: `All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null` selects node
@@ -957,10 +957,10 @@ func (cache *overlaycache) ActiveNodesPieceCounts(ctx context.Context) (_ map[st
 		return nil, Error.Wrap(err)
 	}
 
-	pieceCounts := make(map[storj.NodeID]int64)
+	pieceCounts := make(map[storxnetwork.NodeID]int64)
 	nodeIDErrs := errs.Group{}
 	for _, row := range rows {
-		nodeID, err := storj.NodeIDFromBytes(row.Id)
+		nodeID, err := storxnetwork.NodeIDFromBytes(row.Id)
 		if err != nil {
 			nodeIDErrs.Add(err)
 			continue
@@ -971,7 +971,7 @@ func (cache *overlaycache) ActiveNodesPieceCounts(ctx context.Context) (_ map[st
 	return pieceCounts, nodeIDErrs.Err()
 }
 
-func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error) {
+func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storxnetwork.NodeID]int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(pieceCounts) == 0 {
 		return nil
@@ -979,7 +979,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 
 	// TODO: pass in the apprioriate struct to database, rather than constructing it here
 	type NodeCount struct {
-		ID    storj.NodeID
+		ID    storxnetwork.NodeID
 		Count int64
 	}
 	var counts []NodeCount
@@ -994,7 +994,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 		return counts[i].ID.Less(counts[k].ID)
 	})
 
-	var nodeIDs []storj.NodeID
+	var nodeIDs []storxnetwork.NodeID
 	var countNumbers []int64
 	for _, count := range counts {
 		nodeIDs = append(nodeIDs, count.ID)
@@ -1055,7 +1055,7 @@ func (cache *overlaycache) getExitingNodes(ctx context.Context) (exitingNodes []
 }
 
 // GetExitStatus returns a node's graceful exit status.
-func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *overlay.ExitStatus, err error) {
+func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storxnetwork.NodeID) (exitStatus *overlay.ExitStatus, err error) {
 	for {
 		exitStatus, err = cache.getExitStatus(ctx, nodeID)
 		if err != nil {
@@ -1070,7 +1070,7 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 	return exitStatus, err
 }
 
-func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
+func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storxnetwork.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
@@ -1095,7 +1095,7 @@ func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeI
 }
 
 // GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
-func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storxnetwork.NodeIDList, err error) {
 	for {
 		exitedNodes, err = cache.getGracefulExitCompletedByTimeFrame(ctx, begin, end)
 		if err != nil {
@@ -1110,7 +1110,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 	return exitedNodes, err
 }
 
-func (cache *overlaycache) getGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) getGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storxnetwork.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
@@ -1128,7 +1128,7 @@ func (cache *overlaycache) getGracefulExitCompletedByTimeFrame(ctx context.Conte
 	}()
 
 	for rows.Next() {
-		var id storj.NodeID
+		var id storxnetwork.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
@@ -1139,7 +1139,7 @@ func (cache *overlaycache) getGracefulExitCompletedByTimeFrame(ctx context.Conte
 }
 
 // GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
-func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storxnetwork.NodeIDList, err error) {
 	for {
 		exitingNodes, err = cache.getGracefulExitIncompleteByTimeFrame(ctx, begin, end)
 		if err != nil {
@@ -1154,7 +1154,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 	return exitingNodes, err
 }
 
-func (cache *overlaycache) getGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) getGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storxnetwork.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
@@ -1173,7 +1173,7 @@ func (cache *overlaycache) getGracefulExitIncompleteByTimeFrame(ctx context.Cont
 
 	// TODO return more than just ID
 	for rows.Next() {
-		var id storj.NodeID
+		var id storxnetwork.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
@@ -1225,7 +1225,7 @@ func convertDBNode(info *dbx.Node) (_ *overlay.NodeDossier, err error) {
 		return nil, Error.New("missing info")
 	}
 
-	id, err := storj.NodeIDFromBytes(info.Id)
+	id, err := storxnetwork.NodeIDFromBytes(info.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -1342,11 +1342,11 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 
 // DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 // or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
-func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error) {
+func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storxnetwork.NodeID]string, count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var nodeIDs []storj.NodeID
-	nodeEmails = make(map[storj.NodeID]string)
+	var nodeIDs []storxnetwork.NodeID
+	nodeEmails = make(map[storxnetwork.NodeID]string)
 	for {
 		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
 		if err != nil {
@@ -1379,7 +1379,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var id storj.NodeID
+		var id storxnetwork.NodeID
 		var email string
 		var lcs time.Time
 		err = rows.Scan(&id, &email, &lcs)
@@ -1396,7 +1396,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	return nodeEmails, count, rows.Err()
 }
 
-func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodes []storj.NodeID, err error) {
+func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodes []storxnetwork.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
@@ -1413,9 +1413,9 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var nodeIDs []storj.NodeID
+	var nodeIDs []storxnetwork.NodeID
 	for rows.Next() {
-		var id storj.NodeID
+		var id storxnetwork.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
@@ -1631,7 +1631,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 // database time, if it is not already set. If `contained` is false, the
 // contained field in the record is set to NULL. All other fields are left
 // alone.
-func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storj.NodeID, contained bool) (err error) {
+func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storxnetwork.NodeID, contained bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var query string
@@ -1653,7 +1653,7 @@ func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storj.No
 
 // UpdateLastContactSuccess updates the last_contact_success timestamp for a node.
 // This is used to manually set a node's online/offline status.
-func (cache *overlaycache) UpdateLastContactSuccess(ctx context.Context, nodeID storj.NodeID, timestamp time.Time) (err error) {
+func (cache *overlaycache) UpdateLastContactSuccess(ctx context.Context, nodeID storxnetwork.NodeID, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -1671,7 +1671,7 @@ func (cache *overlaycache) UpdateLastContactSuccess(ctx context.Context, nodeID 
 // field will be updated to be contained as of the current time, and all nodes
 // which are not in this set but are contained in the table will be updated to
 // have a NULL contained field.
-func (cache *overlaycache) SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error) {
+func (cache *overlaycache) SetAllContainedNodes(ctx context.Context, containedNodes []storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	updateQuery := `
@@ -1698,7 +1698,7 @@ var (
 )
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
-func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storxnetwork.NodeID) (vettedTime *time.Time, err error) {
 	updateFields := dbx.Node_Update_Fields{
 		VettedAt: dbx.Node_VettedAt(time.Now().UTC()),
 	}
@@ -1710,7 +1710,7 @@ func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID)
 }
 
 // TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
-func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	_, err = cache.db.Exec(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = $1;`, nodeID)
 	if err != nil {
 		return err
@@ -1720,7 +1720,7 @@ func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeI
 }
 
 // TestSuspendNodeOffline suspends a storage node for offline.
-func (cache *overlaycache) TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+func (cache *overlaycache) TestSuspendNodeOffline(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended(suspendedAt.UTC())
@@ -1736,7 +1736,7 @@ func (cache *overlaycache) TestSuspendNodeOffline(ctx context.Context, nodeID st
 }
 
 // TestNodeCountryCode sets node country code.
-func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storxnetwork.NodeID, countryCode string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.CountryCode = dbx.Node_CountryCode(countryCode)
@@ -1890,7 +1890,7 @@ func (cache *overlaycache) UpdateNodeTags(ctx context.Context, tags nodeselectio
 	return nil
 }
 
-func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error) {
+func (cache *overlaycache) GetNodeTags(ctx context.Context, id storxnetwork.NodeID) (nodeselection.NodeTags, error) {
 	rows, err := cache.db.All_NodeTags_By_NodeId(ctx, dbx.NodeTags_NodeId(id.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -1898,11 +1898,11 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (no
 
 	var tags nodeselection.NodeTags
 	for _, row := range rows {
-		nodeIDBytes, err := storj.NodeIDFromBytes(row.NodeId)
+		nodeIDBytes, err := storxnetwork.NodeIDFromBytes(row.NodeId)
 		if err != nil {
 			return tags, Error.Wrap(errs.New("Invalid nodeID in the database: %x", row.NodeId))
 		}
-		signerIDBytes, err := storj.NodeIDFromBytes(row.Signer)
+		signerIDBytes, err := storxnetwork.NodeIDFromBytes(row.Signer)
 		if err != nil {
 			return tags, Error.Wrap(errs.New("Invalid nodeID in the database: %x", row.NodeId))
 		}
@@ -1918,10 +1918,10 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (no
 }
 
 // GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
-func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagNames []string) (lastIPPorts map[storj.NodeID]*string, err error) {
+func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids storxnetwork.NodeIDList, tagNames []string) (lastIPPorts map[storxnetwork.NodeID]*string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastIPPorts = make(map[storj.NodeID]*string)
+	lastIPPorts = make(map[storxnetwork.NodeID]*string)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id, last_ip_port FROM nodes n
@@ -1939,7 +1939,7 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 	}()
 
 	for rows.Next() {
-		var id storj.NodeID
+		var id storxnetwork.NodeID
 		var lastIPPort *string
 		err = rows.Scan(&id, &lastIPPort)
 		if err != nil {

@@ -29,10 +29,10 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/http/requestid"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/http/requestid"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
@@ -218,7 +218,7 @@ type Server struct {
 	developerCookieAuth *consolewebauth.CookieAuth
 	ipRateLimiter       *web.RateLimiter
 	userIDRateLimiter   *web.RateLimiter
-	nodeURL             storj.NodeURL
+	nodeURL             storxnetwork.NodeURL
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
@@ -290,7 +290,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, notificationService *pushnotifications.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, notificationService *pushnotifications.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storxnetwork.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -748,7 +748,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 // It should only be used with RunFrontEnd and Close. We plan on moving this to its own type, but
 // right now since we have a feature flag to allow the backend server to continue serving the frontend, it
 // makes it easier if they are the same type.
-func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener, nodeURL storj.NodeURL, stripePublicKey string) (server *Server, err error) {
+func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener, nodeURL storxnetwork.NodeURL, stripePublicKey string) (server *Server, err error) {
 	server = &Server{
 		log:             logger,
 		config:          config,

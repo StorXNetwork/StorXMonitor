@@ -7,11 +7,11 @@ import (
 	"context"
 	"encoding/base64"
 
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/storxnetwork"
 	"github.com/spacemonkeygo/monkit/v3"
-	"storj.io/common/encryption"
-	"storj.io/common/grant"
-	"storj.io/common/macaroon"
-	"storj.io/common/storj"
 )
 
 var mon = monkit.Package()
@@ -33,7 +33,7 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, base64Encode
 	}
 
 	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
-	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+	encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 	encAccess.LimitTo(parsedAPIKey)
 
 	accessString, err := (&grant.Access{
@@ -48,7 +48,7 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, base64Encode
 }
 
 // DeriveRootKey derives the root key portion of the access grant.
-func DeriveRootKey(encryptionPassphrase, base64EncodedSalt string) (*storj.Key, error) {
+func DeriveRootKey(encryptionPassphrase, base64EncodedSalt string) (*storxnetwork.Key, error) {
 	ctx := context.Background()
 	var err error
 	defer mon.Task()(&ctx)(&err)

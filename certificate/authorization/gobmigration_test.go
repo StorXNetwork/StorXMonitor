@@ -10,7 +10,7 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 	"github.com/StorXNetwork/StorXMonitor/private/testredis"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 var (

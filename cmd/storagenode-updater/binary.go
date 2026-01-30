@@ -17,8 +17,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 func binaryVersion(location string) (version.SemVer, error) {

@@ -16,10 +16,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Error is a standard error class for this package.
@@ -52,7 +52,7 @@ type Config struct {
 
 // PlacementList is a configurable, comma separated list of PlacementConstraint IDs.
 type PlacementList struct {
-	Placements []storj.PlacementConstraint
+	Placements []storxnetwork.PlacementConstraint
 }
 
 // String implements pflag.Value.
@@ -76,7 +76,7 @@ func (p *PlacementList) Set(s string) error {
 		if err != nil {
 			return errs.New("Placement list should contain numbers: %s", s)
 		}
-		p.Placements = append(p.Placements, storj.PlacementConstraint(pNum))
+		p.Placements = append(p.Placements, storxnetwork.PlacementConstraint(pNum))
 	}
 	return nil
 }

@@ -11,13 +11,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestGetExpiresBeforeWithStatus(t *testing.T) {
@@ -502,14 +502,14 @@ func TestUpdateDefaultPlacement(t *testing.T) {
 
 		user, err = usersRepo.Get(ctx, user.ID)
 		require.NoError(t, err)
-		require.Equal(t, storj.PlacementConstraint(12), user.DefaultPlacement)
+		require.Equal(t, storxnetwork.PlacementConstraint(12), user.DefaultPlacement)
 
-		err = usersRepo.UpdateDefaultPlacement(ctx, user.ID, storj.EveryCountry)
+		err = usersRepo.UpdateDefaultPlacement(ctx, user.ID, storxnetwork.EveryCountry)
 		require.NoError(t, err)
 
 		user, err = usersRepo.Get(ctx, user.ID)
 		require.NoError(t, err)
-		require.Equal(t, storj.EveryCountry, user.DefaultPlacement)
+		require.Equal(t, storxnetwork.EveryCountry, user.DefaultPlacement)
 	})
 }
 

@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
 	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"

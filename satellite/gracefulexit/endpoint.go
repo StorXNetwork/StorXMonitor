@@ -10,15 +10,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // millis for the transfer queue building ticker.
@@ -86,7 +86,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 	return endpoint.processTimeBased(ctx, stream, peer.ID)
 }
 
-func (endpoint *Endpoint) processTimeBased(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, nodeID storj.NodeID) (err error) {
+func (endpoint *Endpoint) processTimeBased(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
@@ -155,14 +155,14 @@ func (endpoint *Endpoint) handleSuspendedNode(nodeInfo *overlay.NodeDossier) (is
 	return false
 }
 
-func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time, success bool, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
+func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storxnetwork.NodeID, finishedAt time.Time, success bool, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
 	if success {
 		return endpoint.getFinishedSuccessMessage(ctx, nodeID, finishedAt)
 	}
 	return endpoint.getFinishedFailureMessage(ctx, nodeID, finishedAt, reason)
 }
 
-func (endpoint *Endpoint) getFinishedSuccessMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time) (message *pb.SatelliteMessage, err error) {
+func (endpoint *Endpoint) getFinishedSuccessMessage(ctx context.Context, nodeID storxnetwork.NodeID, finishedAt time.Time) (message *pb.SatelliteMessage, err error) {
 	unsigned := &pb.ExitCompleted{
 		SatelliteId: endpoint.signer.ID(),
 		NodeId:      nodeID,
@@ -177,7 +177,7 @@ func (endpoint *Endpoint) getFinishedSuccessMessage(ctx context.Context, nodeID 
 	}}, nil
 }
 
-func (endpoint *Endpoint) getFinishedFailureMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
+func (endpoint *Endpoint) getFinishedFailureMessage(ctx context.Context, nodeID storxnetwork.NodeID, finishedAt time.Time, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
 	unsigned := &pb.ExitFailed{
 		SatelliteId: endpoint.signer.ID(),
 		NodeId:      nodeID,

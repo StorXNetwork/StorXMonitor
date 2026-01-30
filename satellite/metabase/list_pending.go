@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // PendingObjectEntry contains information about an pending object item in a bucket.
@@ -25,7 +25,7 @@ type PendingObjectEntry struct {
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 }
 
 // IteratePendingObjectsByKey contains arguments necessary for listing pending objects by ObjectKey.

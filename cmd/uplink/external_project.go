@@ -6,13 +6,13 @@ package main
 import (
 	"context"
 
-	"storj.io/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
-	"storj.io/uplink"
-	privateAccess "storj.io/uplink/private/access"
-	"storj.io/uplink/private/testuplink"
-	"storj.io/uplink/private/transport"
+	"github.com/StorXNetwork/uplink"
+	privateAccess "github.com/StorXNetwork/uplink/private/access"
+	"github.com/StorXNetwork/uplink/private/testuplink"
+	"github.com/StorXNetwork/uplink/private/transport"
 )
 
 const uplinkCLIUserAgent = "uplink-cli"

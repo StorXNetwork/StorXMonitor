@@ -10,10 +10,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/lrucache"
-	"storj.io/common/tagsql"
 	"github.com/StorXNetwork/StorXMonitor/private/migrate"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
@@ -38,6 +34,10 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
 	"github.com/StorXNetwork/StorXMonitor/satellite/userworker"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // Error is the default satellitedb errs class.
@@ -134,7 +134,6 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		return nil, Error.New("failed opening database via DBX at %q: %v",
 			source, err)
 	}
-
 
 	name := "satellitedb"
 	if override != "" {

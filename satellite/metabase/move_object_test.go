@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestBeginMoveObject(t *testing.T) {
@@ -163,7 +163,7 @@ func TestFinishMoveObject(t *testing.T) {
 					ObjectStream:                 obj,
 					NewSegmentKeys:               newEncryptedKeysNonces,
 					NewEncryptedObjectKey:        newObjectKey,
-					NewEncryptedMetadataKeyNonce: storj.Nonce{},
+					NewEncryptedMetadataKeyNonce: storxnetwork.Nonce{},
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,

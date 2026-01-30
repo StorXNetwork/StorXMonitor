@@ -12,19 +12,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/errs2"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/rpc/rpctest"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpctest"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 func TestExpirationTimeSegment(t *testing.T) {
@@ -59,8 +59,8 @@ func TestExpirationTimeSegment(t *testing.T) {
 				Bucket:             []byte(bucket.Name),
 				EncryptedObjectKey: []byte("path" + strconv.Itoa(i)),
 				ExpiresAt:          r.expirationDate,
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -94,16 +94,16 @@ func TestInlineSegment(t *testing.T) {
 		params := metaclient.BeginObjectParams{
 			Bucket:             []byte(bucket.Name),
 			EncryptedObjectKey: []byte("encrypted-path"),
-			Redundancy: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
+			Redundancy: storxnetwork.RedundancyScheme{
+				Algorithm:      storxnetwork.ReedSolomon,
 				ShareSize:      256,
 				RequiredShares: 1,
 				RepairShares:   1,
 				OptimalShares:  3,
 				TotalShares:    4,
 			},
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 
@@ -163,8 +163,8 @@ func TestInlineSegment(t *testing.T) {
 			beginObjectResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
 				Bucket:             []byte(bucket.Name),
 				EncryptedObjectKey: []byte("too-large-inline-segment"),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -401,8 +401,8 @@ func TestCommitSegment_Validation(t *testing.T) {
 		beginObjectResponse, err := client.BeginObject(ctx, metaclient.BeginObjectParams{
 			Bucket:             []byte(bucket.Name),
 			EncryptedObjectKey: []byte("a/b/testobject"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 		})
@@ -572,8 +572,8 @@ func TestRetryBeginSegmentPieces(t *testing.T) {
 		params := metaclient.BeginObjectParams{
 			Bucket:             []byte(bucket.Name),
 			EncryptedObjectKey: []byte("encrypted-path"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 		}
@@ -663,8 +663,8 @@ func TestRetryBeginSegmentPieces_Validation(t *testing.T) {
 		params := metaclient.BeginObjectParams{
 			Bucket:             []byte(bucket.Name),
 			EncryptedObjectKey: []byte("encrypted-path"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 		}
@@ -737,8 +737,8 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 		params := metaclient.BeginObjectParams{
 			Bucket:             []byte(bucket.Name),
 			EncryptedObjectKey: []byte("encrypted-path"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 		}

@@ -11,14 +11,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/nodetag"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/quic"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/nodetag"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/quic"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Config contains configurable values for contact service.
@@ -69,7 +69,7 @@ func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerI
 func (service *Service) Close() error { return nil }
 
 // PingBack pings the node to test connectivity.
-func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ bool, _ bool, _ string, err error) {
+func (service *Service) PingBack(ctx context.Context, nodeurl storxnetwork.NodeURL) (_ bool, _ bool, _ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if service.timeout > 0 {
@@ -124,7 +124,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 	return pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, nil
 }
 
-func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storj.NodeURL) error {
+func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storxnetwork.NodeURL) error {
 	udpDialer := service.dialer
 	udpDialer.Connector = quic.NewDefaultConnector(nil)
 	udpClient, err := dialNodeURL(ctx, udpDialer, nodeurl)
@@ -145,7 +145,7 @@ func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storj.NodeURL)
 	return nil
 }
 
-func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID, req *pb.SignedNodeTagSets) error {
+func (service *Service) processNodeTags(ctx context.Context, nodeID storxnetwork.NodeID, req *pb.SignedNodeTagSets) error {
 	if req != nil {
 		tags := nodeselection.NodeTags{}
 		for _, t := range req.Tags {
@@ -176,8 +176,8 @@ func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID
 	return nil
 }
 
-func verifyTags(ctx context.Context, authority nodetag.Authority, nodeID storj.NodeID, t *pb.SignedNodeTagSet) (*pb.NodeTagSet, storj.NodeID, error) {
-	signerID, err := storj.NodeIDFromBytes(t.SignerNodeId)
+func verifyTags(ctx context.Context, authority nodetag.Authority, nodeID storxnetwork.NodeID, t *pb.SignedNodeTagSet) (*pb.NodeTagSet, storxnetwork.NodeID, error) {
+	signerID, err := storxnetwork.NodeIDFromBytes(t.SignerNodeId)
 	if err != nil {
 		return nil, signerID, errs.New("failed to parse signerNodeID from verifiedTags: '%x', %s", t.SignerNodeId, err.Error())
 	}
@@ -187,7 +187,7 @@ func verifyTags(ctx context.Context, authority nodetag.Authority, nodeID storj.N
 		return nil, signerID, errs.New("received node tags with wrong/unknown signature: '%x', %s", t.Signature, err.Error())
 	}
 
-	signedNodeID, err := storj.NodeIDFromBytes(verifiedTags.NodeId)
+	signedNodeID, err := storxnetwork.NodeIDFromBytes(verifiedTags.NodeId)
 	if err != nil {
 		return nil, signerID, errs.New("failed to parse nodeID from verifiedTags: '%x', %s", verifiedTags.NodeId, err.Error())
 	}

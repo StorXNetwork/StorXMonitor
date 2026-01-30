@@ -18,8 +18,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
@@ -128,7 +128,7 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (_ []byte, err error) {
 
 		package storagenodedb
 
-		import "storj.io/common/dbutil/dbschema"
+		import "github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
 
 		func Schema() map[string]*dbschema.Schema {
 		return map[string]*dbschema.Schema{

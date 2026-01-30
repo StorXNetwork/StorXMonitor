@@ -12,9 +12,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // QueueStatConfig configures the queue checker chore.
@@ -32,13 +32,13 @@ type QueueStat struct {
 	mu         sync.Mutex
 	stats      map[string]queue.Stat
 	updated    time.Time
-	placements []storj.PlacementConstraint
+	placements []storxnetwork.PlacementConstraint
 }
 
 var _ monkit.StatSource = &QueueStat{}
 
 // NewQueueStat creates a chore to stat repair queue statistics.
-func NewQueueStat(log *zap.Logger, registry *monkit.Registry, placements []storj.PlacementConstraint, db queue.RepairQueue, checkInterval time.Duration) *QueueStat {
+func NewQueueStat(log *zap.Logger, registry *monkit.Registry, placements []storxnetwork.PlacementConstraint, db queue.RepairQueue, checkInterval time.Duration) *QueueStat {
 
 	chore := &QueueStat{
 		db:         db,
@@ -122,6 +122,6 @@ func (c *QueueStat) Stats(cb func(key monkit.SeriesKey, field string, val float6
 
 }
 
-func key(placement storj.PlacementConstraint, attempted bool) string {
+func key(placement storxnetwork.PlacementConstraint, attempted bool) string {
 	return fmt.Sprintf("%d-%v", placement, attempted)
 }

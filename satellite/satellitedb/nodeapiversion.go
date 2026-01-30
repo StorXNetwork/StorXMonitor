@@ -8,9 +8,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeapiversion"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type nodeAPIVersionDB struct {
@@ -19,7 +19,7 @@ type nodeAPIVersionDB struct {
 
 // UpdateVersionAtLeast sets the node version to be at least the passed in version.
 // Any existing entry for the node will never have the version decreased.
-func (db *nodeAPIVersionDB) UpdateVersionAtLeast(ctx context.Context, id storj.NodeID, version nodeapiversion.Version) (err error) {
+func (db *nodeAPIVersionDB) UpdateVersionAtLeast(ctx context.Context, id storxnetwork.NodeID, version nodeapiversion.Version) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// try to create a row at the version
 	err = db.db.ReplaceNoReturn_NodeApiVersion(ctx,
@@ -41,7 +41,7 @@ func (db *nodeAPIVersionDB) UpdateVersionAtLeast(ctx context.Context, id storj.N
 // VersionAtLeast returns true iff the recorded node version is greater than or equal
 // to the passed in version. VersionAtLeast always returns true if the passed in version
 // is HasAnything.
-func (db *nodeAPIVersionDB) VersionAtLeast(ctx context.Context, id storj.NodeID, version nodeapiversion.Version) (bool, error) {
+func (db *nodeAPIVersionDB) VersionAtLeast(ctx context.Context, id storxnetwork.NodeID, version nodeapiversion.Version) (bool, error) {
 	if version == nodeapiversion.HasAnything {
 		return true, nil
 	}

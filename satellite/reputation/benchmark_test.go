@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func BenchmarkReputation(b *testing.B) {
@@ -27,7 +27,7 @@ func BenchmarkReputation(b *testing.B) {
 		reputationdb := db.Reputation()
 		ctx := context.Background()
 
-		var all []storj.NodeID
+		var all []storxnetwork.NodeID
 		for i := 0; i < TotalNodeCount; i++ {
 			id := testrand.NodeID()
 			all = append(all, id)

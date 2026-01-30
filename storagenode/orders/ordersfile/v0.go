@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 
-	"storj.io/common/pb"
+	"github.com/StorXNetwork/common/pb"
 )
 
 // fileV0 is a version 0 orders file.

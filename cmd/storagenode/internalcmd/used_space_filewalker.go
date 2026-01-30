@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/iopriority"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"

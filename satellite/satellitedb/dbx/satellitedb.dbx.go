@@ -17,8 +17,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 	"github.com/jackc/pgx/v5/pgconn"
-	"storj.io/common/tagsql"
 )
 
 // Prevent conditional imports from causing build failures.

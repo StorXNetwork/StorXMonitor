@@ -11,10 +11,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/tagsql"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensure that invoiceProjectRecords implements stripecoinpayments.ProjectRecordsDB.

@@ -6,7 +6,7 @@ package reputation
 import (
 	"time"
 
-	"storj.io/common/pb"
+	"github.com/StorXNetwork/common/pb"
 )
 
 // UpdateAuditHistoryResponse contains information returned by UpdateAuditHistory.

@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestRepairSegment(t *testing.T) {
@@ -47,7 +47,7 @@ func TestRepairSegment(t *testing.T) {
 
 		// verify that there are no nodes from before repair as we replacing all of them
 		require.NotEqual(t, segments[0].Pieces, segmentsAfter[0].Pieces)
-		oldNodes := map[storj.NodeID]struct{}{}
+		oldNodes := map[storxnetwork.NodeID]struct{}{}
 		for _, piece := range segments[0].Pieces {
 			oldNodes[piece.StorageNode] = struct{}{}
 		}

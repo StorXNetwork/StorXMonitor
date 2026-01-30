@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
-	"storj.io/eventkit"
+	"github.com/StorXNetwork/eventkit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"

@@ -14,9 +14,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/tagsql"
 	"github.com/StorXNetwork/StorXMonitor/private/migrate"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 	"github.com/StorXNetwork/StorXMonitor/private/post/oauth2"
@@ -76,6 +73,9 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/revocation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
 	"github.com/StorXNetwork/StorXMonitor/satellite/userworker"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
 )
 
 var mon = monkit.Package()

@@ -15,8 +15,8 @@ import (
 	"github.com/stripe/stripe-go/v75/form"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/time2"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/time2"
 	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 

@@ -15,7 +15,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 type cmdLs struct {

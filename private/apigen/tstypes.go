@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // commonPath is the path to the TypeScript module that common classes are imported from.

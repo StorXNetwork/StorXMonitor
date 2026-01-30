@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/storjscantest"

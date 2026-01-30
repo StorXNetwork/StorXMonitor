@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/leak"
+	"github.com/StorXNetwork/common/leak"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 

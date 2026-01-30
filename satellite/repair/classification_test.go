@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
 )
 
 func TestClassifySegmentPieces(t *testing.T) {
@@ -153,7 +153,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 func generateNodes(num int, isOnline func(i int) bool, config func(ix int, node *nodeselection.SelectedNode)) (selectedNodes []nodeselection.SelectedNode) {
 	for i := 0; i < num; i++ {
 		node := nodeselection.SelectedNode{
-			ID:     testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			ID:     testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 			Online: isOnline(i),
 		}
 		config(i, &node)

@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/cockroachutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // MigrateProjects updates all rows in the projects table, giving them a new UUID if they do not already have one.

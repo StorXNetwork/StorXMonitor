@@ -18,7 +18,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker/execwrapper"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 )
 
 // FilewalkerCfg is the config structure for the lazyfilewalker commands.

@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
 	"github.com/StorXNetwork/StorXMonitor/crashcollect/crash"
 	"github.com/StorXNetwork/StorXMonitor/private/crashreportpb"
 	"github.com/StorXNetwork/StorXMonitor/private/server"

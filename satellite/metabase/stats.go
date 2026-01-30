@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	"storj.io/common/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
 )
 
 const statsUpToDateThreshold = 8 * time.Hour

@@ -14,7 +14,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (

@@ -14,11 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
@@ -26,6 +21,11 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestCache_Database(t *testing.T) {
@@ -142,7 +142,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 	}
 
 	{ // Get
-		_, err := service.Get(ctx, storj.NodeID{})
+		_, err := service.Get(ctx, storxnetwork.NodeID{})
 		require.Error(t, err)
 		require.Equal(t, overlay.ErrEmptyNode, err)
 
@@ -173,8 +173,8 @@ func TestRandomizedSelection(t *testing.T) {
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
-		allIDs := make(storj.NodeIDList, totalNodes)
-		nodeCounts := make(map[storj.NodeID]int)
+		allIDs := make(storxnetwork.NodeIDList, totalNodes)
+		nodeCounts := make(map[storxnetwork.NodeID]int)
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
@@ -274,8 +274,8 @@ func TestRandomizedSelectionCache(t *testing.T) {
 		satellite := planet.Satellites[0]
 		overlaydb := satellite.Overlay.DB
 		uploadSelectionCache := satellite.Overlay.Service.UploadSelectionCache
-		allIDs := make(storj.NodeIDList, totalNodes)
-		nodeCounts := make(map[storj.NodeID]int)
+		allIDs := make(storxnetwork.NodeIDList, totalNodes)
+		nodeCounts := make(map[storxnetwork.NodeID]int)
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
@@ -427,7 +427,7 @@ func TestGetNodes(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that the results of GetNodes match expectations.
-		selectedNodes, err := service.GetNodes(ctx, []storj.NodeID{
+		selectedNodes, err := service.GetNodes(ctx, []storxnetwork.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -462,7 +462,7 @@ func TestGetNodes(t *testing.T) {
 
 func TestUpdateCheckIn(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // setup
-		nodeID := storj.NodeID{1, 2, 3}
+		nodeID := storxnetwork.NodeID{1, 2, 3}
 		expectedEmail := "test@email.test"
 		expectedAddress := "1.2.4.4:8080"
 		info := overlay.NodeCheckInInfo{
@@ -602,7 +602,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.True(t, updated2Node.Reputation.LastContactFailure.After(startOfUpdateTest2))
 
 		// check that UpdateCheckIn updates last_offline_email
-		require.NoError(t, db.OverlayCache().UpdateLastOfflineEmail(ctx, []storj.NodeID{updated2Node.Id}, time.Now()))
+		require.NoError(t, db.OverlayCache().UpdateLastOfflineEmail(ctx, []storxnetwork.NodeID{updated2Node.Id}, time.Now()))
 		nodeInfo, err := db.OverlayCache().Get(ctx, updated2Node.Id)
 		require.NoError(t, err)
 		require.NotNil(t, nodeInfo.LastOfflineEmail)
@@ -629,25 +629,12 @@ func TestSuspendedSelection(t *testing.T) {
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
-		suspendedIDs := make(map[storj.NodeID]bool)
+		suspendedIDs := make(map[storxnetwork.NodeID]bool)
 		config := overlay.NodeSelectionConfig{}
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
-			newID := testrand.NodeID()
-			addr := fmt.Sprintf("127.0.%d.0:8080", i)
-			lastNet := fmt.Sprintf("127.0.%d", i)
-			d := overlay.NodeCheckInInfo{
-				NodeID:     newID,
-				Address:    &pb.NodeAddress{Address: addr},
-				LastIPPort: addr,
-				LastNet:    lastNet,
-				Version:    &pb.NodeVersion{Version: "v1.0.0"},
-				Capacity:   &pb.NodeCapacity{},
-				IsUp:       true,
-			}
-			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), config)
-			require.NoError(t, err)
+			newID := testrand.storxnetwork.NodeID()
 
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"
 				_, err = cache.TestVetNode(ctx, newID)
@@ -763,7 +750,7 @@ func TestUpdateReputation(t *testing.T) {
 	})
 }
 
-func getNodeInfo(nodeID storj.NodeID) overlay.NodeCheckInInfo {
+func getNodeInfo(nodeID storxnetwork.NodeID) overlay.NodeCheckInInfo {
 	return overlay.NodeCheckInInfo{
 		NodeID: nodeID,
 		IsUp:   true,

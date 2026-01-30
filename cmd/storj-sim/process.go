@@ -27,8 +27,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/processgroup"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/processgroup"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 type NewRelicConfig struct {

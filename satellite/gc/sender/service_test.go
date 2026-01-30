@@ -13,15 +13,15 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 func TestSendRetainFilters(t *testing.T) {

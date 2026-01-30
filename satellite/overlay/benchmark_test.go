@@ -14,14 +14,14 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func BenchmarkOverlay(b *testing.B) {
@@ -35,10 +35,10 @@ func BenchmarkOverlay(b *testing.B) {
 		overlaydb := db.OverlayCache()
 		ctx := context.Background()
 
-		var all []storj.NodeID
-		var check []storj.NodeID
+		var all []storxnetwork.NodeID
+		var check []storxnetwork.NodeID
 		for i := 0; i < TotalNodeCount; i++ {
-			id := testrand.NodeID()
+			id := testrand.StorageNodeID()
 			all = append(all, id)
 			if i < OnlineCount {
 				check = append(check, id)
@@ -219,7 +219,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 			},
 		}
 
-		var excludedIDs []storj.NodeID
+		var excludedIDs []storxnetwork.NodeID
 		var excludedNets []string
 
 		for i := 0; i < Total/NodesPerNet; i++ {

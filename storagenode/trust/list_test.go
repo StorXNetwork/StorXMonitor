@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestNewList(t *testing.T) {
@@ -78,8 +78,8 @@ func TestListAgainstSpec(t *testing.T) {
 		return makeTestID(m[1][0]).String() + m[2]
 	}
 
-	makeNodeURL := func(s string) storj.NodeURL {
-		u, err := storj.ParseNodeURL(fixURL(s))
+	makeNodeURL := func(s string) storxnetwork.NodeURL {
+		u, err := storxnetwork.ParseNodeURL(fixURL(s))
 		require.NoError(t, err)
 		return u
 	}
@@ -176,7 +176,7 @@ func TestListAgainstSpec(t *testing.T) {
 	t.Logf("4@ = %s", makeTestID('4'))
 	t.Logf("5@ = %s", makeTestID('5'))
 
-	require.Equal(t, []storj.NodeURL{
+	require.Equal(t, []storxnetwork.NodeURL{
 		makeNodeURL("1@bar.test:7777"),
 		makeNodeURL("2@f.foo.test:7777"),
 		makeNodeURL("2@buz.test:7777"),
@@ -235,14 +235,14 @@ func TestListCacheInteraction(t *testing.T) {
 		sources        []trust.Source
 		cacheBefore    map[string][]trust.Entry
 		cacheAfter     map[string][]trust.Entry
-		urls           []storj.NodeURL
+		urls           []storxnetwork.NodeURL
 		killCacheEarly bool
 		err            string
 	}{
 		{
 			name:    "entries are cached for normal sources",
 			sources: []trust.Source{makeNormal(entry1)},
-			urls:    []storj.NodeURL{url1},
+			urls:    []storxnetwork.NodeURL{url1},
 			cacheAfter: map[string][]trust.Entry{
 				"normal": {entry1},
 			},
@@ -250,7 +250,7 @@ func TestListCacheInteraction(t *testing.T) {
 		{
 			name:       "entries are not cached for static sources",
 			sources:    []trust.Source{makeFixed(entry1)},
-			urls:       []storj.NodeURL{url1},
+			urls:       []storxnetwork.NodeURL{url1},
 			cacheAfter: map[string][]trust.Entry{},
 		},
 		{
@@ -259,7 +259,7 @@ func TestListCacheInteraction(t *testing.T) {
 			cacheBefore: map[string][]trust.Entry{
 				"normal": {entry1},
 			},
-			urls: []storj.NodeURL{url2},
+			urls: []storxnetwork.NodeURL{url2},
 			cacheAfter: map[string][]trust.Entry{
 				"normal": {entry2},
 			},
@@ -275,7 +275,7 @@ func TestListCacheInteraction(t *testing.T) {
 			cacheBefore: map[string][]trust.Entry{
 				"normal": {entry1},
 			},
-			urls: []storj.NodeURL{url1},
+			urls: []storxnetwork.NodeURL{url1},
 			cacheAfter: map[string][]trust.Entry{
 				"normal": {entry1},
 			},
@@ -288,7 +288,7 @@ func TestListCacheInteraction(t *testing.T) {
 		{
 			name:           "failure to save cache is not fatal",
 			sources:        []trust.Source{makeNormal(entry1)},
-			urls:           []storj.NodeURL{url1},
+			urls:           []storxnetwork.NodeURL{url1},
 			killCacheEarly: true,
 		},
 	} {
@@ -357,8 +357,8 @@ func (s *fakeSource) FetchEntries(context.Context) ([]trust.Entry, error) {
 	return s.entries, s.err
 }
 
-func makeTestID(x byte) storj.NodeID {
-	var id storj.NodeID
+func makeTestID(x byte) storxnetwork.NodeID {
+	var id storxnetwork.NodeID
 	copy(id[:], bytes.Repeat([]byte{x}, len(id)))
-	return storj.NewVersionedID(id, storj.IDVersions[storj.V0])
+	return storxnetwork.NewVersionedID(id, storxnetwork.IDVersions[storxnetwork.V0])
 }

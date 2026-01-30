@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Config defines the config for the forget satellite chore.

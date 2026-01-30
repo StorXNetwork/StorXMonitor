@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/testsuite/storjscan/storjscantest"
 	"storj.io/storjscan/blockchain"

@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestBeginObjectNextVersion(t *testing.T) {
@@ -736,7 +736,7 @@ func TestBeginSegment(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "pieces missing",
@@ -752,7 +752,7 @@ func TestBeginSegment(t *testing.T) {
 					ObjectStream: obj,
 					Pieces: []metabase.Piece{{
 						Number:      1,
-						StorageNode: storj.NodeID{},
+						StorageNode: storxnetwork.NodeID{},
 					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -813,7 +813,7 @@ func TestBeginSegment(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
@@ -844,7 +844,7 @@ func TestBeginSegment(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
@@ -881,7 +881,7 @@ func TestBeginSegment(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
@@ -919,7 +919,7 @@ func TestBeginSegment(t *testing.T) {
 				metabasetest.BeginSegment{
 					Opts: metabase.BeginSegment{
 						ObjectStream: obj,
-						RootPieceID:  storj.PieceID{1},
+						RootPieceID:  storxnetwork.PieceID{1},
 						Pieces: []metabase.Piece{{
 							Number:      1,
 							StorageNode: testrand.NodeID(),
@@ -1001,7 +1001,7 @@ func TestCommitSegment(t *testing.T) {
 					ObjectStream: obj,
 					Pieces: []metabase.Piece{{
 						Number:      1,
-						StorageNode: storj.NodeID{},
+						StorageNode: storxnetwork.NodeID{},
 					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -1156,7 +1156,7 @@ func TestCommitSegment(t *testing.T) {
 				ErrText:  "Redundancy zero",
 			}.Check(ctx, t, db)
 
-			redundancy := storj.RedundancyScheme{
+			redundancy := storxnetwork.RedundancyScheme{
 				OptimalShares: 2,
 			}
 
@@ -2595,7 +2595,7 @@ func TestCommitObject(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption:   storj.EncryptionParameters{},
+					Encryption:   storxnetwork.EncryptionParameters{},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "Encryption is missing",
@@ -2604,8 +2604,8 @@ func TestCommitObject(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncAESGCM,
 					},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -2615,8 +2615,8 @@ func TestCommitObject(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncAESGCM,
 						BlockSize:   -1,
 					},
 				},
@@ -2627,8 +2627,8 @@ func TestCommitObject(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncAESGCM,
 						BlockSize:   512,
 					},
 				},
@@ -2643,8 +2643,8 @@ func TestCommitObject(t *testing.T) {
 
 						SegmentCount: 0,
 
-						Encryption: storj.EncryptionParameters{
-							CipherSuite: storj.EncAESGCM,
+						Encryption: storxnetwork.EncryptionParameters{
+							CipherSuite: storxnetwork.EncAESGCM,
 							BlockSize:   512,
 						},
 					},
@@ -2668,8 +2668,8 @@ func TestCommitObject(t *testing.T) {
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
 					// set different encryption than with BeginObjectExactVersion
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncNull,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncNull,
 						BlockSize:   512,
 					},
 				},

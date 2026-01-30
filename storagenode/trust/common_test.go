@@ -4,7 +4,7 @@
 package trust_test
 
 import (
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 

@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
 	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"

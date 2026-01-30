@@ -12,16 +12,16 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
 )
 
 // NodeTag is a tag associated with a node (approved by signer).
 type NodeTag struct {
-	NodeID   storj.NodeID
+	NodeID   storxnetwork.NodeID
 	SignedAt time.Time
-	Signer   storj.NodeID
+	Signer   storxnetwork.NodeID
 	Name     string
 	Value    []byte
 }
@@ -30,7 +30,7 @@ type NodeTag struct {
 type NodeTags []NodeTag
 
 // FindBySignerAndName selects first tag with same name / NodeID.
-func (n NodeTags) FindBySignerAndName(signer storj.NodeID, name string) (NodeTag, error) {
+func (n NodeTags) FindBySignerAndName(signer storxnetwork.NodeID, name string) (NodeTag, error) {
 	for _, tag := range n {
 		if tag.Name == name && signer == tag.Signer {
 			return tag, nil
@@ -41,7 +41,7 @@ func (n NodeTags) FindBySignerAndName(signer storj.NodeID, name string) (NodeTag
 
 // SelectedNode is used as a result for creating orders limits.
 type SelectedNode struct {
-	ID          storj.NodeID
+	ID          storxnetwork.NodeID
 	Address     *pb.NodeAddress
 	Email       string
 	Wallet      string
@@ -153,7 +153,7 @@ func (filters NodeQueryFilters) ToSQLWhereClause(args *[]interface{}, argIndex *
 		}
 
 		// Try to parse as NodeID - if valid, also search by node ID
-		if nodeID, err := storj.NodeIDFromString(filters.Search); err == nil && !nodeID.IsZero() {
+		if nodeID, err := storxnetwork.NodeIDFromString(filters.Search); err == nil && !nodeID.IsZero() {
 			(*argIndex)++
 			searchConditions = append(searchConditions, fmt.Sprintf("id = $%d", *argIndex))
 			*args = append(*args, nodeID.Bytes())
@@ -196,7 +196,7 @@ func mustCreateNodeAttribute(attr string) NodeAttribute {
 }
 
 // NodeTagAttribute selects a tag value from node.
-func NodeTagAttribute(signer storj.NodeID, tagName string) NodeAttribute {
+func NodeTagAttribute(signer storxnetwork.NodeID, tagName string) NodeAttribute {
 	return func(node SelectedNode) string {
 		tag, err := node.Tags.FindBySignerAndName(signer, tagName)
 		if err != nil {
@@ -226,7 +226,7 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 		case 1:
 			return AnyNodeTagAttribute(parts[0]), nil
 		case 2:
-			id, err := storj.NodeIDFromString(parts[0])
+			id, err := storxnetwork.NodeIDFromString(parts[0])
 			if err != nil {
 				return nil, errs.New("node attribute definition (%s) has invalid NodeID: %s", attr, err.Error())
 			}

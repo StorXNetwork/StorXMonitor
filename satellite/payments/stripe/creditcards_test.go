@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	stripeLib "github.com/stripe/stripe-go/v75"
 
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"

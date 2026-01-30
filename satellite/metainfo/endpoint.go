@@ -16,14 +16,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
-	"storj.io/common/encryption"
-	"storj.io/common/lrucache"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/eventkit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
@@ -34,6 +26,14 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/revocation"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/eventkit"
 )
 
 const (
@@ -99,8 +99,8 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		return nil, err
 	}
 
-	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
-		CipherSuite: storj.EncAESGCM,
+	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storxnetwork.EncryptionParameters{
+		CipherSuite: storxnetwork.EncAESGCM,
 		BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
 	})
 	if err != nil {
@@ -213,7 +213,7 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	return &pb.RevokeAPIKeyResponse{}, nil
 }
 
-func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storj.StreamID, err error) {
+func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storxnetwork.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if satStreamID == nil {
@@ -236,14 +236,14 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *interna
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	streamID, err = storj.StreamIDFromBytes(encodedStreamID)
+	streamID, err = storxnetwork.StreamIDFromBytes(encodedStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	return streamID, nil
 }
 
-func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *internalpb.SegmentID) (segmentID storj.SegmentID, err error) {
+func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *internalpb.SegmentID) (segmentID storxnetwork.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if satSegmentID == nil {
@@ -260,14 +260,14 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *inter
 		return nil, err
 	}
 
-	segmentID, err = storj.SegmentIDFromBytes(encodedSegmentID)
+	segmentID, err = storxnetwork.SegmentIDFromBytes(encodedSegmentID)
 	if err != nil {
 		return nil, err
 	}
 	return segmentID, nil
 }
 
-func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storj.StreamID) (_ *internalpb.StreamID, err error) {
+func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storxnetwork.StreamID) (_ *internalpb.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satStreamID := &internalpb.StreamID{}
@@ -284,7 +284,7 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 	return satStreamID, nil
 }
 
-func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (_ *internalpb.SegmentID, err error) {
+func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storxnetwork.SegmentID) (_ *internalpb.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(segmentID) == 0 {

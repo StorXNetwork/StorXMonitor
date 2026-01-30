@@ -10,11 +10,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgtest"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestRun(t *testing.T) {

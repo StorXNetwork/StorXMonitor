@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/useragent"
+	"github.com/StorXNetwork/common/useragent"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"

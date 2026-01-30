@@ -15,10 +15,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/bloomfilter"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -38,7 +38,7 @@ type Config struct {
 
 // Request contains all the info necessary to process a retain request.
 type Request struct {
-	SatelliteID   storj.NodeID
+	SatelliteID   storxnetwork.NodeID
 	CreatedBefore time.Time
 	Filter        *bloomfilter.Filter
 }
@@ -120,7 +120,7 @@ type Service struct {
 
 	cond    sync.Cond
 	queue   Queue
-	working map[storj.NodeID]struct{}
+	working map[storxnetwork.NodeID]struct{}
 	group   errgroup.Group
 
 	closedOnce sync.Once
@@ -144,7 +144,7 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 
 		cond:    *sync.NewCond(&sync.Mutex{}),
 		queue:   &cache,
-		working: make(map[storj.NodeID]struct{}),
+		working: make(map[storxnetwork.NodeID]struct{}),
 		closed:  make(chan struct{}),
 
 		store: store,
@@ -366,7 +366,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		zap.Int64("Filter Size", filter.Size()),
 		zap.Stringer("Satellite ID", satelliteID))
 
-	pieceIDs, piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
+	pieceIDs, piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storxnetwork.PieceID) error {
 		// if retain status is enabled, trash the piece
 		if s.config.Status == Enabled {
 			if err := s.trash(ctx, satelliteID, pieceID, startedAt); err != nil {
@@ -408,7 +408,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 }
 
 // trash wraps retains piece deletion to monitor moving retained piece to trash error during garbage collection.
-func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, timestamp time.Time) (err error) {
+func (s *Service) trash(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx, satelliteID)(&err)
 	return s.store.Trash(ctx, satelliteID, pieceID, timestamp)
 }

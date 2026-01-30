@@ -7,14 +7,14 @@ import (
 	"math"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 // MakeStorageUsageStamps creates storage usage stamps and expected summaries for provided satellites.
 // Creates one entry per day for 30 days with last date as beginning of provided endDate.
-func MakeStorageUsageStamps(satellites []storj.NodeID, days int, endDate time.Time) []storageusage.Stamp {
+func MakeStorageUsageStamps(satellites []storxnetwork.NodeID, days int, endDate time.Time) []storageusage.Stamp {
 	var stamps []storageusage.Stamp
 
 	startDate := time.Date(endDate.Year(), endDate.Month(), endDate.Day()-days, 0, 0, 0, 0, endDate.Location())

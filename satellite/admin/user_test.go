@@ -17,14 +17,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestUserGet(t *testing.T) {
@@ -55,7 +55,7 @@ func TestUserGet(t *testing.T) {
 				project.Owner.ID,
 				project.Owner.Email,
 				projLimit,
-				storj.DefaultPlacement,
+				storxnetwork.DefaultPlacement,
 				user.PaidTier,
 			) +
 			fmt.Sprintf(
@@ -966,7 +966,7 @@ func TestSetUsersGeofence(t *testing.T) {
 		db := planet.Satellites[0].DB
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
 		project := planet.Uplinks[0].Projects[0]
-		newPlacement := storj.EU
+		newPlacement := storxnetwork.EU
 		newPlacementStr := "EU"
 		link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/geofence", project.Owner.Email)
 
@@ -982,7 +982,7 @@ func TestSetUsersGeofence(t *testing.T) {
 			assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 			updatedUser, err = db.Console().Users().Get(ctx, project.Owner.ID)
 			require.NoError(t, err)
-			require.Equal(t, storj.DefaultPlacement, updatedUser.DefaultPlacement)
+			require.Equal(t, storxnetwork.DefaultPlacement, updatedUser.DefaultPlacement)
 		})
 
 		t.Run("Same Placement", func(t *testing.T) {

@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestDeleteBucketObjects(t *testing.T) {
@@ -168,8 +168,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
 						CreatedAt: now,
 
-						RootPieceID:       storj.PieceID{1},
-						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						RootPieceID:       storxnetwork.PieceID{1},
+						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
@@ -185,8 +185,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
 						CreatedAt: now,
 
-						RootPieceID:       storj.PieceID{1},
-						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						RootPieceID:       storxnetwork.PieceID{1},
+						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},

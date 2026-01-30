@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeAlias is a metabase local alias for NodeID-s to reduce segment table size.
@@ -18,13 +18,13 @@ type NodeAlias int32
 
 // NodeAliasEntry is a mapping between NodeID and NodeAlias.
 type NodeAliasEntry struct {
-	ID    storj.NodeID
+	ID    storxnetwork.NodeID
 	Alias NodeAlias
 }
 
 // EnsureNodeAliases contains arguments necessary for creating NodeAlias-es.
 type EnsureNodeAliases struct {
-	Nodes []storj.NodeID
+	Nodes []storxnetwork.NodeID
 }
 
 // EnsureNodeAliases ensures that the supplied node ID-s have a alias.
@@ -32,8 +32,8 @@ type EnsureNodeAliases struct {
 func (db *DB) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	unique := make([]storj.NodeID, 0, len(opts.Nodes))
-	seen := make(map[storj.NodeID]bool, len(opts.Nodes))
+	unique := make([]storxnetwork.NodeID, 0, len(opts.Nodes))
+	seen := make(map[storxnetwork.NodeID]bool, len(opts.Nodes))
 
 	for _, node := range opts.Nodes {
 		if node.IsZero() {
@@ -45,7 +45,7 @@ func (db *DB) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (er
 		}
 	}
 
-	sort.Sort(storj.NodeIDList(unique))
+	sort.Sort(storxnetwork.NodeIDList(unique))
 
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO node_aliases(node_id)

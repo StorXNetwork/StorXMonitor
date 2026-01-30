@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
 )
 
 func TestNodeAttribute(t *testing.T) {
@@ -37,8 +37,8 @@ func TestNodeAttribute(t *testing.T) {
 		CountryCode: location.Germany,
 	}))
 
-	signerID := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID
-	otherSignerID := testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID
+	signerID := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID
+	otherSignerID := testidentity.MustPregeneratedIdentity(2, storxnetwork.LatestIDVersion()).ID
 
 	assert.Equal(t, "bar", must(CreateNodeAttribute(fmt.Sprintf("tag:%s/foo", signerID)))(SelectedNode{
 		Tags: NodeTags{

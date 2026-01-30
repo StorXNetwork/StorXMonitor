@@ -8,9 +8,9 @@ import (
 	"database/sql"
 	"errors"
 
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // GetStreamPieceCountByNodeID contains arguments for GetStreamPieceCountByNodeID.
@@ -19,7 +19,7 @@ type GetStreamPieceCountByNodeID struct {
 }
 
 // GetStreamPieceCountByNodeID returns piece count by node id.
-func (db *DB) GetStreamPieceCountByNodeID(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[storj.NodeID]int64, err error) {
+func (db *DB) GetStreamPieceCountByNodeID(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[storxnetwork.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if opts.StreamID.IsZero() {
@@ -27,7 +27,7 @@ func (db *DB) GetStreamPieceCountByNodeID(ctx context.Context, opts GetStreamPie
 	}
 
 	countByAlias := map[NodeAlias]int64{}
-	result = map[storj.NodeID]int64{}
+	result = map[storxnetwork.NodeID]int64{}
 	err = withRows(db.db.QueryContext(ctx, `
 		SELECT remote_alias_pieces
 		FROM   segments

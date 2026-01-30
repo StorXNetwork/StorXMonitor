@@ -11,20 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 var randomEncryptedKey = testrand.Bytes(48)
@@ -174,7 +174,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 			encodedSegmentID, err := pb.Marshal(signedSegmentID)
 			require.NoError(t, err)
 
-			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+			segmentID, err := storxnetwork.SegmentIDFromBytes(encodedSegmentID)
 			require.NoError(t, err)
 
 			err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{SegmentID: segmentID})
@@ -256,7 +256,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 					encodedStreamID, err := pb.Marshal(signedStreamID)
 					require.NoError(t, err)
 
-					streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+					streamID, err := storxnetwork.StreamIDFromBytes(encodedStreamID)
 					require.NoError(t, err)
 
 					err = client.CommitObject(ctx, metaclient.CommitObjectParams{StreamID: streamID})
@@ -285,7 +285,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 					encodedSegmentID, err := pb.Marshal(signedSegmentID)
 					require.NoError(t, err)
 
-					segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+					segmentID, err := storxnetwork.SegmentIDFromBytes(encodedSegmentID)
 					require.NoError(t, err)
 
 					err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{SegmentID: segmentID})
@@ -347,7 +347,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 				encodedStreamID, err := pb.Marshal(signedStreamID)
 				require.NoError(t, err)
 
-				streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+				streamID, err := storxnetwork.StreamIDFromBytes(encodedStreamID)
 				require.NoError(t, err)
 
 				err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
@@ -365,7 +365,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 				encodedSegmentID, err := pb.Marshal(signedSegmentID)
 				require.NoError(t, err)
 
-				segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+				segmentID, err := storxnetwork.SegmentIDFromBytes(encodedSegmentID)
 				require.NoError(t, err)
 
 				err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{
@@ -386,7 +386,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 				encodedSegmentID, err := pb.Marshal(signedSegmentID)
 				require.NoError(t, err)
 
-				segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+				segmentID, err := storxnetwork.SegmentIDFromBytes(encodedSegmentID)
 				require.NoError(t, err)
 
 				err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{

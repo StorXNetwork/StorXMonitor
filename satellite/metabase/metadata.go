@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // UpdateObjectLastCommittedMetadata contains arguments necessary for replacing an object metadata.

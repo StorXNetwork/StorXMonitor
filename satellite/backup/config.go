@@ -6,8 +6,8 @@ package backup
 import (
 	"time"
 
-	"storj.io/common/debug"
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/memory"
 	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
 )
 

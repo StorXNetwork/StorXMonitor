@@ -20,15 +20,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
@@ -36,7 +27,16 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 type segment struct {
@@ -256,7 +256,7 @@ func repairSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repaire
 }
 
 func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment, segmentData []byte) error {
-	excludeNodeIDs := make([]storj.NodeID, 0, len(segment.Pieces))
+	excludeNodeIDs := make([]storxnetwork.NodeID, 0, len(segment.Pieces))
 	for _, piece := range segment.Pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.StorageNode)
 	}

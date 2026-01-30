@@ -22,7 +22,7 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
 
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 )
 
 // ideally these would use a custom error map, but it seems annoying to integrate with Go.

@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (

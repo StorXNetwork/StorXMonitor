@@ -10,25 +10,25 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestGetExitingNodes(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
-		exiting := make(map[storj.NodeID]bool)
+		exiting := make(map[storxnetwork.NodeID]bool)
 		exitingCount := 0
-		exitingLoopIncomplete := make(map[storj.NodeID]bool)
+		exitingLoopIncomplete := make(map[storxnetwork.NodeID]bool)
 		exitingLoopIncompleteCount := 0
 
 		testData := []struct {
-			nodeID                  storj.NodeID
+			nodeID                  storxnetwork.NodeID
 			initiatedAt             time.Time
 			completedAt             time.Time
 			finishedAt              time.Time
@@ -82,7 +82,7 @@ func TestGetExitingNodes(t *testing.T) {
 
 		nodes, err = cache.GetExitingNodes(ctx)
 		require.NoError(t, err)
-		exitingNodesLoopIncomplete := make(storj.NodeIDList, 0, len(nodes))
+		exitingNodesLoopIncomplete := make(storxnetwork.NodeIDList, 0, len(nodes))
 		for _, node := range nodes {
 			if node.ExitLoopCompletedAt == nil {
 				exitingNodesLoopIncomplete = append(exitingNodesLoopIncomplete, node.NodeID)
@@ -98,16 +98,16 @@ func TestGetExitingNodes(t *testing.T) {
 func TestGetGracefulExitNodesByTimeframe(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
-		exitingToday := make(map[storj.NodeID]bool)
-		exitingLastWeek := make(map[storj.NodeID]bool)
-		exitedToday := make(map[storj.NodeID]bool)
-		exitedLastWeek := make(map[storj.NodeID]bool)
+		exitingToday := make(map[storxnetwork.NodeID]bool)
+		exitingLastWeek := make(map[storxnetwork.NodeID]bool)
+		exitedToday := make(map[storxnetwork.NodeID]bool)
+		exitedLastWeek := make(map[storxnetwork.NodeID]bool)
 
 		now := time.Now()
 		lastWeek := time.Now().AddDate(0, 0, -7)
 
 		testData := []struct {
-			nodeID      storj.NodeID
+			nodeID      storxnetwork.NodeID
 			initiatedAt time.Time
 			completedAt time.Time
 			finishedAt  time.Time

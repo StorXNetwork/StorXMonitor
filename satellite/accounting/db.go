@@ -8,29 +8,29 @@ import (
 	"fmt"
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RollupStats is a convenience alias.
-type RollupStats map[time.Time]map[storj.NodeID]*Rollup
+type RollupStats map[time.Time]map[storxnetwork.NodeID]*Rollup
 
 // StoragenodeStorageTally mirrors dbx.StoragenodeStorageTally, allowing us to use that struct without leaking dbx.
 type StoragenodeStorageTally struct {
 	ID              int64
-	NodeID          storj.NodeID
+	NodeID          storxnetwork.NodeID
 	IntervalEndTime time.Time
 	DataTotal       float64
 }
 
 // StoragenodeBandwidthRollup mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx.
 type StoragenodeBandwidthRollup struct {
-	NodeID        storj.NodeID
+	NodeID        storxnetwork.NodeID
 	IntervalStart time.Time
 	Action        uint
 	Settled       uint64
@@ -39,7 +39,7 @@ type StoragenodeBandwidthRollup struct {
 // Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx.
 type Rollup struct {
 	ID              int64
-	NodeID          storj.NodeID
+	NodeID          storxnetwork.NodeID
 	StartTime       time.Time
 	PutTotal        int64
 	GetTotal        int64
@@ -52,7 +52,7 @@ type Rollup struct {
 
 // StorageNodePeriodUsage represents a statement for a node for a compensation period.
 type StorageNodePeriodUsage struct {
-	NodeID         storj.NodeID
+	NodeID         storxnetwork.NodeID
 	AtRestTotal    float64
 	GetTotal       int64
 	PutTotal       int64
@@ -63,7 +63,7 @@ type StorageNodePeriodUsage struct {
 
 // StorageNodeUsage is node at rest space usage over a period of time.
 type StorageNodeUsage struct {
-	NodeID      storj.NodeID
+	NodeID      storxnetwork.NodeID
 	StorageUsed float64
 
 	Timestamp       time.Time
@@ -116,8 +116,8 @@ type BucketUsage struct {
 	ProjectID  uuid.UUID `json:"projectID"`
 	BucketName string    `json:"bucketName"`
 
-	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
-	Location         string                    `json:"location"`
+	DefaultPlacement storxnetwork.PlacementConstraint `json:"defaultPlacement"`
+	Location         string                           `json:"location"`
 
 	Versioning buckets.Versioning `json:"versioning"`
 
@@ -212,7 +212,7 @@ type Usage struct {
 // architecture: Database
 type StoragenodeAccounting interface {
 	// SaveTallies records tallies of data at rest
-	SaveTallies(ctx context.Context, latestTally time.Time, nodes []storj.NodeID, tallies []float64) error
+	SaveTallies(ctx context.Context, latestTally time.Time, nodes []storxnetwork.NodeID, tallies []float64) error
 	// GetTallies retrieves all tallies
 	GetTallies(ctx context.Context) ([]*StoragenodeStorageTally, error)
 	// GetTalliesSince retrieves all tallies since latestRollup
@@ -228,7 +228,7 @@ type StoragenodeAccounting interface {
 	// QueryStorageNodePeriodUsage returns accounting statements for nodes for a given compensation period
 	QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) ([]StorageNodePeriodUsage, error)
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
-	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
+	QueryStorageNodeUsage(ctx context.Context, nodeID storxnetwork.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time, batchSize int) error
 	// ArchiveRollupsBefore archives rollups older than a given time and returns num storagenode and bucket bandwidth rollups archived.

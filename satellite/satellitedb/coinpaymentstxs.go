@@ -10,8 +10,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/currency"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"

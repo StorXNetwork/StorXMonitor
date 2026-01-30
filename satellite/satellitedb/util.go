@@ -6,7 +6,7 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/common/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // withRows ensures that rows get properly closed after the callback finishes.

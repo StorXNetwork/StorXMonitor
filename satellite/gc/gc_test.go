@@ -13,22 +13,22 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/base58"
-	"storj.io/common/encryption"
-	"storj.io/common/memory"
-	"storj.io/common/paths"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
-	"storj.io/uplink/private/eestream"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/common/base58"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/paths"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/eestream"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 // TestGarbageCollection does the following:
@@ -74,7 +74,7 @@ func TestGarbageCollection(t *testing.T) {
 
 		objectLocationToDelete, segmentToDelete := getSegment(ctx, t, satellite, upl, "testbucket", "test/path/1")
 
-		var deletedPieceID storj.PieceID
+		var deletedPieceID storxnetwork.PieceID
 		for _, p := range segmentToDelete.Pieces {
 			if p.StorageNode == targetNode.ID() {
 				deletedPieceID = segmentToDelete.RootPieceID.Derive(p.StorageNode, int32(p.Number))
@@ -86,7 +86,7 @@ func TestGarbageCollection(t *testing.T) {
 		err = upl.Upload(ctx, satellite, "testbucket", "test/path/2", testData2)
 		require.NoError(t, err)
 		_, segmentToKeep := getSegment(ctx, t, satellite, upl, "testbucket", "test/path/2")
-		var keptPieceID storj.PieceID
+		var keptPieceID storxnetwork.PieceID
 		for _, p := range segmentToKeep.Pieces {
 			if p.StorageNode == targetNode.ID() {
 				keptPieceID = segmentToKeep.RootPieceID.Derive(p.StorageNode, int32(p.Number))
@@ -191,8 +191,8 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 		expectedRemoteData := testrand.Bytes(8 * memory.KiB)
 		expectedInlineData := testrand.Bytes(1 * memory.KiB)
 
-		encryptedSize, err := encryption.CalcEncryptedSize(int64(len(expectedRemoteData)), storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
+		encryptedSize, err := encryption.CalcEncryptedSize(int64(len(expectedRemoteData)), storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.EncAESGCM,
 			BlockSize:   29 * 256 * memory.B.Int32(), // hardcoded value from uplink
 		})
 		require.NoError(t, err)
@@ -337,8 +337,8 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 		expectedRemoteData := testrand.Bytes(8 * memory.KiB)
 		expectedInlineData := testrand.Bytes(1 * memory.KiB)
 
-		encryptedSize, err := encryption.CalcEncryptedSize(int64(len(expectedRemoteData)), storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
+		encryptedSize, err := encryption.CalcEncryptedSize(int64(len(expectedRemoteData)), storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.EncAESGCM,
 			BlockSize:   29 * 256 * memory.B.Int32(), // hardcoded value from uplink
 		})
 		require.NoError(t, err)
@@ -483,14 +483,14 @@ func encryptionAccess(access string) (*encryption.Store, error) {
 		return nil, err
 	}
 
-	key, err := storj.NewKey(p.EncryptionAccess.DefaultKey)
+	key, err := storxnetwork.NewKey(p.EncryptionAccess.DefaultKey)
 	if err != nil {
 		return nil, err
 	}
 
 	store := encryption.NewStore()
 	store.SetDefaultKey(key)
-	store.SetDefaultPathCipher(storj.EncAESGCM)
+	store.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 
 	return store, nil
 }
@@ -543,7 +543,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 	})
 }
 
-func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, data []byte) string {
+func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storxnetwork.Path, data []byte) string {
 	_, found := testuplink.GetMaxSegmentSize(ctx)
 	if !found {
 		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)
@@ -568,7 +568,7 @@ func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.
 	return info.UploadID
 }
 
-func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, streamID string) {
+func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storxnetwork.Path, streamID string) {
 	_, found := testuplink.GetMaxSegmentSize(ctx)
 	if !found {
 		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)

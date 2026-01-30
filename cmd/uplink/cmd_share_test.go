@@ -10,14 +10,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/grant"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/drpc/drpcmux"
-	"storj.io/drpc/drpcserver"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/drpc/drpcmux"
+	"github.com/StorXNetwork/drpc/drpcserver"
 )
 
 const testAPIKey = "13Yqe3oHi5dcnGhMu2ru3cmePC9iEYv6nDrYMbLRh4wre1KtVA9SFwLNAuuvWwc43b9swRsrfsnrbuTHQ6TJKVt4LjGnaARN9PhxJEu"
@@ -196,7 +196,7 @@ func TestShare(t *testing.T) {
 		apiKey, err := macaroon.ParseAPIKey(testAPIKey)
 		require.NoError(t, err)
 
-		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
+		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storxnetwork.Key{})
 		grantAccess := grant.Access{
 			SatelliteAddress: "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777",
 			APIKey:           apiKey,

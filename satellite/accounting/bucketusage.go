@@ -6,7 +6,7 @@ package accounting
 import (
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // BucketStorageTally holds data about a bucket tally.

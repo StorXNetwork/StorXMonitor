@@ -6,7 +6,7 @@ package nodeselection
 import (
 	mathrand "math/rand"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // UnvettedSelector selects new nodes first based on newNodeFraction, and selects old nodes for the remaining.
@@ -24,7 +24,7 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 
 		newSelector := init(newNodes, filter)
 		oldSelector := init(oldNodes, filter)
-		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+		return func(n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
 			newNodeCount := int(float64(n) * newNodeFraction)
 
 			selectedNewNodes, err := newSelector(newNodeCount, excluded, alreadySelected)
@@ -75,7 +75,7 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			attributes = append(attributes, k)
 		}
 
-		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
 			}
@@ -105,7 +105,7 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 	}
 }
 
-func included(alreadySelected []storj.NodeID, nodes ...*SelectedNode) bool {
+func included(alreadySelected []storxnetwork.NodeID, nodes ...*SelectedNode) bool {
 	for _, node := range nodes {
 		for _, id := range alreadySelected {
 			if node.ID == id {
@@ -139,7 +139,7 @@ func RandomSelector() NodeSelectorInit {
 			filteredNodes = append(filteredNodes, node)
 		}
 
-		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
 			}
@@ -201,7 +201,7 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 			count += len(nodeList)
 		}
 		mon.IntVal("selector_balanced_filtered_nodes").Observe(int64(count))
-		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
 			}

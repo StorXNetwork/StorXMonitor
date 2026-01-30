@@ -10,27 +10,27 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		ordersdb := db.Orders()
 
-		storagenode := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		storagenode := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion())
 
-		piece := storj.NewPieceID()
+		piece := storxnetwork.NewPieceID()
 
 		// basic test
 		emptyUnsent, err := ordersdb.ListUnsent(ctx, 100)
@@ -44,7 +44,7 @@ func TestDB(t *testing.T) {
 		now := time.Now()
 		before := now.Add(-time.Second)
 
-		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+		piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 		require.NoError(t, err)
 
 		infos := make([]*ordersfile.Info, 2)
@@ -103,7 +103,7 @@ func TestDB(t *testing.T) {
 		unsentGrouped, err := ordersdb.ListUnsentBySatellite(ctx)
 		require.NoError(t, err)
 
-		expectedGrouped := map[storj.NodeID][]*ordersfile.Info{}
+		expectedGrouped := map[storxnetwork.NodeID][]*ordersfile.Info{}
 		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival

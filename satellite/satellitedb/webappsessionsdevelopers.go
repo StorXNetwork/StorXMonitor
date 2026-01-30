@@ -11,10 +11,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensures that *webappSessionDevelopers implements consoleauth.WebappSessionDevelopers.

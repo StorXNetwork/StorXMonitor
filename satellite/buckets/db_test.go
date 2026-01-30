@@ -9,17 +9,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
@@ -27,21 +27,21 @@ func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
 		ID:                  testrand.UUID(),
 		Name:                name,
 		ProjectID:           projectID,
-		PathCipher:          storj.EncAESGCM,
+		PathCipher:          storxnetwork.EncAESGCM,
 		DefaultSegmentsSize: 65536,
-		DefaultRedundancyScheme: storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		DefaultRedundancyScheme: storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			ShareSize:      9,
 			RequiredShares: 10,
 			RepairShares:   11,
 			OptimalShares:  12,
 			TotalShares:    13,
 		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
+		DefaultEncryptionParameters: storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.EncAESGCM,
 			BlockSize:   9 * 10,
 		},
-		Placement: storj.EU,
+		Placement: storxnetwork.EU,
 	}
 }
 

@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestRepairQueue(t *testing.T) {
@@ -29,7 +29,7 @@ func TestRepairQueue(t *testing.T) {
 				Index: 2,
 			},
 			SegmentHealth: 10,
-			Placement:     storj.PlacementConstraint(i),
+			Placement:     storxnetwork.PlacementConstraint(i),
 		}
 	}
 
@@ -52,7 +52,7 @@ func TestRepairQueue(t *testing.T) {
 			StreamID:      testSegments[0].StreamID,
 			Position:      testSegments[0].Position,
 			SegmentHealth: 12,
-			Placement:     storj.PlacementConstraint(99),
+			Placement:     storxnetwork.PlacementConstraint(99),
 		})
 		require.NoError(t, err)
 		require.True(t, alreadyInserted)
@@ -60,7 +60,7 @@ func TestRepairQueue(t *testing.T) {
 		rs1, err := rq.Select(ctx, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, testSegments[0].StreamID, rs1.StreamID)
-		require.Equal(t, storj.PlacementConstraint(99), rs1.Placement)
+		require.Equal(t, storxnetwork.PlacementConstraint(99), rs1.Placement)
 		require.Equal(t, testSegments[0].Position, rs1.Position)
 		require.Equal(t, float64(12), rs1.SegmentHealth)
 
@@ -108,7 +108,7 @@ func TestRepairQueue_PlacementRestrictions(t *testing.T) {
 					Index: 2,
 				},
 				SegmentHealth: 10,
-				Placement:     storj.PlacementConstraint(i % 10),
+				Placement:     storxnetwork.PlacementConstraint(i % 10),
 			}
 		}
 
@@ -126,23 +126,23 @@ func TestRepairQueue_PlacementRestrictions(t *testing.T) {
 
 		for i := 0; i < 2; i++ {
 			// placement constraint
-			selected, err := rq.Select(ctx, []storj.PlacementConstraint{1, 2}, nil)
+			selected, err := rq.Select(ctx, []storxnetwork.PlacementConstraint{1, 2}, nil)
 			require.NoError(t, err)
 			require.True(t, selected.Placement == 1 || selected.Placement == 2, "Expected placement 1 or 2 but was %d", selected.Placement)
 
-			selected, err = rq.Select(ctx, []storj.PlacementConstraint{3, 4}, []storj.PlacementConstraint{3})
+			selected, err = rq.Select(ctx, []storxnetwork.PlacementConstraint{3, 4}, []storxnetwork.PlacementConstraint{3})
 			require.NoError(t, err)
-			require.Equal(t, storj.PlacementConstraint(4), selected.Placement)
+			require.Equal(t, storxnetwork.PlacementConstraint(4), selected.Placement)
 
-			selected, err = rq.Select(ctx, nil, []storj.PlacementConstraint{0, 1, 2, 3, 4})
+			selected, err = rq.Select(ctx, nil, []storxnetwork.PlacementConstraint{0, 1, 2, 3, 4})
 			require.NoError(t, err)
 			require.True(t, selected.Placement > 4)
 
-			selected, err = rq.Select(ctx, []storj.PlacementConstraint{9}, []storj.PlacementConstraint{1, 2, 3, 4})
+			selected, err = rq.Select(ctx, []storxnetwork.PlacementConstraint{9}, []storxnetwork.PlacementConstraint{1, 2, 3, 4})
 			require.NoError(t, err)
-			require.Equal(t, storj.PlacementConstraint(9), selected.Placement)
+			require.Equal(t, storxnetwork.PlacementConstraint(9), selected.Placement)
 
-			_, err = rq.Select(ctx, []storj.PlacementConstraint{11}, nil)
+			_, err = rq.Select(ctx, []storxnetwork.PlacementConstraint{11}, nil)
 			require.Error(t, err)
 		}
 
@@ -154,7 +154,7 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 		testSegments := make([]*queue.InjuredSegment, 5)
 		for i := 0; i < len(testSegments); i++ {
 
-			placement := storj.PlacementConstraint(i % 10)
+			placement := storxnetwork.PlacementConstraint(i % 10)
 			uuid := testrand.UUID()
 			uuid[0] = byte(placement)
 
@@ -175,9 +175,9 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < len(testSegments); i++ {
-			segment, err := rq.Select(ctx, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
+			segment, err := rq.Select(ctx, []storxnetwork.PlacementConstraint{storxnetwork.PlacementConstraint(i)}, nil)
 			require.NoError(t, err)
-			assert.Equal(t, storj.PlacementConstraint(segment.StreamID[0]), segment.Placement)
+			assert.Equal(t, storxnetwork.PlacementConstraint(segment.StreamID[0]), segment.Placement)
 		}
 
 		// fresh inserts again
@@ -193,9 +193,9 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < len(testSegments); i++ {
-			segment, err := rq.Select(ctx, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
+			segment, err := rq.Select(ctx, []storxnetwork.PlacementConstraint{storxnetwork.PlacementConstraint(i)}, nil)
 			require.NoError(t, err)
-			require.Equal(t, storj.PlacementConstraint(segment.StreamID[0]), segment.Placement+1)
+			require.Equal(t, storxnetwork.PlacementConstraint(segment.StreamID[0]), segment.Placement+1)
 		}
 
 	})
@@ -206,7 +206,7 @@ func TestRepairQueue_Stat(t *testing.T) {
 		testSegments := make([]*queue.InjuredSegment, 20)
 		for i := 0; i < len(testSegments); i++ {
 
-			placement := storj.PlacementConstraint(i % 5)
+			placement := storxnetwork.PlacementConstraint(i % 5)
 			uuid := testrand.UUID()
 			uuid[0] = byte(placement)
 

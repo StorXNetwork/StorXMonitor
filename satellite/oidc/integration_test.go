@@ -21,17 +21,17 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/grant"
-	"storj.io/common/macaroon"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
 )
 
 func send(t *testing.T, body io.Reader, response interface{}, status int, parts ...string) {
@@ -283,12 +283,12 @@ func TestOIDC(t *testing.T) {
 		require.NoError(t, err)
 
 		// in practice, you should decrypt the cubbyhole and pass it here
-		key, err := storj.NewKey([]byte(info.Cubbyhole))
+		key, err := storxnetwork.NewKey([]byte(info.Cubbyhole))
 		require.NoError(t, err)
 
 		encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
 		encAccess.SetDefaultKey(key)
-		encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+		encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 
 		accessGrant, err := (&grant.Access{
 			SatelliteAddress: sat.NodeURL().String(),

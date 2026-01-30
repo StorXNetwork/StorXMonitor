@@ -13,8 +13,8 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
-	"storj.io/common/process"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/version"
 )
 
 func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {

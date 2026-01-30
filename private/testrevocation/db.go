@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	"github.com/StorXNetwork/StorXMonitor/private/testredis"

@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/console"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrStorageNodeAPI - console storagenode api error type.
@@ -109,7 +109,7 @@ func (dashboard *StorageNode) Satellite(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(id)
+	satelliteID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		dashboard.serveJSONError(w, http.StatusBadRequest, ErrStorageNodeAPI.Wrap(err))
 		return
@@ -156,7 +156,7 @@ func (dashboard *StorageNode) EstimatedPayout(w http.ResponseWriter, r *http.Req
 			return
 		}
 	} else {
-		satelliteID, err := storj.NodeIDFromString(id)
+		satelliteID, err := storxnetwork.NodeIDFromString(id)
 		if err != nil {
 			dashboard.serveJSONError(w, http.StatusBadRequest, ErrPayoutAPI.Wrap(err))
 			return
@@ -189,7 +189,7 @@ func (dashboard *StorageNode) Pricing(w http.ResponseWriter, r *http.Request) {
 		dashboard.serveJSONError(w, http.StatusInternalServerError, ErrStorageNodeAPI.Wrap(err))
 		return
 	}
-	satelliteID, err := storj.NodeIDFromString(id)
+	satelliteID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		dashboard.serveJSONError(w, http.StatusBadRequest, ErrStorageNodeAPI.Wrap(err))
 		return

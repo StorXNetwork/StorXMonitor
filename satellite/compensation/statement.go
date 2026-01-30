@@ -10,8 +10,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/private/currency"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 // NodeInfo contains all of the information about a node and the operations
 // it performed in some period.
 type NodeInfo struct {
-	ID                 storj.NodeID
+	ID                 storxnetwork.NodeID
 	CreatedAt          time.Time
 	LastContactSuccess time.Time
 	Disqualified       *time.Time
@@ -56,7 +56,7 @@ type NodeInfo struct {
 
 // Statement is the computed amounts and codes from a node.
 type Statement struct {
-	NodeID       storj.NodeID
+	NodeID       storxnetwork.NodeID
 	Codes        Codes
 	AtRest       currency.MicroUnit
 	Get          currency.MicroUnit

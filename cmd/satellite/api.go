@@ -18,10 +18,10 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
-	"storj.io/common/context2"
-	"storj.io/common/process"
-	"storj.io/common/process/eventkitbq"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	"github.com/StorXNetwork/common/version"
 )
 
 func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {

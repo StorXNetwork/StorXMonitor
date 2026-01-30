@@ -21,16 +21,16 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestMinimumDiskSpace(t *testing.T) {
@@ -117,14 +117,14 @@ func TestOnlineOffline(t *testing.T) {
 		satellite := planet.Satellites[0]
 		service := satellite.Overlay.Service
 
-		selectedNodes, err := service.GetNodes(ctx, []storj.NodeID{
+		selectedNodes, err := service.GetNodes(ctx, []storxnetwork.NodeID{
 			planet.StorageNodes[0].ID(),
 		})
 		require.NoError(t, err)
 		require.Len(t, selectedNodes, 1)
 		require.True(t, selectedNodes[0].Online)
 
-		selectedNodes, err = service.GetNodes(ctx, []storj.NodeID{
+		selectedNodes, err = service.GetNodes(ctx, []storxnetwork.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -136,8 +136,8 @@ func TestOnlineOffline(t *testing.T) {
 			require.Equal(t, planet.StorageNodes[i].ID(), selectedNodes[i].ID, i)
 		}
 
-		unreliableNodeID := storj.NodeID{1, 2, 3, 4}
-		selectedNodes, err = service.GetNodes(ctx, []storj.NodeID{
+		unreliableNodeID := storxnetwork.NodeID{1, 2, 3, 4}
+		selectedNodes, err = service.GetNodes(ctx, []storxnetwork.NodeID{
 			planet.StorageNodes[0].ID(),
 			unreliableNodeID,
 			planet.StorageNodes[2].ID(),
@@ -148,7 +148,7 @@ func TestOnlineOffline(t *testing.T) {
 		require.False(t, selectedNodes[1].Online)
 		require.True(t, selectedNodes[2].Online)
 		require.Equal(t, planet.StorageNodes[0].ID(), selectedNodes[0].ID)
-		require.Equal(t, storj.NodeID{}, selectedNodes[1].ID)
+		require.Equal(t, storxnetwork.NodeID{}, selectedNodes[1].ID)
 		require.Equal(t, planet.StorageNodes[2].ID(), selectedNodes[2].ID)
 	})
 }
@@ -307,7 +307,7 @@ func TestNodeSelection(t *testing.T) {
 			service, db, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), tt.reputableNodes, 6, overlayDefaultConfig(tt.newNodeFraction), defaultNodes)
 			defer cleanup()
 
-			var excludedNodes []storj.NodeID
+			var excludedNodes []storxnetwork.NodeID
 			if tt.exclude > 0 {
 				for i := 0; i < tt.exclude; i++ {
 					excludedNodes = append(excludedNodes, db.reputable[i].ID)
@@ -424,7 +424,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		satellite := planet.Satellites[0]
 
 		// select one of the nodes that shares an IP with others to exclude
-		var excludedNodes storj.NodeIDList
+		var excludedNodes storxnetwork.NodeIDList
 		addrCounts := make(map[string]int)
 		var excludedNodeAddr string
 		for _, node := range planet.StorageNodes {
@@ -483,7 +483,7 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		satellite := planet.Satellites[0]
 
 		// select one of the nodes that shares an IP with others to exclude
-		var excludedNodes storj.NodeIDList
+		var excludedNodes storxnetwork.NodeIDList
 		addrCounts := make(map[string]int)
 		var excludedNodeAddr string
 		for _, node := range planet.StorageNodes {
@@ -623,7 +623,7 @@ func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, 
 	db := &mockdb{}
 	for i := 0; i < reputable+new; i++ {
 		node := nodeselection.SelectedNode{
-			ID:      testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			ID:      testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 			LastNet: fmt.Sprintf("10.9.%d.0", i),
 			Address: &pb.NodeAddress{
 				Address: fmt.Sprintf("10.9.%d.1:9999", i),

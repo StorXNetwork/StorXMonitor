@@ -13,15 +13,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
-	"storj.io/common/nodetag"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
@@ -32,6 +23,15 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/nodetag"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSegmentRepairPlacement(t *testing.T) {
@@ -54,7 +54,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "testbucket",
-			Placement: storj.EU,
+			Placement: storxnetwork.EU,
 		})
 		require.NoError(t, err)
 
@@ -201,7 +201,7 @@ func TestSegmentRepairInMemoryUpload(t *testing.T) {
 }
 
 func TestSegmentRepairWithNodeTags(t *testing.T) {
-	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
+	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()))
 	ctx := testcontext.New(t)
 
 	testplanet.Run(t, testplanet.Config{
@@ -227,7 +227,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			StorageNode: func(index int, config *storagenode.Config) {
 				if index >= 10 {
 					tags := &pb.NodeTagSet{
-						NodeId:   testidentity.MustPregeneratedSignedIdentity(index+1, storj.LatestIDVersion()).ID.Bytes(),
+						NodeId:   testidentity.MustPregeneratedSignedIdentity(index+1, storxnetwork.LatestIDVersion()).ID.Bytes(),
 						SignedAt: time.Now().Unix(),
 						Tags: []*pb.Tag{
 							{
@@ -295,7 +295,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			placement, err := planet.Satellites[0].Config.Placement.Parse(planet.Satellites[0].Config.Overlay.Node.CreateDefaultPlacement)
 			require.NoError(t, err)
 
-			require.Equal(t, storj.PlacementConstraint(10), segments[0].Placement)
+			require.Equal(t, storxnetwork.PlacementConstraint(10), segments[0].Placement)
 			ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, placement.CreateFilters)
 			require.NoError(t, err)
 			require.True(t, ok)
@@ -358,7 +358,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "testbucket",
-			Placement: storj.EU,
+			Placement: storxnetwork.EU,
 		})
 		require.NoError(t, err)
 
@@ -441,7 +441,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "testbucket",
-			Placement: storj.EU,
+			Placement: storxnetwork.EU,
 		})
 		require.NoError(t, err)
 
@@ -477,7 +477,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 
 func piecesOnNodeByIndex(ctx context.Context, planet *testplanet.Planet, pieces metabase.Pieces, allowedIndexes []int) error {
 
-	findIndex := func(id storj.NodeID) int {
+	findIndex := func(id storxnetwork.NodeID) int {
 		for ix, storagenode := range planet.StorageNodes {
 			if storagenode.ID() == id {
 				return ix
@@ -506,7 +506,7 @@ func piecesOnNodeByIndex(ctx context.Context, planet *testplanet.Planet, pieces 
 
 }
 
-func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint, rules nodeselection.PlacementRules) (bool, error) {
+func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces metabase.Pieces, placement storxnetwork.PlacementConstraint, rules nodeselection.PlacementRules) (bool, error) {
 	filter := rules(placement)
 	for _, piece := range pieces {
 
@@ -574,7 +574,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 					config.Repairer.DoDeclumping = false
 					config.Placement = placement
 					config.Repairer.IncludedPlacements = repairer.PlacementList{
-						Placements: []storj.PlacementConstraint{1},
+						Placements: []storxnetwork.PlacementConstraint{1},
 					}
 					// only on-demand execution
 					config.RangedLoop.Interval = 10 * time.Hour
@@ -591,7 +591,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 			_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Name:      "testbucket1",
-				Placement: storj.PlacementConstraint(1),
+				Placement: storxnetwork.PlacementConstraint(1),
 			})
 			require.NoError(t, err)
 
@@ -599,7 +599,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 			_, err = planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Name:      "testbucket2",
-				Placement: storj.PlacementConstraint(2),
+				Placement: storxnetwork.PlacementConstraint(2),
 			})
 			require.NoError(t, err)
 		}
@@ -691,7 +691,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 			require.Len(t, n, 1)
 
 			// segment no2 is still in the repair queue
-			require.Equal(t, storj.PlacementConstraint(2), n[0].Placement)
+			require.Equal(t, storxnetwork.PlacementConstraint(2), n[0].Placement)
 
 			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)

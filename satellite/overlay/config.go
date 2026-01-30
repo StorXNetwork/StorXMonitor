@@ -9,7 +9,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 

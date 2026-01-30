@@ -10,11 +10,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/drpc"
 	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
 	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/drpc"
 )
 
 var (
@@ -75,7 +75,7 @@ func (service *Service) EarnedSatellite(ctx context.Context) (earned []Satellite
 		return nil, Error.Wrap(err)
 	}
 
-	var listSatellites storj.NodeIDList
+	var listSatellites storxnetwork.NodeIDList
 	var listNodesEarnedPerSatellite []multinodepb.EarnedPerSatelliteResponse
 
 	for _, node := range storageNodes {
@@ -174,7 +174,7 @@ func (service *Service) SummaryPeriod(ctx context.Context, period string) (_ Sum
 }
 
 // SummarySatellite returns specific satellite all time stats.
-func (service *Service) SummarySatellite(ctx context.Context, satelliteID storj.NodeID) (_ Summary, err error) {
+func (service *Service) SummarySatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (_ Summary, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var summary Summary
 
@@ -200,7 +200,7 @@ func (service *Service) SummarySatellite(ctx context.Context, satelliteID storj.
 }
 
 // SummarySatellitePeriod returns specific satellite stats for specific period.
-func (service *Service) SummarySatellitePeriod(ctx context.Context, satelliteID storj.NodeID, period string) (_ Summary, err error) {
+func (service *Service) SummarySatellitePeriod(ctx context.Context, satelliteID storxnetwork.NodeID, period string) (_ Summary, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var summary Summary
 
@@ -226,8 +226,8 @@ func (service *Service) SummarySatellitePeriod(ctx context.Context, satelliteID 
 }
 
 // summarySatellite returns payout info for single satellite, for specific node.
-func (service *Service) summarySatellite(ctx context.Context, node nodes.Node, satelliteID storj.NodeID) (info *multinodepb.PayoutInfo, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+func (service *Service) summarySatellite(ctx context.Context, node nodes.Node, satelliteID storxnetwork.NodeID) (info *multinodepb.PayoutInfo, err error) {
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -253,8 +253,8 @@ func (service *Service) summarySatellite(ctx context.Context, node nodes.Node, s
 }
 
 // summarySatellitePeriod returns satellite payout info for specific node for specific period.
-func (service *Service) summarySatellitePeriod(ctx context.Context, node nodes.Node, satelliteID storj.NodeID, period string) (info *multinodepb.PayoutInfo, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+func (service *Service) summarySatellitePeriod(ctx context.Context, node nodes.Node, satelliteID storxnetwork.NodeID, period string) (info *multinodepb.PayoutInfo, err error) {
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -281,7 +281,7 @@ func (service *Service) summarySatellitePeriod(ctx context.Context, node nodes.N
 
 // summaryPeriod returns node's payout info for specific period.
 func (service *Service) summaryPeriod(ctx context.Context, node nodes.Node, period string) (info *multinodepb.PayoutInfo, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -308,7 +308,7 @@ func (service *Service) summaryPeriod(ctx context.Context, node nodes.Node, peri
 
 // summary returns node's total payout info.
 func (service *Service) summary(ctx context.Context, node nodes.Node) (info *multinodepb.PayoutInfo, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -334,7 +334,7 @@ func (service *Service) summary(ctx context.Context, node nodes.Node) (info *mul
 }
 
 // NodeExpectations returns node's estimated and undistributed earnings.
-func (service *Service) NodeExpectations(ctx context.Context, nodeID storj.NodeID) (_ Expectations, err error) {
+func (service *Service) NodeExpectations(ctx context.Context, nodeID storxnetwork.NodeID) (_ Expectations, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -379,7 +379,7 @@ func (service *Service) Expectations(ctx context.Context) (_ Expectations, err e
 }
 
 // HeldAmountSummary retrieves held amount history summary for a particular node.
-func (service *Service) HeldAmountSummary(ctx context.Context, nodeID storj.NodeID) (_ []HeldAmountSummary, err error) {
+func (service *Service) HeldAmountSummary(ctx context.Context, nodeID storxnetwork.NodeID) (_ []HeldAmountSummary, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -387,7 +387,7 @@ func (service *Service) HeldAmountSummary(ctx context.Context, nodeID storj.Node
 		return nil, Error.Wrap(err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -490,7 +490,7 @@ func (service *Service) heldAmountHistory(ctx context.Context, node nodes.Node, 
 
 // nodeExpectations retrieves data from a single node.
 func (service *Service) nodeExpectations(ctx context.Context, node nodes.Node) (_ Expectations, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -522,7 +522,7 @@ func (service *Service) nodeExpectations(ctx context.Context, node nodes.Node) (
 
 // earned returns earned from node.
 func (service *Service) earned(ctx context.Context, node nodes.Node) (_ int64, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -549,7 +549,7 @@ func (service *Service) earned(ctx context.Context, node nodes.Node) (_ int64, e
 
 // earnedSatellite returns earned split by satellites.
 func (service *Service) earnedSatellite(ctx context.Context, node nodes.Node) (_ multinodepb.EarnedPerSatelliteResponse, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -575,7 +575,7 @@ func (service *Service) earnedSatellite(ctx context.Context, node nodes.Node) (_
 }
 
 // PaystubSatellitePeriod returns specific satellite paystub for specific period.
-func (service *Service) PaystubSatellitePeriod(ctx context.Context, period string, nodeID, satelliteID storj.NodeID) (_ Paystub, err error) {
+func (service *Service) PaystubSatellitePeriod(ctx context.Context, period string, nodeID, satelliteID storxnetwork.NodeID) (_ Paystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -583,7 +583,7 @@ func (service *Service) PaystubSatellitePeriod(ctx context.Context, period strin
 		return Paystub{}, Error.Wrap(err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -626,7 +626,7 @@ func (service *Service) PaystubSatellitePeriod(ctx context.Context, period strin
 }
 
 // PaystubPeriod returns all satellites paystub for specific period.
-func (service *Service) PaystubPeriod(ctx context.Context, period string, nodeID storj.NodeID) (_ Paystub, err error) {
+func (service *Service) PaystubPeriod(ctx context.Context, period string, nodeID storxnetwork.NodeID) (_ Paystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -634,7 +634,7 @@ func (service *Service) PaystubPeriod(ctx context.Context, period string, nodeID
 		return Paystub{}, Error.Wrap(err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -676,7 +676,7 @@ func (service *Service) PaystubPeriod(ctx context.Context, period string, nodeID
 }
 
 // PaystubSatellite returns specific satellite summed paystubs.
-func (service *Service) PaystubSatellite(ctx context.Context, nodeID, satelliteID storj.NodeID) (_ Paystub, err error) {
+func (service *Service) PaystubSatellite(ctx context.Context, nodeID, satelliteID storxnetwork.NodeID) (_ Paystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -684,7 +684,7 @@ func (service *Service) PaystubSatellite(ctx context.Context, nodeID, satelliteI
 		return Paystub{}, Error.Wrap(err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -726,7 +726,7 @@ func (service *Service) PaystubSatellite(ctx context.Context, nodeID, satelliteI
 }
 
 // Paystub returns summed all paystubs.
-func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ Paystub, err error) {
+func (service *Service) Paystub(ctx context.Context, nodeID storxnetwork.NodeID) (_ Paystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -734,7 +734,7 @@ func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ Pay
 		return Paystub{}, Error.Wrap(err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
+	"github.com/StorXNetwork/common/errs2"
 	"github.com/StorXNetwork/StorXMonitor/multinode/bandwidth"
 	"github.com/StorXNetwork/StorXMonitor/multinode/console/controllers"
 	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"

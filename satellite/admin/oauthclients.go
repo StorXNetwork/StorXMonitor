@@ -9,7 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 )
 

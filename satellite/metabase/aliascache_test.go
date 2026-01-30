@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestNodeAliasCache(t *testing.T) {
@@ -37,18 +37,18 @@ func TestNodeAliasCache(t *testing.T) {
 
 		n1, n2 := testrand.NodeID(), testrand.NodeID()
 
-		aliases, err := cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
+		aliases, err := cache.EnsureAliases(ctx, []storxnetwork.NodeID{n1, n2})
 		require.NoError(t, err)
 		require.Equal(t, []metabase.NodeAlias{1, 2}, aliases)
 
 		nx1 := testrand.NodeID()
-		aliases, err = cache.EnsureAliases(ctx, []storj.NodeID{nx1, n1, n2})
+		aliases, err = cache.EnsureAliases(ctx, []storxnetwork.NodeID{nx1, n1, n2})
 		require.NoError(t, err)
 		require.Equal(t, []metabase.NodeAlias{3, 1, 2}, aliases)
 
 		nodes, err := cache.Nodes(ctx, aliases)
 		require.NoError(t, err)
-		require.Equal(t, []storj.NodeID{nx1, n1, n2}, nodes)
+		require.Equal(t, []storxnetwork.NodeID{nx1, n1, n2}, nodes)
 
 		nodes, err = cache.Nodes(ctx, []metabase.NodeAlias{3, 4, 1, 2})
 		require.EqualError(t, err, "metabase: aliases missing in database: [4]")
@@ -62,7 +62,7 @@ func TestNodeAliasCache(t *testing.T) {
 
 		n1, n2 := testrand.NodeID(), testrand.NodeID()
 
-		aliases, err := cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
+		aliases, err := cache.EnsureAliases(ctx, []storxnetwork.NodeID{n1, n2})
 		require.EqualError(t, err, "metabase: failed to update node alias db: io.EOF")
 		require.Empty(t, aliases)
 
@@ -88,7 +88,7 @@ func TestNodeAliasCache(t *testing.T) {
 					waiting.Done()
 					<-start
 
-					_, err := cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
+					_, err := cache.EnsureAliases(ctx, []storxnetwork.NodeID{n1, n2})
 					return err
 				})
 			}
@@ -107,7 +107,7 @@ func TestNodeAliasCache(t *testing.T) {
 
 			database := &NodeAliasDB{}
 			err := database.EnsureNodeAliases(ctx, metabase.EnsureNodeAliases{
-				Nodes: []storj.NodeID{n1, n2},
+				Nodes: []storxnetwork.NodeID{n1, n2},
 			})
 			require.NoError(t, err)
 
@@ -156,21 +156,21 @@ func TestNodeAliasCache_DB(t *testing.T) {
 
 			n1, n2 := testrand.NodeID(), testrand.NodeID()
 
-			aliases, err := cache.EnsureAliases(ctx, []storj.NodeID{n1})
+			aliases, err := cache.EnsureAliases(ctx, []storxnetwork.NodeID{n1})
 			require.NoError(t, err)
 			require.Equal(t, []metabase.NodeAlias{1}, aliases)
 
-			aliases, err = cache.EnsureAliases(ctx, []storj.NodeID{n2})
+			aliases, err = cache.EnsureAliases(ctx, []storxnetwork.NodeID{n2})
 			require.NoError(t, err)
 			require.Equal(t, []metabase.NodeAlias{2}, aliases)
 
-			aliases, err = cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
+			aliases, err = cache.EnsureAliases(ctx, []storxnetwork.NodeID{n1, n2})
 			require.NoError(t, err)
 			require.Equal(t, []metabase.NodeAlias{1, 2}, aliases)
 
 			nodes, err := cache.Nodes(ctx, aliases)
 			require.NoError(t, err)
-			require.Equal(t, []storj.NodeID{n1, n2}, nodes)
+			require.Equal(t, []storxnetwork.NodeID{n1, n2}, nodes)
 		})
 	})
 }
@@ -193,9 +193,9 @@ func TestNodeAliasMap(t *testing.T) {
 	}
 	{
 		emptyMap := metabase.NewNodeAliasMap(nil)
-		aliases, missing := emptyMap.Aliases([]storj.NodeID{n1, n2, n3})
+		aliases, missing := emptyMap.Aliases([]storxnetwork.NodeID{n1, n2, n3})
 		require.Empty(t, aliases)
-		require.Equal(t, []storj.NodeID{n1, n2, n3}, missing)
+		require.Equal(t, []storxnetwork.NodeID{n1, n2, n3}, missing)
 	}
 
 	{
@@ -210,13 +210,13 @@ func TestNodeAliasMap(t *testing.T) {
 		})
 		aggregate.Merge(beta)
 
-		aliases, missing := aggregate.Aliases([]storj.NodeID{n1, n2, n3})
+		aliases, missing := aggregate.Aliases([]storxnetwork.NodeID{n1, n2, n3})
 		require.Empty(t, missing)
 		require.Equal(t, []metabase.NodeAlias{1, 2, 5}, aliases)
 
 		nodes2, missing2 := aggregate.Nodes([]metabase.NodeAlias{1, 2, 5})
 		require.Empty(t, missing2)
-		require.Equal(t, []storj.NodeID{n1, n2, n3}, nodes2)
+		require.Equal(t, []storxnetwork.NodeID{n1, n2, n3}, nodes2)
 
 		nodes3, missing3 := aggregate.Nodes([]metabase.NodeAlias{3, 4})
 		require.Empty(t, nodes3)
@@ -234,7 +234,7 @@ func TestNodeAliasMap(t *testing.T) {
 
 	testNodes := []struct {
 		in      []metabase.NodeAlias
-		out     []storj.NodeID
+		out     []storxnetwork.NodeID
 		missing []metabase.NodeAlias
 	}{
 		{
@@ -242,7 +242,7 @@ func TestNodeAliasMap(t *testing.T) {
 		},
 		{
 			in:  []metabase.NodeAlias{1, 3, 2},
-			out: []storj.NodeID{n1, n3, n2},
+			out: []storxnetwork.NodeID{n1, n3, n2},
 		},
 		{
 			in:      []metabase.NodeAlias{5, 4},
@@ -264,25 +264,25 @@ func TestNodeAliasMap(t *testing.T) {
 	}
 
 	testAliases := []struct {
-		in      []storj.NodeID
+		in      []storxnetwork.NodeID
 		out     []metabase.NodeAlias
-		missing []storj.NodeID
+		missing []storxnetwork.NodeID
 	}{
 		{
 			in: nil,
 		},
 		{
-			in:  []storj.NodeID{n1, n3, n2},
+			in:  []storxnetwork.NodeID{n1, n3, n2},
 			out: []metabase.NodeAlias{1, 3, 2},
 		},
 		{
-			in:      []storj.NodeID{nx2, nx1},
-			missing: []storj.NodeID{nx2, nx1},
+			in:      []storxnetwork.NodeID{nx2, nx1},
+			missing: []storxnetwork.NodeID{nx2, nx1},
 		},
 		{
-			in:      []storj.NodeID{n1, nx2, n3, nx1, n2},
+			in:      []storxnetwork.NodeID{n1, nx2, n3, nx1, n2},
 			out:     []metabase.NodeAlias{1, 3, 2},
-			missing: []storj.NodeID{nx2, nx1},
+			missing: []storxnetwork.NodeID{nx2, nx1},
 		},
 	}
 	for _, test := range testAliases {
@@ -306,7 +306,7 @@ func BenchmarkNodeAliasCache_ConvertAliasesToPieces(b *testing.B) {
 	aliasDB := &NodeAliasDB{}
 	cache := metabase.NewNodeAliasCache(aliasDB)
 
-	nodeIDs := make([]storj.NodeID, 80)
+	nodeIDs := make([]storxnetwork.NodeID, 80)
 	for i := range nodeIDs {
 		nodeIDs[i] = testrand.NodeID()
 	}
@@ -355,7 +355,7 @@ func (db *NodeAliasDB) ShouldFail() error {
 	return db.fail
 }
 
-func (db *NodeAliasDB) Ensure(id storj.NodeID) {
+func (db *NodeAliasDB) Ensure(id storxnetwork.NodeID) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 

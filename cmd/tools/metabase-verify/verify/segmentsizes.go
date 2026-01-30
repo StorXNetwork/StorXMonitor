@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 

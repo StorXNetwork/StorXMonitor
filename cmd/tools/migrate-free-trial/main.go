@@ -16,10 +16,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/process"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/cockroachutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var mon = monkit.Package()
@@ -170,7 +170,7 @@ func Migrate(ctx context.Context, log *zap.Logger, conn *pgx.Conn, trialExpirati
 			}
 		}
 
-	if config.DryRun {
+		if config.DryRun {
 			continue
 		}
 

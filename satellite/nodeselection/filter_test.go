@@ -11,18 +11,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestCriteria_ExcludeNodeID(t *testing.T) {
 	included := testrand.NodeID()
 	excluded := testrand.NodeID()
 
-	criteria := NodeFilters{}.WithExcludedIDs([]storj.NodeID{excluded})
+	criteria := NodeFilters{}.WithExcludedIDs([]storxnetwork.NodeID{excluded})
 
 	assert.False(t, criteria.Match(&SelectedNode{
 		ID: excluded,
@@ -195,7 +195,7 @@ func TestNodeListFilter(t *testing.T) {
 	require.NoError(t, err)
 	selectedNode := func(pregeneratedIdentity int) *SelectedNode {
 		return &SelectedNode{
-			ID: testidentity.MustPregeneratedIdentity(pregeneratedIdentity, storj.LatestIDVersion()).ID,
+			ID: testidentity.MustPregeneratedIdentity(pregeneratedIdentity, storxnetwork.LatestIDVersion()).ID,
 		}
 	}
 	require.True(t, filter.Match(selectedNode(1)))

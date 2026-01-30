@@ -10,20 +10,20 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
-func calculateSpaceUsed(segmentSize int64, numberOfPieces int, rs storj.RedundancyScheme) (totalStored int64) {
+func calculateSpaceUsed(segmentSize int64, numberOfPieces int, rs storxnetwork.RedundancyScheme) (totalStored int64) {
 	pieceSize := segmentSize / int64(rs.RequiredShares)
 	return pieceSize * int64(numberOfPieces)
 }
@@ -71,8 +71,8 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	}
 
 	config := endpoint.config
-	defaultRedundancy := storj.RedundancyScheme{
-		Algorithm:      storj.ReedSolomon,
+	defaultRedundancy := storxnetwork.RedundancyScheme{
+		Algorithm:      storxnetwork.ReedSolomon,
 		RequiredShares: int16(config.RS.Min),
 		RepairShares:   int16(config.RS.Repair),
 		OptimalShares:  int16(config.RS.Success),
@@ -83,7 +83,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.TotalCount(),
-		Placement:      storj.PlacementConstraint(streamID.Placement),
+		Placement:      storxnetwork.PlacementConstraint(streamID.Placement),
 	}
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, request)
 	if err != nil {
@@ -210,13 +210,13 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// Find a new set of storage nodes, excluding any already represented in
 	// the current list of order limits.
 	// TODO: It's possible that a node gets reused across multiple calls to RetryBeginSegmentPieces.
-	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
+	excludedIDs := make([]storxnetwork.NodeID, 0, len(segmentID.OriginalOrderLimits))
 	for _, orderLimit := range segmentID.OriginalOrderLimits {
 		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
 	}
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
 		RequestedCount: len(req.RetryPieceNumbers),
-		Placement:      storj.PlacementConstraint(segmentID.StreamId.Placement),
+		Placement:      storxnetwork.PlacementConstraint(segmentID.StreamId.Placement),
 		ExcludedIDs:    excludedIDs,
 	})
 	if err != nil {
@@ -284,8 +284,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		)
 	}
 
-	rs := storj.RedundancyScheme{
-		Algorithm:      storj.RedundancyAlgorithm(endpoint.defaultRS.Type),
+	rs := storxnetwork.RedundancyScheme{
+		Algorithm:      storxnetwork.RedundancyAlgorithm(endpoint.defaultRS.Type),
 		RequiredShares: int16(endpoint.defaultRS.MinReq),
 		RepairShares:   int16(endpoint.defaultRS.RepairThreshold),
 		OptimalShares:  int16(endpoint.defaultRS.SuccessThreshold),
@@ -379,7 +379,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		RootPieceID: segmentID.RootPieceId,
 		Redundancy:  rs,
 		Pieces:      pieces,
-		Placement:   storj.PlacementConstraint(streamID.Placement),
+		Placement:   storxnetwork.PlacementConstraint(streamID.Placement),
 	}
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
@@ -591,7 +591,7 @@ func convertStreamListResults(result metabase.ListStreamPositionsResult) (*pb.Se
 		}
 		items[i].EncryptedETag = item.EncryptedETag
 		var err error
-		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
+		items[i].EncryptedKeyNonce, err = storxnetwork.NonceFromBytes(item.EncryptedKeyNonce)
 		if err != nil {
 			return nil, err
 		}
@@ -683,7 +683,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		)
 	}
 
-	encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
+	encryptedKeyNonce, err := storxnetwork.NonceFromBytes(segment.EncryptedKeyNonce)
 	if err != nil {
 		endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get encryption key nonce from metadata")

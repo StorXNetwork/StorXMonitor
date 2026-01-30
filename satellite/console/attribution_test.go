@@ -9,12 +9,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestUsers(t *testing.T) {
@@ -73,7 +73,7 @@ func TestUsers(t *testing.T) {
 			Name:                "testbucket",
 			ProjectID:           proj.ID,
 			Created:             time.Now(),
-			PathCipher:          storj.EncAESGCM,
+			PathCipher:          storxnetwork.EncAESGCM,
 			DefaultSegmentsSize: int64(100),
 		})
 		require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestUsers(t *testing.T) {
 			Name:                "testbucket",
 			ProjectID:           proj.ID,
 			Created:             time.Now(),
-			PathCipher:          storj.EncAESGCM,
+			PathCipher:          storxnetwork.EncAESGCM,
 			DefaultSegmentsSize: int64(100),
 			UserAgent:           testUserAgent,
 		})

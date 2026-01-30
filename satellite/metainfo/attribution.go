@@ -10,12 +10,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/useragent"
-	"storj.io/common/uuid"
-	"storj.io/drpc/drpccache"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/useragent"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/drpc/drpccache"
 	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"

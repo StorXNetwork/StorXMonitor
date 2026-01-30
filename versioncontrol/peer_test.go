@@ -17,8 +17,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var rolloutErrScenarios = []struct {

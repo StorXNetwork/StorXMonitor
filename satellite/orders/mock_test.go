@@ -10,9 +10,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 
-	storj "storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	overlay "github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	storxnetwork "github.com/StorXNetwork/common/storxnetwork"
 )
 
 // MockOverlayForOrders is a mock of Overlay interface.
@@ -39,10 +39,10 @@ func (m *MockOverlayForOrders) EXPECT() *MockOverlayForOrdersMockRecorder {
 }
 
 // CachedGetOnlineNodesForGet mocks base method.
-func (m *MockOverlayForOrders) CachedGetOnlineNodesForGet(arg0 context.Context, arg1 []storj.NodeID) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
+func (m *MockOverlayForOrders) CachedGetOnlineNodesForGet(arg0 context.Context, arg1 []storxnetwork.NodeID) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CachedGetOnlineNodesForGet", arg0, arg1)
-	ret0, _ := ret[0].(map[storj.NodeID]*nodeselection.SelectedNode)
+	ret0, _ := ret[0].(map[storxnetwork.NodeID]*nodeselection.SelectedNode)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -54,7 +54,7 @@ func (mr *MockOverlayForOrdersMockRecorder) CachedGetOnlineNodesForGet(arg0, arg
 }
 
 // Get mocks base method.
-func (m *MockOverlayForOrders) Get(arg0 context.Context, arg1 storj.NodeID) (*overlay.NodeDossier, error) {
+func (m *MockOverlayForOrders) Get(arg0 context.Context, arg1 storxnetwork.NodeID) (*overlay.NodeDossier, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(*overlay.NodeDossier)
@@ -69,10 +69,10 @@ func (mr *MockOverlayForOrdersMockRecorder) Get(arg0, arg1 interface{}) *gomock.
 }
 
 // GetOnlineNodesForAuditRepair mocks base method.
-func (m *MockOverlayForOrders) GetOnlineNodesForAuditRepair(arg0 context.Context, arg1 []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
+func (m *MockOverlayForOrders) GetOnlineNodesForAuditRepair(arg0 context.Context, arg1 []storxnetwork.NodeID) (map[storxnetwork.NodeID]*overlay.NodeReputation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOnlineNodesForAuditRepair", arg0, arg1)
-	ret0, _ := ret[0].(map[storj.NodeID]*overlay.NodeReputation)
+	ret0, _ := ret[0].(map[storxnetwork.NodeID]*overlay.NodeReputation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

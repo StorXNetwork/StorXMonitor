@@ -10,12 +10,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestContainmentSyncChore(t *testing.T) {
@@ -87,7 +87,7 @@ func TestContainmentSyncChore(t *testing.T) {
 	})
 }
 
-func requireInReverifyQueue(ctx context.Context, t testing.TB, reverifyQueue audit.ReverifyQueue, expectedNodes ...storj.NodeID) {
+func requireInReverifyQueue(ctx context.Context, t testing.TB, reverifyQueue audit.ReverifyQueue, expectedNodes ...storxnetwork.NodeID) {
 	nodesInReverifyQueue, err := reverifyQueue.GetAllContainedNodes(ctx)
 	require.NoError(t, err)
 
@@ -103,7 +103,7 @@ func requireInReverifyQueue(ctx context.Context, t testing.TB, reverifyQueue aud
 func requireContainedStatus(ctx context.Context, t testing.TB, cache overlay.DB, args ...interface{}) {
 	require.Equal(t, 0, len(args)%2, "must be given an even number of args")
 	for n := 0; n < len(args); n += 2 {
-		nodeID := args[n].(storj.NodeID)
+		nodeID := args[n].(storxnetwork.NodeID)
 		expectedContainment := args[n+1].(bool)
 		nodeInDB, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)

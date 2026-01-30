@@ -20,8 +20,8 @@ import (
 	"github.com/stripe/stripe-go/v75/paymentmethod"
 	"github.com/stripe/stripe-go/v75/promotioncode"
 
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 

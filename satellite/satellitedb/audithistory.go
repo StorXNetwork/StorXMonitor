@@ -6,7 +6,7 @@ package satellitedb
 import (
 	"context"
 
-	"storj.io/common/pb"
+	"github.com/StorXNetwork/common/pb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 )
 

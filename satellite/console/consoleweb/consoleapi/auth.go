@@ -20,9 +20,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 
-	"golang.org/x/oauth2"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
@@ -30,6 +29,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"golang.org/x/oauth2"
 )
 
 var (

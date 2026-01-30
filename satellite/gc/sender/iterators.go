@@ -13,9 +13,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
+	"github.com/StorXNetwork/common/pb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 // IterateZipObjectKeys checks inside the top-level of a bucket and yields the keys which look like zip files.

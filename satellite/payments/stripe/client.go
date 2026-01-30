@@ -24,7 +24,7 @@ import (
 	"github.com/stripe/stripe-go/v75/promotioncode"
 	"go.uber.org/zap"
 
-	"storj.io/common/time2"
+	"github.com/StorXNetwork/common/time2"
 )
 
 // Client Stripe client interface.

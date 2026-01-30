@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/http/requestid"
+	"github.com/StorXNetwork/common/http/requestid"
 )
 
 // ServeJSONError writes a JSON error to the response output stream.

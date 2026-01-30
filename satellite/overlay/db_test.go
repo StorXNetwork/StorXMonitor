@@ -11,16 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/private/teststorj"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDQNodesLastSeenBefore(t *testing.T) {
@@ -177,7 +177,7 @@ func TestDBDisqualifyNode(t *testing.T) {
 
 		cases := []struct {
 			Name           string
-			NodeID         storj.NodeID
+			NodeID         storxnetwork.NodeID
 			DisqualifiedAt time.Time
 			Reason         overlay.DisqualificationReason
 		}{

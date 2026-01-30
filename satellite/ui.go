@@ -14,11 +14,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // UI is the satellite UI process.
@@ -84,7 +84,7 @@ func NewUI(log *zap.Logger, full *identity.FullIdentity, config *Config, atomicL
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Listener,
-			storj.NodeURL{ID: peer.ID(), Address: satelliteAddr},
+			storxnetwork.NodeURL{ID: peer.ID(), Address: satelliteAddr},
 			config.Payments.StripeCoinPayments.StripePublicKey,
 		)
 		if err != nil {
@@ -123,4 +123,4 @@ func (peer *UI) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *UI) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *UI) ID() storxnetwork.NodeID { return peer.Identity.ID }

@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"os"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func usage() {
@@ -18,7 +18,7 @@ func usage() {
 	os.Exit(1)
 }
 
-func output(id storj.NodeID) {
+func output(id storxnetwork.NodeID) {
 	fmt.Printf("base58 id: %s\n", id.String())
 	fmt.Printf("hex id: %x\n", id.Bytes())
 	fmt.Printf("version: %d\n", id.Version().Number)
@@ -35,7 +35,7 @@ func main() {
 		usage()
 	}
 
-	id, err := storj.NodeIDFromString(os.Args[1])
+	id, err := storxnetwork.NodeIDFromString(os.Args[1])
 	if err == nil {
 		output(id)
 		return
@@ -43,7 +43,7 @@ func main() {
 
 	idBytes, err := hex.DecodeString(os.Args[1])
 	if err == nil {
-		id, err := storj.NodeIDFromBytes(idBytes)
+		id, err := storxnetwork.NodeIDFromBytes(idBytes)
 		if err == nil {
 			output(id)
 			return

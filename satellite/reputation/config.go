@@ -10,7 +10,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -42,7 +42,7 @@ type Config struct {
 
 // UpdateRequest is used to update a node's reputation status.
 type UpdateRequest struct {
-	NodeID       storj.NodeID
+	NodeID       storxnetwork.NodeID
 	AuditOutcome AuditType
 	// Config is a copy of the Config struct from the satellite.
 	// It is part of the UpdateRequest struct in order to be more easily

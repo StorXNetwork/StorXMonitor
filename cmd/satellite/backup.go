@@ -13,9 +13,9 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
-	"storj.io/common/errs2"
-	"storj.io/common/process"
-	"storj.io/common/process/eventkitbq"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
 )
 
 var mon = monkit.Package()

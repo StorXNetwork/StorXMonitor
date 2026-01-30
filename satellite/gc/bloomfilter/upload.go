@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/uplink"
 )
 
 // LATEST is the name of the file that contains the most recently completed bloomfilter generation prefix.
@@ -47,7 +47,7 @@ func (bfu *Upload) CheckConfig() error {
 }
 
 // UploadBloomFilters stores a zipfile with multiple bloom filters in a bucket.
-func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate time.Time, retainInfos map[storj.NodeID]*RetainInfo) (err error) {
+func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate time.Time, retainInfos map[storxnetwork.NodeID]*RetainInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(retainInfos) == 0 {

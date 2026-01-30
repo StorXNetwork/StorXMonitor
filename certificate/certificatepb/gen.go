@@ -37,7 +37,7 @@ func ignore(files []string) []string {
 // Programs needed for code generation:
 //
 // github.com/ckaznocha/protoc-gen-lint
-// storj.io/drpc/cmd/protoc-gen-drpc
+// github.com/StorXNetwork/drpc/cmd/protoc-gen-drpc
 // github.com/nilslice/protolock/cmd/protolock
 
 func main() {

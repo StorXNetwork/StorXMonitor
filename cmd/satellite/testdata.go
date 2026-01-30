@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/bcrypt"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consolewasm"

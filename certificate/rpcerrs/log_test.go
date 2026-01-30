@@ -15,8 +15,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/certificate/rpcerrs"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestLoggingSanitizer_Error(t *testing.T) {

@@ -20,19 +20,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
-	"storj.io/common/context2"
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/rpc/rpctimeout"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/drpc"
-	"storj.io/drpc/drpcctx"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
@@ -42,7 +29,20 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/common/bloomfilter"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpctimeout"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/drpc"
+	"github.com/StorXNetwork/drpc/drpcctx"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var (
@@ -51,11 +51,11 @@ var (
 
 // OldConfig contains everything necessary for a server.
 type OldConfig struct {
-	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
-	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:""`
-	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
-	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes (deprecated)" default:"0B"`
-	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	Path                   string                `help:"path to store data in" default:"$CONFDIR/storage"`
+	WhitelistedSatellites  storxnetwork.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:""`
+	AllocatedDiskSpace     memory.Size           `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
+	AllocatedBandwidth     memory.Size           `user:"true" help:"total allocated bandwidth in bytes (deprecated)" default:"0B"`
+	KBucketRefreshInterval time.Duration         `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
 }
 
 // Config defines parameters for piecestore endpoint.
@@ -958,7 +958,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	return endpoint.processRetainReq(peer.ID, retainReq)
 }
 
-func (endpoint *Endpoint) processRetainReq(peerID storj.NodeID, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+func (endpoint *Endpoint) processRetainReq(peerID storxnetwork.NodeID, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)

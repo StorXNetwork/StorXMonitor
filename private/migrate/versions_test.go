@@ -16,11 +16,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/tagsql"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/testcontext"
 )
 
 func TestBasicMigrationSqliteNoRebind(t *testing.T) {

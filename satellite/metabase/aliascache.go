@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeAliasDB is an interface for looking up node alises.
@@ -40,7 +40,7 @@ func (cache *NodeAliasCache) getLatest() *NodeAliasMap {
 // Nodes returns node ID-s corresponding to the aliases,
 // refreshing the cache once when an alias is missing.
 // This results in an error when the alias is not in the database.
-func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]storj.NodeID, error) {
+func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]storxnetwork.NodeID, error) {
 	latest := cache.getLatest()
 
 	nodes, missing := latest.Nodes(aliases)
@@ -64,7 +64,7 @@ func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]
 
 // EnsureAliases returns node aliases corresponding to the node ID-s,
 // adding missing node ID-s to the database when needed.
-func (cache *NodeAliasCache) EnsureAliases(ctx context.Context, nodes []storj.NodeID) ([]NodeAlias, error) {
+func (cache *NodeAliasCache) EnsureAliases(ctx context.Context, nodes []storxnetwork.NodeID) ([]NodeAlias, error) {
 	latest := cache.getLatest()
 
 	aliases, missing := latest.Aliases(nodes)
@@ -87,7 +87,7 @@ func (cache *NodeAliasCache) EnsureAliases(ctx context.Context, nodes []storj.No
 }
 
 // Aliases returns node aliases corresponding to the node ID-s and returns an error when node is missing.
-func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storj.NodeID) ([]NodeAlias, error) {
+func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storxnetwork.NodeID) ([]NodeAlias, error) {
 	latest := cache.getLatest()
 
 	aliases, missing := latest.Aliases(nodes)
@@ -125,7 +125,7 @@ func (cache *NodeAliasCache) Latest(ctx context.Context) (_ *NodeAliasMap, err e
 }
 
 // ensure tries to ensure that the specified missing node ID-s are assigned a alias.
-func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storj.NodeID) (_ *NodeAliasMap, err error) {
+func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storxnetwork.NodeID) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := cache.db.EnsureNodeAliases(ctx, EnsureNodeAliases{
@@ -138,7 +138,7 @@ func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storj.NodeID
 
 // refresh refreshes the state of the cache, when missingNodes or missingAliases is still missing.
 // When both are nil, then it always refreshes.
-func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storj.NodeID, missingAliases []NodeAlias) (_ *NodeAliasMap, err error) {
+func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storxnetwork.NodeID, missingAliases []NodeAlias) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cache.refreshing.Lock()
@@ -178,7 +178,7 @@ func (cache *NodeAliasCache) EnsurePiecesToAliases(ctx context.Context, pieces P
 		return AliasPieces{}, nil
 	}
 
-	nodes := make([]storj.NodeID, len(pieces))
+	nodes := make([]storxnetwork.NodeID, len(pieces))
 	for i, p := range pieces {
 		nodes[i] = p.StorageNode
 	}
@@ -250,15 +250,15 @@ func (cache *NodeAliasCache) convertAliasesToPieces(ctx context.Context, aliasPi
 
 // NodeAliasMap contains bidirectional mapping between node ID and a NodeAlias.
 type NodeAliasMap struct {
-	node  []storj.NodeID
-	alias map[storj.NodeID]NodeAlias
+	node  []storxnetwork.NodeID
+	alias map[storxnetwork.NodeID]NodeAlias
 }
 
 // NewNodeAliasMap creates a new alias map from the given entries.
 func NewNodeAliasMap(entries []NodeAliasEntry) *NodeAliasMap {
 	m := &NodeAliasMap{
-		node:  make([]storj.NodeID, len(entries)),
-		alias: make(map[storj.NodeID]NodeAlias, len(entries)),
+		node:  make([]storxnetwork.NodeID, len(entries)),
+		alias: make(map[storxnetwork.NodeID]NodeAlias, len(entries)),
 	}
 	for _, e := range entries {
 		m.setNode(e.Alias, e.ID)
@@ -268,9 +268,9 @@ func NewNodeAliasMap(entries []NodeAliasEntry) *NodeAliasMap {
 }
 
 // setNode sets a value in `m.node` and increases the size when necessary.
-func (m *NodeAliasMap) setNode(alias NodeAlias, value storj.NodeID) {
+func (m *NodeAliasMap) setNode(alias NodeAlias, value storxnetwork.NodeID) {
 	if int(alias) >= len(m.node) {
-		m.node = append(m.node, make([]storj.NodeID, int(alias)-len(m.node)+1)...)
+		m.node = append(m.node, make([]storxnetwork.NodeID, int(alias)-len(m.node)+1)...)
 	}
 	m.node[alias] = value
 }
@@ -288,23 +288,23 @@ func (m *NodeAliasMap) Merge(other *NodeAliasMap) {
 }
 
 // Node returns NodeID for the given alias.
-func (m *NodeAliasMap) Node(alias NodeAlias) (x storj.NodeID, ok bool) {
+func (m *NodeAliasMap) Node(alias NodeAlias) (x storxnetwork.NodeID, ok bool) {
 	if int(alias) >= len(m.node) {
-		return storj.NodeID{}, false
+		return storxnetwork.NodeID{}, false
 	}
 	v := m.node[alias]
 	return v, !v.IsZero()
 }
 
 // Alias returns alias for the given node ID.
-func (m *NodeAliasMap) Alias(node storj.NodeID) (x NodeAlias, ok bool) {
+func (m *NodeAliasMap) Alias(node storxnetwork.NodeID) (x NodeAlias, ok bool) {
 	x, ok = m.alias[node]
 	return x, ok
 }
 
 // Nodes returns NodeID-s for the given aliases and aliases that are not in this map.
-func (m *NodeAliasMap) Nodes(aliases []NodeAlias) (xs []storj.NodeID, missing []NodeAlias) {
-	xs = make([]storj.NodeID, 0, len(aliases))
+func (m *NodeAliasMap) Nodes(aliases []NodeAlias) (xs []storxnetwork.NodeID, missing []NodeAlias) {
+	xs = make([]storxnetwork.NodeID, 0, len(aliases))
 	for _, p := range aliases {
 		if x, ok := m.Node(p); ok {
 			xs = append(xs, x)
@@ -316,7 +316,7 @@ func (m *NodeAliasMap) Nodes(aliases []NodeAlias) (xs []storj.NodeID, missing []
 }
 
 // Aliases returns aliases-s for the given node ID-s and node ID-s that are not in this map.
-func (m *NodeAliasMap) Aliases(nodes []storj.NodeID) (xs []NodeAlias, missing []storj.NodeID) {
+func (m *NodeAliasMap) Aliases(nodes []storxnetwork.NodeID) (xs []NodeAlias, missing []storxnetwork.NodeID) {
 	xs = make([]NodeAlias, 0, len(nodes))
 	for _, n := range nodes {
 		if x, ok := m.alias[n]; ok {
@@ -329,7 +329,7 @@ func (m *NodeAliasMap) Aliases(nodes []storj.NodeID) (xs []NodeAlias, missing []
 }
 
 // ContainsAll returns true when the table contains all entries.
-func (m *NodeAliasMap) ContainsAll(nodeIDs []storj.NodeID, nodeAliases []NodeAlias) bool {
+func (m *NodeAliasMap) ContainsAll(nodeIDs []storxnetwork.NodeID, nodeAliases []NodeAlias) bool {
 	for _, id := range nodeIDs {
 		if _, ok := m.alias[id]; !ok {
 			return false

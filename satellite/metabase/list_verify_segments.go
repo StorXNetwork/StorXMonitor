@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ListVerifyLimit is the maximum number of items the client can request for listing.
@@ -44,8 +44,8 @@ type VerifySegment struct {
 	CreatedAt  time.Time
 	RepairedAt *time.Time
 
-	RootPieceID storj.PieceID
-	Redundancy  storj.RedundancyScheme
+	RootPieceID storxnetwork.PieceID
+	Redundancy  storxnetwork.RedundancyScheme
 
 	AliasPieces AliasPieces
 }

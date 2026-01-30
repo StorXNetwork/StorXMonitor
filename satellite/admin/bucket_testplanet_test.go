@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestAdminBucketGeofenceAPI(t *testing.T) {
@@ -43,7 +43,7 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 		_, err = sat.DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
 			Name:      "filled",
 			ProjectID: project.ID,
-			Placement: storj.EEA,
+			Placement: storxnetwork.EEA,
 		})
 		require.NoError(t, err)
 
@@ -103,7 +103,7 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 						ProjectID: testCase.project,
 						Created:   b.Created,
 						CreatedBy: b.CreatedBy,
-						Placement: storj.EU,
+						Placement: storxnetwork.EU,
 					})
 					require.NoError(t, err, "failed to json encode expected bucket")
 

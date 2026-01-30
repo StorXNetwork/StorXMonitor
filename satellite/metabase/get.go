@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrSegmentNotFound is an error class for non-existing segment.

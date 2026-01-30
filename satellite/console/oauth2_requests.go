@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // OAuth2RequestStatus represents the status of an OAuth2 request

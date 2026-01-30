@@ -12,7 +12,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/useragent"
+	"github.com/StorXNetwork/common/useragent"
 )
 
 const uplinkProduct = "uplink"

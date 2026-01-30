@@ -10,9 +10,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrReputation represents errors from the reputation database.
@@ -102,7 +102,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 }
 
 // Get retrieves stats for specific satellite.
-func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
+func (db *reputationDB) Get(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stats := reputation.Stats{
@@ -231,7 +231,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 }
 
 // Delete removes stats for specific satellite.
-func (db *reputationDB) Delete(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *reputationDB) Delete(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, "DELETE FROM reputation WHERE satellite_id = ?", satelliteID)

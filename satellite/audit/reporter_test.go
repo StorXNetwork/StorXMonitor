@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestReportPendingAudits(t *testing.T) {
@@ -65,7 +65,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 
 		nodeID := planet.StorageNodes[0].ID()
 
-		report := audit.Report{Successes: []storj.NodeID{nodeID}}
+		report := audit.Report{Successes: []storxnetwork.NodeID{nodeID}}
 
 		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
 		audits.Reporter.RecordAudits(ctx, report)
@@ -100,16 +100,16 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 		offlineNode := planet.StorageNodes[4].ID()
 
 		report := audit.Report{
-			Successes: []storj.NodeID{goodNode},
+			Successes: []storxnetwork.NodeID{goodNode},
 			Fails:     metabase.Pieces{{StorageNode: dqNode}},
-			Unknown:   []storj.NodeID{suspendedNode},
+			Unknown:   []storxnetwork.NodeID{suspendedNode},
 			PendingAudits: []*audit.ReverificationJob{
 				{
 					Locator:       audit.PieceLocator{NodeID: pendingNode},
 					ReverifyCount: 0,
 				},
 			},
-			Offlines: []storj.NodeID{offlineNode},
+			Offlines: []storxnetwork.NodeID{offlineNode},
 		}
 
 		audits.Reporter.RecordAudits(ctx, report)
@@ -152,7 +152,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 
 		suspendedNode := planet.StorageNodes[0].ID()
 
-		audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
+		audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storxnetwork.NodeID{suspendedNode}})
 
 		overlay := satellite.Overlay.Service
 
@@ -163,7 +163,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 
 		suspendedAt := node.UnknownAuditSuspended
 
-		audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
+		audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storxnetwork.NodeID{suspendedNode}})
 
 		node, err = overlay.Get(ctx, suspendedNode)
 		require.NoError(t, err)
@@ -193,7 +193,7 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 		nodeList := []*testplanet.StorageNode{successNode, failedNode, containedNode, unknownNode, offlineNode}
 
 		report := audit.Report{
-			Successes: storj.NodeIDList{successNode.ID(), failedNode.ID(), containedNode.ID(), unknownNode.ID(), offlineNode.ID()},
+			Successes: storxnetwork.NodeIDList{successNode.ID(), failedNode.ID(), containedNode.ID(), unknownNode.ID(), offlineNode.ID()},
 		}
 		audits.Reporter.RecordAudits(ctx, report)
 
@@ -215,11 +215,11 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			},
 		}
 		report = audit.Report{
-			Successes:     storj.NodeIDList{successNode.ID()},
+			Successes:     storxnetwork.NodeIDList{successNode.ID()},
 			Fails:         metabase.Pieces{{StorageNode: failedNode.ID()}},
-			Offlines:      storj.NodeIDList{offlineNode.ID()},
+			Offlines:      storxnetwork.NodeIDList{offlineNode.ID()},
 			PendingAudits: []*audit.ReverificationJob{&pending},
-			Unknown:       storj.NodeIDList{unknownNode.ID()},
+			Unknown:       storxnetwork.NodeIDList{unknownNode.ID()},
 		}
 		audits.Reporter.RecordAudits(ctx, report)
 
@@ -250,7 +250,7 @@ func TestReportOfflineAudits(t *testing.T) {
 		audits.Worker.Loop.Pause()
 		reputationService := satellite.Core.Reputation.Service
 
-		audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}})
+		audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storxnetwork.NodeIDList{node.ID()}})
 
 		info, err := reputationService.Get(ctx, node.ID())
 		require.NoError(t, err)

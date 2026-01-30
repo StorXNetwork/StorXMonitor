@@ -11,11 +11,11 @@ import (
 	"github.com/spacemonkeygo/monkit/v3/environment"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 func TestUserAgentTransferStats(t *testing.T) {

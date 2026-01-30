@@ -10,13 +10,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/cockroachutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface.
@@ -25,7 +25,7 @@ type StoragenodeAccounting struct {
 }
 
 // SaveTallies records raw tallies of at rest data to the database.
-func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeIDs []storj.NodeID, totals []float64) (err error) {
+func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeIDs []storxnetwork.NodeID, totals []float64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
@@ -224,7 +224,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 		defer mon.Task()(&ctx)(&err)
 		n := len(batch)
 
-		nodeID := make([]storj.NodeID, n)
+		nodeID := make([]storxnetwork.NodeID, n)
 		startTime := make([]time.Time, n)
 		putTotal := make([]int64, n)
 		getTotal := make([]int64, n)
@@ -359,7 +359,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		if wallet.Valid {
 			r.Wallet = wallet.String
 		}
-		id, err := storj.NodeIDFromBytes(nodeID)
+		id, err := storxnetwork.NodeIDFromBytes(nodeID)
 		if err != nil {
 			return csv, Error.Wrap(err)
 		}
@@ -415,7 +415,7 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 			return nil, Error.Wrap(err)
 		}
 
-		usage.NodeID, err = storj.NodeIDFromBytes(nodeID)
+		usage.NodeID, err = storxnetwork.NodeIDFromBytes(nodeID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -425,7 +425,7 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 }
 
 // QueryStorageNodeUsage returns slice of StorageNodeUsage for given period.
-func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
+func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storxnetwork.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	lastRollup, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup))
@@ -661,7 +661,7 @@ func (db *StoragenodeAccounting) GetArchivedRollupsSince(ctx context.Context, si
 }
 
 func fromDBXStoragenodeStorageTally(r *dbx.StoragenodeStorageTally) (*accounting.StoragenodeStorageTally, error) {
-	nodeID, err := storj.NodeIDFromBytes(r.NodeId)
+	nodeID, err := storxnetwork.NodeIDFromBytes(r.NodeId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -673,7 +673,7 @@ func fromDBXStoragenodeStorageTally(r *dbx.StoragenodeStorageTally) (*accounting
 }
 
 func fromDBXStoragenodeBandwidthRollup(v *dbx.StoragenodeBandwidthRollup) (r accounting.StoragenodeBandwidthRollup, _ error) {
-	id, err := storj.NodeIDFromBytes(v.StoragenodeId)
+	id, err := storxnetwork.NodeIDFromBytes(v.StoragenodeId)
 	if err != nil {
 		return r, Error.Wrap(err)
 	}
@@ -686,7 +686,7 @@ func fromDBXStoragenodeBandwidthRollup(v *dbx.StoragenodeBandwidthRollup) (r acc
 }
 
 func fromDBXStoragenodeBandwidthRollupPhase2(v *dbx.StoragenodeBandwidthRollupPhase2) (r accounting.StoragenodeBandwidthRollup, _ error) {
-	id, err := storj.NodeIDFromBytes(v.StoragenodeId)
+	id, err := storxnetwork.NodeIDFromBytes(v.StoragenodeId)
 	if err != nil {
 		return r, Error.Wrap(err)
 	}
@@ -699,7 +699,7 @@ func fromDBXStoragenodeBandwidthRollupPhase2(v *dbx.StoragenodeBandwidthRollupPh
 }
 
 func fromDBXStoragenodeBandwidthRollupArchive(v *dbx.StoragenodeBandwidthRollupArchive) (r accounting.StoragenodeBandwidthRollup, _ error) {
-	id, err := storj.NodeIDFromBytes(v.StoragenodeId)
+	id, err := storxnetwork.NodeIDFromBytes(v.StoragenodeId)
 	if err != nil {
 		return r, Error.Wrap(err)
 	}

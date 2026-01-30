@@ -4,16 +4,16 @@
 package teststorj
 
 import (
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // PieceIDFromBytes converts a byte slice into a piece ID.
-func PieceIDFromBytes(b []byte) storj.PieceID {
-	id, _ := storj.PieceIDFromBytes(fit(b))
+func PieceIDFromBytes(b []byte) storxnetwork.PieceID {
+	id, _ := storxnetwork.PieceIDFromBytes(fit(b))
 	return id
 }
 
 // PieceIDFromString decodes a hex encoded piece ID string.
-func PieceIDFromString(s string) storj.PieceID {
+func PieceIDFromString(s string) storxnetwork.PieceID {
 	return PieceIDFromBytes([]byte(s))
 }

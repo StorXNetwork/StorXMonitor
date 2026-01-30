@@ -16,11 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/debug"
-	"storj.io/common/memory"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	"github.com/StorXNetwork/StorXMonitor/private/server"
@@ -44,6 +39,11 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/version"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // StorageNode contains all the processes needed to run a full StorageNode setup.
@@ -62,8 +62,8 @@ func (system *StorageNode) Label() string { return system.Name }
 func (system *StorageNode) URL() string { return system.NodeURL().String() }
 
 // NodeURL returns the storj.NodeURL.
-func (system *StorageNode) NodeURL() storj.NodeURL {
-	return storj.NodeURL{ID: system.Peer.ID(), Address: system.Peer.Addr()}
+func (system *StorageNode) NodeURL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: system.Peer.ID(), Address: system.Peer.Addr()}
 }
 
 // APIKey returns the API key of the node.
@@ -72,7 +72,7 @@ func (system *StorageNode) APIKey() string {
 }
 
 // newStorageNodes initializes storage nodes.
-func (planet *Planet) newStorageNodes(ctx context.Context, count int, whitelistedSatellites storj.NodeURLs) (_ []*StorageNode, err error) {
+func (planet *Planet) newStorageNodes(ctx context.Context, count int, whitelistedSatellites storxnetwork.NodeURLs) (_ []*StorageNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var sources []trust.Source

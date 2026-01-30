@@ -6,8 +6,8 @@ package contact
 import (
 	"testing"
 
-	"storj.io/common/pb"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 

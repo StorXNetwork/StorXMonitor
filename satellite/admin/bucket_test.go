@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestValidateRequestParameters(t *testing.T) {
@@ -95,16 +95,16 @@ func TestParsePlacementConstraint(t *testing.T) {
 	testCases := []struct {
 		name      string
 		region    string
-		placement storj.PlacementConstraint
+		placement storxnetwork.PlacementConstraint
 		err       string
 	}{
-		{"invalid", "invalid", storj.EveryCountry, "unrecognized region parameter: invalid"},
-		{"empty", "", storj.EveryCountry, "missing region parameter"},
-		{"US", "US", storj.US, ""},
-		{"EU", "EU", storj.EU, ""},
-		{"EEA", "EEA", storj.EEA, ""},
-		{"DE", "DE", storj.DE, ""},
-		{"NR", "NR", storj.NR, ""},
+		{"invalid", "invalid", storxnetwork.EveryCountry, "unrecognized region parameter: invalid"},
+		{"empty", "", storxnetwork.EveryCountry, "missing region parameter"},
+		{"US", "US", storxnetwork.US, ""},
+		{"EU", "EU", storxnetwork.EU, ""},
+		{"EEA", "EEA", storxnetwork.EEA, ""},
+		{"DE", "DE", storxnetwork.DE, ""},
+		{"NR", "NR", storxnetwork.NR, ""},
 	}
 
 	for _, testCase := range testCases {

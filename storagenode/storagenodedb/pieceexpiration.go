@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrPieceExpiration represents errors from the piece expiration database.
@@ -41,8 +41,8 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiresBefore time.
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var satelliteID storj.NodeID
-		var pieceID storj.PieceID
+		var satelliteID storxnetwork.NodeID
+		var pieceID storxnetwork.PieceID
 		err = rows.Scan(&satelliteID, &pieceID)
 		if err != nil {
 			return nil, ErrPieceExpiration.Wrap(err)
@@ -57,7 +57,7 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiresBefore time.
 }
 
 // SetExpiration sets an expiration time for the given piece ID on the given satellite.
-func (db *pieceExpirationDB) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) (err error) {
+func (db *pieceExpirationDB) SetExpiration(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, expiresAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `
@@ -68,7 +68,7 @@ func (db *pieceExpirationDB) SetExpiration(ctx context.Context, satellite storj.
 }
 
 // DeleteExpiration removes an expiration record for the given piece ID on the given satellite.
-func (db *pieceExpirationDB) DeleteExpiration(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (found bool, err error) {
+func (db *pieceExpirationDB) DeleteExpiration(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) (found bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := db.ExecContext(ctx, `
@@ -87,7 +87,7 @@ func (db *pieceExpirationDB) DeleteExpiration(ctx context.Context, satelliteID s
 
 // DeleteFailed marks an expiration record as having experienced a failure in deleting the piece
 // from the disk.
-func (db *pieceExpirationDB) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, when time.Time) (err error) {
+func (db *pieceExpirationDB) DeleteFailed(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID, when time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `
@@ -100,7 +100,7 @@ func (db *pieceExpirationDB) DeleteFailed(ctx context.Context, satelliteID storj
 }
 
 // Trash marks a piece expiration as "trashed".
-func (db *pieceExpirationDB) Trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (db *pieceExpirationDB) Trash(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `
@@ -113,7 +113,7 @@ func (db *pieceExpirationDB) Trash(ctx context.Context, satelliteID storj.NodeID
 }
 
 // Restore restores all trashed pieces.
-func (db *pieceExpirationDB) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *pieceExpirationDB) RestoreTrash(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `

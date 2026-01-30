@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker/execwrapper"
+	"github.com/StorXNetwork/common/bloomfilter"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const (
@@ -81,7 +81,7 @@ func (fw *Supervisor) TestingSetTrashCleanupCmd(cmd execwrapper.Command) {
 
 // UsedSpaceRequest is the request struct for the used-space-filewalker process.
 type UsedSpaceRequest struct {
-	SatelliteID storj.NodeID `json:"satelliteID"`
+	SatelliteID storxnetwork.NodeID `json:"satelliteID"`
 }
 
 // UsedSpaceResponse is the response struct for the used-space-filewalker process.
@@ -92,33 +92,33 @@ type UsedSpaceResponse struct {
 
 // GCFilewalkerRequest is the request struct for the gc-filewalker process.
 type GCFilewalkerRequest struct {
-	SatelliteID   storj.NodeID `json:"satelliteID"`
-	BloomFilter   []byte       `json:"bloomFilter"`
-	CreatedBefore time.Time    `json:"createdBefore"`
+	SatelliteID   storxnetwork.NodeID `json:"satelliteID"`
+	BloomFilter   []byte              `json:"bloomFilter"`
+	CreatedBefore time.Time           `json:"createdBefore"`
 }
 
 // GCFilewalkerResponse is the response struct for the gc-filewalker process.
 type GCFilewalkerResponse struct {
-	PieceIDs           []storj.PieceID `json:"pieceIDs"`
-	PiecesSkippedCount int64           `json:"piecesSkippedCount"`
-	PiecesCount        int64           `json:"piecesCount"`
-	Completed          bool            `json:"completed"`
+	PieceIDs           []storxnetwork.PieceID `json:"pieceIDs"`
+	PiecesSkippedCount int64                  `json:"piecesSkippedCount"`
+	PiecesCount        int64                  `json:"piecesCount"`
+	Completed          bool                   `json:"completed"`
 }
 
 // TrashCleanupRequest is the request struct for the trash-cleanup-filewalker process.
 type TrashCleanupRequest struct {
-	SatelliteID storj.NodeID `json:"satelliteID"`
-	DateBefore  time.Time    `json:"dateBefore"`
+	SatelliteID storxnetwork.NodeID `json:"satelliteID"`
+	DateBefore  time.Time           `json:"dateBefore"`
 }
 
 // TrashCleanupResponse is the response struct for the trash-cleanup-filewalker process.
 type TrashCleanupResponse struct {
-	BytesDeleted int64           `json:"bytesDeleted"`
-	KeysDeleted  []storj.PieceID `json:"keysDeleted"`
+	BytesDeleted int64                  `json:"bytesDeleted"`
+	KeysDeleted  []storxnetwork.PieceID `json:"keysDeleted"`
 }
 
 // WalkAndComputeSpaceUsedBySatellite returns the total used space by satellite.
-func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (piecesTotal int64, piecesContentSize int64, err error) {
+func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (piecesTotal int64, piecesContentSize int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	req := UsedSpaceRequest{
@@ -137,7 +137,7 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 }
 
 // WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the trash using the trashFunc provided.
-func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storxnetwork.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storxnetwork.PieceID) error) (pieceIDs []storxnetwork.PieceID, piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if filter == nil {
@@ -162,7 +162,7 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 }
 
 // WalkCleanupTrash deletes per-day trash directories which are older than the given time.
-func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.NodeID, dateBefore time.Time) (bytesDeleted int64, keysDeleted []storj.PieceID, err error) {
+func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storxnetwork.NodeID, dateBefore time.Time) (bytesDeleted int64, keysDeleted []storxnetwork.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	req := TrashCleanupRequest{
@@ -186,10 +186,10 @@ type trashHandler struct {
 
 	lineBuffer []byte
 
-	trashFunc func(pieceID storj.PieceID) error
+	trashFunc func(pieceID storxnetwork.PieceID) error
 }
 
-func newTrashHandler(trashFunc func(pieceID storj.PieceID) error) *trashHandler {
+func newTrashHandler(trashFunc func(pieceID storxnetwork.PieceID) error) *trashHandler {
 	return &trashHandler{
 		trashFunc: trashFunc,
 	}

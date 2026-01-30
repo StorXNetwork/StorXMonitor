@@ -6,7 +6,7 @@ package storjscan
 import (
 	"context"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 )
 

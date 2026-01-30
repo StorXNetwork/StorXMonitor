@@ -18,12 +18,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/sqliteutil"
-	"storj.io/common/process"
-	"storj.io/common/tagsql"
 	"github.com/StorXNetwork/StorXMonitor/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
@@ -37,6 +36,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/common/process"
 )
 
 // VersionTable is the table that stores the version info in each db.

@@ -12,12 +12,12 @@ import (
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil/pgerrcode"
-	"storj.io/common/dbutil/txutil"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // we need to disable PlainSize validation for old uplinks.
@@ -47,7 +47,7 @@ type BeginObjectNextVersion struct {
 	EncryptedMetadataNonce        []byte // optional
 	EncryptedMetadataEncryptedKey []byte // optional
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 }
 
 // Verify verifies get object request fields.
@@ -136,7 +136,7 @@ type BeginObjectExactVersion struct {
 	EncryptedMetadataNonce        []byte // optional
 	EncryptedMetadataEncryptedKey []byte // optional
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 }
 
 // Verify verifies get object reqest fields.
@@ -222,7 +222,7 @@ type BeginSegment struct {
 	Position SegmentPosition
 
 	// TODO: unused field, can remove
-	RootPieceID storj.PieceID
+	RootPieceID storxnetwork.PieceID
 
 	Pieces Pieces
 
@@ -278,7 +278,7 @@ type CommitSegment struct {
 	ObjectStream
 
 	Position    SegmentPosition
-	RootPieceID storj.PieceID
+	RootPieceID storxnetwork.PieceID
 
 	ExpiresAt *time.Time
 
@@ -291,11 +291,11 @@ type CommitSegment struct {
 
 	EncryptedETag []byte
 
-	Redundancy storj.RedundancyScheme
+	Redundancy storxnetwork.RedundancyScheme
 
 	Pieces Pieces
 
-	Placement storj.PlacementConstraint
+	Placement storxnetwork.PlacementConstraint
 }
 
 // CommitSegment commits segment to the database.
@@ -484,7 +484,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 				encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
 				inline_data = $10
 		`, opts.Position, opts.ExpiresAt,
-		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		storxnetwork.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
@@ -506,7 +506,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 type CommitObject struct {
 	ObjectStream
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 
 	// this flag controls if we want to set metadata fields with CommitObject
 	// it's possible to set metadata with BeginObject request so we need to
@@ -533,7 +533,7 @@ func (c *CommitObject) Verify() error {
 		return err
 	}
 
-	if c.Encryption.CipherSuite != storj.EncUnspecified && c.Encryption.BlockSize <= 0 {
+	if c.Encryption.CipherSuite != storxnetwork.EncUnspecified && c.Encryption.BlockSize <= 0 {
 		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 

@@ -10,38 +10,38 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop/rangedlooptest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
 	// Segments in the EU placement.
 	inline1 = []rangedloop.Segment{
-		{StreamID: uuid.UUID{1}, EncryptedSize: 10, Placement: storj.EU},
+		{StreamID: uuid.UUID{1}, EncryptedSize: 10, Placement: storxnetwork.EU},
 	}
 	remote2 = []rangedloop.Segment{
-		{StreamID: uuid.UUID{2}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storj.EU},
-		{StreamID: uuid.UUID{2}, EncryptedSize: 10, Placement: storj.EU},
+		{StreamID: uuid.UUID{2}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storxnetwork.EU},
+		{StreamID: uuid.UUID{2}, EncryptedSize: 10, Placement: storxnetwork.EU},
 	}
 	remote3 = []rangedloop.Segment{
-		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storj.EU},
-		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storj.EU},
-		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storj.EU},
-		{StreamID: uuid.UUID{3}, EncryptedSize: 10, ExpiresAt: &time.Time{}, Placement: storj.EU},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storxnetwork.EU},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storxnetwork.EU},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storxnetwork.EU},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 10, ExpiresAt: &time.Time{}, Placement: storxnetwork.EU},
 	}
 
 	// Segments in the US placement.
 	inline4 = []rangedloop.Segment{
-		{StreamID: uuid.UUID{4}, EncryptedSize: 9, Placement: storj.US},
+		{StreamID: uuid.UUID{4}, EncryptedSize: 9, Placement: storxnetwork.US},
 	}
 	remote5 = []rangedloop.Segment{
-		{StreamID: uuid.UUID{5}, EncryptedSize: 20, Pieces: metabase.Pieces{{}}, Placement: storj.US},
-		{StreamID: uuid.UUID{5}, EncryptedSize: 40, Pieces: metabase.Pieces{{}}, Placement: storj.US},
-		{StreamID: uuid.UUID{5}, EncryptedSize: 5, Placement: storj.US},
+		{StreamID: uuid.UUID{5}, EncryptedSize: 20, Pieces: metabase.Pieces{{}}, Placement: storxnetwork.US},
+		{StreamID: uuid.UUID{5}, EncryptedSize: 40, Pieces: metabase.Pieces{{}}, Placement: storxnetwork.US},
+		{StreamID: uuid.UUID{5}, EncryptedSize: 5, Placement: storxnetwork.US},
 	}
 )
 
@@ -64,13 +64,13 @@ func TestObserver(t *testing.T) {
 
 		metrics := loop(t, obs, inline1, remote2, remote3, inline4, remote5)
 
-		metricsLen := storj.EU + 1
-		if storj.EU < storj.US {
-			metricsLen = storj.US + 1
+		metricsLen := storxnetwork.EU + 1
+		if storxnetwork.EU < storxnetwork.US {
+			metricsLen = storxnetwork.US + 1
 		}
 
 		expectedMetrics := PlacementsMetrics(make([]Metrics, metricsLen))
-		expectedMetrics[storj.EU] = Metrics{
+		expectedMetrics[storxnetwork.EU] = Metrics{
 			InlineObjects:              1,
 			RemoteObjects:              2,
 			TotalInlineSegments:        3,
@@ -79,7 +79,7 @@ func TestObserver(t *testing.T) {
 			TotalRemoteBytes:           64,
 			TotalSegmentsWithExpiresAt: 1,
 		}
-		expectedMetrics[storj.US] = Metrics{
+		expectedMetrics[storxnetwork.US] = Metrics{
 			InlineObjects:              1,
 			RemoteObjects:              1,
 			TotalInlineSegments:        2,
@@ -101,13 +101,13 @@ func TestObserver(t *testing.T) {
 		// Any metrics gathered during the first loop should be dropped.
 		metrics := loop(t, obs, remote3, remote5)
 
-		metricsLen := storj.EU + 1
-		if storj.EU < storj.US {
-			metricsLen = storj.US + 1
+		metricsLen := storxnetwork.EU + 1
+		if storxnetwork.EU < storxnetwork.US {
+			metricsLen = storxnetwork.US + 1
 		}
 
 		expectedMetrics := PlacementsMetrics(make([]Metrics, metricsLen))
-		expectedMetrics[storj.EU] = Metrics{
+		expectedMetrics[storxnetwork.EU] = Metrics{
 			InlineObjects:              0,
 			RemoteObjects:              1,
 			TotalInlineSegments:        1,
@@ -116,7 +116,7 @@ func TestObserver(t *testing.T) {
 			TotalRemoteBytes:           48,
 			TotalSegmentsWithExpiresAt: 1,
 		}
-		expectedMetrics[storj.US] = Metrics{
+		expectedMetrics[storxnetwork.US] = Metrics{
 			InlineObjects:              0,
 			RemoteObjects:              1,
 			TotalInlineSegments:        1,

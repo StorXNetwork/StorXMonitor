@@ -12,10 +12,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
-	"storj.io/common/cfgstruct"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (

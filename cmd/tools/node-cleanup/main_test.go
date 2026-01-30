@@ -13,12 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
-	"storj.io/common/testcontext"
 	nodecleanup "github.com/StorXNetwork/StorXMonitor/cmd/tools/node-cleanup"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestDelete(t *testing.T) {
@@ -112,7 +112,7 @@ func TestLargeDelete(t *testing.T) {
 func insertNode(ctx context.Context, t *testing.T, raw tagsql.DB, index int, problematic bool) {
 	index++ // disallow 0 nodeid
 
-	var nodeid storj.NodeID
+	var nodeid storxnetwork.NodeID
 	binary.BigEndian.PutUint64(nodeid[:], uint64(index))
 
 	address := fmt.Sprintf("127.0.0.1:100%02d", index)

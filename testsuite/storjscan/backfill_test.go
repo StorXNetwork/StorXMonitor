@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
 	blockchain2 "storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/payments"

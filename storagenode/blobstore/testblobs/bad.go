@@ -10,9 +10,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrorBlobs is the interface of blobstore.Blobs with the SetError method added.
@@ -285,7 +285,7 @@ func (bad *BadBlobs) CheckWritability(ctx context.Context) error {
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (bad *BadBlobs) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
+func (bad *BadBlobs) CreateVerificationFile(ctx context.Context, id storxnetwork.NodeID) error {
 	if err := bad.checkErr.Err(); err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func (bad *BadBlobs) CreateVerificationFile(ctx context.Context, id storj.NodeID
 
 // VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (bad *BadBlobs) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
+func (bad *BadBlobs) VerifyStorageDir(ctx context.Context, id storxnetwork.NodeID) error {
 	if err := bad.checkErr.Err(); err != nil {
 		return err
 	}

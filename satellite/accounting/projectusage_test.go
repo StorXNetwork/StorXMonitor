@@ -21,14 +21,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
@@ -37,8 +29,16 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 	snorders "github.com/StorXNetwork/StorXMonitor/storagenode/orders"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 func TestProjectUsageStorage(t *testing.T) {
@@ -850,7 +850,7 @@ func TestUsageRollups(t *testing.T) {
 				elems := strings.Split(b.Name, "-")
 				n, err := strconv.Atoi(elems[1])
 				require.NoError(t, err)
-				b.Placement = storj.PlacementConstraint(n)
+				b.Placement = storxnetwork.PlacementConstraint(n)
 				_, err = db.Buckets().UpdateBucket(ctx, b)
 				require.NoError(t, err)
 			}

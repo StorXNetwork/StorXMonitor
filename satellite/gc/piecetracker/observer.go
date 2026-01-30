@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -89,7 +89,7 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	observer.log.Info("piecetracker observer finished")
 
 	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
-	pieceCounts := make(map[storj.NodeID]int64, len(observer.pieceCounts))
+	pieceCounts := make(map[storxnetwork.NodeID]int64, len(observer.pieceCounts))
 
 	for nodeAlias, count := range observer.pieceCounts {
 		nodeID, ok := nodeAliasMap.Node(nodeAlias)

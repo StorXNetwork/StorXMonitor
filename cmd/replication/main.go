@@ -15,10 +15,10 @@ import (
 
 	_ "github.com/StorXNetwork/StorXMonitor/private/version"
 	"github.com/StorXNetwork/StorXMonitor/replication"
-	"storj.io/common/cfgstruct"
-	"storj.io/common/errs2"
-	"storj.io/common/fpath"
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (

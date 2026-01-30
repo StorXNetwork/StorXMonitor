@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestEndpointGet(t *testing.T) {
@@ -34,11 +34,11 @@ func TestEndpointGet(t *testing.T) {
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				url, err := storj.ParseNodeURL(ident.ID.String() + "@")
+				url, err := storxnetwork.ParseNodeURL(ident.ID.String() + "@")
 				require.NoError(t, err)
 
 				config.Userinfo.Enabled = true
-				config.Userinfo.AllowedPeers = storj.NodeURLs{url}
+				config.Userinfo.AllowedPeers = storxnetwork.NodeURLs{url}
 			},
 		},
 	},

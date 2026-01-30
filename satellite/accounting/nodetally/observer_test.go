@@ -13,15 +13,15 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/encryption"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/nodetally"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
@@ -51,8 +51,8 @@ func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		// TODO uplink currently hardcode block size so we need to use the same value in test
-		encryptionParameters := storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
+		encryptionParameters := storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.EncAESGCM,
 			BlockSize:   29 * 256 * memory.B.Int32(),
 		}
 		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), encryptionParameters)
@@ -139,7 +139,7 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 		err := planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, now.Add(1*time.Second), 5000)
 		require.NoError(t, err)
 		err = planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally,
-			[]storj.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
+			[]storxnetwork.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
 			[]float64{0, 0, 0, 0},
 		)
 		require.NoError(t, err)
@@ -148,8 +148,8 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		// TODO uplink currently hardcode block size so we need to use the same value in test
-		encryptionParameters := storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
+		encryptionParameters := storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.EncAESGCM,
 			BlockSize:   29 * 256 * memory.B.Int32(),
 		}
 		expectedBytesPerPiece, err := encryption.CalcEncryptedSize(int64(len(expectedData)), encryptionParameters)
@@ -219,7 +219,7 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 
 		lastTally := now.Add(-timespanHours * time.Hour)
 		err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally,
-			[]storj.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
+			[]storxnetwork.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
 			[]float64{0, 0, 0, 0},
 		)
 		require.NoError(t, err)
@@ -245,8 +245,8 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 
 		rs := satelliteRS(t, planet.Satellites[0])
 		// TODO uplink currently hardcode block size so we need to use the same value in test
-		encryptionParameters := storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
+		encryptionParameters := storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.EncAESGCM,
 			BlockSize:   29 * 256 * memory.B.Int32(),
 		}
 		expectedBytesPerPiece, err := encryption.CalcEncryptedSize(int64(len(expectedData)), encryptionParameters)
@@ -264,10 +264,10 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 	})
 }
 
-func satelliteRS(t *testing.T, satellite *testplanet.Satellite) storj.RedundancyScheme {
+func satelliteRS(t *testing.T, satellite *testplanet.Satellite) storxnetwork.RedundancyScheme {
 	rs := satellite.Config.Metainfo.RS
 
-	return storj.RedundancyScheme{
+	return storxnetwork.RedundancyScheme{
 		RequiredShares: int16(rs.Min),
 		RepairShares:   int16(rs.Repair),
 		OptimalShares:  int16(rs.Success),
@@ -276,7 +276,7 @@ func satelliteRS(t *testing.T, satellite *testplanet.Satellite) storj.Redundancy
 	}
 }
 
-func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
+func correctRedundencyScheme(shareCount int, uplinkRS storxnetwork.RedundancyScheme) bool {
 	// The shareCount should be a value between RequiredShares and TotalShares where
 	// RequiredShares is the min number of shares required to recover a segment and
 	// TotalShares is the number of shares to encode

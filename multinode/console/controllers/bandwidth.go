@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/multinode/bandwidth"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -70,7 +70,7 @@ func (controller *Bandwidth) MonthlyNode(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(id)
+	nodeID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -104,7 +104,7 @@ func (controller *Bandwidth) MonthlySatellite(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(id)
+	satelliteID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -138,7 +138,7 @@ func (controller *Bandwidth) MonthlySatelliteNode(w http.ResponseWriter, r *http
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(id)
+	satelliteID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -150,7 +150,7 @@ func (controller *Bandwidth) MonthlySatelliteNode(w http.ResponseWriter, r *http
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(node)
+	nodeID, err := storxnetwork.NodeIDFromString(node)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return

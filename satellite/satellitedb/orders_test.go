@@ -9,8 +9,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/common/pb"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestSortRollupKeys(t *testing.T) {

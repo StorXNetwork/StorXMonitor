@@ -11,7 +11,7 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/cmd/satellite/reports"
 	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestProcessAttributions(t *testing.T) {

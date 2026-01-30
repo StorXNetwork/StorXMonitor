@@ -9,14 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
@@ -78,7 +78,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+				piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 				require.NoError(t, err)
 
 				// create signed orderlimit or order to test with
@@ -87,7 +87,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 					SatelliteId:            satellite.ID(),
 					UplinkPublicKey:        piecePublicKey,
 					StorageNodeId:          storagenode.ID(),
-					PieceId:                storj.NewPieceID(),
+					PieceId:                storxnetwork.NewPieceID(),
 					Action:                 pb.PieceAction_PUT,
 					Limit:                  1000,
 					PieceExpiration:        time.Time{},
@@ -110,7 +110,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 					SatelliteId:            satellite.ID(),
 					UplinkPublicKey:        piecePublicKey,
 					StorageNodeId:          storagenode.ID(),
-					PieceId:                storj.NewPieceID(),
+					PieceId:                storxnetwork.NewPieceID(),
 					Action:                 pb.PieceAction_PUT,
 					Limit:                  1000,
 					PieceExpiration:        time.Time{},
@@ -129,7 +129,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				require.NoError(t, err)
 
 				// create connection between storagenode and satellite
-				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storxnetwork.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
 				require.NoError(t, err)
 				defer ctx.Check(conn.Close)
 
@@ -212,7 +212,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+		piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 		require.NoError(t, err)
 
 		testCases := []struct {
@@ -233,7 +233,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 					SatelliteId:            satellite.ID(),
 					UplinkPublicKey:        piecePublicKey,
 					StorageNodeId:          storagenode.ID(),
-					PieceId:                storj.NewPieceID(),
+					PieceId:                storxnetwork.NewPieceID(),
 					Action:                 pb.PieceAction_PUT,
 					Limit:                  1000,
 					PieceExpiration:        time.Time{},
@@ -252,7 +252,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 				require.NoError(t, err)
 
 				// create connection between storagenode and satellite
-				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storxnetwork.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
 				require.NoError(t, err)
 				defer ctx.Check(conn.Close)
 
@@ -324,10 +324,10 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bucketbw)
 
-		piecePublicKey1, piecePrivateKey1, err := storj.NewPieceKey()
+		piecePublicKey1, piecePrivateKey1, err := storxnetwork.NewPieceKey()
 		require.NoError(t, err)
 
-		_, piecePrivateKey2, err := storj.NewPieceKey()
+		_, piecePrivateKey2, err := storxnetwork.NewPieceKey()
 		require.NoError(t, err)
 
 		serialNumber1 := testrand.SerialNumber()
@@ -345,7 +345,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 			SatelliteId:            satellite.ID(),
 			UplinkPublicKey:        piecePublicKey1,
 			StorageNodeId:          storagenode.ID(),
-			PieceId:                storj.NewPieceID(),
+			PieceId:                storxnetwork.NewPieceID(),
 			Action:                 pb.PieceAction_PUT,
 			Limit:                  1000,
 			PieceExpiration:        time.Time{},
@@ -390,7 +390,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		for _, tt := range testCases {
 			tt := tt
 			t.Run(tt.name, func(t *testing.T) {
-				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storxnetwork.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
 				require.NoError(t, err)
 				defer ctx.Check(conn.Close)
 

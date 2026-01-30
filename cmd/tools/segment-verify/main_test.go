@@ -22,16 +22,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/cockroachutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestCommandLineTool(t *testing.T) {
@@ -100,7 +100,7 @@ func TestCommandLineTool(t *testing.T) {
 
 		// and delete 10% of pieces at random so there will be some pieces in the not-found list
 		const deleteFrac = 0.10
-		allDeletedPieces := make(map[storj.NodeID]map[storj.PieceID]struct{})
+		allDeletedPieces := make(map[storxnetwork.NodeID]map[storxnetwork.PieceID]struct{})
 		numDeletedPieces := 0
 		for nodeNum, node := range planet.StorageNodes {
 			if node.ID() == offlineNode.ID() {
@@ -200,7 +200,7 @@ func TestCommandLineTool(t *testing.T) {
 			require.NoError(t, err)
 			position, err := strconv.ParseUint(record[1], 10, 64)
 			require.NoError(t, err)
-			nodeID, err := storj.NodeIDFromString(record[2])
+			nodeID, err := storxnetwork.NodeIDFromString(record[2])
 			require.NoError(t, err)
 			pieceNum, err := strconv.ParseInt(record[3], 10, 16)
 			require.NoError(t, err)
@@ -236,8 +236,8 @@ func TestCommandLineTool(t *testing.T) {
 	})
 }
 
-func deletePiecesRandomly(ctx context.Context, satelliteID storj.NodeID, node *testplanet.StorageNode, rate float64) (deletedPieces map[storj.PieceID]struct{}, err error) {
-	deletedPieces = make(map[storj.PieceID]struct{})
+func deletePiecesRandomly(ctx context.Context, satelliteID storxnetwork.NodeID, node *testplanet.StorageNode, rate float64) (deletedPieces map[storxnetwork.PieceID]struct{}, err error) {
+	deletedPieces = make(map[storxnetwork.PieceID]struct{})
 	err = node.Storage2.FileWalker.WalkSatellitePieces(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
 		if rand.Float64() < rate {
 			path, err := access.FullPath(ctx)

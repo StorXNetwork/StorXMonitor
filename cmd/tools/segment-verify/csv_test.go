@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 	segmentverify "github.com/StorXNetwork/StorXMonitor/cmd/tools/segment-verify"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )

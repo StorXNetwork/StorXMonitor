@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
 	"github.com/StorXNetwork/StorXMonitor/multinode/reputation"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -49,7 +49,7 @@ func (controller *Reputation) Stats(w http.ResponseWriter, r *http.Request) {
 		controller.serveError(w, http.StatusBadRequest, ErrReputation.New("could not retrieve satellite id segment"))
 		return
 	}
-	satelliteID, err := storj.NodeIDFromString(satelliteIDEnc)
+	satelliteID, err := storxnetwork.NodeIDFromString(satelliteIDEnc)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrReputation.Wrap(err))
 		return

@@ -12,14 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/StorXNetwork/StorXMonitor/certificate/certificateclient"
-	"storj.io/common/base58"
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/base58"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 var (
@@ -225,7 +225,7 @@ func TestNewClient(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	ident, err := testidentity.PregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 	require.NoError(t, err)
 	require.NotNil(t, ident)
 

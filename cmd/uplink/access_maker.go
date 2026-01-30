@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 type accessMaker struct {

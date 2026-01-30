@@ -17,13 +17,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/sqliteutil"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestMigrateSQLite3(t *testing.T) {

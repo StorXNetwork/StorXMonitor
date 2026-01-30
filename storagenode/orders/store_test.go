@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestOrdersStore_Enqueue_GracePeriodFailure(t *testing.T) {
@@ -75,7 +75,7 @@ func TestOrdersStore_ListUnsentBySatellite(t *testing.T) {
 	// 3 times:
 	//    list unsent orders - should receive data from all satellites the first two times, and nothing the last time.
 	//    archive unsent orders
-	expectedArchivedInfos := make(map[storj.SerialNumber]*orders.ArchivedInfo)
+	expectedArchivedInfos := make(map[storxnetwork.SerialNumber]*orders.ArchivedInfo)
 
 	archiveTime1 := now.Add(-2 * time.Hour)
 	archiveTime2 := now
@@ -537,13 +537,13 @@ func verifyArchivedInfosEqual(t *testing.T, a, b *orders.ArchivedInfo) {
 	require.Equal(t, a.ArchivedAt.UTC(), b.ArchivedAt.UTC())
 }
 
-func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSatPerTime int, createdAtTimes []time.Time) (map[storj.SerialNumber]*ordersfile.Info, error) {
+func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSatPerTime int, createdAtTimes []time.Time) (map[storxnetwork.SerialNumber]*ordersfile.Info, error) {
 	actions := []pb.PieceAction{
 		pb.PieceAction_GET,
 		pb.PieceAction_PUT_REPAIR,
 		pb.PieceAction_GET_AUDIT,
 	}
-	originalInfos := make(map[storj.SerialNumber]*ordersfile.Info)
+	originalInfos := make(map[storxnetwork.SerialNumber]*ordersfile.Info)
 	for i := 0; i < numSatellites; i++ {
 		satellite := testrand.NodeID()
 

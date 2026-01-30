@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
 )
 

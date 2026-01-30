@@ -19,9 +19,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/experiment"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/common/experiment"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const (
@@ -146,7 +146,7 @@ func (dir *Dir) refToTrashPath(ref blobstore.BlobRef, forTime time.Time) (string
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (dir *Dir) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
+func (dir *Dir) CreateVerificationFile(ctx context.Context, id storxnetwork.NodeID) error {
 	f, err := os.Create(filepath.Join(dir.path, verificationFileName))
 	if err != nil {
 		return err
@@ -160,14 +160,14 @@ func (dir *Dir) CreateVerificationFile(ctx context.Context, id storj.NodeID) err
 
 // Verify verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (dir *Dir) Verify(ctx context.Context, id storj.NodeID) error {
+func (dir *Dir) Verify(ctx context.Context, id storxnetwork.NodeID) error {
 	content, err := os.ReadFile(filepath.Join(dir.path, verificationFileName))
 	if err != nil {
 		return err
 	}
 
 	if !bytes.Equal(content, id.Bytes()) {
-		verifyID, err := storj.NodeIDFromBytes(content)
+		verifyID, err := storxnetwork.NodeIDFromBytes(content)
 		if err != nil {
 			return errs.New("content of file is not a valid node ID: %x", content)
 		}

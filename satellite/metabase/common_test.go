@@ -10,12 +10,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 func TestParseBucketPrefixInvalid(t *testing.T) {
@@ -759,8 +759,8 @@ func TestStreamVersionID(t *testing.T) {
 func BenchmarkSegmentPieceSize(b *testing.B) {
 	segment := metabase.Segment{
 		EncryptedSize: 64 * memory.MiB.Int32(),
-		Redundancy: storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		Redundancy: storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			RequiredShares: 29,
 			RepairShares:   35,
 			OptimalShares:  80,

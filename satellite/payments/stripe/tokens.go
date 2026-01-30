@@ -13,7 +13,7 @@ import (
 	"github.com/stripe/stripe-go/v75"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
 )

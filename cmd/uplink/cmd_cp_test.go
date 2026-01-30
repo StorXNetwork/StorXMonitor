@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
 )
 

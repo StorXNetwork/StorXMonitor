@@ -11,7 +11,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var mon = monkit.Package()

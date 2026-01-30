@@ -10,11 +10,11 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 var (
@@ -27,7 +27,7 @@ type Chore struct {
 	service *checker.Service
 
 	Loop          *sync2.Cycle
-	nodeID        storj.NodeID
+	nodeID        storxnetwork.NodeID
 	notifications *notifications.Service
 
 	version Relevance
@@ -36,7 +36,7 @@ type Chore struct {
 }
 
 // NewChore creates a Version Check Client with default configuration for storagenode.
-func NewChore(log *zap.Logger, service *checker.Service, notifications *notifications.Service, nodeID storj.NodeID, checkInterval time.Duration) *Chore {
+func NewChore(log *zap.Logger, service *checker.Service, notifications *notifications.Service, nodeID storxnetwork.NodeID, checkInterval time.Duration) *Chore {
 	chore := &Chore{
 		log:           log,
 		service:       service,
@@ -181,7 +181,7 @@ func (chore *Chore) TestCheckVersion() (relevance Relevance) {
 }
 
 // NewVersionNotification - returns version update required notification.
-func NewVersionNotification(timesSent notifications.TimesNotified, suggestedVersion version.SemVer, senderID storj.NodeID) (_ notifications.NewNotification) {
+func NewVersionNotification(timesSent notifications.TimesNotified, suggestedVersion version.SemVer, senderID storxnetwork.NodeID) (_ notifications.NewNotification) {
 	switch timesSent {
 	case notifications.TimesNotifiedZero:
 		return notifications.NewNotification{

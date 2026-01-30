@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 

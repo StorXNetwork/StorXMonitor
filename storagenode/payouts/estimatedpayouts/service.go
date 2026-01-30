@@ -10,7 +10,6 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/private/date"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
@@ -19,6 +18,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -53,7 +53,7 @@ func NewService(bandwidthDB bandwidth.DB, reputationDB reputation.DB, storageUsa
 }
 
 // GetSatelliteEstimatedPayout returns estimated payouts for current and previous months from specific satellite with current level of load.
-func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (payout EstimatedPayout, err error) {
+func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storxnetwork.NodeID, now time.Time) (payout EstimatedPayout, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stats, err := s.reputationDB.Get(ctx, satelliteID)
@@ -103,7 +103,7 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.
 }
 
 // estimatedPayout returns estimated payouts data for current and previous months from specific satellite.
-func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (currentMonthPayout PayoutMonthly, previousMonthPayout PayoutMonthly, err error) {
+func (s *Service) estimatedPayout(ctx context.Context, satelliteID storxnetwork.NodeID, now time.Time) (currentMonthPayout PayoutMonthly, previousMonthPayout PayoutMonthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	priceModel, err := s.pricingDB.Get(ctx, satelliteID)

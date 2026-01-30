@@ -9,12 +9,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/private/date"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Client encapsulates HeldAmountClient with underlying connection.
@@ -50,7 +50,7 @@ func NewEndpoint(log *zap.Logger, dialer rpc.Dialer, trust *trust.Pool) *Endpoin
 }
 
 // GetPaystub retrieves held amount for particular satellite from satellite using RPC.
-func (endpoint *Endpoint) GetPaystub(ctx context.Context, satelliteID storj.NodeID, period string) (_ *PayStub, err error) {
+func (endpoint *Endpoint) GetPaystub(ctx context.Context, satelliteID storxnetwork.NodeID, period string) (_ *PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := endpoint.dial(ctx, satelliteID)
@@ -100,7 +100,7 @@ func (endpoint *Endpoint) GetPaystub(ctx context.Context, satelliteID storj.Node
 }
 
 // GetAllPaystubs retrieves all paystubs for particular satellite.
-func (endpoint *Endpoint) GetAllPaystubs(ctx context.Context, satelliteID storj.NodeID) (_ []PayStub, err error) {
+func (endpoint *Endpoint) GetAllPaystubs(ctx context.Context, satelliteID storxnetwork.NodeID) (_ []PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := endpoint.dial(ctx, satelliteID)
@@ -149,7 +149,7 @@ func (endpoint *Endpoint) GetAllPaystubs(ctx context.Context, satelliteID storj.
 }
 
 // GetPayment retrieves payment data from particular satellite using grpc.
-func (endpoint *Endpoint) GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
+func (endpoint *Endpoint) GetPayment(ctx context.Context, satelliteID storxnetwork.NodeID, period string) (_ *Payment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := endpoint.dial(ctx, satelliteID)
@@ -184,7 +184,7 @@ func (endpoint *Endpoint) GetPayment(ctx context.Context, satelliteID storj.Node
 }
 
 // GetAllPayments retrieves all payments for particular satellite.
-func (endpoint *Endpoint) GetAllPayments(ctx context.Context, satelliteID storj.NodeID) (_ []Payment, err error) {
+func (endpoint *Endpoint) GetAllPayments(ctx context.Context, satelliteID storxnetwork.NodeID) (_ []Payment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := endpoint.dial(ctx, satelliteID)
@@ -218,7 +218,7 @@ func (endpoint *Endpoint) GetAllPayments(ctx context.Context, satelliteID storj.
 }
 
 // dial dials the SnoPayout client for the satellite by id.
-func (endpoint *Endpoint) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
+func (endpoint *Endpoint) dial(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeurl, err := endpoint.trust.GetNodeURL(ctx, satelliteID)

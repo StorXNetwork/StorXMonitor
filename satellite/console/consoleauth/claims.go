@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // TODO: change to JWT or Macaroon based auth

@@ -6,7 +6,7 @@ package bloomfilter
 import (
 	"time"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 )
 
 // Config contains configurable values for garbage collection.

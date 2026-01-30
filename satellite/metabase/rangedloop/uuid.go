@@ -6,7 +6,7 @@ package rangedloop
 import (
 	"encoding/binary"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // UUIDRange describes a range of UUID values.

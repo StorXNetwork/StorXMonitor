@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
 	"github.com/StorXNetwork/StorXMonitor/multinode/storage"
 	"github.com/StorXNetwork/StorXMonitor/private/compensation"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -51,7 +51,7 @@ func (controller *Storage) Usage(w http.ResponseWriter, r *http.Request) {
 		controller.serveError(w, http.StatusBadRequest, ErrStorage.New("could not receive node id segment"))
 		return
 	}
-	nodeID, err := storj.NodeIDFromString(nodeIDEnc)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDEnc)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrStorage.Wrap(err))
 		return
@@ -113,12 +113,12 @@ func (controller *Storage) UsageSatellite(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(nodeIDEnc)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDEnc)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrStorage.Wrap(err))
 		return
 	}
-	satelliteID, err := storj.NodeIDFromString(satelliteIDEnc)
+	satelliteID, err := storxnetwork.NodeIDFromString(satelliteIDEnc)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrStorage.Wrap(err))
 		return
@@ -218,7 +218,7 @@ func (controller *Storage) TotalUsageSatellite(w http.ResponseWriter, r *http.Re
 		controller.serveError(w, http.StatusBadRequest, ErrStorage.New("could not receive satellite id segment"))
 		return
 	}
-	satelliteID, err := storj.NodeIDFromString(satelliteIDEnc)
+	satelliteID, err := storxnetwork.NodeIDFromString(satelliteIDEnc)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrStorage.Wrap(err))
 		return
@@ -295,7 +295,7 @@ func (controller *Storage) DiskSpace(w http.ResponseWriter, r *http.Request) {
 		controller.serveError(w, http.StatusBadRequest, ErrStorage.New("node id is missing"))
 		return
 	}
-	nodeID, err := storj.NodeIDFromString(nodeIDparam)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDparam)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrStorage.Wrap(err))
 		return

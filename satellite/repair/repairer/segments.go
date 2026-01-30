@@ -16,10 +16,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
@@ -28,8 +24,12 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
-	"storj.io/uplink/private/eestream"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/uplink/private/eestream"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var (
@@ -201,7 +201,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	mon.IntVal("repair_segment_size").Observe(int64(segment.EncryptedSize)) //mon:locked
 	stats.repairSegmentSize.Observe(int64(segment.EncryptedSize))
 
-	allNodeIDs := make([]storj.NodeID, len(segment.Pieces))
+	allNodeIDs := make([]storxnetwork.NodeID, len(segment.Pieces))
 	for i, p := range segment.Pieces {
 		allNodeIDs[i] = p.StorageNode
 	}
@@ -458,7 +458,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// only report audit result when segment can be successfully downloaded
-	cachedNodesReputation := make(map[storj.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
+	cachedNodesReputation := make(map[storxnetwork.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
 	for id, info := range cachedNodesInfo {
 		cachedNodesReputation[id] = info.Reputation
 	}
@@ -689,11 +689,11 @@ func (repairer *SegmentRepairer) checkIfSegmentAltered(ctx context.Context, oldS
 	return nil
 }
 
-func (repairer *SegmentRepairer) getStatsByRS(redundancy storj.RedundancyScheme) *stats {
+func (repairer *SegmentRepairer) getStatsByRS(redundancy storxnetwork.RedundancyScheme) *stats {
 	return repairer.statsCollector.getStatsByRS(getRSString(redundancy))
 }
 
-func (repairer *SegmentRepairer) newRedundancy(redundancy storj.RedundancyScheme) storj.RedundancyScheme {
+func (repairer *SegmentRepairer) newRedundancy(redundancy storxnetwork.RedundancyScheme) storxnetwork.RedundancyScheme {
 	if overrideValue := repairer.repairThresholdOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
 		redundancy.RepairShares = int16(overrideValue)
 	}

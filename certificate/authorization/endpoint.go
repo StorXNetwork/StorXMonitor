@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
+	"github.com/StorXNetwork/common/errs2"
 )
 
 // ErrEndpoint is the default error class for the authorization endpoint.

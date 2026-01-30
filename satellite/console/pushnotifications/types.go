@@ -6,7 +6,7 @@ package pushnotifications
 import (
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Status constants for push notifications

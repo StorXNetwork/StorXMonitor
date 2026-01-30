@@ -11,14 +11,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func randomLocator() *audit.PieceLocator {
@@ -171,7 +171,7 @@ func TestReverifyQueueGetByNodeID(t *testing.T) {
 
 // checkGetAllContainedNodes checks that the GetAllContainedNodes method works as expected
 // in a particular situation.
-func checkGetAllContainedNodes(ctx context.Context, t testing.TB, reverifyQueue audit.ReverifyQueue, expectedIDs ...storj.NodeID) {
+func checkGetAllContainedNodes(ctx context.Context, t testing.TB, reverifyQueue audit.ReverifyQueue, expectedIDs ...storxnetwork.NodeID) {
 	containedNodes, err := reverifyQueue.GetAllContainedNodes(ctx)
 	require.NoError(t, err)
 	sort.Slice(containedNodes, func(i, j int) bool {

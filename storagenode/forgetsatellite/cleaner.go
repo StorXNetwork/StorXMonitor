@@ -10,11 +10,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Cleaner is responsible for cleaning up satellite data.
@@ -44,7 +44,7 @@ func NewCleaner(log *zap.Logger, store *pieces.Store, trust *trust.Pool, usageCa
 }
 
 // Run runs the cleaner.
-func (c *Cleaner) Run(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (c *Cleaner) Run(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx, satelliteID)(&err)
 
 	logger := c.log.With(zap.Stringer("satelliteID", satelliteID))
@@ -124,7 +124,7 @@ func (c *Cleaner) Run(ctx context.Context, satelliteID storj.NodeID) (err error)
 }
 
 // ListSatellites lists all satellites that are being cleaned up.
-func (c *Cleaner) ListSatellites(ctx context.Context) (satelliteIDs []storj.NodeID, err error) {
+func (c *Cleaner) ListSatellites(ctx context.Context) (satelliteIDs []storxnetwork.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sats, err := c.satelliteDB.GetSatellites(ctx)

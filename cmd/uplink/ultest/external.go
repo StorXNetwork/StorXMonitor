@@ -8,7 +8,7 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 var accesses = map[string]string{

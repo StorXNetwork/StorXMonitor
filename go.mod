@@ -72,11 +72,11 @@ require (
 	gopkg.in/mail.v2 v2.3.1
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20240325183111-3a1a80390ccd
-	storj.io/drpc v0.0.34
-	storj.io/eventkit v0.0.0-20240306141230-6cb545e5f892
-	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
-	storj.io/uplink v1.12.3-0.20240325204957-7e1a1e616922
+	github.com/StorXNetwork/common v0.0.2
+	github.com/StorXNetwork/drpc v0.0.36
+	github.com/StorXNetwork/eventkit v0.0.2
+	github.com/StorXNetwork/monkit-jaeger v0.0.4
+	github.com/StorXNetwork/uplink v1.13.4
 )
 
 require (
@@ -217,6 +217,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	storj.io/infectious v0.0.2 // indirect
-	storj.io/picobuf v0.0.3 // indirect
+	github.com/StorXNetwork/infectious v0.0.4 // indirect
+	github.com/StorXNetwork/picobuf v0.0.6 // indirect
 )

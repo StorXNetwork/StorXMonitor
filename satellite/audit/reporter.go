@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // reporter records audit reports in overlay and implements the Reporter interface.
@@ -44,12 +44,12 @@ type Reporter interface {
 type Report struct {
 	Segment *metabase.Segment
 
-	Successes       storj.NodeIDList
+	Successes       storxnetwork.NodeIDList
 	Fails           metabase.Pieces
-	Offlines        storj.NodeIDList
+	Offlines        storxnetwork.NodeIDList
 	PendingAudits   []*ReverificationJob
-	Unknown         storj.NodeIDList
-	NodesReputation map[storj.NodeID]overlay.ReputationStatus
+	Unknown         storxnetwork.NodeIDList
+	NodesReputation map[storxnetwork.NodeID]overlay.ReputationStatus
 }
 
 // NewReporter instantiates a reporter.
@@ -91,7 +91,7 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 
 	nodesReputation := req.NodesReputation
 
-	reportFailures := func(tries int, resultType string, err error, nodes storj.NodeIDList, pending []*ReverificationJob) {
+	reportFailures := func(tries int, resultType string, err error, nodes storxnetwork.NodeIDList, pending []*ReverificationJob) {
 		if err == nil || tries < reporter.maxRetries {
 			// don't need to report anything until the last time through
 			return
@@ -122,7 +122,7 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 	}
 }
 
-func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.NodeIDList, nodesReputation map[storj.NodeID]overlay.ReputationStatus, auditOutcome reputation.AuditType) (failed storj.NodeIDList, err error) {
+func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storxnetwork.NodeIDList, nodesReputation map[storxnetwork.NodeID]overlay.ReputationStatus, auditOutcome reputation.AuditType) (failed storxnetwork.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -140,7 +140,7 @@ func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.N
 }
 
 // recordPendingAudits updates the containment status of nodes with pending piece audits.
-func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
+func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storxnetwork.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 
@@ -197,7 +197,7 @@ const maxPiecesToRemoveAtOnce = 6
 // mean the piece is gone. Remove the pieces from the relevant pointers so that the segment can be
 // repaired if appropriate, and so that we don't continually dock reputation for the same missing
 // piece(s).
-func (reporter *reporter) recordFailedAudits(ctx context.Context, segment *metabase.Segment, failures []metabase.Piece, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failedToRecord []metabase.Piece, err error) {
+func (reporter *reporter) recordFailedAudits(ctx context.Context, segment *metabase.Segment, failures []metabase.Piece, nodesReputation map[storxnetwork.NodeID]overlay.ReputationStatus) (failedToRecord []metabase.Piece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	piecesToRemove := make(metabase.Pieces, 0, len(failures))
@@ -255,7 +255,7 @@ func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendin
 
 	keepInQueue := true
 	report := Report{
-		NodesReputation: map[storj.NodeID]overlay.ReputationStatus{
+		NodesReputation: map[storxnetwork.NodeID]overlay.ReputationStatus{
 			pendingJob.Locator.NodeID: reputation,
 		},
 	}

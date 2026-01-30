@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ObjectEntry contains information about an item in a bucket.
@@ -33,7 +33,7 @@ type ObjectEntry struct {
 	TotalEncryptedSize int64
 	FixedSegmentSize   int32
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 }
 
 // StreamVersionID returns byte representation of object stream version id.

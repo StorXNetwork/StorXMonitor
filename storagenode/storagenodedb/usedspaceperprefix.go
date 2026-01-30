@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrUsedSpacePerPrefix represents errors from the used space per prefix database.
@@ -39,7 +39,7 @@ func (db *usedSpacePerPrefixDB) Store(ctx context.Context, usedSpace pieces.Pref
 	return ErrUsedSpacePerPrefix.Wrap(err)
 }
 
-func (db *usedSpacePerPrefixDB) Get(ctx context.Context, satelliteID storj.NodeID) (usedSpaces []pieces.PrefixUsedSpace, err error) {
+func (db *usedSpacePerPrefixDB) Get(ctx context.Context, satelliteID storxnetwork.NodeID) (usedSpaces []pieces.PrefixUsedSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `

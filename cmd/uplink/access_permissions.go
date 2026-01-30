@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 // accessPermissions holds flags and provides a Setup method for commands that

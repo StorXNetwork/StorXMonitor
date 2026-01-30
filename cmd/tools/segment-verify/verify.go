@@ -13,17 +13,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 // ErrNodeOffline is returned when it was not possible to contact a node or the node was not responding.
@@ -91,7 +91,7 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 }
 
 // Verify a collection of segments by attempting to download a byte from each segment from the target node.
-func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error) {
+func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storxnetwork.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error) {
 	verifiedCount, err = service.VerifyWithExists(ctx, alias, target, targetVersion, segments)
 	// if Exists method is unimplemented or it is wrong node version fallback to download verification
 	if !methodUnimplemented(err) && !errWrongNodeVersion.Has(err) {
@@ -159,7 +159,7 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 
 // verifySegment tries to verify the segment by downloading a single byte from the piece of the segment
 // on the specified target node.
-func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecestore.Client, alias metabase.NodeAlias, target storj.NodeURL, segment *Segment) (outcome audit.Outcome, err error) {
+func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecestore.Client, alias metabase.NodeAlias, target storxnetwork.NodeURL, segment *Segment) (outcome audit.Outcome, err error) {
 	pieceNum := findPieceNum(segment, alias)
 
 	logger := service.log.With(
@@ -242,7 +242,7 @@ func findPieceNum(segment *Segment, alias metabase.NodeAlias) uint16 {
 
 // VerifyWithExists verifies that the segments exist on the specified node by calling the piecestore Exists
 // endpoint if the node version supports it.
-func (service *NodeVerifier) VerifyWithExists(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment) (verifiedCount int, err error) {
+func (service *NodeVerifier) VerifyWithExists(ctx context.Context, alias metabase.NodeAlias, target storxnetwork.NodeURL, targetVersion string, segments []*Segment) (verifiedCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if service.versionWithExists.String() == "" || targetVersion == "" {
@@ -305,10 +305,10 @@ func methodUnimplemented(err error) bool {
 }
 
 // verifySegmentsWithExists calls the Exists endpoint on the specified target node for each segment.
-func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, client pb.DRPCPiecestoreClient, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment) (err error) {
+func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, client pb.DRPCPiecestoreClient, alias metabase.NodeAlias, target storxnetwork.NodeURL, segments []*Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pieceIds := make([]storj.PieceID, 0, len(segments))
+	pieceIds := make([]storxnetwork.PieceID, 0, len(segments))
 	pieceNums := make([]uint16, 0, len(segments))
 
 	for _, segment := range segments {

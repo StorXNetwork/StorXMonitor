@@ -13,10 +13,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/base58"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/base58"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // This tool can be use to update existing access satellite address field to
@@ -48,7 +48,7 @@ func main() {
 		panic(errs.New("unable to unmarshal scope: %v", err))
 	}
 
-	nodeURL, err := storj.ParseNodeURL(scope.SatelliteAddr)
+	nodeURL, err := storxnetwork.ParseNodeURL(scope.SatelliteAddr)
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +58,7 @@ func main() {
 		return
 	}
 
-	nodeURL = storj.NodeURL{
+	nodeURL = storxnetwork.NodeURL{
 		ID:      satNodeID,
 		Address: scope.SatelliteAddr,
 	}

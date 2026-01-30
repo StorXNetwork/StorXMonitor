@@ -10,11 +10,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestUpdateSegmentPieces(t *testing.T) {
@@ -58,7 +58,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					StreamID: obj.StreamID,
 					OldPieces: []metabase.Piece{{
 						Number:      1,
-						StorageNode: storj.NodeID{},
+						StorageNode: storxnetwork.NodeID{},
 					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -156,7 +156,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					NewRedundancy: metabasetest.DefaultRedundancy,
 					NewPieces: []metabase.Piece{{
 						Number:      1,
-						StorageNode: storj.NodeID{},
+						StorageNode: storxnetwork.NodeID{},
 					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -236,7 +236,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 			obj := metabasetest.CreateObject(ctx, t, db, obj, 1)
 
-			newRedundancy := storj.RedundancyScheme{
+			newRedundancy := storxnetwork.RedundancyScheme{
 				RequiredShares: 1,
 				RepairShares:   1,
 				OptimalShares:  1,
@@ -268,7 +268,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID:          obj.StreamID,
-						RootPieceID:       storj.PieceID{1},
+						RootPieceID:       storxnetwork.PieceID{1},
 						CreatedAt:         now,
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
@@ -278,7 +278,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						PlainSize:         512,
 
 						Redundancy: metabasetest.DefaultRedundancy,
-						Pieces:     metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						Pieces:     metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 					},
 				},
 			}.Check(ctx, t, db)

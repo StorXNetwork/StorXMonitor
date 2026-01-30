@@ -3,34 +3,34 @@
 
 package multinodepb
 
-import "storj.io/common/storj"
+import "github.com/StorXNetwork/common/storxnetwork"
 
 // Path represents a object path.
-type Path = storj.Path
+type Path = storxnetwork.Path
 
 // NodeID is an alias to storj.NodeID for use in generated protobuf code.
-type NodeID = storj.NodeID
+type NodeID = storxnetwork.NodeID
 
 // NodeIDList is an alias to storj.NodeIDList for use in generated protobuf code.
-type NodeIDList = storj.NodeIDList
+type NodeIDList = storxnetwork.NodeIDList
 
 // PieceID is an alias to storj.PieceID for use in generated protobuf code.
-type PieceID = storj.PieceID
+type PieceID = storxnetwork.PieceID
 
 // PiecePublicKey is an alias to storj.PiecePublicKey for use in generated protobuf code.
-type PiecePublicKey = storj.PiecePublicKey
+type PiecePublicKey = storxnetwork.PiecePublicKey
 
 // PiecePrivateKey is an alias to storj.PiecePrivateKey for use in generated protobuf code.
-type PiecePrivateKey = storj.PiecePrivateKey
+type PiecePrivateKey = storxnetwork.PiecePrivateKey
 
 // SerialNumber is an alias to storj.SerialNumber for use in generated protobuf code.
-type SerialNumber = storj.SerialNumber
+type SerialNumber = storxnetwork.SerialNumber
 
 // StreamID is an alias to storj.StreamID for use in generated protobuf code.
-type StreamID = storj.StreamID
+type StreamID = storxnetwork.StreamID
 
 // Nonce is an alias to storj.Nonce for use in generated protobuf code.
-type Nonce = storj.Nonce
+type Nonce = storxnetwork.Nonce
 
 // SegmentID is an alias to storj.SegmentID for use in generated protobuf code.
-type SegmentID = storj.SegmentID
+type SegmentID = storxnetwork.SegmentID

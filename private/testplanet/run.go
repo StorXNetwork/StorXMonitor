@@ -11,12 +11,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/tagsql"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )

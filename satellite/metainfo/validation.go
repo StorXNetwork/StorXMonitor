@@ -16,20 +16,20 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
-	"storj.io/common/encryption"
-	"storj.io/common/errs2"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/eventkit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/eventkit"
 )
 
 const encryptedKeySize = 48
@@ -324,8 +324,8 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 		return Error.New("invalid no order limit for piece")
 	}
 
-	maxAllowed, err := encryption.CalcEncryptedSize(endpoint.config.MaxSegmentSize.Int64(), storj.EncryptionParameters{
-		CipherSuite: storj.EncAESGCM,
+	maxAllowed, err := encryption.CalcEncryptedSize(endpoint.config.MaxSegmentSize.Int64(), storxnetwork.EncryptionParameters{
+		CipherSuite: storxnetwork.EncAESGCM,
 		BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
 	})
 	if err != nil {
@@ -342,7 +342,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 	}
 
 	pieceNums := make(map[uint16]struct{})
-	nodeIds := make(map[storj.NodeID]struct{})
+	nodeIds := make(map[storxnetwork.NodeID]struct{})
 	deriver := commitRequest.RootPieceID.Deriver()
 	for _, piece := range commitRequest.Pieces {
 		if int(piece.Number) >= len(originalLimits) {

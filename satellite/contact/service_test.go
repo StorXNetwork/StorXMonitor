@@ -8,18 +8,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/nodetag"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/nodetag"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestVerifyTags(t *testing.T) {
 	ctx := testcontext.New(t)
-	snIdentity := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
-	signerIdentity := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
+	snIdentity := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion())
+	signerIdentity := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion())
 	signer := signing.SignerFromFullIdentity(signerIdentity)
 	authority := nodetag.Authority{
 		signing.SignerFromFullIdentity(signerIdentity),
@@ -87,7 +87,7 @@ func TestVerifyTags(t *testing.T) {
 	})
 
 	t.Run("unknown signer", func(t *testing.T) {
-		otherSignerIdentity := testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion())
+		otherSignerIdentity := testidentity.MustPregeneratedIdentity(2, storxnetwork.LatestIDVersion())
 		otherSigner := signing.SignerFromFullIdentity(otherSignerIdentity)
 
 		tags, err := nodetag.Sign(ctx, &pb.NodeTagSet{
@@ -108,7 +108,7 @@ func TestVerifyTags(t *testing.T) {
 	})
 
 	t.Run("signed for different node", func(t *testing.T) {
-		otherNodeID := testidentity.MustPregeneratedIdentity(3, storj.LatestIDVersion()).ID
+		otherNodeID := testidentity.MustPregeneratedIdentity(3, storxnetwork.LatestIDVersion()).ID
 		tags, err := nodetag.Sign(ctx, &pb.NodeTagSet{
 			NodeId: otherNodeID.Bytes(),
 			Tags: []*pb.Tag{

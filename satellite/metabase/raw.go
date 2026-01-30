@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/pgxutil"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgxutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RawObject defines the full object that is stored in the database. It should be rarely used directly.
@@ -36,7 +36,7 @@ type RawObject struct {
 	// FixedSegmentSize is 0 for a migrated object.
 	FixedSegmentSize int32
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 
 	// ZombieDeletionDeadline defines when the pending raw object should be deleted from the database.
 	// This is as a safeguard against objects that failed to upload and the client has not indicated
@@ -53,7 +53,7 @@ type RawSegment struct {
 	RepairedAt *time.Time
 	ExpiresAt  *time.Time
 
-	RootPieceID       storj.PieceID
+	RootPieceID       storxnetwork.PieceID
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
@@ -64,12 +64,12 @@ type RawSegment struct {
 	PlainOffset   int64
 	EncryptedETag []byte
 
-	Redundancy storj.RedundancyScheme
+	Redundancy storxnetwork.RedundancyScheme
 
 	InlineData []byte
 	Pieces     Pieces
 
-	Placement storj.PlacementConstraint
+	Placement storxnetwork.PlacementConstraint
 }
 
 // RawCopy contains a copy that is stored in the database.

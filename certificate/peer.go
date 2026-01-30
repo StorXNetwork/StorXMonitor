@@ -15,10 +15,10 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	"github.com/StorXNetwork/StorXMonitor/private/server"
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
 )
 
 var (

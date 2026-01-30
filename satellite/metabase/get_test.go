@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestGetObjectExactVersion(t *testing.T) {
@@ -565,13 +565,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 					},
 					CreatedAt:         obj.CreatedAt,
 					ExpiresAt:         obj.ExpiresAt,
-					RootPieceID:       storj.PieceID{1},
+					RootPieceID:       storxnetwork.PieceID{1},
 					EncryptedKey:      []byte{3},
 					EncryptedKeyNonce: []byte{4},
 					EncryptedETag:     []byte{5},
 					EncryptedSize:     1024,
 					PlainSize:         512,
-					Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+					Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 					Redundancy:        metabasetest.DefaultRedundancy,
 				}
 
@@ -697,13 +697,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 				},
 				CreatedAt:         obj.CreatedAt,
 				ExpiresAt:         obj.ExpiresAt,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
@@ -1158,14 +1158,14 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					Index: 1,
 				},
 				CreatedAt:         now,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				PlainOffset:       512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 

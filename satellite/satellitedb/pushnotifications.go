@@ -12,7 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )

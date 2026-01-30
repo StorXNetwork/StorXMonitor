@@ -8,7 +8,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 	"github.com/StorXNetwork/StorXMonitor/cmd/tools/metabase-verify/verify"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )

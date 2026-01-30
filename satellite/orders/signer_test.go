@@ -10,21 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSigner_EncryptedMetadata(t *testing.T) {
 	ekeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
-		Key: storj.Key{1},
+		Key: storxnetwork.Key{1},
 	})
 	require.NoError(t, err)
 
@@ -87,7 +87,7 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 func TestSigner_EncryptedMetadata_UploadDownload(t *testing.T) {
 	ekeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
-		Key: storj.Key{1},
+		Key: storxnetwork.Key{1},
 	})
 	require.NoError(t, err)
 

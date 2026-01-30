@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Config keeps track of core console service configuration parameters.
@@ -88,7 +88,7 @@ type EdgeURLOverrides struct {
 
 // PlacementEdgeURLOverrides represents a mapping between placement IDs and edge service URL overrides.
 type PlacementEdgeURLOverrides struct {
-	overrideMap map[storj.PlacementConstraint]EdgeURLOverrides
+	overrideMap map[storxnetwork.PlacementConstraint]EdgeURLOverrides
 }
 
 // Ensure that PlacementEdgeOverrides implements pflag.Value.
@@ -117,7 +117,7 @@ func (ov *PlacementEdgeURLOverrides) Set(s string) error {
 		return nil
 	}
 
-	overrides := make(map[storj.PlacementConstraint]EdgeURLOverrides)
+	overrides := make(map[storxnetwork.PlacementConstraint]EdgeURLOverrides)
 	err := json.Unmarshal([]byte(s), &overrides)
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func (ov *PlacementEdgeURLOverrides) Set(s string) error {
 }
 
 // Get returns the edge service URL overrides for the given placement ID.
-func (ov *PlacementEdgeURLOverrides) Get(placement storj.PlacementConstraint) (overrides EdgeURLOverrides, ok bool) {
+func (ov *PlacementEdgeURLOverrides) Get(placement storxnetwork.PlacementConstraint) (overrides EdgeURLOverrides, ok bool) {
 	if ov == nil {
 		return EdgeURLOverrides{}, false
 	}

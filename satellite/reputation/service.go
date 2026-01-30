@@ -9,26 +9,26 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DB is an interface for storing reputation data.
 type DB interface {
 	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *Info, err error)
-	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
+	Get(ctx context.Context, nodeID storxnetwork.NodeID) (*Info, error)
 	// ApplyUpdates applies multiple updates (defined by the updates
 	// parameter) to a node's reputations record.
-	ApplyUpdates(ctx context.Context, nodeID storj.NodeID, updates Mutations, reputationConfig Config, now time.Time) (_ *Info, err error)
+	ApplyUpdates(ctx context.Context, nodeID storxnetwork.NodeID, updates Mutations, reputationConfig Config, now time.Time) (_ *Info, err error)
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
+	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error)
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error)
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	SuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error)
 }
 
 // Info contains all reputation data to be stored in DB.
@@ -102,7 +102,7 @@ func NewService(log *zap.Logger, overlay *overlay.Service, db DB, config Config)
 }
 
 // ApplyAudit receives an audit result and applies it to the relevant node in DB.
-func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, reputation overlay.ReputationStatus, result AuditType) (err error) {
+func (service *Service) ApplyAudit(ctx context.Context, nodeID storxnetwork.NodeID, reputation overlay.ReputationStatus, result AuditType) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// There are some cases where the caller did not get updated reputation-status information.
@@ -160,7 +160,7 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 
 // Get returns a node's reputation info from DB.
 // If a node is not found in the DB, default reputation information is returned.
-func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Info, err error) {
+func (service *Service) Get(ctx context.Context, nodeID storxnetwork.NodeID) (info *Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	info, err = service.db.Get(ctx, nodeID)
@@ -185,7 +185,7 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Inf
 }
 
 // TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
-func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = service.db.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
 	if err != nil {
@@ -210,7 +210,7 @@ func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID 
 }
 
 // TestDisqualifyNode disqualifies a storage node.
-func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason overlay.DisqualificationReason) (err error) {
+func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, reason overlay.DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	disqualifiedAt := time.Now()
 
@@ -223,7 +223,7 @@ func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.Nod
 }
 
 // TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = service.db.UnsuspendNodeUnknownAudit(ctx, nodeID)
@@ -262,7 +262,7 @@ func (service *Service) TestFlushAllNodeInfo(ctx context.Context) (err error) {
 
 // FlushNodeInfo flushes any cached information about the specified node to
 // the backing store, if the attached reputationDB does any caching at all.
-func (service *Service) FlushNodeInfo(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (service *Service) FlushNodeInfo(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if db, ok := service.db.(*CachingDB); ok {

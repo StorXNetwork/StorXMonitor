@@ -18,11 +18,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var (
@@ -94,7 +94,7 @@ var _ pflag.Value = &SignedTags{}
 
 // NodeInfo contains information necessary for introducing storagenode to satellite.
 type NodeInfo struct {
-	ID                  storj.NodeID
+	ID                  storxnetwork.NodeID
 	Address             string
 	Version             pb.NodeVersion
 	Capacity            pb.NodeCapacity
@@ -148,7 +148,7 @@ func (service *Service) PingSatellites(ctx context.Context, maxInterval time.Dur
 	return group.Wait()
 }
 
-func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeID, maxInterval time.Duration) error {
+func (service *Service) pingSatellite(ctx context.Context, satellite storxnetwork.NodeID, maxInterval time.Duration) error {
 	interval := initialBackOff
 	attempts := 0
 	for {
@@ -174,7 +174,7 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 	}
 }
 
-func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
+func (service *Service) pingSatelliteOnce(ctx context.Context, id storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
 
 	conn, err := service.dialSatellite(ctx, id)
@@ -253,7 +253,7 @@ func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats
 	return stats, errPingSatellite.New("failed to ping storage node using QUIC: %q", err)
 }
 
-func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.NodeID) (err error) {
+func (service *Service) requestPingMeOnce(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx, satellite)(&err)
 
 	conn, err := service.dialSatellite(ctx, satellite)
@@ -274,7 +274,7 @@ func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.N
 	return nil
 }
 
-func (service *Service) dialSatellite(ctx context.Context, id storj.NodeID) (*rpc.Conn, error) {
+func (service *Service) dialSatellite(ctx context.Context, id storxnetwork.NodeID) (*rpc.Conn, error) {
 	nodeurl, err := service.trust.GetNodeURL(ctx, id)
 	if err != nil {
 		return nil, errPingSatellite.Wrap(err)

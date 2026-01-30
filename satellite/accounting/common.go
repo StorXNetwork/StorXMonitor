@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Constants for accounting_raw, accounting_rollup, and accounting_timestamps.
@@ -37,7 +37,7 @@ var (
 
 // CSVRow represents data from QueryPaymentInfo without exposing dbx.
 type CSVRow struct {
-	NodeID           storj.NodeID
+	NodeID           storxnetwork.NodeID
 	NodeCreationDate time.Time
 	AtRestTotal      float64
 	GetRepairTotal   int64

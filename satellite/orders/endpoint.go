@@ -15,15 +15,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/date"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeapiversion"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // DB implements saving order after receiving from storage node.
@@ -40,14 +40,14 @@ type DB interface {
 	UpdateBandwidthBatch(ctx context.Context, rollups []BucketBandwidthRollup) error
 
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
-	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storxnetwork.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateStoragenodeBandwidthSettleWithWindow updates 'settled' bandwidth for given storage node
-	UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error)
+	UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storxnetwork.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error)
 
 	// GetBucketBandwidth gets total bucket bandwidth from period of time
 	GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error)
 	// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
-	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
+	GetStorageNodeBandwidth(ctx context.Context, nodeID storxnetwork.NodeID, from, to time.Time) (int64, error)
 }
 
 type noopDB struct {
@@ -69,11 +69,11 @@ func (noopDB) UpdateBandwidthBatch(ctx context.Context, rollups []BucketBandwidt
 	return nil
 }
 
-func (noopDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (noopDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storxnetwork.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	return nil
 }
 
-func (noopDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
+func (noopDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storxnetwork.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
 	return pb.SettlementWithWindowResponse_ACCEPTED, false, nil
 }
 
@@ -81,7 +81,7 @@ func (noopDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucke
 	return 0, nil
 }
 
-func (noopDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error) {
+func (noopDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storxnetwork.NodeID, from, to time.Time) (int64, error) {
 	return 0, nil
 }
 
@@ -97,18 +97,18 @@ type SerialDeleteOptions struct {
 
 // ConsumedSerial is a serial that has been consumed and its bandwidth recorded.
 type ConsumedSerial struct {
-	NodeID       storj.NodeID
-	SerialNumber storj.SerialNumber
+	NodeID       storxnetwork.NodeID
+	SerialNumber storxnetwork.SerialNumber
 	ExpiresAt    time.Time
 }
 
 // PendingSerial is a serial number reported by a storagenode waiting to be
 // settled.
 type PendingSerial struct {
-	NodeID       storj.NodeID
+	NodeID       storxnetwork.NodeID
 	BucketID     []byte
 	Action       uint
-	SerialNumber storj.SerialNumber
+	SerialNumber storxnetwork.SerialNumber
 	ExpiresAt    time.Time
 	Settled      uint64
 }
@@ -136,7 +136,7 @@ type BucketBandwidthRollup struct {
 
 // StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup.
 type StoragenodeBandwidthRollup struct {
-	NodeID    storj.NodeID
+	NodeID    storxnetwork.NodeID
 	Action    pb.PieceAction
 	Allocated int64
 	Settled   int64
@@ -257,7 +257,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 	storagenodeSettled := map[int32]int64{}
 	bucketSettled := map[bucketIDAction]bandwidthAmount{}
-	seenSerials := map[storj.SerialNumber]struct{}{}
+	seenSerials := map[storxnetwork.SerialNumber]struct{}{}
 
 	var window int64
 	var request *pb.SettlementRequest
@@ -406,7 +406,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 }
 
 func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order,
-	orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
+	orderLimit *pb.OrderLimit, peerID storxnetwork.NodeID, window int64) bool {
 	if orderLimit.StorageNodeId != peerID {
 		log.Warn("storage node id mismatch")
 		mon.Event("order_not_valid_storagenodeid")

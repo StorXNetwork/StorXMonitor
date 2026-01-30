@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/currency"
 	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
 )

@@ -8,12 +8,12 @@ import (
 	"database/sql"
 	"errors"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 type bucketsDB struct {
@@ -83,7 +83,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 }
 
 // GetBucketPlacement returns with the placement constraint identifier.
-func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storj.PlacementConstraint, err error) {
+func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storxnetwork.PlacementConstraint, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxPlacement, err := db.db.Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
@@ -91,13 +91,13 @@ func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, 
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return storj.EveryCountry, buckets.ErrBucketNotFound.New("%s", bucketName)
+			return storxnetwork.EveryCountry, buckets.ErrBucketNotFound.New("%s", bucketName)
 		}
-		return storj.EveryCountry, buckets.ErrBucket.Wrap(err)
+		return storxnetwork.EveryCountry, buckets.ErrBucket.Wrap(err)
 	}
-	placement = storj.EveryCountry
+	placement = storxnetwork.EveryCountry
 	if dbxPlacement.Placement != nil {
-		placement = storj.PlacementConstraint(*dbxPlacement.Placement)
+		placement = storxnetwork.PlacementConstraint(*dbxPlacement.Placement)
 	}
 
 	return placement, nil
@@ -377,25 +377,25 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 		ProjectID:           project,
 		Created:             dbxBucket.CreatedAt,
 		CreatedBy:           createdBy,
-		PathCipher:          storj.CipherSuite(dbxBucket.PathCipher),
+		PathCipher:          storxnetwork.CipherSuite(dbxBucket.PathCipher),
 		DefaultSegmentsSize: int64(dbxBucket.DefaultSegmentSize),
-		DefaultRedundancyScheme: storj.RedundancyScheme{
-			Algorithm:      storj.RedundancyAlgorithm(dbxBucket.DefaultRedundancyAlgorithm),
+		DefaultRedundancyScheme: storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.RedundancyAlgorithm(dbxBucket.DefaultRedundancyAlgorithm),
 			ShareSize:      int32(dbxBucket.DefaultRedundancyShareSize),
 			RequiredShares: int16(dbxBucket.DefaultRedundancyRequiredShares),
 			RepairShares:   int16(dbxBucket.DefaultRedundancyRepairShares),
 			OptimalShares:  int16(dbxBucket.DefaultRedundancyOptimalShares),
 			TotalShares:    int16(dbxBucket.DefaultRedundancyTotalShares),
 		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
+		DefaultEncryptionParameters: storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
 		Versioning: buckets.Versioning(dbxBucket.Versioning),
 	}
 
 	if dbxBucket.Placement != nil {
-		bucket.Placement = storj.PlacementConstraint(*dbxBucket.Placement)
+		bucket.Placement = storxnetwork.PlacementConstraint(*dbxBucket.Placement)
 	}
 
 	if dbxBucket.UserAgent != nil {

@@ -12,12 +12,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/version"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *overlay.NodeCriteria) (nodes []*nodeselection.SelectedNode, err error) {
@@ -36,7 +36,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 	receivedNewNodes := 0
 	receivedNodeNetworks := make(map[string]struct{})
 
-	excludedIDs := append([]storj.NodeID{}, criteria.ExcludedIDs...)
+	excludedIDs := append([]storxnetwork.NodeID{}, criteria.ExcludedIDs...)
 	excludedNetworks := append([]string{}, criteria.ExcludedNetworks...)
 
 	for i := 0; i < 3; i++ {
@@ -87,7 +87,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 	return nodes, nil
 }
 
-func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*nodeselection.SelectedNode, err error) {
+func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storxnetwork.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	newNodesCondition, err := nodeSelectionCondition(criteria, excludedIDs, excludedNetworks, true)
@@ -161,7 +161,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 }
 
 // nodeSelectionCondition creates a condition with arguments that corresponds to the arguments.
-func nodeSelectionCondition(criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
+func nodeSelectionCondition(criteria *overlay.NodeCriteria, excludedIDs []storxnetwork.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
 	var conds conditions
 	conds.add(`disqualified IS NULL`)
 	conds.add(`unknown_audit_suspended IS NULL`)

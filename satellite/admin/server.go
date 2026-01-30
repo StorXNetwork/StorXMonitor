@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
+	"github.com/StorXNetwork/common/errs2"
 	"github.com/StorXNetwork/StorXMonitor/private/emptyfs"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"

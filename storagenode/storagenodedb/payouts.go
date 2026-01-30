@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ensures that payoutDB implements payouts.DB interface.
@@ -86,7 +86,7 @@ func (db *payoutDB) StorePayStub(ctx context.Context, paystub payouts.PayStub) (
 }
 
 // GetPayStub retrieves paystub data for a specific satellite and period.
-func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (_ *payouts.PayStub, err error) {
+func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storxnetwork.NodeID, period string) (_ *payouts.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result := payouts.PayStub{
@@ -227,7 +227,7 @@ func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payouts
 }
 
 // SatellitesHeldbackHistory retrieves heldback history for specific satellite.
-func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []payouts.HeldForPeriod, err error) {
+func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storxnetwork.NodeID) (_ []payouts.HeldForPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT
@@ -261,7 +261,7 @@ func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.Node
 }
 
 // SatellitePeriods retrieves all periods for concrete satellite in which we have some payouts data.
-func (db *payoutDB) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
+func (db *payoutDB) SatellitePeriods(ctx context.Context, satelliteID storxnetwork.NodeID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT DISTINCT period FROM paystubs WHERE satellite_id = ? ORDER BY created_at`
@@ -348,7 +348,7 @@ func (db *payoutDB) StorePayment(ctx context.Context, payment payouts.Payment) (
 }
 
 // SatellitesDisposedHistory returns all disposed amount for specific satellite from DB.
-func (db *payoutDB) SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
+func (db *payoutDB) SatellitesDisposedHistory(ctx context.Context, satelliteID storxnetwork.NodeID) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT
@@ -381,7 +381,7 @@ func (db *payoutDB) SatellitesDisposedHistory(ctx context.Context, satelliteID s
 }
 
 // GetReceipt retrieves receipt data for a specific satellite and period.
-func (db *payoutDB) GetReceipt(ctx context.Context, satelliteID storj.NodeID, period string) (receipt string, err error) {
+func (db *payoutDB) GetReceipt(ctx context.Context, satelliteID storxnetwork.NodeID, period string) (receipt string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rowPayment := db.QueryRowContext(ctx,
@@ -432,7 +432,7 @@ func (db *payoutDB) GetTotalEarned(ctx context.Context) (_ int64, err error) {
 }
 
 // GetEarnedAtSatellite returns total earned value for node from specific satellite.
-func (db *payoutDB) GetEarnedAtSatellite(ctx context.Context, id storj.NodeID) (_ int64, err error) {
+func (db *payoutDB) GetEarnedAtSatellite(ctx context.Context, id storxnetwork.NodeID) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT comp_at_rest, comp_get, comp_get_repair, comp_get_audit FROM paystubs WHERE satellite_id = ?`
@@ -464,7 +464,7 @@ func (db *payoutDB) GetEarnedAtSatellite(ctx context.Context, id storj.NodeID) (
 }
 
 // GetPayingSatellitesIDs returns list of satellite ID's that ever paid to storagenode.
-func (db *payoutDB) GetPayingSatellitesIDs(ctx context.Context) (_ []storj.NodeID, err error) {
+func (db *payoutDB) GetPayingSatellitesIDs(ctx context.Context) (_ []storxnetwork.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT DISTINCT (satellite_id) FROM paystubs`
@@ -476,14 +476,14 @@ func (db *payoutDB) GetPayingSatellitesIDs(ctx context.Context) (_ []storj.NodeI
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var satelliteIDs []storj.NodeID
+	var satelliteIDs []storxnetwork.NodeID
 	for rows.Next() {
-		var satelliteID storj.NodeID
+		var satelliteID storxnetwork.NodeID
 
 		err := rows.Scan(&satelliteID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return []storj.NodeID{}, nil
+				return []storxnetwork.NodeID{}, nil
 			}
 
 			return nil, ErrPayout.Wrap(err)
@@ -499,7 +499,7 @@ func (db *payoutDB) GetPayingSatellitesIDs(ctx context.Context) (_ []storj.NodeI
 }
 
 // GetSatelliteSummary returns satellite all time paid and held amounts.
-func (db *payoutDB) GetSatelliteSummary(ctx context.Context, satelliteID storj.NodeID) (_, _ int64, err error) {
+func (db *payoutDB) GetSatelliteSummary(ctx context.Context, satelliteID storxnetwork.NodeID) (_, _ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT paid, held FROM paystubs WHERE satellite_id = ?`
@@ -535,7 +535,7 @@ func (db *payoutDB) GetSatelliteSummary(ctx context.Context, satelliteID storj.N
 }
 
 // GetSatellitePeriodSummary returns satellite paid and held amounts for specific period.
-func (db *payoutDB) GetSatellitePeriodSummary(ctx context.Context, satelliteID storj.NodeID, period string) (_, _ int64, err error) {
+func (db *payoutDB) GetSatellitePeriodSummary(ctx context.Context, satelliteID storxnetwork.NodeID, period string) (_, _ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT paid, held FROM paystubs WHERE satellite_id = ? AND period = ?`
@@ -587,7 +587,7 @@ func (db *payoutDB) GetUndistributed(ctx context.Context) (_ int64, err error) {
 }
 
 // GetSatellitePaystubs returns summed paystubs for specific satellite.
-func (db *payoutDB) GetSatellitePaystubs(ctx context.Context, satelliteID storj.NodeID) (_ *payouts.PayStub, err error) {
+func (db *payoutDB) GetSatellitePaystubs(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *payouts.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rowPayment := db.QueryRowContext(ctx,
@@ -683,7 +683,7 @@ func (db *payoutDB) GetPeriodPaystubs(ctx context.Context, period string) (_ *pa
 }
 
 // GetSatellitePeriodPaystubs returns summed satellite paystubs for specific period.
-func (db *payoutDB) GetSatellitePeriodPaystubs(ctx context.Context, period string, satelliteID storj.NodeID) (_ *payouts.PayStub, err error) {
+func (db *payoutDB) GetSatellitePeriodPaystubs(ctx context.Context, period string, satelliteID storxnetwork.NodeID) (_ *payouts.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rowPayment := db.QueryRowContext(ctx,
@@ -734,7 +734,7 @@ func (db *payoutDB) HeldAmountHistory(ctx context.Context) (_ []payouts.HeldAmou
 		err = errs.Combine(err, rows.Close())
 	}()
 
-	cache := make(map[storj.NodeID]payouts.HeldAmountHistory)
+	cache := make(map[storxnetwork.NodeID]payouts.HeldAmountHistory)
 
 	for rows.Next() {
 		var idBytes []byte
@@ -745,7 +745,7 @@ func (db *payoutDB) HeldAmountHistory(ctx context.Context) (_ []payouts.HeldAmou
 			return nil, ErrPayout.Wrap(err)
 		}
 
-		satelliteID, err := storj.NodeIDFromBytes(idBytes)
+		satelliteID, err := storxnetwork.NodeIDFromBytes(idBytes)
 		if err != nil {
 			return nil, ErrPayout.Wrap(err)
 		}

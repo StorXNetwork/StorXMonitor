@@ -11,22 +11,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
-
-	"storj.io/common/errs2"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestDatabase(t *testing.T) {
@@ -149,10 +148,10 @@ func createOrders(t *testing.T, ctx *testcontext.Context, orders map[string]orde
 }
 
 func createOrder(t *testing.T, ctx *testcontext.Context) (info *ordersfile.Info) {
-	storageNodeIdentity := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-	satelliteIdentity := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+	storageNodeIdentity := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
+	satelliteIdentity := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion())
 
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	piece := testrand.PieceID()

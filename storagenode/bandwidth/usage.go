@@ -7,15 +7,15 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DB contains information about bandwidth usage.
 //
 // architecture: Database
 type DB interface {
-	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
+	Add(ctx context.Context, satelliteID storxnetwork.NodeID, action pb.PieceAction, amount int64, created time.Time) error
 	// MonthSummary returns summary of the current months bandwidth usages.
 	MonthSummary(ctx context.Context, now time.Time) (int64, error)
 	Rollup(ctx context.Context) (err error)
@@ -26,18 +26,18 @@ type DB interface {
 	// IngressSummary returns summary of ingress bandwidth usages.
 	IngressSummary(ctx context.Context, from, to time.Time) (*Usage, error)
 	// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
-	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
+	SatelliteSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error)
 	// SatelliteEgressSummary returns egress bandwidth usage for a particular satellite.
-	SatelliteEgressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
+	SatelliteEgressSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error)
 	// SatelliteIngressSummary returns ingress bandwidth usage for a particular satellite.
-	SatelliteIngressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
-	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
+	SatelliteIngressSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error)
+	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storxnetwork.NodeID]*Usage, error)
 	// GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
 	// sorted in ascending order.
 	GetDailyRollups(ctx context.Context, from, to time.Time) ([]UsageRollup, error)
 	// GetDailySatelliteRollups returns slice of daily bandwidth usage for provided time range,
 	// sorted in ascending order for a particular satellite.
-	GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]UsageRollup, error)
+	GetDailySatelliteRollups(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) ([]UsageRollup, error)
 }
 
 // Usage contains bandwidth usage information based on the type.

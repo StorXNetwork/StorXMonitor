@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -102,7 +102,7 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	// calculate byte hours, not just bytes
 	hours := finishTime.Sub(observer.lastTallyTime).Hours()
 	var totalSum float64
-	nodeIDs := make([]storj.NodeID, 0, len(observer.Node))
+	nodeIDs := make([]storxnetwork.NodeID, 0, len(observer.Node))
 	byteHours := make([]float64, 0, len(observer.Node))
 	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
 	if err != nil {

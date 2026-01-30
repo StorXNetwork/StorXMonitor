@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // BucketTally contains information about aggregate data stored in a bucket.

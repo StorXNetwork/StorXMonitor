@@ -13,19 +13,19 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/grant"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/testmonkit"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storjscan"
-	"storj.io/storjscan/private/testeth"
-	"storj.io/storjscan/storjscandb/storjscandbtest"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgtest"
+	"github.com/StorXNetwork/StorXMonitor/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/storjscan/private/testeth"
+	"github.com/StorXNetwork/StorXMonitor/storjscan/storjscandb/storjscandbtest"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/uplink"
 )
 
 // Stack contains references to storjscan app and eth test network.
@@ -195,8 +195,8 @@ func provisionUplinks(ctx context.Context, t *testing.T, planet *testplanet.Plan
 
 			// create access grant manually to avoid dialing satellite for
 			// project id and deriving key with argon2.IDKey method
-			encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
-			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+			encAccess := grant.NewEncryptionAccessWithDefaultKey(&storxnetwork.Key{})
+			encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 
 			grantAccess := grant.Access{
 				SatelliteAddress: satellite.URL(),

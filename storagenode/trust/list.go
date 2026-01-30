@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // List represents a dynamic trust list.
@@ -45,7 +45,7 @@ func NewList(log *zap.Logger, sources []Source, rules Rules, cache *Cache) (*Lis
 // cached copy is used, if available. Otherwise, if there are no cached
 // entries available, the call will fail. The URLS are filtered before being
 // returned.
-func (list *List) FetchURLs(ctx context.Context) ([]storj.NodeURL, error) {
+func (list *List) FetchURLs(ctx context.Context) ([]storxnetwork.NodeURL, error) {
 	candidates, err := list.fetchEntries(ctx)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (list *List) FetchURLs(ctx context.Context) ([]storj.NodeURL, error) {
 		entries = append(entries, entry)
 	}
 
-	var urls []storj.NodeURL
+	var urls []storxnetwork.NodeURL
 	for _, entry := range entries {
 		urls = append(urls, entry.SatelliteURL.NodeURL())
 	}

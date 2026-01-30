@@ -19,7 +19,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (

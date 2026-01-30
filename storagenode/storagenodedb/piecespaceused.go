@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.
@@ -128,7 +128,7 @@ func (db *pieceSpaceUsedDB) GetTrashTotal(ctx context.Context) (total int64, err
 }
 
 // GetPieceTotalsForAllSatellites returns how much space used by pieces stored for each satelliteID.
-func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) (_ map[storj.NodeID]pieces.SatelliteUsage, err error) {
+func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) (_ map[storxnetwork.NodeID]pieces.SatelliteUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `
@@ -145,10 +145,10 @@ func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) 
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	totalBySatellite := map[storj.NodeID]pieces.SatelliteUsage{}
+	totalBySatellite := map[storxnetwork.NodeID]pieces.SatelliteUsage{}
 	for rows.Next() {
 		var total, contentSize int64
-		var satelliteID storj.NodeID
+		var satelliteID storxnetwork.NodeID
 
 		err = rows.Scan(&total, &contentSize, &satelliteID)
 		if err != nil {
@@ -189,7 +189,7 @@ func (db *pieceSpaceUsedDB) UpdateTrashTotal(ctx context.Context, newTotal int64
 }
 
 // UpdatePieceTotalsForAllSatellites updates each record with new values for each satelliteID.
-func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]pieces.SatelliteUsage) (err error) {
+func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storxnetwork.NodeID]pieces.SatelliteUsage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for satelliteID, vals := range newTotalsBySatellites {
@@ -218,7 +218,7 @@ func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Contex
 	return nil
 }
 
-func (db *pieceSpaceUsedDB) deleteTotalBySatellite(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *pieceSpaceUsedDB) deleteTotalBySatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `

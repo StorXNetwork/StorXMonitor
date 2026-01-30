@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 // CreateOptions contains extra options to create an object.

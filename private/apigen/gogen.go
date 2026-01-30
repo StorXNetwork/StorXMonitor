@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // DateFormat is the layout of dates passed into and out of the API.
@@ -447,7 +447,7 @@ func handleParams(builder *StringBuilder, i func(paths ...string), pathParams, q
 
 			switch param.Type {
 			case reflect.TypeOf(uuid.UUID{}):
-				i("storj.io/common/uuid")
+				i("github.com/StorXNetwork/common/uuid")
 				pf("%s, err := uuid.FromString(%s)", param.Name, varName)
 				pErrCheck()
 			case reflect.TypeOf(time.Time{}):

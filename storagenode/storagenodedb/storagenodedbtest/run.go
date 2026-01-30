@@ -13,10 +13,10 @@ import (
 	"github.com/mattn/go-sqlite3"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/utccheck"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/utccheck"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func init() {

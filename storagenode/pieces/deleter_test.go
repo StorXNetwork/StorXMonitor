@@ -10,15 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDeleter(t *testing.T) {
@@ -138,7 +138,7 @@ func TestEnqueueUnhandled(t *testing.T) {
 
 	for _, tc := range testcases {
 		satelliteID := testrand.NodeID()
-		pieceIDs := make([]storj.PieceID, 0, tc.pieces)
+		pieceIDs := make([]storxnetwork.PieceID, 0, tc.pieces)
 		for i := 0; i < tc.pieces; i++ {
 			pieceIDs = append(pieceIDs, testrand.PieceID())
 		}

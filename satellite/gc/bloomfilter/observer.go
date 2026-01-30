@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/bloomfilter"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var mon = monkit.Package()
@@ -36,8 +36,8 @@ type Observer struct {
 
 	// The following fields are reset for each loop.
 	startTime          time.Time
-	lastPieceCounts    map[storj.NodeID]int64
-	retainInfos        map[storj.NodeID]*RetainInfo
+	lastPieceCounts    map[storxnetwork.NodeID]int64
+	retainInfos        map[storxnetwork.NodeID]*RetainInfo
 	latestCreationTime time.Time
 	seed               byte
 
@@ -72,12 +72,12 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int64)
+		lastPieceCounts = make(map[storxnetwork.NodeID]int64)
 	}
 
 	obs.startTime = startTime
 	obs.lastPieceCounts = lastPieceCounts
-	obs.retainInfos = make(map[storj.NodeID]*RetainInfo, len(lastPieceCounts))
+	obs.retainInfos = make(map[storxnetwork.NodeID]*RetainInfo, len(lastPieceCounts))
 	obs.latestCreationTime = time.Time{}
 	obs.seed = bloomfilter.GenerateSeed()
 	return nil
@@ -128,7 +128,7 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 }
 
 // TestingRetainInfos returns retain infos collected by observer.
-func (obs *Observer) TestingRetainInfos() map[storj.NodeID]*RetainInfo {
+func (obs *Observer) TestingRetainInfos() map[storxnetwork.NodeID]*RetainInfo {
 	return obs.retainInfos
 }
 
@@ -141,11 +141,11 @@ type observerFork struct {
 	log    *zap.Logger
 	config Config
 	// TODO: should we use int or int64 consistently for piece count (db type is int64)?
-	pieceCounts map[storj.NodeID]int64
+	pieceCounts map[storxnetwork.NodeID]int64
 	seed        byte
 	startTime   time.Time
 
-	retainInfos map[storj.NodeID]*RetainInfo
+	retainInfos map[storxnetwork.NodeID]*RetainInfo
 	// latestCreationTime will be used to set bloom filter CreationDate.
 	// Because bloom filter service needs to be run against immutable database snapshot
 	// we can set CreationDate for bloom filters as a latest segment CreatedAt value.
@@ -156,7 +156,7 @@ type observerFork struct {
 
 // newObserverFork instantiates a new observer fork to process different segment range.
 // The seed is passed so that it can be shared among all parallel forks.
-func newObserverFork(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int64, seed byte, startTime time.Time, forcedTableSize int) *observerFork {
+func newObserverFork(log *zap.Logger, config Config, pieceCounts map[storxnetwork.NodeID]int64, seed byte, startTime time.Time, forcedTableSize int) *observerFork {
 	return &observerFork{
 		log:             log,
 		config:          config,
@@ -164,7 +164,7 @@ func newObserverFork(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 		seed:            seed,
 		startTime:       startTime,
 		forcedTableSize: forcedTableSize,
-		retainInfos:     make(map[storj.NodeID]*RetainInfo, len(pieceCounts)),
+		retainInfos:     make(map[storxnetwork.NodeID]*RetainInfo, len(pieceCounts)),
 	}
 }
 
@@ -197,7 +197,7 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 }
 
 // add adds a pieceID to the relevant node's RetainInfo.
-func (fork *observerFork) add(nodeID storj.NodeID, pieceID storj.PieceID) {
+func (fork *observerFork) add(nodeID storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	info, ok := fork.retainInfos[nodeID]
 	if !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.

@@ -28,7 +28,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 )
 
 var (

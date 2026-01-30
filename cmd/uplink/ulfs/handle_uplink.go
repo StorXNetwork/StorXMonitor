@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 //

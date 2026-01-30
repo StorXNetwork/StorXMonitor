@@ -17,8 +17,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
-	"storj.io/uplink"
-	"storj.io/uplink/edge"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/edge"
 )
 
 type cmdShare struct {

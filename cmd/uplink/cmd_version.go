@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/version"
 )
 
 type cmdVersion struct {

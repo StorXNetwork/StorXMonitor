@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestStatChore(t *testing.T) {
@@ -28,21 +28,21 @@ func TestStatChore(t *testing.T) {
 		_, err := db.RepairQueue().InsertBatch(ctx, []*queue.InjuredSegment{
 			{
 				StreamID:  testrand.UUID(),
-				Placement: storj.PlacementConstraint(1),
+				Placement: storxnetwork.PlacementConstraint(1),
 			},
 			{
 				StreamID:  testrand.UUID(),
-				Placement: storj.PlacementConstraint(2),
+				Placement: storxnetwork.PlacementConstraint(2),
 			},
 			{
 				StreamID:  testrand.UUID(),
-				Placement: storj.PlacementConstraint(2),
+				Placement: storxnetwork.PlacementConstraint(2),
 			},
 		})
 		require.NoError(t, err)
 
 		registry := monkit.NewRegistry()
-		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, []storj.PlacementConstraint{0, 1, 2}, db.RepairQueue(), 100*time.Hour)
+		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, []storxnetwork.PlacementConstraint{0, 1, 2}, db.RepairQueue(), 100*time.Hour)
 
 		collectMonkitStat := func() map[string]float64 {
 			monkitValues := map[string]float64{}

@@ -17,19 +17,19 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	"github.com/StorXNetwork/StorXMonitor/private/server"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -189,7 +189,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		err = planet.StopPeer(storageNode)
 		require.NoError(t, err)
 
-		wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
+		wl, err := planet.WriteWhitelist(storxnetwork.LatestIDVersion())
 		require.NoError(t, err)
 		tlscfg := tlsopts.Config{
 			RevocationDBURL:     "bolt://" + ctx.File("fakestoragenode", "revocation.db"),
@@ -290,7 +290,7 @@ func TestUplinkDifferentPathCipher(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
-				config.DefaultPathCipher = storj.EncNull
+				config.DefaultPathCipher = storxnetwork.EncNull
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

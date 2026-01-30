@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/multinode"
 	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb/multinodedbtest"
 	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"

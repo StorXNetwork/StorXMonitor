@@ -9,18 +9,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestPayoutDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		snoPayoutDB := db.SNOPayouts()
-		NodeID := storj.NodeID{}
+		NodeID := storxnetwork.NodeID{}
 
 		paystub := snopayouts.Paystub{
 			Period:         "2020-01",

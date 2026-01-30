@@ -10,10 +10,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
-	"storj.io/common/pb"
-	"storj.io/common/sync2"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // CacheData stores the amount of inline and allocated data

@@ -16,8 +16,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/common/fpath"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 //go:generate go test -run TestConfigLock -generate-config-lock

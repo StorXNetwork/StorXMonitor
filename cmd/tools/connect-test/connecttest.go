@@ -12,11 +12,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/quic"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/quic"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func main() {
@@ -44,9 +44,9 @@ func main() {
 
 	var (
 		group      errgroup.Group
-		quicNodeID storj.NodeID
+		quicNodeID storxnetwork.NodeID
 		quicErr    error
-		tcpNodeID  storj.NodeID
+		tcpNodeID  storxnetwork.NodeID
 		tcpErr     error
 	)
 	group.Go(func() error {
@@ -81,15 +81,15 @@ func main() {
 	}
 }
 
-func tryConnect(ctx context.Context, tlsConfig *tls.Config, dialer rpc.Connector, destAddr string) (storj.NodeID, error) {
+func tryConnect(ctx context.Context, tlsConfig *tls.Config, dialer rpc.Connector, destAddr string) (storxnetwork.NodeID, error) {
 	conn, err := dialer.DialContext(ctx, tlsConfig, destAddr)
 	if err != nil {
-		return storj.NodeID{}, err
+		return storxnetwork.NodeID{}, err
 	}
 	defer func() { _ = conn.Close() }()
 	nodeID, err := identity.PeerIdentityFromChain(conn.ConnectionState().PeerCertificates)
 	if err != nil {
-		return storj.NodeID{}, fmt.Errorf("could not get node ID from peer certificates: %w", err)
+		return storxnetwork.NodeID{}, fmt.Errorf("could not get node ID from peer certificates: %w", err)
 	}
 	return nodeID.ID, nil
 }

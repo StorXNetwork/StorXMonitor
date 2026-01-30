@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // SlowDB implements slow storage node DB.
@@ -237,7 +237,7 @@ func (slow *SlowBlobs) CheckWritability(ctx context.Context) error {
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (slow *SlowBlobs) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
+func (slow *SlowBlobs) CreateVerificationFile(ctx context.Context, id storxnetwork.NodeID) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
@@ -246,7 +246,7 @@ func (slow *SlowBlobs) CreateVerificationFile(ctx context.Context, id storj.Node
 
 // VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (slow *SlowBlobs) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
+func (slow *SlowBlobs) VerifyStorageDir(ctx context.Context, id storxnetwork.NodeID) error {
 	return slow.blobs.VerifyStorageDir(ctx, id)
 }
 

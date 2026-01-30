@@ -12,15 +12,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestDurability(t *testing.T) {
@@ -28,7 +28,7 @@ func TestDurability(t *testing.T) {
 	var aliases []metabase.NodeAliasEntry
 	for i := 0; i < 10; i++ {
 		node := &nodeselection.SelectedNode{
-			ID:      testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			ID:      testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 			LastNet: fmt.Sprintf("127.0.%d.0", i%3),
 		}
 		storageNodes = append(storageNodes, node)
@@ -54,7 +54,7 @@ func TestDurability(t *testing.T) {
 		}
 
 		// it's not inline if non-default redundancy is set.
-		res.Redundancy = storj.RedundancyScheme{
+		res.Redundancy = storxnetwork.RedundancyScheme{
 			ShareSize: 123,
 		}
 
@@ -120,7 +120,7 @@ func TestDurabilityUnknownNode(t *testing.T) {
 	var aliases []metabase.NodeAliasEntry
 
 	node := &nodeselection.SelectedNode{
-		ID:      testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion()).ID,
+		ID:      testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion()).ID,
 		LastNet: "127.0.0.1",
 	}
 	storageNodes = append(storageNodes, node)
@@ -150,7 +150,7 @@ func TestDurabilityUnknownNode(t *testing.T) {
 				Part:  0,
 				Index: 0,
 			},
-			Redundancy: storj.RedundancyScheme{
+			Redundancy: storxnetwork.RedundancyScheme{
 				ShareSize: 123,
 			},
 			AliasPieces: metabase.AliasPieces{
@@ -203,7 +203,7 @@ func TestBusFactor(t *testing.T) {
 			{
 				StreamID:    testrand.UUID(),
 				AliasPieces: pieces,
-				Redundancy: storj.RedundancyScheme{
+				Redundancy: storxnetwork.RedundancyScheme{
 					ShareSize: 123,
 				},
 			},
@@ -230,7 +230,7 @@ func BenchmarkDurabilityProcess(b *testing.B) {
 		pieceNo = 10
 	}
 
-	nodeMap := make(map[storj.NodeID]*nodeselection.SelectedNode)
+	nodeMap := make(map[storxnetwork.NodeID]*nodeselection.SelectedNode)
 	var aliasToNode []*nodeselection.SelectedNode
 	{
 		// generating nodes and node aliases.

@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
@@ -23,7 +23,7 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 		SatelliteCount: 0, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sn := planet.StorageNodes[1]
-		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
+		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storxnetwork.IDVersion, ident *identity.FullIdentity) {
 			tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
 				PeerIDVersions: "*",
 			}, nil)

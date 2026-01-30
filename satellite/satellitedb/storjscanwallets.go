@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"

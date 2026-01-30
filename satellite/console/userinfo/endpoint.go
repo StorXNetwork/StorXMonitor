@@ -10,13 +10,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -27,8 +27,8 @@ var (
 
 // Config holds Endpoint's configuration.
 type Config struct {
-	Enabled      bool           `help:"Whether the private Userinfo rpc endpoint is enabled" default:"false"`
-	AllowedPeers storj.NodeURLs `help:"A comma delimited list of peers (IDs/addresses) allowed to use this endpoint."`
+	Enabled      bool                  `help:"Whether the private Userinfo rpc endpoint is enabled" default:"false"`
+	AllowedPeers storxnetwork.NodeURLs `help:"A comma delimited list of peers (IDs/addresses) allowed to use this endpoint."`
 }
 
 // Endpoint userinfo endpoint.
@@ -40,7 +40,7 @@ type Endpoint struct {
 	apiKeys      console.APIKeys
 	projects     console.Projects
 	config       Config
-	allowedPeers map[storj.NodeID]storj.NodeURL
+	allowedPeers map[storxnetwork.NodeID]storxnetwork.NodeURL
 }
 
 // NewEndpoint creates a new userinfo endpoint instance.
@@ -50,7 +50,7 @@ func NewEndpoint(log *zap.Logger, users console.Users, apiKeys console.APIKeys, 
 	}
 
 	// put peers into a map for faster retrieval by NodeID.
-	allowedPeers := make(map[storj.NodeID]storj.NodeURL)
+	allowedPeers := make(map[storxnetwork.NodeID]storxnetwork.NodeURL)
 	for _, peer := range config.AllowedPeers {
 		allowedPeers[peer.ID] = peer
 	}
@@ -112,7 +112,7 @@ func (e *Endpoint) Get(ctx context.Context, req *pb.GetUserInfoRequest) (respons
 }
 
 // verifyPeer verifies that a peer is allowed.
-func (e *Endpoint) verifyPeer(id storj.NodeID) error {
+func (e *Endpoint) verifyPeer(id storxnetwork.NodeID) error {
 	_, ok := e.allowedPeers[id]
 	if !ok {
 		return Error.New("peer %q is untrusted", id)

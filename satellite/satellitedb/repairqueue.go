@@ -13,13 +13,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RepairQueueSelectLimit defines how many items can be selected at the same time.
@@ -243,11 +243,11 @@ func (r *repairQueue) InsertBatch(
 	return newlyInsertedSegments, rows.Err()
 }
 
-func (r *repairQueue) Select(ctx context.Context, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) (seg *queue.InjuredSegment, err error) {
+func (r *repairQueue) Select(ctx context.Context, includedPlacements []storxnetwork.PlacementConstraint, excludedPlacements []storxnetwork.PlacementConstraint) (seg *queue.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	restriction := ""
 
-	placementsToString := func(placements []storj.PlacementConstraint) string {
+	placementsToString := func(placements []storxnetwork.PlacementConstraint) string {
 		var ps []string
 		for _, p := range placements {
 			ps = append(ps, fmt.Sprintf("%d", p))

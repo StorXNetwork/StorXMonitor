@@ -18,9 +18,9 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
-	"storj.io/common/memory"
-	"storj.io/common/useragent"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/useragent"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var headers = []string{

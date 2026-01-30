@@ -18,20 +18,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/StorXNetwork/common/storxnetwork"
 	"github.com/alessio/shellescape"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/base58"
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/processgroup"
-	"storj.io/common/storj"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/base58"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/processgroup"
+	"github.com/StorXNetwork/uplink"
 )
 
 const (
@@ -587,7 +587,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				if err != nil {
 					return fmt.Errorf("failed to get node id from path: %w", err)
 				}
-				nodeURL := storj.NodeURL{
+				nodeURL := storxnetwork.NodeURL{
 					ID:      satNodeID,
 					Address: satellite.Address,
 				}

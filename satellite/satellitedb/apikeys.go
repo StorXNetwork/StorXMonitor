@@ -9,11 +9,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/lrucache"
-	"storj.io/common/macaroon"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensures that apikeys implements console.APIKeys.

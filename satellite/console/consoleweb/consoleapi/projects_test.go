@@ -16,15 +16,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.UUID, owner *uuid.UUID) (_ map[uuid.UUID]console.User, _ map[string]console.User) {
@@ -379,9 +379,9 @@ func TestDeleteProjectMembers(t *testing.T) {
 
 func TestEdgeURLOverrides(t *testing.T) {
 	var (
-		noOverridePlacementID      storj.PlacementConstraint
-		partialOverridePlacementID storj.PlacementConstraint = 1
-		fullOverridePlacementID    storj.PlacementConstraint = 2
+		noOverridePlacementID      storxnetwork.PlacementConstraint
+		partialOverridePlacementID storxnetwork.PlacementConstraint = 1
+		fullOverridePlacementID    storxnetwork.PlacementConstraint = 2
 
 		authServiceURL         = "auth.storj.io"
 		publicLinksharingURL   = "public-link.storj.io"
@@ -420,7 +420,7 @@ func TestEdgeURLOverrides(t *testing.T) {
 
 		for _, tt := range []struct {
 			name             string
-			placement        *storj.PlacementConstraint
+			placement        *storxnetwork.PlacementConstraint
 			expectedEdgeURLs *console.EdgeURLOverrides
 		}{
 			{"nil placement", nil, nil},

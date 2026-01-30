@@ -11,14 +11,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 // TestAuditOrderLimit tests that while auditing, order limits without
@@ -62,7 +62,7 @@ func TestAuditOrderLimit(t *testing.T) {
 			storageNode.Storage2.Orders.SendOrders(ctx, now.Add(24*time.Hour))
 		}
 
-		auditSettled := make(map[storj.NodeID]uint64)
+		auditSettled := make(map[storxnetwork.NodeID]uint64)
 		err = satellite.DB.StoragenodeAccounting().GetBandwidthSince(ctx, time.Time{}, func(c context.Context, sbr *accounting.StoragenodeBandwidthRollup) error {
 			if sbr.Action == uint(pb.PieceAction_GET_AUDIT) {
 				auditSettled[sbr.NodeID] += sbr.Settled

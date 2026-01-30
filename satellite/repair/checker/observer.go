@@ -18,14 +18,14 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -54,7 +54,7 @@ type Observer struct {
 	TotalStats aggregateStatsPlacements
 
 	mu             sync.Mutex
-	statsCollector map[storj.RedundancyScheme]*observerRSStats
+	statsCollector map[storxnetwork.RedundancyScheme]*observerRSStats
 }
 
 // NewObserver creates new checker observer instance.
@@ -84,7 +84,7 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		doDeclumping:             config.DoDeclumping,
 		doPlacementCheck:         config.DoPlacementCheck,
 		placements:               placements,
-		statsCollector:           make(map[storj.RedundancyScheme]*observerRSStats),
+		statsCollector:           make(map[storxnetwork.RedundancyScheme]*observerRSStats),
 	}
 }
 
@@ -236,7 +236,7 @@ func (observer *Observer) collectAggregates() {
 	}
 }
 
-func (observer *Observer) getObserverStats(redundancy storj.RedundancyScheme) *observerRSStats {
+func (observer *Observer) getObserverStats(redundancy storxnetwork.RedundancyScheme) *observerRSStats {
 	observer.mu.Lock()
 	defer observer.mu.Unlock()
 
@@ -251,7 +251,7 @@ func (observer *Observer) getObserverStats(redundancy storj.RedundancyScheme) *o
 	return observerStats
 }
 
-func loadRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides RepairOverrides) (int, int, int, int) {
+func loadRedundancy(redundancy storxnetwork.RedundancyScheme, repairThresholdOverrides RepairOverrides) (int, int, int, int) {
 	repair := int(redundancy.RepairShares)
 
 	if overrideValue := repairThresholdOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
@@ -271,7 +271,7 @@ type observerFork struct {
 	repairQueue              *queue.InsertBuffer
 	nodesCache               *ReliabilityCache
 	overlayService           *overlay.Service
-	rsStats                  map[storj.RedundancyScheme]*partialRSStats
+	rsStats                  map[storxnetwork.RedundancyScheme]*partialRSStats
 	repairThresholdOverrides RepairOverrides
 	nodeFailureRate          float64
 	getNodesEstimate         func(ctx context.Context) (int, error)
@@ -280,7 +280,7 @@ type observerFork struct {
 	totalStats               aggregateStatsPlacements
 
 	// reuse those slices to optimize memory usage
-	nodeIDs []storj.NodeID
+	nodeIDs []storxnetwork.NodeID
 	nodes   []nodeselection.SelectedNode
 
 	// define from which countries nodes should be marked as offline
@@ -289,7 +289,7 @@ type observerFork struct {
 	doPlacementCheck     bool
 	placements           nodeselection.PlacementDefinitions
 
-	getObserverStats func(storj.RedundancyScheme) *observerRSStats
+	getObserverStats func(storxnetwork.RedundancyScheme) *observerRSStats
 }
 
 // newObserverFork creates new observer partial instance.
@@ -299,7 +299,7 @@ func newObserverFork(observer *Observer) rangedloop.Partial {
 		repairQueue:              observer.createInsertBuffer(),
 		nodesCache:               observer.nodesCache,
 		overlayService:           observer.overlayService,
-		rsStats:                  make(map[storj.RedundancyScheme]*partialRSStats),
+		rsStats:                  make(map[storxnetwork.RedundancyScheme]*partialRSStats),
 		repairThresholdOverrides: observer.repairThresholdOverrides,
 		nodeFailureRate:          observer.nodeFailureRate,
 		getNodesEstimate:         observer.getNodesEstimate,
@@ -312,7 +312,7 @@ func newObserverFork(observer *Observer) rangedloop.Partial {
 	}
 }
 
-func (fork *observerFork) getStatsByRS(redundancy storj.RedundancyScheme) *partialRSStats {
+func (fork *observerFork) getStatsByRS(redundancy storxnetwork.RedundancyScheme) *partialRSStats {
 	stats, ok := fork.rsStats[redundancy]
 	if !ok {
 		observerStats := fork.getObserverStats(redundancy)
@@ -395,7 +395,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 
 	// reuse fork.nodeIDs and fork.nodes slices if large enough
 	if cap(fork.nodeIDs) < len(pieces) {
-		fork.nodeIDs = make([]storj.NodeID, len(pieces))
+		fork.nodeIDs = make([]storxnetwork.NodeID, len(pieces))
 		fork.nodes = make([]nodeselection.SelectedNode, len(pieces))
 	} else {
 		fork.nodeIDs = fork.nodeIDs[:len(pieces)]

@@ -21,8 +21,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"storj.io/common/http/requestid"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/http/requestid"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"

@@ -20,20 +20,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/nodetag"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/time2"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
@@ -43,10 +29,24 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
-	"storj.io/uplink/private/object"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/nodetag"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/time2"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
+	"github.com/StorXNetwork/uplink/private/object"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 func assertRPCStatusCode(t *testing.T, actualError error, expectedStatusCode rpcstatus.StatusCode) {
@@ -251,17 +251,17 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			params := metaclient.BeginObjectParams{
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
+				Redundancy: storxnetwork.RedundancyScheme{
+					Algorithm:      storxnetwork.ReedSolomon,
 					ShareSize:      256,
 					RequiredShares: 1,
 					RepairShares:   1,
 					OptimalShares:  3,
 					TotalShares:    4,
 				},
-				EncryptionParameters: storj.EncryptionParameters{
+				EncryptionParameters: storxnetwork.EncryptionParameters{
 					BlockSize:   256,
-					CipherSuite: storj.EncNull,
+					CipherSuite: storxnetwork.EncNull,
 				},
 				ExpiresAt: time.Now().Add(24 * time.Hour),
 			}
@@ -432,8 +432,8 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			beginResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte("a/b/testobject"),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -496,9 +496,9 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 
 			params := metaclient.BeginObjectParams{
 				Bucket: []byte(bucketName),
-				EncryptionParameters: storj.EncryptionParameters{
+				EncryptionParameters: storxnetwork.EncryptionParameters{
 					BlockSize:   256,
-					CipherSuite: storj.EncNull,
+					CipherSuite: storxnetwork.EncNull,
 				},
 			}
 
@@ -539,7 +539,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			encodedStreamID, err := pb.Marshal(signedStreamID)
 			require.NoError(t, err)
-			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+			streamID, err := storxnetwork.StreamIDFromBytes(encodedStreamID)
 			require.NoError(t, err)
 			_, err = metainfoClient.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{
 				Bucket:             []byte(expectedBucketName),
@@ -628,17 +628,17 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			params := metaclient.BeginObjectParams{
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
+				Redundancy: storxnetwork.RedundancyScheme{
+					Algorithm:      storxnetwork.ReedSolomon,
 					ShareSize:      256,
 					RequiredShares: 1,
 					RepairShares:   1,
 					OptimalShares:  3,
 					TotalShares:    4,
 				},
-				EncryptionParameters: storj.EncryptionParameters{
+				EncryptionParameters: storxnetwork.EncryptionParameters{
 					BlockSize:   256,
-					CipherSuite: storj.EncNull,
+					CipherSuite: storxnetwork.EncNull,
 				},
 				ExpiresAt: time.Now().Add(-24 * time.Hour),
 			}
@@ -1136,7 +1136,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			bucket := buckets.Bucket{
 				Name:      bucketName,
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
-				Placement: storj.EU,
+				Placement: storxnetwork.EU,
 			}
 
 			_, err := bucketsService.CreateBucket(ctx, bucket)
@@ -1145,16 +1145,16 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			params := metaclient.BeginObjectParams{
 				Bucket:             []byte(bucket.Name),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
+				Redundancy: storxnetwork.RedundancyScheme{
+					Algorithm:      storxnetwork.ReedSolomon,
 					ShareSize:      256,
 					RequiredShares: 1,
 					RepairShares:   1,
 					OptimalShares:  3,
 					TotalShares:    4,
 				},
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 				ExpiresAt: time.Now().Add(24 * time.Hour),
@@ -1165,7 +1165,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			streamID := internalpb.StreamID{}
 			err = pb.Unmarshal(beginObjectResponse.StreamID.Bytes(), &streamID)
 			require.NoError(t, err)
-			require.Equal(t, int32(storj.EU), streamID.Placement)
+			require.Equal(t, int32(storxnetwork.EU), streamID.Placement)
 
 			response, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
 				StreamID: beginObjectResponse.StreamID,
@@ -1176,7 +1176,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+			fullIDMap := make(map[storxnetwork.NodeID]*identity.FullIdentity)
 			for _, node := range planet.StorageNodes {
 				fullIDMap[node.ID()] = node.Identity
 			}
@@ -1318,7 +1318,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			_, err = planet.Satellites[0].DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Name:      bucketName,
-				Placement: storj.EU,
+				Placement: storxnetwork.EU,
 			})
 			require.NoError(t, err)
 
@@ -1585,7 +1585,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			bucket := buckets.Bucket{
 				Name:      bucketName,
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
-				Placement: storj.EU,
+				Placement: storxnetwork.EU,
 			}
 			_, err := bucketsService.CreateBucket(ctx, bucket)
 			require.NoError(t, err)
@@ -1598,7 +1598,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(segments))
-			require.Equal(t, storj.EU, segments[0].Placement)
+			require.Equal(t, storxnetwork.EU, segments[0].Placement)
 		})
 
 		t.Run("multiple versions", func(t *testing.T) {
@@ -1753,11 +1753,11 @@ func TestMoveObject_Geofencing(t *testing.T) {
 			projectID := uplink.Projects[0].ID
 
 			// create buckets with different placement
-			createGeofencedBucket(t, ctx, buckets, projectID, "global1", storj.EveryCountry)
-			createGeofencedBucket(t, ctx, buckets, projectID, "global2", storj.EveryCountry)
-			createGeofencedBucket(t, ctx, buckets, projectID, "us1", storj.US)
-			createGeofencedBucket(t, ctx, buckets, projectID, "us2", storj.US)
-			createGeofencedBucket(t, ctx, buckets, projectID, "eu1", storj.EU)
+			createGeofencedBucket(t, ctx, buckets, projectID, "global1", storxnetwork.EveryCountry)
+			createGeofencedBucket(t, ctx, buckets, projectID, "global2", storxnetwork.EveryCountry)
+			createGeofencedBucket(t, ctx, buckets, projectID, "us1", storxnetwork.US)
+			createGeofencedBucket(t, ctx, buckets, projectID, "us2", storxnetwork.US)
+			createGeofencedBucket(t, ctx, buckets, projectID, "eu1", storxnetwork.EU)
 
 			// upload an object to one of the global buckets
 			err := uplink.Upload(ctx, satellite, "global1", "testobject", []byte{})
@@ -1801,7 +1801,7 @@ func TestMoveObject_Geofencing(t *testing.T) {
 	)
 }
 
-func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, service *buckets.Service, projectID uuid.UUID, bucketName string, placement storj.PlacementConstraint) {
+func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, service *buckets.Service, projectID uuid.UUID, bucketName string, placement storxnetwork.PlacementConstraint) {
 	// generate the bucket id
 	bucketID, err := uuid.New()
 	require.NoError(t, err)
@@ -2651,7 +2651,7 @@ func TestListUploads(t *testing.T) {
 func TestNodeTagPlacement(t *testing.T) {
 	ctx := testcontext.New(t)
 
-	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
+	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()))
 
 	placementRules := nodeselection.ConfigurablePlacementRule{}
 	tag := fmt.Sprintf(`tag("%s", "certified","true")`, satelliteIdentity.ID())
@@ -2675,7 +2675,7 @@ func TestNodeTagPlacement(t *testing.T) {
 				StorageNode: func(index int, config *storagenode.Config) {
 					if index%2 == 0 {
 						tags := &pb.NodeTagSet{
-							NodeId:   testidentity.MustPregeneratedSignedIdentity(index+1, storj.LatestIDVersion()).ID.Bytes(),
+							NodeId:   testidentity.MustPregeneratedSignedIdentity(index+1, storxnetwork.LatestIDVersion()).ID.Bytes(),
 							SignedAt: time.Now().Unix(),
 							Tags: []*pb.Tag{
 								{
@@ -2710,13 +2710,13 @@ func TestNodeTagPlacement(t *testing.T) {
 				_ = metainfoClient.Close()
 			}()
 
-			nodeIndex := map[storj.NodeID]int{}
+			nodeIndex := map[storxnetwork.NodeID]int{}
 			for ix, node := range planet.StorageNodes {
 				nodeIndex[node.Identity.ID] = ix
 			}
 			testPlacement := func(bucketName string, placement int, allowedNodes func(int) bool) {
 
-				createGeofencedBucket(t, ctx, buckets, projectID, bucketName, storj.PlacementConstraint(placement))
+				createGeofencedBucket(t, ctx, buckets, projectID, bucketName, storxnetwork.PlacementConstraint(placement))
 
 				objectNo := 10
 				for i := 0; i < objectNo; i++ {

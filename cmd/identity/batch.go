@@ -19,12 +19,12 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/StorXNetwork/StorXMonitor/private/cui"
-	"storj.io/common/cfgstruct"
-	"storj.io/common/identity"
-	"storj.io/common/peertls"
-	"storj.io/common/pkcrypto"
-	"storj.io/common/process"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls"
+	"github.com/StorXNetwork/common/pkcrypto"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -62,7 +62,7 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	version, err := storj.GetIDVersion(storj.IDVersionNumber(keyCfg.VersionNumber))
+	version, err := storxnetwork.GetIDVersion(storxnetwork.IDVersionNumber(keyCfg.VersionNumber))
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	return identity.GenerateKeys(ctx, uint16(keyCfg.MinDifficulty), keyCfg.Concurrency, version,
-		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
+		func(k crypto.PrivateKey, id storxnetwork.NodeID) (done bool, err error) {
 			difficulty, err := id.Difficulty()
 			if err != nil {
 				return false, err
@@ -110,7 +110,7 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 		})
 }
 
-func saveIdentityTar(path string, key crypto.PrivateKey, id storj.NodeID) error {
+func saveIdentityTar(path string, key crypto.PrivateKey, id storxnetwork.NodeID) error {
 	ct, err := peertls.CATemplate()
 	if err != nil {
 		return err

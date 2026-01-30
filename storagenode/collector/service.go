@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
 )

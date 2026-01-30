@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/yaml.v3"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // placementConfig is the representation of YAML based placement configuration.
@@ -26,7 +26,7 @@ type placementConfig struct {
 }
 
 type placementDefinition struct {
-	ID        storj.PlacementConstraint
+	ID        storxnetwork.PlacementConstraint
 	Name      string
 	Filter    string
 	Invariant string
@@ -122,7 +122,7 @@ var supportedFilters = map[any]any{
 		return OrFilter{filter1, filter2}, nil
 	},
 	"tag": func(nodeIDstr string, key string, value any) (NodeFilters, error) {
-		nodeID, err := storj.NodeIDFromString(nodeIDstr)
+		nodeID, err := storxnetwork.NodeIDFromString(nodeIDstr)
 		if err != nil {
 			return nil, err
 		}

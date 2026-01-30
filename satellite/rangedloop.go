@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
+	"github.com/StorXNetwork/common/debug"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/nodetally"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"

@@ -14,13 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
@@ -28,6 +21,13 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func getSettledBandwidth(ctx context.Context, accountingDB accounting.ProjectAccounting, projectID uuid.UUID, since time.Time) (int64, error) {
@@ -240,7 +240,7 @@ func TestEndpointAndCacheContextCanceled(t *testing.T) {
 			requests := []*pb.SettlementRequest{}
 			singleOrderAmount := int64(50)
 			for i := 0; i < 3; i++ {
-				piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+				piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 				require.NoError(t, err)
 
 				bucketname := "testbucket" + strconv.Itoa(i)
@@ -265,7 +265,7 @@ func TestEndpointAndCacheContextCanceled(t *testing.T) {
 					SatelliteId:            satellite.ID(),
 					UplinkPublicKey:        piecePublicKey,
 					StorageNodeId:          storagenode.ID(),
-					PieceId:                storj.NewPieceID(),
+					PieceId:                storxnetwork.NewPieceID(),
 					Action:                 pb.PieceAction_GET,
 					Limit:                  1000,
 					PieceExpiration:        time.Time{},
@@ -290,7 +290,7 @@ func TestEndpointAndCacheContextCanceled(t *testing.T) {
 				})
 			}
 
-			conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+			conn, err := storagenode.Dialer.DialNodeURL(ctx, storxnetwork.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
 			require.NoError(t, err)
 			defer ctx.Check(conn.Close)
 

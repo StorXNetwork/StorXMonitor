@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 
-	"storj.io/common/strictcsv"
+	"github.com/StorXNetwork/common/strictcsv"
 	"github.com/StorXNetwork/StorXMonitor/private/currency"
 )
 

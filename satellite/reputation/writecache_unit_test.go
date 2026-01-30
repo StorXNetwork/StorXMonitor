@@ -10,17 +10,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestNextTimeForSync(t *testing.T) {
-	var zeroesID storj.NodeID
+	var zeroesID storxnetwork.NodeID
 	binary.BigEndian.PutUint64(zeroesID[:8], 0) // unnecessary, but for clarity
 
-	var halfwayID storj.NodeID
+	var halfwayID storxnetwork.NodeID
 	binary.BigEndian.PutUint64(halfwayID[:8], 1<<63)
 
-	var quarterwayID storj.NodeID
+	var quarterwayID storxnetwork.NodeID
 	binary.BigEndian.PutUint64(quarterwayID[:8], 1<<62)
 
 	const (

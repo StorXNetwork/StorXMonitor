@@ -9,12 +9,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyz")
@@ -48,7 +48,7 @@ type expiredScenario struct {
 	segmentsPerObject int
 	expiredRatio      float32
 	// info filled in during execution.
-	redundancy   storj.RedundancyScheme
+	redundancy   storxnetwork.RedundancyScheme
 	objectStream []metabase.ObjectStream
 }
 
@@ -98,8 +98,8 @@ func (s *expiredScenario) name() string {
 //nolint:scopelint // This heavily uses loop variables without goroutines, avoiding these would add lots of boilerplate.
 func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
 	if s.redundancy.IsZero() {
-		s.redundancy = storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		s.redundancy = storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			RequiredShares: 29,
 			RepairShares:   50,
 			OptimalShares:  85,
@@ -108,7 +108,7 @@ func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metaba
 		}
 	}
 
-	nodes := make([]storj.NodeID, 10000)
+	nodes := make([]storxnetwork.NodeID, 10000)
 	for i := range nodes {
 		nodes[i] = testrand.NodeID()
 	}
@@ -138,8 +138,8 @@ func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metaba
 				s.objectStream = append(s.objectStream, objectStream)
 				_, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 					ObjectStream: objectStream,
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncAESGCM,
 						BlockSize:   256,
 					},
 					ExpiresAt: &expiresAt,
@@ -162,8 +162,8 @@ func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metaba
 					require.NoError(b, err)
 
 					segmentSize := testrand.Intn(64*memory.MiB.Int()) + 1
-					encryptedKey := testrand.BytesInt(storj.KeySize)
-					encryptedKeyNonce := testrand.BytesInt(storj.NonceSize)
+					encryptedKey := testrand.BytesInt(storxnetwork.PieceKeySize)
+					encryptedKeyNonce := testrand.BytesInt(storxnetwork.NonceSize)
 
 					err = db.CommitSegment(ctx, metabase.CommitSegment{
 						ObjectStream: objectStream,

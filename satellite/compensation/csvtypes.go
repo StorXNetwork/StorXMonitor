@@ -6,25 +6,25 @@ package compensation
 import (
 	"time"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeID is a wrapper type around storj.NodeID that implements CSV helpers.
-type NodeID storj.NodeID
+type NodeID storxnetwork.NodeID
 
 // Bytes calls the underlying type's Bytes function.
 func (nodeID NodeID) Bytes() []byte {
-	return storj.NodeID(nodeID).Bytes()
+	return storxnetwork.NodeID(nodeID).Bytes()
 }
 
 // String calls the underlying type's String function.
 func (nodeID NodeID) String() string {
-	return storj.NodeID(nodeID).String()
+	return storxnetwork.NodeID(nodeID).String()
 }
 
-// UnmarshalCSV reads the csv entry into a storj.NodeID.
+// UnmarshalCSV reads the csv entry into a storxnetwork.NodeID.
 func (nodeID *NodeID) UnmarshalCSV(s string) error {
-	v, err := storj.NodeIDFromString(s)
+	v, err := storxnetwork.NodeIDFromString(s)
 	if err != nil {
 		return err
 	}

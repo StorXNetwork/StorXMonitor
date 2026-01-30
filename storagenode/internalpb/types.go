@@ -3,10 +3,10 @@
 
 package internalpb
 
-import "storj.io/common/storj"
+import "github.com/StorXNetwork/common/storxnetwork"
 
 // PieceID is an alias to storj.PieceID for use in generated protobuf code.
-type PieceID = storj.PieceID
+type PieceID = storxnetwork.PieceID
 
-// NodeID is an alias to storj.NodeID for use in generated protobuf code.
-type NodeID = storj.NodeID
+// NodeID is an alias to storxnetwork.NodeID for use in generated protobuf code.
+type NodeID = storxnetwork.NodeID

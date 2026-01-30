@@ -13,9 +13,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/crashcollect"
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/process"
 )
 
 // Config defines storj crash collect service configuration.

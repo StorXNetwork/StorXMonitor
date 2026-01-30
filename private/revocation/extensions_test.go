@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity"
-	"storj.io/common/peertls"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/testpeertls"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 	"github.com/StorXNetwork/StorXMonitor/private/testrevocation"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/testpeertls"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestRevocationCheckHandler(t *testing.T) {
@@ -27,7 +27,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 	defer ctx.Cleanup()
 
 	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ kvstore.Store) {
-		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
+		keys, chain, err := testpeertls.NewCertChain(2, storxnetwork.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
 		opts := &extensions.Options{RevocationDB: revDB}
@@ -70,7 +70,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 
 	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ kvstore.Store) {
 		t.Log("new revocation DB")
-		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
+		keys, chain, err := testpeertls.NewCertChain(2, storxnetwork.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
 		opts := &extensions.Options{RevocationDB: revDB}
@@ -124,7 +124,7 @@ func TestRevocationUpdateHandler(t *testing.T) {
 	defer ctx.Cleanup()
 
 	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ kvstore.Store) {
-		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
+		keys, chain, err := testpeertls.NewCertChain(2, storxnetwork.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
 		olderRevokedChain, olderRevocation, err := testpeertls.RevokeLeaf(keys[peertls.CAIndex], chain)
@@ -160,7 +160,7 @@ func TestRevocationUpdateHandler(t *testing.T) {
 }
 
 func TestWithOptions_NilRevocationDB(t *testing.T) {
-	_, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
+	_, chain, err := testpeertls.NewCertChain(2, storxnetwork.LatestIDVersion().Number)
 	require.NoError(t, err)
 
 	opts := &extensions.Options{RevocationDB: nil}

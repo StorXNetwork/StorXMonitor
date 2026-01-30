@@ -8,16 +8,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestClumpingByAnyTag(t *testing.T) {
 
 	node := func(ix int, owner string) SelectedNode {
 		return SelectedNode{
-			ID: testidentity.MustPregeneratedSignedIdentity(ix, storj.LatestIDVersion()).ID,
+			ID: testidentity.MustPregeneratedSignedIdentity(ix, storxnetwork.LatestIDVersion()).ID,
 			Tags: NodeTags{
 				{
 					Name:  "owner",
@@ -28,7 +28,7 @@ func TestClumpingByAnyTag(t *testing.T) {
 	}
 	piece := func(ix int, nodeIx int) metabase.Piece {
 		return metabase.Piece{
-			Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storj.LatestIDVersion()).ID,
+			Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storxnetwork.LatestIDVersion()).ID,
 		}
 
 	}

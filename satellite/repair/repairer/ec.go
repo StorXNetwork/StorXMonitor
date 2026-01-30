@@ -17,19 +17,19 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/fpath"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
-	"storj.io/uplink/private/eestream"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/uplink/private/eestream"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var (
@@ -68,7 +68,7 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 	}
 }
 
-func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
+func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storxnetwork.NodeURL) (*piecestore.Client, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -90,7 +90,7 @@ func (ec *ECRepairer) TestingSetMinFailures(minFailures int) {
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
 // If piece hash verification fails, it will return all failed node IDs.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, _ FetchResultReport, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedNodesInfo map[storxnetwork.NodeID]overlay.NodeReputation, privateKey storxnetwork.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, _ FetchResultReport, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -290,14 +290,14 @@ var _ io.Writer = &lazyHashWriter{}
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, address string, privateKey storj.PiecePrivateKey, tmpDir string, pieceSize int64) (pieceReadCloser io.ReadCloser, hash *pb.PieceHash, originalLimit *pb.OrderLimit, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, address string, privateKey storxnetwork.PiecePrivateKey, tmpDir string, pieceSize int64) (pieceReadCloser io.ReadCloser, hash *pb.PieceHash, originalLimit *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// contact node
 	dialCtx, dialCancel := context.WithTimeout(ctx, ec.dialTimeout)
 	defer dialCancel()
 
-	ps, err := ec.dialPiecestore(dialCtx, storj.NodeURL{
+	ps, err := ec.dialPiecestore(dialCtx, storxnetwork.NodeURL{
 		ID:      limit.GetLimit().StorageNodeId,
 		Address: address,
 	})
@@ -410,7 +410,7 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 
 // Repair takes a provided segment, encodes it with the provided redundancy strategy,
 // and uploads the pieces in need of repair to new nodes provided by order limits.
-func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storxnetwork.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieceCount := len(limits)
@@ -516,7 +516,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, err error) {
+func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storxnetwork.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeName := "nil"
@@ -537,7 +537,7 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	dialCtx, dialCancel := context.WithTimeout(ctx, ec.dialTimeout)
 	defer dialCancel()
 
-	ps, err := ec.dialPiecestore(dialCtx, storj.NodeURL{
+	ps, err := ec.dialPiecestore(dialCtx, storxnetwork.NodeURL{
 		ID:      storageNodeID,
 		Address: limit.GetStorageNodeAddress().Address,
 	})
@@ -580,7 +580,7 @@ func unique(limits []*pb.AddressedOrderLimit) bool {
 	if len(limits) < 2 {
 		return true
 	}
-	ids := make(storj.NodeIDList, len(limits))
+	ids := make(storxnetwork.NodeIDList, len(limits))
 	for i, addressedLimit := range limits {
 		if addressedLimit != nil {
 			ids[i] = addressedLimit.GetLimit().StorageNodeId
@@ -591,7 +591,7 @@ func unique(limits []*pb.AddressedOrderLimit) bool {
 	sort.Sort(ids)
 	// sort.Slice(ids, func(i, k int) bool { return ids[i].Less(ids[k]) })
 	for i := 1; i < len(ids); i++ {
-		if ids[i] != (storj.NodeID{}) && ids[i] == ids[i-1] {
+		if ids[i] != (storxnetwork.NodeID{}) && ids[i] == ids[i-1] {
 			return false
 		}
 	}

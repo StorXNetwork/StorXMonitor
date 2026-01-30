@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
 )

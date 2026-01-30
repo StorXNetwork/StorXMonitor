@@ -8,8 +8,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrGCProgress represents errors from the filewalker database.
@@ -33,7 +33,7 @@ func (db *gcFilewalkerProgressDB) Store(ctx context.Context, progress pieces.GCF
 	return ErrGCProgress.Wrap(err)
 }
 
-func (db *gcFilewalkerProgressDB) Get(ctx context.Context, satelliteID storj.NodeID) (progress pieces.GCFilewalkerProgress, err error) {
+func (db *gcFilewalkerProgressDB) Get(ctx context.Context, satelliteID storxnetwork.NodeID) (progress pieces.GCFilewalkerProgress, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.QueryRowContext(ctx, `
@@ -47,7 +47,7 @@ func (db *gcFilewalkerProgressDB) Get(ctx context.Context, satelliteID storj.Nod
 	return progress, ErrGCProgress.Wrap(err)
 }
 
-func (db *gcFilewalkerProgressDB) Reset(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *gcFilewalkerProgressDB) Reset(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `

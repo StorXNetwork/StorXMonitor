@@ -20,15 +20,15 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/context2"
-	"storj.io/common/fpath"
-	"storj.io/common/memory"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 type cmdCp struct {

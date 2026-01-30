@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"

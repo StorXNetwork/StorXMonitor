@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/option"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (

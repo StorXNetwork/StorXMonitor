@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"storj.io/common/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
 )
 
 func main() {

@@ -6,14 +6,14 @@ package nodeselection
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
 // State includes a stateful selector (indexed nodes) for each placement.
-type State map[storj.PlacementConstraint]NodeSelector
+type State map[storxnetwork.PlacementConstraint]NodeSelector
 
 // NewState initializes the State for each placement.
 func NewState(nodes []*SelectedNode, placements PlacementDefinitions) State {
@@ -29,7 +29,7 @@ func NewState(nodes []*SelectedNode, placements PlacementDefinitions) State {
 }
 
 // Select picks the required nodes given a specific placement.
-func (s State) Select(p storj.PlacementConstraint, count int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+func (s State) Select(p storxnetwork.PlacementConstraint, count int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
 	selector, found := s[p]
 	if !found {
 		return nil, Error.New("Placement is not defined: %d", p)

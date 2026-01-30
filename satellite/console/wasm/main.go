@@ -14,7 +14,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/base58"
+	"github.com/StorXNetwork/common/base58"
 	console "github.com/StorXNetwork/StorXMonitor/satellite/console/consolewasm"
 )
 

@@ -14,21 +14,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/pgutil/pgerrcode"
-	"storj.io/common/dbutil/pgxutil"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
-	"storj.io/common/useragent"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	satbuckets "github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgxutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/useragent"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensure that ProjectAccounting implements accounting.ProjectAccounting.
@@ -942,7 +942,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	type bucketWithCreationDate struct {
 		name       string
 		versioning satbuckets.Versioning
-		placement  storj.PlacementConstraint
+		placement  storxnetwork.PlacementConstraint
 		createdAt  time.Time
 	}
 
@@ -951,7 +951,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		var (
 			bucket     string
 			versioning satbuckets.Versioning
-			placement  storj.PlacementConstraint
+			placement  storxnetwork.PlacementConstraint
 			createdAt  time.Time
 		)
 		err = bucketRows.Scan(&bucket, &versioning, &placement, &createdAt)
@@ -1058,7 +1058,7 @@ func (db *ProjectAccounting) GetBucketTotalsForReservedBuckets(ctx context.Conte
 	type bucketWithCreationDate struct {
 		name       string
 		versioning satbuckets.Versioning
-		placement  storj.PlacementConstraint
+		placement  storxnetwork.PlacementConstraint
 		createdAt  time.Time
 	}
 
@@ -1067,7 +1067,7 @@ func (db *ProjectAccounting) GetBucketTotalsForReservedBuckets(ctx context.Conte
 		var (
 			bucket     string
 			versioning satbuckets.Versioning
-			placement  storj.PlacementConstraint
+			placement  storxnetwork.PlacementConstraint
 			createdAt  time.Time
 		)
 		err = bucketRows.Scan(&bucket, &versioning, &placement, &createdAt)

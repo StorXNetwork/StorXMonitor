@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var (
@@ -59,8 +59,8 @@ func TestBandwidthDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()).ID
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion()).ID
 
 		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
@@ -79,7 +79,7 @@ func TestBandwidthDB(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		expectedUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+		expectedUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 			satellite0: expectedUsage,
 			satellite1: expectedUsage,
 		}
@@ -102,7 +102,7 @@ func TestBandwidthDB(t *testing.T) {
 			require.Equal(t, expectedUsageBySatellite, usageBySatellite)
 
 			// only range capturing second satellite
-			expectedUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+			expectedUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 				satellite1: expectedUsage,
 			}
 
@@ -133,8 +133,8 @@ func TestEgressSummary(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()).ID
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion()).ID
 
 		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
@@ -153,7 +153,7 @@ func TestEgressSummary(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		expectedEgressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+		expectedEgressUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 			satellite0: expectedEgressUsage,
 			satellite1: expectedEgressUsage,
 		}
@@ -176,7 +176,7 @@ func TestEgressSummary(t *testing.T) {
 			require.Equal(t, expectedEgressUsageBySatellite, usageBySatellite)
 
 			// only range capturing second satellite.
-			expectedEgressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+			expectedEgressUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 				satellite1: expectedEgressUsage,
 			}
 
@@ -201,8 +201,8 @@ func TestIngressSummary(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()).ID
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion()).ID
 
 		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
@@ -221,7 +221,7 @@ func TestIngressSummary(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		expectedIngressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+		expectedIngressUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 			satellite0: expectedIngressUsage,
 			satellite1: expectedIngressUsage,
 		}
@@ -244,7 +244,7 @@ func TestIngressSummary(t *testing.T) {
 			require.Equal(t, expectedIngressUsageBySatellite, usageBySatellite)
 
 			// only range capturing second satellite.
-			expectedUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+			expectedUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 				satellite1: expectedIngressUsage,
 			}
 
@@ -280,11 +280,11 @@ func TestEmptyBandwidthDB(t *testing.T) {
 		{
 			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now, now)
 			require.NoError(t, err)
-			require.Equal(t, map[storj.NodeID]*bandwidth.Usage{}, usageBySatellite)
+			require.Equal(t, map[storxnetwork.NodeID]*bandwidth.Usage{}, usageBySatellite)
 		}
 
 		{
-			usage, err := bandwidthdb.SatelliteSummary(ctx, storj.NodeID{}, now, now)
+			usage, err := bandwidthdb.SatelliteSummary(ctx, storxnetwork.NodeID{}, now, now)
 			require.NoError(t, err)
 			require.Equal(t, &bandwidth.Usage{}, usage)
 		}
@@ -296,7 +296,7 @@ func TestEmptyBandwidthDB(t *testing.T) {
 		}
 
 		{
-			rollups, err := bandwidthdb.GetDailySatelliteRollups(ctx, storj.NodeID{}, now, now)
+			rollups, err := bandwidthdb.GetDailySatelliteRollups(ctx, storxnetwork.NodeID{}, now, now)
 			require.NoError(t, err)
 			require.Equal(t, []bandwidth.UsageRollup(nil), rollups)
 		}
@@ -318,7 +318,7 @@ func TestBandwidthDailyRollups(t *testing.T) {
 
 		totalUsageRollups := make(map[time.Time]*bandwidth.UsageRollup)
 
-		addBandwidth := func(day time.Time, satellite storj.NodeID, r *bandwidth.UsageRollup) {
+		addBandwidth := func(day time.Time, satellite storxnetwork.NodeID, r *bandwidth.UsageRollup) {
 			if totalUsageRollups[day] == nil {
 				totalUsageRollups[day] = &bandwidth.UsageRollup{
 					IntervalStart: day,
@@ -365,14 +365,14 @@ func TestBandwidthDailyRollups(t *testing.T) {
 
 		satelliteID := testrand.NodeID()
 
-		var satellites []storj.NodeID
+		var satellites []storxnetwork.NodeID
 		satellites = append(satellites, satelliteID)
 
 		for i := 0; i < numSatellites-1; i++ {
 			satellites = append(satellites, testrand.NodeID())
 		}
 
-		usageRollups := make(map[storj.NodeID]map[time.Time]*bandwidth.UsageRollup)
+		usageRollups := make(map[storxnetwork.NodeID]map[time.Time]*bandwidth.UsageRollup)
 
 		for _, satellite := range satellites {
 			usageRollups[satellite] = make(map[time.Time]*bandwidth.UsageRollup)
@@ -437,7 +437,7 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()).ID
 
 		// Compute times that will be used for the test
 		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
@@ -474,9 +474,9 @@ func TestBandwidthRollup(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		testID1 := storj.NodeID{1}
-		testID2 := storj.NodeID{2}
-		testID3 := storj.NodeID{3}
+		testID1 := storxnetwork.NodeID{1}
+		testID2 := storxnetwork.NodeID{2}
+		testID3 := storxnetwork.NodeID{3}
 
 		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 

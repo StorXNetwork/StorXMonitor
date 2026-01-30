@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -52,7 +52,7 @@ func (service *Service) Add(ctx context.Context, node Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// trying to connect to node to check its availability.
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -93,13 +93,13 @@ func (service *Service) List(ctx context.Context) (_ []Node, err error) {
 }
 
 // UpdateName will update name of the specified node.
-func (service *Service) UpdateName(ctx context.Context, id storj.NodeID, name string) (err error) {
+func (service *Service) UpdateName(ctx context.Context, id storxnetwork.NodeID, name string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return Error.Wrap(service.nodes.UpdateName(ctx, id, name))
 }
 
 // Get retrieves node by id.
-func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err error) {
+func (service *Service) Get(ctx context.Context, id storxnetwork.NodeID) (_ Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, id)
@@ -111,7 +111,7 @@ func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err e
 }
 
 // Remove removes node from the system.
-func (service *Service) Remove(ctx context.Context, id storj.NodeID) (err error) {
+func (service *Service) Remove(ctx context.Context, id storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return Error.Wrap(service.nodes.Remove(ctx, id))
 }
@@ -135,7 +135,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				ID:   node.ID,
 				Name: node.Name,
 			}
-			conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+			conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
@@ -215,7 +215,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 }
 
 // ListInfosSatellite queries node satellite specific info from all nodes via rpc.
-func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID storj.NodeID) (_ []NodeInfoSatellite, err error) {
+func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (_ []NodeInfoSatellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodes, err := service.nodes.List(ctx)
@@ -233,7 +233,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				ID:   node.ID,
 				Name: node.Name,
 			}
-			conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+			conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
@@ -305,7 +305,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 }
 
 // TrustedSatellites returns list of unique trusted satellites node urls.
-func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs, err error) {
+func (service *Service) TrustedSatellites(ctx context.Context) (_ storxnetwork.NodeURLs, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	listNodes, err := service.nodes.List(ctx)
@@ -313,7 +313,7 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 		return nil, Error.Wrap(err)
 	}
 
-	var trustedSatellites storj.NodeURLs
+	var trustedSatellites storxnetwork.NodeURLs
 	for _, node := range listNodes {
 		nodeURLs, err := service.trustedSatellites(ctx, node)
 		if err != nil {
@@ -331,15 +331,15 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 }
 
 // trustedSatellites retrieves list of trusted satellites node urls for a node.
-func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ storj.NodeURLs, err error) {
+func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ storxnetwork.NodeURLs, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return storj.NodeURLs{}, ErrNodeNotReachable.Wrap(err)
+		return storxnetwork.NodeURLs{}, ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -357,9 +357,9 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 		return nil, Error.Wrap(err)
 	}
 
-	var nodeURLs storj.NodeURLs
+	var nodeURLs storxnetwork.NodeURLs
 	for _, url := range resp.TrustedSatellites {
-		nodeURLs = append(nodeURLs, storj.NodeURL{
+		nodeURLs = append(nodeURLs, storxnetwork.NodeURL{
 			ID:      url.NodeId,
 			Address: url.GetAddress(),
 		})
@@ -380,7 +380,7 @@ func nodeStatus(lastContact time.Time) Status {
 }
 
 // appendUniqueNodeURLs appends unique node urls from incoming slice.
-func appendUniqueNodeURLs(slice storj.NodeURLs, nodeURLs storj.NodeURLs) storj.NodeURLs {
+func appendUniqueNodeURLs(slice storxnetwork.NodeURLs, nodeURLs storxnetwork.NodeURLs) storxnetwork.NodeURLs {
 	for _, nodeURL := range nodeURLs {
 		slice = appendUniqueNodeURL(slice, nodeURL)
 	}
@@ -389,7 +389,7 @@ func appendUniqueNodeURLs(slice storj.NodeURLs, nodeURLs storj.NodeURLs) storj.N
 }
 
 // appendUniqueNodeURL appends node url if it is unique.
-func appendUniqueNodeURL(slice storj.NodeURLs, nodeURL storj.NodeURL) storj.NodeURLs {
+func appendUniqueNodeURL(slice storxnetwork.NodeURLs, nodeURL storxnetwork.NodeURL) storxnetwork.NodeURLs {
 	for _, existing := range slice {
 		if bytes.Equal(existing.ID.Bytes(), nodeURL.ID.Bytes()) {
 			return slice

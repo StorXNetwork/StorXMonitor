@@ -9,11 +9,11 @@ import (
 	"errors"
 	"time"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/txutil"
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // BeginCopyObjectResult holds data needed to begin copy object.
@@ -48,7 +48,7 @@ type FinishCopyObject struct {
 
 	OverrideMetadata             bool
 	NewEncryptedMetadata         []byte
-	NewEncryptedMetadataKeyNonce storj.Nonce
+	NewEncryptedMetadataKeyNonce storxnetwork.Nonce
 	NewEncryptedMetadataKey      []byte
 
 	NewSegmentKeys []EncryptedKeyAndNonce
@@ -169,7 +169,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		plainSizes := make([]int32, sourceObject.SegmentCount)
 		plainOffsets := make([]int64, sourceObject.SegmentCount)
 		inlineDatas := make([][]byte, sourceObject.SegmentCount)
-		placementConstraints := make([]storj.PlacementConstraint, sourceObject.SegmentCount)
+		placementConstraints := make([]storxnetwork.PlacementConstraint, sourceObject.SegmentCount)
 		remoteAliasPiecesLists := make([][]byte, sourceObject.SegmentCount)
 
 		redundancySchemes := make([]int64, sourceObject.SegmentCount)

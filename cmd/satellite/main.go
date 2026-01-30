@@ -21,17 +21,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/lrucache"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	_ "storj.io/common/process/googleprofiler" // This attaches google cloud profiler.
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
 	"github.com/StorXNetwork/StorXMonitor/cmd/satellite/reports"
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
@@ -43,6 +32,17 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	_ "github.com/StorXNetwork/common/process/googleprofiler" // This attaches google cloud profiler.
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Satellite defines satellite configuration.
@@ -690,7 +690,7 @@ func reportsVerifyGEReceipt(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Check the node ID is valid
-	nodeID, err := storj.NodeIDFromString(args[0])
+	nodeID, err := storxnetwork.NodeIDFromString(args[0])
 	if err != nil {
 		return errs.Combine(err, errs.New("Invalid node ID."))
 	}
@@ -1031,7 +1031,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 
-		conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
+		conn, err := dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 			ID:      node.ID,
 			Address: node.Address.Address,
 		})
@@ -1070,7 +1070,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		for _, nodeid := range args {
-			parsedNodeID, err := storj.NodeIDFromString(nodeid)
+			parsedNodeID, err := storxnetwork.NodeIDFromString(nodeid)
 			if err != nil {
 				return err
 			}

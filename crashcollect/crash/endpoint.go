@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
 	"github.com/StorXNetwork/StorXMonitor/private/crashreportpb"
 )
 

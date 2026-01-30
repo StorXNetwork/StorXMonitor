@@ -17,16 +17,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/nodetag"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	"github.com/StorXNetwork/StorXMonitor/private/server"
 	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
@@ -60,6 +50,16 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
 	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
 	"github.com/StorXNetwork/StorXMonitor/satellite/userworker"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/nodetag"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // API is the satellite API process.
@@ -784,7 +784,7 @@ func (peer *API) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *API) ID() storxnetwork.NodeID { return peer.Identity.ID }
 
 // Addr returns the public address.
 func (peer *API) Addr() string {
@@ -792,8 +792,8 @@ func (peer *API) Addr() string {
 }
 
 // URL returns the storj.NodeURL.
-func (peer *API) URL() storj.NodeURL {
-	return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()}
+func (peer *API) URL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: peer.ID(), Address: peer.Addr()}
 }
 
 // PrivateAddr returns the private address.

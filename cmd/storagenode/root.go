@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
 	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 )

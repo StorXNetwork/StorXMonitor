@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // InjuredSegment contains information about segment which
@@ -23,13 +23,13 @@ type InjuredSegment struct {
 	UpdatedAt     time.Time
 	InsertedAt    time.Time
 
-	Placement storj.PlacementConstraint
+	Placement storxnetwork.PlacementConstraint
 }
 
 // Stat contains information about a segment of repair queue.
 type Stat struct {
 	Count            int
-	Placement        storj.PlacementConstraint
+	Placement        storxnetwork.PlacementConstraint
 	MaxInsertedAt    time.Time
 	MinInsertedAt    time.Time
 	MaxAttemptedAt   *time.Time
@@ -48,7 +48,7 @@ type RepairQueue interface {
 	// InsertBatch adds multiple injured segments
 	InsertBatch(ctx context.Context, segments []*InjuredSegment) (newlyInsertedSegments []*InjuredSegment, err error)
 	// Select gets an injured segment.
-	Select(ctx context.Context, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) (*InjuredSegment, error)
+	Select(ctx context.Context, includedPlacements []storxnetwork.PlacementConstraint, excludedPlacements []storxnetwork.PlacementConstraint) (*InjuredSegment, error)
 	// Delete removes an injured segment.
 	Delete(ctx context.Context, s *InjuredSegment) error
 	// Clean removes all segments last updated before a certain time

@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/uplink"
 )
 
 // Remote implements something close to a filesystem but backed by an uplink project.

@@ -14,14 +14,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
@@ -33,6 +25,14 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Repairer is the repairer process.
@@ -283,4 +283,4 @@ func (peer *Repairer) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Repairer) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Repairer) ID() storxnetwork.NodeID { return peer.Identity.ID }

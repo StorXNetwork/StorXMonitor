@@ -9,12 +9,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/macaroon"
+	"github.com/StorXNetwork/common/macaroon"
 )
 
 // Permission defines what actions can be used to share.
 //
-// This struct has been taken from storj.io/uplink and duplicated to avoid
+// This struct has been taken from github.com/StorXNetwork/uplink and duplicated to avoid
 // pulling in that dependency.
 type Permission struct {
 	// AllowDownload gives permission to download the object's content. It

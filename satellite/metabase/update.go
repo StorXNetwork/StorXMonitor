@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrValueChanged is returned when the current value of the key does not match the oldValue in UpdateSegmentPieces.
@@ -25,7 +25,7 @@ type UpdateSegmentPieces struct {
 
 	OldPieces Pieces
 
-	NewRedundancy storj.RedundancyScheme
+	NewRedundancy storxnetwork.RedundancyScheme
 	NewPieces     Pieces
 
 	NewRepairedAt time.Time // sets new time of last segment repair (optional).

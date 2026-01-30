@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestOfflineNodes(t *testing.T) {
@@ -91,7 +91,7 @@ func TestOfflineNodes(t *testing.T) {
 		require.Equal(t, lastEmail, offlineInfo.LastOfflineEmail)
 
 		// change last_offline_email so that cooldown has passed and email should be sent again
-		require.NoError(t, cache.UpdateLastOfflineEmail(ctx, []storj.NodeID{offlineNode.ID()}, time.Now().Add(-48*time.Hour)))
+		require.NoError(t, cache.UpdateLastOfflineEmail(ctx, []storxnetwork.NodeID{offlineNode.ID()}, time.Now().Add(-48*time.Hour)))
 
 		sat.Overlay.OfflineNodeEmails.Loop.TriggerWait()
 

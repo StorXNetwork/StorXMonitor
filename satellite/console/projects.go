@@ -8,9 +8,9 @@ import (
 	"errors"
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Projects exposes methods to manage Project table in database.
@@ -67,7 +67,7 @@ type Projects interface {
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
 
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
-	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
+	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storxnetwork.PlacementConstraint) error
 
 	// UpdateStorageUsedPercentage is a method for updating the storage used percentage for a project.
 	UpdateStorageUsedPercentage(ctx context.Context, id uuid.UUID, percentage float64) error
@@ -113,26 +113,26 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name                        string                    `json:"name"`
-	Description                 string                    `json:"description"`
-	UserAgent                   []byte                    `json:"userAgent"`
-	OwnerID                     uuid.UUID                 `json:"ownerId"`
-	RateLimit                   *int                      `json:"rateLimit"`
-	BurstLimit                  *int                      `json:"burstLimit"`
-	MaxBuckets                  *int                      `json:"maxBuckets"`
-	CreatedAt                   time.Time                 `json:"createdAt"`
-	MemberCount                 int                       `json:"memberCount"`
-	StorageLimit                *memory.Size              `json:"storageLimit"`
-	StorageUsed                 int64                     `json:"-"`
-	BandwidthLimit              *memory.Size              `json:"bandwidthLimit"`
-	BandwidthUsed               int64                     `json:"-"`
-	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
-	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
-	StorageUsedPercentage       float64                   `json:"storageUsedPercentage"`
-	SegmentLimit                *int64                    `json:"segmentLimit"`
-	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
-	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`
-	PrevDaysUntilExpiration     int                       `json:"prevDaysUntilExpiration"`
+	Name                        string                           `json:"name"`
+	Description                 string                           `json:"description"`
+	UserAgent                   []byte                           `json:"userAgent"`
+	OwnerID                     uuid.UUID                        `json:"ownerId"`
+	RateLimit                   *int                             `json:"rateLimit"`
+	BurstLimit                  *int                             `json:"burstLimit"`
+	MaxBuckets                  *int                             `json:"maxBuckets"`
+	CreatedAt                   time.Time                        `json:"createdAt"`
+	MemberCount                 int                              `json:"memberCount"`
+	StorageLimit                *memory.Size                     `json:"storageLimit"`
+	StorageUsed                 int64                            `json:"-"`
+	BandwidthLimit              *memory.Size                     `json:"bandwidthLimit"`
+	BandwidthUsed               int64                            `json:"-"`
+	UserSpecifiedStorageLimit   *memory.Size                     `json:"userSpecifiedStorageLimit"`
+	UserSpecifiedBandwidthLimit *memory.Size                     `json:"userSpecifiedBandwidthLimit"`
+	StorageUsedPercentage       float64                          `json:"storageUsedPercentage"`
+	SegmentLimit                *int64                           `json:"segmentLimit"`
+	DefaultPlacement            storxnetwork.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning           DefaultVersioning                `json:"defaultVersioning"`
+	PrevDaysUntilExpiration     int                              `json:"prevDaysUntilExpiration"`
 }
 
 // UpsertProjectInfo holds data needed to create/update Project.

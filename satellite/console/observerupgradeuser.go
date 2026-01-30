@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 )

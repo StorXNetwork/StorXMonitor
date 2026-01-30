@@ -16,8 +16,8 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
-	"storj.io/common/process"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripe.Service, satellite.DB) error) error {

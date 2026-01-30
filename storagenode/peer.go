@@ -17,15 +17,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/emptyfs"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
@@ -65,6 +56,15 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 	snVersion "github.com/StorXNetwork/StorXMonitor/storagenode/version"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 var (
@@ -954,13 +954,15 @@ func (peer *Peer) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Peer) ID() storxnetwork.NodeID { return peer.Identity.ID }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
 
 // URL returns the storj.NodeURL.
-func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()} }
+func (peer *Peer) URL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: peer.ID(), Address: peer.Addr()}
+}
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }

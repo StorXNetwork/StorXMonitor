@@ -13,11 +13,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var _ reputation.DB = (*reputations)(nil)
@@ -54,7 +54,7 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 // If the node (as represented in the returned info) becomes newly vetted,
 // disqualified, or suspended as a result of these updates, the caller is
 // responsible for updating the records in the overlay to match.
-func (reputations *reputations) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, updates reputation.Mutations, reputationConfig reputation.Config, now time.Time) (_ *reputation.Info, err error) {
+func (reputations *reputations) ApplyUpdates(ctx context.Context, nodeID storxnetwork.NodeID, updates reputation.Mutations, reputationConfig reputation.Config, now time.Time) (_ *reputation.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
@@ -150,7 +150,7 @@ func (reputations *reputations) ApplyUpdates(ctx context.Context, nodeID storj.N
 	}
 }
 
-func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*reputation.Info, error) {
+func (reputations *reputations) Get(ctx context.Context, nodeID storxnetwork.NodeID) (*reputation.Info, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -190,7 +190,7 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, disqualificationReason overlay.DisqualificationReason) (err error) {
+func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, disqualifiedAt time.Time, disqualificationReason overlay.DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
@@ -230,7 +230,7 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 }
 
 // SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
@@ -269,7 +269,7 @@ func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nod
 }
 
 // UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
@@ -695,7 +695,7 @@ func dbxToReputationInfo(dbNode *dbx.Reputation) (reputation.Info, error) {
 type zapNodeIDBytes []byte
 
 func (z zapNodeIDBytes) String() string {
-	nodeID, err := storj.NodeIDFromBytes([]byte(z))
+	nodeID, err := storxnetwork.NodeIDFromBytes([]byte(z))
 	if err != nil {
 		return fmt.Sprintf("invalid node-id 0x%x", []byte(z))
 	}

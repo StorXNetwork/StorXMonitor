@@ -12,8 +12,8 @@ import (
 	jsonpb "github.com/gogo/protobuf/jsonpb"
 	proto "github.com/gogo/protobuf/proto"
 
-	drpc "storj.io/drpc"
-	drpcerr "storj.io/drpc/drpcerr"
+	drpc "github.com/StorXNetwork/drpc"
+	drpcerr "github.com/StorXNetwork/drpc/drpcerr"
 )
 
 type drpcEncoding_File_crashreport_proto struct{}

@@ -12,17 +12,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/nodetag"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/nodetag"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestSatelliteContactEndpoint(t *testing.T) {
@@ -110,7 +110,7 @@ func TestSatellitePingBack_Failure(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := planet.Satellites[0].Contact.Service.PingBack(ctx, storj.NodeURL{})
+		pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := planet.Satellites[0].Contact.Service.PingBack(ctx, storxnetwork.NodeURL{})
 
 		require.NoError(t, err)
 		require.NotEmpty(t, pingErrorMessage)
@@ -282,7 +282,7 @@ func TestSatelliteContactEndpoint_WithWrongNodeTags(t *testing.T) {
 			},
 		}
 
-		wrongNodeID := testidentity.MustPregeneratedIdentity(99, storj.LatestIDVersion()).ID
+		wrongNodeID := testidentity.MustPregeneratedIdentity(99, storxnetwork.LatestIDVersion()).ID
 		unsignedTags := &pb.NodeTagSet{
 			NodeId: wrongNodeID.Bytes(),
 			Tags: []*pb.Tag{

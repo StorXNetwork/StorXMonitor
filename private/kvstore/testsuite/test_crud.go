@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 

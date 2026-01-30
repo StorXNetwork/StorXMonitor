@@ -20,7 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
 )
 

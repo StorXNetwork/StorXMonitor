@@ -11,26 +11,26 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDB_PieceCounts(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		overlaydb := db.OverlayCache()
 
-		expectedNodePieces := make(map[storj.NodeID]int64, 100)
+		expectedNodePieces := make(map[storxnetwork.NodeID]int64, 100)
 
 		for i := 0; i < 100; i++ {
 			expectedNodePieces[testrand.NodeID()] = int64(math.Pow10(i + 1))
 		}
 
-		var nodeToDisqualify storj.NodeID
+		var nodeToDisqualify storxnetwork.NodeID
 
 		i := 0
 		for nodeID := range expectedNodePieces {
@@ -97,7 +97,7 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 
 		overlaydb := db.OverlayCache()
 
-		counts := make(map[storj.NodeID]int64)
+		counts := make(map[storxnetwork.NodeID]int64)
 		for i := 0; i < NumberOfNodes; i++ {
 			counts[testrand.NodeID()] = testrand.Int63n(100000)
 		}

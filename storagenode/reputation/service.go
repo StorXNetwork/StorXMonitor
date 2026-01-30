@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Service is the reputation service.
@@ -20,12 +20,12 @@ type Service struct {
 	log *zap.Logger
 
 	db            DB
-	nodeID        storj.NodeID
+	nodeID        storxnetwork.NodeID
 	notifications *notifications.Service
 }
 
 // NewService creates new instance of service.
-func NewService(log *zap.Logger, db DB, nodeID storj.NodeID, notifications *notifications.Service) *Service {
+func NewService(log *zap.Logger, db DB, nodeID storxnetwork.NodeID, notifications *notifications.Service) *Service {
 	return &Service{
 		log:           log,
 		db:            db,
@@ -35,7 +35,7 @@ func NewService(log *zap.Logger, db DB, nodeID storj.NodeID, notifications *noti
 }
 
 // Store stores reputation stats into db, and notify's in case of offline suspension.
-func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storj.NodeID) error {
+func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storxnetwork.NodeID) error {
 	rep, err := s.db.Get(ctx, satelliteID)
 	if err != nil {
 		return err
@@ -92,7 +92,7 @@ func isSuspended(new, old Stats) bool {
 }
 
 // newSuspensionNotification - returns offline suspension notification.
-func newSuspensionNotification(satelliteID storj.NodeID, senderID storj.NodeID, time time.Time) (_ notifications.NewNotification) {
+func newSuspensionNotification(satelliteID storxnetwork.NodeID, senderID storxnetwork.NodeID, time time.Time) (_ notifications.NewNotification) {
 	return notifications.NewNotification{
 		SenderID: senderID,
 		Type:     notifications.TypeSuspension,

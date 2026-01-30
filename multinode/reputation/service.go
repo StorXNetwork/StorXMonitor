@@ -10,11 +10,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
 	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -44,7 +44,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes nodes.DB) *Service {
 }
 
 // Stats retrieves node reputation stats list for satellite.
-func (service *Service) Stats(ctx context.Context, satelliteID storj.NodeID) (_ []Stats, err error) {
+func (service *Service) Stats(ctx context.Context, satelliteID storxnetwork.NodeID) (_ []Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeList, err := service.nodes.List(ctx)
@@ -74,10 +74,10 @@ func (service *Service) Stats(ctx context.Context, satelliteID storj.NodeID) (_ 
 }
 
 // dialStats dials node and retrieves reputation stats for particular satellite.
-func (service *Service) dialStats(ctx context.Context, node nodes.Node, satelliteID storj.NodeID) (_ Stats, err error) {
+func (service *Service) dialStats(ctx context.Context, node nodes.Node, satelliteID storxnetwork.NodeID) (_ Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})

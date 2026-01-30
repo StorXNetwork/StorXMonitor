@@ -12,13 +12,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DeleteRequest contains information to delete piece.
 type DeleteRequest struct {
-	SatelliteID storj.NodeID
-	PieceID     storj.PieceID
+	SatelliteID storxnetwork.NodeID
+	PieceID     storxnetwork.PieceID
 	QueueTime   time.Time
 }
 
@@ -80,7 +80,7 @@ func (d *Deleter) Run(ctx context.Context) error {
 // are not processed and will be left for garbage collection. Enqueue returns
 // true if all pieceIDs were successfully placed on the queue, false if some
 // pieceIDs were dropped.
-func (d *Deleter) Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceIDs []storj.PieceID) (unhandled int) {
+func (d *Deleter) Enqueue(ctx context.Context, satelliteID storxnetwork.NodeID, pieceIDs []storxnetwork.PieceID) (unhandled int) {
 	if len(pieceIDs) == 0 {
 		return 0
 	}
@@ -177,7 +177,7 @@ func (d *Deleter) SetupTest() {
 	d.testMode = true
 }
 
-func (d *Deleter) deleteOrTrash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) {
+func (d *Deleter) deleteOrTrash(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	var err error
 	var errMsg string
 	var infoMsg string

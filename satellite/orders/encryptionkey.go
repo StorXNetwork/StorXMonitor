@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/nacl/secretbox"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrEncryptionKey is error class used for keys.
@@ -31,7 +31,7 @@ func (key EncryptionKeyID) IsZero() bool { return key == EncryptionKeyID{} }
 type EncryptionKeys struct {
 	Default EncryptionKey
 	List    []EncryptionKey
-	KeyByID map[EncryptionKeyID]storj.Key
+	KeyByID map[EncryptionKeyID]storxnetwork.Key
 }
 
 // NewEncryptionKeys creates a new EncrytpionKeys object with the provided keys.
@@ -51,19 +51,19 @@ func NewEncryptionKeys(keys ...EncryptionKey) (*EncryptionKeys, error) {
 // Can be used as a flag.
 type EncryptionKey struct {
 	ID  EncryptionKeyID
-	Key storj.Key
+	Key storxnetwork.Key
 }
 
 // When this fails to compile, then `serialToNonce` should be adjusted accordingly.
-var _ = ([16]byte)(storj.SerialNumber{})
+var _ = ([16]byte)(storxnetwork.SerialNumber{})
 
-func serialToNonce(serial storj.SerialNumber) (x [24]byte) {
+func serialToNonce(serial storxnetwork.SerialNumber) (x [24]byte) {
 	copy(x[:], serial[:])
 	return x
 }
 
 // Encrypt encrypts data and nonce using the key.
-func (key *EncryptionKey) Encrypt(plaintext []byte, nonce storj.SerialNumber) []byte {
+func (key *EncryptionKey) Encrypt(plaintext []byte, nonce storxnetwork.SerialNumber) []byte {
 	out := make([]byte, 0, len(plaintext)+secretbox.Overhead)
 	n := serialToNonce(nonce)
 	k := ([32]byte)(key.Key)
@@ -71,7 +71,7 @@ func (key *EncryptionKey) Encrypt(plaintext []byte, nonce storj.SerialNumber) []
 }
 
 // Decrypt decrypts data and nonce using the key.
-func (key *EncryptionKey) Decrypt(ciphertext []byte, nonce storj.SerialNumber) ([]byte, error) {
+func (key *EncryptionKey) Decrypt(ciphertext []byte, nonce storxnetwork.SerialNumber) ([]byte, error) {
 	out := make([]byte, 0, len(ciphertext)-secretbox.Overhead)
 	n := serialToNonce(nonce)
 	k := ([32]byte)(key.Key)
@@ -83,7 +83,7 @@ func (key *EncryptionKey) Decrypt(ciphertext []byte, nonce storj.SerialNumber) (
 }
 
 // EncryptMetadata encrypts order limit metadata.
-func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *internalpb.OrderLimitMetadata) ([]byte, error) {
+func (key *EncryptionKey) EncryptMetadata(serial storxnetwork.SerialNumber, metadata *internalpb.OrderLimitMetadata) ([]byte, error) {
 	marshaled, err := pb.Marshal(metadata)
 	if err != nil {
 		return nil, ErrEncryptionKey.Wrap(err)
@@ -92,7 +92,7 @@ func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *i
 }
 
 // DecryptMetadata decrypts order limit metadata.
-func (key *EncryptionKey) DecryptMetadata(serial storj.SerialNumber, encrypted []byte) (*internalpb.OrderLimitMetadata, error) {
+func (key *EncryptionKey) DecryptMetadata(serial storxnetwork.SerialNumber, encrypted []byte) (*internalpb.OrderLimitMetadata, error) {
 	decrypted, err := key.Decrypt(encrypted, serial)
 	if err != nil {
 		return nil, ErrEncryptionKey.Wrap(err)
@@ -172,7 +172,7 @@ func (keys *EncryptionKeys) Set(s string) error {
 // Add adds an encryption key to EncryptionsKeys object.
 func (keys *EncryptionKeys) Add(ekey EncryptionKey) error {
 	if keys.KeyByID == nil {
-		keys.KeyByID = map[EncryptionKeyID]storj.Key{}
+		keys.KeyByID = map[EncryptionKeyID]storxnetwork.Key{}
 	}
 	if ekey.IsZero() {
 		return ErrEncryptionKey.New("key is zero")
@@ -195,7 +195,7 @@ func (keys *EncryptionKeys) Add(ekey EncryptionKey) error {
 func (keys *EncryptionKeys) Clear() {
 	keys.Default = EncryptionKey{}
 	keys.List = nil
-	keys.KeyByID = map[EncryptionKeyID]storj.Key{}
+	keys.KeyByID = map[EncryptionKeyID]storxnetwork.Key{}
 }
 
 // String is required for pflag.Value.

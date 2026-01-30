@@ -10,12 +10,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestStorageUsage(t *testing.T) {
@@ -26,7 +26,7 @@ func TestStorageUsage(t *testing.T) {
 
 	now := time.Now().UTC()
 
-	var satellites []storj.NodeID
+	var satellites []storxnetwork.NodeID
 	satelliteID := testrand.NodeID()
 
 	satellites = append(satellites, satelliteID)
@@ -37,10 +37,10 @@ func TestStorageUsage(t *testing.T) {
 	stamps := storagenodedbtest.MakeStorageUsageStamps(satellites, days, now)
 
 	var totalSummary, averageUsage float64
-	expectedDailyStamps := make(map[storj.NodeID]map[time.Time]storageusage.Stamp)
+	expectedDailyStamps := make(map[storxnetwork.NodeID]map[time.Time]storageusage.Stamp)
 	expectedDailyStampsTotals := make(map[time.Time]float64)
-	summaryBySatellite := make(map[storj.NodeID]float64)
-	averageBySatellite := make(map[storj.NodeID]float64)
+	summaryBySatellite := make(map[storxnetwork.NodeID]float64)
+	averageBySatellite := make(map[storxnetwork.NodeID]float64)
 
 	for _, stamp := range stamps {
 		if expectedDailyStamps[stamp.SatelliteID] == nil {
@@ -132,7 +132,7 @@ func TestEmptyStorageUsage(t *testing.T) {
 		storageUsageDB := db.StorageUsage()
 
 		t.Run("get daily", func(t *testing.T) {
-			res, err := storageUsageDB.GetDaily(ctx, storj.NodeID{}, time.Time{}, now)
+			res, err := storageUsageDB.GetDaily(ctx, storxnetwork.NodeID{}, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Nil(t, res)
 		})
@@ -144,7 +144,7 @@ func TestEmptyStorageUsage(t *testing.T) {
 		})
 
 		t.Run("summary satellite", func(t *testing.T) {
-			summ, averageUsageInBytes, err := storageUsageDB.SatelliteSummary(ctx, storj.NodeID{}, time.Time{}, now)
+			summ, averageUsageInBytes, err := storageUsageDB.SatelliteSummary(ctx, storxnetwork.NodeID{}, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, emptySummary, summ)
 			assert.Equal(t, zeroHourInterval, averageUsageInBytes)

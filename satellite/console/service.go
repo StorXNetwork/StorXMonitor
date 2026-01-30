@@ -27,16 +27,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/golang-jwt/jwt/v5"
-	"storj.io/common/cfgstruct"
-	"storj.io/common/currency"
-	"storj.io/common/encryption"
-	"storj.io/common/grant"
-	"storj.io/common/http/requestid"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/api"
 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
@@ -53,6 +43,16 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/http/requestid"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var mon = monkit.Package()
@@ -536,7 +536,7 @@ func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uui
 	}
 
 	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
-	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+	encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 	// if config.disableObjectKeyEncryption {
 	// 	encAccess.SetDefaultPathCipher(storj.EncNull)
 	// }

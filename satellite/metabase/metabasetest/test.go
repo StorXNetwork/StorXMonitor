@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // BeginObjectNextVersion is for testing metabase.BeginObjectNextVersion.
@@ -369,7 +369,7 @@ func (step ListStreamPositions) Check(ctx *testcontext.Context, t testing.TB, db
 // GetStreamPieceCountByNodeID is for testing metabase.GetStreamPieceCountByNodeID.
 type GetStreamPieceCountByNodeID struct {
 	Opts     metabase.GetStreamPieceCountByNodeID
-	Result   map[storj.NodeID]int64
+	Result   map[storxnetwork.NodeID]int64
 	ErrClass *errs.Class
 	ErrText  string
 }

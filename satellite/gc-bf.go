@@ -14,9 +14,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"

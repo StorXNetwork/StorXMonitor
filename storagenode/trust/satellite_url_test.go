@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestSatelliteURLAddress(t *testing.T) {
@@ -27,7 +27,7 @@ func TestSatelliteURLString(t *testing.T) {
 }
 
 func TestSatelliteURLNodeURLConversion(t *testing.T) {
-	nodeURL, err := storj.ParseNodeURL("121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@127.0.0.1:7777")
+	nodeURL, err := storxnetwork.ParseNodeURL("121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@127.0.0.1:7777")
 	require.NoError(t, err)
 
 	satelliteURL, err := trust.ParseSatelliteURL("121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@127.0.0.1:7777")
@@ -37,7 +37,7 @@ func TestSatelliteURLNodeURLConversion(t *testing.T) {
 }
 
 func TestParseSatelliteURL_Valid(t *testing.T) {
-	id, err := storj.NodeIDFromString("121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6")
+	id, err := storxnetwork.NodeIDFromString("121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6")
 	require.NoError(t, err)
 
 	for _, tt := range []struct {

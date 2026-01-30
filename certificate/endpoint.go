@@ -10,10 +10,10 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
 	"github.com/StorXNetwork/StorXMonitor/certificate/rpcerrs"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
 )
 
 // Endpoint implements pb.CertificatesServer.

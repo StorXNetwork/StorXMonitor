@@ -13,10 +13,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Version is a type for defining different file versions.
@@ -63,7 +63,7 @@ type Readable interface {
 }
 
 // OpenWritableUnsent creates or opens for appending the unsent orders file for a given satellite ID and creation hour.
-func OpenWritableUnsent(unsentDir string, satelliteID storj.NodeID, creationTime time.Time) (Writable, error) {
+func OpenWritableUnsent(unsentDir string, satelliteID storxnetwork.NodeID, creationTime time.Time) (Writable, error) {
 	// if V0 file already exists, use that. Otherwise use V1 file.
 	versionToUse := V0
 	fileName := UnsentFileName(satelliteID, creationTime, V0)
@@ -82,14 +82,14 @@ func OpenWritableUnsent(unsentDir string, satelliteID storj.NodeID, creationTime
 
 // UnsentInfo contains information relevant to an unsent orders file, as well as information necessary to open it for reading.
 type UnsentInfo struct {
-	SatelliteID   storj.NodeID
+	SatelliteID   storxnetwork.NodeID
 	CreatedAtHour time.Time
 	Version       Version
 }
 
 // ArchivedInfo contains information relevant to an archived orders file, as well as information necessary to open it for reading.
 type ArchivedInfo struct {
-	SatelliteID   storj.NodeID
+	SatelliteID   storxnetwork.NodeID
 	CreatedAtHour time.Time
 	ArchivedAt    time.Time
 	StatusText    string
@@ -136,7 +136,7 @@ func OpenReadable(path string, version Version) (Readable, error) {
 }
 
 // MoveUnsent moves an unsent orders file to the archived orders file directory.
-func MoveUnsent(unsentDir, archiveDir string, satelliteID storj.NodeID, createdAtHour, archivedAt time.Time, status pb.SettlementWithWindowResponse_Status, version Version) error {
+func MoveUnsent(unsentDir, archiveDir string, satelliteID storxnetwork.NodeID, createdAtHour, archivedAt time.Time, status pb.SettlementWithWindowResponse_Status, version Version) error {
 	oldFilePath := filepath.Join(unsentDir, UnsentFileName(satelliteID, createdAtHour, version))
 	newFilePath := filepath.Join(archiveDir, ArchiveFileName(satelliteID, createdAtHour, archivedAt, status, version))
 
@@ -145,23 +145,23 @@ func MoveUnsent(unsentDir, archiveDir string, satelliteID storj.NodeID, createdA
 
 // it expects the file name to be in the format "unsent-orders-<satelliteID>-<createdAtHour>.<version>".
 // V0 will not have ".<version>" at the end of the filename.
-func getUnsentFileInfo(filename string) (satellite storj.NodeID, createdHour time.Time, version Version, err error) {
+func getUnsentFileInfo(filename string) (satellite storxnetwork.NodeID, createdHour time.Time, version Version, err error) {
 	filename, version = getVersion(filename)
 
 	if !strings.HasPrefix(filename, unsentFilePrefix) {
-		return storj.NodeID{}, time.Time{}, version, Error.New("invalid path: %q", filename)
+		return storxnetwork.NodeID{}, time.Time{}, version, Error.New("invalid path: %q", filename)
 	}
 	// chop off prefix to get satellite ID and created hours
 	infoStr := filename[len(unsentFilePrefix):]
 	infoSlice := strings.Split(infoStr, "-")
 	if len(infoSlice) != 2 {
-		return storj.NodeID{}, time.Time{}, version, Error.New("invalid path: %q", filename)
+		return storxnetwork.NodeID{}, time.Time{}, version, Error.New("invalid path: %q", filename)
 	}
 
 	satelliteIDStr := infoSlice[0]
-	satelliteID, err := storj.NodeIDFromString(satelliteIDStr)
+	satelliteID, err := storxnetwork.NodeIDFromString(satelliteIDStr)
 	if err != nil {
-		return storj.NodeID{}, time.Time{}, version, Error.New("invalid path: %q", filename)
+		return storxnetwork.NodeID{}, time.Time{}, version, Error.New("invalid path: %q", filename)
 	}
 
 	timeStr := infoSlice[1]
@@ -177,23 +177,23 @@ func getUnsentFileInfo(filename string) (satellite storj.NodeID, createdHour tim
 // getArchivedFileInfo gets the archived at time from an archive file name.
 // it expects the file name to be in the format "archived-orders-<satelliteID>-<createdAtHour>-<archviedAtTime>-<status>.<version>".
 // V0 will not have ".<version>" at the end of the filename.
-func getArchivedFileInfo(name string) (satelliteID storj.NodeID, createdAtHour, archivedAt time.Time, status string, version Version, err error) {
+func getArchivedFileInfo(name string) (satelliteID storxnetwork.NodeID, createdAtHour, archivedAt time.Time, status string, version Version, err error) {
 	name, version = getVersion(name)
 
 	if !strings.HasPrefix(name, archiveFilePrefix) {
-		return storj.NodeID{}, time.Time{}, time.Time{}, "", version, Error.New("invalid path: %q", name)
+		return storxnetwork.NodeID{}, time.Time{}, time.Time{}, "", version, Error.New("invalid path: %q", name)
 	}
 	// chop off prefix to get satellite ID, created hour, archive time, and status
 	infoStr := name[len(archiveFilePrefix):]
 	infoSlice := strings.Split(infoStr, "-")
 	if len(infoSlice) != 4 {
-		return storj.NodeID{}, time.Time{}, time.Time{}, "", version, Error.New("invalid path: %q", name)
+		return storxnetwork.NodeID{}, time.Time{}, time.Time{}, "", version, Error.New("invalid path: %q", name)
 	}
 
 	satelliteIDStr := infoSlice[0]
-	satelliteID, err = storj.NodeIDFromString(satelliteIDStr)
+	satelliteID, err = storxnetwork.NodeIDFromString(satelliteIDStr)
 	if err != nil {
-		return storj.NodeID{}, time.Time{}, time.Time{}, "", version, Error.New("invalid path: %q", name)
+		return storxnetwork.NodeID{}, time.Time{}, time.Time{}, "", version, Error.New("invalid path: %q", name)
 	}
 
 	createdAtStr := infoSlice[1]
@@ -216,7 +216,7 @@ func getArchivedFileInfo(name string) (satelliteID storj.NodeID, createdAtHour, 
 }
 
 // UnsentFileName gets the filename of an unsent file.
-func UnsentFileName(satelliteID storj.NodeID, creationTime time.Time, version Version) string {
+func UnsentFileName(satelliteID storxnetwork.NodeID, creationTime time.Time, version Version) string {
 	filename := fmt.Sprintf("%s%s-%s",
 		unsentFilePrefix,
 		satelliteID,
@@ -229,7 +229,7 @@ func UnsentFileName(satelliteID storj.NodeID, creationTime time.Time, version Ve
 }
 
 // ArchiveFileName gets the filename of an archived file.
-func ArchiveFileName(satelliteID storj.NodeID, creationTime, archiveTime time.Time, status pb.SettlementWithWindowResponse_Status, version Version) string {
+func ArchiveFileName(satelliteID storxnetwork.NodeID, creationTime, archiveTime time.Time, status pb.SettlementWithWindowResponse_Status, version Version) string {
 	filename := fmt.Sprintf("%s%s-%s-%s-%s",
 		archiveFilePrefix,
 		satelliteID,

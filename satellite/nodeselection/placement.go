@@ -13,14 +13,14 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
 )
 
 // Placement defined all the custom behavior metadata of a specific placement group.
 type Placement struct {
 	// the unique ID of the placement
-	ID storj.PlacementConstraint
+	ID storxnetwork.PlacementConstraint
 	// meaningful identifier/label for Humans. Will be used on UI.
 	Name string
 	// binding condition for filtering out nodes
@@ -60,16 +60,16 @@ type NodeSelectorInit func([]*SelectedNode, NodeFilter) NodeSelector
 // NodeSelector pick random nodes based on a specific algorithm.
 // Nodes from excluded should never be used. Same is true for alreadySelected, but it may also trigger other restrictions
 // (for example, when a last_net is already selected, all the nodes from the same net should be excluded as well.
-type NodeSelector func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
+type NodeSelector func(n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
 
 // ErrPlacement is used for placement definition related parsing errors.
 var ErrPlacement = errs.Class("placement")
 
 // PlacementRules can crate filter based on the placement identifier.
-type PlacementRules func(constraint storj.PlacementConstraint) (filter NodeFilter)
+type PlacementRules func(constraint storxnetwork.PlacementConstraint) (filter NodeFilter)
 
 // PlacementDefinitions can include the placement definitions for each known identifier.
-type PlacementDefinitions map[storj.PlacementConstraint]Placement
+type PlacementDefinitions map[storxnetwork.PlacementConstraint]Placement
 
 // ConfigurablePlacementRule is a string configuration includes all placement rules in the form of id1:def1,id2:def2...
 type ConfigurablePlacementRule struct {
@@ -120,7 +120,7 @@ func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, err
 	if strings.HasPrefix(rules, "/") || strings.HasPrefix(rules, "./") || strings.HasPrefix(rules, "../") {
 		return nil, ErrPlacement.New("Placement definition (%s) looks to be a path, but file doesn't exist at that place", rules)
 	}
-	d := PlacementDefinitions(map[storj.PlacementConstraint]Placement{})
+	d := PlacementDefinitions(map[storxnetwork.PlacementConstraint]Placement{})
 	d.AddLegacyStaticRules()
 	err := d.AddPlacementFromString(rules)
 	return d, err
@@ -130,9 +130,9 @@ var _ pflag.Value = &ConfigurablePlacementRule{}
 
 // TestPlacementDefinitions creates placements for testing. Only 0 placement is defined with subnetfiltering.
 func TestPlacementDefinitions() PlacementDefinitions {
-	return map[storj.PlacementConstraint]Placement{
-		storj.DefaultPlacement: {
-			ID:         storj.DefaultPlacement,
+	return map[storxnetwork.PlacementConstraint]Placement{
+		storxnetwork.DefaultPlacement: {
+			ID:         storxnetwork.DefaultPlacement,
 			NodeFilter: AnyFilter{},
 			Selector:   AttributeGroupSelector(LastNetAttribute),
 			Invariant:  ClumpingByAttribute(LastNetAttribute, 1),
@@ -142,9 +142,9 @@ func TestPlacementDefinitions() PlacementDefinitions {
 
 // TestPlacementDefinitionsWithFraction creates placements for testing. Similar to TestPlacementDefinitions, but also selects newNodes based on fraction.
 func TestPlacementDefinitionsWithFraction(newNodeFraction float64) PlacementDefinitions {
-	return map[storj.PlacementConstraint]Placement{
-		storj.DefaultPlacement: {
-			ID:         storj.DefaultPlacement,
+	return map[storxnetwork.PlacementConstraint]Placement{
+		storxnetwork.DefaultPlacement: {
+			ID:         storxnetwork.DefaultPlacement,
 			NodeFilter: AnyFilter{},
 			Selector:   UnvettedSelector(newNodeFraction, AttributeGroupSelector(LastNetAttribute)),
 		},
@@ -153,7 +153,7 @@ func TestPlacementDefinitionsWithFraction(newNodeFraction float64) PlacementDefi
 
 // NewPlacementDefinitions creates a PlacementDefinition with a default placement.
 func NewPlacementDefinitions(placements ...Placement) PlacementDefinitions {
-	result := map[storj.PlacementConstraint]Placement{}
+	result := map[storxnetwork.PlacementConstraint]Placement{}
 	for _, p := range placements {
 		result[p.ID] = p
 	}
@@ -162,30 +162,30 @@ func NewPlacementDefinitions(placements ...Placement) PlacementDefinitions {
 
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
 func (d PlacementDefinitions) AddLegacyStaticRules() {
-	d[storj.EEA] = Placement{
+	d[storxnetwork.EEA] = Placement{
 		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(EeaCountriesWithoutEu...).With(EuCountries...))},
 	}
-	d[storj.EU] = Placement{
+	d[storxnetwork.EU] = Placement{
 		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(EuCountries...))},
 	}
-	d[storj.US] = Placement{
+	d[storxnetwork.US] = Placement{
 		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(location.UnitedStates))},
 	}
-	d[storj.DE] = Placement{
+	d[storxnetwork.DE] = Placement{
 		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(location.Germany))},
 	}
-	d[storj.NR] = Placement{
+	d[storxnetwork.NR] = Placement{
 		NodeFilter: NodeFilters{NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))},
 	}
 }
 
 // AddPlacement registers a new placement.
-func (d PlacementDefinitions) AddPlacement(id storj.PlacementConstraint, placement Placement) {
+func (d PlacementDefinitions) AddPlacement(id storxnetwork.PlacementConstraint, placement Placement) {
 	d[id] = placement
 }
 
 // AddPlacementRule registers a new placement.
-func (d PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, filter NodeFilter) {
+func (d PlacementDefinitions) AddPlacementRule(id storxnetwork.PlacementConstraint, filter NodeFilter) {
 	placement := Placement{
 		NodeFilter: filter,
 		Selector:   AttributeGroupSelector(LastNetAttribute),
@@ -207,7 +207,7 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 			return NewCountryFilterFromString(countries)
 		},
 		"placement": func(ix int64) (NodeFilter, error) {
-			filter, found := d[storj.PlacementConstraint(ix)]
+			filter, found := d[storxnetwork.PlacementConstraint(ix)]
 			if !found {
 				return nil, ErrPlacement.New("Placement %d is referenced before defined. Please define it first!", ix)
 			}
@@ -238,7 +238,7 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 			return OrFilter{filter1, filter2}, nil
 		},
 		"tag": func(nodeIDstr string, key string, value any) (NodeFilters, error) {
-			nodeID, err := storj.NodeIDFromString(nodeIDstr)
+			nodeID, err := storxnetwork.NodeIDFromString(nodeIDstr)
 			if err != nil {
 				return nil, err
 			}
@@ -317,13 +317,13 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 
 		placement.Name = GetAnnotation(placement.NodeFilter, Location)
 
-		d[storj.PlacementConstraint(id)] = placement
+		d[storxnetwork.PlacementConstraint(id)] = placement
 	}
 	return nil
 }
 
 // CreateFilters implements PlacementCondition.
-func (d PlacementDefinitions) CreateFilters(constraint storj.PlacementConstraint) (filter NodeFilter) {
+func (d PlacementDefinitions) CreateFilters(constraint storxnetwork.PlacementConstraint) (filter NodeFilter) {
 	if filters, found := d[constraint]; found {
 		return filters.NodeFilter
 	}
@@ -333,7 +333,7 @@ func (d PlacementDefinitions) CreateFilters(constraint storj.PlacementConstraint
 }
 
 // SupportedPlacements returns all the IDs, which have associated placement rules.
-func (d PlacementDefinitions) SupportedPlacements() (res []storj.PlacementConstraint) {
+func (d PlacementDefinitions) SupportedPlacements() (res []storxnetwork.PlacementConstraint) {
 	for id := range d {
 		res = append(res, id)
 	}

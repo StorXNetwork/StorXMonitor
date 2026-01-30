@@ -19,12 +19,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var mon = monkit.Package()
@@ -42,13 +42,13 @@ type Metabase interface {
 
 // Verifier verifies a batch of segments.
 type Verifier interface {
-	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
+	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storxnetwork.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
 }
 
 // Overlay is used to fetch information about nodes.
 type Overlay interface {
 	// Get looks up the node by nodeID
-	Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error)
+	Get(ctx context.Context, nodeID storxnetwork.NodeID) (*overlay.NodeDossier, error)
 	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error)
 }
 
@@ -82,7 +82,7 @@ type ServiceConfig struct {
 type pieceReporterFunc func(
 	ctx context.Context,
 	segment *metabase.VerifySegment,
-	nodeID storj.NodeID,
+	nodeID storxnetwork.NodeID,
 	pieceNum int,
 	outcome audit.Outcome) error
 
@@ -100,7 +100,7 @@ type Service struct {
 	overlay  Overlay
 
 	mu              sync.RWMutex
-	aliasToNodeURL  map[metabase.NodeAlias]storj.NodeURL
+	aliasToNodeURL  map[metabase.NodeAlias]storxnetwork.NodeURL
 	aliasMap        *metabase.NodeAliasMap
 	priorityNodes   NodeAliasSet
 	ignoreNodes     NodeAliasSet
@@ -143,7 +143,7 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		verifier: verifier,
 		overlay:  overlay,
 
-		aliasToNodeURL:  map[metabase.NodeAlias]storj.NodeURL{},
+		aliasToNodeURL:  map[metabase.NodeAlias]storxnetwork.NodeURL{},
 		priorityNodes:   NodeAliasSet{},
 		ignoreNodes:     NodeAliasSet{},
 		offlineNodes:    newNodeAliasExpiringSet(config.OfflineStatusCacheTime),
@@ -186,7 +186,7 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 			addr = node.LastIPPort
 		}
 
-		service.aliasToNodeURL[alias] = storj.NodeURL{
+		service.aliasToNodeURL[alias] = storxnetwork.NodeURL{
 			ID:      node.ID,
 			Address: addr,
 		}
@@ -235,7 +235,7 @@ func (service *Service) parseNodeFile(path string) (NodeAliasSet, error) {
 			continue
 		}
 
-		nodeID, err := storj.NodeIDFromString(line)
+		nodeID, err := storxnetwork.NodeIDFromString(line)
 		if err != nil {
 			return set, Error.Wrap(err)
 		}

@@ -11,11 +11,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensures that projects implements console.Projects.
@@ -397,7 +397,7 @@ func (projects *projects) UpdateUserAgent(ctx context.Context, id uuid.UUID, use
 func (projects *projects) UpdateDefaultPlacement(
 	ctx context.Context,
 	id uuid.UUID,
-	placement storj.PlacementConstraint,
+	placement storxnetwork.PlacementConstraint,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -614,9 +614,9 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, err
 	}
 
-	var placement storj.PlacementConstraint
+	var placement storxnetwork.PlacementConstraint
 	if project.DefaultPlacement != nil {
-		placement = storj.PlacementConstraint(*project.DefaultPlacement)
+		placement = storxnetwork.PlacementConstraint(*project.DefaultPlacement)
 	}
 
 	return &console.Project{

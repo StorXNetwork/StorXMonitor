@@ -4,7 +4,7 @@
 package blockchaintest
 
 import (
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 )
 

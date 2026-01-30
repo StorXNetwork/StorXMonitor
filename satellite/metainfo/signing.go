@@ -6,8 +6,8 @@ package metainfo
 import (
 	"context"
 
-	"storj.io/common/pb"
-	"storj.io/common/signing"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 )
 

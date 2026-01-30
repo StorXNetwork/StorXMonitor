@@ -17,10 +17,10 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
-	"storj.io/common/errs2"
-	"storj.io/common/process"
-	"storj.io/common/process/eventkitbq"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	"github.com/StorXNetwork/common/version"
 )
 
 func cmdAuditorRun(cmd *cobra.Command, args []string) (err error) {

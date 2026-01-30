@@ -18,21 +18,21 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/pkcrypto"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/date"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/storagenode"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/testblobs"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/pkcrypto"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 func TestUploadAndPartialDownload(t *testing.T) {
@@ -123,32 +123,32 @@ func TestUpload(t *testing.T) {
 		var expectedIngressAmount int64
 
 		for _, tt := range []struct {
-			pieceID       storj.PieceID
+			pieceID       storxnetwork.PieceID
 			contentLength memory.Size
 			action        pb.PieceAction
 			err           string
 			hashAlgo      pb.PieceHashAlgorithm
 		}{
 			{ // should successfully store data
-				pieceID:       storj.PieceID{1},
+				pieceID:       storxnetwork.PieceID{1},
 				contentLength: 50 * memory.KiB,
 				action:        pb.PieceAction_PUT,
 				err:           "",
 			},
 			{ // should err with piece ID not specified
-				pieceID:       storj.PieceID{},
+				pieceID:       storxnetwork.PieceID{},
 				contentLength: 1 * memory.KiB,
 				action:        pb.PieceAction_PUT,
 				err:           "missing piece id",
 			},
 			{ // should err because invalid action
-				pieceID:       storj.PieceID{1},
+				pieceID:       storxnetwork.PieceID{1},
 				contentLength: 1 * memory.KiB,
 				action:        pb.PieceAction_GET,
 				err:           "expected put or put repair action got GET",
 			},
 			{ // different piece hash
-				pieceID:       storj.PieceID{2},
+				pieceID:       storxnetwork.PieceID{2},
 				contentLength: 1 * memory.KiB,
 				action:        pb.PieceAction_PUT,
 				hashAlgo:      pb.PieceHashAlgorithm_BLAKE3,
@@ -228,13 +228,13 @@ func TestSlowUpload(t *testing.T) {
 		defer ctx.Check(client.Close)
 
 		for _, tt := range []struct {
-			pieceID       storj.PieceID
+			pieceID       storxnetwork.PieceID
 			contentLength memory.Size
 			action        pb.PieceAction
 			err           string
 		}{
 			{ // connection should be aborted
-				pieceID: storj.PieceID{1},
+				pieceID: storxnetwork.PieceID{1},
 				// As the server node only starts flagging unusually slow connection
 				// after 500 micro seconds, the file should be big enough to ensure the connection is still open.
 				contentLength: 50 * memory.MB,
@@ -296,13 +296,13 @@ func TestUploadOverAvailable(t *testing.T) {
 		defer ctx.Check(client.Close)
 
 		var tt struct {
-			pieceID       storj.PieceID
+			pieceID       storxnetwork.PieceID
 			contentLength memory.Size
 			action        pb.PieceAction
 			err           string
 		}
 
-		tt.pieceID = storj.PieceID{1}
+		tt.pieceID = storxnetwork.PieceID{1}
 		tt.contentLength = 5 * memory.MB
 		tt.action = pb.PieceAction_PUT
 		tt.err = "not enough available disk space, have: 3000000, need: 5000000"
@@ -345,11 +345,11 @@ func TestDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		pieceID := storj.PieceID{1}
+		pieceID := storxnetwork.PieceID{1}
 		data, _, _ := uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
 
 		// upload another piece that we will trash
-		trashPieceID := storj.PieceID{3}
+		trashPieceID := storxnetwork.PieceID{3}
 		trashPieceData, _, _ := uploadPiece(t, ctx, trashPieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
 		err := planet.StorageNodes[0].Storage2.Store.Trash(ctx, planet.Satellites[0].ID(), trashPieceID, time.Now())
 		require.NoError(t, err)
@@ -361,7 +361,7 @@ func TestDownload(t *testing.T) {
 
 		for _, tt := range []struct {
 			name    string
-			pieceID storj.PieceID
+			pieceID storxnetwork.PieceID
 			action  pb.PieceAction
 			// downloadData is data we are trying to download
 			downloadData []byte
@@ -387,14 +387,14 @@ func TestDownload(t *testing.T) {
 			},
 			{ // should err with piece ID not specified
 				name:         "piece id not specified",
-				pieceID:      storj.PieceID{},
+				pieceID:      storxnetwork.PieceID{},
 				action:       pb.PieceAction_GET,
 				downloadData: data,
 				errs:         []string{"missing piece id"},
 			},
 			{ // should err with piece ID not specified
 				name:         "file does not exist",
-				pieceID:      storj.PieceID{2},
+				pieceID:      storxnetwork.PieceID{2},
 				action:       pb.PieceAction_GET,
 				downloadData: data,
 				errs:         []string{"file does not exist", "The system cannot find the path specified"},
@@ -475,7 +475,7 @@ func TestDownloadGetRepair(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-		pieceID := storj.PieceID{1}
+		pieceID := storxnetwork.PieceID{1}
 		expectedData, ulOrderLimit, originHash := uploadPiece(
 			t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0],
 		)
@@ -488,7 +488,7 @@ func TestDownloadGetRepair(t *testing.T) {
 			t,
 			planet.Satellites[0].ID(),
 			planet.StorageNodes[0].ID(),
-			storj.PieceID{1},
+			storxnetwork.PieceID{1},
 			pb.PieceAction_GET_REPAIR,
 			serialNumber,
 			24*time.Hour,
@@ -531,7 +531,7 @@ func TestDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		pieceID := storj.PieceID{1}
+		pieceID := storxnetwork.PieceID{1}
 		uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
 
 		nodeurl := planet.StorageNodes[0].NodeURL()
@@ -542,7 +542,7 @@ func TestDelete(t *testing.T) {
 		client := pb.NewDRPCPiecestoreClient(conn)
 
 		for _, tt := range []struct {
-			pieceID storj.PieceID
+			pieceID storxnetwork.PieceID
 			action  pb.PieceAction
 			err     string
 		}{
@@ -552,12 +552,12 @@ func TestDelete(t *testing.T) {
 				err:     "",
 			},
 			{ // should err with piece ID not found
-				pieceID: storj.PieceID{99},
+				pieceID: storxnetwork.PieceID{99},
 				action:  pb.PieceAction_DELETE,
 				err:     "", // TODO should this return error
 			},
 			{ // should err with piece ID not specified
-				pieceID: storj.PieceID{},
+				pieceID: storxnetwork.PieceID{},
 				action:  pb.PieceAction_DELETE,
 				err:     "missing piece id",
 			},
@@ -612,7 +612,7 @@ func TestDeletePieces(t *testing.T) {
 		client := pb.NewDRPCPiecestoreClient(conn)
 
 		t.Run("ok", func(t *testing.T) {
-			pieceIDs := []storj.PieceID{testrand.PieceID(), testrand.PieceID(), testrand.PieceID(), testrand.PieceID()}
+			pieceIDs := []storxnetwork.PieceID{testrand.PieceID(), testrand.PieceID(), testrand.PieceID(), testrand.PieceID()}
 			dataArray := make([][]byte, len(pieceIDs))
 			for i, pieceID := range pieceIDs {
 				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, storagenode, planet.Uplinks[0], satellite)
@@ -637,7 +637,7 @@ func TestDeletePieces(t *testing.T) {
 
 		t.Run("ok: one piece to delete is missing", func(t *testing.T) {
 			missingPieceID := testrand.PieceID()
-			pieceIDs := []storj.PieceID{testrand.PieceID(), testrand.PieceID(), testrand.PieceID(), testrand.PieceID()}
+			pieceIDs := []storxnetwork.PieceID{testrand.PieceID(), testrand.PieceID(), testrand.PieceID(), testrand.PieceID()}
 			dataArray := make([][]byte, len(pieceIDs))
 			for i, pieceID := range pieceIDs {
 				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, storagenode, planet.Uplinks[0], satellite)
@@ -684,7 +684,7 @@ func TestDeletePieces(t *testing.T) {
 			data, _, _ := uploadPiece(t, ctx, pieceID, storagenode, planet.Uplinks[0], satellite)
 
 			_, err = client.DeletePieces(ctx.Context, &pb.DeletePiecesRequest{
-				PieceIds: []storj.PieceID{pieceID},
+				PieceIds: []storxnetwork.PieceID{pieceID},
 			})
 			require.Error(t, err)
 			require.Equal(t, rpcstatus.PermissionDenied, rpcstatus.Code(err))
@@ -732,7 +732,7 @@ func TestTooManyRequests(t *testing.T) {
 					}
 				}()
 
-				pieceID := storj.PieceID{byte(i + 1)}
+				pieceID := storxnetwork.PieceID{byte(i + 1)}
 				serialNumber := testrand.SerialNumber()
 
 				orderLimit, piecePrivateKey := GenerateOrderLimit(
@@ -771,8 +771,8 @@ func TestTooManyRequests(t *testing.T) {
 	})
 }
 
-func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, storageNode storj.NodeID, pieceID storj.PieceID, action pb.PieceAction, serialNumber storj.SerialNumber, pieceExpiration, orderExpiration time.Duration, limit int64) (*pb.OrderLimit, storj.PiecePrivateKey) {
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+func GenerateOrderLimit(t *testing.T, satellite storxnetwork.NodeID, storageNode storxnetwork.NodeID, pieceID storxnetwork.PieceID, action pb.PieceAction, serialNumber storxnetwork.SerialNumber, pieceExpiration, orderExpiration time.Duration, limit int64) (*pb.OrderLimit, storxnetwork.PiecePrivateKey) {
+	piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	now := time.Now()
@@ -792,7 +792,7 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, storageNode storj.
 
 // uploadPiece uploads piece to storageNode.
 func uploadPiece(
-	t *testing.T, ctx *testcontext.Context, piece storj.PieceID, storageNode *testplanet.StorageNode,
+	t *testing.T, ctx *testcontext.Context, piece storxnetwork.PieceID, storageNode *testplanet.StorageNode,
 	uplink *testplanet.Uplink, satellite *testplanet.Satellite,
 ) (uploadedData []byte, _ *pb.OrderLimit, _ *pb.PieceHash) {
 	t.Helper()
@@ -827,7 +827,7 @@ func uploadPiece(
 
 // downloadPiece downlodads piece from storageNode.
 func downloadPiece(
-	t *testing.T, ctx *testcontext.Context, piece storj.PieceID, limit int64,
+	t *testing.T, ctx *testcontext.Context, piece storxnetwork.PieceID, limit int64,
 	storageNode *testplanet.StorageNode, uplink *testplanet.Uplink, satellite *testplanet.Satellite,
 ) (pieceData []byte, err error) {
 	t.Helper()
@@ -890,7 +890,7 @@ func TestExists(t *testing.T) {
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
-		existingSNPieces := map[storj.NodeID][]storj.PieceID{}
+		existingSNPieces := map[storxnetwork.NodeID][]storxnetwork.PieceID{}
 
 		for _, segment := range segments {
 			for _, piece := range segment.Pieces {

@@ -14,10 +14,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/storj"
-	"storj.io/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
@@ -32,6 +28,10 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Admin is the satellite core process that runs chores.
@@ -335,4 +335,4 @@ func (peer *Admin) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Admin) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Admin) ID() storxnetwork.NodeID { return peer.Identity.ID }

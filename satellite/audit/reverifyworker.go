@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // ReverifyWorker processes reverifications (retrying piece audits against nodes that timed out

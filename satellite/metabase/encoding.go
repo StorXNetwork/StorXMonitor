@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgtype"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type nullableValue[T sql.Scanner] struct {
@@ -28,14 +28,14 @@ func (v *nullableValue[T]) Scan(value interface{}) error {
 }
 
 type encryptionParameters struct {
-	*storj.EncryptionParameters
+	*storxnetwork.EncryptionParameters
 }
 
 // Check that EncryptionParameters layout doesn't change.
 var _ struct {
-	CipherSuite storj.CipherSuite
+	CipherSuite storxnetwork.CipherSuite
 	BlockSize   int32
-} = storj.EncryptionParameters{}
+} = storxnetwork.EncryptionParameters{}
 
 // Value implements sql/driver.Valuer interface.
 func (params encryptionParameters) Value() (driver.Value, error) {
@@ -51,7 +51,7 @@ func (params encryptionParameters) Scan(value interface{}) error {
 	case int64:
 		var bytes [8]byte
 		binary.LittleEndian.PutUint64(bytes[:], uint64(value))
-		params.CipherSuite = storj.CipherSuite(bytes[0])
+		params.CipherSuite = storxnetwork.CipherSuite(bytes[0])
 		params.BlockSize = int32(binary.LittleEndian.Uint32(bytes[1:]))
 		return nil
 	default:
@@ -76,18 +76,18 @@ func (params *SegmentPosition) Scan(value interface{}) error {
 }
 
 type redundancyScheme struct {
-	*storj.RedundancyScheme
+	*storxnetwork.RedundancyScheme
 }
 
 // Check that RedundancyScheme layout doesn't change.
 var _ struct {
-	Algorithm      storj.RedundancyAlgorithm
+	Algorithm      storxnetwork.RedundancyAlgorithm
 	ShareSize      int32
 	RequiredShares int16
 	RepairShares   int16
 	OptimalShares  int16
 	TotalShares    int16
-} = storj.RedundancyScheme{}
+} = storxnetwork.RedundancyScheme{}
 
 func (params redundancyScheme) Value() (driver.Value, error) {
 	switch {
@@ -125,7 +125,7 @@ func (params redundancyScheme) Scan(value interface{}) error {
 		var bytes [8]byte
 		binary.LittleEndian.PutUint64(bytes[:], uint64(value))
 
-		params.Algorithm = storj.RedundancyAlgorithm(bytes[0])
+		params.Algorithm = storxnetwork.RedundancyAlgorithm(bytes[0])
 
 		// little endian uint32
 		params.ShareSize = int32(bytes[1]) | int32(bytes[2])<<8 | int32(bytes[3])<<16

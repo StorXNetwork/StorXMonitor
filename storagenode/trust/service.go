@@ -14,13 +14,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Error is the default error class.
@@ -34,21 +34,21 @@ var (
 // IdentityResolver resolves peer identities from a node URL.
 type IdentityResolver interface {
 	// ResolveIdentity returns the peer identity of the peer located at the Node URL
-	ResolveIdentity(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error)
+	ResolveIdentity(ctx context.Context, url storxnetwork.NodeURL) (*identity.PeerIdentity, error)
 }
 
 // IdentityResolverFunc is a convenience type for implementing IdentityResolver using a
 // function literal.
-type IdentityResolverFunc func(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error)
+type IdentityResolverFunc func(ctx context.Context, url storxnetwork.NodeURL) (*identity.PeerIdentity, error)
 
 // ResolveIdentity returns the peer identity of the peer located at the Node URL.
-func (fn IdentityResolverFunc) ResolveIdentity(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error) {
+func (fn IdentityResolverFunc) ResolveIdentity(ctx context.Context, url storxnetwork.NodeURL) (*identity.PeerIdentity, error) {
 	return fn(ctx, url)
 }
 
 // Dialer implements an IdentityResolver using an RPC dialer.
 func Dialer(dialer rpc.Dialer) IdentityResolver {
-	return IdentityResolverFunc(func(ctx context.Context, url storj.NodeURL) (_ *identity.PeerIdentity, err error) {
+	return IdentityResolverFunc(func(ctx context.Context, url storxnetwork.NodeURL) (_ *identity.PeerIdentity, err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		conn, err := dialer.DialNodeURL(rpcpool.WithForceDial(ctx), url)
@@ -74,13 +74,13 @@ type Pool struct {
 	satellitesDB satellites.DB
 
 	satellitesMu sync.RWMutex
-	satellites   map[storj.NodeID]*satelliteInfoCache
+	satellites   map[storxnetwork.NodeID]*satelliteInfoCache
 }
 
 // satelliteInfoCache caches identity information about a satellite.
 type satelliteInfoCache struct {
 	mu       sync.Mutex
-	url      storj.NodeURL
+	url      storxnetwork.NodeURL
 	identity *identity.PeerIdentity
 }
 
@@ -104,7 +104,7 @@ func NewPool(log *zap.Logger, resolver IdentityResolver, config Config, satellit
 		refreshInterval: config.RefreshInterval,
 		list:            list,
 		satellitesDB:    satellitesDB,
-		satellites:      make(map[storj.NodeID]*satelliteInfoCache),
+		satellites:      make(map[storxnetwork.NodeID]*satelliteInfoCache),
 	}, nil
 }
 
@@ -125,7 +125,7 @@ func (pool *Pool) Run(ctx context.Context) error {
 }
 
 // VerifySatelliteID checks whether id corresponds to a trusted satellite.
-func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) (err error) {
+func (pool *Pool) VerifySatelliteID(ctx context.Context, id storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = pool.getInfo(id)
@@ -134,7 +134,7 @@ func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) (err e
 
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
-func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {
+func (pool *Pool) GetSignee(ctx context.Context, id storxnetwork.NodeID) (_ signing.Signee, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	info, err := pool.getInfo(id)
@@ -157,28 +157,28 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 }
 
 // GetSatellites returns a slice containing all trusted satellites.
-func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID) {
+func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storxnetwork.NodeID) {
 	defer mon.Task()(&ctx)(nil)
 	for sat := range pool.satellites {
 		satellites = append(satellites, sat)
 	}
-	sort.Sort(storj.NodeIDList(satellites))
+	sort.Sort(storxnetwork.NodeIDList(satellites))
 	return satellites
 }
 
 // GetNodeURL returns the node url of a satellite in the trusted list.
-func (pool *Pool) GetNodeURL(ctx context.Context, id storj.NodeID) (_ storj.NodeURL, err error) {
+func (pool *Pool) GetNodeURL(ctx context.Context, id storxnetwork.NodeID) (_ storxnetwork.NodeURL, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	info, err := pool.getInfo(id)
 	if err != nil {
-		return storj.NodeURL{}, err
+		return storxnetwork.NodeURL{}, err
 	}
 	return info.url, nil
 }
 
 // IsTrusted returns true if the satellite is trusted.
-func (pool *Pool) IsTrusted(ctx context.Context, id storj.NodeID) bool {
+func (pool *Pool) IsTrusted(ctx context.Context, id storxnetwork.NodeID) bool {
 	defer mon.Task()(&ctx)(nil)
 
 	_, err := pool.getInfo(id)
@@ -197,7 +197,7 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 	defer pool.satellitesMu.Unlock()
 
 	// add/update trusted IDs
-	trustedIDs := make(map[storj.NodeID]struct{})
+	trustedIDs := make(map[storxnetwork.NodeID]struct{})
 	for _, url := range urls {
 		trustedIDs[url.ID] = struct{}{}
 
@@ -246,7 +246,7 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 }
 
 // DeleteSatellite deletes a satellite from the pool and marks it as untrusted in the database.
-func (pool *Pool) DeleteSatellite(ctx context.Context, id storj.NodeID) error {
+func (pool *Pool) DeleteSatellite(ctx context.Context, id storxnetwork.NodeID) error {
 	pool.satellitesMu.Lock()
 	defer pool.satellitesMu.Unlock()
 
@@ -268,7 +268,7 @@ func (pool *Pool) DeleteSatellite(ctx context.Context, id storj.NodeID) error {
 }
 
 // deleteSatelliteFromCache removes a satellite from the trust cache and saves the cache.
-func (pool *Pool) deleteSatelliteFromCache(ctx context.Context, id storj.NodeID) error {
+func (pool *Pool) deleteSatelliteFromCache(ctx context.Context, id storxnetwork.NodeID) error {
 	pool.listMu.Lock()
 	defer pool.listMu.Unlock()
 
@@ -280,7 +280,7 @@ func (pool *Pool) deleteSatelliteFromCache(ctx context.Context, id storj.NodeID)
 	return pool.list.saveCache(ctx)
 }
 
-func (pool *Pool) getInfo(id storj.NodeID) (*satelliteInfoCache, error) {
+func (pool *Pool) getInfo(id storxnetwork.NodeID) (*satelliteInfoCache, error) {
 	pool.satellitesMu.RLock()
 	defer pool.satellitesMu.RUnlock()
 
@@ -291,7 +291,7 @@ func (pool *Pool) getInfo(id storj.NodeID) (*satelliteInfoCache, error) {
 	return info, nil
 }
 
-func (pool *Pool) fetchURLs(ctx context.Context) ([]storj.NodeURL, error) {
+func (pool *Pool) fetchURLs(ctx context.Context) ([]storxnetwork.NodeURL, error) {
 	// Typically there will only be one caller of refresh (i.e. Run()) but
 	// if at some point we might want  on-demand refresh, and *List is designed
 	// to be used by a single goroutine (don't want multiple callers racing

@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestState_SelectNonDistinct(t *testing.T) {
@@ -35,7 +35,7 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	require.NoError(t, err)
 
 	{ // select 5 non-distinct subnet reputable nodes
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.NewState(nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
@@ -49,7 +49,7 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	{ // select 6 non-distinct subnet reputable and new nodes (50%)
 		const selectCount = 6
 		const newFraction = 0.5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.NewState(nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0.5, nodeselection.AttributeGroupSelector(lastNet)),
 			},
@@ -64,7 +64,7 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	{ // select 10 distinct subnet reputable and new nodes (100%), falling back to 5 reputable
 		const selectCount = 10
 		const newFraction = 1.0
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.NewState(nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(newFraction, nodeselection.AttributeGroupSelector(lastNet)),
 			},
@@ -98,7 +98,7 @@ func TestState_SelectDistinct(t *testing.T) {
 
 	{ // select 2 distinct subnet reputable nodes
 		const selectCount = 2
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.NewState(nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
@@ -112,7 +112,7 @@ func TestState_SelectDistinct(t *testing.T) {
 
 	{ // try to select 5 distinct subnet reputable nodes, but there are only two 2 in the state
 		const selectCount = 5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.NewState(nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
@@ -126,7 +126,7 @@ func TestState_SelectDistinct(t *testing.T) {
 	{ // select 4 distinct subnet reputable and new nodes (50%)
 		const selectCount = 4
 		const newFraction = 0.5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.NewState(nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(newFraction, nodeselection.AttributeGroupSelector(lastNet)),
 			},
@@ -155,7 +155,7 @@ func TestState_Select_Concurrent(t *testing.T) {
 
 	nodes := joinNodes(reputableNodes, newNodes)
 
-	state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+	state := nodeselection.NewState(nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 		0: {
 			Selector: nodeselection.UnvettedSelector(0.5, nodeselection.RandomSelector()),
 		},

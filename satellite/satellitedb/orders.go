@@ -14,13 +14,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/pgxutil"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgxutil"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const defaultIntervalSeconds = int(time.Hour / time.Second)
@@ -162,7 +162,7 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 }
 
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time.
-func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
+func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storxnetwork.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	statement := db.db.Rebind(
@@ -194,7 +194,7 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 }
 
 // GetStorageNodeBandwidth gets total storage node bandwidth from period of time.
-func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ int64, err error) {
+func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storxnetwork.NodeID, from, to time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var sum1, sum2 int64
@@ -344,7 +344,7 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 // UpdateStoragenodeBandwidthSettleWithWindow adds a record to for each action and settled amount.
 // If any of these orders already exist in the database, then all of these orders have already been processed.
 // Orders within a single window may only be processed once to prevent double spending.
-func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
+func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storxnetwork.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var batchStatus pb.SettlementWithWindowResponse_Status

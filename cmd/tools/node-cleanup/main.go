@@ -17,10 +17,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var mon = monkit.Package()
@@ -108,8 +108,8 @@ func Delete(ctx context.Context, log *zap.Logger, config Config) (err error) {
 	return DeleteFromTables(ctx, log, db.Testing().RawDB(), config)
 }
 
-var maxNodeID = (func() storj.NodeID {
-	var x storj.NodeID
+var maxNodeID = (func() storxnetwork.NodeID {
+	var x storxnetwork.NodeID
 	for i := range x {
 		x[i] = 0xff
 	}
@@ -118,7 +118,7 @@ var maxNodeID = (func() storj.NodeID {
 
 // DeleteFromTables deletes nodes matching the query in batches.
 func DeleteFromTables(ctx context.Context, log *zap.Logger, db tagsql.DB, config Config) (err error) {
-	var cursor storj.NodeID
+	var cursor storxnetwork.NodeID
 
 	progress := 0
 	if config.MaxIterations < 0 {
@@ -126,7 +126,7 @@ func DeleteFromTables(ctx context.Context, log *zap.Logger, db tagsql.DB, config
 	}
 	more := true
 	for iteration := 0; more && iteration < config.MaxIterations; iteration++ {
-		var batchEnd storj.NodeID
+		var batchEnd storxnetwork.NodeID
 		err := db.QueryRowContext(ctx, `
 			SELECT id
 			FROM nodes

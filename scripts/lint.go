@@ -18,7 +18,7 @@ import (
 	"syscall"
 	"time"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 func newCommand(ctx context.Context, directory string, name string, args ...string) *exec.Cmd {

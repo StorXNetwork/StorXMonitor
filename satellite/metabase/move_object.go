@@ -8,11 +8,11 @@ import (
 	"database/sql"
 	"errors"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/txutil"
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // BeginMoveObjectResult holds data needed to begin move object.
@@ -38,7 +38,7 @@ type BeginMoveCopyResults struct {
 	EncryptedMetadataKeyNonce []byte
 	EncryptedMetadataKey      []byte
 	EncryptedKeysNonces       []EncryptedKeyAndNonce
-	EncryptionParameters      storj.EncryptionParameters
+	EncryptionParameters      storxnetwork.EncryptionParameters
 }
 
 // BeginMoveObject collects all data needed to begin object move procedure.
@@ -132,7 +132,7 @@ type FinishMoveObject struct {
 	NewSegmentKeys        []EncryptedKeyAndNonce
 	NewEncryptedObjectKey ObjectKey
 	// Optional. Required if object has metadata.
-	NewEncryptedMetadataKeyNonce storj.Nonce
+	NewEncryptedMetadataKeyNonce storxnetwork.Nonce
 	NewEncryptedMetadataKey      []byte
 
 	// NewDisallowDelete indicates whether the user is allowed to delete an existing unversioned object.

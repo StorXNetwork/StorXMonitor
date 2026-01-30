@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 

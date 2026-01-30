@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/common/fpath"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Flags contains different flags for commands.

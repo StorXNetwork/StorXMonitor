@@ -6,7 +6,7 @@ package satellitedbtest_test
 import (
 	"testing"
 
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )

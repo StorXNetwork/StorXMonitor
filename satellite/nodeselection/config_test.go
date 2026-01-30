@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
 )
 
 func TestParsedConfig(t *testing.T) {
@@ -34,7 +34,7 @@ func TestParsedConfig(t *testing.T) {
 		// checking one invariant
 		node := func(ix int, owner string) SelectedNode {
 			return SelectedNode{
-				ID: testidentity.MustPregeneratedSignedIdentity(ix, storj.LatestIDVersion()).ID,
+				ID: testidentity.MustPregeneratedSignedIdentity(ix, storxnetwork.LatestIDVersion()).ID,
 				Tags: NodeTags{
 					{
 						Name:  "owner",
@@ -46,7 +46,7 @@ func TestParsedConfig(t *testing.T) {
 
 		piece := func(ix int, nodeIx int) metabase.Piece {
 			return metabase.Piece{
-				Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storj.LatestIDVersion()).ID,
+				Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storxnetwork.LatestIDVersion()).ID,
 			}
 		}
 
@@ -92,10 +92,10 @@ func TestFilterFromString(t *testing.T) {
 	require.NoError(t, err)
 
 	require.False(t, filter.Match(&SelectedNode{
-		ID: testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
+		ID: testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID,
 	}))
 	require.True(t, filter.Match(&SelectedNode{
-		ID: testidentity.MustPregeneratedIdentity(3, storj.LatestIDVersion()).ID,
+		ID: testidentity.MustPregeneratedIdentity(3, storxnetwork.LatestIDVersion()).ID,
 	}))
 
 }
@@ -108,18 +108,18 @@ func TestSelectorFromString(t *testing.T) {
 	var nodes []*SelectedNode
 	for i := 0; i < 10; i++ {
 		nodes = append(nodes, &SelectedNode{
-			ID: testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			ID: testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 		})
 	}
 
 	initialized := selector(nodes, nil)
 
 	for i := 0; i < 100; i++ {
-		selected, err := initialized(1, []storj.NodeID{}, nil)
+		selected, err := initialized(1, []storxnetwork.NodeID{}, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, 1)
-		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
-		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
+		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID, selected[0].ID)
+		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID, selected[0].ID)
 	}
 
 }

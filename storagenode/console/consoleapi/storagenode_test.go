@@ -14,9 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
@@ -24,6 +21,9 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 var (
@@ -78,7 +78,7 @@ func TestStorageNodeApi(t *testing.T) {
 				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, startingPoint)
 				require.NoError(t, err)
 			}
-			var satellites []storj.NodeID
+			var satellites []storxnetwork.NodeID
 
 			satellites = append(satellites, satellite.ID())
 			stamps := storagenodedbtest.MakeStorageUsageStamps(satellites, 30, time.Now().UTC())

@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"

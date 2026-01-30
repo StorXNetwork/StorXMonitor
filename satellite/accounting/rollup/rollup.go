@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Config contains configurable values for rollup.
@@ -135,7 +135,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		// create or get AccoutingRollup day entry
 		iDay := time.Date(tallyEndTime.Year(), tallyEndTime.Month(), tallyEndTime.Day(), 0, 0, 0, 0, tallyEndTime.Location())
 		if rollupStats[iDay] == nil {
-			rollupStats[iDay] = make(map[storj.NodeID]*accounting.Rollup)
+			rollupStats[iDay] = make(map[storxnetwork.NodeID]*accounting.Rollup)
 		}
 		if rollupStats[iDay][node] == nil {
 			rollupStats[iDay][node] = &accounting.Rollup{NodeID: node, StartTime: iDay}
@@ -161,7 +161,7 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 		interval := row.IntervalStart.UTC()
 		day := time.Date(interval.Year(), interval.Month(), interval.Day(), 0, 0, 0, 0, interval.Location())
 		if rollupStats[day] == nil {
-			rollupStats[day] = make(map[storj.NodeID]*accounting.Rollup)
+			rollupStats[day] = make(map[storxnetwork.NodeID]*accounting.Rollup)
 		}
 		if rollupStats[day][nodeID] == nil {
 			rollupStats[day][nodeID] = &accounting.Rollup{NodeID: nodeID, StartTime: day}

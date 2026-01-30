@@ -14,16 +14,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
-	"storj.io/uplink/private/ecclient"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/ecclient"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 const (
@@ -59,12 +59,12 @@ func TestECClient(t *testing.T) {
 }
 
 func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, rs eestream.RedundancyStrategy, data []byte) []*pb.SegmentPieceUploadResult {
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	limits := make([]*pb.AddressedOrderLimit, rs.TotalCount())
 	for i := 0; i < len(limits); i++ {
-		limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_PUT, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], storj.NewPieceID())
+		limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_PUT, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], storxnetwork.NewPieceID())
 		require.NoError(t, err)
 	}
 
@@ -98,7 +98,7 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 }
 
 func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, es eestream.ErasureScheme, data []byte, results []*pb.SegmentPieceUploadResult) {
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	limits := make([]*pb.AddressedOrderLimit, es.TotalCount())
@@ -121,7 +121,7 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	require.NoError(t, err)
 }
 
-func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *testplanet.Satellite, piecePublicKey storj.PiecePublicKey, storageNode *testplanet.StorageNode, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
+func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *testplanet.Satellite, piecePublicKey storxnetwork.PiecePublicKey, storageNode *testplanet.StorageNode, pieceID storxnetwork.PieceID) (*pb.AddressedOrderLimit, error) {
 	// TODO refactor to avoid OrderLimit duplication
 	serialNumber := testrand.SerialNumber()
 

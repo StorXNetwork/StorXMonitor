@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/storxnetwork/location"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSelectByID(t *testing.T) {
@@ -53,7 +53,7 @@ func TestSelectByID(t *testing.T) {
 		executionCount = 10000
 	)
 
-	var selectedNodeCount = map[storj.NodeID]int{}
+	var selectedNodeCount = map[storxnetwork.NodeID]int{}
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
@@ -116,7 +116,7 @@ func TestSelectBySubnet(t *testing.T) {
 		executionCount = 1000
 	)
 
-	var selectedNodeCount = map[storj.NodeID]int{}
+	var selectedNodeCount = map[storxnetwork.NodeID]int{}
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
@@ -191,7 +191,7 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 		executionCount = 1000
 	)
 
-	var selectedNodeCount = map[storj.NodeID]int{}
+	var selectedNodeCount = map[storxnetwork.NodeID]int{}
 
 	// perform many node selections that selects 1 node
 	for i := 0; i < executionCount; i++ {
@@ -261,7 +261,7 @@ func TestSelectFiltered(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, selected, 3)
 
-	selector = nodeselection.RandomSelector()(nodes, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID}))
+	selector = nodeselection.RandomSelector()(nodes, nodeselection.NodeFilters{}.WithExcludedIDs([]storxnetwork.NodeID{firstID, secondID}))
 	selected, err = selector(3, nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, selected, 1)
@@ -278,7 +278,7 @@ func TestSelectFilteredMulti(t *testing.T) {
 
 	for i := 0; i < 12; i++ {
 		nodes = append(nodes, &nodeselection.SelectedNode{
-			ID:          testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			ID:          testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 			LastNet:     fmt.Sprintf("68.0.%d", i/3),
 			LastIPPort:  fmt.Sprintf("68.0.%d.%d:1000", i/3, i),
 			CountryCode: location.Germany + location.CountryCode(i%3),
@@ -298,10 +298,10 @@ func TestSelectFilteredMulti(t *testing.T) {
 }
 
 func TestFilterSelector(t *testing.T) {
-	list := nodeselection.AllowedNodesFilter([]storj.NodeID{
-		testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
-		testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID,
-		testidentity.MustPregeneratedIdentity(3, storj.LatestIDVersion()).ID,
+	list := nodeselection.AllowedNodesFilter([]storxnetwork.NodeID{
+		testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID,
+		testidentity.MustPregeneratedIdentity(2, storxnetwork.LatestIDVersion()).ID,
+		testidentity.MustPregeneratedIdentity(3, storxnetwork.LatestIDVersion()).ID,
 	})
 
 	selector := nodeselection.FilterSelector(nodeselection.NewExcludeFilter(list), nodeselection.RandomSelector())
@@ -310,13 +310,13 @@ func TestFilterSelector(t *testing.T) {
 	var nodes []*nodeselection.SelectedNode
 	for i := 0; i < 10; i++ {
 		nodes = append(nodes, &nodeselection.SelectedNode{
-			ID: testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			ID: testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 		})
 	}
 
 	initialized := selector(nodes, nil)
 	for i := 0; i < 100; i++ {
-		selected, err := initialized(3, []storj.NodeID{}, nil)
+		selected, err := initialized(3, []storxnetwork.NodeID{}, nil)
 		require.NoError(t, err)
 		for _, s := range selected {
 			for _, w := range list {
@@ -338,7 +338,7 @@ func TestBalancedSelector(t *testing.T) {
 	for owner, count := range ownerCounts {
 		for i := 0; i < count; i++ {
 			nodes = append(nodes, &nodeselection.SelectedNode{
-				ID: testidentity.MustPregeneratedIdentity(idIndex, storj.LatestIDVersion()).ID,
+				ID: testidentity.MustPregeneratedIdentity(idIndex, storxnetwork.LatestIDVersion()).ID,
 				Tags: nodeselection.NodeTags{
 					{
 						Name:  "owner",
@@ -382,14 +382,14 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 	ownerCounts := map[string]int{"A": 3, "B": 10, "C": 30, "D": 5, "E": 1}
 	var nodes []*nodeselection.SelectedNode
 
-	var excluded []storj.NodeID
+	var excluded []storxnetwork.NodeID
 	var alreadySelected []*nodeselection.SelectedNode
 
 	idIndex := 0
 	for owner, count := range ownerCounts {
 		for i := 0; i < count; i++ {
 			nodes = append(nodes, &nodeselection.SelectedNode{
-				ID: testidentity.MustPregeneratedIdentity(idIndex, storj.LatestIDVersion()).ID,
+				ID: testidentity.MustPregeneratedIdentity(idIndex, storxnetwork.LatestIDVersion()).ID,
 				Tags: nodeselection.NodeTags{
 					{
 						Name:  "owner",

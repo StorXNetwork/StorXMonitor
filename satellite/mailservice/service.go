@@ -14,7 +14,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
+	"github.com/StorXNetwork/common/context2"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 )
 

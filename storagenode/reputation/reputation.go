@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DB works with reputation database.
@@ -18,16 +18,16 @@ type DB interface {
 	// Store inserts or updates reputation stats into the DB
 	Store(ctx context.Context, stats Stats) error
 	// Get retrieves stats for specific satellite
-	Get(ctx context.Context, satelliteID storj.NodeID) (*Stats, error)
+	Get(ctx context.Context, satelliteID storxnetwork.NodeID) (*Stats, error)
 	// All retrieves all stats from DB
 	All(ctx context.Context) ([]Stats, error)
 	// Delete removes stats for specific satellite
-	Delete(ctx context.Context, satelliteID storj.NodeID) error
+	Delete(ctx context.Context, satelliteID storxnetwork.NodeID) error
 }
 
 // Stats consist of reputation metrics.
 type Stats struct {
-	SatelliteID storj.NodeID
+	SatelliteID storxnetwork.NodeID
 
 	Audit       Metric
 	OnlineScore float64

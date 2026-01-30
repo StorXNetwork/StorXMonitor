@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // MockRepairQueue helps testing RepairQueue.
@@ -47,7 +47,7 @@ func (m *MockRepairQueue) InsertBatch(ctx context.Context, segments []*InjuredSe
 }
 
 // Select implements RepairQueue.
-func (m *MockRepairQueue) Select(context.Context, []storj.PlacementConstraint, []storj.PlacementConstraint) (*InjuredSegment, error) {
+func (m *MockRepairQueue) Select(context.Context, []storxnetwork.PlacementConstraint, []storxnetwork.PlacementConstraint) (*InjuredSegment, error) {
 	panic("implement me")
 }
 

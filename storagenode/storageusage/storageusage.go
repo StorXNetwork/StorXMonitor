@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DB works with storage usage database.
@@ -18,19 +18,19 @@ type DB interface {
 	Store(ctx context.Context, stamps []Stamp) error
 	// GetDaily returns daily storage usage stamps for particular satellite
 	// for provided time range
-	GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]Stamp, error)
+	GetDaily(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) ([]Stamp, error)
 	// GetDailyTotal returns daily storage usage stamps summed across all known satellites
 	// for provided time range
 	GetDailyTotal(ctx context.Context, from, to time.Time) ([]StampGroup, error)
 	// Summary returns aggregated storage usage across all satellites.
 	Summary(ctx context.Context, from, to time.Time) (float64, float64, error)
 	// SatelliteSummary returns aggregated storage usage for a particular satellite.
-	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (float64, float64, error)
+	SatelliteSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (float64, float64, error)
 }
 
 // Stamp is storage usage stamp for satellite from interval start till next interval.
 type Stamp struct {
-	SatelliteID storj.NodeID `json:"-"`
+	SatelliteID storxnetwork.NodeID `json:"-"`
 	// AtRestTotal is the bytes*hour disk space used at the IntervalEndTime.
 	AtRestTotal float64 `json:"atRestTotal"`
 	// AtRestTotalBytes is the AtRestTotal divided by the IntervalInHours.

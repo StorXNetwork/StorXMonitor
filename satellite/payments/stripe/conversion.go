@@ -6,7 +6,7 @@ package stripe
 import (
 	"github.com/shopspring/decimal"
 
-	"storj.io/common/currency"
+	"github.com/StorXNetwork/common/currency"
 )
 
 // convertToCents convert amount to USD cents with given rate.

@@ -18,15 +18,15 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
 	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/pkcrypto"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/pkcrypto"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/version"
 )
 
 const (

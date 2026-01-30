@@ -9,14 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestReverifyPiece(t *testing.T) {
@@ -237,7 +237,7 @@ func uploadSomeData(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	return segments[0]
 }
 
-func rewritePiece(t *testing.T, ctx *testcontext.Context, node *testplanet.StorageNode, satelliteID storj.NodeID, pieceID storj.PieceID, mutator func(contents []byte, header *pb.PieceHeader)) {
+func rewritePiece(t *testing.T, ctx *testcontext.Context, node *testplanet.StorageNode, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID, mutator func(contents []byte, header *pb.PieceHeader)) {
 	reader, err := node.Storage2.Store.Reader(ctx, satelliteID, pieceID)
 	require.NoError(t, err)
 	pieceHeader, err := reader.GetPieceHeader()

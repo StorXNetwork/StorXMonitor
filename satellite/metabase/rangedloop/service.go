@@ -12,9 +12,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/sync2"
-	"storj.io/eventkit"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/eventkit"
 )
 
 var (

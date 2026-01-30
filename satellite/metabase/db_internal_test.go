@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
 )
 
 func TestLimitedAsOfSystemTime(t *testing.T) {

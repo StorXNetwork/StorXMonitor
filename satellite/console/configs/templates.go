@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // TemplateService provides template-specific operations.

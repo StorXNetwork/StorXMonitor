@@ -11,10 +11,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Users exposes methods to manage User table in database.
@@ -66,7 +66,7 @@ type Users interface {
 	// UpdateUserProjectLimits is a method to update the user's usage limits for new projects.
 	UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
 	// UpdateDefaultPlacement is a method to update the user's default placement for new projects.
-	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
+	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storxnetwork.PlacementConstraint) error
 	// GetProjectLimit is a method to get the users project limit
 	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
 	// GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
@@ -292,7 +292,7 @@ type User struct {
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
 	SignupCaptcha          *float64  `json:"-"`
 
-	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultPlacement storxnetwork.PlacementConstraint `json:"defaultPlacement"`
 
 	ActivationCode string `json:"-"`
 	SignupId       string `json:"-"`
@@ -387,7 +387,7 @@ type UpdateUserRequest struct {
 
 	LoginLockoutExpiration **time.Time
 
-	DefaultPlacement storj.PlacementConstraint
+	DefaultPlacement storxnetwork.PlacementConstraint
 
 	ActivationCode *string
 	SignupId       *string

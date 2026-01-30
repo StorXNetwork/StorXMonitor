@@ -10,16 +10,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestTrashHandler_Write(t *testing.T) {
 
 	t.Run("basic test", func(t *testing.T) {
-		pieceIDs := []storj.PieceID{storj.NewPieceID(), storj.NewPieceID(), storj.NewPieceID()}
+		pieceIDs := []storxnetwork.PieceID{storxnetwork.NewPieceID(), storxnetwork.NewPieceID(), storxnetwork.NewPieceID()}
 
 		numTrashed := 0
-		trashFunc := func(pieceID storj.PieceID) error {
+		trashFunc := func(pieceID storxnetwork.PieceID) error {
 			numTrashed++
 			require.Contains(t, pieceIDs, pieceID)
 			return nil
@@ -36,13 +36,13 @@ func TestTrashHandler_Write(t *testing.T) {
 
 		outputs := []GCFilewalkerResponse{
 			{
-				PieceIDs: []storj.PieceID{pieceIDs[0]},
+				PieceIDs: []storxnetwork.PieceID{pieceIDs[0]},
 			},
 			{
-				PieceIDs: []storj.PieceID{pieceIDs[1]},
+				PieceIDs: []storxnetwork.PieceID{pieceIDs[1]},
 			},
 			{
-				PieceIDs: []storj.PieceID{pieceIDs[2]},
+				PieceIDs: []storxnetwork.PieceID{pieceIDs[2]},
 			},
 			expectedFinalResponse,
 		}
@@ -69,10 +69,10 @@ func TestTrashHandler_Write(t *testing.T) {
 	// and the trashHandler receives the output in multiple chunks
 	// and processes the trash pieces correctly
 	t.Run("truncated output", func(t *testing.T) {
-		pieceIDs := []storj.PieceID{storj.NewPieceID(), storj.NewPieceID(), storj.NewPieceID(), storj.NewPieceID()}
+		pieceIDs := []storxnetwork.PieceID{storxnetwork.NewPieceID(), storxnetwork.NewPieceID(), storxnetwork.NewPieceID(), storxnetwork.NewPieceID()}
 
 		numTrashed := 0
-		trashFunc := func(pieceID storj.PieceID) error {
+		trashFunc := func(pieceID storxnetwork.PieceID) error {
 			numTrashed++
 			require.Contains(t, pieceIDs, pieceID)
 			return nil
