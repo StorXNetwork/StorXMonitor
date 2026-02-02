@@ -425,67 +425,83 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	popup, message := b.determinePopupMessage(req.Operation, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold, popupMessages)
+	popup, message := b.determinePopupMessage(req.Operation, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold, usagePercent, bandwidthUsagePercent, popupMessages)
 
 	b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, popup, allowUpload, allowDownload, message)
 }
 
-// formatMessage formats message with storage threshold if message is not empty.
-func (b *Buckets) formatMessage(msg string) string {
+// formatMessage formats message with actual storage usage percentage and threshold if message is not empty.
+func (b *Buckets) formatMessage(msg string, storageUsagePercent float64) string {
 	if msg == "" {
 		return ""
 	}
-	return fmt.Sprintf(msg, b.storageWarningThreshold)
+	return fmt.Sprintf(msg, storageUsagePercent, b.storageWarningThreshold)
 }
 
-// formatMessageWithBandwidth formats message with bandwidth threshold if message is not empty.
-func (b *Buckets) formatMessageWithBandwidth(msg string) string {
+// formatMessageWithBandwidth formats message with actual bandwidth usage percentage and threshold if message is not empty.
+func (b *Buckets) formatMessageWithBandwidth(msg string, bandwidthUsagePercent float64) string {
 	if msg == "" {
 		return ""
 	}
-	return fmt.Sprintf(msg, b.bandwidthWarningThreshold)
+	return fmt.Sprintf(msg, bandwidthUsagePercent, b.bandwidthWarningThreshold)
 }
 
-// formatMessageWithBoth formats message with both thresholds if message is not empty.
-func (b *Buckets) formatMessageWithBoth(msg string) string {
+// formatMessageWithBoth formats message with both actual usage percentages and thresholds if message is not empty.
+func (b *Buckets) formatMessageWithBoth(msg string, storageUsagePercent, bandwidthUsagePercent float64) string {
 	if msg == "" {
 		return ""
 	}
-	return fmt.Sprintf(msg, b.storageWarningThreshold, b.bandwidthWarningThreshold)
+	return fmt.Sprintf(msg, storageUsagePercent, bandwidthUsagePercent, b.storageWarningThreshold, b.bandwidthWarningThreshold)
+}
+
+// formatMessageWithStorageLimitAndBandwidthThreshold formats message with storage limit (100%), bandwidth usage percentage, and bandwidth threshold.
+func (b *Buckets) formatMessageWithStorageLimitAndBandwidthThreshold(msg string, bandwidthUsagePercent float64) string {
+	if msg == "" {
+		return ""
+	}
+	return fmt.Sprintf(msg, bandwidthUsagePercent, b.bandwidthWarningThreshold, b.storageWarningThreshold)
+}
+
+// formatMessageWithBandwidthLimitAndStorageThreshold formats message with bandwidth limit (100%), storage usage percentage, and storage threshold.
+func (b *Buckets) formatMessageWithBandwidthLimitAndStorageThreshold(msg string, storageUsagePercent float64) string {
+	if msg == "" {
+		return ""
+	}
+	return fmt.Sprintf(msg, storageUsagePercent, b.storageWarningThreshold)
 }
 
 // determinePopupMessage determines popup and message based on operation and limits.
-func (b *Buckets) determinePopupMessage(operation string, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold bool, popupMessages PopupMessagesResponse) (bool, string) {
+func (b *Buckets) determinePopupMessage(operation string, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold bool, storageUsagePercent, bandwidthUsagePercent float64, popupMessages PopupMessagesResponse) (bool, string) {
 	switch operation {
 	case "login":
 		if storageAtLimit && bandwidthAtThreshold {
-			return true, b.formatMessageWithBoth(popupMessages.Login.StorageLimitAndBandwidthThreshold)
+			return true, b.formatMessageWithStorageLimitAndBandwidthThreshold(popupMessages.Login.StorageLimitAndBandwidthThreshold, bandwidthUsagePercent)
 		}
 		if bandwidthAtLimit && storageAtThreshold {
-			return true, b.formatMessageWithBoth(popupMessages.Login.BandwidthLimitAndStorageThreshold)
+			return true, b.formatMessageWithBandwidthLimitAndStorageThreshold(popupMessages.Login.BandwidthLimitAndStorageThreshold, storageUsagePercent)
 		}
 		if storageAtThreshold && bandwidthAtThreshold {
-			return true, b.formatMessageWithBoth(popupMessages.Login.StorageAndBandwidthThreshold)
+			return true, b.formatMessageWithBoth(popupMessages.Login.StorageAndBandwidthThreshold, storageUsagePercent, bandwidthUsagePercent)
 		}
 		if storageAtThreshold {
-			return true, b.formatMessage(popupMessages.Login.StorageThreshold)
+			return true, b.formatMessage(popupMessages.Login.StorageThreshold, storageUsagePercent)
 		}
 		if bandwidthAtThreshold {
-			return true, b.formatMessageWithBandwidth(popupMessages.Login.BandwidthThreshold)
+			return true, b.formatMessageWithBandwidth(popupMessages.Login.BandwidthThreshold, bandwidthUsagePercent)
 		}
 	case "download":
 		if bandwidthAtLimit {
 			return true, popupMessages.Download.BandwidthLimit
 		}
 		if bandwidthAtThreshold {
-			return true, b.formatMessageWithBandwidth(popupMessages.Download.BandwidthWarning)
+			return true, b.formatMessageWithBandwidth(popupMessages.Download.BandwidthWarning, bandwidthUsagePercent)
 		}
 	case "upload":
 		if storageAtLimit {
 			return true, popupMessages.Upload.StorageLimit
 		}
 		if storageAtThreshold {
-			return true, b.formatMessage(popupMessages.Upload.StorageWarning)
+			return true, b.formatMessage(popupMessages.Upload.StorageWarning, storageUsagePercent)
 		}
 	}
 	return false, ""
