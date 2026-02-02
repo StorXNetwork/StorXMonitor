@@ -6451,12 +6451,10 @@ func (s *Service) calculateExpiry(start time.Time, plan *billing.PaymentPlans) t
 }
 
 func formatBytes(bytes int64) string {
-	const bytesPerGB = 1024 * 1024 * 1024
-	const bytesPerMB = 1024 * 1024
-
-	gb := float64(bytes) / bytesPerGB
+	// Use memory.Size().GB() to match how buckets display storage (consistent formatting)
+	gb := memory.Size(bytes).GB()
 	if gb < 1.0 {
-		mb := float64(bytes) / bytesPerMB
+		mb := memory.Size(bytes).MB()
 		return fmt.Sprintf("%.2f MB", mb)
 	}
 	return fmt.Sprintf("%.2f GB", gb)
