@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"storj.io/common/memory"
-	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/logging"
 	"storj.io/storj/private/migrate"

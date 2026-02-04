@@ -184,7 +184,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 		if v, ok := latestVersionCache[db]; ok {
 			version = v
 		} else {
-			version, err = migration.getLatestVersion(ctx, log, db)
+			version, err = migration.getLatestVersion(ctx, db)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -384,7 +384,7 @@ func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tag
 
 // CurrentVersion finds the latest version for the db.
 func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
-	err := migration.ensureVersionTable(ctx, db)
+	err := migration.ensureVersionTable(ctx, log, db)
 	if err != nil {
 		return -1, Error.Wrap(err)
 	}
