@@ -205,7 +205,7 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	placements, err := satelliteCfg.Placement.Parse(satelliteCfg.Overlay.Node.CreateDefaultPlacement)
+	placements, err := satelliteCfg.Placement.Parse(satelliteCfg.Overlay.Node.CreateDefaultPlacement, nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -236,9 +236,7 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 	case "buckets":
 		verifyConfig = bucketsCfg.Verify
 		serviceConfig = bucketsCfg.Service
-		commandFunc = func(ctx context.Context, service *Service) error {
-			return verifySegmentsBuckets(ctx, service, bucketsCfg)
-		}
+		commandFunc = verifySegmentsBuckets
 	case "read-csv":
 		verifyConfig = readCSVCfg.Verify
 		serviceConfig = readCSVCfg.Service
@@ -283,7 +281,7 @@ func verifySegmentsRange(ctx context.Context, service *Service, rangeCfg RangeCo
 	return service.ProcessRange(ctx, low, high)
 }
 
-func verifySegmentsBuckets(ctx context.Context, service *Service, bucketCfg BucketConfig) error {
+func verifySegmentsBuckets(ctx context.Context, service *Service) error {
 	if bucketsCfg.BucketsCSV == "" {
 		return Error.New("bucket list file path not provided")
 	}
@@ -341,7 +339,7 @@ func (service *Service) ParseBucketFile(path string) (_ BucketList, err error) {
 		if err != nil {
 			return BucketList{}, Error.New("unable to parse buckets file: %w", err)
 		}
-		bucketList.Add(projectId, strings.TrimSpace(entry[1]))
+		bucketList.Add(projectId, metabase.BucketName(strings.TrimSpace(entry[1])))
 	}
 	return bucketList, nil
 }

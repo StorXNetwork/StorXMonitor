@@ -7,22 +7,17 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 )
 
 var (
-	// ErrCardNotFound is returned when card is not found for a user.
-	ErrCardNotFound = errs.Class("card not found")
-	// ErrDefaultCard is returned when a user tries to delete their default card.
-	ErrDefaultCard = errs.Class("default card")
-	// ErrDuplicateCard is returned when a user tries to add duplicate card.
-	ErrDuplicateCard = errs.Class("duplicate card")
-
 	// UnattachedErrString is part of the err string returned by stripe if a payment
 	// method does not belong to a customer.
 	UnattachedErrString = "The payment method must be attached to the customer"
@@ -99,6 +94,10 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 
 	card, err := creditCards.service.stripeClient.PaymentMethods().New(cardParams)
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
@@ -108,19 +107,36 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 		Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
 	}
 
+	now := time.Now()
+	currentYear := int64(now.Year())
+	currentMonth := int64(now.Month())
+
+	var (
+		count        int
+		expiredCards []*stripe.PaymentMethod
+	)
+
 	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(listParams)
 	for paymentMethodsIterator.Next() {
+		count++
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
 		if stripeCard.Card.Fingerprint == card.Card.Fingerprint &&
 			stripeCard.Card.ExpMonth == card.Card.ExpMonth &&
 			stripeCard.Card.ExpYear == card.Card.ExpYear {
-			return payments.CreditCard{}, ErrDuplicateCard.New("this card is already on file for your account.")
+			return payments.CreditCard{}, payments.ErrDuplicateCard.New("this card is already on file for your account.")
+		}
+
+		if stripeCard.Card.ExpYear < currentYear || (stripeCard.Card.ExpYear == currentYear && stripeCard.Card.ExpMonth < currentMonth) {
+			expiredCards = append(expiredCards, stripeCard)
 		}
 	}
-
 	if err = paymentMethodsIterator.Err(); err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	if count >= creditCards.service.stripeConfig.MaxCreditCardCount {
+		return payments.CreditCard{}, payments.ErrMaxCreditCards.New("you have reached the maximum number of credit cards for your account.")
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
@@ -132,7 +148,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -145,22 +161,87 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	}
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
+	if err != nil {
+		creditCards.service.log.Warn("failed to make new card default", zap.String("user_id", userID.String()), zap.Error(err))
+	}
 
-	// TODO: handle created but not attached card manually?
+	// We remove all expired cards from the customer only if the new card is successfully attached and marked as default.
+	if err == nil && len(expiredCards) > 0 {
+		detachParams := &stripe.PaymentMethodDetachParams{Params: stripe.Params{Context: ctx}}
+
+		for _, expiredCard := range expiredCards {
+			_, err = creditCards.service.stripeClient.PaymentMethods().Detach(expiredCard.ID, detachParams)
+			if err != nil {
+				creditCards.service.log.Warn("failed to detach expired credit card", zap.String("user_id", userID.String()), zap.Error(err))
+			}
+		}
+	}
+
 	return payments.CreditCard{
 		ID:        card.ID,
 		ExpMonth:  int(card.Card.ExpMonth),
 		ExpYear:   int(card.Card.ExpYear),
 		Brand:     string(card.Card.Brand),
 		Last4:     card.Card.Last4,
-		IsDefault: true,
-	}, Error.Wrap(err)
+		IsDefault: err == nil,
+	}, nil
+}
+
+// Update updates the credit card details.
+func (creditCards *creditCards) Update(ctx context.Context, userID uuid.UUID, params payments.CardUpdateParams) (err error) {
+	defer mon.Task()(&ctx, userID, params.CardID)(&err)
+
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return payments.ErrAccountNotSetup.Wrap(err)
+	}
+
+	cardIter := creditCards.service.stripeClient.PaymentMethods().List(&stripe.PaymentMethodListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
+		Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
+	})
+
+	isUserCard := false
+	for cardIter.Next() {
+		if cardIter.PaymentMethod().ID == params.CardID {
+			isUserCard = true
+			break
+		}
+	}
+
+	if err = cardIter.Err(); err != nil {
+		return Error.Wrap(err)
+	}
+
+	if !isUserCard {
+		return payments.ErrCardNotFound.New("this card is not attached to this account.")
+	}
+
+	cardParams := &stripe.PaymentMethodParams{
+		Params: stripe.Params{Context: ctx},
+		Card: &stripe.PaymentMethodCardParams{
+			ExpMonth: stripe.Int64(params.ExpMonth),
+			ExpYear:  stripe.Int64(params.ExpYear),
+		},
+	}
+
+	_, err = creditCards.service.stripeClient.PaymentMethods().Update(params.CardID, cardParams)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 // AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
 // using the payment method id instead of the token. In this case, the payment method should already be
 // created by the frontend using the stripe payment element for example.
-func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string) (_ payments.CreditCard, err error) {
+func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string, force bool) (_ payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID, pmID)(&err)
 
 	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
@@ -181,19 +262,37 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 		Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
 	}
 
+	now := time.Now()
+	currentYear := int64(now.Year())
+	currentMonth := int64(now.Month())
+
+	var (
+		count        int
+		expiredCards []*stripe.PaymentMethod
+	)
+
 	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(listParams)
 	for paymentMethodsIterator.Next() {
+		count++
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
 		if stripeCard.Card.Fingerprint == card.Card.Fingerprint &&
 			stripeCard.Card.ExpMonth == card.Card.ExpMonth &&
-			stripeCard.Card.ExpYear == card.Card.ExpYear {
-			return payments.CreditCard{}, ErrDuplicateCard.New("this card is already on file for your account.")
+			stripeCard.Card.ExpYear == card.Card.ExpYear &&
+			!force {
+			return payments.CreditCard{}, payments.ErrDuplicateCard.New("this card is already on file for your account.")
+		}
+
+		if stripeCard.Card.ExpYear < currentYear || (stripeCard.Card.ExpYear == currentYear && stripeCard.Card.ExpMonth < currentMonth) {
+			expiredCards = append(expiredCards, stripeCard)
 		}
 	}
-
 	if err = paymentMethodsIterator.Err(); err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	if count >= creditCards.service.stripeConfig.MaxCreditCardCount {
+		return payments.CreditCard{}, payments.ErrMaxCreditCards.New("you have reached the maximum number of credit cards for your account.")
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
@@ -205,7 +304,7 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -218,16 +317,30 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 	}
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
+	if err != nil {
+		creditCards.service.log.Warn("failed to make new card default", zap.String("user_id", userID.String()), zap.Error(err))
+	}
 
-	// TODO: handle created but not attached card manually?
+	// We remove all expired cards from the customer only if the new card is successfully attached and marked as default.
+	if err == nil && len(expiredCards) > 0 {
+		detachParams := &stripe.PaymentMethodDetachParams{Params: stripe.Params{Context: ctx}}
+
+		for _, expiredCard := range expiredCards {
+			_, err = creditCards.service.stripeClient.PaymentMethods().Detach(expiredCard.ID, detachParams)
+			if err != nil {
+				creditCards.service.log.Warn("failed to detach expired credit card", zap.String("user_id", userID.String()), zap.Error(err))
+			}
+		}
+	}
+
 	return payments.CreditCard{
 		ID:        card.ID,
 		ExpMonth:  int(card.Card.ExpMonth),
 		ExpYear:   int(card.Card.ExpYear),
 		Brand:     string(card.Card.Brand),
 		Last4:     card.Card.Last4,
-		IsDefault: true,
-	}, Error.Wrap(err)
+		IsDefault: err == nil,
+	}, nil
 }
 
 // MakeDefault makes a credit card default payment method.
@@ -249,14 +362,15 @@ func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUI
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
 	if err != nil && strings.Contains(err.Error(), UnattachedErrString) {
-		return ErrCardNotFound.New("this card is not attached to this account.")
+		return payments.ErrCardNotFound.New("this card is not attached to this account.")
 	}
 
 	return Error.Wrap(err)
 }
 
 // Remove is used to remove credit card from payment account.
-func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, cardID string) (err error) {
+// Setting force to true will allow to remove the default payment method.
+func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, cardID string, force bool) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
 	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
@@ -271,8 +385,9 @@ func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, ca
 	}
 	if customer.InvoiceSettings != nil &&
 		customer.InvoiceSettings.DefaultPaymentMethod != nil &&
-		customer.InvoiceSettings.DefaultPaymentMethod.ID == cardID {
-		return ErrDefaultCard.New("can not detach default payment method.")
+		customer.InvoiceSettings.DefaultPaymentMethod.ID == cardID &&
+		!force {
+		return payments.ErrDefaultCard.New("can not detach default payment method.")
 	}
 
 	cardIter := creditCards.service.stripeClient.PaymentMethods().List(&stripe.PaymentMethodListParams{
@@ -294,7 +409,7 @@ func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, ca
 	}
 
 	if !isUserCard {
-		return ErrCardNotFound.New("this card is not attached to this account.")
+		return payments.ErrCardNotFound.New("this card is not attached to this account.")
 	}
 
 	cardParams := &stripe.PaymentMethodDetachParams{Params: stripe.Params{Context: ctx}}
@@ -321,4 +436,26 @@ func (creditCards *creditCards) RemoveAll(ctx context.Context, userID uuid.UUID)
 		}
 	}
 	return nil
+}
+
+// GetSetupSecret begins the process of setting up a card for payments with authorization
+// by creating a setup intent. Returns a secret that can be used to complete the setup
+// on the frontend.
+func (creditCards *creditCards) GetSetupSecret(ctx context.Context) (secret string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	intent, err := creditCards.service.stripeClient.SetupIntents().New(&stripe.SetupIntentParams{
+		Params:             stripe.Params{Context: ctx},
+		Usage:              stripe.String(string(stripe.SetupIntentUsageOffSession)),
+		PaymentMethodTypes: stripe.StringSlice([]string{string(stripe.PaymentMethodTypeCard)}),
+	})
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return "", Error.Wrap(err)
+	}
+
+	return intent.ClientSecret, nil
 }

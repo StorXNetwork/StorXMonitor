@@ -1,7 +1,6 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Package admin implements administrative endpoints for satellite.
 package admin
 
 import (
@@ -30,7 +29,6 @@ import (
 	"storj.io/storj/private/emptyfs"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -45,20 +43,17 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 )
 
-// Assets contains either the built admin/back-office/ui or it is nil.
+// Assets contains either the built admin/ui or it is nil.
 var Assets fs.FS = emptyfs.FS{}
 
-const (
-	// UnauthorizedNotInGroup - message for when api user is not part of a required access group.
-	UnauthorizedNotInGroup = "User must be a member of one of these groups to conduct this operation: %s"
-	// AuthorizationNotEnabled - message for when authorization is disabled.
-	AuthorizationNotEnabled = "Authorization not enabled."
+var (
+	// Error is the error class that wraps all the errors returned by this package.
+	Error = errs.Class("satellite-admin")
 
-	// BackOfficePathPrefix is the path prefix used for the back office router.
-	BackOfficePathPrefix = "/back-office"
+	mon = monkit.Package()
 )
 
-// Config defines configuration for debug server.
+// Config defines configuration for the satellite administration server.
 type Config struct {
 	Address          string `help:"admin peer http listening address"                                                                              releaseDefault:"" devDefault:""`
 	StaticDir        string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
@@ -100,8 +95,7 @@ type DB interface {
 
 // Server provides endpoints for administrative tasks.
 type Server struct {
-	log *zap.Logger
-
+	log      *zap.Logger
 	listener net.Listener
 	server   http.Server
 
@@ -132,11 +126,12 @@ func NewServer(
 	db DB,
 	liveAccounting accounting.Cache,
 	buckets *buckets.Service,
-	restKeys *restkeys.Service,
+	restKeys restapikeys.Service,
 	freezeAccounts *console.AccountFreezeService,
 	analyticsService *analytics.Service,
 	accounts payments.Accounts,
 	console consoleweb.Config,
+	entitlementsCfg entitlements.Config,
 	config Config,
 	placement nodeselection.PlacementDefinitions,
 	developerserviceService *developer.Service,
@@ -144,8 +139,7 @@ func NewServer(
 	mailService *mailservice.Service,
 ) (*Server, error) {
 	server := &Server{
-		log: log,
-
+		log:      log,
 		listener: listener,
 
 		db:                      db,
@@ -372,7 +366,61 @@ func NewServer(
 	return server, nil
 }
 
-// Run starts the admin endpoint.
+func (server *Server) uiHandler(w http.ResponseWriter, r *http.Request) {
+	header := w.Header()
+
+	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "same-origin")
+
+	if server.config.StaticDir == "" {
+		content, err := fs.ReadFile(Assets, "index.html")
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				server.log.Error("admin UI was not embedded", zap.Error(err))
+			} else {
+				server.log.Error("error loading index.html", zap.String("path", "index.html"), zap.Error(err))
+			}
+
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		_, _ = w.Write(content)
+		return
+	}
+
+	indexPath := filepath.Join(server.config.StaticDir, "build", "index.html")
+	file, err := os.Open(indexPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			server.log.Error("index.html was not generated. run 'npm run build' in the "+server.config.StaticDir+" directory", zap.Error(err))
+		} else {
+			server.log.Error("error loading index.html", zap.String("path", indexPath), zap.Error(err))
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	defer func() {
+		if err := file.Close(); err != nil {
+			server.log.Error("error closing index.html", zap.String("path", indexPath), zap.Error(err))
+		}
+	}()
+
+	info, err := file.Stat()
+	if err != nil {
+		server.log.Error("failed to retrieve index.html file info", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	http.ServeContent(w, r, indexPath, info.ModTime(), file)
+}
+
+// Run starts the administration HTTP server using the provided listener.
+// If listener is nil, it does nothing and return nil.
 func (server *Server) Run(ctx context.Context) error {
 	if server.listener == nil {
 		return nil
@@ -392,11 +440,6 @@ func (server *Server) Run(ctx context.Context) error {
 		return Error.Wrap(err)
 	})
 	return group.Wait()
-}
-
-// SetNow allows tests to have the server act as if the current time is whatever they want.
-func (server *Server) SetNow(nowFn func() time.Time) {
-	server.nowFn = nowFn
 }
 
 // Close closes server and underlying listener.

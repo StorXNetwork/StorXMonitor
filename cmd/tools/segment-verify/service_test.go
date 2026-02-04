@@ -5,9 +5,9 @@ package main_test
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
-	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -122,11 +123,11 @@ func TestService_Success(t *testing.T) {
 
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,found,not found,retry\n", string(retryCSV))
+	require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
+	require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(notFoundCSV))
 }
 
 func TestService_Buckets_Success(t *testing.T) {
@@ -149,10 +150,14 @@ func TestService_Buckets_Success(t *testing.T) {
 	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
+	projectA := uuid.UUID{1}
+	projectB := uuid.UUID{2}
+
+	content := hex.EncodeToString(projectA[:]) + ",67616c617879\n" +
+		hex.EncodeToString(projectB[:]) + ",7368696e6f6269"
+
 	bucketListPath := ctx.File("buckets.csv")
-	err = os.WriteFile(bucketListPath, []byte(`
-	00000000000000000000000000000001,67616c617879
-	00000000000000000000000000000002,7368696e6f6269`), 0755)
+	err = os.WriteFile(bucketListPath, []byte(content), 0755)
 	require.NoError(t, err)
 
 	func() {
@@ -170,18 +175,18 @@ func TestService_Buckets_Success(t *testing.T) {
 				StreamID:    uuid.UUID{0x20, 0x20},
 				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
 			},
-			{ // this won't get processed due to the high limit
+			{ // this won't get processed because it's in non listed bucket
 				StreamID:    uuid.UUID{0x30, 0x30},
-				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
+				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 11}, {Number: 1, Alias: 12}, {Number: 7, Alias: 13}},
 			},
 		}
 
 		metabase := newMetabaseMock(nodes, segments...)
 		verifier := &verifierMock{allSuccess: true}
 
-		metabase.AddStreamIDToBucket(uuid.UUID{1}, "67616c617879", uuid.UUID{0x10, 0x10})
-		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7368696e6f6269", uuid.UUID{0x20, 0x20})
-		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7777777", uuid.UUID{0x30, 0x30})
+		metabase.AddStreamIDToBucket(projectA, "67616c617879", uuid.UUID{0x10, 0x10})
+		metabase.AddStreamIDToBucket(projectB, "7368696e6f6269", uuid.UUID{0x20, 0x20})
+		metabase.AddStreamIDToBucket(projectB, "7777777", uuid.UUID{0x30, 0x30})
 
 		service, err := segmentverify.NewService(log.Named("segment-verify"), metabase, verifier, metabase, config)
 		require.NoError(t, err)
@@ -205,15 +210,20 @@ func TestService_Buckets_Success(t *testing.T) {
 		assert.Equal(t, 2,
 			len(verifier.processed[nodes[8]])+len(verifier.processed[nodes[9]])+len(verifier.processed[nodes[10]]),
 		)
+
+		// we should NOT get anything from segments[2] as it is in a different bucket
+		assert.Equal(t, 0,
+			len(verifier.processed[nodes[11]])+len(verifier.processed[nodes[12]])+len(verifier.processed[nodes[13]]),
+		)
 	}()
 
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,found,not found,retry\n", string(retryCSV))
+	require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
+	require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(notFoundCSV))
 }
 
 func TestService_Failures(t *testing.T) {
@@ -244,15 +254,24 @@ func TestService_Failures(t *testing.T) {
 
 		segments := []metabase.VerifySegment{
 			{
-				StreamID:    uuid.UUID{0x10, 0x10},
+				StreamID: uuid.UUID{0x10, 0x10},
+				Redundancy: storj.RedundancyScheme{
+					RequiredShares: 3,
+				},
 				AliasPieces: metabase.AliasPieces{{Number: 1, Alias: 8}, {Number: 3, Alias: 9}, {Number: 5, Alias: 10}, {Number: 0, Alias: 1}},
 			},
 			{
-				StreamID:    uuid.UUID{0x20, 0x20},
+				StreamID: uuid.UUID{0x20, 0x20},
+				Redundancy: storj.RedundancyScheme{
+					RequiredShares: 2,
+				},
 				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
 			},
 			{
-				StreamID:    uuid.UUID{0x30, 0x30},
+				StreamID: uuid.UUID{0x30, 0x30},
+				Redundancy: storj.RedundancyScheme{
+					RequiredShares: 2,
+				},
 				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
 			},
 		}
@@ -281,15 +300,15 @@ func TestService_Failures(t *testing.T) {
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
-		"stream id,position,found,not found,retry\n"+
-		"10100000-0000-0000-0000-000000000000,0,1,0,1\n",
+		"stream id,position,created_at,required,found,not found,retry\n"+
+		"10100000-0000-0000-0000-000000000000,0,0001-01-01T00:00:00Z,3,1,0,1\n",
 		string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
-		"stream id,position,found,not found,retry\n"+
-		"20200000-0000-0000-0000-000000000000,0,0,2,0\n",
+		"stream id,position,created_at,required,found,not found,retry\n"+
+		"20200000-0000-0000-0000-000000000000,0,0001-01-01T00:00:00Z,2,0,2,0\n",
 		string(notFoundCSV))
 }
 
@@ -329,7 +348,7 @@ func newMetabaseMock(nodes map[metabase.NodeAlias]storj.NodeID, segments ...meta
 	return mock
 }
 
-func (db *metabaseMock) AddStreamIDToBucket(projectID uuid.UUID, bucketName string, streamIDs ...uuid.UUID) {
+func (db *metabaseMock) AddStreamIDToBucket(projectID uuid.UUID, bucketName metabase.BucketName, streamIDs ...uuid.UUID) {
 	bucket := metabase.BucketLocation{ProjectID: projectID, BucketName: bucketName}
 	db.streamIDsPerBucket[bucket] = append(db.streamIDsPerBucket[bucket], streamIDs...)
 }
@@ -383,6 +402,36 @@ func (db *metabaseMock) DeleteSegmentByPosition(ctx context.Context, opts metaba
 }
 
 func (db *metabaseMock) GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error) {
+	s, err := db.GetSegmentByPositionForAudit(ctx, opts)
+	if err != nil {
+		return metabase.Segment{}, err
+	}
+	return metabase.Segment{
+		StreamID: s.StreamID,
+		Position: s.Position,
+		Pieces:   s.Pieces,
+	}, nil
+}
+
+func (db *metabaseMock) GetSegmentByPositionForAudit(
+	ctx context.Context, opts metabase.GetSegmentByPosition,
+) (segment metabase.SegmentForAudit, err error) {
+	s, err := db.GetSegmentByPositionForRepair(ctx, opts)
+	if err != nil {
+		return metabase.SegmentForAudit{}, err
+	}
+
+	return metabase.SegmentForAudit{
+		StreamID: s.StreamID,
+		Position: s.Position,
+		Pieces:   s.Pieces,
+	}, nil
+
+}
+
+func (db *metabaseMock) GetSegmentByPositionForRepair(
+	ctx context.Context, opts metabase.GetSegmentByPosition,
+) (segment metabase.SegmentForRepair, err error) {
 	for _, s := range db.segments {
 		if opts.StreamID == s.StreamID && opts.Position == s.Position {
 			var pieces metabase.Pieces
@@ -393,7 +442,7 @@ func (db *metabaseMock) GetSegmentByPosition(ctx context.Context, opts metabase.
 				})
 			}
 
-			return metabase.Segment{
+			return metabase.SegmentForRepair{
 				StreamID: s.StreamID,
 				Position: s.Position,
 				Pieces:   pieces,
@@ -401,46 +450,25 @@ func (db *metabaseMock) GetSegmentByPosition(ctx context.Context, opts metabase.
 		}
 	}
 
-	return metabase.Segment{}, metabase.ErrSegmentNotFound.New("%v", opts)
+	return metabase.SegmentForRepair{}, metabase.ErrSegmentNotFound.New("%v", opts)
 }
 
-func (db *metabaseMock) ListBucketsStreamIDs(ctx context.Context, opts metabase.ListBucketsStreamIDs) (metabase.ListBucketsStreamIDsResult, error) {
-	result := metabase.ListBucketsStreamIDsResult{}
-
-	for _, bucket := range opts.BucketList.Buckets {
-		if bucket.ProjectID.Compare(opts.CursorBucket.ProjectID) <= 0 {
-			continue
-		}
-		if bucket.BucketName <= opts.CursorBucket.BucketName {
-			continue
-		}
-		if opts.CursorStreamID.IsZero() {
-			result.StreamIDs = append(result.StreamIDs, db.streamIDsPerBucket[bucket]...)
-			continue
-		}
-		for cursorIndex, streamID := range db.streamIDsPerBucket[bucket] {
-			if opts.CursorStreamID.Less(streamID) {
-				result.StreamIDs = append(result.StreamIDs, db.streamIDsPerBucket[bucket][cursorIndex:]...)
-				break
-			}
-		}
-		if len(result.StreamIDs) > opts.Limit {
-			break
-		}
+func (db *metabaseMock) ListBucketStreamIDs(ctx context.Context, opts metabase.ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) (err error) {
+	streamIDs := db.streamIDsPerBucket[opts.Bucket]
+	if len(streamIDs) > 0 {
+		return process(ctx, streamIDs)
 	}
-	if len(result.StreamIDs) > opts.Limit {
-		result.StreamIDs = result.StreamIDs[:opts.Limit]
-	}
-	sort.Slice(result.StreamIDs, func(i, j int) bool {
-		return result.StreamIDs[i].Less(result.StreamIDs[j])
-	})
-	return result, nil
+	return nil
 }
 
 func (db *metabaseMock) ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error) {
 	r := metabase.ListVerifySegmentsResult{}
 
 	for _, s := range db.segments {
+		if len(opts.StreamIDs) > 0 && !slices.Contains(opts.StreamIDs, s.StreamID) {
+			continue
+		}
+
 		if s.StreamID.Less(opts.CursorStreamID) {
 			continue
 		}
@@ -468,7 +496,7 @@ type verifierMock struct {
 	processed map[storj.NodeID][]*segmentverify.Segment
 }
 
-func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*segmentverify.Segment, _ bool) (int, error) {
+func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*segmentverify.Segment, _ bool) (int, error) {
 	v.mu.Lock()
 	if v.processed == nil {
 		v.processed = map[storj.NodeID][]*segmentverify.Segment{}

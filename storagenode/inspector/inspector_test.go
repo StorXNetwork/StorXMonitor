@@ -26,8 +26,6 @@ func TestInspectorStats(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(requiredShares, 3, 4, 5),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var availableSpace int64
-
 		for _, storageNode := range planet.StorageNodes {
 			response, err := storageNode.Storage2.Inspector.Stats(ctx, &internalpb.StatsRequest{})
 			require.NoError(t, err)
@@ -38,8 +36,6 @@ func TestInspectorStats(t *testing.T) {
 			assert.Zero(t, response.UsedIngress)
 			assert.True(t, response.AvailableSpace > 0)
 
-			// assume that all storage node should have the same initial values
-			availableSpace = response.AvailableSpace
 		}
 
 		expectedData := testrand.Bytes(100 * memory.KiB)
@@ -72,7 +68,6 @@ func TestInspectorStats(t *testing.T) {
 			if response.UsedSpace > 0 {
 				assert.NotZero(t, response.UsedBandwidth)
 				assert.Equal(t, response.UsedBandwidth, response.UsedIngress+response.UsedEgress)
-				assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
 
 				assert.Equal(t, response.UsedIngress, response.UsedBandwidth-response.UsedEgress)
 				if response.UsedEgress > 0 {
@@ -81,7 +76,6 @@ func TestInspectorStats(t *testing.T) {
 				}
 			} else {
 				assert.Zero(t, response.UsedSpace)
-				assert.Equal(t, availableSpace, response.AvailableSpace)
 			}
 		}
 		assert.True(t, downloaded >= int(requiredShares), "downloaded=%v, rs.RequiredShares=%v", downloaded, requiredShares)

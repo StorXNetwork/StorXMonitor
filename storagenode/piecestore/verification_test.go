@@ -5,8 +5,9 @@ package piecestore_test
 
 import (
 	"bytes"
-	"context"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,101 +23,106 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/pieces"
 )
 
 const oneWeek = 7 * 24 * time.Hour
 
 func TestOrderLimitPutValidation(t *testing.T) {
-	for _, tt := range []struct {
-		testName            string
-		useUnknownSatellite bool
-		pieceID             storj.PieceID
-		action              pb.PieceAction
-		serialNumber        storj.SerialNumber
-		pieceExpiration     time.Duration
-		orderExpiration     time.Duration
-		limit               int64
-		availableSpace      int64
-		err                 string
-	}{
-		{
-			testName:            "unapproved satellite id",
-			useUnknownSatellite: true,
-			pieceID:             storj.PieceID{1},
-			action:              pb.PieceAction_PUT,
-			serialNumber:        storj.SerialNumber{1},
-			pieceExpiration:     oneWeek,
-			orderExpiration:     oneWeek,
-			limit:               memory.KiB.Int64(),
-			err:                 " is untrusted",
-		},
-		{
-			testName:        "approved satellite id",
-			pieceID:         storj.PieceID{2},
-			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber{2},
-			pieceExpiration: oneWeek,
-			orderExpiration: oneWeek,
-			limit:           10 * memory.KiB.Int64(),
-		},
-		{
-			testName:        "wrong action type",
-			pieceID:         storj.PieceID{3},
-			action:          pb.PieceAction_GET,
-			serialNumber:    storj.SerialNumber{3},
-			pieceExpiration: oneWeek,
-			orderExpiration: oneWeek,
-			limit:           memory.KiB.Int64(),
-			err:             "expected put or put repair action got GET",
-		},
-		{
-			testName:        "piece expired",
-			pieceID:         storj.PieceID{4},
-			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber{4},
-			pieceExpiration: -4 * 24 * time.Hour,
-			orderExpiration: oneWeek,
-			limit:           memory.KiB.Int64(),
-			err:             "piece expired:",
-		},
-		{
-			testName:        "limit is negative",
-			pieceID:         storj.PieceID{5},
-			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber{5},
-			pieceExpiration: oneWeek,
-			orderExpiration: oneWeek,
-			limit:           -1,
-			err:             "order limit is negative",
-		},
-		{
-			testName:        "order limit expired",
-			pieceID:         storj.PieceID{6},
-			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber{6},
-			pieceExpiration: oneWeek,
-			orderExpiration: -4 * 24 * time.Hour,
-			limit:           memory.KiB.Int64(),
-			err:             "order expired:",
-		},
-		{
-			testName:        "allocated space limit",
-			pieceID:         storj.PieceID{8},
-			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber{8},
-			pieceExpiration: oneWeek,
-			orderExpiration: oneWeek,
-			limit:           10 * memory.KiB.Int64(),
-			availableSpace:  5 * memory.KiB.Int64(),
-			err:             "not enough available disk space",
-		},
-	} {
-		tt := tt
-		t.Run(tt.testName, func(t *testing.T) {
-			testplanet.Run(t, testplanet.Config{
-				SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for _, node := range planet.StorageNodes {
+			node.StorageOld.CacheService.Loop.Pause()
+		}
 
+		for _, tt := range []struct {
+			testName            string
+			useUnknownSatellite bool
+			pieceID             storj.PieceID
+			action              pb.PieceAction
+			serialNumber        storj.SerialNumber
+			pieceExpiration     time.Duration
+			orderExpiration     time.Duration
+			limit               int64
+			availableSpace      int64
+			err                 string
+		}{
+			{
+				testName:            "unapproved satellite id",
+				useUnknownSatellite: true,
+				pieceID:             storj.PieceID{1},
+				action:              pb.PieceAction_PUT,
+				serialNumber:        storj.SerialNumber{1},
+				pieceExpiration:     oneWeek,
+				orderExpiration:     oneWeek,
+				limit:               memory.KiB.Int64(),
+				err:                 " is untrusted",
+			},
+			{
+				testName:        "approved satellite id",
+				pieceID:         storj.PieceID{2},
+				action:          pb.PieceAction_PUT,
+				serialNumber:    storj.SerialNumber{2},
+				pieceExpiration: oneWeek,
+				orderExpiration: oneWeek,
+				limit:           10 * memory.KiB.Int64(),
+			},
+			{
+				testName:        "wrong action type",
+				pieceID:         storj.PieceID{3},
+				action:          pb.PieceAction_GET,
+				serialNumber:    storj.SerialNumber{3},
+				pieceExpiration: oneWeek,
+				orderExpiration: oneWeek,
+				limit:           memory.KiB.Int64(),
+				err:             "expected put or put repair action got GET",
+			},
+			{
+				testName:        "piece expired",
+				pieceID:         storj.PieceID{4},
+				action:          pb.PieceAction_PUT,
+				serialNumber:    storj.SerialNumber{4},
+				pieceExpiration: -4 * 24 * time.Hour,
+				orderExpiration: oneWeek,
+				limit:           memory.KiB.Int64(),
+				err:             "piece expired:",
+			},
+			{
+				testName:        "limit is negative",
+				pieceID:         storj.PieceID{5},
+				action:          pb.PieceAction_PUT,
+				serialNumber:    storj.SerialNumber{5},
+				pieceExpiration: oneWeek,
+				orderExpiration: oneWeek,
+				limit:           -1,
+				err:             "order limit is negative",
+			},
+			{
+				testName:        "order limit expired",
+				pieceID:         storj.PieceID{6},
+				action:          pb.PieceAction_PUT,
+				serialNumber:    storj.SerialNumber{6},
+				pieceExpiration: oneWeek,
+				orderExpiration: -4 * 24 * time.Hour,
+				limit:           memory.KiB.Int64(),
+				err:             "order expired:",
+			},
+			{
+				testName:        "allocated space limit",
+				pieceID:         storj.PieceID{8},
+				action:          pb.PieceAction_PUT,
+				serialNumber:    storj.SerialNumber{8},
+				pieceExpiration: oneWeek,
+				orderExpiration: oneWeek,
+				limit:           10 * memory.KiB.Int64(),
+				availableSpace:  5 * memory.KiB.Int64(),
+				err:             "not enough available disk space",
+			},
+		} {
+			tt := tt
+			t.Run(tt.testName, func(t *testing.T) {
 				// set desirable space
 				setSpace(ctx, t, planet, tt.availableSpace)
 
@@ -159,8 +165,8 @@ func TestOrderLimitPutValidation(t *testing.T) {
 					require.NoError(t, err)
 				}
 			})
-		})
-	}
+		}
+	})
 }
 
 func TestOrderLimitGetValidation(t *testing.T) {
@@ -271,18 +277,32 @@ func TestOrderLimitGetValidation(t *testing.T) {
 	})
 }
 
-func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, space int64) {
-	if space == 0 {
-		return
-	}
+func setSpace(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, space int64) {
+	require.Greater(t, len(planet.Satellites), 0)
 	for _, storageNode := range planet.StorageNodes {
 		availableSpace, err := storageNode.Storage2.Monitor.AvailableSpace(ctx)
 		require.NoError(t, err)
+
+		if space == 0 {
+			space = availableSpace
+		}
+
 		// add these bytes to the space used cache so that we can test what happens
 		// when we exceeded available space on the storagenode
-		err = storageNode.DB.PieceSpaceUsedDB().UpdatePieceTotals(ctx, availableSpace-space, availableSpace-space)
+		usage := pieces.SatelliteUsage{
+			Total:       availableSpace - space,
+			ContentSize: availableSpace - space,
+		}
+		err = storageNode.DB.PieceSpaceUsedDB().UpdatePieceTotalsForSatellite(ctx, planet.Satellites[0].ID(), usage)
 		require.NoError(t, err)
-		err = storageNode.Storage2.CacheService.Init(ctx)
+
+		// create an empty blob directory for the satellite so that the cache service
+		// maintains the space used for the satellite
+		blobsDir := storageNode.DB.Config().Storage
+		err = os.MkdirAll(filepath.Join(blobsDir, "blobs", filestore.PathEncoding.EncodeToString(planet.Satellites[0].ID().Bytes())), 0755)
+		require.NoError(t, err)
+
+		err = storageNode.StorageOld.CacheService.Init(ctx)
 		require.NoError(t, err)
 	}
 }

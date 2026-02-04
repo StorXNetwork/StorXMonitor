@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/uplink"
 	"storj.io/uplink/edge"
+	privateEdge "storj.io/uplink/private/edge"
 )
 
 type cmdShare struct {
@@ -93,8 +95,8 @@ func (c *cmdShare) Execute(ctx context.Context) (err error) {
 		c.register = true
 
 		if c.ap.notAfter == nil {
-			fmt.Fprintf(clingy.Stdout(ctx), "It's not recommended to create a shared Access without an expiration date.\n")
-			fmt.Fprintf(clingy.Stdout(ctx), "If you wish to do so anyway, please run this command with --not-after=none.\n")
+			_, _ = fmt.Fprintf(clingy.Stdout(ctx), "It's not recommended to create a shared Access without an expiration date.\n")
+			_, _ = fmt.Fprintf(clingy.Stdout(ctx), "If you wish to do so anyway, please run this command with --not-after=none.\n")
 			return nil
 		}
 	}
@@ -104,21 +106,35 @@ func (c *cmdShare) Execute(ctx context.Context) (err error) {
 		return err
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Sharing access to satellite %s\n", access.SatelliteAddress())
-	fmt.Fprintf(clingy.Stdout(ctx), "=========== ACCESS RESTRICTIONS ==========================================================\n")
-	fmt.Fprintf(clingy.Stdout(ctx), "Download     : %s\n", formatPermission(c.ap.AllowDownload()))
-	fmt.Fprintf(clingy.Stdout(ctx), "Upload       : %s\n", formatPermission(c.ap.AllowUpload()))
-	fmt.Fprintf(clingy.Stdout(ctx), "Lists        : %s\n", formatPermission(c.ap.AllowList()))
-	fmt.Fprintf(clingy.Stdout(ctx), "Deletes      : %s\n", formatPermission(c.ap.AllowDelete()))
-	fmt.Fprintf(clingy.Stdout(ctx), "NotBefore    : %s\n", formatTimeRestriction(c.ap.NotBefore()))
-	fmt.Fprintf(clingy.Stdout(ctx), "NotAfter     : %s\n", formatTimeRestriction(c.ap.NotAfter()))
-	fmt.Fprintf(clingy.Stdout(ctx), "MaxObjectTTL : %s\n", formatDuration(c.ap.maxObjectTTL))
-	fmt.Fprintf(clingy.Stdout(ctx), "Paths        : %s\n", formatPaths(c.ap.prefixes))
-	fmt.Fprintf(clingy.Stdout(ctx), "=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========\n")
-	fmt.Fprintf(clingy.Stdout(ctx), "Access       : %s\n", newAccessData)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Sharing access to satellite %s\n", access.SatelliteAddress())
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "=========== ACCESS RESTRICTIONS ==========================================================\n")
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Download     : %s\n", formatPermission(c.ap.AllowDownload()))
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Upload       : %s\n", formatPermission(c.ap.AllowUpload()))
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Lists        : %s\n", formatPermission(c.ap.AllowList()))
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Deletes      : %s\n", formatPermission(c.ap.AllowDelete()))
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "NotBefore    : %s\n", formatTimeRestriction(c.ap.NotBefore()))
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "NotAfter     : %s\n", formatTimeRestriction(c.ap.NotAfter()))
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "MaxObjectTTL : %s\n", formatDuration(c.ap.maxObjectTTL))
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Paths        : %s\n", formatPaths(c.ap.prefixes))
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========\n")
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Access       : %s\n", newAccessData)
 
 	if c.register {
-		credentials, err := RegisterAccess(ctx, access, c.authService, c.public, c.caCert)
+		info, err := c.ex.GetEdgeUrlOverrides(ctx, access)
+		if err != nil {
+			return errs.New("could not get project info: %w", err)
+		}
+
+		authService := c.authService
+		linksharingUrl := c.baseURL
+		if info.AuthService != "" {
+			authService = info.AuthService
+		}
+		if info.PublicLinksharing != "" {
+			linksharingUrl = info.PublicLinksharing
+		}
+
+		credentials, err := RegisterAccess(ctx, access, authService, c.public, c.caCert)
 		if err != nil {
 			return err
 		}
@@ -136,7 +152,7 @@ func (c *cmdShare) Execute(ctx context.Context) (err error) {
 				return errs.New("will only generate linksharing URL with readonly restrictions")
 			}
 
-			err = createURL(ctx, credentials.AccessKeyID, c.ap.prefixes, c.baseURL)
+			err = createURL(ctx, credentials.AccessKeyID, c.ap.prefixes, linksharingUrl)
 			if err != nil {
 				return err
 			}
@@ -147,7 +163,7 @@ func (c *cmdShare) Execute(ctx context.Context) (err error) {
 				return errs.New("will only generate DNS entries with readonly restrictions")
 			}
 
-			err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes, c.baseURL, c.dns, c.tls)
+			err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes, linksharingUrl, c.dns, c.tls)
 			if err != nil {
 				return err
 			}
@@ -165,7 +181,7 @@ func (c *cmdShare) Execute(ctx context.Context) (err error) {
 		if err := os.WriteFile(exportTo, []byte(newAccessData+"\n"), 0600); err != nil {
 			return err
 		}
-		fmt.Fprintln(clingy.Stdout(ctx), "Exported to:", exportTo)
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), "Exported to:", exportTo)
 	}
 
 	return nil
@@ -213,7 +229,7 @@ func formatPaths(sharePrefixes []uplink.SharePrefix) string {
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.
-func RegisterAccess(ctx context.Context, access *uplink.Access, authService string, public bool, certificateFile string) (credentials *edge.Credentials, err error) {
+func RegisterAccess(ctx context.Context, access *uplink.Access, authService string, public bool, certificateFile string) (credentials *privateEdge.Credentials, err error) {
 	if authService == "" {
 		return nil, errs.New("no auth service address provided")
 	}
@@ -242,7 +258,7 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 	edgeConfig.AuthServiceAddress = authService
 	edgeConfig.CertificatePEM = certificatePEM
 
-	return edgeConfig.RegisterAccess(ctx, access, &edge.RegisterAccessOptions{Public: public})
+	return privateEdge.RegisterAccess(ctx, &edgeConfig, access, &edge.RegisterAccessOptions{Public: public})
 }
 
 // Creates linksharing url for allowed path prefixes.
@@ -259,11 +275,11 @@ func createURL(ctx context.Context, accessKeyID string, prefixes []uplink.ShareP
 		return err
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "=========== BROWSER URL ==================================================================\n")
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "=========== BROWSER URL ==================================================================\n")
 	if key != "" && key[len(key)-1:] != "/" {
-		fmt.Fprintf(clingy.Stdout(ctx), "REMINDER  : Object key must end in '/' when trying to share a prefix\n")
+		_, _ = fmt.Fprintf(clingy.Stdout(ctx), "REMINDER  : Object key must end in '/' when trying to share a prefix\n")
 	}
-	fmt.Fprintf(clingy.Stdout(ctx), "URL       : %s\n", url)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "URL       : %s\n", url)
 	return nil
 }
 
@@ -288,24 +304,28 @@ func createDNS(ctx context.Context, accessKey string, prefixes []uplink.SharePre
 		printStorjRoot = fmt.Sprintf("txt-%s\tIN\tTXT  \tstorj-root:%s/%s", dns, bucket, key)
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "=========== DNS INFO =====================================================================\n")
-	fmt.Fprintf(clingy.Stdout(ctx), "Remember to update the $ORIGIN with your domain name. You may also change the $TTL.\n")
-	fmt.Fprintf(clingy.Stdout(ctx), "$ORIGIN example.com.\n")
-	fmt.Fprintf(clingy.Stdout(ctx), "$TTL    3600\n")
-	fmt.Fprintf(clingy.Stdout(ctx), "%s    \tIN\tCNAME\t%s.\n", dns, CNAME.Host)
-	fmt.Fprintln(clingy.Stdout(ctx), printStorjRoot)
-	fmt.Fprintf(clingy.Stdout(ctx), "txt-%s\tIN\tTXT  \tstorj-access:%s\n", dns, accessKey)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "=========== DNS INFO =====================================================================\n")
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Remember to update the $ORIGIN with your domain name. You may also change the $TTL.\n")
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "$ORIGIN example.com.\n")
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "$TTL    3600\n")
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "%s    \tIN\tCNAME\t%s.\n", dns, CNAME.Host)
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), printStorjRoot)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "txt-%s\tIN\tTXT  \tstorj-access:%s\n", dns, accessKey)
 	if tls {
-		fmt.Fprintf(clingy.Stdout(ctx), "txt-%s\tIN\tTXT  \tstorj-tls:true\n", dns)
+		_, _ = fmt.Fprintf(clingy.Stdout(ctx), "txt-%s\tIN\tTXT  \tstorj-tls:true\n", dns)
 	}
 
 	return nil
 }
 
 // DisplayGatewayCredentials formats and writes credentials to stdout.
-func DisplayGatewayCredentials(ctx context.Context, credentials edge.Credentials, format string, awsProfile string) (err error) {
+func DisplayGatewayCredentials(ctx context.Context, credentials privateEdge.Credentials, format string, awsProfile string) (err error) {
 	switch format {
 	case "env": // export / set compatible format
+		err = printExpirationComment(clingy.Stdout(ctx), credentials.FreeTierRestrictedExpiration)
+		if err != nil {
+			return err
+		}
 		// note that AWS_ENDPOINT configuration is not natively utilized by the AWS CLI
 		_, err = fmt.Fprintf(clingy.Stdout(ctx), "AWS_ACCESS_KEY_ID=%s\n"+
 			"AWS_SECRET_ACCESS_KEY=%s\n"+
@@ -315,6 +335,10 @@ func DisplayGatewayCredentials(ctx context.Context, credentials edge.Credentials
 			return err
 		}
 	case "aws": // aws configuration commands
+		err = printExpirationComment(clingy.Stdout(ctx), credentials.FreeTierRestrictedExpiration)
+		if err != nil {
+			return err
+		}
 		profile := ""
 		if awsProfile != "" {
 			profile = " --profile " + awsProfile
@@ -331,15 +355,46 @@ func DisplayGatewayCredentials(ctx context.Context, credentials edge.Credentials
 		if err != nil {
 			return err
 		}
+	case "om", "objectmount", "object-mount": // object mount compatible format
+		_, err = fmt.Fprintf(clingy.Stdout(ctx), "aws_access_key_id = %s\n"+
+			"aws_secret_access_key = %s\n"+
+			"endpoint = %s\n",
+			credentials.AccessKeyID, credentials.SecretKey, credentials.Endpoint)
+		if err != nil {
+			return err
+		}
 	default: // plain text
-		_, err = fmt.Fprintf(clingy.Stdout(ctx), "========== GATEWAY CREDENTIALS ===========================================================\n"+
+		_, err = fmt.Fprintln(clingy.Stdout(ctx), "========== GATEWAY CREDENTIALS ===========================================================")
+		if err != nil {
+			return err
+		}
+
+		if credentials.FreeTierRestrictedExpiration != nil {
+			_, err = fmt.Fprintf(clingy.Stdout(ctx),
+				"Trial account credentials automatically expire.\n"+
+					"Expiration   : %s\n",
+				formatTime(true, *credentials.FreeTierRestrictedExpiration))
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = fmt.Fprintf(clingy.Stdout(ctx),
 			"Access Key ID: %s\n"+
-			"Secret Key   : %s\n"+
-			"Endpoint     : %s\n",
+				"Secret Key   : %s\n"+
+				"Endpoint     : %s\n",
 			credentials.AccessKeyID, credentials.SecretKey, credentials.Endpoint)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func printExpirationComment(w io.Writer, expiration *time.Time) error {
+	if expiration == nil {
+		return nil
+	}
+	_, err := fmt.Fprintf(w, "# Your trial account credentials will expire at %s.\n", formatTime(true, *expiration))
+	return err
 }

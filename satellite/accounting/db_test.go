@@ -220,7 +220,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
-		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
+		bucketName := metabase.BucketName(fmt.Sprintf("%s%d", "testbucket", i))
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketName,
@@ -232,10 +232,11 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 				ProjectID:  projectID,
 				BucketName: bucketName,
 			},
-			ObjectCount:   int64(1),
-			TotalSegments: int64(2),
-			TotalBytes:    int64(2),
-			MetadataSize:  int64(1),
+			ObjectCount:    int64(1),
+			TotalSegments:  int64(2),
+			TotalBytes:     int64(2),
+			RemainderBytes: int64(i),
+			MetadataSize:   int64(1),
 		}
 		bucketTallies[bucketLocation] = &tally
 		expectedTallies = append(expectedTallies, tally)

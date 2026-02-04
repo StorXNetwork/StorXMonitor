@@ -4,7 +4,7 @@ pipeline {
             label 'main'
             image 'storjlabs/ci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
+            args '-u root:root --cap-add SYS_PTRACE -v "/cache/gomod":/go/pkg/mod -v /cache/golangci-lint:/root/.cache/golangci-lint -v /cache/gobuild:/root/.cache/go-build -v /cache/gobenchmarks:/root/.cache/go-build-benchmarks -v /cache/gomain:/root/.cache/go-build-main -v "/cache/npm":/npm'
         }
     }
     options {
@@ -28,6 +28,7 @@ pipeline {
                 checkout scm
 
                 sh 'mkdir -p .build'
+                sh 'git restore-mtime'
 
                 // download dependencies
                 sh 'go mod download'
@@ -47,7 +48,7 @@ pipeline {
 
                 stage('wasm') {
                     steps {
-                        sh './testsuite/wasm/start.sh'
+                        sh './web/satellite/wasm/run-tests.sh'
                     }
                 }
 
@@ -63,9 +64,9 @@ pipeline {
                     }
                 }
 
-                stage('satellite/admin/ui') {
+                stage('satellite/admin/legacy/ui') {
                     steps {
-                        sh './satellite/admin/ui/build.sh'
+                        sh './satellite/admin/legacy/ui/build.sh'
                     }
                 }
             }
@@ -73,143 +74,128 @@ pipeline {
 
         stage('Build') {
             parallel {
-                stage('go') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
-                    }
-                }
-                stage('go -race') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
-
-                        // install storj-sim
-                        sh 'go install -race -v storj.io/storj/cmd/satellite '+
-                                'storj.io/storj/cmd/storagenode ' +
-                                'storj.io/storj/cmd/storj-sim ' +
-                                'storj.io/storj/cmd/versioncontrol ' +
-                                'storj.io/storj/cmd/uplink ' +
-                                'storj.io/storj/cmd/identity ' +
-                                'storj.io/storj/cmd/certificates ' +
-                                'storj.io/storj/cmd/multinode'
-                    }
-                }
-                stage('go -race gateway') {
-                    steps {
-                        // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@latest'
-                    }
-                }
-
                 stage('db') {
                     steps {
                         sh 'service postgresql start'
                         dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
                         }
                     }
                 }
             }
         }
 
+        stage('Lint') {
+            parallel {
                 stage('Lint') {
                     steps {
-                        sh 'check-mod-tidy'
-                        sh 'check-copyright'
-                        sh 'check-imports -race ./...'
-                        sh 'check-peer-constraints -race'
-                        sh 'check-atomic-align ./...'
-                        sh 'check-monkit ./...'
-                        sh 'check-errs ./...'
-                        sh 'staticcheck ./...'
-                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                        sh 'check-downgrades'
-                        sh 'make check-monitoring'
-                        sh 'make test-wasm-size'
-
-                        sh 'protolock status'
+                        sh 'make llint'
+                    }
+                }
+                stage('Additional checks') {
+                    steps {
                         sh './scripts/check-package-lock.sh'
+                        dir("testsuite/storjscan") {
+                            sh 'go vet ./...'
+                        }
+                    }
 
+                }
+                stage('licenses check') {
+                    steps {
                         // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
-                        sh 'go-licenses check --ignore "storj.io/storj" ./...'
+                        // note: json-iterator is replaced by our stub, it should be ignored as storj.io/storj.
+                        sh 'go-licenses check --ignore "storj.io/storj" --ignore "github.com/json-iterator/go" ./...'
                     }
                 }
-                stage('Cross Compile') {
-                    steps {
-                        // verify most of the commands, we cannot check everything since some of them
-                        // have a C dependency and we don't have cross-compilation in storj/ci image
-                        sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
-                    }
-                }
-                stage('Tests') {
-                    environment {
-                        STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
-                        STORJ_TEST_COCKROACH_NODROP = 'true'
-                        STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                        STORJ_TEST_LOG_LEVEL = 'info'
-                        COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
-                        GOEXPERIMENT = 'nocoverageredesign'
-                    }
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
+            }
+        }
 
-                        sh 'psql -U postgres -c \'create database teststorj;\''
+        stage('Cross Compile') {
+            steps {
+                // verify most of the commands, we cannot check everything since some of them
+                // have a C dependency and we don't have cross-compilation in storj/ci image
+                sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
+            }
+        }
 
-                        sh 'use-ports -from 1024 -to 10000 &'
+        stage('Tests') {
+            environment {
+                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'info'
+                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
+                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
+                STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
+                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
+                GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS='true'
+            }
+            steps {
+                sh 'use-ports -from 1024 -to 10000 &'
 
-                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-                    }
+                sh 'go test -parallel 9 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+            }
 
-                    post {
-                        always {
-                            archiveArtifacts artifacts: '.build/tests.json'
-                            sh script: 'cat .build/tests.json | tparse -all -slow 100', returnStatus: true
-                            junit '.build/tests.xml'
+            post {
+                always {
+                    archiveArtifacts artifacts: '.build/tests.json'
+                    sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
+                    junit '.build/tests.xml'
 
-                            script {
-                                if(fileExists(".build/coverprofile")){
-                                    sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                                    sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                                    sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                                    sh script: 'gzip .build/clean.coverprofile -c > .build/clean.coverprofile.gz'
-                                    archiveArtifacts artifacts: '.build/clean.coverprofile.gz'
-                                    cobertura coberturaReportFile: '.build/cobertura.xml',
-                                        lineCoverageTargets: '70, 60, 50',
-                                        autoUpdateHealth: false,
-                                        autoUpdateStability: false,
-                                        failUnhealthy: true
-                                }
-                            }
+                    script {
+                        if(fileExists(".build/coverprofile")){
+                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                            archiveArtifacts artifacts: '.build/clean.coverprofile'
+                            recordCoverage(
+                                tools: [[parser: 'GO_COV', pattern: '.build/clean.coverprofile']],
+                                sourceCodeRetention: 'NEVER',
+                            )
                         }
                     }
                 }
+            }
+        }
 
-                stage('Check Benchmark') {
-                    environment {
-                        STORJ_TEST_COCKROACH = 'omit'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
-                    }
-                    steps {
-                        sh 'psql -U postgres -c \'create database benchstorj;\''
-                        sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
-                    }
+        stage('Satellite UI Tests') {
+            environment {
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'debug'
+            }
+
+            steps {
+                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                sh 'make test-satellite-ui'
+            }
+
+            post {
+                failure {
+                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
+                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
                 }
+            }
+        }
 
-                stage('Integration') {
+        stage('Check Benchmark') {
+            environment {
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_SPANNER = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                GOCACHE = '/root/.cache/go-build-benchmarks'
+            }
+            steps {
+                sh 'psql -U postgres -c \'create database benchstorj;\''
+                sh 'go test -parallel 1 -p 16 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+            }
+        }
+
+        stage('Integration') {
+            parallel {
+                stage('Postgres') {
                     environment {
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
@@ -226,7 +212,7 @@ pipeline {
                     }
                 }
 
-                stage('Cockroach Integration') {
+                stage('Cockroach') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
                         STORJ_NETWORK_HOST6 = '127.0.0.4'
@@ -240,30 +226,19 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
                     }
                 }
+            }
+        }
 
-                stage('Integration Redis unavailability') {
-                    environment {
-                        // use different hostname to avoid port conflicts
-                        STORJ_NETWORK_HOST4 = '127.0.0.6'
-                        STORJ_NETWORK_HOST6 = '127.0.0.6'
-                        STORJ_REDIS_PORT = '7379'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj6;\''
-                        sh 'make test-sim-redis-unavailability'
-                    }
-                }
-
-                stage('Backwards Compatibility') {
+        stage('Backwards Compatibility') {
+            parallel {
+                stage('Postgres') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
 
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
                         STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
+                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
                     }
 
                     steps {
@@ -272,13 +247,14 @@ pipeline {
                     }
                 }
 
-                stage('Cockroach Backwards Compatibility') {
+                stage('Cockroach') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.5'
                         STORJ_NETWORK_HOST6 = '127.0.0.5'
 
                         STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
                         STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
+                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
                     }
 
                     steps {
@@ -287,6 +263,25 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
                     }
                 }
+            }
+        }
+
+        stage('Integration Redis unavailability') {
+            environment {
+                // use different hostname to avoid port conflicts
+                STORJ_NETWORK_HOST4 = '127.0.0.6'
+                STORJ_NETWORK_HOST6 = '127.0.0.6'
+                STORJ_REDIS_PORT = '7379'
+
+                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
+            }
+
+            steps {
+                sh 'psql -U postgres -c \'create database teststorj6;\''
+                sh 'make test-sim-redis-unavailability'
+            }
+        }
+
         stage('Post') {
             parallel {
                 stage('Lint') {

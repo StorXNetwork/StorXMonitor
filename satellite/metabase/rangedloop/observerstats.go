@@ -4,12 +4,16 @@
 package rangedloop
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"go.uber.org/zap"
 
 	"storj.io/eventkit"
+	"storj.io/storj/satellite/metabase"
 )
 
 var (
@@ -70,4 +74,92 @@ func observerName(o Observer) string {
 		name += fmt.Sprintf("[%s]", dr.GetClass())
 	}
 	return name
+}
+
+var _ Observer = (*SegmentsCountValidation)(nil)
+var _ Partial = (*segmentsCountValidationFork)(nil)
+
+// SegmentsCountValidation is an observer that validates the segments count before and after the ranged loop.
+type SegmentsCountValidation struct {
+	log            *zap.Logger
+	mb             *metabase.DB
+	checkTimestamp time.Time
+
+	initialStats metabase.SegmentsStats
+
+	processedSegments map[string]int64
+}
+
+// NewSegmentsCountValidation creates a new observer that validates the segments count.
+func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp time.Time) *SegmentsCountValidation {
+	return &SegmentsCountValidation{
+		log:               log,
+		mb:                mb,
+		checkTimestamp:    checkTimestamp,
+		processedSegments: make(map[string]int64),
+	}
+}
+
+// Start fetches the initial segments count.
+func (s *SegmentsCountValidation) Start(ctx context.Context, startTime time.Time) error {
+	s.log.Info("starting segments count validation", zap.Time("check_timestamp", s.checkTimestamp))
+
+	stats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	s.initialStats = stats
+	return nil
+}
+
+// Fork creates a new partial observer for a fork of the ranged loop.
+func (s *SegmentsCountValidation) Fork(ctx context.Context) (Partial, error) {
+	return &segmentsCountValidationFork{
+		count: make(map[string]int64),
+	}, nil
+}
+
+// Join aggregates the results from a fork of the ranged loop.
+func (s *SegmentsCountValidation) Join(ctx context.Context, partial Partial) error {
+	countPartial := partial.(*segmentsCountValidationFork)
+
+	for key, value := range countPartial.count {
+		s.processedSegments[key] += value
+	}
+	return nil
+}
+
+// Finish fetches the final segments count and compares it to the initial count and the processed segments.
+func (s *SegmentsCountValidation) Finish(ctx context.Context) error {
+	finalStats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var totalProcessed int64
+	for _, count := range s.processedSegments {
+		totalProcessed += count
+	}
+
+	if s.initialStats.SegmentCount != finalStats.SegmentCount || s.initialStats.SegmentCount != totalProcessed {
+		s.log.Warn("segments count validation failed",
+			zap.Int64("processed", totalProcessed),
+			zap.Any("processed_by_source", s.processedSegments),
+			zap.String("initial_stats", fmt.Sprintf("%d %v", s.initialStats.SegmentCount, s.initialStats.PerAdapterSegmentCount)),
+			zap.String("final_stats", fmt.Sprintf("%d %v", finalStats.SegmentCount, finalStats.PerAdapterSegmentCount)))
+	}
+
+	return nil
+}
+
+type segmentsCountValidationFork struct {
+	count map[string]int64
+}
+
+func (s *segmentsCountValidationFork) Process(ctx context.Context, segments []Segment) error {
+	// TODO this is not supper efficient but not sure if this code will stay here for long
+	for _, segment := range segments {
+		s.count[segment.Source]++
+	}
+	return nil
 }

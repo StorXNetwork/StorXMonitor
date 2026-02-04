@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -21,6 +22,7 @@ type Info struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
 	UserAgent  []byte
+	Placement  *storj.PlacementConstraint
 	CreatedAt  time.Time
 }
 
@@ -46,8 +48,14 @@ type DB interface {
 	Insert(ctx context.Context, info *Info) (*Info, error)
 	// UpdateUserAgent updates bucket attribution data.
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
+	// UpdatePlacement updates bucket placement.
+	UpdatePlacement(ctx context.Context, projectID uuid.UUID, bucketName string, placement *storj.PlacementConstraint) error
 	// QueryAttribution queries partner bucket attribution data.
 	QueryAttribution(ctx context.Context, userAgent []byte, start time.Time, end time.Time) ([]*BucketUsage, error)
 	// QueryAllAttribution queries all partner bucket usage data.
 	QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) ([]*BucketUsage, error)
+	// BackfillPlacementBatch updates up to batchSize rows of value_attributions.placement from bucket_metainfos.
+	BackfillPlacementBatch(ctx context.Context, batchSize int) (int64, bool, error)
+	// TestDelete is used for testing purposes to delete all attribution data for a given project and bucket.
+	TestDelete(ctx context.Context, projectID uuid.UUID, bucketName []byte) error
 }

@@ -75,6 +75,9 @@ type Pool struct {
 
 	satellitesMu sync.RWMutex
 	satellites   map[storj.NodeID]*satelliteInfoCache
+
+	// set it to true, to refresh trust pool at the very beginning of the run loop.
+	StartWithRefresh bool
 }
 
 // satelliteInfoCache caches identity information about a satellite.
@@ -111,6 +114,13 @@ func NewPool(log *zap.Logger, resolver IdentityResolver, config Config, satellit
 // Run periodically refreshes the pool. The initial refresh is intended to
 // happen before run is call. Therefore Run does not refresh right away.
 func (pool *Pool) Run(ctx context.Context) error {
+	if pool.StartWithRefresh {
+		if err := pool.Refresh(ctx); err != nil {
+			pool.log.Error("Failed to refresh", zap.Error(err))
+			return err
+		}
+	}
+
 	for {
 		refreshAfter := jitter(pool.refreshInterval)
 		pool.log.Info("Scheduling next refresh", zap.Duration("after", refreshAfter))
@@ -124,18 +134,22 @@ func (pool *Pool) Run(ctx context.Context) error {
 	}
 }
 
+var monVerifySatelliteID = mon.Task()
+
 // VerifySatelliteID checks whether id corresponds to a trusted satellite.
 func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monVerifySatelliteID(&ctx)(&err)
 
 	_, err = pool.getInfo(id)
 	return err
 }
 
+var monGetSignee = mon.Task()
+
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
 func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monGetSignee(&ctx)(&err)
 
 	info, err := pool.getInfo(id)
 	if err != nil {
@@ -159,9 +173,13 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 // GetSatellites returns a slice containing all trusted satellites.
 func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID) {
 	defer mon.Task()(&ctx)(nil)
+
+	pool.satellitesMu.RLock()
 	for sat := range pool.satellites {
 		satellites = append(satellites, sat)
 	}
+	pool.satellitesMu.RUnlock()
+
 	sort.Sort(storj.NodeIDList(satellites))
 	return satellites
 }

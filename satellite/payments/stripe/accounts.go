@@ -5,15 +5,26 @@ package stripe
 
 import (
 	"context"
+	"errors"
+	"sort"
+	"strings"
 	"time"
 
-	"github.com/stripe/stripe-go/v75"
+	"github.com/shopspring/decimal"
+	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
+	"storj.io/common/currency"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/coinpayments"
 )
+
+const invoiceReferenceCustomFieldName = "Reference"
 
 // ensures that accounts implements payments.Accounts.
 var _ payments.Accounts = (*accounts)(nil)
@@ -28,6 +39,16 @@ type accounts struct {
 // CreditCards exposes all needed functionality to manage account credit cards.
 func (accounts *accounts) CreditCards() payments.CreditCards {
 	return &creditCards{service: accounts.service}
+}
+
+// PaymentIntents exposes all needed functionality to manage credit cards charging.
+func (accounts *accounts) PaymentIntents() payments.PaymentIntents {
+	return &paymentIntents{service: accounts.service}
+}
+
+// WebhookEvents exposes all needed functionality to handle a stripe webhookEvents event.
+func (accounts *accounts) WebhookEvents() payments.WebhookEvents {
+	return &webhookEvents{service: accounts.service}
 }
 
 // Balances exposes all needed functionality to manage account balances.
@@ -59,10 +80,14 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 
 	if signupPromoCode == "" {
 
-		params.Coupon = stripe.String(accounts.service.StripeFreeTierCouponID)
+		params.Coupon = stripe.String(accounts.service.stripeConfig.StripeFreeTierCouponID)
 
 		customer, err := accounts.service.stripeClient.Customers().New(params)
 		if err != nil {
+			stripeErr := &stripe.Error{}
+			if errors.As(err, &stripeErr) {
+				err = errs.Wrap(errors.New(stripeErr.Msg))
+			}
 			return couponType, Error.Wrap(err)
 		}
 
@@ -88,17 +113,473 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	if promoCode != nil && promoCode.Coupon != nil {
 		params.Coupon = stripe.String(promoCode.Coupon.ID)
 		couponType = payments.SignupCoupon
-	} else if accounts.service.StripeFreeTierCouponID != "" {
-		params.Coupon = stripe.String(accounts.service.StripeFreeTierCouponID)
+	} else if accounts.service.stripeConfig.StripeFreeTierCouponID != "" {
+		params.Coupon = stripe.String(accounts.service.stripeConfig.StripeFreeTierCouponID)
 	}
 
 	customer, err := accounts.service.stripeClient.Customers().New(params)
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
 		return couponType, Error.Wrap(err)
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
 	return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
+}
+
+// ShouldSkipMinimumCharge returns true if, for the given user, we should
+// not apply a minimum charge (either because they have a positive token balance,
+// they have legacy token TXs or because they have an active package plan).
+func (accounts *accounts) ShouldSkipMinimumCharge(ctx context.Context, cusID string, userID uuid.UUID) (bool, error) {
+	// 1) Check token balance.
+	monetaryBalance, err := accounts.service.billingDB.GetBalance(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	// Truncate to cents, since Stripe only invoices at cent precision.
+	tokenBalance := currency.AmountFromDecimal(
+		monetaryBalance.AsDecimal().Truncate(2),
+		currency.USDollars,
+	)
+	if tokenBalance.BaseUnits() > 0 {
+		return true, nil // there is still a positive balance, skip minimum charge.
+	}
+
+	// 2) Check if the user has any complete legacy STORJ token transactions.
+	txInfos, err := accounts.service.db.Transactions().ListAccount(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	foundLegacyTX := false
+	for _, tx := range txInfos {
+		if tx.Status == coinpayments.StatusCompleted {
+			foundLegacyTX = true
+			break
+		}
+	}
+	if foundLegacyTX {
+		// If the user has legacy STORJ token transactions, we should skip minimum charge.
+		return true, nil
+	}
+
+	// 3) Check package plan info.
+	packagePlanInfo, purchaseDate, err := accounts.GetPackageInfo(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	// We check for plan expiration one step before creating an invoice so there is no need to do it here again.
+	// We should just make sure that service.removeExpiredCredit is set to true.
+	if packagePlanInfo != nil && purchaseDate != nil && accounts.service.pricingConfig.MinimumChargeDate != nil {
+		if purchaseDate.After(*accounts.service.pricingConfig.MinimumChargeDate) {
+			return false, nil // User has a package plan, but it was purchased after the minimum charge date, so we should not skip.
+		}
+
+		if cusID == "" {
+			cusID, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		// Stripe returns list ordered by most recent, so ending balance of the first item is current balance.
+		list := accounts.service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{
+			Customer:   stripe.String(cusID),
+			ListParams: stripe.ListParams{Context: ctx, Limit: stripe.Int64(1)},
+		})
+
+		var hasCredit bool
+
+		for list.Next() {
+			tx := list.CustomerBalanceTransaction()
+			// The customer's `balance` after the transaction was applied.
+			// A negative value decreases the amount due on the customer's next invoice.
+			// Which means that if the balance is negative, the customer has credit.
+			if tx.EndingBalance < 0 {
+				hasCredit = true
+				break
+			}
+		}
+
+		return hasCredit, nil // If the user has purchased a package plan before the minimum charge date, we should skip if they have credit.
+	}
+
+	// Otherwise, no reason to skip.
+	return false, nil
+}
+
+// EnsureUserHasCustomer creates a stripe customer for userID if non exists.
+func (accounts *accounts) EnsureUserHasCustomer(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) (err error) {
+	defer mon.Task()(&ctx, userID, email)(&err)
+
+	_, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		if !errors.Is(err, ErrNoCustomer) {
+			return Error.Wrap(err)
+		}
+
+		_, err = accounts.Setup(ctx, userID, email, signupPromoCode)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// ChangeEmail changes a customer's email address.
+func (accounts *accounts) ChangeEmail(ctx context.Context, userID uuid.UUID, email string) (err error) {
+	defer mon.Task()(&ctx, userID, email)(&err)
+
+	cusID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+		Email:  stripe.String(email),
+	}
+
+	_, err = accounts.service.stripeClient.Customers().Update(cusID, params)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// ChangeCustomerEmail changes a customer's email address given the customer ID. This is meant for use
+// for methods that run in a transaction to avoid ChangeEmail's non-tx DB lookup. Callers are expected
+// to have retrieved customer ID from DB already.
+func (accounts *accounts) ChangeCustomerEmail(ctx context.Context, userID uuid.UUID, cusID, email string) (err error) {
+	defer mon.Task()(&ctx, userID, email)(&err)
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+		Email:  stripe.String(email),
+	}
+	_, err = accounts.service.stripeClient.Customers().Update(cusID, params)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// SaveBillingAddress saves billing address for a user and returns the updated billing information.
+func (accounts *accounts) SaveBillingAddress(ctx context.Context, customerID string, userID uuid.UUID, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if customerID == "" {
+		customerID, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	customerParams := &stripe.CustomerParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		Name: &address.Name,
+		Address: &stripe.AddressParams{
+			Line1:      stripe.String(address.Line1),
+			Line2:      stripe.String(address.Line2),
+			City:       stripe.String(address.City),
+			PostalCode: stripe.String(address.PostalCode),
+			State:      stripe.String(address.State),
+			Country:    stripe.String(string(address.Country.Code)),
+		},
+		// Mirror billing address to shipping address for tax calculation purposes.
+		// Some tax integrations prioritize customer.shipping.address over customer.address
+		// for determining customer location for sales tax calculation.
+		Shipping: &stripe.CustomerShippingParams{
+			Name: &address.Name,
+			Address: &stripe.AddressParams{
+				Line1:      stripe.String(address.Line1),
+				Line2:      stripe.String(address.Line2),
+				City:       stripe.String(address.City),
+				PostalCode: stripe.String(address.PostalCode),
+				State:      stripe.String(address.State),
+				Country:    stripe.String(string(address.Country.Code)),
+			},
+		},
+	}
+	customerParams.AddExpand("tax_ids")
+
+	customer, err := accounts.service.stripeClient.Customers().Update(customerID, customerParams)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	return accounts.unpackBillingInformation(*customer)
+}
+
+// AddTaxID adds a new tax ID for a user and returns the updated billing information.
+func (accounts *accounts) AddTaxID(ctx context.Context, customerID string, userID uuid.UUID, params payments.AddTaxParams) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if customerID == "" {
+		customerID, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	taxIDParams := stripe.TaxIDParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		Customer: stripe.String(customerID),
+		Type:     stripe.String(params.Type),
+		Value:    stripe.String(params.Value),
+	}
+	_, err = accounts.service.stripeClient.TaxIDs().New(&taxIDParams)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			switch stripeErr.Code {
+			case stripe.ErrorCodeResourceAlreadyExists:
+				// Ignore duplicate tax ID error.
+			case stripe.ErrorCodeTaxIDInvalid:
+				return nil, Error.Wrap(payments.ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
+			default:
+				return nil, Error.Wrap(errs.Wrap(errors.New(stripeErr.Msg)))
+			}
+		} else {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	cusParams := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+	}
+	cusParams.AddExpand("tax_ids")
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, cusParams)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return accounts.unpackBillingInformation(*customer)
+}
+
+// AddDefaultInvoiceReference adds a new default invoice reference to be displayed on each invoice and returns the updated billing information.
+func (accounts *accounts) AddDefaultInvoiceReference(ctx context.Context, userID uuid.UUID, reference string) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	reference = strings.TrimSpace(reference)
+
+	if len(reference) > 140 {
+		return nil, Error.New("invoice reference is too long")
+	}
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	customerParams := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, customerParams)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	customFieldMap := make(map[string]string)
+	if customer.InvoiceSettings != nil && customer.InvoiceSettings.CustomFields != nil {
+		for _, field := range customer.InvoiceSettings.CustomFields {
+			customFieldMap[field.Name] = field.Value
+		}
+	}
+
+	if reference != "" {
+		customFieldMap[invoiceReferenceCustomFieldName] = reference
+	} else {
+		delete(customFieldMap, invoiceReferenceCustomFieldName)
+	}
+
+	// Ensure we don't exceed the custom field limit.
+	if len(customFieldMap) > 4 {
+		return nil, Error.New("cannot have more than 4 invoice custom fields")
+	}
+
+	var customFields []*stripe.CustomerInvoiceSettingsCustomFieldParams
+	for name, value := range customFieldMap {
+		f := &stripe.CustomerInvoiceSettingsCustomFieldParams{
+			Name:  stripe.String(name),
+			Value: stripe.String(value),
+		}
+		customFields = append(customFields, f)
+	}
+
+	customerParams.InvoiceSettings = &stripe.CustomerInvoiceSettingsParams{}
+
+	if len(customFields) > 0 {
+		customerParams.InvoiceSettings.CustomFields = customFields
+	} else {
+		// Use AddExtra to clear 'invoice_settings[custom_fields]'.
+		customerParams.AddExtra("invoice_settings[custom_fields]", "")
+	}
+
+	customerParams.AddExpand("tax_ids")
+
+	customer, err = accounts.service.stripeClient.Customers().Update(customerID, customerParams)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	return accounts.unpackBillingInformation(*customer)
+}
+
+// RemoveTaxID removes a tax ID from a user and returns the updated billing information.
+func (accounts *accounts) RemoveTaxID(ctx context.Context, userID uuid.UUID, id string) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	_, err = accounts.service.stripeClient.TaxIDs().Del(id, &stripe.TaxIDParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		Customer: &customerID,
+	})
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+	}
+	params.AddExpand("tax_ids")
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return accounts.unpackBillingInformation(*customer)
+}
+
+// GetBillingInformation gets the billing information for a user.
+func (accounts *accounts) GetBillingInformation(ctx context.Context, userID uuid.UUID) (info *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+	}
+	params.AddExpand("tax_ids")
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	return accounts.unpackBillingInformation(*customer)
+}
+
+func (accounts *accounts) unpackBillingInformation(customer stripe.Customer) (info *payments.BillingInformation, err error) {
+	// use customer.address to determine if the customer has custom billing information.
+	hasNoAddress := customer.Address == nil || customer.Address == (&stripe.Address{})
+	hasNoTaxInfo := customer.TaxIDs == nil || len(customer.TaxIDs.Data) == 0
+	hasNoCustomFields := customer.InvoiceSettings == nil || customer.InvoiceSettings.CustomFields == nil
+
+	if hasNoAddress && hasNoTaxInfo && hasNoCustomFields {
+		return &payments.BillingInformation{}, nil
+	}
+
+	var (
+		address   *payments.BillingAddress
+		reference string
+	)
+	taxIDs := make([]payments.TaxID, 0)
+
+	if !hasNoAddress {
+		stripeAddr := customer.Address
+		countryCode := payments.CountryCode(stripeAddr.Country)
+		var country payments.TaxCountry
+		for _, taxCountry := range payments.TaxCountries {
+			if taxCountry.Code == countryCode {
+				country = taxCountry
+				break
+			}
+		}
+		if (country == payments.TaxCountry{}) {
+			// if country is not found in the list of tax countries, use the country code as the name
+			country.Name = stripeAddr.Country
+			country.Code = countryCode
+		}
+		address = &payments.BillingAddress{
+			Name:       customer.Name,
+			Line1:      stripeAddr.Line1,
+			Line2:      stripeAddr.Line2,
+			City:       stripeAddr.City,
+			PostalCode: stripeAddr.PostalCode,
+			State:      stripeAddr.State,
+			Country:    country,
+		}
+	}
+	if !hasNoTaxInfo {
+		for _, taxID := range customer.TaxIDs.Data {
+			var tax payments.Tax
+			for _, t := range payments.Taxes {
+				if t.Code == taxID.Type {
+					tax = t
+					break
+				}
+			}
+			taxIDs = append(taxIDs, payments.TaxID{
+				ID:    taxID.ID,
+				Tax:   tax,
+				Value: taxID.Value,
+			})
+		}
+	}
+	if !hasNoCustomFields {
+		for _, field := range customer.InvoiceSettings.CustomFields {
+			if field.Name == invoiceReferenceCustomFieldName {
+				reference = field.Value
+				break
+			}
+		}
+	}
+
+	return &payments.BillingInformation{
+		Address:          address,
+		TaxIDs:           taxIDs,
+		InvoiceReference: reference,
+	}, nil
 }
 
 // UpdatePackage updates a customer's package plan information.
@@ -125,58 +606,244 @@ func (accounts *accounts) GetPackageInfo(ctx context.Context, userID uuid.UUID) 
 	return
 }
 
-// ProjectCharges returns how much money current user will be charged for each project.
-func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProjectChargesResponse, err error) {
+// CalculateProjectUsagePrice calculates the price for given project usage and price model.
+func (accounts *accounts) CalculateProjectUsagePrice(usage payments.ProjectUsage, priceModel payments.ProjectUsagePriceModel) payments.UsageCost {
+	usage.Egress = applyEgressDiscount(usage, priceModel)
+	pricing := accounts.service.calculateProjectUsagePrice(usage, priceModel)
+
+	return payments.UsageCost{
+		Storage: pricing.Storage,
+		Egress:  pricing.Egress,
+		Segment: pricing.Segments,
+	}
+}
+
+// ProductCharges returns how much money current user will be charged for each project split by product.
+func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProductChargesResponse, err error) {
 	defer mon.Task()(&ctx, userID, since, before)(&err)
 
-	charges = make(payments.ProjectChargesResponse)
+	charges = make(payments.ProductChargesResponse)
 
-	projects, err := accounts.service.projectsDB.GetOwn(ctx, userID)
+	projects, err := accounts.service.projectsDB.GetOwnActive(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	for _, project := range projects {
-		usages, err := accounts.service.usageDB.GetProjectTotalByPartner(ctx, project.ID, accounts.service.partnerNames, since, before)
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		err = accounts.service.getAndProcessUsages(ctx, project.ID, project.PublicID, productUsages, productInfos, since, before)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		partnerCharges := make(map[string]payments.ProjectCharge)
+		productIDs := getSortedProductIDs(productUsages)
 
-		for partner, usage := range usages {
-			priceModel := accounts.GetProjectUsagePriceModel(partner)
-			usage.Egress = applyEgressDiscount(usage, priceModel)
-			price := accounts.service.calculateProjectUsagePrice(usage, priceModel)
+		productCharges := make(map[int32]payments.ProductCharge)
 
-			partnerCharges[partner] = payments.ProjectCharge{
-				ProjectUsage: usage,
+		for _, productID := range productIDs {
+			usage := productUsages[productID]
+			info := productInfos[productID]
 
-				EgressMBCents:       price.Egress.IntPart(),
-				SegmentMonthCents:   price.Segments.IntPart(),
-				StorageMBMonthCents: price.Storage.IntPart(),
+			discountedUsage := usage.Clone() // make a copy to avoid modifying the original usage.
+			discountedUsage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
+
+			if info.EgressOverageMode {
+				discountedUsage.IncludedEgress = usage.Egress - discountedUsage.Egress
+			}
+
+			// Apply rounding up logic if the feature flag is enabled and UseGBUnits is set.
+			// This rounds up to the nearest whole GB but keeps values in bytes for the frontend.
+			if accounts.service.stripeConfig.RoundUpInvoiceUsage && info.UseGBUnits {
+				conversionFactor := decimal.NewFromInt(mbToGBConversionFactor)
+				// Round up storage: convert byte-hours to GB-Month, round up, then convert back to byte-hours.
+				// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
+				// Then multiply back to get rounded byte-hours.
+				storageGBMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
+				if discountedUsage.Storage > 0 {
+					roundedGBMonth := storageGBMonth.Ceil()
+					if roundedGBMonth.IsZero() {
+						roundedGBMonth = decimal.NewFromInt(1)
+					}
+
+					roundedByteHours, _ := roundedGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
+					discountedUsage.Storage = roundedByteHours
+				}
+
+				// Round up egress: convert bytes to GB, round up, then convert back to bytes.
+				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+				egressGB := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(conversionFactor)
+				if discountedUsage.Egress > 0 {
+					roundedGB := egressGB.Ceil()
+					if roundedGB.IsZero() {
+						roundedGB = decimal.NewFromInt(1)
+					}
+
+					discountedUsage.Egress = roundedGB.Mul(conversionFactor).Shift(6).IntPart()
+				}
+
+				// Round up included egress for overage mode.
+				if info.EgressOverageMode && discountedUsage.IncludedEgress > 0 {
+					includedEgressGB := decimal.NewFromInt(discountedUsage.IncludedEgress).Shift(-6).Div(conversionFactor)
+					roundedIncludedGB := includedEgressGB.Ceil()
+					if roundedIncludedGB.IsZero() {
+						roundedIncludedGB = decimal.NewFromInt(1)
+					}
+					discountedUsage.IncludedEgress = roundedIncludedGB.Mul(conversionFactor).Shift(6).IntPart()
+				}
+
+				// Round up remainder storage when PopulateMinObjectSizeInvoiceLineItem is enabled.
+				if accounts.service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem && discountedUsage.RemainderStorage > 0 {
+					remainderStorageGBMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
+					roundedRemainderGBMonth := remainderStorageGBMonth.Ceil()
+					if roundedRemainderGBMonth.IsZero() {
+						roundedRemainderGBMonth = decimal.NewFromInt(1)
+					}
+
+					roundedRemainderByteHours, _ := roundedRemainderGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
+					discountedUsage.RemainderStorage = roundedRemainderByteHours
+				}
+			}
+
+			price := accounts.service.calculateProjectUsagePrice(discountedUsage, info.ProjectUsagePriceModel)
+
+			// Calculate remainder storage fee if PopulateMinObjectSizeInvoiceLineItem is enabled.
+			var smallObjectFeePrice decimal.Decimal
+			var minimumRetentionFeePrice decimal.Decimal
+			if accounts.service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+				if !info.SmallObjectFeeCents.IsZero() && discountedUsage.RemainderStorage > 0 {
+					smallObjectFeePrice = info.SmallObjectFeeCents.Mul(storageMBMonthDecimal(discountedUsage.RemainderStorage)).Round(0)
+				}
+				if !info.MinimumRetentionFeeCents.IsZero() {
+					// Minimum retention fee is not currently calculated based on actual usage,
+					// but we keep this placeholder for future implementation.
+					minimumRetentionFeePrice = decimal.Zero
+				}
+			}
+
+			productCharges[productID] = payments.ProductCharge{
+				ProjectUsage: discountedUsage,
+
+				ProductUsagePriceModel: info,
+
+				EgressMBCents:                   price.Egress.IntPart(),
+				SegmentMonthCents:               price.Segments.IntPart(),
+				StorageMBMonthCents:             price.Storage.IntPart(),
+				SmallObjectFeeMBMonthCents:      smallObjectFeePrice.IntPart(),
+				MinimumRetentionFeeMBMonthCents: minimumRetentionFeePrice.IntPart(),
 			}
 		}
 
-		// to return unpartnered empty charge if there's no usage
-		if len(partnerCharges) == 0 {
-			partnerCharges[""] = payments.ProjectCharge{
-				ProjectUsage: accounting.ProjectUsage{Since: since, Before: before},
-			}
-		}
-
-		charges[project.PublicID] = partnerCharges
+		charges[project.PublicID] = productCharges
 	}
 
 	return charges, nil
 }
 
-// GetProjectUsagePriceModel returns the project usage price model for a partner name.
-func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.ProjectUsagePriceModel {
-	if override, ok := accounts.service.usagePriceOverrides[partner]; ok {
-		return override
+// GetProjectUsagePriceModel returns the default project usage price model.
+func (accounts *accounts) GetProjectUsagePriceModel() payments.ProjectUsagePriceModel {
+	return accounts.service.pricingConfig.UsagePrices
+}
+
+// GetPlacementPriceModel returns the productID and related usage price model for a placement,
+// if there is none defined for the project ID.
+func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel) {
+	if accounts.service.config.EntitlementsEnabled {
+		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
+		if err != nil {
+			accounts.service.log.Error(
+				"could not get pricing entitlements for project, falling back to defaults",
+				zap.Int("placement", int(placement)), zap.Error(err))
+		}
+		for placementConstraint, productID := range feats.PlacementProductMappings {
+			if placementConstraint != placement {
+				continue
+			}
+			if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
+				return productID, price
+			}
+			accounts.service.log.Info(
+				"no product definition for product, falling back to defaults",
+				zap.Int("placement", int(placement)))
+			// fall through to global pricing
+		}
 	}
-	return accounts.service.usagePrices
+
+	productID, ok := accounts.service.pricingConfig.PlacementProductMap.GetProductByPlacement(int(placement))
+	if !ok {
+		accounts.service.log.Info(
+			"no product mapping for placement, falling back to defaults",
+			zap.Int("placement", int(placement)))
+		return 0, payments.ProductUsagePriceModel{
+			ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
+		}
+	}
+
+	if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
+		return productID, price
+	}
+
+	accounts.service.log.Info(
+		"no product definition for product, falling back to defaults",
+		zap.Int("placement", int(placement)))
+
+	// fall back to default pricing
+	return 0, payments.ProductUsagePriceModel{
+		ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
+	}
+}
+
+// GetPlacementProductMappings returns the placement to product ID mappings.
+func (accounts *accounts) GetPlacementProductMappings() payments.PlacementProductIdMap {
+	placementMap := make(payments.PlacementProductIdMap)
+	for placement, productID := range accounts.service.pricingConfig.PlacementProductMap {
+		placementMap[placement] = productID
+	}
+	return placementMap
+}
+
+// ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key
+// if there is none defined for the project ID.
+func (accounts *accounts) ProductIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, payments.ProductUsagePriceModel) {
+	return accounts.service.productIdAndPriceForUsageKey(ctx, projectPublicID, key)
+}
+
+// GetPlacements returns the placements for a project. It will return the placements allowed for the
+// project on the entitlements level or those allowed globally if entitlements are disabled.
+// It also returns a boolean, entitlementHasPlacement, indicating if the project's entitlement has any new buckets
+// placements defined.
+func (accounts *accounts) GetPlacements(ctx context.Context, projectPublicID uuid.UUID) (_ []storj.PlacementConstraint, entitlementsHasPlacements bool, _ error) {
+	placements := make([]storj.PlacementConstraint, 0)
+
+	if accounts.service.config.EntitlementsEnabled {
+		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
+		switch {
+		case err == nil:
+			placements = append(placements, feats.NewBucketPlacements...)
+			sort.SliceStable(placements, func(i, j int) bool {
+				return placements[i] < placements[j]
+			})
+			return placements, true, nil
+		case entitlements.ErrNotFound.Has(err):
+			// fall through to global level placements
+			// log at info level, as this is not an error case
+			accounts.service.log.Info(
+				"no entitlements found for project, falling back to global placements",
+				zap.String("project_public_id", projectPublicID.String()))
+		default:
+			return nil, false, err
+		}
+	}
+
+	for placement := range accounts.service.pricingConfig.PlacementProductMap {
+		placements = append(placements, storj.PlacementConstraint(placement))
+	}
+	sort.SliceStable(placements, func(i, j int) bool {
+		return placements[i] < placements[j]
+	})
+
+	return placements, false, nil
 }
 
 // CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
@@ -209,35 +876,87 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 }
 
 // CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) error {
-	var err error
+func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID, projectPublicID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	year, month, _ := accounts.service.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	// check current month usage and do not allow deletion if usage exists
-	currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
-	if err != nil {
-		return err
-	}
-	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
-		return errs.New("usage for current month exists")
+	if accounts.service.config.DeleteProjectCostThreshold == 0 {
+		// check current month usage and do not allow deletion if usage exists
+		currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
+		if err != nil {
+			return false, false, decimal.Zero, err
+		}
+		if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
+			return true, false, decimal.Zero, payments.ErrUnbilledUsageCurrentMonth
+		}
+
+		// check usage for last month, if exists, ensure we have an invoice item created.
+		lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+		if err != nil {
+			return false, false, decimal.Zero, err
+		}
+		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
+			err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+			if !errs.Is(err, ErrProjectRecordExists) {
+				return false, true, decimal.Zero, payments.ErrUnbilledUsageLastMonth
+			}
+		}
+
+		return false, false, decimal.Zero, nil
 	}
 
-	// check usage for last month, if exists, ensure we have an invoice item created.
-	lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
-	if err != nil {
-		return err
+	getCostTotal := func(start, before time.Time) (decimal.Decimal, error) {
+		usages, err := accounts.service.usageDB.GetProjectTotalByPlacement(ctx, projectID, start, before, false)
+		if err != nil {
+			return decimal.Zero, err
+		}
+
+		total := decimal.Zero
+		for key, usage := range usages {
+			if key == "" {
+				return decimal.Zero, errs.New("invalid usage key format")
+			}
+
+			_, priceModel := accounts.service.productIdAndPriceForUsageKey(ctx, projectPublicID, key)
+			usage.Egress = applyEgressDiscount(usage, priceModel.ProjectUsagePriceModel)
+			price := accounts.service.calculateProjectUsagePrice(usage, priceModel.ProjectUsagePriceModel)
+
+			total = total.Add(price.Total())
+		}
+		return total, nil
 	}
-	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
-		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
-		if !errs.Is(err, ErrProjectRecordExists) {
-			return errs.New("usage for last month exist, but is not billed yet")
+
+	currentMonthPrice, err = getCostTotal(firstOfMonth, accounts.service.nowFn())
+	if err != nil {
+		return false, false, decimal.Zero, err
+	}
+
+	if currentMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.config.DeleteProjectCostThreshold)) {
+		return true, false, currentMonthPrice, payments.ErrUnbilledUsageCurrentMonth
+	}
+
+	previousMonthPrice, err := getCostTotal(firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+	if err != nil {
+		return false, false, decimal.Zero, err
+	}
+
+	if previousMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.config.DeleteProjectCostThreshold)) {
+		err := accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+		switch {
+		case errs.Is(err, ErrProjectRecordExists):
+			// there’s already a record for last month → nothing to do, fall through.
+		case err != nil:
+			// some unexpected DB error → propagate it.
+			return false, false, currentMonthPrice, err
+		default:
+			// err == nil → no record exists for last month → unbilled usage.
+			return false, true, currentMonthPrice, payments.ErrUnbilledUsageLastMonth
 		}
 	}
 
-	return nil
+	return false, false, currentMonthPrice, err
 }
 
 // Charges returns list of all credit card charges related to account.

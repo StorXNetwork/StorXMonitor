@@ -5,7 +5,6 @@ package audit
 
 import (
 	"context"
-	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -16,10 +15,10 @@ import (
 	"storj.io/storj/satellite/reputation"
 )
 
-// reporter records audit reports in overlay and implements the Reporter interface.
+// DBReporter records audit reports in overlay and implements the Reporter interface.
 //
 // architecture: Service
-type reporter struct {
+type DBReporter struct {
 	log              *zap.Logger
 	reputations      *reputation.Service
 	overlay          *overlay.Service
@@ -42,7 +41,7 @@ type Reporter interface {
 // succeeded, failed, were offline, have pending audits, or failed for unknown
 // reasons and their current reputation status.
 type Report struct {
-	Segment *metabase.Segment
+	Segment *metabase.SegmentForAudit
 
 	Successes       storj.NodeIDList
 	Fails           metabase.Pieces
@@ -52,23 +51,23 @@ type Report struct {
 	NodesReputation map[storj.NodeID]overlay.ReputationStatus
 }
 
-// NewReporter instantiates a reporter.
-func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, metabase *metabase.DB, containment Containment, maxRetries int, maxReverifyCount int32) Reporter {
-	return &reporter{
+// NewReporter instantiates a DBReporter.
+func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, metabase *metabase.DB, containment Containment, cfg Config) *DBReporter {
+	return &DBReporter{
 		log:              log,
 		reputations:      reputations,
 		overlay:          overlay,
 		metabase:         metabase,
 		containment:      containment,
-		maxRetries:       maxRetries,
-		maxReverifyCount: maxReverifyCount,
+		maxRetries:       cfg.MaxRetriesStatDB,
+		maxReverifyCount: int32(cfg.MaxReverifyCount),
 	}
 }
 
 // RecordAudits saves audit results, applying reputation changes as appropriate.
 // If some records can not be updated after a number of attempts, the failures
 // are logged at level ERROR, but are otherwise thrown away.
-func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
+func (reporter *DBReporter) RecordAudits(ctx context.Context, req Report) {
 	defer mon.Task()(&ctx)(nil)
 
 	successes := req.Successes
@@ -79,7 +78,7 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 
 	logger := reporter.log
 	if req.Segment != nil {
-		logger = logger.With(zap.Stringer("stream ID", req.Segment.StreamID), zap.Uint64("position", req.Segment.Position.Encode()))
+		logger = logger.With(zap.Stringer("stream_id", req.Segment.StreamID), zap.Uint64("position", req.Segment.Position.Encode()))
 	}
 	logger.Debug("Reporting audits",
 		zap.Int("successes", len(successes)),
@@ -97,10 +96,11 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 			return
 		}
 		reporter.log.Error("failed to update reputation information with audit results",
-			zap.String("result type", resultType),
+			zap.String("result_type", resultType),
 			zap.Error(err),
-			zap.String("node IDs", strings.Join(nodes.Strings(), ", ")),
-			zap.Any("pending segment audits", pending))
+			zap.Stringers("node_ids", nodes),
+			zap.Int("nodes_num", len(nodes)),
+			zap.Any("pending_segment_audits", pending))
 	}
 
 	var err error
@@ -122,7 +122,7 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 	}
 }
 
-func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.NodeIDList, nodesReputation map[storj.NodeID]overlay.ReputationStatus, auditOutcome reputation.AuditType) (failed storj.NodeIDList, err error) {
+func (reporter *DBReporter) recordAuditStatus(ctx context.Context, nodeIDs storj.NodeIDList, nodesReputation map[storj.NodeID]overlay.ReputationStatus, auditOutcome reputation.AuditType) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -133,6 +133,7 @@ func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.N
 		err = reporter.reputations.ApplyAudit(ctx, nodeID, nodesReputation[nodeID], auditOutcome)
 		if err != nil {
 			failed = append(failed, nodeID)
+			mon.Counter("audit_apply_to_db_failure").Inc(1)
 			errors.Add(Error.New("failed to record audit status %s in overlay for node %s: %w", auditOutcome.String(), nodeID, err))
 		}
 	}
@@ -140,16 +141,16 @@ func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.N
 }
 
 // recordPendingAudits updates the containment status of nodes with pending piece audits.
-func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
+func (reporter *DBReporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 
 	for _, pendingAudit := range pendingAudits {
 		logger := reporter.log.With(
-			zap.Stringer("Node ID", pendingAudit.Locator.NodeID),
-			zap.Stringer("Stream ID", pendingAudit.Locator.StreamID),
-			zap.Uint64("Position", pendingAudit.Locator.Position.Encode()),
-			zap.Int("Piece Num", pendingAudit.Locator.PieceNum))
+			zap.Stringer("node_id", pendingAudit.Locator.NodeID),
+			zap.Stringer("stream_id", pendingAudit.Locator.StreamID),
+			zap.Uint64("position", pendingAudit.Locator.Position.Encode()),
+			zap.Int("piece_num", pendingAudit.Locator.PieceNum))
 
 		if pendingAudit.ReverifyCount < int(reporter.maxReverifyCount) {
 			err := reporter.ReportReverificationNeeded(ctx, &pendingAudit.Locator)
@@ -197,7 +198,9 @@ const maxPiecesToRemoveAtOnce = 6
 // mean the piece is gone. Remove the pieces from the relevant pointers so that the segment can be
 // repaired if appropriate, and so that we don't continually dock reputation for the same missing
 // piece(s).
-func (reporter *reporter) recordFailedAudits(ctx context.Context, segment *metabase.Segment, failures []metabase.Piece, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failedToRecord []metabase.Piece, err error) {
+func (reporter *DBReporter) recordFailedAudits(
+	ctx context.Context, segment *metabase.SegmentForAudit, failures []metabase.Piece, nodesReputation map[storj.NodeID]overlay.ReputationStatus,
+) (failedToRecord []metabase.Piece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	piecesToRemove := make(metabase.Pieces, 0, len(failures))
@@ -215,7 +218,7 @@ func (reporter *reporter) recordFailedAudits(ctx context.Context, segment *metab
 		// problem is more likely with the audit system itself and not with the pieces.
 		if len(piecesToRemove) > maxPiecesToRemoveAtOnce {
 			reporter.log.Error("cowardly refusing to remove large number of pieces for failed audit",
-				zap.Int("piecesToRemove", len(piecesToRemove)),
+				zap.Int("pieces_to_remove", len(piecesToRemove)),
 				zap.Int("threshold", maxPiecesToRemoveAtOnce))
 			return failedToRecord, errors.Err()
 		}
@@ -235,7 +238,8 @@ func (reporter *reporter) recordFailedAudits(ctx context.Context, segment *metab
 	return failedToRecord, errors.Err()
 }
 
-func (reporter *reporter) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
+// ReportReverificationNeeded implements the Reporter interface.
+func (reporter *DBReporter) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = reporter.containment.Insert(ctx, piece)
@@ -250,7 +254,8 @@ func (reporter *reporter) ReportReverificationNeeded(ctx context.Context, piece 
 	return nil
 }
 
-func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendingJob *ReverificationJob, outcome Outcome, reputation overlay.ReputationStatus) (err error) {
+// RecordReverificationResult implements the Reporter interface.
+func (reporter *DBReporter) RecordReverificationResult(ctx context.Context, pendingJob *ReverificationJob, outcome Outcome, reputation overlay.ReputationStatus) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	keepInQueue := true
@@ -270,13 +275,13 @@ func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendin
 		// We have to look up the segment metainfo and pass it on to RecordAudits so that
 		// the segment can be modified (removing this piece). We don't persist this
 		// information through the reverification queue.
-		segmentInfo, err := reporter.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segmentInfo, err := reporter.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: pendingJob.Locator.StreamID,
 			Position: pendingJob.Locator.Position,
 		})
 		if err != nil {
 			reporter.log.Error("could not look up segment after audit reverification",
-				zap.Stringer("stream ID", pendingJob.Locator.StreamID),
+				zap.Stringer("stream_id", pendingJob.Locator.StreamID),
 				zap.Uint64("position", pendingJob.Locator.Position.Encode()),
 				zap.Error(err),
 			)
@@ -318,3 +323,23 @@ func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendin
 	}
 	return errList.Err()
 }
+
+// NoReport disables reporting of audits.
+type NoReport struct{}
+
+// RecordAudits implements the Reporter interface.
+func (n NoReport) RecordAudits(ctx context.Context, req Report) {
+
+}
+
+// ReportReverificationNeeded implements the Reporter interface.
+func (n NoReport) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
+	return nil
+}
+
+// RecordReverificationResult implements the Reporter interface.
+func (n NoReport) RecordReverificationResult(ctx context.Context, pendingJob *ReverificationJob, outcome Outcome, reputation overlay.ReputationStatus) (err error) {
+	return nil
+}
+
+var _ Reporter = &NoReport{}

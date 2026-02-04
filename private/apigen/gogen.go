@@ -6,6 +6,7 @@ package apigen
 import (
 	"fmt"
 	"go/format"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/api"
 )
 
 // DateFormat is the layout of dates passed into and out of the API.
@@ -134,13 +136,23 @@ func (a *API) generateGo() ([]byte, error) {
 		// Define the service interface
 		pf("type %sService interface {", capitalize(group.Name))
 		for _, e := range group.endpoints {
-			params[e] = append(e.PathParams, e.QueryParams...)
+			// Collect extra parameters from middleware.
+			var extraParams []Param
+			for _, m := range group.Middleware {
+				extraParams = append(extraParams, m.ExtraServiceParams(a, group, e)...)
+			}
+
+			params[e] = append(extraParams, append(e.PathParams, e.QueryParams...)...)
 
 			var paramStr string
 			for i, param := range params[e] {
 				paramStr += param.Name
 				if i == len(params[e])-1 || param.Type != params[e][i+1].Type {
-					paramStr += " " + param.Type.String()
+					if param.Type.Kind() == reflect.Pointer && param.Type.Elem().PkgPath() == a.PackagePath {
+						paramStr += " *" + param.Type.Elem().Name()
+					} else {
+						paramStr += " " + param.Type.String()
+					}
 				}
 				paramStr += ", "
 			}
@@ -211,7 +223,12 @@ func (a *API) generateGo() ([]byte, error) {
 		autodedefined := map[string]struct{}{"log": {}, "mon": {}, "service": {}}
 		middlewareArgs := make([]string, 0, len(group.Middleware))
 		middlewareFieldsList := make([]string, 0, len(group.Middleware))
+		useCORS := false
 		for _, m := range group.Middleware {
+			if _, ok := m.(api.CORS); ok {
+				useCORS = true
+			}
+
 			for _, f := range middlewareFields(a, m) {
 				if _, ok := autodedefined[f.Name]; !ok {
 					middlewareArgs = append(middlewareArgs, fmt.Sprintf("%s %s", f.Name, f.Type))
@@ -256,12 +273,18 @@ func (a *API) generateGo() ([]byte, error) {
 		)
 		for _, endpoint := range group.endpoints {
 			handlerName := "handle" + endpoint.GoName
+
+			methods := []string{endpoint.Method}
+			if useCORS {
+				methods = append(methods, http.MethodOptions)
+			}
+
 			pf(
 				"%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")",
 				uncapitalize(group.Prefix),
 				endpoint.Path,
 				handlerName,
-				endpoint.Method,
+				strings.Join(methods, ", "),
 			)
 		}
 		pf("")

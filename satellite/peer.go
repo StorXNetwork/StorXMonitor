@@ -5,52 +5,57 @@ package satellite
 
 import (
 	"context"
-	"net"
-	"net/mail"
-	"net/smtp"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
 	"storj.io/common/identity"
-	"storj.io/common/tagsql"
+	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/server"
 	version_checker "storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/accountfreeze"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/satellite/admin"
+	backoffice "storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/backup"
+	"storj.io/storj/satellite/bucketmigrations"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/dbcleanup"
+	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
 	"storj.io/storj/satellite/console/emailreminders"
-	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
+	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/jobq"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
@@ -59,12 +64,12 @@ import (
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/nodeselection/tracker"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
-	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -76,6 +81,9 @@ import (
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/satellite/userworker"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/flightrecorder"
+	"storj.io/storj/shared/tagsql"
 )
 
 var mon = monkit.Package()
@@ -109,6 +117,8 @@ type DB interface {
 	StoragenodeAccounting() accounting.StoragenodeAccounting
 	// ProjectAccounting returns database for storing information about project data use
 	ProjectAccounting() accounting.ProjectAccounting
+	// RetentionRemainderCharges returns database for retention remainder charges
+	RetentionRemainderCharges() accounting.RetentionRemainderDB
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
 	// VerifyQueue returns queue for segments chosen for verification
@@ -119,6 +129,8 @@ type DB interface {
 	Console() console.DB
 	// AdminUsers returns database for admin users
 	AdminUsers() admin.Users
+	// AdminChangeHistory returns the database for storing admin change history.
+	AdminChangeHistory() changehistory.DB
 	// OIDC returns the database for OIDC resources.
 	OIDC() oidc.DB
 	// Orders returns database for orders
@@ -129,6 +141,8 @@ type DB interface {
 	Buckets() buckets.DB
 	// DeleteUserQueue returns the database for delete user queue
 	DeleteUserQueue() userworker.DeleteUserQueue
+	// BucketMigrations returns the database to interact with bucket migrations
+	BucketMigrations() bucketmigrations.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
@@ -159,10 +173,14 @@ type DB interface {
 
 // TestingDB defines access to database testing facilities.
 type TestingDB interface {
+	// Implementation returns the implementations of the databases.
+	Implementation() []dbutil.Implementation
+	// Rebind adapts a query's syntax for a database dialect.
+	Rebind(query string) string
 	// RawDB returns the underlying database connection to the primary database.
 	RawDB() tagsql.DB
 	// Schema returns the full schema for the database.
-	Schema() string
+	Schema() []string
 	// TestMigrateToLatest initializes the database for testplanet.
 	TestMigrateToLatest(ctx context.Context) error
 	// ProductionMigration returns the primary migration.
@@ -179,6 +197,7 @@ type Config struct {
 
 	Placement nodeselection.ConfigurablePlacementRule `help:"detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...)."`
 
+	Admin backoffice.Config
 	Admin     admin.Config
 	Developer developer.Config
 
@@ -188,8 +207,9 @@ type Config struct {
 	NodeEvents   nodeevents.Config
 	StrayNodes   straynodes.Config
 
-	Metainfo metainfo.Config
-	Orders   orders.Config
+	BucketEventing eventingconfig.Config
+	Metainfo       metainfo.Config
+	Orders         orders.Config
 
 	Userinfo userinfo.Config
 
@@ -203,27 +223,34 @@ type Config struct {
 	GarbageCollectionBF bloomfilter.Config
 
 	RepairQueueCheck repairer.QueueStatConfig
+	JobQueue         jobq.Config
 
 	RangedLoop rangedloop.Config
+	Durability durability.Config
 
 	ExpiredDeletion expireddeletion.Config
 	ZombieDeletion  zombiedeletion.Config
 
 	Tally            tally.Config
+	NodeTally        nodetally.Config
 	Rollup           rollup.Config
 	RollupArchive    rolluparchive.Config
 	LiveAccounting   live.Config
 	ProjectBWCleanup projectbwcleanup.Config
 
-	Mail mailservice.Config
+	Mail         mailservice.Config
+	HubspotMails hubspotmails.Config
 
 	Payments paymentsconfig.Config
 
-	RESTKeys         restkeys.Config
 	Console          consoleweb.Config
+	Entitlements     entitlements.Config
+	Valdi            valdi.Config
 	ConsoleAuth      consoleauth.Config
 	EmailReminders   emailreminders.Config
 	ConsoleDBCleanup dbcleanup.Config
+
+	PendingDeleteCleanup pendingdelete.Config
 
 	Emission emission.Config
 
@@ -241,41 +268,126 @@ type Config struct {
 
 	DurabilityReport durability.ReportConfig
 
+	KeyManagement kms.Config
+
+	SSO sso.Config
+
+	HealthCheck healthcheck.Config
+
+	FlightRecorder flightrecorder.Config
+
 	Backup backup.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
+
+	PrometheusTracker tracker.PrometheusTrackerConfig
+
+	DisableConsoleFromSatelliteAPI bool `help:"indicates whether the console API should not be served along with satellite API" default:"false"`
+
+	StandaloneConsoleAPIEnabled bool `help:"indicates whether the console API should be served as a standalone service" default:"false"`
 }
 
-func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {
-	fromAndHost := func(cfg mailservice.Config) (*mail.Address, string, error) {
-		// validate from mail address
-		from, err := mail.ParseAddress(cfg.From)
-		if err != nil {
-			return nil, "", errs.New("SMTP from address '%s' couldn't be parsed: %v", cfg.From, err)
-		}
+func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleConfig consoleweb.Config) (*mailservice.Service, error) {
+	var defaultSender mailservice.Sender
+	var err error
 
-		// validate smtp server address
-		host, _, err := net.SplitHostPort(cfg.SMTPServerAddress)
-		if err != nil && cfg.AuthType != "simulate" && cfg.AuthType != "nologin" {
-			return nil, "", errs.New("SMTP server address '%s' couldn't be parsed: %v", cfg.SMTPServerAddress, err)
-		}
-		return from, host, err
-	}
-
-	// TODO(yar): test multiple satellites using same OAUTH credentials
-	mailConfig := config.Mail
-
-	var sender mailservice.Sender
 	switch mailConfig.AuthType {
-	case "oauth2":
-		creds := oauth2.Credentials{
-			ClientID:     mailConfig.ClientID,
-			ClientSecret: mailConfig.ClientSecret,
-			TokenURI:     mailConfig.TokenURI,
-		}
-		token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
+	case "nomail":
+		defaultSender = simulate.NoMail{}
+	case "simulate", "":
+		defaultSender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
+	default:
+		defaultSender, err = mailservice.CreateSender(mailConfig)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	var defaultBranding mailservice.WhiteLabelConfig
+	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
+
+	// Check if single white label mode is enabled (for dedicated deployments).
+	if consoleConfig.SingleWhiteLabel.Enabled() {
+		cfg := consoleConfig.SingleWhiteLabel
+		defaultBranding = mailservice.WhiteLabelConfig{
+			BrandName:         cfg.Name,
+			LogoURL:           cfg.LogoURLs["mail"],
+			HomepageURL:       cfg.HomepageURL,
+			SupportURL:        cfg.SupportURL,
+			DocsURL:           cfg.DocsURL,
+			SourceCodeURL:     cfg.SourceCodeURL,
+			SocialURL:         cfg.SocialURL,
+			PrivacyPolicyURL:  cfg.PrivacyPolicyURL,
+			TermsOfServiceURL: cfg.TermsOfServiceURL,
+			TermsOfUseURL:     cfg.TermsOfUseURL,
+			BlogURL:           cfg.BlogURL,
+			CompanyName:       cfg.CompanyName,
+			AddressLine1:      cfg.AddressLine1,
+			AddressLine2:      cfg.AddressLine2,
+			PrimaryColor:      cfg.Colors["primary"],
+		}
+
+		// If single-brand mode has SMTP config, use that as well.
+		if cfg.SMTP.AuthType != "" && cfg.TenantID != "" {
+			tenantConfigs[cfg.TenantID] = mailservice.TenantSMTPConfig{
+				Branding: defaultBranding,
+				SMTP: mailservice.Config{
+					From:              cfg.SMTP.From,
+					SMTPServerAddress: cfg.SMTP.ServerAddress,
+					AuthType:          cfg.SMTP.AuthType,
+					Login:             cfg.SMTP.Login,
+					Password:          cfg.SMTP.Password,
+				},
+			}
+		}
+	} else {
+		// Extract tenant configurations from multi-tenant console config.
+		for tenantID, config := range consoleConfig.WhiteLabel.Value {
+			tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
+				Branding: mailservice.WhiteLabelConfig{
+					BrandName:         config.Name,
+					LogoURL:           config.LogoURLs["mail"],
+					HomepageURL:       config.HomepageURL,
+					SupportURL:        config.SupportURL,
+					DocsURL:           config.DocsURL,
+					SourceCodeURL:     config.SourceCodeURL,
+					SocialURL:         config.SocialURL,
+					PrivacyPolicyURL:  config.PrivacyPolicyURL,
+					TermsOfServiceURL: config.TermsOfServiceURL,
+					TermsOfUseURL:     config.TermsOfUseURL,
+					BlogURL:           config.BlogURL,
+					CompanyName:       config.CompanyName,
+					AddressLine1:      config.AddressLine1,
+					AddressLine2:      config.AddressLine2,
+					PrimaryColor:      config.Colors["primary"],
+				},
+				SMTP: mailservice.Config{
+					From:              config.SMTP.From,
+					SMTPServerAddress: config.SMTP.ServerAddress,
+					AuthType:          config.SMTP.AuthType,
+					Login:             config.SMTP.Login,
+					Password:          config.SMTP.Password,
+				},
+			}
+		}
+
+		// Default Storj branding.
+		defaultBranding = mailservice.WhiteLabelConfig{
+			BrandName:         "Storj",
+			LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
+			HomepageURL:       consoleConfig.HomepageURL,
+			SupportURL:        consoleConfig.GeneralRequestURL,
+			DocsURL:           consoleConfig.DocumentationURL,
+			PrivacyPolicyURL:  "https://www.storj.io/legal/privacy-policy",
+			TermsOfServiceURL: consoleConfig.TermsAndConditionsURL,
+			TermsOfUseURL:     "https://www.storj.io/legal/terms-of-use",
+			SourceCodeURL:     "https://github.com/storj",
+			SocialURL:         "https://twitter.com/storj",
+			BlogURL:           "https://storj.io/blog",
+			PrimaryColor:      "#0052FF",
+			CompanyName:       "Storj Labs",
+			AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
+			AddressLine2:      "Atlanta, GA 30339-2171, United States",
 		}
 
 		from, _, err := fromAndHost(mailConfig)
@@ -344,9 +456,10 @@ func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, err
 		sender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
 	}
 
-	return mailservice.New(
-		log.Named("mail:service"),
-		sender,
-		mailConfig.TemplatePath,
-	)
+	return mailservice.SetupWithTenants(log, mailservice.SetupConfig{
+		DefaultSender:   defaultSender,
+		TemplatePath:    mailConfig.TemplatePath,
+		TenantConfigs:   tenantConfigs,
+		DefaultBranding: defaultBranding,
+	})
 }

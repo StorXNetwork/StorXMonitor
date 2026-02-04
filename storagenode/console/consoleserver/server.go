@@ -33,7 +33,7 @@ var (
 
 // Config contains configuration for storagenode console web server.
 type Config struct {
-	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
+	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002" testDefault:"$HOST:0"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 
@@ -94,7 +94,7 @@ func NewServer(logger *zap.Logger, assets fs.FS, notifications *notifications.Se
 	payoutRouter.HandleFunc("/payout-history/{period}", payoutController.PayoutHistory).Methods(http.MethodGet)
 
 	staticServer := http.FileServer(http.FS(server.assets))
-	router.PathPrefix("/static/").Handler(web.CacheHandler(staticServer))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", web.CacheHandler(staticServer)))
 	router.PathPrefix("/").HandlerFunc(server.appHandler)
 
 	server.server = http.Server{

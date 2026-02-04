@@ -4,11 +4,11 @@ pipeline {
             label 'main'
             image 'storjlabs/ci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v "/tmp/npm":/npm'
+            args '-u root:root --cap-add SYS_PTRACE -v "/cache/gomod":/go/pkg/mod -v /cache/golangci-lint:/root/.cache/golangci-lint -v /cache/gobuild:/root/.cache/go-build -v "/cache/npm":/npm'
         }
     }
     options {
-        timeout(time: 40, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         skipDefaultCheckout(true)
     }
     environment {
@@ -28,6 +28,7 @@ pipeline {
                 checkout scm
 
                 sh 'mkdir -p .build'
+                sh 'git restore-mtime'
 
                 // download dependencies
                 sh 'go mod download'
@@ -44,31 +45,6 @@ pipeline {
                 }
             }
         }
-        stage('Build') {
-            parallel {
-                stage('go') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
-                    }
-                }
-                stage('go -race') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
-                    }
-                }
-
-                stage('db') {
-                    steps {
-                        dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                        }
-                    }
-                }
-            }
-        }
 
         stage('Build Web') {
             // The build code depends on the following assets being loaded.
@@ -80,7 +56,7 @@ pipeline {
                 }
                 stage('wasm') {
                     steps {
-                        sh './testsuite/wasm/start.sh'
+                        sh './web/satellite/wasm/run-tests.sh'
                     }
                 }
                 stage('web/storagenode') {
@@ -93,51 +69,73 @@ pipeline {
                         sh './web/multinode/build-if-changed.sh'
                     }
                 }
-                stage('satellite/admin/ui') {
+                stage('satellite/admin/legacy/ui') {
                     steps {
-                        sh './satellite/admin/ui/build-if-changed.sh'
+                        sh './satellite/admin/legacy/ui/build-if-changed.sh'
                     }
                 }
             }
         }
 
         stage('Lint') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'make llint'
+                    }
+                }
+                stage('Additional checks') {
+                    steps {
+                        sh './scripts/check-package-lock.sh'
+                        dir("testsuite/storjscan") {
+                            sh 'go vet ./...'
+                        }
+                    }
+
+                }
+            }
+        }
+
+
+        stage('Tests') {
+            environment {
+                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'info'
+                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
+                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
+                STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
+                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
+                GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS='true'
+            }
             steps {
-                sh 'check-mod-tidy'
-                sh 'check-copyright'
-                sh 'check-imports -race ./...'
-                sh 'check-peer-constraints -race'
-                sh 'check-atomic-align ./...'
-                sh 'check-monkit ./...'
-                sh 'check-errs ./...'
-                sh 'check-deferloop ./...'
-                sh 'staticcheck ./...'
-                sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                sh 'check-downgrades'
-                sh 'make check-monitoring'
-                sh 'make test-wasm-size'
-                sh 'go.min vet ./...'
+                sh 'use-ports -from 1024 -to 10000 &'
+                sh 'go test -parallel 9 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+            }
 
-                sh 'protolock status'
+            post {
+                always {
+                    archiveArtifacts artifacts: '.build/tests.json'
+                    sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
+                    junit '.build/tests.xml'
 
-                sh './scripts/check-package-lock.sh'
-
-                dir("testsuite/storjscan") {
-                    sh 'go vet ./...'
+                    script {
+                        if(fileExists(".build/coverprofile")){
+                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                            archiveArtifacts artifacts: '.build/clean.coverprofile'
+                            recordCoverage(
+                                tools: [[parser: 'GO_COV', pattern: '.build/clean.coverprofile']],
+                                sourceCodeRetention: 'NEVER',
+                            )
+                        }
+                    }
                 }
             }
         }
 
         stage('Satellite UI Tests') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch pattern: "release-.*", comparator: "REGEXP"
-                    changeset "testsuite/playwright-ui/**"
-                    changeset "web/**"
-                    changeset "satellite/console/**"
-                }
-            }
             environment {
                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
@@ -146,6 +144,10 @@ pipeline {
             }
 
             steps {
+                dir('.build') {
+                    sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:0 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                }
+
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
                 sh 'make test-satellite-ui'
             }
@@ -154,48 +156,6 @@ pipeline {
                 failure {
                     sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
                     archiveArtifacts artifacts: '.build/test-results.tar.gz'
-                }
-            }
-        }
-
-        stage('Tests') {
-            environment {
-                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
-                STORJ_TEST_COCKROACH_NODROP = 'true'
-                STORJ_TEST_POSTGRES = 'omit'
-                STORJ_TEST_LOG_LEVEL = 'info'
-                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
-                GOEXPERIMENT = 'nocoverageredesign'
-            }
-            steps {
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-
-                sh 'use-ports -from 1024 -to 10000 &'
-
-                sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-            }
-
-            post {
-                always {
-                    archiveArtifacts artifacts: '.build/tests.json'
-                    sh script: 'cat .build/tests.json | tparse -all -slow 100', returnStatus: true
-                    junit '.build/tests.xml'
-
-                    script {
-                        if(fileExists(".build/coverprofile")){
-                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                            cobertura coberturaReportFile: '.build/cobertura.xml',
-                                lineCoverageTargets: '70, 60, 50',
-                                autoUpdateHealth: false,
-                                autoUpdateStability: false,
-                                failUnhealthy: true
-                        }
-                    }
                 }
             }
         }

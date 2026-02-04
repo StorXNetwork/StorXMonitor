@@ -6,6 +6,7 @@ package filestore
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/exp/slices"
 
@@ -25,18 +27,14 @@ import (
 )
 
 func TestDiskInfoFromPath(t *testing.T) {
-	info, err := diskInfoFromPath(".")
+	info, err := DiskInfoFromPath(".")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if info.AvailableSpace <= 0 {
 		t.Fatal("expected to have some disk space")
 	}
-	if info.ID == "" {
-		t.Fatal("didn't get filesystem id")
-	}
-
-	t.Logf("Got: %v %v", info.ID, info.AvailableSpace)
+	t.Logf("Got: %v", info.AvailableSpace)
 }
 
 func BenchmarkDiskInfoFromPath(b *testing.B) {
@@ -46,7 +44,7 @@ func BenchmarkDiskInfoFromPath(b *testing.B) {
 	}
 	b.Run(fmt.Sprintf("dir=%q", homedir), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err = diskInfoFromPath(homedir)
+			_, err = DiskInfoFromPath(homedir)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -209,7 +207,7 @@ func TestNewDirCreation(t *testing.T) {
 	dir, err := NewDir(log, storeDir)
 	require.NoError(t, err)
 
-	stat, err := os.Stat(filepath.Join(dir.trashdir(), TrashUsesDayDirsIndicator))
+	stat, err := os.Stat(filepath.Join(dir.trashdir, TrashUsesDayDirsIndicator))
 	require.NoError(t, err)
 	assert.False(t, stat.IsDir())
 	assert.Greater(t, stat.Size(), int64(0))
@@ -268,8 +266,44 @@ func TestTrashRecoveryWithMultipleDayDirs(t *testing.T) {
 	}
 }
 
-// check that trash emptying works as expected with per-day trash directories.
+func BenchmarkDirInfo(b *testing.B) {
+	ctx := testcontext.New(b)
+	log := zaptest.NewLogger(b)
+	dir, err := NewDir(log, ctx.Dir("store"))
+	require.NoError(b, err)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err = dir.Info(ctx)
+		require.NoError(b, err)
+	}
+}
+
 func TestEmptyTrash(t *testing.T) {
+	t.Run("empty trash", func(t *testing.T) {
+		emptyTrashWithFunc(t, func(ctx context.Context, dir *Dir, ns []byte, cutoff time.Time, expectDeletedKeys [][]byte, expectDeletedBytes int64) {
+			// empty the trash (partially)
+			bytesEmptied, keysDeleted, err := dir.EmptyTrash(ctx, ns, cutoff)
+			require.NoError(t, err)
+
+			// check that the keys we expect to be deleted were reported as deleted
+			slices.SortFunc(expectDeletedKeys, bytes.Compare)
+			slices.SortFunc(keysDeleted, bytes.Compare)
+			require.Equal(t, expectDeletedKeys, keysDeleted)
+			require.Equal(t, expectDeletedBytes, bytesEmptied)
+		})
+	})
+	t.Run("empty trash without stat", func(t *testing.T) {
+		emptyTrashWithFunc(t, func(ctx context.Context, dir *Dir, ns []byte, cutoff time.Time, expectDeletedKeys [][]byte, expectDeletedBytes int64) {
+			err := dir.EmptyTrashWithoutStat(ctx, ns, cutoff)
+			require.NoError(t, err)
+		})
+	})
+}
+
+// check that trash emptying works as expected with per-day trash directories.
+func emptyTrashWithFunc(t *testing.T, emptyTrash func(ctx context.Context, dir *Dir, ns []byte, cutoff time.Time, expectDeletedKeys [][]byte, expectDeletedBytes int64)) {
 	ctx := testcontext.New(t)
 	storeDir := ctx.Dir("store")
 	log := zaptest.NewLogger(t)
@@ -316,21 +350,19 @@ func TestEmptyTrash(t *testing.T) {
 	}
 	require.True(t, trashNow.Equal(originalTime))
 
-	// empty the trash (partially)
-	bytesEmptied, keysDeleted, err := dir.EmptyTrash(ctx, ns, originalTime.Add(-emptyTrashDays*24*time.Hour))
-	require.NoError(t, err)
-
-	// check that the keys we expect to be deleted were reported as deleted
-	slices.SortFunc(expectDeletedKeys, bytes.Compare)
-	slices.SortFunc(keysDeleted, bytes.Compare)
-	require.Equal(t, expectDeletedKeys, keysDeleted)
-	require.Equal(t, expectDeletedBytes, bytesEmptied)
+	emptyTrash(ctx, dir, ns, originalTime.Add(-emptyTrashDays*24*time.Hour), expectDeletedKeys, expectDeletedBytes)
 
 	// check that the keys we expect to be deleted were actually deleted (can't open them anymore)
 	for n := range expectDeletedKeys {
-		_, _, err := dir.Open(ctx, blobstore.BlobRef{Namespace: ns, Key: expectDeletedKeys[n]})
+		// not in the live ns directory (deleted)
+		deletedRef := blobstore.BlobRef{Namespace: ns, Key: expectDeletedKeys[n]}
+		_, _, err := dir.Open(ctx, deletedRef)
 		require.Error(t, err)
 		require.True(t, os.IsNotExist(err))
+
+		// not in the trash (cleaned up)
+		err = dir.TryRestoreTrashBlob(ctx, deletedRef)
+		require.Error(t, err)
 	}
 
 	// and check that the keys which we _don't_ expect to be deleted are still present
@@ -348,10 +380,136 @@ func TestEmptyTrash(t *testing.T) {
 }
 
 func writeTestBlob(ctx context.Context, t *testing.T, dir *Dir, ref blobstore.BlobRef, contents []byte, format blobstore.FormatVersion) {
-	f, err := dir.CreateTemporaryFile(ctx, 0)
+	f, err := dir.CreateTemporaryFile(ctx)
 	require.NoError(t, err)
 	_, err = f.Write(contents)
 	require.NoError(t, err)
-	err = dir.Commit(ctx, f, ref, FormatV1)
+	err = dir.Commit(ctx, f, false, ref, FormatV1)
 	require.NoError(t, err)
+}
+
+func BenchmarkDir_WalkNamespace(b *testing.B) {
+	dir, err := NewDir(zap.NewNop(), b.TempDir())
+	require.NoError(b, err)
+
+	ctx := testcontext.New(b)
+
+	satelliteID := testrand.NodeID()
+	for i := uint16(0); i < 32*32; i++ {
+		keyPrefix := numToBase32Prefix(i)
+		namespace := PathEncoding.EncodeToString(satelliteID.Bytes())
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir, namespace, keyPrefix), 0700))
+	}
+	b.Run("1024-prefixes", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			err := dir.WalkNamespace(ctx, satelliteID.Bytes(), nil, func(ref blobstore.BlobInfo) error {
+				return nil
+			})
+			require.NoError(b, err)
+		}
+	})
+
+	satelliteID2 := testrand.NodeID()
+	for i := uint16(0); i < 32*2; i++ {
+		keyPrefix := numToBase32Prefix(i)
+		namespace := PathEncoding.EncodeToString(satelliteID2.Bytes())
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir, namespace, keyPrefix), 0700))
+	}
+	b.Run("64-prefixes", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			err := dir.WalkNamespace(ctx, satelliteID2.Bytes(), nil, func(ref blobstore.BlobInfo) error {
+				return nil
+			})
+			require.NoError(b, err)
+		}
+	})
+
+	satelliteID3 := testrand.NodeID()
+	for i := uint16(0); i < 32*16; i++ {
+		keyPrefix := numToBase32Prefix(i)
+		namespace := PathEncoding.EncodeToString(satelliteID3.Bytes())
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir, namespace, keyPrefix), 0700))
+	}
+	b.Run("512-prefixes", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			err := dir.WalkNamespace(ctx, satelliteID3.Bytes(), nil, func(ref blobstore.BlobInfo) error {
+				return nil
+			})
+			require.NoError(b, err)
+		}
+	})
+}
+
+func Test_sortPrefixes(t *testing.T) {
+	var str []string
+
+	for i := uint16(0); i < 32*32; i++ {
+		keyPrefix := numToBase32Prefix(i)
+		str = append(str, keyPrefix)
+	}
+
+	type test struct {
+		name     string
+		prefixes []string
+		expected []string
+	}
+
+	tests := []test{
+		{
+			name:     "1024 prefixes sorted",
+			prefixes: str,
+			expected: str,
+		},
+		{
+			name:     "unordered prefixes",
+			prefixes: []string{"77", "a2", "3z", "an", "b2", "a6", "b7", "aa", "7a", "23"},
+			expected: []string{"aa", "an", "a2", "a6", "b2", "b7", "23", "3z", "7a", "77"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sortPrefixes(tt.prefixes)
+			assert.Equal(t, tt.expected, tt.prefixes)
+		})
+	}
+}
+
+// numToBase32Prefix gives the two character base32 prefix corresponding to the given
+// 10-bit number.
+func numToBase32Prefix(n uint16) string {
+	var b [2]byte
+	binary.BigEndian.PutUint16(b[:], n<<6)
+	return PathEncoding.EncodeToString(b[:])[:2]
+}
+
+var sink string
+
+func BenchmarkDir_refTo(b *testing.B) {
+	ctx := testcontext.New(b)
+	log := zaptest.NewLogger(b)
+
+	root := ctx.Dir("store")
+	dir, err := NewDir(log, root)
+	require.NoError(b, err)
+
+	ref := blobstore.BlobRef{
+		Namespace: testrand.Bytes(32),
+		Key:       testrand.Bytes(32),
+	}
+	now := time.Now()
+
+	b.Run("DirPath", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			sink, _ = dir.refToDirPath(ref, "blobs")
+		}
+	})
+
+	b.Run("TrashPath", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			sink, _ = dir.refToTrashPath(ref, now)
+		}
+	})
 }

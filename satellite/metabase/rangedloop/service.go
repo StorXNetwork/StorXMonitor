@@ -27,10 +27,13 @@ var (
 
 // Config contains configurable values for the shared loop.
 type Config struct {
-	Parallelism        int           `help:"how many chunks of segments to process in parallel" default:"2"`
-	BatchSize          int           `help:"how many items to query in a batch" default:"2500"`
-	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
-	Interval           time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"0"`
+	Parallelism          int           `help:"how many chunks of segments to process in parallel" default:"2"`
+	BatchSize            int           `help:"how many items to query in a batch" default:"2500"`
+	AsOfSystemInterval   time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
+	Interval             time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"0"`
+	SpannerStaleInterval time.Duration `help:"sets spanner stale read timestamp as now()-interval" default:"0"`
+	// TODO: remove this flag when we will know which type is optimal for ranged loop
+	TestingSpannerQueryType string `help:"use to select query type which will be used to execute ranged loop (sql|read)" default:"" testDefault:"read" hidden:"true"`
 
 	SuspiciousProcessedRatio float64 `help:"ratio where to consider processed count as supicious" default:"0.03"`
 }
@@ -102,8 +105,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		_, err := service.RunOnce(ctx)
 		if err != nil {
-			service.log.Error("ranged loop failure", zap.Error(err))
-
 			if errs2.IsCanceled(err) {
 				return err
 			}
@@ -111,8 +112,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			if ctx.Err() != nil {
 				return errs.Combine(err, ctx.Err())
 			}
-
-			mon.Event("rangedloop_error") //mon:locked
 		}
 
 		return nil
@@ -123,12 +122,29 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) RunOnce(ctx context.Context) (observerDurations []ObserverDuration, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	service.log.Info("ranged loop started",
+		zap.Int("parallelism", service.config.Parallelism),
+		zap.Int("batch_size", service.config.BatchSize),
+		zap.Duration("asofsystem_interval", service.config.AsOfSystemInterval),
+		zap.Duration("spannerstale_interval", service.config.SpannerStaleInterval),
+	)
+
+	defer func() {
+		if err != nil {
+			service.log.Error("ranged loop failure", zap.Error(err))
+
+			mon.Event("rangedloop_error")
+		} else {
+			service.log.Info("ranged loop finished")
+		}
+	}()
+
 	observerStates, err := startObservers(ctx, service.log, service.observers)
 	if err != nil {
 		return nil, err
 	}
 
-	rangeProviders, err := service.provider.CreateRanges(service.config.Parallelism, service.config.BatchSize)
+	rangeProviders, err := service.provider.CreateRanges(ctx, service.config.Parallelism, service.config.BatchSize)
 	if err != nil {
 		return nil, err
 	}

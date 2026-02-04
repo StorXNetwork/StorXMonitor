@@ -24,10 +24,14 @@ import (
 func binaryVersion(location string) (version.SemVer, error) {
 	out, err := exec.Command(location, "version").CombinedOutput()
 	if err != nil {
-		zap.L().Info("Command output.", zap.ByteString("Output", out))
+		zap.L().Info("Command output.", zap.ByteString("output", out))
 		return version.SemVer{}, err
 	}
 
+	return parseVersion(out)
+}
+
+func parseVersion(out []byte) (version.SemVer, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -52,7 +56,7 @@ func downloadBinary(ctx context.Context, url, target string) error {
 		)
 	}()
 
-	zap.L().Info("Download started.", zap.String("From", url), zap.String("To", f.Name()))
+	zap.L().Info("Download started.", zap.String("from", url), zap.String("to", f.Name()))
 
 	if err = downloadArchive(ctx, f, url); err != nil {
 		return errs.Wrap(err)
@@ -61,7 +65,7 @@ func downloadBinary(ctx context.Context, url, target string) error {
 		return errs.Wrap(err)
 	}
 
-	zap.L().Info("Download finished.", zap.String("From", url), zap.String("To", f.Name()))
+	zap.L().Info("Download finished.", zap.String("from", url), zap.String("to", f.Name()))
 	return nil
 }
 

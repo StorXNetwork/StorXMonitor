@@ -7,10 +7,14 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/dbutil/pgutil"
+	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
+
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // ListVerifyLimit is the maximum number of items the client can request for listing.
@@ -106,6 +110,77 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 		}
 }
 
+func (opts *ListVerifySegments) getSpannerQueryAndParameters() spanner.Statement {
+	tuple, err := spannerutil.TupleGreaterThanSQL([]string{"stream_id", "position"}, []string{"@stream_id", "@position"}, false)
+	if err != nil {
+		return spanner.Statement{}
+	}
+	if len(opts.StreamIDs) == 0 {
+		return spanner.Statement{
+			SQL: `
+				SELECT
+					stream_id, position,
+					created_at, repaired_at,
+					root_piece_id, redundancy,
+					remote_alias_pieces
+				FROM segments
+				WHERE
+					` + tuple + `
+					AND inline_data IS NULL
+					AND remote_alias_pieces IS NOT NULL
+					AND (segments.expires_at IS NULL OR segments.expires_at > CURRENT_TIMESTAMP)
+					AND (@created_after IS NULL OR segments.created_at > @created_after)
+					AND (@created_before IS NULL OR segments.created_at < @created_before)
+				ORDER BY stream_id ASC, position ASC
+				LIMIT @limit
+			`, Params: map[string]any{
+				"stream_id":      opts.CursorStreamID,
+				"position":       opts.CursorPosition,
+				"created_after":  opts.CreatedAfter,
+				"created_before": opts.CreatedBefore,
+				"limit":          opts.Limit,
+			},
+		}
+	}
+
+	streamIDsBytes := make([][]byte, len(opts.StreamIDs))
+	for i, streamID := range opts.StreamIDs {
+		streamIDsBytes[i] = streamID.Bytes()
+	}
+
+	tuple, err = spannerutil.TupleGreaterThanSQL([]string{"segments.stream_id", "segments.position"}, []string{"@stream_id", "@position"}, false)
+	if err != nil {
+		return spanner.Statement{}
+	}
+	return spanner.Statement{
+		SQL: `
+			SELECT
+				segments.stream_id, segments.position,
+				segments.created_at, segments.repaired_at,
+				segments.root_piece_id, segments.redundancy,
+				segments.remote_alias_pieces
+			FROM segments
+			WHERE
+				stream_id IN UNNEST(@stream_ids)
+				AND ` + tuple + `
+				AND segments.inline_data IS NULL
+				AND segments.remote_alias_pieces IS NOT NULL
+				AND (segments.expires_at IS NULL OR segments.expires_at > CURRENT_TIMESTAMP)
+				AND (@created_after IS NULL OR segments.created_at > @created_after)
+				AND (@created_before IS NULL OR segments.created_at < @created_before)
+			ORDER BY segments.stream_id ASC, segments.position ASC
+			LIMIT @limit`,
+		Params: map[string]any{
+			"stream_ids":     streamIDsBytes,
+			"stream_id":      opts.CursorStreamID,
+			"position":       opts.CursorPosition,
+			"created_after":  opts.CreatedAfter,
+			"created_before": opts.CreatedBefore,
+			"limit":          opts.Limit,
+		},
+	}
+}
+
 // ListVerifySegments lists specified stream segments.
 func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (result ListVerifySegmentsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -116,10 +191,22 @@ func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (
 	ListVerifyLimit.Ensure(&opts.Limit)
 	result.Segments = make([]VerifySegment, 0, opts.Limit)
 
-	asOfString := db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)
+	for _, adapter := range db.adapters {
+		theseSegments, err := adapter.ListVerifySegments(ctx, opts)
+		if err != nil {
+			return ListVerifySegmentsResult{}, Error.Wrap(err)
+		}
+		result.Segments = append(result.Segments, theseSegments...)
+	}
+	return result, Error.Wrap(err)
+}
+
+// ListVerifySegments lists the segments in a specified stream.
+func (p *PostgresAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
+	asOfString := LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)
 	query, parameters := opts.getQueryAndParameters(asOfString)
 
-	err = withRows(db.db.QueryContext(ctx, query, parameters...))(func(rows tagsql.Rows) error {
+	err = withRows(p.db.QueryContext(ctx, query, parameters...))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var seg VerifySegment
 			err := rows.Scan(
@@ -130,19 +217,45 @@ func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (
 				&seg.RepairedAt,
 
 				&seg.RootPieceID,
-				redundancyScheme{&seg.Redundancy},
+				&seg.Redundancy,
 				&seg.AliasPieces,
 			)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 
-			result.Segments = append(result.Segments, seg)
+			segments = append(segments, seg)
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return segments, nil
+}
 
-	return result, Error.Wrap(err)
+// ListVerifySegments lists the segments in a specified stream.
+func (s *SpannerAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
+	queryStatement := opts.getSpannerQueryAndParameters()
+
+	txn := s.client.Single().WithTimestampBound(spannerutil.MaxStalenessFromAOSI(opts.AsOfSystemInterval))
+	return spannerutil.CollectRows(txn.QueryWithOptions(ctx, queryStatement,
+		spanner.QueryOptions{
+			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+		},
+	), func(row *spanner.Row, seg *VerifySegment) error {
+		return row.Columns(
+			&seg.StreamID,
+			&seg.Position,
+
+			&seg.CreatedAt,
+			&seg.RepairedAt,
+
+			&seg.RootPieceID,
+			&seg.Redundancy,
+			&seg.AliasPieces,
+		)
+	})
 }
 
 // ListVerifyBucketList represents a list of buckets.
@@ -151,84 +264,142 @@ type ListVerifyBucketList struct {
 }
 
 // Add adds a (projectID, bucketName) to the list of buckets to be checked.
-func (list *ListVerifyBucketList) Add(projectID uuid.UUID, bucketName string) {
+func (list *ListVerifyBucketList) Add(projectID uuid.UUID, bucketName BucketName) {
 	list.Buckets = append(list.Buckets, BucketLocation{
 		ProjectID:  projectID,
 		BucketName: bucketName,
 	})
 }
 
-// ListBucketsStreamIDsResult is the result of listing segments of a list of buckets.
-type ListBucketsStreamIDsResult struct {
-	StreamIDs  []uuid.UUID
-	Counts     []int
-	LastBucket BucketLocation
-}
+// ListBucketStreamIDs contains arguments necessary for listing stream segments from bucket.
+type ListBucketStreamIDs struct {
+	Bucket BucketLocation
+	Limit  int
 
-func (list *ListBucketsStreamIDsResult) addStreamID(streamID uuid.UUID, count int) {
-	list.StreamIDs = append(list.StreamIDs, streamID)
-	list.Counts = append(list.Counts, count)
-}
-
-// ListBucketsStreamIDs contains arguments necessary for listing stream segments from buckets.
-type ListBucketsStreamIDs struct {
-	BucketList     ListVerifyBucketList
-	CursorBucket   BucketLocation
-	CursorStreamID uuid.UUID
-	Limit          int
-
-	AsOfSystemTime     time.Time
 	AsOfSystemInterval time.Duration
 }
 
-// ListBucketsStreamIDs lists the streamIDs of a list of buckets.
-func (db *DB) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs) (ListBucketsStreamIDsResult, error) {
+// ListBucketStreamIDs lists the streamIDs from a bucket.
+func (db *DB) ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, f func(ctx context.Context, streamIDs []uuid.UUID) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	if opts.Limit <= 0 {
-		return ListBucketsStreamIDsResult{}, ErrInvalidRequest.New("invalid limit: %d", opts.Limit)
+		return ErrInvalidRequest.New("invalid limit: %d", opts.Limit)
 	}
 	ListVerifyLimit.Ensure(&opts.Limit)
 
-	result := ListBucketsStreamIDsResult{}
-
-	bucketNamesBytes := [][]byte{}
-	projectIDs := []uuid.UUID{}
-	for _, bucket := range opts.BucketList.Buckets {
-		bucketNamesBytes = append(bucketNamesBytes, []byte(bucket.BucketName))
-		projectIDs = append(projectIDs, bucket.ProjectID)
+	for _, adapter := range db.adapters {
+		if err := adapter.ListBucketStreamIDs(ctx, opts, f); err != nil {
+			return Error.Wrap(err)
+		}
 	}
-	// get the list of stream_ids and segment counts from the objects table
-	err := withRows(db.db.QueryContext(ctx, `
-		SELECT DISTINCT project_id, bucket_name, stream_id, segment_count
+
+	return nil
+}
+
+// ListBucketStreamIDs lists the streamIDs from a bucket.
+func (p *PostgresAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) error {
+	streamIDs := make([]uuid.UUID, 0, opts.Limit)
+
+	// TODO this implementation is not efficient for large production buckets
+	// but for now it won't be used in production
+	err := withRows(p.db.QueryContext(ctx, `
+		SELECT stream_id
 		FROM objects
-		`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
+		`+p.impl.AsOfSystemInterval(opts.AsOfSystemInterval)+`
 		WHERE
-			 (project_id, bucket_name, stream_id) > ($4::BYTEA, $5::BYTEA, $6::BYTEA) AND
-		(project_id, bucket_name) IN (SELECT UNNEST($1::BYTEA[]),UNNEST($2::BYTEA[]))
-		ORDER BY project_id, bucket_name, stream_id ASC
-		LIMIT $3
-	`, pgutil.UUIDArray(projectIDs), pgutil.ByteaArray(bucketNamesBytes),
-		opts.Limit,
-		opts.CursorBucket.ProjectID, []byte(opts.CursorBucket.BucketName), opts.CursorStreamID,
+			 (project_id, bucket_name) = ($1::BYTEA, $2::BYTEA)
+	`, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName),
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var streamID uuid.UUID
-			var count int
-			err := rows.Scan(
-				&result.LastBucket.ProjectID,
-				&result.LastBucket.BucketName,
-				&streamID,
-				&count,
-			)
+			err := rows.Scan(&streamID)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			result.addStreamID(streamID, count)
+
+			streamIDs = append(streamIDs, streamID)
+			if len(streamIDs) >= opts.Limit {
+				if err := process(ctx, streamIDs); err != nil {
+					return Error.Wrap(err)
+				}
+				streamIDs = streamIDs[:0]
+			}
 		}
 		return nil
 	})
 	if err != nil {
-		return ListBucketsStreamIDsResult{}, err
+		return Error.Wrap(err)
 	}
-	return result, nil
+
+	if len(streamIDs) > 0 {
+		if err := process(ctx, streamIDs); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// ListBucketStreamIDs lists the streamIDs from a bucket.
+func (s *SpannerAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) error {
+	statement := spanner.Statement{
+		SQL: `
+			SELECT stream_id
+			FROM objects
+			WHERE project_id = @project_id AND bucket_name = @bucket_name
+		`,
+		Params: map[string]any{
+			"project_id":  opts.Bucket.ProjectID,
+			"bucket_name": opts.Bucket.BucketName,
+		},
+	}
+
+	txn, err := s.client.BatchReadOnlyTransaction(ctx, spanner.StrongRead())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer txn.Close()
+
+	partitions, err := txn.PartitionQueryWithOptions(ctx, statement, spanner.PartitionOptions{
+		PartitionBytes: 0,
+		MaxPartitions:  0,
+	}, spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	streamIDs := make([]uuid.UUID, 0, opts.Limit)
+
+	for _, partition := range partitions {
+		iter := txn.Execute(ctx, partition)
+		err := iter.Do(func(r *spanner.Row) error {
+			var streamID uuid.UUID
+			if err := r.Columns(&streamID); err != nil {
+				return Error.Wrap(err)
+			}
+
+			streamIDs = append(streamIDs, streamID)
+			if len(streamIDs) >= opts.Limit {
+				if err := process(ctx, streamIDs); err != nil {
+					return Error.Wrap(err)
+				}
+				streamIDs = streamIDs[:0]
+			}
+
+			return nil
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	if len(streamIDs) > 0 {
+		if err := process(ctx, streamIDs); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
 }

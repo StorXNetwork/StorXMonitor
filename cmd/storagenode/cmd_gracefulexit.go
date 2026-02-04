@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -110,7 +111,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, cfg *gracefulExitCfg) error {
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+		zap.L().Info("Identity loaded.", zap.Stringer("node_id", ident.ID))
 	}
 
 	// display warning message
@@ -147,12 +148,12 @@ func cmdGracefulExitInit(cmd *cobra.Command, cfg *gracefulExitCfg) error {
 	// display satellite options
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
-	fmt.Fprintln(w, "Domain Name\tNode ID\tSpace Used\t")
+	_, _ = fmt.Fprintln(w, "Domain Name\tNode ID\tSpace Used\t")
 
 	for _, satellite := range satelliteList.GetSatellites() {
-		fmt.Fprintf(w, "%s\t%s\t%s\t\n", satellite.GetDomainName(), satellite.NodeId.String(), memory.Size(satellite.GetSpaceUsed()).Base10String())
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t\n", satellite.GetDomainName(), satellite.NodeId.String(), memory.Size(satellite.GetSpaceUsed()).Base10String())
 	}
-	fmt.Fprintln(w, "Please enter a space delimited list of satellite domain names you would like to gracefully exit. Press enter to continue:")
+	_, _ = fmt.Fprintln(w, "Please enter a space delimited list of satellite domain names you would like to gracefully exit. Press enter to continue:")
 
 	var selectedSatellite []string
 	scanner := bufio.NewScanner(os.Stdin)
@@ -187,7 +188,7 @@ func cmdGracefulExitStatus(cmd *cobra.Command, cfg *gracefulExitCfg) (err error)
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+		zap.L().Info("Identity loaded.", zap.Stringer("node_id", ident.ID))
 	}
 
 	client, err := dialGracefulExitClient(ctx, cfg.Server.PrivateAddress)
@@ -227,7 +228,7 @@ func cmdGracefulExitStatus(cmd *cobra.Command, cfg *gracefulExitCfg) (err error)
 }
 
 func displayExitProgress(w io.Writer, progresses []*internalpb.ExitProgress) {
-	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\tSuccessful\tCompletion Receipt")
+	_, _ = fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\tSuccessful\tCompletion Receipt")
 
 	for _, progress := range progresses {
 		isSuccessful := "N"
@@ -236,10 +237,10 @@ func displayExitProgress(w io.Writer, progresses []*internalpb.ExitProgress) {
 			isSuccessful = "Y"
 		}
 		if progress.GetCompletionReceipt() != nil && len(progress.GetCompletionReceipt()) > 0 {
-			receipt = fmt.Sprintf("%x", progress.GetCompletionReceipt())
+			receipt = hex.EncodeToString(progress.GetCompletionReceipt())
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful, receipt)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful, receipt)
 	}
 }
 
@@ -264,7 +265,7 @@ func gracefulExitInit(ctx context.Context, satelliteIDs []storj.NodeID, w *tabwr
 	if satellites != nil {
 		fmt.Println("You are not allowed to initiate graceful exit on satellite for next amount of months:")
 		for _, satellite := range satellites {
-			fmt.Fprintf(w, "%s\t%d\n", satellite.id.String(), satellite.monthsLeft)
+			_, _ = fmt.Fprintf(w, "%s\t%d\n", satellite.id.String(), satellite.monthsLeft)
 		}
 		return errs.New("You are not allowed to graceful exit on some of provided satellites")
 	}
@@ -278,7 +279,7 @@ func gracefulExitInit(ctx context.Context, satelliteIDs []storj.NodeID, w *tabwr
 		}
 		resp, err := client.initGracefulExit(ctx, req)
 		if err != nil {
-			zap.L().Debug("Initializing graceful exit failed.", zap.Stringer("Satellite ID", id), zap.Error(err))
+			zap.L().Debug("Initializing graceful exit failed.", zap.Stringer("satellite_id", id), zap.Error(err))
 			errgroup.Add(err)
 			continue
 		}

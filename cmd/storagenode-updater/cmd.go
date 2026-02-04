@@ -64,7 +64,12 @@ var (
 		Version  checker.Config
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode"`
+		BinaryStoreDir string `help:"dir to backup current binaries. Use it only for setups running the storagenode docker image. Path specified must be a host filesystem mounted destination." default:""`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
+		RestartMethod  string `help:"Method used to restart services. Default is 'kill'' (good for containers). 'service' is supported on FreeBSD, to use rc.d" default:"kill"`
+
+		Standalone bool `help:"don't run the command as a service" default:"false"`
+
 		// deprecated
 		Log string `help:"deprecated, use --log.output" default:""`
 	}
@@ -115,8 +120,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	zap.L().Info("Running on version",
-		zap.String("Service", updaterServiceName),
-		zap.String("Version", version.Build.Version.String()),
+		zap.String("service", updaterServiceName),
+		zap.String("version", version.Build.Version.String()),
 	)
 
 	ctx, _ := process.Ctx(cmd)
@@ -126,8 +131,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = loopFunc(ctx)
 	case runCfg.Version.CheckInterval < minCheckInterval:
 		zap.L().Error("Check interval below minimum. Overriding it minimum.",
-			zap.Stringer("Check Interval", runCfg.Version.CheckInterval),
-			zap.Stringer("Minimum Check Interval", minCheckInterval),
+			zap.Stringer("check_interval", runCfg.Version.CheckInterval),
+			zap.Stringer("minimum_check_interval", minCheckInterval),
 		)
 		runCfg.Version.CheckInterval = minCheckInterval
 		fallthrough
@@ -216,6 +221,6 @@ func openLog(logPath string) error {
 		return err
 	}
 
-	zap.ReplaceGlobals(logger.With(zap.String("Process", updaterServiceName)))
+	zap.ReplaceGlobals(logger.With(zap.String("process", updaterServiceName)))
 	return nil
 }

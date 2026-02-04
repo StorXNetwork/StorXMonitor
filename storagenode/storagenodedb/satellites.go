@@ -11,7 +11,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
+	"storj.io/storj/shared/dbutil/sqliteutil"
+	"storj.io/storj/shared/tagsql"
 	"storj.io/storj/storagenode/satellites"
 )
 
@@ -136,16 +137,21 @@ func (db *satellitesDB) GetSatellitesUrls(ctx context.Context) (satelliteURLs []
 
 // UpdateSatelliteStatus updates satellite status.
 func (db *satellitesDB) UpdateSatelliteStatus(ctx context.Context, satelliteID storj.NodeID, status satellites.Status) (err error) {
+	return db.updateSatelliteStatus(ctx, db.DB, satelliteID, status)
+}
+
+// updateSatelliteStatus updates satellite status.
+func (db *satellitesDB) updateSatelliteStatus(ctx context.Context, tx tagsql.ExecQueryer, satelliteID storj.NodeID, status satellites.Status) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.ExecContext(ctx, "UPDATE satellites SET status = ? WHERE node_id = ?", status, satelliteID)
+	_, err = tx.ExecContext(ctx, "UPDATE satellites SET status = ? WHERE node_id = ?", status, satelliteID)
 	return ErrSatellitesDB.Wrap(err)
 }
 
 // InitiateGracefulExit updates the database to reflect the beginning of a graceful exit.
 func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
+	return ErrSatellitesDB.Wrap(sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
 		query := `INSERT OR REPLACE INTO satellites (node_id, status, added_at) VALUES (?,?, COALESCE((SELECT added_at FROM satellites WHERE node_id = ?), ?))`
 		_, err = tx.ExecContext(ctx, query, satelliteID, satellites.Exiting, satelliteID, intitiatedAt.UTC()) // assume intitiatedAt < time.Now()
 		if err != nil {
@@ -176,8 +182,8 @@ func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID stor
 // CompleteGracefulExit updates the database when a graceful exit is completed or failed.
 func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
-		err := db.UpdateSatelliteStatus(ctx, satelliteID, exitStatus)
+	return ErrSatellitesDB.Wrap(sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
+		err := db.updateSatelliteStatus(ctx, tx, satelliteID, exitStatus)
 		if err != nil {
 			return err
 		}

@@ -21,7 +21,7 @@ import (
 )
 
 func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
-	t.Skip("disable until the bug SM-102 is fixed")
+	t.Skip("disable until the bug https://github.com/storj/storj/issues/7373 is fixed")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -54,7 +54,7 @@ func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
 
 		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
 
-		// TODO: this assertion fails due to the bug SM-102
+		// TODO: this assertion fails due to the bug https://github.com/storj/storj/issues/7373
 		require.Equal(t, len(data), int(usage.Egress), "Egress should be equal to the downloaded file size")
 	})
 }
@@ -145,9 +145,10 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		// Get usage after file was deleted
 		usageAfter := getProjectTotal(ctx, t, planet, 0, projectID, since)
 
-		// Verify data is correct. We don’t bill for the data after deleting objects, usage should be equal
-		require.Equal(t, usageBefore.SegmentCount, usageAfter.SegmentCount, "Segment count should be equal")
-		require.Equal(t, usageBefore.Storage, usageAfter.Storage, "Storage should be equal")
+		// Verify data is correct. We do bill for a final tally interval after
+		// deleting objects.
+		require.LessOrEqual(t, usageBefore.SegmentCount, usageAfter.SegmentCount, "Segment hour count should have grown")
+		require.LessOrEqual(t, usageBefore.Storage, usageAfter.Storage, "Storage should have increased in byte hours")
 		require.Zero(t, usageAfter.Egress, "Egress should be 0")
 	})
 }
@@ -169,7 +170,7 @@ func TestBilling_TrafficAfterFileDeletion(t *testing.T) {
 			uplink       = planet.Uplinks[0]
 			projectID    = uplink.Projects[0].ID
 		)
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 		require.NoError(t, err)
 
 		// stop any async flushes because we want to be sure when some values are
@@ -265,7 +266,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 			StreamID: objectsBefore[0].StreamID,
 			Position: metabase.SegmentPosition{Index: 0},
 		}
-		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, &queueSegment)
+		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, queueSegment)
 		require.NoError(t, err)
 
 		// get the only metainfo record (our upload)
@@ -418,7 +419,6 @@ func getTallies(ctx context.Context, t *testing.T, planet *testplanet.Planet, sa
 	t.Helper()
 	sat := planet.Satellites[satelliteIdx]
 	sat.Accounting.Tally.Loop.TriggerWait()
-	sat.Accounting.Tally.Loop.Pause()
 
 	tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
 	require.NoError(t, err)

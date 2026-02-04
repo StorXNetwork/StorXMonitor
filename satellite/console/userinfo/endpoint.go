@@ -45,7 +45,7 @@ type Endpoint struct {
 
 // NewEndpoint creates a new userinfo endpoint instance.
 func NewEndpoint(log *zap.Logger, users console.Users, apiKeys console.APIKeys, projects console.Projects, config Config) (*Endpoint, error) {
-	if len(config.AllowedPeers) == 0 {
+	if config.Enabled && len(config.AllowedPeers) == 0 {
 		return nil, Error.New("allowed peer list parameter '--allowed-peer-list' is required")
 	}
 
@@ -107,7 +107,7 @@ func (e *Endpoint) Get(ctx context.Context, req *pb.GetUserInfoRequest) (respons
 	}
 
 	return &pb.GetUserInfoResponse{
-		PaidTier: user.PaidTier,
+		PaidTier: user.HasPaidPrivileges(),
 	}, nil
 }
 

@@ -117,10 +117,10 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup version control
 		peer.Log.Info("Version info",
-			zap.Stringer("Version", versionInfo.Version.Version),
-			zap.String("Commit Hash", versionInfo.CommitHash),
-			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
-			zap.Bool("Release Build", versionInfo.Release),
+			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("commit_hash", versionInfo.CommitHash),
+			zap.Stringer("build_timestamp", versionInfo.Timestamp),
+			zap.Bool("release_build", versionInfo.Release),
 		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
@@ -142,7 +142,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 	}
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup orders
 
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -235,8 +235,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 			peer.Overlay,
 			metabaseDB,
 			containmentDB,
-			config.Audit.MaxRetriesStatDB,
-			int32(config.Audit.MaxReverifyCount))
+			config.Audit)
 
 		peer.Audit.Worker = audit.NewWorker(log.Named("audit:verify-worker"),
 			verifyQueue,

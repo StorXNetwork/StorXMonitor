@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -18,9 +19,11 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/backup"
+	"storj.io/storj/satellite/bucketmigrations"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -35,16 +38,24 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
+	"storj.io/storj/satellite/satellitedb/consoledb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/satellite/userworker"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/flightrecorder"
+	"storj.io/storj/shared/lrucache"
+	"storj.io/storj/shared/tagsql"
 )
 
 // Error is the default satellitedb errs class.
 var Error = errs.Class("satellitedb")
 
 type satelliteDBCollection struct {
-	dbs map[string]*satelliteDB
+	dbs            map[string]*satelliteDB
+	maxCommitDelay *time.Duration
 }
 
 // satelliteDB combines access to different database tables with a record
@@ -61,7 +72,7 @@ type satelliteDB struct {
 	source string
 
 	consoleDBOnce sync.Once
-	consoleDB     *ConsoleDB
+	consoleDB     *consoledb.ConsoleDB
 
 	revocationDBOnce sync.Once
 	revocationDB     *revocationDB
@@ -76,6 +87,10 @@ type Options struct {
 	// How many storage node rollups to save/read in one batch.
 	SaveRollupBatchSize int
 	ReadRollupBatchSize int
+
+	FlightRecorder *flightrecorder.Box
+
+	MaxCommitDelay *time.Duration
 }
 
 var _ dbx.DBMethods = &satelliteDB{}
@@ -88,6 +103,7 @@ var safelyPartitionableDBs = map[string]bool{
 	"nodeevents":    true,
 	"verifyqueue":   true,
 	"reverifyqueue": true,
+	"overlaycache":  true, // tables: nodes, node_tags
 }
 
 // Open creates instance of satellite.DB.
@@ -97,7 +113,10 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		return nil, err
 	}
 
-	dbc := &satelliteDBCollection{dbs: map[string]*satelliteDB{}}
+	dbc := &satelliteDBCollection{
+		dbs:            map[string]*satelliteDB{},
+		maxCommitDelay: opts.MaxCommitDelay,
+	}
 	defer func() {
 		if err != nil {
 			err = errs.Combine(err, dbc.Close())
@@ -105,8 +124,9 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	}()
 
 	for key, val := range dbMapping {
-		db, err := open(ctx, log, val, opts, key)
-		if err != nil {
+		db, openErr := open(ctx, log, val, opts, key)
+		if openErr != nil {
+			err = errs.Combine(err, openErr)
 			return nil, err
 		}
 		dbc.dbs[key] = db
@@ -120,21 +140,32 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	if err != nil {
 		return nil, err
 	}
-	if impl != dbutil.Postgres && impl != dbutil.Cockroach {
+	if impl != dbutil.Postgres && impl != dbutil.Cockroach && impl != dbutil.Spanner {
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
-	source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
-	if err != nil {
-		return nil, err
+	// spanner does not have an application name option in the connection string
+	if impl == dbutil.Postgres || impl == dbutil.Cockroach {
+		source, err = pgutil.EnsureApplicationName(source, opts.ApplicationName)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	dbxDB, err := dbx.Open(driver, source)
-	if err != nil {
-		return nil, Error.New("failed opening database via DBX at %q: %v",
-			source, err)
+	dbxSource := source
+	if impl == dbutil.Spanner {
+		params, err := spannerutil.ParseConnStr(source)
+		if err != nil {
+			return nil, Error.New("invalid connection string for Spanner: %w", err)
+		}
+		params.UserAgent = opts.ApplicationName
+		dbxSource = params.GoSqlSpannerConnStr()
 	}
 
+	dbxDB, err := dbx.Open(driver, dbxSource, opts.FlightRecorder)
+	if err != nil {
+		return nil, Error.New("failed opening database via DBX at %q: %v", dbxSource, err)
+	}
 
 	name := "satellitedb"
 	if override != "" {
@@ -221,6 +252,11 @@ func (dbc *satelliteDBCollection) ProjectAccounting() accounting.ProjectAccounti
 	return &ProjectAccounting{db: dbc.getByName("projectaccounting")}
 }
 
+// RetentionRemainderCharges returns database for retention remainder charges.
+func (dbc *satelliteDBCollection) RetentionRemainderCharges() accounting.RetentionRemainderDB {
+	return &retentionRemainderDB{db: dbc.getByName("retentionremaindercharges")}
+}
+
 // Revocation returns the database to deal with macaroon revocation.
 func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 	db := dbc.getByName("revocation")
@@ -240,13 +276,14 @@ func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 func (dbc *satelliteDBCollection) Console() console.DB {
 	db := dbc.getByName("console")
 	db.consoleDBOnce.Do(func() {
-		db.consoleDB = &ConsoleDB{
-			apikeysLRUOptions: db.opts.APIKeysLRUOptions,
+		db.consoleDB = &consoledb.ConsoleDB{
+			DB:                db.DB,
+			ApikeysLRUOptions: db.opts.APIKeysLRUOptions,
 
-			db:      db,
-			methods: db,
+			Impl:    db.impl,
+			Methods: db,
 
-			apikeysOnce: new(sync.Once),
+			ApikeysOnce: new(sync.Once),
 		}
 	})
 
@@ -272,6 +309,11 @@ func (dbc *satelliteDBCollection) LiveAccounting() accounting.Cache {
 	panic("LiveAccounting should not be called on the database layer - use peer.LiveAccounting.Cache directly")
 }
 
+// AdminChangeHistory returns the database for storing admin change history.
+func (dbc *satelliteDBCollection) AdminChangeHistory() changehistory.DB {
+	return &ChangeHistories{db: dbc.getByName("adminchangehistory")}
+}
+
 // OIDC returns the database for storing OAuth and OIDC information.
 func (dbc *satelliteDBCollection) OIDC() oidc.DB {
 	db := dbc.getByName("oidc")
@@ -281,7 +323,10 @@ func (dbc *satelliteDBCollection) OIDC() oidc.DB {
 // Orders returns database for storing orders.
 func (dbc *satelliteDBCollection) Orders() orders.DB {
 	db := dbc.getByName("orders")
-	return &ordersDB{db: db}
+	return &ordersDB{
+		db:             db,
+		maxCommitDelay: dbc.maxCommitDelay,
+	}
 }
 
 // Containment returns database for storing pending audit info.
@@ -330,6 +375,11 @@ func (dbc *satelliteDBCollection) Buckets() buckets.DB {
 	return &bucketsDB{db: dbc.getByName("buckets")}
 }
 
+// BucketMigrations returns database for interacting with bucket migrations.
+func (dbc *satelliteDBCollection) BucketMigrations() bucketmigrations.DB {
+	return &bucketMigrationsDB{db: dbc.getByName("bucketmigrations")}
+}
+
 // StorjscanPayments returns database for storjscan payments.
 func (dbc *satelliteDBCollection) StorjscanPayments() storjscan.PaymentsDB {
 	return &storjscanPayments{db: dbc.getByName("storjscan_payments")}
@@ -369,13 +419,23 @@ func (db *satelliteDB) Testing() satellite.TestingDB {
 
 type satelliteDBTesting struct{ *satelliteDB }
 
+// Implementation returns the implementations of the databases.
+func (db *satelliteDBTesting) Implementation() []dbutil.Implementation {
+	return []dbutil.Implementation{db.satelliteDB.impl}
+}
+
+// Rebind adapts a query's syntax for a database dialect.
+func (db *satelliteDBTesting) Rebind(query string) string {
+	return db.satelliteDB.Rebind(query)
+}
+
 // RawDB returns the underlying database connection to the primary database.
 func (db *satelliteDBTesting) RawDB() tagsql.DB {
 	return db.satelliteDB.DB
 }
 
 // Schema returns the full schema for the database.
-func (db *satelliteDBTesting) Schema() string {
+func (db *satelliteDBTesting) Schema() []string {
 	return db.satelliteDB.Schema()
 }
 
@@ -396,13 +456,27 @@ func (dbc *satelliteDBCollection) Testing() satellite.TestingDB {
 
 type satelliteDBCollectionTesting struct{ *satelliteDBCollection }
 
+// Implementation returns the implementations of the databases.
+func (dbc *satelliteDBCollectionTesting) Implementation() []dbutil.Implementation {
+	var r []dbutil.Implementation
+	for _, db := range dbc.dbs {
+		r = append(r, db.impl)
+	}
+	return r
+}
+
+// Rebind adapts a query's syntax for a database dialect.
+func (dbc *satelliteDBCollectionTesting) Rebind(query string) string {
+	return dbc.getByName("").Rebind(query)
+}
+
 // RawDB returns the underlying database connection to the primary database.
 func (dbc *satelliteDBCollectionTesting) RawDB() tagsql.DB {
 	return dbc.getByName("").DB.DB
 }
 
 // Schema returns the full schema for the database.
-func (dbc *satelliteDBCollectionTesting) Schema() string {
+func (dbc *satelliteDBCollectionTesting) Schema() []string {
 	return dbc.getByName("").Schema()
 }
 

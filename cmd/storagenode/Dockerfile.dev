@@ -1,39 +1,30 @@
-ARG DOCKER_ARCH
-ARG GO_VERSION=1.21
-# Storagenode UI static asset generation
-FROM node:18.17.0 as ui
-WORKDIR /app
-COPY web/storagenode/ /app
-RUN ./build.sh
+# syntax=docker/dockerfile:1.4-labs
+ARG GO_VERSION="1.25.6"
 
-# Fetch ca-certificates file for arch independent builds below
-FROM debian:buster-slim as ca-cert
+# ca-cert downloads certificates in a separate stage to
+# avoid needing to download it for different target platforms.
+# Similarly, it avoids the apt cache.
+FROM --platform=$BUILDPLATFORM debian:trixie-slim AS ca-cert
+
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN update-ca-certificates
 
-# Install storj-up helper (for local/dev runs)
-FROM --platform=$TARGETPLATFORM golang:$GO_VERSION AS storjup
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod  \
-    CGO_ENABLED=0 go install storj.io/storj-up@latest
+FROM debian:trixie-slim
 
-# Install dlv (for local/dev runs)
-FROM --platform=$TARGETPLATFORM golang:$GO_VERSION AS dlv
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod  \
-    go install github.com/go-delve/delve/cmd/dlv@latest
+ARG TARGETOS
+ARG TARGETARCH
 
-FROM ${DOCKER_ARCH:-amd64}/debian:buster-slim
-ARG TAG
-ARG GOARCH
-ENV GOARCH ${GOARCH}
-ENV PATH=$PATH:/app
 WORKDIR /app
-COPY --from=ui /app/static /app/static
+
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY release/${TAG}/storagenode_linux_${GOARCH:-amd64} /app/storagenode
-COPY release/${TAG}/identity_linux_${GOARCH:-amd64} /app/identity
-COPY --from=storjup /go/bin/storj-up /usr/local/bin/storj-up
-COPY --from=dlv /go/bin/dlv /usr/local/bin/dlv
-COPY cmd/storagenode/entrypoint /entrypoint
-ENTRYPOINT ["/entrypoint"]
+
+COPY --from=storj-up /${TARGETOS}_${TARGETARCH}/storj-up /usr/local/bin/storj-up
+COPY --from=delve    /${TARGETOS}_${TARGETARCH}/dlv      /usr/local/bin/dlv
+
+COPY --from=binaries /${TARGETOS}_${TARGETARCH}/storagenode /app/storagenode
+COPY --from=binaries /${TARGETOS}_${TARGETARCH}/identity /app/identity
+COPY --from=ui / /app/static
+
+COPY cmd/storagenode/entrypoint /app/entrypoint
+
+ENTRYPOINT ["/app/entrypoint"]

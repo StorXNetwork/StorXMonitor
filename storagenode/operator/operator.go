@@ -4,7 +4,7 @@
 package operator
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 	"strings"
 
@@ -39,21 +39,21 @@ func isOperatorEmailValid(log *zap.Logger, email string) error {
 	if email == "" {
 		log.Warn("Operator email address isn't specified.")
 	} else {
-		log.Info("Operator email", zap.String("Address", email))
+		log.Info("Operator email", zap.String("address", email))
 	}
 	return nil
 }
 
 func isOperatorWalletValid(log *zap.Logger, wallet string) error {
 	if wallet == "" {
-		return fmt.Errorf("operator wallet address isn't specified")
+		return errors.New("operator wallet address isn't specified")
 	}
 	r := regexp.MustCompile("^(xdc|0x)[a-fA-F0-9]{40}$")
 	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("operator wallet address isn't valid")
+		return errors.New("operator wallet address isn't valid")
 	}
 
-	log.Info("Operator wallet", zap.String("Address", wallet))
+	log.Info("Operator wallet", zap.String("address", wallet))
 	return nil
 }
 

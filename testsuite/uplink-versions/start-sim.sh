@@ -9,6 +9,8 @@ then
     go install golang.org/dl/go1.16.15@latest && go1.16.15 download
 fi
 
+TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+
 cleanup(){
     ret=$?
     echo "EXIT STATUS: $ret"
@@ -39,7 +41,11 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 # in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the all versions from stage 1 plus main
 IMPORTANT_VERSIONS=('v1.0.0 v1.15.4 v1.19.9 v1.27.6 v1.28.2 v1.29.5 v1.30.4')     # first stable version, next 2 versions representative for pre metainfo refactoring, other represent current rclone, duplicati etc.
 
-git fetch --tags
+# Note: tags should be fetched before running this script (e.g., in run-postgres.sh or Jenkinsfile)
+# to avoid needing network/SSH access from within the container.
+# Disable remote access by removing the remote URL - all required refs should already be local.
+git remote set-url origin /dev/null 2>/dev/null || true
+git fetch --tags 2>/dev/null || true
 major_release_tags=$(
     git tag -l --sort -version:refname |                             # get the tag list
     grep -v rc |                                                     # remove release candidates
@@ -62,8 +68,6 @@ echo "stage1_storagenode_versions" $stage1_storagenode_versions
 echo "stage2_sat_version" $stage2_sat_version
 echo "stage2_uplink_versions" $stage2_uplink_versions
 echo "stage2_storagenode_versions" $stage2_storagenode_versions
-
-TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 
 find_unique_versions(){
     echo "$*" | tr " " "\n" | sort | uniq
@@ -93,17 +97,17 @@ install_sim(){
     local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go build -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+    go build -race -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
+    go build -race -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
+    go build -race -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
+    go build -race -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol 2>&1
 
-    go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
+    go build -race -o ${bin_dir}/identity storj.io/storj/cmd/identity 2>&1
+    go build -race -o ${bin_dir}/certificates storj.io/storj/cmd/certificates 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
-        (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
+        (cd ${work_dir}/cmd/gateway && go build -race -o ${bin_dir}/gateway storj.io/storj/cmd/gateway 2>&1)
     else
         GOBIN=${bin_dir} go install -race storj.io/gateway@latest
     fi
@@ -111,7 +115,7 @@ install_sim(){
         # as storj-sim is most likely installed from $PWD and contains storj-sim version which requires multinode
         # install the most recent multinode version from $PWD
         # multinode versions that are below c08ca361d83b252da8ba466896f23fdc6dddc1d9 throws on run if UI was not build
-        go build -race -v -o ${bin_dir}/multinode storj.io/storj/cmd/multinode >/dev/null 2>&1
+        go build -race -o ${bin_dir}/multinode storj.io/storj/cmd/multinode 2>&1
     fi
 }
 
@@ -236,9 +240,9 @@ for version in ${unique_versions}; do
             mkdir -p ${bin_dir}
 
             if version_ge "$version" "v1.64.0"; then
-                go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+                go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
             else
-                go1.16.15 build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+                go1.16.15 build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
             fi
 
             popd
@@ -261,7 +265,7 @@ test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}"
-update_access_script_path="$(version_dir "main")/testsuite/update-access.go"
+update_access_script_path="$(version_dir "main")/testsuite/update-access/main.go"
 
 # Uploading files to the network using the latest release version for each uplink version
 for ul_version in ${stage1_uplink_versions}; do

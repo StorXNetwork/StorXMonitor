@@ -4,7 +4,6 @@
 package rangedlooptest
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -22,6 +22,8 @@ var (
 )
 
 func TestSplitter(t *testing.T) {
+	ctx := testcontext.New(t)
+
 	mkseg := func(streamID byte, pos uint64) rangedloop.Segment {
 		return rangedloop.Segment{
 			StreamID: uuid.UUID{0: streamID},
@@ -122,13 +124,13 @@ func TestSplitter(t *testing.T) {
 
 			splitter := RangeSplitter{Segments: tt.segments}
 
-			providers, err := splitter.CreateRanges(tt.numRanges, batchSize)
+			providers, err := splitter.CreateRanges(ctx, tt.numRanges, batchSize)
 			require.NoError(t, err)
 
 			var actualRanges [][]rangedloop.Segment
 			for _, provider := range providers {
 				rangeSegments := []rangedloop.Segment{}
-				err := provider.Iterate(context.Background(), func(segments []rangedloop.Segment) error {
+				err := provider.Iterate(t.Context(), func(segments []rangedloop.Segment) error {
 					if len(segments) > batchSize {
 						return fmt.Errorf("iterated segments (%d) larger than batch size (%d)", len(segments), batchSize)
 					}

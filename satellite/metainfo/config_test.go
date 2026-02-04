@@ -4,13 +4,22 @@
 package metainfo_test
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/common/uuid"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -99,28 +108,83 @@ func TestRSConfigValidation(t *testing.T) {
 	}
 }
 
-func TestExtendedConfig_UseBucketLevelObjectVersioning(t *testing.T) {
-	projectA := testrand.UUID()
-	projectB := testrand.UUID()
-	projectC := testrand.UUID()
-	config, err := metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioningProjects: []string{
-			projectA.String(),
-			projectB.String(),
-		},
-	})
+func TestUUIDsFlag(t *testing.T) {
+	var UUIDs metainfo.UUIDsFlag
+	err := UUIDs.Set("")
 	require.NoError(t, err)
+	require.Len(t, UUIDs, 0)
 
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
-	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectC))
-
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioning: false,
-		UseBucketLevelObjectVersioningProjects: []string{
-			"01000000-0000-0000-0000-000000000000",
-		},
-	})
+	testIDA := testrand.UUID()
+	err = UUIDs.Set(testIDA.String())
 	require.NoError(t, err)
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(uuid.UUID{1}))
+	require.Equal(t, metainfo.UUIDsFlag{
+		testIDA: {},
+	}, UUIDs)
+
+	testIDB := testrand.UUID()
+	err = UUIDs.Set(testIDA.String() + "," + testIDB.String())
+	require.NoError(t, err)
+	require.Equal(t, metainfo.UUIDsFlag{
+		testIDA: {},
+		testIDB: {},
+	}, UUIDs)
+}
+
+func TestMigrationModeFlag(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Debug.Addr = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		debugAddr := planet.Satellites[0].API.Debug.Listener.Addr().String()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), &bytes.Buffer{})
+		require.NoError(t, err)
+
+		res, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, res.Body.Close())
+		}()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+		content, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+		require.Equal(t, "false", string(content))
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), bytes.NewBufferString("true"))
+		require.NoError(t, err)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, resp.Body.Close())
+		}()
+
+		// we are rejecting write requests
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+		// download should still work
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "testobject")
+		require.NoError(t, err)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), bytes.NewBufferString("false"))
+		require.NoError(t, err)
+
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, resp.Body.Close())
+		}()
+
+		// uploads are working again
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+	})
 }

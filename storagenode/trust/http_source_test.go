@@ -4,7 +4,6 @@
 package trust_test
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -81,16 +80,16 @@ func TestHTTPSourceFetchEntries(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method != "GET":
-			http.Error(w, fmt.Sprintf("%s method not allowed", r.Method), http.StatusMethodNotAllowed)
+		case r.Method != http.MethodGet:
+			http.Error(w, r.Method+" method not allowed", http.StatusMethodNotAllowed)
 		case r.URL.Path == "/good":
-			fmt.Fprintf(w, `
+			_, _ = fmt.Fprintf(w, `
 				# Some comment
 				%s
 				%s
 			`, url1.String(), url2.String())
 		case r.URL.Path == "/bad":
-			fmt.Fprintln(w, "BAD")
+			_, _ = fmt.Fprintln(w, "BAD")
 		case r.URL.Path == "/ugly":
 			http.Error(w, "OHNO", http.StatusInternalServerError)
 		}
@@ -136,7 +135,7 @@ func TestHTTPSourceFetchEntries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			source, err := trust.NewHTTPSource(tt.httpURL)
 			require.NoError(t, err)
-			entries, err := source.FetchEntries(context.Background())
+			entries, err := source.FetchEntries(t.Context())
 			if tt.err != "" {
 				require.EqualError(t, err, tt.err)
 				return

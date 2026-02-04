@@ -5,6 +5,7 @@ package contact
 
 import (
 	"context"
+	"math"
 	"net"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/noise"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcctx"
 	"storj.io/eventkit"
@@ -54,7 +56,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.Error(err))
+		endpoint.log.Info("failed to get node ID from context", zap.String("node_address", req.Address), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
@@ -62,23 +64,23 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	// we need a string as a key for the limiter, but nodeID.String() has base58 encoding overhead
 	nodeIDBytesAsString := string(nodeID.Bytes())
 	if !endpoint.service.idLimiter.IsAllowed(ctx, nodeIDBytesAsString) {
-		endpoint.log.Info("node rate limited by id", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		endpoint.log.Info("node rate limited by id", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID))
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, errCheckInRateLimit.New("node rate limited by id").Error())
 	}
 
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
-		endpoint.log.Info("failed to add peer identity entry for ID", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to add peer identity entry for ID", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
 	}
 
 	resolvedIP, port, resolvedNetwork, err := endpoint.service.overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
-		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || isPrivateIP(resolvedIP)) {
-		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		endpoint.log.Info("IP address not allowed", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
@@ -110,9 +112,9 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 			req.Operator.WalletFeatures = nil
 		}
 	}
-	err = endpoint.service.processNodeTags(ctx, nodeID, req.SignedTags)
+	err = endpoint.service.processNodeTags(ctx, nodeID, signing.SigneeFromPeerIdentity(peerID), req.SignedTags)
 	if err != nil {
-		endpoint.log.Info("failed to update node tags", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to update node tags", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 	}
 
 	nodeInfo := overlay.NodeCheckInInfo{
@@ -131,22 +133,31 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		Version:    req.Version,
 	}
 
-	emitEventkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo)
-
-	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
+	checkInResult, err := endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
-		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to update check in", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
+		endpoint.service.idLimiter.BackOut(ctx, nodeIDBytesAsString)
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
+	emitEventkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo, checkInResult)
+
+	hashstoreSettings, err := endpoint.service.getHashstoreSettings(ctx, nodeID)
+	if err != nil {
+		endpoint.log.Info("failed to get hashstore settings", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+	}
+
+	endpoint.log.Debug("checking in", zap.Stringer("node_id", nodeID), zap.String("node_addr", req.Address), zap.Bool("ping_node_success", pingNodeSuccess), zap.String("ping_node_err_msg", pingErrorMessage))
 	return &pb.CheckInResponse{
 		PingNodeSuccess:     pingNodeSuccess,
 		PingNodeSuccessQuic: pingNodeSuccessQUIC,
 		PingErrorMessage:    pingErrorMessage,
+		HashstoreSettings:   hashstoreSettings,
 	}, nil
 }
 
-func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPSuccess bool, pingNodeQUICSuccess bool, nodeInfo overlay.NodeCheckInInfo) {
+func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPSuccess bool, pingNodeQUICSuccess bool, nodeInfo overlay.NodeCheckInInfo, checkInResult overlay.CheckInResult) {
 	var sourceAddr string
 	transport, found := drpcctx.Transport(ctx)
 	if found {
@@ -169,12 +180,18 @@ func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPS
 	}
 
 	if nodeInfo.Capacity != nil {
-		eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk)
+		tags = append(tags, eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk))
 	}
 
 	if nodeInfo.Version != nil {
-		eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp)
-		eventkit.String("version", nodeInfo.Version.Version)
+		tags = append(tags, eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp))
+		tags = append(tags, eventkit.String("version", nodeInfo.Version.Version))
+	}
+
+	// Add downtime tag only when node came back online (rounded up to nearest hour)
+	if checkInResult.CameBackOnline {
+		downtimeHours := int64(math.Ceil(checkInResult.Downtime.Hours()))
+		tags = append(tags, eventkit.Int64("downtime-hours", downtimeHours))
 	}
 
 	ek.Event("checkin", tags...)
@@ -203,7 +220,7 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 
 	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.Error(err))
+		endpoint.log.Info("failed to get node ID from context", zap.String("node_address", req.Address), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
@@ -215,11 +232,11 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 
 	resolvedIP, _, _, err := endpoint.service.overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
-		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || isPrivateIP(resolvedIP)) {
-		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		endpoint.log.Info("IP address not allowed", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
@@ -256,8 +273,40 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 	return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid transport: %v", req.Transport)
 }
 
+// AmnestyReport handles storage nodes reporting pieces they have lost or detected as corrupted.
+func (endpoint *Endpoint) AmnestyReport(ctx context.Context, req *pb.AmnestyReportRequest) (_ *pb.AmnestyReportResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peerID, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Info("failed to get node ID from context", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
+	}
+	nodeID := peerID.ID
+
+	endpoint.log.Info("received amnesty report",
+		zap.Stringer("node_id", nodeID),
+		zap.Int("lost_pieces", len(req.LostPieces)))
+
+	// Report each lost piece to eventkit for monitoring and analysis for now
+	for _, lostPiece := range req.LostPieces {
+		ek.Event("amnesty_report",
+			eventkit.String("node_id", nodeID.String()),
+			eventkit.String("piece_id", lostPiece.PieceId.String()),
+			eventkit.String("reason", lostPiece.Reason.String()),
+		)
+
+		endpoint.log.Debug("piece reported as lost",
+			zap.Stringer("node_id", nodeID),
+			zap.String("piece_id", lostPiece.PieceId.String()),
+			zap.String("reason", lostPiece.Reason.String()))
+	}
+
+	return &pb.AmnestyReportResponse{}, nil
+}
+
 func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storj.NodeURL) error {
-	endpoint.log.Info("failed to ping back address", zap.String("node address", nodeURL.Address), zap.Stringer("Node ID", nodeURL.ID), zap.Error(err))
+	endpoint.log.Info("failed to ping back address", zap.String("node_address", nodeURL.Address), zap.Stringer("node_id", nodeURL.ID), zap.Error(err))
 	if errPingBackDial.Has(err) {
 		err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeURL.ID, nodeURL.Address, err)
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())

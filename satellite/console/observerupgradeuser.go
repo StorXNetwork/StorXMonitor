@@ -5,10 +5,13 @@ package console
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"storj.io/common/memory"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/analytics"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments/billing"
 )
 
@@ -22,11 +25,15 @@ type UpgradeUserObserver struct {
 	userBalanceForUpgrade int64
 	freezeService         *AccountFreezeService
 	analyticsService      *analytics.Service
-	nowFn                 func() time.Time
+	mailService           *mailservice.Service
+
+	satelliteAddress string
+
+	nowFn func() time.Time
 }
 
 // NewUpgradeUserObserver creates new observer instance.
-func NewUpgradeUserObserver(consoleDB DB, transactionsDB billing.TransactionsDB, usageLimitsConfig UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *AccountFreezeService, analyticsService *analytics.Service) *UpgradeUserObserver {
+func NewUpgradeUserObserver(consoleDB DB, transactionsDB billing.TransactionsDB, usageLimitsConfig UsageLimitsConfig, userBalanceForUpgrade int64, satelliteAddress string, freezeService *AccountFreezeService, analyticsService *analytics.Service, mailService *mailservice.Service) *UpgradeUserObserver {
 	return &UpgradeUserObserver{
 		consoleDB:             consoleDB,
 		transactionsDB:        transactionsDB,
@@ -34,6 +41,8 @@ func NewUpgradeUserObserver(consoleDB DB, transactionsDB billing.TransactionsDB,
 		userBalanceForUpgrade: userBalanceForUpgrade,
 		freezeService:         freezeService,
 		analyticsService:      analyticsService,
+		mailService:           mailService,
+		satelliteAddress:      satelliteAddress,
 		nowFn:                 time.Now,
 	}
 }
@@ -57,7 +66,7 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 		return err
 	}
 
-	if user.PaidTier {
+	if !user.IsFreeOrMember() {
 		return nil
 	}
 
@@ -71,19 +80,31 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 		return nil
 	}
 
-	now := o.nowFn()
+	if freezes.TrialExpirationFreeze != nil {
+		err = o.freezeService.TrialExpirationUnfreezeUser(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	var upgradeTime *time.Time
+	if user.UpgradeTime == nil {
+		now := o.nowFn()
+		upgradeTime = &now
+	}
+
 	err = o.consoleDB.Users().UpdatePaidTier(ctx, user.ID, true,
 		o.usageLimitsConfig.Bandwidth.Paid,
 		o.usageLimitsConfig.Storage.Paid,
 		o.usageLimitsConfig.Segment.Paid,
 		o.usageLimitsConfig.Project.Paid,
-		&now,
+		upgradeTime,
 	)
 	if err != nil {
 		return err
 	}
 
-	o.analyticsService.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration)
+	o.analyticsService.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration, user.HubspotObjectID)
 
 	projects, err := o.consoleDB.Projects().GetOwn(ctx, user.ID)
 	if err != nil {
@@ -106,6 +127,16 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 			return err
 		}
 	}
+
+	loginURL, err := url.JoinPath(o.satelliteAddress, "login")
+	if err != nil {
+		return err
+	}
+	o.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email}},
+		&UpgradeToProEmail{LoginURL: loginURL},
+	)
 
 	return nil
 }

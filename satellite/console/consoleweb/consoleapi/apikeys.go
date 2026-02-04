@@ -36,7 +36,7 @@ type APIKeys struct {
 	service *console.Service
 }
 
-// NewAPIKeys is a constructor for api api keys controller.
+// NewAPIKeys is a constructor for api keys controller.
 func NewAPIKeys(log *zap.Logger, service *console.Service) *APIKeys {
 	return &APIKeys{
 		log:     log,
@@ -71,7 +71,29 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	name := string(bodyBytes)
 
-	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name)
+	err = keys.service.ValidateFreeFormFieldLengths(&name)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	apiKeyVersion := macaroon.APIKeyVersionMin
+	if keys.service.GetObjectLockUIEnabled() {
+		apiKeyVersion = macaroon.APIKeyVersionObjectLock
+	}
+	if keys.service.ProjectSupportsAuditableAPIKeys(projectID) {
+		apiKeyVersion |= macaroon.APIKeyVersionAuditable
+	}
+	supports, err := keys.service.ProjectSupportsEventingAPIKeys(ctx, projectID)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+	if supports {
+		apiKeyVersion |= macaroon.APIKeyVersionEventing
+	}
+
+	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name, apiKeyVersion)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -442,6 +464,11 @@ func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrForbidden.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusForbidden, err)
 			return
 		}
 

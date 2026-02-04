@@ -11,11 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 //go:generate go run migrate_gen.go
@@ -50,19 +49,23 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 
 	case dbutil.Cockroach:
 		var dbName string
-		if err := db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+		if err := db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
 			return errs.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+		_, err := db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
 			pgutil.QuoteIdentifier(dbName)))
 		if err != nil {
 			return errs.Wrap(err)
 		}
+	case dbutil.Spanner:
+		// nothing to do here at the moment
+	default:
+		return Error.New("unsupported database: %v", db.impl)
 	}
 
 	switch db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
+	case dbutil.Postgres, dbutil.Cockroach, dbutil.Spanner:
 		migration := db.ProductionMigration()
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
@@ -101,18 +104,23 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 
 	case dbutil.Cockroach:
 		var dbName string
-		if err := db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+		if err := db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
 			return ErrMigrateMinVersion.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, pgutil.QuoteIdentifier(dbName)))
+		_, err := db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, pgutil.QuoteIdentifier(dbName)))
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
+
+	case dbutil.Spanner:
+		// nothing to do here
+	default:
+		return Error.New("unsupported database: %v", db.impl)
 	}
 
 	switch db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
+	case dbutil.Postgres, dbutil.Cockroach, dbutil.Spanner:
 		migration := db.ProductionMigration()
 
 		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
@@ -124,6 +132,7 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
 			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
 		}
+
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)
@@ -133,7 +142,7 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 // CheckVersion confirms the database is at the desired version.
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
+	case dbutil.Postgres, dbutil.Cockroach, dbutil.Spanner:
 		migration := db.ProductionMigration()
 		return migration.ValidateVersions(ctx, db.log)
 
@@ -147,8 +156,1036 @@ func (db *satelliteDB) TestMigration() *migrate.Migration {
 	return db.testMigration()
 }
 
-// ProductionMigration returns steps needed for migrating postgres database.
+// ProductionMigration returns steps needed for migrating the satellitedb database.
 func (db *satelliteDB) ProductionMigration() *migrate.Migration {
+	if db.DB.Name() == "spanner" {
+		return db.productionMigrationSpanner()
+	}
+	return db.productionMigrationPostgres()
+}
+
+// productionMigrationSpanner returns steps needed for migrating the spanner database.
+func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
+	return &migrate.Migration{
+		Table: "versions",
+		Steps: []*migrate.Step{
+			{
+				DB:          &db.migrationDB,
+				Description: "Initial setup",
+				Version:     283,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS account_freeze_events (
+						user_id BYTES(MAX) NOT NULL,
+						event INT64 NOT NULL,
+						limits JSON,
+						days_till_escalation INT64,
+						notifications_count INT64 NOT NULL DEFAULT (0),
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp)
+					) PRIMARY KEY ( user_id, event )`,
+
+					`CREATE TABLE IF NOT EXISTS accounting_rollups (
+						node_id BYTES(MAX) NOT NULL,
+						start_time TIMESTAMP NOT NULL,
+						put_total INT64 NOT NULL,
+						get_total INT64 NOT NULL,
+						get_audit_total INT64 NOT NULL,
+						get_repair_total INT64 NOT NULL,
+						put_repair_total INT64 NOT NULL,
+						at_rest_total FLOAT64 NOT NULL,
+						interval_end_time TIMESTAMP
+					) PRIMARY KEY ( node_id, start_time )`,
+
+					`CREATE TABLE IF NOT EXISTS accounting_timestamps (
+						name STRING(MAX) NOT NULL,
+						value TIMESTAMP NOT NULL
+					) PRIMARY KEY ( name )`,
+
+					`CREATE TABLE IF NOT EXISTS billing_balances (
+						user_id BYTES(MAX) NOT NULL,
+						balance INT64 NOT NULL,
+						last_updated TIMESTAMP NOT NULL
+					) PRIMARY KEY ( user_id )`,
+
+					`CREATE SEQUENCE IF NOT EXISTS billing_transactions_id OPTIONS (sequence_kind='bit_reversed_positive')`,
+
+					`CREATE TABLE IF NOT EXISTS billing_transactions (
+						id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE billing_transactions_id)),
+						user_id BYTES(MAX) NOT NULL,
+						amount INT64 NOT NULL,
+						currency STRING(MAX) NOT NULL,
+						description STRING(MAX) NOT NULL,
+						source STRING(MAX) NOT NULL,
+						status STRING(MAX) NOT NULL,
+						type STRING(MAX) NOT NULL,
+						metadata JSON NOT NULL,
+						tx_timestamp TIMESTAMP NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS bucket_bandwidth_rollups (
+						bucket_name BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						interval_start TIMESTAMP NOT NULL,
+						interval_seconds INT64 NOT NULL,
+						action INT64 NOT NULL,
+						inline INT64 NOT NULL,
+						allocated INT64 NOT NULL,
+						settled INT64 NOT NULL
+					) PRIMARY KEY ( project_id, bucket_name, interval_start, action )`,
+
+					`CREATE TABLE IF NOT EXISTS bucket_bandwidth_rollup_archives (
+						bucket_name BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						interval_start TIMESTAMP NOT NULL,
+						interval_seconds INT64 NOT NULL,
+						action INT64 NOT NULL,
+						inline INT64 NOT NULL,
+						allocated INT64 NOT NULL,
+						settled INT64 NOT NULL
+					) PRIMARY KEY ( bucket_name, project_id, interval_start, action )`,
+
+					`CREATE TABLE IF NOT EXISTS bucket_storage_tallies (
+						bucket_name BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						interval_start TIMESTAMP NOT NULL,
+						total_bytes INT64 NOT NULL DEFAULT (0),
+						inline INT64 NOT NULL,
+						remote INT64 NOT NULL,
+						total_segments_count INT64 NOT NULL DEFAULT (0),
+						remote_segments_count INT64 NOT NULL,
+						inline_segments_count INT64 NOT NULL,
+						object_count INT64 NOT NULL,
+						metadata_size INT64 NOT NULL
+					) PRIMARY KEY ( bucket_name, project_id, interval_start )`,
+
+					`CREATE TABLE IF NOT EXISTS coinpayments_transactions (
+						id STRING(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						address STRING(MAX) NOT NULL,
+						amount_numeric INT64 NOT NULL,
+						received_numeric INT64 NOT NULL,
+						status INT64 NOT NULL,
+						key STRING(MAX) NOT NULL,
+						timeout INT64 NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS graceful_exit_progress (
+						node_id BYTES(MAX) NOT NULL,
+						bytes_transferred INT64 NOT NULL,
+						pieces_transferred INT64 NOT NULL DEFAULT (0),
+						pieces_failed INT64 NOT NULL DEFAULT (0),
+						updated_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( node_id )`,
+
+					`CREATE TABLE IF NOT EXISTS graceful_exit_segment_transfer_queue (
+						node_id BYTES(MAX) NOT NULL,
+						stream_id BYTES(MAX) NOT NULL,
+						position INT64 NOT NULL,
+						piece_num INT64 NOT NULL,
+						root_piece_id BYTES(MAX),
+						durability_ratio FLOAT64 NOT NULL,
+						queued_at TIMESTAMP NOT NULL,
+						requested_at TIMESTAMP,
+						last_failed_at TIMESTAMP,
+						last_failed_code INT64,
+						failed_count INT64,
+						finished_at TIMESTAMP,
+						order_limit_send_count INT64 NOT NULL DEFAULT (0)
+					) PRIMARY KEY ( node_id, stream_id, position, piece_num )`,
+
+					`CREATE TABLE IF NOT EXISTS nodes (
+						id BYTES(MAX) NOT NULL,
+						address STRING(MAX) NOT NULL DEFAULT (""),
+						last_net STRING(MAX) NOT NULL,
+						last_ip_port STRING(MAX),
+						country_code STRING(MAX),
+						protocol INT64 NOT NULL DEFAULT (0),
+						email STRING(MAX) NOT NULL,
+						wallet STRING(MAX) NOT NULL,
+						wallet_features STRING(MAX) NOT NULL DEFAULT (""),
+						free_disk INT64 NOT NULL DEFAULT (-1),
+						piece_count INT64 NOT NULL DEFAULT (0),
+						major INT64 NOT NULL DEFAULT (0),
+						minor INT64 NOT NULL DEFAULT (0),
+						patch INT64 NOT NULL DEFAULT (0),
+						commit_hash STRING(MAX) NOT NULL DEFAULT (""),
+						release_timestamp TIMESTAMP NOT NULL DEFAULT ("0001-01-01 00:00:00+00"),
+						release BOOL NOT NULL DEFAULT (false),
+						latency_90 INT64 NOT NULL DEFAULT (0),
+						vetted_at TIMESTAMP,
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						updated_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						last_contact_success TIMESTAMP NOT NULL DEFAULT (timestamp_seconds(0)),
+						last_contact_failure TIMESTAMP NOT NULL DEFAULT (timestamp_seconds(0)),
+						disqualified TIMESTAMP,
+						disqualification_reason INT64,
+						unknown_audit_suspended TIMESTAMP,
+						offline_suspended TIMESTAMP,
+						under_review TIMESTAMP,
+						exit_initiated_at TIMESTAMP,
+						exit_loop_completed_at TIMESTAMP,
+						exit_finished_at TIMESTAMP,
+						exit_success BOOL NOT NULL DEFAULT (false),
+						contained TIMESTAMP,
+						last_offline_email TIMESTAMP,
+						last_software_update_email TIMESTAMP,
+						noise_proto INT64,
+						noise_public_key BYTES(MAX),
+						debounce_limit INT64 NOT NULL DEFAULT (0),
+						features INT64 NOT NULL DEFAULT (0)
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS node_api_versions (
+						id BYTES(MAX) NOT NULL,
+						api_version INT64 NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						updated_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS node_events (
+						id BYTES(MAX) NOT NULL,
+						email STRING(MAX) NOT NULL,
+						last_ip_port STRING(MAX),
+						node_id BYTES(MAX) NOT NULL,
+						event INT64 NOT NULL,
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						last_attempted TIMESTAMP,
+						email_sent TIMESTAMP
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS node_tags (
+						node_id BYTES(MAX) NOT NULL,
+						name STRING(MAX) NOT NULL,
+						value BYTES(MAX) NOT NULL,
+						signed_at TIMESTAMP NOT NULL,
+						signer BYTES(MAX) NOT NULL
+					) PRIMARY KEY ( node_id, name, signer )`,
+
+					`CREATE TABLE IF NOT EXISTS oauth_clients (
+						id BYTES(MAX) NOT NULL,
+						encrypted_secret BYTES(MAX) NOT NULL,
+						redirect_url STRING(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						app_name STRING(MAX) NOT NULL,
+						app_logo_url STRING(MAX) NOT NULL
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS oauth_codes (
+						client_id BYTES(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						scope STRING(MAX) NOT NULL,
+						redirect_url STRING(MAX) NOT NULL,
+						challenge STRING(MAX) NOT NULL,
+						challenge_method STRING(MAX) NOT NULL,
+						code STRING(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						expires_at TIMESTAMP NOT NULL,
+						claimed_at TIMESTAMP
+					) PRIMARY KEY ( code )`,
+
+					`CREATE TABLE IF NOT EXISTS oauth_tokens (
+						client_id BYTES(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						scope STRING(MAX) NOT NULL,
+						kind INT64 NOT NULL,
+						token BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						expires_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( token )`,
+
+					`CREATE TABLE IF NOT EXISTS peer_identities (
+						node_id BYTES(MAX) NOT NULL,
+						leaf_serial_number BYTES(MAX) NOT NULL,
+						chain BYTES(MAX) NOT NULL,
+						updated_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( node_id )`,
+
+					`CREATE TABLE IF NOT EXISTS projects (
+						id BYTES(MAX) NOT NULL,
+						public_id BYTES(MAX),
+						name STRING(MAX) NOT NULL,
+						description STRING(MAX) NOT NULL,
+						usage_limit INT64,
+						bandwidth_limit INT64,
+						user_specified_usage_limit INT64,
+						user_specified_bandwidth_limit INT64,
+						segment_limit INT64 DEFAULT (1000000),
+						rate_limit INT64,
+						burst_limit INT64,
+						rate_limit_head INT64,
+						burst_limit_head INT64,
+						rate_limit_get INT64,
+						burst_limit_get INT64,
+						rate_limit_put INT64,
+						burst_limit_put INT64,
+						rate_limit_list INT64,
+						burst_limit_list INT64,
+						rate_limit_del INT64,
+						burst_limit_del INT64,
+						max_buckets INT64,
+						user_agent BYTES(MAX),
+						owner_id BYTES(MAX) NOT NULL,
+						salt BYTES(MAX),
+						created_at TIMESTAMP NOT NULL,
+						default_placement INT64,
+						default_versioning INT64 NOT NULL DEFAULT (1),
+						prompted_for_versioning_beta BOOL NOT NULL DEFAULT (false),
+						passphrase_enc BYTES(MAX),
+						passphrase_enc_key_id INT64,
+						path_encryption BOOL NOT NULL DEFAULT (true)
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS project_bandwidth_daily_rollups (
+						project_id BYTES(MAX) NOT NULL,
+						interval_day DATE NOT NULL,
+						egress_allocated INT64 NOT NULL,
+						egress_settled INT64 NOT NULL,
+						egress_dead INT64 NOT NULL DEFAULT (0)
+					) PRIMARY KEY ( project_id, interval_day )`,
+
+					`CREATE TABLE IF NOT EXISTS registration_tokens (
+						secret BYTES(MAX) NOT NULL,
+						owner_id BYTES(MAX),
+						project_limit INT64 NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( secret )`,
+
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_registration_tokens_owner_id ON registration_tokens ( owner_id )`,
+
+					`CREATE TABLE IF NOT EXISTS repair_queue (
+						stream_id BYTES(MAX) NOT NULL,
+						position INT64 NOT NULL,
+						attempted_at TIMESTAMP,
+						updated_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						inserted_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						segment_health FLOAT64 NOT NULL DEFAULT (1),
+						placement INT64
+					) PRIMARY KEY ( stream_id, position )`,
+
+					`CREATE TABLE IF NOT EXISTS reputations (
+						id BYTES(MAX) NOT NULL,
+						audit_success_count INT64 NOT NULL DEFAULT (0),
+						total_audit_count INT64 NOT NULL DEFAULT (0),
+						vetted_at TIMESTAMP,
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						updated_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						disqualified TIMESTAMP,
+						disqualification_reason INT64,
+						unknown_audit_suspended TIMESTAMP,
+						offline_suspended TIMESTAMP,
+						under_review TIMESTAMP,
+						online_score FLOAT64 NOT NULL DEFAULT (1),
+						audit_history BYTES(MAX) NOT NULL,
+						audit_reputation_alpha FLOAT64 NOT NULL DEFAULT (1),
+						audit_reputation_beta FLOAT64 NOT NULL DEFAULT (0),
+						unknown_audit_reputation_alpha FLOAT64 NOT NULL DEFAULT (1),
+						unknown_audit_reputation_beta FLOAT64 NOT NULL DEFAULT (0)
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS reset_password_tokens (
+						secret BYTES(MAX) NOT NULL,
+						owner_id BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( secret )`,
+
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_reset_password_tokens_owner_id ON reset_password_tokens ( owner_id )`,
+
+					`CREATE TABLE IF NOT EXISTS reverification_audits (
+						node_id BYTES(MAX) NOT NULL,
+						stream_id BYTES(MAX) NOT NULL,
+						position INT64 NOT NULL,
+						piece_num INT64 NOT NULL,
+						inserted_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						last_attempt TIMESTAMP,
+						reverify_count INT64 NOT NULL DEFAULT (0)
+					) PRIMARY KEY ( node_id, stream_id, position )`,
+
+					`CREATE TABLE IF NOT EXISTS revocations (
+						revoked BYTES(MAX) NOT NULL,
+						api_key_id BYTES(MAX) NOT NULL
+					) PRIMARY KEY ( revoked )`,
+
+					`CREATE TABLE IF NOT EXISTS segment_pending_audits (
+						node_id BYTES(MAX) NOT NULL,
+						stream_id BYTES(MAX) NOT NULL,
+						position INT64 NOT NULL,
+						piece_id BYTES(MAX) NOT NULL,
+						stripe_index INT64 NOT NULL,
+						share_size INT64 NOT NULL,
+						expected_share_hash BYTES(MAX) NOT NULL,
+						reverify_count INT64 NOT NULL
+					) PRIMARY KEY ( node_id )`,
+
+					`CREATE TABLE IF NOT EXISTS storagenode_bandwidth_rollups (
+						storagenode_id BYTES(MAX) NOT NULL,
+						interval_start TIMESTAMP NOT NULL,
+						interval_seconds INT64 NOT NULL,
+						action INT64 NOT NULL,
+						allocated INT64 DEFAULT (0),
+						settled INT64 NOT NULL
+					) PRIMARY KEY ( storagenode_id, interval_start, action )`,
+
+					`CREATE TABLE IF NOT EXISTS storagenode_bandwidth_rollup_archives (
+						storagenode_id BYTES(MAX) NOT NULL,
+						interval_start TIMESTAMP NOT NULL,
+						interval_seconds INT64 NOT NULL,
+						action INT64 NOT NULL,
+						allocated INT64 DEFAULT (0),
+						settled INT64 NOT NULL
+					) PRIMARY KEY ( storagenode_id, interval_start, action )`,
+
+					`CREATE TABLE IF NOT EXISTS storagenode_bandwidth_rollups_phase2 (
+						storagenode_id BYTES(MAX) NOT NULL,
+						interval_start TIMESTAMP NOT NULL,
+						interval_seconds INT64 NOT NULL,
+						action INT64 NOT NULL,
+						allocated INT64 DEFAULT (0),
+						settled INT64 NOT NULL
+					) PRIMARY KEY ( storagenode_id, interval_start, action )`,
+
+					`CREATE SEQUENCE IF NOT EXISTS storagenode_payments_id OPTIONS (sequence_kind='bit_reversed_positive')`,
+
+					`CREATE TABLE IF NOT EXISTS storagenode_payments (
+						id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE storagenode_payments_id)),
+						created_at TIMESTAMP NOT NULL,
+						node_id BYTES(MAX) NOT NULL,
+						period STRING(MAX) NOT NULL,
+						amount INT64 NOT NULL,
+						receipt STRING(MAX),
+						notes STRING(MAX)
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS storagenode_paystubs (
+						period STRING(MAX) NOT NULL,
+						node_id BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						codes STRING(MAX) NOT NULL,
+						usage_at_rest FLOAT64 NOT NULL,
+						usage_get INT64 NOT NULL,
+						usage_put INT64 NOT NULL,
+						usage_get_repair INT64 NOT NULL,
+						usage_put_repair INT64 NOT NULL,
+						usage_get_audit INT64 NOT NULL,
+						comp_at_rest INT64 NOT NULL,
+						comp_get INT64 NOT NULL,
+						comp_put INT64 NOT NULL,
+						comp_get_repair INT64 NOT NULL,
+						comp_put_repair INT64 NOT NULL,
+						comp_get_audit INT64 NOT NULL,
+						surge_percent INT64 NOT NULL,
+						held INT64 NOT NULL,
+						owed INT64 NOT NULL,
+						disposed INT64 NOT NULL,
+						paid INT64 NOT NULL,
+						distributed INT64 NOT NULL
+					) PRIMARY KEY ( period, node_id )`,
+
+					`CREATE TABLE IF NOT EXISTS storagenode_storage_tallies (
+						node_id BYTES(MAX) NOT NULL,
+						interval_end_time TIMESTAMP NOT NULL,
+						data_total FLOAT64 NOT NULL
+					) PRIMARY KEY ( interval_end_time, node_id )`,
+
+					`CREATE TABLE IF NOT EXISTS storjscan_payments (
+						chain_id INT64 NOT NULL DEFAULT (0),
+						block_hash BYTES(MAX) NOT NULL,
+						block_number INT64 NOT NULL,
+						transaction BYTES(MAX) NOT NULL,
+						log_index INT64 NOT NULL,
+						from_address BYTES(MAX) NOT NULL,
+						to_address BYTES(MAX) NOT NULL,
+						token_value INT64 NOT NULL,
+						usd_value INT64 NOT NULL,
+						status STRING(MAX) NOT NULL,
+						block_timestamp TIMESTAMP NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( block_hash, log_index )`,
+
+					`CREATE TABLE IF NOT EXISTS storjscan_wallets (
+						user_id BYTES(MAX) NOT NULL,
+						wallet_address BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( user_id, wallet_address )`,
+
+					`CREATE TABLE IF NOT EXISTS stripe_customers (
+						user_id BYTES(MAX) NOT NULL,
+						customer_id STRING(MAX) NOT NULL,
+						billing_customer_id STRING(MAX),
+						package_plan STRING(MAX),
+						purchased_package_at TIMESTAMP,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( user_id )`,
+
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_stripe_customers_customer_id ON stripe_customers ( customer_id )`,
+
+					`CREATE TABLE IF NOT EXISTS stripecoinpayments_invoice_project_records (
+						id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						storage FLOAT64 NOT NULL,
+						egress INT64 NOT NULL,
+						objects INT64,
+						segments INT64,
+						period_start TIMESTAMP NOT NULL,
+						period_end TIMESTAMP NOT NULL,
+						state INT64 NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( id )`,
+
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_stripecoinpayments_invoice_project_records_project_id_period_start_period_end ON stripecoinpayments_invoice_project_records ( project_id, period_start, period_end )`,
+
+					`CREATE TABLE IF NOT EXISTS stripecoinpayments_tx_conversion_rates (
+						tx_id STRING(MAX) NOT NULL,
+						rate_numeric FLOAT64 NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( tx_id )`,
+
+					`CREATE TABLE IF NOT EXISTS users (
+						id BYTES(MAX) NOT NULL,
+						external_id STRING(MAX),
+						email STRING(MAX) NOT NULL,
+						normalized_email STRING(MAX) NOT NULL,
+						full_name STRING(MAX) NOT NULL,
+						short_name STRING(MAX),
+						password_hash BYTES(MAX) NOT NULL,
+						new_unverified_email STRING(MAX),
+						email_change_verification_step INT64 NOT NULL DEFAULT (0),
+						status INT64 NOT NULL,
+						status_updated_at TIMESTAMP,
+						final_invoice_generated BOOL NOT NULL DEFAULT (false),
+						user_agent BYTES(MAX),
+						created_at TIMESTAMP NOT NULL,
+						project_limit INT64 NOT NULL DEFAULT (0),
+						project_bandwidth_limit INT64 NOT NULL DEFAULT (0),
+						project_storage_limit INT64 NOT NULL DEFAULT (0),
+						project_segment_limit INT64 NOT NULL DEFAULT (0),
+						paid_tier BOOL NOT NULL DEFAULT (false),
+						position STRING(MAX),
+						company_name STRING(MAX),
+						company_size INT64,
+						working_on STRING(MAX),
+						is_professional BOOL NOT NULL DEFAULT (false),
+						employee_count STRING(MAX),
+						have_sales_contact BOOL NOT NULL DEFAULT (false),
+						mfa_enabled BOOL NOT NULL DEFAULT (false),
+						mfa_secret_key STRING(MAX),
+						mfa_recovery_codes STRING(MAX),
+						signup_promo_code STRING(MAX),
+						verification_reminders INT64 NOT NULL DEFAULT (0),
+						trial_notifications INT64 NOT NULL DEFAULT (0),
+						failed_login_count INT64,
+						login_lockout_expiration TIMESTAMP,
+						signup_captcha FLOAT64,
+						default_placement INT64,
+						activation_code STRING(MAX),
+						signup_id STRING(MAX),
+						trial_expiration TIMESTAMP,
+						upgrade_time TIMESTAMP
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS user_settings (
+						user_id BYTES(MAX) NOT NULL,
+						session_minutes INT64,
+						passphrase_prompt BOOL,
+						onboarding_start BOOL NOT NULL DEFAULT (true),
+						onboarding_end BOOL NOT NULL DEFAULT (true),
+						onboarding_step STRING(MAX),
+						notice_dismissal JSON NOT NULL DEFAULT (JSON "{}")
+					) PRIMARY KEY ( user_id )`,
+
+					`CREATE TABLE IF NOT EXISTS value_attributions (
+						project_id BYTES(MAX) NOT NULL,
+						bucket_name BYTES(MAX) NOT NULL,
+						user_agent BYTES(MAX),
+						last_updated TIMESTAMP NOT NULL
+					) PRIMARY KEY ( project_id, bucket_name )`,
+
+					`CREATE TABLE IF NOT EXISTS verification_audits (
+						inserted_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						stream_id BYTES(MAX) NOT NULL,
+						position INT64 NOT NULL,
+						expires_at TIMESTAMP,
+						encrypted_size INT64 NOT NULL
+					) PRIMARY KEY ( inserted_at, stream_id, position )`,
+
+					`CREATE TABLE IF NOT EXISTS webapp_sessions (
+						id BYTES(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						ip_address STRING(MAX) NOT NULL,
+						user_agent STRING(MAX) NOT NULL,
+						status INT64 NOT NULL,
+						expires_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( id )`,
+
+					`CREATE TABLE IF NOT EXISTS api_keys (
+						id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						head BYTES(MAX) NOT NULL,
+						name STRING(MAX) NOT NULL,
+						secret BYTES(MAX) NOT NULL,
+						user_agent BYTES(MAX),
+						created_at TIMESTAMP NOT NULL,
+						created_by BYTES(MAX),
+						version INT64 NOT NULL DEFAULT (0),
+						CONSTRAINT api_keys_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
+						CONSTRAINT api_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+					) PRIMARY KEY ( id )`,
+
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_api_keys_head ON api_keys ( head )`,
+
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_api_keys_name_project_id ON api_keys ( name, project_id )`,
+
+					`CREATE TABLE IF NOT EXISTS bucket_metainfos (
+						id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						name BYTES(MAX) NOT NULL,
+						user_agent BYTES(MAX),
+						versioning INT64 NOT NULL DEFAULT (0),
+						object_lock_enabled BOOL NOT NULL DEFAULT (false),
+						default_retention_mode INT64,
+						default_retention_days INT64,
+						default_retention_years INT64,
+						path_cipher INT64 NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						default_segment_size INT64 NOT NULL,
+						default_encryption_cipher_suite INT64 NOT NULL,
+						default_encryption_block_size INT64 NOT NULL,
+						default_redundancy_algorithm INT64 NOT NULL,
+						default_redundancy_share_size INT64 NOT NULL,
+						default_redundancy_required_shares INT64 NOT NULL,
+						default_redundancy_repair_shares INT64 NOT NULL,
+						default_redundancy_optimal_shares INT64 NOT NULL,
+						default_redundancy_total_shares INT64 NOT NULL,
+						placement INT64,
+						created_by BYTES(MAX),
+						CONSTRAINT bucket_metainfos_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
+						CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+					) PRIMARY KEY ( project_id, name )`,
+
+					`CREATE TABLE IF NOT EXISTS project_invitations (
+						project_id BYTES(MAX) NOT NULL,
+						email STRING(MAX) NOT NULL,
+						inviter_id BYTES(MAX),
+						created_at TIMESTAMP NOT NULL,
+						CONSTRAINT project_invitations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
+						CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users (id) ON DELETE CASCADE
+					) PRIMARY KEY ( project_id, email )`,
+
+					`CREATE TABLE IF NOT EXISTS project_members (
+						member_id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						role INT64 NOT NULL DEFAULT (0),
+						created_at TIMESTAMP NOT NULL,
+						CONSTRAINT project_members_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE ,
+						CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+					) PRIMARY KEY ( member_id, project_id )`,
+
+					`CREATE TABLE IF NOT EXISTS stripecoinpayments_apply_balance_intents (
+						tx_id STRING(MAX) NOT NULL,
+						state INT64 NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						CONSTRAINT stripecoinpayments_apply_balance_intents_tx_id_fkey FOREIGN KEY (tx_id) REFERENCES coinpayments_transactions (id) ON DELETE CASCADE
+					) PRIMARY KEY ( tx_id )`,
+
+					`CREATE INDEX IF NOT EXISTS accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
+
+					`CREATE INDEX IF NOT EXISTS billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp )`,
+
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start )`,
+
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id )`,
+
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start )`,
+
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id )`,
+
+					`CREATE INDEX IF NOT EXISTS bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start )`,
+
+					`CREATE INDEX IF NOT EXISTS bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
+
+					`CREATE INDEX IF NOT EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
+
+					`CREATE INDEX IF NOT EXISTS node_last_ip ON nodes ( last_net )`,
+
+					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
+
+					`CREATE INDEX IF NOT EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at )`,
+
+					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success )`,
+
+					`CREATE INDEX IF NOT EXISTS node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
+
+					`CREATE INDEX IF NOT EXISTS oauth_clients_user_id_index ON oauth_clients ( user_id )`,
+
+					`CREATE INDEX IF NOT EXISTS oauth_codes_user_id_index ON oauth_codes ( user_id )`,
+
+					`CREATE INDEX IF NOT EXISTS oauth_codes_client_id_index ON oauth_codes ( client_id )`,
+
+					`CREATE INDEX IF NOT EXISTS oauth_tokens_user_id_index ON oauth_tokens ( user_id )`,
+
+					`CREATE INDEX IF NOT EXISTS oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
+
+					`CREATE INDEX IF NOT EXISTS projects_public_id_index ON projects ( public_id )`,
+
+					`CREATE INDEX IF NOT EXISTS projects_owner_id_index ON projects ( owner_id )`,
+
+					`CREATE INDEX IF NOT EXISTS project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day )`,
+
+					`CREATE INDEX IF NOT EXISTS repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+
+					`CREATE INDEX IF NOT EXISTS repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
+
+					`CREATE INDEX IF NOT EXISTS repair_queue_placement_index ON repair_queue ( placement )`,
+
+					`CREATE INDEX IF NOT EXISTS reverification_audits_inserted_at_index ON reverification_audits ( inserted_at )`,
+
+					`CREATE INDEX IF NOT EXISTS storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start )`,
+
+					`CREATE INDEX IF NOT EXISTS storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start )`,
+
+					`CREATE INDEX IF NOT EXISTS storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period )`,
+
+					`CREATE INDEX IF NOT EXISTS storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id )`,
+
+					`CREATE INDEX IF NOT EXISTS storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id )`,
+
+					`CREATE INDEX IF NOT EXISTS storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index )`,
+
+					`CREATE INDEX IF NOT EXISTS storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address )`,
+
+					`CREATE INDEX IF NOT EXISTS stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id )`,
+
+					`CREATE INDEX IF NOT EXISTS users_email_status_index ON users ( normalized_email, status )`,
+
+					`CREATE INDEX IF NOT EXISTS trial_expiration_index ON users ( trial_expiration )`,
+
+					`CREATE INDEX IF NOT EXISTS users_external_id_index ON users ( external_id )`,
+
+					`CREATE INDEX IF NOT EXISTS webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
+
+					`CREATE INDEX IF NOT EXISTS project_invitations_project_id_index ON project_invitations ( project_id )`,
+
+					`CREATE INDEX IF NOT EXISTS project_invitations_email_index ON project_invitations ( email )`,
+
+					`CREATE INDEX IF NOT EXISTS project_members_project_id_index ON project_members ( project_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to projects table to track the status of the project",
+				Version:     284,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN status INT64 DEFAULT (1)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop all nodes table indexes execept primary key",
+				Version:     285,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
+					`DROP INDEX IF EXISTS node_last_ip`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add hubspot_object_id column to users",
+				Version:     286,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN hubspot_object_id STRING(MAX)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add product_id column to bucket_storage_tallies, bucket_bandwidth_rollups, project_bandwidth_daily_rollups, bucket_bandwidth_rollup_archives",
+				Version:     287,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN product_id INT64`,
+					`ALTER TABLE bucket_bandwidth_rollups ADD COLUMN product_id INT64`,
+					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN product_id INT64`,
+					`ALTER TABLE bucket_bandwidth_rollup_archives ADD COLUMN product_id INT64`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add rest api keys table",
+				Version:     288,
+				Action: migrate.SQL{
+					`CREATE TABLE rest_api_keys (
+						id BYTES(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						token BYTES(MAX) NOT NULL,
+						name STRING(MAX) NOT NULL,
+						expires_at TIMESTAMP,
+						created_at TIMESTAMP NOT NULL,
+						CONSTRAINT rest_api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+					) PRIMARY KEY ( id );`,
+					`CREATE UNIQUE INDEX index_rest_api_keys_token ON rest_api_keys ( token );`,
+					`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id );`,
+					`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop table storagenode_bandwidth_rollups_phase2",
+				Version:     289,
+				Action: migrate.SQL{
+					`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to users table to track user type",
+				Version:     290,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN kind INT64 NOT NULL DEFAULT (0)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "update user kind to 1 (PRO) for paid tier users",
+				Version:     291,
+				Action: migrate.SQL{
+					`UPDATE users SET kind = 1 WHERE paid_tier = true`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add domains table",
+				Version:     292,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS domains (
+						project_id BYTES(MAX) NOT NULL,
+						subdomain STRING(MAX) NOT NULL,
+						prefix STRING(MAX) NOT NULL,
+						access_id STRING(MAX) NOT NULL,
+						created_by BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						CONSTRAINT domains_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
+						CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+					) PRIMARY KEY ( project_id, subdomain )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add placement to value_attributions table",
+				Version:     293,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN placement INT64`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tags column to bucket_metainfos table",
+				Version:     294,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN tags BYTES(MAX);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add api_key_tails table",
+				Version:     295,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS api_key_tails (
+						tail BYTES(MAX) NOT NULL,
+						parent_tail BYTES(MAX) NOT NULL,
+						caveat BYTES(MAX) NOT NULL,
+						last_used TIMESTAMP NOT NULL
+					) PRIMARY KEY ( tail )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "update project path encryption to true",
+				Version:     296,
+				Action: migrate.SQL{
+					`UPDATE projects SET path_encryption = true WHERE path_encryption = false`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add root_key_id column to api_key_tails table",
+				Version:     297,
+				Action: migrate.SQL{
+					`ALTER TABLE api_key_tails ADD COLUMN root_key_id BYTES(MAX);`,
+					`ALTER TABLE api_key_tails ADD CONSTRAINT api_key_tails_root_key_id_fkey FOREIGN KEY (root_key_id) REFERENCES api_keys (id) ON DELETE CASCADE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop paid_tier column from users table",
+				Version:     298,
+				Action: migrate.SQL{
+					`ALTER TABLE users DROP COLUMN paid_tier;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index to users table on status and status_updated_at",
+				Version:     299,
+				Action: migrate.SQL{
+					`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column indexed status_updated_at to projects with status",
+				Version:     300,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN status_updated_at TIMESTAMP;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index to projects table on status and status_updated_at",
+				Version:     301,
+				Action: migrate.SQL{
+					`CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add entitlements table",
+				Version:     302,
+				Action: migrate.SQL{
+					`CREATE TABLE entitlements (
+						scope BYTES(MAX) NOT NULL,
+						features JSON NOT NULL DEFAULT (JSON "{}"),
+						updated_at TIMESTAMP NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( scope )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add bucket_migrations table",
+				Version:     303,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS bucket_migrations (
+						id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						bucket_name BYTES(MAX) NOT NULL,
+						from_placement INT64 NOT NULL,
+						to_placement INT64 NOT NULL,
+						migration_type INT64 NOT NULL,
+						state STRING(MAX) NOT NULL,
+						bytes_processed INT64 NOT NULL DEFAULT (0),
+						error_message STRING(MAX),
+						created_at TIMESTAMP NOT NULL,
+						updated_at TIMESTAMP NOT NULL,
+						completed_at TIMESTAMP,
+						CONSTRAINT bucket_migrations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id)
+					) PRIMARY KEY ( id )`,
+					`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tenant_id column to users",
+				Version:     304,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN tenant_id STRING(MAX);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add indexes to users.tenant_id column",
+				Version:     305,
+				Action: migrate.SQL{
+					`CREATE INDEX users_tenant_id_index ON users ( tenant_id );`,
+					`CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "remove unused GE tables",
+				Version:     306,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index`,
+					`DROP TABLE IF EXISTS graceful_exit_progress`,
+					`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add bucket_eventing_configs table",
+				Version:     307,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS bucket_eventing_configs (
+						project_id BYTES(MAX) NOT NULL,
+						bucket_name BYTES(MAX) NOT NULL,
+						config_id STRING(MAX) NOT NULL DEFAULT (GENERATE_UUID()),
+						topic_name STRING(MAX) NOT NULL,
+						events ARRAY<STRING(128)> NOT NULL,
+						filter_prefix BYTES(1024),
+						filter_suffix BYTES(1024),
+						created_at TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP()),
+						updated_at TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp = TRUE),
+						CONSTRAINT bucket_eventing_configs_bucket_fkey
+							FOREIGN KEY (project_id, bucket_name)
+							REFERENCES bucket_metainfos (project_id, name)
+							ON DELETE CASCADE
+					) PRIMARY KEY ( project_id, bucket_name )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add change_histories table",
+				Version:     308,
+				Action: migrate.SQL{
+					`CREATE TABLE change_histories (
+						id BYTES(MAX) NOT NULL,
+						admin_email STRING(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX),
+						bucket_name BYTES(MAX),
+						item_type STRING(MAX) NOT NULL,
+						operation STRING(MAX) NOT NULL,
+						reason STRING(MAX) NOT NULL,
+						changes JSON NOT NULL,
+						timestamp TIMESTAMP NOT NULL DEFAULT (current_timestamp)
+					) PRIMARY KEY ( id )`,
+					`CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp );`,
+					`CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp );`,
+					`CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp );`,
+					`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add remainder_bytes column to bucket_storage_tallies",
+				Version:     309,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN remainder_bytes INT64;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add retention_remainder_charge table",
+				Version:     310,
+				Action: migrate.SQL{
+					`CREATE TABLE retention_remainder_charges (
+						project_id BYTES(MAX) NOT NULL,
+						bucket_name BYTES(MAX) NOT NULL,
+						deleted_at TIMESTAMP NOT NULL,
+						remainder_byte_hours FLOAT64 NOT NULL,
+						product_id INT64,
+						billed BOOL NOT NULL DEFAULT (false)
+					) PRIMARY KEY ( project_id, bucket_name, deleted_at );`,
+					`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;`,
+				},
+			},
+			// NB: after updating testdata in `testdata`, run
+			//     `go generate` to update `migratez.go`.
+		},
+	}
+}
+
+// productionMigrationPostgres returns steps needed for migrating postgres database.
+func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
@@ -986,15 +2023,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     133,
 				SeparateTx:  true,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
-						_, err := db.Exec(ctx,
+					if db.Name() == tagsql.CockroachName {
+						_, err := db.ExecContext(ctx,
 							`ALTER TABLE accounting_rollups RENAME TO accounting_rollups_original;`,
 						)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
 						}
 
-						_, err = db.Exec(ctx,
+						_, err = db.ExecContext(ctx,
 							`CREATE TABLE accounting_rollups (
 								node_id bytea NOT NULL,
 								start_time timestamp with time zone NOT NULL,
@@ -1030,7 +2067,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						return nil
 					}
 
-					_, err := db.Exec(ctx,
+					_, err := db.ExecContext(ctx,
 						`CREATE TABLE accounting_rollups_new (
 								node_id bytea NOT NULL,
 								start_time timestamp with time zone NOT NULL,
@@ -1129,14 +2166,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "add distributed column to storagenode_paystubs table",
 				Version:     140,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					_, err := db.Exec(ctx, `
+					_, err := db.ExecContext(ctx, `
 							ALTER TABLE storagenode_paystubs ADD COLUMN distributed BIGINT;
 						`)
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}
 
-					_, err = db.Exec(ctx, `
+					_, err = db.ExecContext(ctx, `
 							UPDATE storagenode_paystubs ps
 							SET distributed = coalesce((
 								SELECT sum(amount)::bigint
@@ -1149,7 +2186,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						return ErrMigrate.Wrap(err)
 					}
 
-					_, err = db.Exec(ctx, `
+					_, err = db.ExecContext(ctx, `
 							ALTER TABLE storagenode_paystubs ALTER COLUMN distributed SET NOT NULL;
 						`)
 					if err != nil {
@@ -1176,8 +2213,8 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "drop the obsolete (name, project_id) index from bucket_metainfos table.",
 				Version:     142,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
-						_, err := db.Exec(ctx,
+					if db.Name() == tagsql.CockroachName {
+						_, err := db.ExecContext(ctx,
 							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
 						)
 						if err != nil {
@@ -1186,7 +2223,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						return nil
 					}
 
-					_, err := db.Exec(ctx,
+					_, err := db.ExecContext(ctx,
 						`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_name_project_id_key;`,
 					)
 					if err != nil {
@@ -2259,9 +3296,9 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					alterPrimaryKey := true
 					// for crdb lets check if key was already altered, for pg we will do migration always
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
-						err := db.QueryRow(ctx,
+						err := db.QueryRowContext(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
 						).Scan(&primaryKey)
 						if err != nil {
@@ -2436,7 +3473,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "drop index from bucket_metainfos",
 				Version:     243,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) (err error) {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err = tx.ExecContext(ctx, `DROP INDEX IF EXISTS bucket_metainfos_project_id_name_key CASCADE`)
 					} else {
 						_, err = tx.ExecContext(ctx, `ALTER TABLE bucket_metainfos DROP CONSTRAINT IF EXISTS bucket_metainfos_project_id_name_key;`)
@@ -2451,9 +3488,9 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					alterPrimaryKey := true
 					// for crdb lets check if key was already altered, for pg we will do migration always
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
-						err := db.QueryRow(ctx,
+						err := db.QueryRowContext(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_metainfos) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
 						).Scan(&primaryKey)
 						if err != nil {
@@ -2692,7 +3729,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     266,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ADD COLUMN prevDays_UntilExpiration int NOT NULL DEFAULT 0;`,
-				},
+				}
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add prompted_for_versioning_beta column to projects to track if prompted for versioning beta opt-in",
+				Version:     266,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN prompted_for_versioning_beta boolean NOT NULL DEFAULT false;`,
+				}
 			},
 			{
 				DB:          &db.migrationDB,
@@ -2739,6 +3784,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					);`,
 					`CREATE INDEX developer_email_status_index ON developers ( normalized_email, status );`,
 					`CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id );`,
+				}
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index on trial_expiration column in users table",
+				Version:     267,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS trial_expiration_index ON users (trial_expiration);`,
 				},
 			},
 			{
@@ -2753,6 +3806,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;`,
+				}
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add passphrase_enc and path_encryption columns to projects to control satellite-managed-passphrase projects",
+				Version:     268,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN passphrase_enc bytea DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN path_encryption boolean NOT NULL DEFAULT true;`,
 				},
 			},
 			{
@@ -2761,6 +3823,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     269,
 				Action: migrate.SQL{
 					`ALTER TABLE users ADD COLUMN source text;`,
+				}
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add role column to project_members to indicate the rights each member has",
+				Version:     269,
+				Action: migrate.SQL{
+					`ALTER TABLE project_members ADD COLUMN role integer NOT NULL DEFAULT 0;`,
 				},
 			},
 			{
@@ -2771,7 +3841,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN utm_source text;`,
 					`ALTER TABLE users ADD COLUMN utm_medium text;`,
 					`ALTER TABLE users ADD COLUMN utm_campaign text;`,
-				},
+				}
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "index project_id where state = 0 in stripecoinpayments_invoice_project_records",
+				Version:     270,
+				Action: migrate.SQL{
+					`CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE state = 0;`,
+				}
 			},
 			{
 				DB:          &db.migrationDB,
@@ -2780,6 +3858,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE users ADD COLUMN utm_term text;`,
 					`ALTER TABLE users ADD COLUMN utm_content text;`,
+				}
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to account freeze event for number of event notifications sent",
+				Version:     271,
+				Action: migrate.SQL{
+					`ALTER TABLE account_freeze_events ADD COLUMN notifications_count integer NOT NULL DEFAULT 0;`,
 				},
 			},
 			{
@@ -2837,6 +3923,54 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     275,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ADD COLUMN storage_used_percentage double precision NOT NULL DEFAULT 0;`,
+				}
+			},
+			
+				{
+					DB:          &db.migrationDB,
+					Description: "add object_lock_enabled column to bucket_metainfos table",
+					Version:     272,
+					Action: migrate.SQL{
+						`ALTER TABLE bucket_metainfos ADD COLUMN object_lock_enabled boolean NOT NULL DEFAULT false;`,
+					},
+				}
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add per-operation rate limits to projects table",
+				Version:     273,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN rate_limit_head integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_head integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_get integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_get integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_put integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_put integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_list integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_list integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_del integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_del integer DEFAULT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "populate per-operation rate limits from existing values",
+				Version:     274,
+				Action: migrate.SQL{
+					`UPDATE projects SET rate_limit_head=rate_limit, burst_limit_head=burst_limit,
+						rate_limit_get=rate_limit, burst_limit_get=burst_limit,
+						rate_limit_put=rate_limit, burst_limit_put=burst_limit,
+						rate_limit_list=rate_limit, burst_limit_list=burst_limit,
+						rate_limit_del=rate_limit, burst_limit_del=burst_limit
+						WHERE rate_limit IS NOT NULL OR burst_limit IS NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "avoid using on delete set null",
+				Version:     275,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey;`,
 				},
 			},
 			{
@@ -2890,6 +4024,16 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					('Enterprise', 10000000000000, 100000000000000, 149.99, 
 					 '["End to End Encryption", "Private File Sharing", "100 TB Bandwidth", "Email Support"]'::jsonb,
 					 1, 'month', 'Enterprise');`,
+
+					 },
+				{
+					DB:          &db.migrationDB,
+					Description: "avoid using on delete set null",
+					Version:     276,
+					Action: migrate.SQL{
+						`ALTER TABLE project_invitations ADD CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users(id) ON DELETE CASCADE`,
+					},
+				}
 				},
 			},
 			{
@@ -2915,6 +4059,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					('WELCOME40', 40, 'percentage', 100, 0, '2024-01-01', '2024-01-01', '2024-01-01'),
 					('WELCOME50', 50, 'percentage', 100, 0, '2024-01-01', '2024-01-01', '2024-01-01');`,
 				},
+				Description: "add column, passphrase_enc_key_id, to projects",
+				Version:     277,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN passphrase_enc_key_id INTEGER;`,
+				},
 			},
 			{
 				DB:          &db.migrationDB,
@@ -2930,6 +4079,12 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
+					},
+				Description: "add columns, status_updated_at and final_invoice_generated, to users",
+				Version:     278,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN status_updated_at TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE users ADD COLUMN final_invoice_generated BOOLEAN NOT NULL DEFAULT FALSE;`,
 				},
 			},
 			{
@@ -2942,6 +4097,12 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						share bytea NOT NULL,
 						PRIMARY KEY ( backup_id )
 					);`,
+					},
+				Description: "add columns to users table for handling change email address process",
+				Version:     279,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN new_unverified_email TEXT DEFAULT NULL;`,
+					`ALTER TABLE users ADD COLUMN email_change_verification_step INTEGER NOT NULL DEFAULT 0;`,
 				},
 			},
 			{
@@ -2950,6 +4111,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     280,
 				Action: migrate.SQL{
 					`ALTER TABLE users ADD COLUMN migration_date timestamp with time zone;`,
+					},
+				Description: "rename columns which are forbidden for spanner",
+				Version:     280,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes RENAME COLUMN hash TO commit_hash;`,
+					`ALTER TABLE nodes RENAME COLUMN timestamp TO release_timestamp;`,
+					`ALTER TABLE storjscan_payments RENAME COLUMN timestamp TO block_timestamp;`,
+					`ALTER TABLE billing_transactions RENAME COLUMN timestamp TO tx_timestamp;`,
+					`ALTER INDEX billing_transactions_timestamp_index RENAME TO billing_transactions_tx_timestamp_index;`,
 				},
 			},
 			{
@@ -2958,6 +4128,13 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     281,
 				Action: migrate.SQL{
 					`ALTER TABLE bucket_metainfos ADD COLUMN migration_status integer NOT NULL DEFAULT 0;`,
+					},
+				Description: "add default retention columns to bucket_metainfos",
+				Version:     281,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_mode INTEGER;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_days INTEGER;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_years INTEGER;`,
 				},
 			},
 			{
@@ -2996,6 +4173,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					('Small Business', 1000000000000, 5000000000000, 169.99,
 					'["1 TB Encrypted Storage", "Zero-knowledge encryption", "Password-protected file sharing", "Access your files from any device", "Two-factor authentication (2FA)", "Email Support", "30-day money-back guarantee"]'::jsonb,
 					1, 'month', 'Pay Using Other Currencies');`,
+					},
+				Description: "add external_id column to users",
+				Version:     282,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN external_id TEXT;`,
 				},
 			},
 			{
@@ -3008,6 +4190,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						version text NOT NULL,
 						PRIMARY KEY ( key_id )
 					);`,
+					},
+				Description: "add partial index to external_id",
+				Version:     283,
+				Action: migrate.SQL{
+					`CREATE INDEX users_external_id_index ON users ( external_id ) WHERE external_id IS NOT NULL;`,
 				},
 			},
 			{
@@ -3041,6 +4228,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					);`,
 					`CREATE INDEX idx_backup_final_statuses_completed_at ON backup_final_statuses ( completed_at );`,
 					`CREATE INDEX idx_backup_page_statuses_backup_date ON backup_page_statuses ( backup_date );`,
+					},
+				Description: "add column to projects table to track the status of the project",
+				Version:     284,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN status INTEGER DEFAULT 1;`,
 				},
 			},
 			{
@@ -3061,6 +4253,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id );`,
+					},
+				Description: "drop all nodes table indexes execept primary key",
+				Version:     285,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
+					`DROP INDEX IF EXISTS node_last_ip`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
 				},
 			},
 			{
@@ -3085,6 +4285,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					);`,
 					`CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id );`,
 					`CREATE INDEX oauth2_requests_user_id_index ON oauth2_requests ( user_id );`,
+					},
+				Description: "add hubspot_object_id column to users",
+				Version:     286,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN hubspot_object_id TEXT`,
 				},
 			},
 			{
@@ -3093,6 +4298,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     287,
 				Action: migrate.SQL{
 					`ALTER TABLE webapp_sessions ADD COLUMN created_at timestamp with time zone NOT NULL DEFAULT now();`,
+					},
+				Description: "add product_id column to bucket_storage_tallies, bucket_bandwidth_rollups, bucket_bandwidth_rollup_archive, project_bandwidth_daily_rollups",
+				Version:     287,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN product_id INTEGER`,
+					`ALTER TABLE bucket_bandwidth_rollups ADD COLUMN product_id INTEGER`,
+					`ALTER TABLE bucket_bandwidth_rollup_archives ADD COLUMN product_id INTEGER`,
+					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN product_id INTEGER`,
 				},
 			},
 			{
@@ -3112,6 +4325,22 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 	PRIMARY KEY ( id )
 );`,
 					`CREATE INDEX admin_email_status_index ON admins ( email, status ) ;`,
+					},
+				Description: "add rest api keys table",
+				Version:     288,
+				Action: migrate.SQL{
+					`CREATE TABLE rest_api_keys (
+						id bytea NOT NULL,
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						token bytea NOT NULL,
+						name text NOT NULL,
+						expires_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+    					UNIQUE ( token )
+					);`,
+					`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id );`,
+					`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name );`,
 				},
 			},
 			{
@@ -3127,6 +4356,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( email )
 );`,
+					},
+				Description: "drop table storagenode_bandwidth_rollups_phase2",
+				Version:     289,
+				Action: migrate.SQL{
+					`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
 				},
 			},
 			{
@@ -3138,6 +4372,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE developer_oauth_clients ADD COLUMN description text;`,
 					`UPDATE developer_oauth_clients SET scopes = '' WHERE scopes IS NULL;`,
 					`UPDATE developer_oauth_clients SET description = '' WHERE description IS NULL;`,
+					},
+				Description: "add column to users table to track user kind",
+				Version:     290,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN kind INTEGER NOT NULL DEFAULT 0;`,
 				},
 			},
 			{
@@ -3167,6 +4406,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id );`,
 					`CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token );`,
 					`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active );`,
+					},
+				Description: "update user kind to 1 (PRO) for paid tier users",
+				Version:     291,
+				Action: migrate.SQL{
+					`UPDATE users SET kind = 1 WHERE paid_tier = true`,
 				},
 			},
 			{
@@ -3192,6 +4436,19 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX push_notifications_user_id_index ON push_notifications ( user_id );`,
 					`CREATE INDEX push_notifications_status_index ON push_notifications ( status );`,
 					`CREATE INDEX push_notifications_created_at_index ON push_notifications ( created_at );`,
+					},
+				Description: "add domains table",
+				Version:     292,
+				Action: migrate.SQL{
+					`CREATE TABLE domains (
+						project_id bytea NOT NULL REFERENCES projects( id ),
+						subdomain text NOT NULL,
+						prefix text NOT NULL,
+						access_id text NOT NULL,
+						created_by bytea NOT NULL REFERENCES users( id ),
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id, subdomain )
+					)`,
 				},
 			},
 			{
@@ -3215,6 +4472,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE UNIQUE INDEX configs_type_name_unique ON configs ( config_type, name );`,
 					`CREATE INDEX configs_type_category_index ON configs ( config_type, category );`,
 					`CREATE INDEX configs_active_type_index ON configs ( is_active, config_type );`,
+					},
+				Description: "add placement to value_attributions table",
+				Version:     293,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN placement INTEGER`,
 				},
 			},
 			{
@@ -3238,6 +4500,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 );`,
 					`CREATE INDEX user_notification_preferences_user_type_index ON user_notification_preferences ( user_id, config_type );`,
 					`CREATE INDEX user_notification_preferences_user_config_index ON user_notification_preferences ( user_id, config_id );`,
+					},
+				Description: "add tags column to bucket_metainfos table",
+				Version:     294,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN tags bytea;`,
 				},
 			},
 			{
@@ -3247,6 +4514,17 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`ALTER TABLE configs ALTER COLUMN created_by DROP NOT NULL;`,
+					},
+				Description: "add api_key_tails table",
+				Version:     295,
+				Action: migrate.SQL{
+					`CREATE TABLE api_key_tails (
+						tail bytea NOT NULL,
+						parent_tail bytea NOT NULL,
+						caveat bytea NOT NULL,
+						last_used timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tail )
+					)`,
 				},
 			},
 			{
@@ -3257,6 +4535,11 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`DROP INDEX IF EXISTS user_notification_preferences_user_config_index;`,
 					`ALTER TABLE user_notification_preferences DROP COLUMN config_id;`,
+					},
+				Description: "update project path encryption to true",
+				Version:     296,
+				Action: migrate.SQL{
+					`UPDATE projects SET path_encryption = true WHERE path_encryption = false`,
 				},
 			},
 			{
@@ -3387,6 +4670,11 @@ true, NOW(), NOW()),
 (decode(replace(gen_random_uuid()::text, '-', ''), 'hex'), 'push', 'limit increase requested', 'account',
 '{"type": "push", "level": 2, "variables": {"project_name": {"type": "string", "required": false}, "limit_type": {"type": "string", "required": false}, "requested_limit": {"type": "string", "required": false}, "timestamp": {"type": "string", "required": true}}, "body_template": "Limit increase request{{if .limit_type}} for {{.limit_type}}{{end}}{{if .requested_limit}} to {{.requested_limit}}{{end}}{{if .project_name}} for project {{.project_name}}{{end}} has been submitted at {{.timestamp}}", "title_template": "Limit Increase Requested", "default_variables": {"project_name": "", "limit_type": "", "requested_limit": "", "timestamp": "now"}}'::jsonb,
 true, NOW(), NOW());`,
+					},
+				Description: "add root_key_id column to api_key_tails table",
+				Version:     297,
+				Action: migrate.SQL{
+					`ALTER TABLE api_key_tails ADD COLUMN root_key_id bytea REFERENCES api_keys( id ) ON DELETE CASCADE;`,
 				},
 			},
 			{
@@ -3409,6 +4697,11 @@ true, NOW(), NOW()),
 (decode(replace(gen_random_uuid()::text, '-', ''), 'hex'), 'push', 'access created', 'vault',
 '{"type": "push", "level": 2, "variables": {"project_id": {"type": "string", "required": true}, "creation_time": {"type": "string", "required": true}, "access_grant": {"type": "string", "required": false}, "timestamp": {"type": "string", "required": true}}, "body_template": "Access grant has been created for project {{.project_id}}{{if .creation_time}} at {{.creation_time}}{{else}} at {{.timestamp}}{{end}}", "title_template": "Access Created", "default_variables": {"project_id": "", "creation_time": "now", "access_grant": "created", "timestamp": "now"}}'::jsonb,
 true, NOW(), NOW());`,
+					},
+				Description: "drop paid_tier column from users table",
+				Version:     298,
+				Action: migrate.SQL{
+					`ALTER TABLE users DROP COLUMN paid_tier;`,
 				},
 			},
 			{
@@ -3418,6 +4711,10 @@ true, NOW(), NOW());`,
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`ALTER TABLE billing_transactions ADD COLUMN plan_id BIGINT;`,
+				Description: "add index to users table on status and status_updated_at",
+				Version:     299,
+				Action: migrate.SQL{
+					`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) WHERE users.status_updated_at is not NULL;`,
 				},
 			},
 			{
@@ -3427,6 +4724,10 @@ true, NOW(), NOW());`,
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`ALTER TABLE push_notifications ADD COLUMN hide BOOLEAN NOT NULL DEFAULT FALSE;`,
+				Description: "add column indexed status_updated_at to projects with status",
+				Version:     300,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN status_updated_at TIMESTAMP WITH TIME ZONE;`,
 				},
 			},
 			{
@@ -3437,6 +4738,147 @@ true, NOW(), NOW());`,
 				Action: migrate.SQL{
 					`ALTER TABLE bucket_metainfos ADD COLUMN immutability_rules JSON;`,
 					`UPDATE bucket_metainfos SET immutability_rules = '{}';`,
+					},
+				Description: "add index to projects table on status and status_updated_at",
+				Version:     301,
+				Action: migrate.SQL{
+					`CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) WHERE projects.status_updated_at is not NULL ;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add entitlements table",
+				Version:     302,
+				Action: migrate.SQL{
+					`CREATE TABLE entitlements (
+						scope bytea NOT NULL,
+						features jsonb NOT NULL DEFAULT '{}',
+						updated_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( scope )
+					)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add bucket_migrations table",
+				Version:     303,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_migrations (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ),
+						bucket_name bytea NOT NULL,
+						from_placement integer NOT NULL,
+						to_placement integer NOT NULL,
+						migration_type integer NOT NULL,
+						state text NOT NULL,
+						bytes_processed bigint NOT NULL DEFAULT 0,
+						error_message text,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						completed_at timestamp with time zone,
+						PRIMARY KEY ( id )
+					)`,
+					`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tenant_id column to users",
+				Version:     304,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN tenant_id TEXT;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add indexes to users.tenant_id column",
+				Version:     305,
+				Action: migrate.SQL{
+					`CREATE INDEX users_tenant_id_index ON users ( tenant_id ) WHERE tenant_id IS NOT NULL;`,
+					`CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status ) WHERE users.tenant_id is not NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "remove unused GE tables",
+				Version:     306,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index`,
+					`DROP TABLE IF EXISTS graceful_exit_progress`,
+					`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add bucket_eventing_configs table",
+				Version:     307,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_eventing_configs (
+						project_id bytea NOT NULL,
+						bucket_name bytea NOT NULL,
+						config_id text NOT NULL DEFAULT gen_random_uuid()::text,
+						topic_name text NOT NULL,
+						events text[] NOT NULL,
+						filter_prefix bytea,
+						filter_suffix bytea,
+						created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+						updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+						CONSTRAINT bucket_eventing_configs_bucket_fkey
+							FOREIGN KEY (project_id, bucket_name)
+							REFERENCES bucket_metainfos (project_id, name)
+							ON DELETE CASCADE,
+						PRIMARY KEY ( project_id, bucket_name )
+					)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add change_histories table",
+				Version:     308,
+				Action: migrate.SQL{
+					`CREATE TABLE change_histories (
+						id bytea NOT NULL,
+						admin_email text NOT NULL,
+						user_id bytea NOT NULL,
+						project_id bytea,
+						bucket_name bytea,
+						item_type text NOT NULL,
+						operation text NOT NULL,
+						reason text NOT NULL,
+						changes jsonb NOT NULL,
+						timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( id )
+					)`,
+					`CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp );`,
+					`CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp );`,
+					`CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp );`,
+					`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add remainder_bytes column to bucket_storage_tallies",
+				Version:     309,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN remainder_bytes bigint;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add retention_remainder_charge table",
+				Version:     310,
+				Action: migrate.SQL{
+					`CREATE TABLE retention_remainder_charges (
+						project_id bytea NOT NULL,
+						bucket_name bytea NOT NULL,
+						deleted_at timestamp with time zone NOT NULL,
+						remainder_byte_hours double precision NOT NULL,
+						product_id integer,
+						billed boolean NOT NULL DEFAULT false,
+						PRIMARY KEY ( project_id, bucket_name, deleted_at )
+					);`,
+					`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

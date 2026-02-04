@@ -19,20 +19,17 @@ var ErrProjectRecordExists = Error.New("invoice project record already exists")
 type ProjectRecordsDB interface {
 	// Create creates new invoice project record with credits spendings in the DB.
 	Create(ctx context.Context, records []CreateProjectRecord, start, end time.Time) error
-	// CreateToBeAggregated creates new to be aggregated invoice project record with credits spendings in the DB.
-	CreateToBeAggregated(ctx context.Context, records []CreateProjectRecord, start, end time.Time) error
 	// Check checks if invoice project record for specified project and billing period exists.
 	Check(ctx context.Context, projectID uuid.UUID, start, end time.Time) error
 	// Get returns record for specified project and billing period.
 	Get(ctx context.Context, projectID uuid.UUID, start, end time.Time) (*ProjectRecord, error)
+	// GetUnappliedByProjectIDs returns unapplied records within the billing period pertaining to a list of project IDs.
+	GetUnappliedByProjectIDs(ctx context.Context, projectIDs []uuid.UUID, start, end time.Time) ([]ProjectRecord, error)
 	// Consume consumes invoice project record.
 	Consume(ctx context.Context, id uuid.UUID) error
 	// ListUnapplied returns project records page with unapplied project records.
 	// Cursor is not included into listing results.
 	ListUnapplied(ctx context.Context, cursor uuid.UUID, limit int, start, end time.Time) (ProjectRecordsPage, error)
-	// ListToBeAggregated returns to be aggregated project records page with unapplied project records.
-	// Cursor is not included into listing results.
-	ListToBeAggregated(ctx context.Context, cursor uuid.UUID, limit int, start, end time.Time) (ProjectRecordsPage, error)
 }
 
 // CreateProjectRecord holds info needed for creation new invoice
@@ -54,6 +51,9 @@ type ProjectRecord struct {
 	PeriodStart time.Time
 	PeriodEnd   time.Time
 	State       int
+
+	// transient field to retrieved from project records db.
+	ProjectPublicID uuid.UUID
 }
 
 // ProjectRecordsPage holds project records and

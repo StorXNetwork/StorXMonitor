@@ -12,16 +12,19 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/stripe/stripe-go/v75"
-	"github.com/stripe/stripe-go/v75/charge"
-	"github.com/stripe/stripe-go/v75/creditnote"
-	"github.com/stripe/stripe-go/v75/customer"
-	"github.com/stripe/stripe-go/v75/customerbalancetransaction"
-	"github.com/stripe/stripe-go/v75/form"
-	"github.com/stripe/stripe-go/v75/invoice"
-	"github.com/stripe/stripe-go/v75/invoiceitem"
-	"github.com/stripe/stripe-go/v75/paymentmethod"
-	"github.com/stripe/stripe-go/v75/promotioncode"
+	"github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/charge"
+	"github.com/stripe/stripe-go/v81/creditnote"
+	"github.com/stripe/stripe-go/v81/customer"
+	"github.com/stripe/stripe-go/v81/customerbalancetransaction"
+	"github.com/stripe/stripe-go/v81/form"
+	"github.com/stripe/stripe-go/v81/invoice"
+	"github.com/stripe/stripe-go/v81/invoiceitem"
+	"github.com/stripe/stripe-go/v81/paymentintent"
+	"github.com/stripe/stripe-go/v81/paymentmethod"
+	"github.com/stripe/stripe-go/v81/promotioncode"
+	"github.com/stripe/stripe-go/v81/setupintent"
+	"github.com/stripe/stripe-go/v81/taxid"
 	"go.uber.org/zap"
 
 	"storj.io/common/time2"
@@ -31,12 +34,15 @@ import (
 type Client interface {
 	Customers() Customers
 	PaymentMethods() PaymentMethods
+	PaymentIntents() PaymentIntents
+	SetupIntents() SetupIntents
 	Invoices() Invoices
 	InvoiceItems() InvoiceItems
 	CustomerBalanceTransactions() CustomerBalanceTransactions
 	Charges() Charges
 	PromoCodes() PromoCodes
 	CreditNotes() CreditNotes
+	TaxIDs() TaxIDs
 }
 
 // Customers Stripe Customers interface.
@@ -51,9 +57,20 @@ type Customers interface {
 type PaymentMethods interface {
 	List(listParams *stripe.PaymentMethodListParams) *paymentmethod.Iter
 	New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
+	Update(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
 	Get(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
 	Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error)
 	Detach(id string, params *stripe.PaymentMethodDetachParams) (*stripe.PaymentMethod, error)
+}
+
+// PaymentIntents Stripe PaymentIntents interface.
+type PaymentIntents interface {
+	New(params *stripe.PaymentIntentParams) (*stripe.PaymentIntent, error)
+}
+
+// SetupIntents Stripe SetupIntents interface.
+type SetupIntents interface {
+	New(params *stripe.SetupIntentParams) (*stripe.SetupIntent, error)
 }
 
 // Invoices Stripe Invoices interface.
@@ -87,6 +104,12 @@ type PromoCodes interface {
 	List(params *stripe.PromotionCodeListParams) *promotioncode.Iter
 }
 
+// TaxIDs is the Stripe TaxIDs interface.
+type TaxIDs interface {
+	New(params *stripe.TaxIDParams) (*stripe.TaxID, error)
+	Del(id string, params *stripe.TaxIDParams) (*stripe.TaxID, error)
+}
+
 // CustomerBalanceTransactions Stripe CustomerBalanceTransactions interface.
 type CustomerBalanceTransactions interface {
 	New(params *stripe.CustomerBalanceTransactionParams) (*stripe.CustomerBalanceTransaction, error)
@@ -113,8 +136,14 @@ type stripeClient struct {
 	invoices *invoice.Client
 	// paymentMethods is the client used to invoke /payment_methods APIs.
 	paymentMethods *paymentmethod.Client
+	// paymentIntents is the client used to invoke /payment_intents APIs.
+	paymentIntents *paymentintent.Client
+	// setupIntents is the client used to invoke /setup_intents APIs.
+	setupIntents *setupintent.Client
 	// promotionCodes is the client used to invoke /promotion_codes APIs.
 	promotionCodes *promotioncode.Client
+	// taxIDs is the client used to invoke /tax_ids APIs.
+	taxIDs *taxid.Client
 }
 
 func (s *stripeClient) Charges() Charges         { return s.charges }
@@ -126,7 +155,10 @@ func (s *stripeClient) Customers() Customers           { return s.customers }
 func (s *stripeClient) InvoiceItems() InvoiceItems     { return s.invoiceItems }
 func (s *stripeClient) Invoices() Invoices             { return s.invoices }
 func (s *stripeClient) PaymentMethods() PaymentMethods { return s.paymentMethods }
+func (s *stripeClient) PaymentIntents() PaymentIntents { return s.paymentIntents }
+func (s *stripeClient) SetupIntents() SetupIntents     { return s.setupIntents }
 func (s *stripeClient) PromoCodes() PromoCodes         { return s.promotionCodes }
+func (s *stripeClient) TaxIDs() TaxIDs                 { return s.taxIDs }
 
 // NewStripeClient creates Stripe client from configuration.
 func NewStripeClient(log *zap.Logger, config Config) Client {
@@ -145,7 +177,10 @@ func NewStripeClient(log *zap.Logger, config Config) Client {
 		invoiceItems:                &invoiceitem.Client{B: backends.API, Key: key},
 		invoices:                    &invoice.Client{B: backends.API, Key: key},
 		paymentMethods:              &paymentmethod.Client{B: backends.API, Key: key},
+		paymentIntents:              &paymentintent.Client{B: backends.API, Key: key},
+		setupIntents:                &setupintent.Client{B: backends.API, Key: key},
 		promotionCodes:              &promotioncode.Client{B: backends.API, Key: key},
+		taxIDs:                      &taxid.Client{B: backends.API, Key: key},
 	}
 }
 
@@ -162,6 +197,9 @@ type BackendWrapper struct {
 	backend  stripe.Backend
 	retryCfg RetryConfig
 	clock    time2.Clock
+
+	// log is passed to backend and used for the logging errors that are retried.
+	log *zap.Logger
 }
 
 // NewBackendWrapper creates a new wrapper for a Stripe backend.
@@ -175,6 +213,7 @@ func NewBackendWrapper(log *zap.Logger, backendType stripe.SupportedBackend, ret
 	return &BackendWrapper{
 		retryCfg: retryCfg,
 		backend:  stripe.GetBackendWithConfig(backendType, backendConfig),
+		log:      log,
 	}
 }
 
@@ -256,6 +295,8 @@ func (w *BackendWrapper) withRetries(params stripe.ParamsContainer, call func() 
 		if !w.clock.Sleep(ctx, time.Duration(backoff)) {
 			return ctx.Err()
 		}
+
+		w.log.Warn("retrying stripe request", zap.Error(err))
 	}
 }
 

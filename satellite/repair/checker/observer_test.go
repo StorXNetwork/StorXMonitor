@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
@@ -37,13 +39,19 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		repairQueue := planet.Satellites[0].DB.RepairQueue()
+		repairQueue := planet.Satellites[0].Repair.Queue
 
 		rs := storj.RedundancyScheme{
 			RequiredShares: 2,
@@ -54,7 +62,7 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 		}
 
 		projectID := planet.Uplinks[0].Projects[0].ID
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
@@ -62,23 +70,23 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 			BucketName: "test-bucket",
 		}
 
-		// add some valid pointers
-		for x := 0; x < 10; x++ {
+		// add some valid segments
+		for x := range 10 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
-		// add pointer that needs repair
+		// add segments that needs repair
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
 		b0StreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
 
-		// add pointer that is unhealthy, but is expired
+		// add segment that is unhealthy, but is expired
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
 		expiresAt := time.Now().Add(-time.Hour)
 		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
 
 		// add some valid pointers
-		for x := 0; x < 10; x++ {
+		for x := range 10 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
@@ -88,14 +96,14 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 
 		// check that the unhealthy, non-expired segment was added to the queue
 		// and that the expired segment was ignored
-		injuredSegment, err := repairQueue.Select(ctx, nil, nil)
+		injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		err = repairQueue.Delete(ctx, injuredSegment)
+		err = repairQueue.Release(ctx, injuredSegments[0], true)
 		require.NoError(t, err)
 
-		require.Equal(t, b0StreamID, injuredSegment.StreamID)
+		require.Equal(t, b0StreamID, injuredSegments[0].StreamID)
 
-		_, err = repairQueue.Select(ctx, nil, nil)
+		_, err = repairQueue.Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 	})
 }
@@ -105,11 +113,17 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rangeLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 
@@ -142,7 +156,7 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 		}
 
 		projectID := planet.Uplinks[0].Projects[0].ID
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
@@ -164,17 +178,23 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 		require.NoError(t, err)
 
 		// check that single irreparable segment was added repair queue
-		repairQueue := planet.Satellites[0].DB.RepairQueue()
-		_, err = repairQueue.Select(ctx, nil, nil)
+		repairQueue := planet.Satellites[0].Repair.Queue
+		items, err := repairQueue.Select(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+		err = repairQueue.Release(ctx, items[0], false)
 		require.NoError(t, err)
 		count, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
-		// check irreparable once again but wait a second
-		time.Sleep(1 * time.Second)
+		// check irreparable once again
 		_, err = rangeLoopService.RunOnce(ctx)
 		require.NoError(t, err)
+
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
 
 		expectedLocation.ObjectKey = "piece"
 		_, err = planet.Satellites[0].Metabase.DB.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
@@ -182,6 +202,13 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 			Version:        metabase.DefaultVersion,
 		})
 		require.NoError(t, err)
+
+		// The repair checker runs a repair queue "Clean" operation when it has
+		// completed a full iteration. It removes all jobs that have not been
+		// changed since before the repair queue started. Sleeping here allows a
+		// separation of timestamps that makes the Clean work as expected.
+		// TODO: get rid of this.
+		time.Sleep(time.Second)
 
 		_, err = rangeLoopService.RunOnce(ctx)
 		require.NoError(t, err)
@@ -197,24 +224,30 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
 				config.Metainfo.RS.Min = 2
 				config.Metainfo.RS.Repair = 3
 				config.Metainfo.RS.Success = 4
 				config.Metainfo.RS.Total = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
 		metabaseDB := satellite.Metabase.DB
 
 		rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
-		repairQueue := satellite.DB.RepairQueue()
+		repairQueue := satellite.Repair.Queue
 
-		err := uplink.CreateBucket(ctx, satellite, "test-bucket")
+		err := uplink.TestingCreateBucket(ctx, satellite, "test-bucket")
 		require.NoError(t, err)
 
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -242,11 +275,23 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 		_, err = rangedLoopService.RunOnce(ctx)
 		require.NoError(t, err)
 
+		ensureExistsOnce := func(t *testing.T, got *queue.InjuredSegment) {
+			for i, s := range segmentsAfterCopy {
+				if s.StreamID == got.StreamID && s.Position == got.Position {
+					segmentsAfterCopy = slices.Delete(segmentsAfterCopy, i, i+1)
+					return
+				}
+			}
+			t.Fatal("segment not found")
+		}
+
 		// check that repair queue has original segment and copied one as it has exactly the same metadata
-		for _, segment := range segmentsAfterCopy {
-			injuredSegment, err := repairQueue.Select(ctx, nil, nil)
+		for range 2 {
+			injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
-			require.Equal(t, segment.StreamID, injuredSegment.StreamID)
+			ensureExistsOnce(t, &injuredSegments[0])
+			err = repairQueue.Release(ctx, injuredSegments[0], false)
+			require.NoError(t, err)
 		}
 
 		injuredSegments, err := repairQueue.Count(ctx)
@@ -260,14 +305,33 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var sleepTime time.Duration
+		// note: jobq can not run this test normally, because it requires high
+		// resolution timestamps. We can make it work if we sleep for at least
+		// 1s in the middle of the test, but that's slow. We will skip the jobq
+		// test if short tests are requested.
+		if _, ok := planet.Satellites[0].Repair.Queue.(*jobq.RepairJobQueue); ok {
+			if testing.Short() {
+				t.Skip("skipping jobq test in short mode")
+			} else {
+				sleepTime = time.Second
+			}
+		}
+
 		rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
-		repairQueue := planet.Satellites[0].DB.RepairQueue()
+		repairQueue := planet.Satellites[0].Repair.Queue
 		observer := planet.Satellites[0].RangedLoop.Repair.Observer
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 
@@ -280,7 +344,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		projectID := planet.Uplinks[0].Projects[0].ID
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
@@ -331,6 +395,11 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
 		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
 
+		// since this test relies on timestamps below this point being
+		// observably higher than timestamps before this point, we need to
+		// sleep here, up to the duration of the timestamp resolution.
+		time.Sleep(sleepTime)
+
 		// The checker will not insert/update the now healthy segments causing
 		// them to be removed from the queue at the end of the checker iteration
 		_, err = rangedLoopService.RunOnce(ctx)
@@ -357,11 +426,17 @@ func TestRepairObserver(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rs := storj.RedundancyScheme{
 			RequiredShares: 2,
@@ -371,7 +446,7 @@ func TestRepairObserver(t *testing.T) {
 			ShareSize:      256,
 		}
 
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
@@ -379,16 +454,16 @@ func TestRepairObserver(t *testing.T) {
 			BucketName: "test-bucket",
 		}
 
-		// add some valid pointers
-		for x := 0; x < 20; x++ {
+		// add some valid segment
+		for x := range 20 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
 		var injuredSegmentStreamIDs []uuid.UUID
 
-		// add pointer that needs repair
-		for x := 0; x < 5; x++ {
+		// add segment that needs repair
+		for x := range 5 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("b-%d", x))
 			injuredSegmentStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
 			injuredSegmentStreamIDs = append(injuredSegmentStreamIDs, injuredSegmentStreamID)
@@ -399,8 +474,8 @@ func TestRepairObserver(t *testing.T) {
 		expiresAt := time.Now().Add(-time.Hour)
 		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
 
-		// add some valid pointers
-		for x := 0; x < 20; x++ {
+		// add some valid segments
+		for x := range 20 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
@@ -429,12 +504,12 @@ func TestRepairObserver(t *testing.T) {
 		_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		injuredSegments, err := planet.Satellites[0].DB.RepairQueue().SelectN(ctx, 10)
+		injuredSegments, err := planet.Satellites[0].Repair.Queue.SelectN(ctx, 10)
 		require.NoError(t, err)
 		require.Len(t, injuredSegments, 5)
 		require.True(t, compare(injuredSegmentStreamIDs, injuredSegments))
 
-		_, err = planet.Satellites[0].DB.RepairQueue().Clean(ctx, time.Now())
+		_, err = planet.Satellites[0].Repair.Queue.Clean(ctx, time.Now())
 		require.NoError(t, err)
 
 		for _, tc := range []TestCase{
@@ -453,17 +528,17 @@ func TestRepairObserver(t *testing.T) {
 			service := rangedloop.NewService(planet.Log(), rangedloop.Config{
 				Parallelism: tc.Parallelism,
 				BatchSize:   tc.BatchSize,
-			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
+			}, rangedloop.NewMetabaseRangeSplitter(planet.Log(), planet.Satellites[0].Metabase.DB, config.RangedLoop), []rangedloop.Observer{observer})
 
 			_, err = service.RunOnce(ctx)
 			require.NoError(t, err)
 
-			injuredSegments, err = planet.Satellites[0].DB.RepairQueue().SelectN(ctx, 10)
+			injuredSegments, err = planet.Satellites[0].Repair.Queue.SelectN(ctx, 10)
 			require.NoError(t, err)
 			require.Len(t, injuredSegments, 5)
 			require.True(t, compare(injuredSegmentStreamIDs, injuredSegments))
 
-			_, err = planet.Satellites[0].DB.RepairQueue().Clean(ctx, time.Now())
+			_, err = planet.Satellites[0].Repair.Queue.Clean(ctx, time.Now())
 			require.NoError(t, err)
 		}
 	})
@@ -508,7 +583,7 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		StreamID:   testrand.UUID(),
 	}
 
-	_, err := metabaseDB.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+	_, err := metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 		ObjectStream: obj,
 		Encryption: storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
@@ -556,8 +631,13 @@ func BenchmarkRemoteSegment(b *testing.B) {
 			require.NoError(b, err)
 		}
 
-		observer := checker.NewObserver(zap.NewNop(), planet.Satellites[0].DB.RepairQueue(),
-			planet.Satellites[0].Auditor.Overlay, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker)
+		reliabilityCache := checker.NewReliabilityCache(
+			planet.Satellites[0].Auditor.Overlay, planet.Satellites[0].Config.Checker.ReliabilityCacheStaleness,
+			planet.Satellites[0].Config.Checker.OnlineWindow,
+		)
+		health := checker.NewProbabilityHealth(planet.Satellites[0].Config.Checker.NodeFailureRate, reliabilityCache)
+		observer := checker.NewObserver(zap.NewNop(), planet.Satellites[0].Repair.Queue,
+			planet.Satellites[0].Auditor.Overlay, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker, health)
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 
@@ -593,16 +673,18 @@ func TestObserver_PlacementCheck(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 2, 4, 4),
 				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.RangedLoop.Interval = 10 * time.Second
+					// disable ranged loop interval execution
+					config.RangedLoop.Interval = -1
 				},
 			),
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 
-		repairQueue := planet.Satellites[0].DB.RepairQueue()
+		repairQueue := planet.Satellites[0].Repair.Queue
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket"))
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
@@ -612,7 +694,8 @@ func TestObserver_PlacementCheck(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+			node.Contact.Chore.Pause(ctx)
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
 		}
 
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(5*memory.KiB))
@@ -638,7 +721,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 		} {
 			t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
 				for _, node := range planet.StorageNodes {
-					require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+					require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
 				}
 
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
@@ -650,7 +733,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 
 				for index, piece := range segments[0].Pieces {
 					if index < tc.piecesOutOfPlacement {
-						require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, piece.StorageNode, "US"))
+						require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, piece.StorageNode, "US"))
 					}
 
 					// make node offline if needed
@@ -658,22 +741,24 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				}
 
 				// confirm that some pieces are out of placement
-				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, nodeselection.TestPlacementDefinitionsWithFraction(planet.Satellites[0].Config.Overlay.Node.NewNodeFraction).CreateFilters(segments[0].Placement))
+				filter, _ := nodeselection.TestPlacementDefinitionsWithFraction(planet.Satellites[0].Config.Overlay.Node.NewNodeFraction).CreateFilters(segments[0].Placement)
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, filter)
 				require.NoError(t, err)
 				require.False(t, ok)
 
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
 
-				planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.TriggerWait()
-
-				injuredSegment, err := repairQueue.Select(ctx, nil, nil)
-				require.NoError(t, err)
-				err = repairQueue.Delete(ctx, injuredSegment)
+				_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 				require.NoError(t, err)
 
-				require.Equal(t, segments[0].StreamID, injuredSegment.StreamID)
-				require.Equal(t, segments[0].Placement, injuredSegment.Placement)
-				require.Equal(t, storj.PlacementConstraint(1), injuredSegment.Placement)
+				injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
+				require.NoError(t, err)
+				err = repairQueue.Release(ctx, injuredSegments[0], true)
+				require.NoError(t, err)
+
+				require.Equal(t, segments[0].StreamID, injuredSegments[0].StreamID)
+				require.Equal(t, segments[0].Placement, injuredSegments[0].Placement)
+				require.Equal(t, storj.PlacementConstraint(1), injuredSegments[0].Placement)
 
 				count, err := repairQueue.Count(ctx)
 				require.Zero(t, err)

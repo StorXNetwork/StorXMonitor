@@ -14,12 +14,12 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/location"
 )
 
 func TestStatDB(t *testing.T) {
@@ -102,8 +102,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		storj.NodeID{9},
 	}
 
-	t.Run("GetNodes", func(t *testing.T) {
-		selectedNodes, err := cache.GetNodes(ctx, nodeIds, time.Hour, 0)
+	t.Run("GetParticipatingNodes", func(t *testing.T) {
+		selectedNodes, err := cache.GetParticipatingNodes(ctx, nodeIds, time.Hour, 0)
 		require.NoError(t, err)
 		require.Len(t, selectedNodes, len(nodeIds))
 
@@ -135,8 +135,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		require.Equal(t, "", selectedNodes[7].CountryCode.String())
 	})
 
-	t.Run("GetParticipatingNodes", func(t *testing.T) {
-		allNodes, err := cache.GetParticipatingNodes(ctx, time.Hour, 0)
+	t.Run("GetAllParticipatingNodes", func(t *testing.T) {
+		allNodes, err := cache.GetAllParticipatingNodes(ctx, time.Hour, 0)
 		require.NoError(t, err)
 
 		expectOnline := func(t *testing.T, nodeList []nodeselection.SelectedNode, nodeID storj.NodeID, shouldBeOnline bool) {

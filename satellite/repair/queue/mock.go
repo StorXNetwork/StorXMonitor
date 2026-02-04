@@ -47,12 +47,17 @@ func (m *MockRepairQueue) InsertBatch(ctx context.Context, segments []*InjuredSe
 }
 
 // Select implements RepairQueue.
-func (m *MockRepairQueue) Select(context.Context, []storj.PlacementConstraint, []storj.PlacementConstraint) (*InjuredSegment, error) {
+func (m *MockRepairQueue) Select(context.Context, int, []storj.PlacementConstraint, []storj.PlacementConstraint) ([]InjuredSegment, error) {
+	panic("implement me")
+}
+
+// Release implements RepairQueue.
+func (m *MockRepairQueue) Release(ctx context.Context, s InjuredSegment, repaired bool) error {
 	panic("implement me")
 }
 
 // Delete implements RepairQueue.
-func (m *MockRepairQueue) Delete(ctx context.Context, s *InjuredSegment) error {
+func (m *MockRepairQueue) Delete(ctx context.Context, s InjuredSegment) error {
 	panic("implement me")
 }
 
@@ -72,7 +77,12 @@ func (m *MockRepairQueue) Count(ctx context.Context) (count int, err error) {
 }
 
 // TestingSetAttemptedTime implements RepairQueue.
-func (m *MockRepairQueue) TestingSetAttemptedTime(ctx context.Context, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+func (m *MockRepairQueue) TestingSetAttemptedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+	panic("implement me")
+}
+
+// TestingSetUpdatedTime implements RepairQueue.
+func (m *MockRepairQueue) TestingSetUpdatedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 	panic("implement me")
 }
 

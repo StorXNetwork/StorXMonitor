@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/pgtest"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -22,6 +21,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storjscan"
 	"storj.io/storjscan/private/testeth"
 	"storj.io/storjscan/storjscandb/storjscandbtest"
@@ -43,11 +43,13 @@ type Test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet
 
 // Run runs testplanet and storjscan and executes test function.
 func Run(t *testing.T, test Test) {
-	databases := satellitedbtest.Databases()
+	t.Parallel()
+
+	databases := satellitedbtest.Databases(t)
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach)
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach)
 	}
 
 	config := testplanet.Config{
@@ -179,7 +181,9 @@ func Run(t *testing.T, test Test) {
 				}
 				defer ctx.Check(planet.Shutdown)
 
-				planet.Start(ctx)
+				if err = planet.Start(ctx); err != nil {
+					t.Fatalf("%+v", err)
+				}
 				provisionUplinks(ctx, t, planet)
 
 				test(t, ctx, planet, &stack)

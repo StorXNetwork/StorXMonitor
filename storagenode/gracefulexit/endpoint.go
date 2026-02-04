@@ -70,7 +70,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *internalpb.
 		// get domain name
 		nodeurl, err := e.trust.GetNodeURL(ctx, trusted)
 		if err != nil {
-			e.log.Error("graceful exit: get satellite address", zap.Stringer("Satellite ID", trusted), zap.Error(err))
+			e.log.Error("graceful exit: get satellite address", zap.Stringer("satellite_id", trusted), zap.Error(err))
 			continue
 		}
 		// get space usage by satellites

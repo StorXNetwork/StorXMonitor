@@ -93,7 +93,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 
 		case *pb.SatelliteMessage_ExitFailed:
 			worker.log.Error("graceful exit failed.",
-				zap.Stringer("Satellite ID", worker.satelliteURL.ID),
+				zap.Stringer("satellite_id", worker.satelliteURL.ID),
 				zap.Stringer("reason", msg.ExitFailed.Reason))
 
 			exitFailedBytes, err := pb.Marshal(msg.ExitFailed)
@@ -104,7 +104,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 			return errs.Wrap(worker.service.ExitFailed(ctx, worker.satelliteURL.ID, msg.ExitFailed.Reason, exitFailedBytes))
 
 		case *pb.SatelliteMessage_ExitCompleted:
-			worker.log.Info("graceful exit completed.", zap.Stringer("Satellite ID", worker.satelliteURL.ID))
+			worker.log.Info("graceful exit completed.", zap.Stringer("satellite_id", worker.satelliteURL.ID))
 
 			exitCompletedBytes, err := pb.Marshal(msg.ExitCompleted)
 			if err != nil {
@@ -119,7 +119,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 			return errs.Wrap(worker.service.DeleteSatelliteData(ctx, worker.satelliteURL.ID))
 		default:
 			// TODO handle err
-			worker.log.Error("unknown graceful exit message.", zap.Stringer("Satellite ID", worker.satelliteURL.ID))
+			worker.log.Error("unknown graceful exit message.", zap.Stringer("satellite_id", worker.satelliteURL.ID))
 		}
 	}
 }

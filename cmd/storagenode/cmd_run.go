@@ -61,7 +61,9 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 	if err := cfg.Verify(log); err != nil {
 		return errs.New("Invalid configuration: %+v", err)
 	}
-
+	if cfg.StorageNodeFlags.Config.Pieces.FileStatCache != "" && cfg.StorageNodeFlags.Config.Pieces.EnableLazyFilewalker {
+		return errs.New("filestat cache is incompatible with lazy file walker. Please use --pieces.enable-lazy-filewalker=false")
+	}
 	db, err := storagenodedb.OpenExisting(ctx, log.Named("db"), cfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error opening database on storagenode: %+v", err)
@@ -116,8 +118,10 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 		}
 	}
 
-	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
-		log.Error("Failed to initialize CacheService.", zap.Error(err))
+	if !cfg.Config.Storage2.Monitor.DedicatedDisk {
+		if err := peer.StorageOld.CacheService.Init(ctx); err != nil {
+			log.Error("Failed to initialize CacheService.", zap.Error(err))
+		}
 	}
 
 	runError := peer.Run(ctx)

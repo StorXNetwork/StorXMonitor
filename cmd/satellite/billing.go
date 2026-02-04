@@ -5,6 +5,12 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
+	"io"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -12,10 +18,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/process"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -65,22 +71,46 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		return nil, err
 	}
 
+	productPrices, err := pc.Products.ToModels()
+	if err != nil {
+		return nil, err
+	}
+
+	minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
+	if err != nil {
+		return nil, err
+	}
+
 	return stripe.NewService(
 		log.Named("payments.stripe:service"),
 		stripeClient,
+		stripe.ServiceDependencies{
+			DB:           db.StripeCoinPayments(),
+			WalletsDB:    db.Wallets(),
+			BillingDB:    db.Billing(),
+			ProjectsDB:   db.Console().Projects(),
+			UsersDB:      db.Console().Users(),
+			UsageDB:      db.ProjectAccounting(),
+			Analytics:    analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName, runCfg.Console.ExternalAddress),
+			Emission:     emission.NewService(runCfg.Emission),
+			Entitlements: entitlements.NewService(log.Named("entitlements:service"), db.Console().Entitlements()),
+		},
+		stripe.ServiceConfig{
+			DeleteAccountEnabled:       runCfg.Console.SelfServeAccountDeleteEnabled,
+			DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+			EntitlementsEnabled:        runCfg.Entitlements.Enabled,
+		},
 		pc.StripeCoinPayments,
-		db.StripeCoinPayments(),
-		db.Wallets(),
-		db.Billing(),
-		db.Console().Projects(),
-		db.Console().Users(),
-		db.ProjectAccounting(),
-		prices,
-		priceOverrides,
-		pc.PackagePlans.Packages,
-		pc.BonusRate,
-		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName),
-		emission.NewService(runCfg.Emission),
+		stripe.PricingConfig{
+			UsagePrices:         prices,
+			UsagePriceOverrides: priceOverrides,
+			ProductPriceMap:     productPrices,
+			PlacementProductMap: pc.PlacementPriceOverrides.ToMap(),
+			PackagePlans:        pc.PackagePlans.Packages,
+			BonusRate:           pc.BonusRate,
+			MinimumChargeAmount: pc.MinimumCharge.Amount,
+			MinimumChargeDate:   minimumChargeDate,
+		},
 	)
 }
 
@@ -95,47 +125,102 @@ func parseYearMonth(yearMonth string) (time.Time, error) {
 	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC), nil
 }
 
-// userData contains the uuid and email of a satellite user.
-type userData struct {
-	ID              uuid.UUID
-	Email           string
-	SignupPromoCode string
-}
-
 // generateStripeCustomers creates missing stripe-customers for users in our database.
 func generateStripeCustomers(ctx context.Context) (err error) {
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, db satellite.DB) error {
 		accounts := payments.Accounts()
 
-		cusDB := db.StripeCoinPayments().Customers().Raw()
-
-		rows, err := cusDB.Query(ctx, "SELECT id, email, signup_promo_code FROM users WHERE id NOT IN (SELECT user_id FROM stripe_customers) AND users.status=1")
+		users, err := db.StripeCoinPayments().Customers().ListMissingCustomers(ctx)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			err = errs.Combine(err, rows.Close())
-		}()
 
-		var n int64
-		for rows.Next() {
-			n++
-			var user userData
-			err := rows.Scan(&user.ID, &user.Email)
-			if err != nil {
-				return err
-			}
-
+		for _, user := range users {
 			_, err = accounts.Setup(ctx, user.ID, user.Email, user.SignupPromoCode)
 			if err != nil {
 				return err
 			}
-
 		}
 
-		zap.L().Info("Ensured Stripe-Customer", zap.Int64("created", n))
+		zap.L().Info("Ensured Stripe-Customer", zap.Int("created", len(users)))
 
 		return err
+	})
+}
+
+type fingerprintCSVItem struct {
+	Fingerprint     string
+	UniqueCustomers int
+	CustomerIDs     []string
+}
+
+func getListOfReusedCardFingerprints(ctx context.Context, minCustomers int, csvPath string) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, db satellite.DB) (err error) {
+		var (
+			f *os.File
+			w io.Writer
+		)
+
+		// If the CSV path is "-" use standard output instead of a file.
+		if csvPath == "-" {
+			w = os.Stdout
+		} else {
+			// We create file early to ensure that the path is valid and writable.
+			f, err = os.Create(csvPath)
+			if err != nil {
+				return err
+			}
+			defer func() { err = errs.Combine(err, f.Close()) }()
+			w = f
+		}
+
+		list, err := payments.ListReusedCardFingerprints(ctx)
+		if err != nil {
+			return errs.New("error listing reused card fingerprints: %v", err)
+		}
+
+		data := make([]fingerprintCSVItem, 0, len(list))
+		for fp, custSet := range list {
+			if len(custSet) < minCustomers {
+				continue
+			}
+
+			ids := make([]string, 0, len(custSet))
+			for id := range custSet {
+				ids = append(ids, id)
+			}
+			sort.Strings(ids)
+
+			data = append(data, fingerprintCSVItem{
+				Fingerprint:     fp,
+				UniqueCustomers: len(custSet),
+				CustomerIDs:     ids,
+			})
+		}
+
+		sort.Slice(data, func(i, j int) bool {
+			if data[i].UniqueCustomers == data[j].UniqueCustomers {
+				return data[i].Fingerprint < data[j].Fingerprint
+			}
+			return data[i].UniqueCustomers > data[j].UniqueCustomers
+		})
+
+		cw := csv.NewWriter(w)
+		if err = cw.Write([]string{"fingerprint", "unique_customers", "customer_ids"}); err != nil {
+			return err
+		}
+		for _, r := range data {
+			if err = cw.Write([]string{
+				r.Fingerprint,
+				strconv.Itoa(r.UniqueCustomers),
+				strings.Join(r.CustomerIDs, ";"),
+			}); err != nil {
+				return err
+			}
+		}
+		cw.Flush()
+
+		return cw.Error()
 	})
 }
 

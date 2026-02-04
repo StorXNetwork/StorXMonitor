@@ -18,10 +18,14 @@ type WebappSessions interface {
 	GetBySessionID(ctx context.Context, sessionID uuid.UUID) (WebappSession, error)
 	// GetAllByUserID gets all webapp sessions with userID.
 	GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]WebappSession, error)
+	// GetPagedActiveByUserID gets all active webapp sessions by userID, offset and limit.
+	GetPagedActiveByUserID(ctx context.Context, userID uuid.UUID, expiresAt time.Time, cursor WebappSessionsCursor) (*WebappSessionsPage, error)
 	// DeleteBySessionID deletes a webapp session by ID.
 	DeleteBySessionID(ctx context.Context, sessionID uuid.UUID) error
 	// DeleteAllByUserID deletes all webapp sessions by user ID.
 	DeleteAllByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+	// DeleteAllByUserIDExcept deletes all webapp sessions by user ID except one of sessionID.
+	DeleteAllByUserIDExcept(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (int64, error)
 	// UpdateExpiration updates the expiration time of the session.
 	UpdateExpiration(ctx context.Context, sessionID uuid.UUID, expiresAt time.Time) error
 	// DeleteExpired deletes all sessions that have expired before the provided timestamp.

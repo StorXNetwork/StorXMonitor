@@ -13,15 +13,16 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	migrator "storj.io/storj/cmd/tools/migrate-public-ids"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 // Test no entries in table doesn't error.
@@ -124,22 +125,27 @@ func TestMigrateProjectsTest(t *testing.T) {
 func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB, conn *pgx.Conn, log *zap.Logger),
 	migrate func(ctx context.Context, log *zap.Logger, conn *pgx.Conn, config migrator.Config) (err error),
 	check func(t *testing.T, ctx context.Context, db satellite.DB), config *migrator.Config) {
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
 
-	for _, satelliteDB := range satellitedbtest.Databases() {
+	for _, satelliteDB := range satellitedbtest.Databases(t) {
 		satelliteDB := satelliteDB
 		t.Run(satelliteDB.Name, func(t *testing.T) {
+			if satelliteDB.Name == "Spanner" {
+				t.Skip("not implemented for spanner")
+			}
+
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)
 
-			tempDB, err := tempdb.OpenUnique(ctx, satelliteDB.MasterDB.URL, schema)
+			tempDB, err := tempdb.OpenUnique(ctx, log, satelliteDB.MasterDB.URL, schema, satelliteDB.MasterDB.ExtraStatements)
 			require.NoError(t, err)
 
-			db, err := satellitedbtest.CreateMasterDBOnTopOf(ctx, log, tempDB, "migrate-public-ids")
+			db, err := satellitedbtest.CreateMasterDBOnTopOf(ctx, log, tempDB, satellitedb.Options{
+				ApplicationName: "migrate-public-ids",
+			})
 			require.NoError(t, err)
 			defer ctx.Check(db.Close)
 

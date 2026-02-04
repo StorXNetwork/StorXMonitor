@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -26,19 +25,27 @@ import (
 type External interface {
 	OpenFilesystem(ctx context.Context, accessName string, options ...Option) (ulfs.Filesystem, error)
 	OpenProject(ctx context.Context, accessName string, options ...Option) (*uplink.Project, error)
+	GetEdgeUrlOverrides(ctx context.Context, access *uplink.Access) (EdgeURLOverrides, error)
 
-	AccessInfoFile() string
+	AccessInfoFile() (path string, err error)
 	OpenAccess(accessName string) (access *uplink.Access, err error)
-	GetAccessInfo(required bool) (string, map[string]string, error)
+	GetAccessInfo(required bool) (defaultName string, accesses map[string]string, err error)
 	SaveAccessInfo(defaultName string, accesses map[string]string) error
 	RequestAccess(ctx context.Context, satelliteAddress, apiKey, passphrase string, unencryptedObjectKeys bool) (*uplink.Access, error)
 	ExportAccess(ctx context.Context, access *uplink.Access, filename string) error
 
-	ConfigFile() string
+	ConfigFile() (path string, err error)
 	SaveConfig(values map[string]string) error
 
 	PromptInput(ctx context.Context, prompt string) (input string, err error)
 	PromptSecret(ctx context.Context, prompt string) (secret string, err error)
+}
+
+// EdgeURLOverrides contains the URL overrides for the edge service.
+type EdgeURLOverrides struct {
+	AuthService         string
+	PublicLinksharing   string
+	InternalLinksharing string
 }
 
 // Options contains all of the possible options for opening a filesystem or project.
@@ -97,7 +104,7 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 		Timeout: timeout,
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/v1/access", authService), bytes.NewReader(postData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authService+"/v1/access", bytes.NewReader(postData))
 	if err != nil {
 		return "", "", "", err
 	}

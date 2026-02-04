@@ -4,11 +4,15 @@
 package satellitedb_test
 
 import (
+	"os"
 	"sort"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -57,19 +61,22 @@ func TestRepairQueue(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, alreadyInserted)
 
-		rs1, err := rq.Select(ctx, nil, nil)
+		rs1, err := rq.Select(ctx, 10, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, testSegments[0].StreamID, rs1.StreamID)
-		require.Equal(t, storj.PlacementConstraint(99), rs1.Placement)
-		require.Equal(t, testSegments[0].Position, rs1.Position)
-		require.Equal(t, float64(12), rs1.SegmentHealth)
+		require.Len(t, rs1, 1)
+		require.Equal(t, testSegments[0].StreamID, rs1[0].StreamID)
+		require.Equal(t, storj.PlacementConstraint(99), rs1[0].Placement)
+		require.Equal(t, testSegments[0].Position, rs1[0].Position)
+		require.Equal(t, float64(12), rs1[0].SegmentHealth)
+		err = rq.Release(ctx, rs1[0], true)
+		require.NoError(t, err)
 
 		// empty queue (one record, but that's already attempted)
-		_, err = rq.Select(ctx, nil, nil)
+		_, err = rq.Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 
 		// make sure it's really empty
-		err = rq.Delete(ctx, testSegments[0])
+		err = rq.Delete(ctx, *testSegments[0])
 		require.NoError(t, err)
 
 		// insert 2 new
@@ -121,28 +128,45 @@ func TestRepairQueue_PlacementRestrictions(t *testing.T) {
 		}
 
 		// any random segment
-		_, err := rq.Select(ctx, nil, nil)
+		randomSegments, err := rq.Select(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, randomSegments, 1)
+		err = rq.Release(ctx, randomSegments[0], true)
 		require.NoError(t, err)
 
 		for i := 0; i < 2; i++ {
 			// placement constraint
-			selected, err := rq.Select(ctx, []storj.PlacementConstraint{1, 2}, nil)
+			selected, err := rq.Select(ctx, 1, []storj.PlacementConstraint{1, 2}, nil)
 			require.NoError(t, err)
-			require.True(t, selected.Placement == 1 || selected.Placement == 2, "Expected placement 1 or 2 but was %d", selected.Placement)
-
-			selected, err = rq.Select(ctx, []storj.PlacementConstraint{3, 4}, []storj.PlacementConstraint{3})
+			require.True(t, selected[0].Placement == 1 || selected[0].Placement == 2, "Expected placement 1 or 2 but was %d", selected[0].Placement)
+			err = rq.Release(ctx, selected[0], true)
 			require.NoError(t, err)
-			require.Equal(t, storj.PlacementConstraint(4), selected.Placement)
 
-			selected, err = rq.Select(ctx, nil, []storj.PlacementConstraint{0, 1, 2, 3, 4})
+			selected, err = rq.Select(ctx, 1, []storj.PlacementConstraint{3, 4}, []storj.PlacementConstraint{3})
 			require.NoError(t, err)
-			require.True(t, selected.Placement > 4)
-
-			selected, err = rq.Select(ctx, []storj.PlacementConstraint{9}, []storj.PlacementConstraint{1, 2, 3, 4})
+			require.Equal(t, storj.PlacementConstraint(4), selected[0].Placement)
+			err = rq.Release(ctx, selected[0], true)
 			require.NoError(t, err)
-			require.Equal(t, storj.PlacementConstraint(9), selected.Placement)
 
-			_, err = rq.Select(ctx, []storj.PlacementConstraint{11}, nil)
+			selected, err = rq.Select(ctx, 1, nil, []storj.PlacementConstraint{0, 1, 2, 3, 4})
+			require.NoError(t, err)
+			require.True(t, selected[0].Placement > 4)
+			err = rq.Release(ctx, selected[0], true)
+			require.NoError(t, err)
+
+			// the Select above does not order by the primary key, so it may update the segment with placement constraint 9.
+			// if so, explicitly update a different segment that is not yet updated (such as 8)
+			singlePlacement := storj.PlacementConstraint(9)
+			if selected[0].Placement == singlePlacement {
+				singlePlacement = storj.PlacementConstraint(8)
+			}
+			selected, err = rq.Select(ctx, 1, []storj.PlacementConstraint{singlePlacement}, []storj.PlacementConstraint{1, 2, 3, 4})
+			require.NoError(t, err)
+			require.Equal(t, singlePlacement, selected[0].Placement)
+			err = rq.Release(ctx, selected[0], true)
+			require.NoError(t, err)
+
+			_, err = rq.Select(ctx, 1, []storj.PlacementConstraint{11}, nil)
 			require.Error(t, err)
 		}
 
@@ -175,9 +199,11 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < len(testSegments); i++ {
-			segment, err := rq.Select(ctx, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
+			segments, err := rq.Select(ctx, 1, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
 			require.NoError(t, err)
-			assert.Equal(t, storj.PlacementConstraint(segment.StreamID[0]), segment.Placement)
+			assert.Equal(t, storj.PlacementConstraint(segments[0].StreamID[0]), segments[0].Placement)
+			err = rq.Release(ctx, segments[0], false)
+			require.NoError(t, err)
 		}
 
 		// fresh inserts again
@@ -193,11 +219,12 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < len(testSegments); i++ {
-			segment, err := rq.Select(ctx, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
+			segments, err := rq.Select(ctx, 1, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
 			require.NoError(t, err)
-			require.Equal(t, storj.PlacementConstraint(segment.StreamID[0]), segment.Placement+1)
+			require.Equal(t, storj.PlacementConstraint(segments[0].StreamID[0]), segments[0].Placement+1)
+			err = rq.Release(ctx, segments[0], false)
+			require.NoError(t, err)
 		}
-
 	})
 }
 
@@ -226,7 +253,9 @@ func TestRepairQueue_Stat(t *testing.T) {
 		_, err := rq.InsertBatch(ctx, testSegments)
 		require.NoError(t, err)
 
-		_, err = rq.Select(ctx, nil, nil)
+		job, err := rq.Select(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		err = rq.Release(ctx, job[0], false)
 		require.NoError(t, err)
 
 		stat, err := rq.Stat(ctx)
@@ -234,6 +263,83 @@ func TestRepairQueue_Stat(t *testing.T) {
 
 		// we have 5 placement, but one has both attempted and non-attempted entries
 		require.Len(t, stat, 6)
+	})
+}
 
+func TestRepairQueue_Select_Concurrently(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		expectedSegments := make([]*queue.InjuredSegment, 100)
+		segs := make([]queue.InjuredSegment, len(expectedSegments))
+		for i := 0; i < len(expectedSegments); i++ {
+
+			placement := storj.PlacementConstraint(i % 5)
+			uuid := testrand.UUID()
+			uuid[0] = byte(placement)
+
+			is := queue.InjuredSegment{
+				StreamID: uuid,
+				Position: metabase.SegmentPosition{
+					Part:  uint32(i),
+					Index: 2,
+				},
+				SegmentHealth: 10,
+				Placement:     placement,
+			}
+			segs[i] = is
+			expectedSegments[i] = &is
+		}
+
+		rq := db.RepairQueue()
+
+		_, err := rq.InsertBatch(ctx, expectedSegments)
+		require.NoError(t, err)
+
+		segments, err := rq.SelectN(ctx, len(expectedSegments))
+		require.NoError(t, err)
+		require.Len(t, segments, len(expectedSegments))
+
+		mu := sync.Mutex{}
+		selectedSegments := []queue.InjuredSegment{}
+
+		parallel := 5
+		if os.Getenv("STORJ_TEST_ENVIRONMENT") == "spanner-nightly" {
+			parallel = 2
+		}
+
+		group := errgroup.Group{}
+		for i := 0; i < parallel; i++ {
+			group.Go(func() error {
+				segments := []queue.InjuredSegment{}
+				for {
+					result, err := rq.Select(ctx, 3, nil, nil)
+					if queue.ErrEmpty.Has(err) {
+						mu.Lock()
+						selectedSegments = append(selectedSegments, segments...)
+						mu.Unlock()
+						return nil
+					}
+					if err != nil {
+						return err
+					}
+					err = rq.Release(ctx, result[0], true)
+					if err != nil {
+						return err
+					}
+
+					segments = append(segments, result...)
+				}
+			})
+		}
+		require.NoError(t, group.Wait())
+		require.Len(t, selectedSegments, len(expectedSegments))
+
+		for i := range segments {
+			segments[i].UpdatedAt = time.Time{}
+			selectedSegments[i].UpdatedAt = time.Time{}
+			segments[i].AttemptedAt = nil
+			selectedSegments[i].AttemptedAt = nil
+		}
+
+		require.ElementsMatch(t, segments, selectedSegments)
 	})
 }

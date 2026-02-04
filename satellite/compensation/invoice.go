@@ -7,8 +7,8 @@ import (
 	"context"
 	"io"
 
-	"storj.io/common/strictcsv"
 	"storj.io/storj/private/currency"
+	"storj.io/storj/shared/strictcsv"
 )
 
 // Invoice holds the calculations for the amount required to pay to a node

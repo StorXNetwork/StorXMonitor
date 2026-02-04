@@ -6,7 +6,7 @@ package migrate_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -15,19 +15,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/dbutil/tempdb"
+	"storj.io/storj/shared/tagsql"
 )
 
 func TestBasicMigrationSqliteNoRebind(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -38,7 +39,7 @@ func TestBasicMigrationSqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -46,8 +47,8 @@ func TestBasicMigrationSqlite(t *testing.T) {
 }
 
 func TestBasicMigration(t *testing.T) {
-	pgtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "create-")
+	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
+		db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, "create-", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +63,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
 	/* #nosec G306 */ // This is a test besides the file contains just test data.
-	err := os.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
+	err := os.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0o644)
 	require.NoError(t, err)
 	m := migrate.Migration{
 		Table: dbName,
@@ -114,12 +115,12 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 	var version int
 	/* #nosec G202 */ // This is a test besides the dbName value is generated in
 	// a controlled way
-	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
+	err = db.QueryRowContext(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, version)
 
 	var id int
-	err = db.QueryRow(ctx, `SELECT MAX(id) FROM users`).Scan(&id)
+	err = db.QueryRowContext(ctx, `SELECT MAX(id) FROM users`).Scan(&id)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, id)
 
@@ -139,7 +140,7 @@ func TestMultipleMigrationSqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -150,9 +151,9 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	connstr := pgtest.PickPostgres(t)
+	connstr := dbtest.PickPostgres(t)
 
-	db, err := tagsql.Open(ctx, "pgx", connstr)
+	db, err := tagsql.Open(ctx, "pgx", connstr, nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -207,7 +208,7 @@ func multipleMigration(ctx context.Context, t *testing.T, db tagsql.DB, testDB t
 	var version int
 	/* #nosec G202 */ // This is a test besides the dbName value is generated in
 	// a controlled way
-	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
+	err = db.QueryRowContext(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, version)
 
@@ -218,7 +219,7 @@ func TestFailedMigrationSqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -229,9 +230,9 @@ func TestFailedMigrationPostgres(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	connstr := pgtest.PickPostgres(t)
+	connstr := dbtest.PickPostgres(t)
 
-	db, err := tagsql.Open(ctx, "pgx", connstr)
+	db, err := tagsql.Open(ctx, "pgx", connstr, nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -250,7 +251,7 @@ func failedMigration(ctx context.Context, t *testing.T, db tagsql.DB, testDB tag
 				Description: "Step 1",
 				Version:     1,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
-					return fmt.Errorf("migration failed")
+					return errors.New("migration failed")
 				}),
 			},
 		},
@@ -262,7 +263,7 @@ func failedMigration(ctx context.Context, t *testing.T, db tagsql.DB, testDB tag
 	var version sql.NullInt64
 	/* #nosec G202 */ // This is a test besides the dbName value is generated in
 	// a controlled way
-	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
+	err = db.QueryRowContext(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, false, version.Valid)
 }
@@ -323,7 +324,7 @@ func TestInvalidStepsOrder(t *testing.T) {
 func dropTables(ctx context.Context, db tagsql.DB, names ...string) error {
 	var errlist errs.Group
 	for _, name := range names {
-		_, err := db.Exec(ctx, `DROP TABLE `+name)
+		_, err := db.ExecContext(ctx, `DROP TABLE `+name)
 		errlist.Add(err)
 	}
 

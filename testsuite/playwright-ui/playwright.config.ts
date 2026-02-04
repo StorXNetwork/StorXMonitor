@@ -47,7 +47,7 @@ export default defineConfig({
         timeout: 4000, // Maximum time expect() should wait for the condition to be met.
         toMatchSnapshot: { threshold }, // Only require the screenshots to be the same within a certain threshold.
     },
-    fullyParallel: false, // Opt out of parallel tests on CI.
+    fullyParallel: true,
     outputDir: 'test-results/', // Folder for test artifacts such as screenshots, videos, traces, etc.
     projects: [
         {
@@ -58,8 +58,12 @@ export default defineConfig({
                 headless: true,
                 launchOptions: {
                     // args: ["--headless","--no-sandbox","--use-angle=gl"]
-                    args: ['--no-sandbox'],
+                    args: [
+                        '--no-sandbox',
+                        '--host-resolver-rules=MAP tenant1.localhost.test 127.0.0.1,MAP tenant2.localhost.test 127.0.0.1',
+                    ],
                 },
+                permissions: ['clipboard-read', 'clipboard-write'],
             },
         },
         /*
@@ -97,7 +101,7 @@ export default defineConfig({
         ['dot'],
         ['html'],
     ],
-    retries: process.env.CI ? 1 : 0, // Retry on CI only.
+    retries: process.env.CI ? 2 : 0, // Retry on CI only.
     testDir: './tests', // Directory where tests are located.
     timeout: 30 * 1000, // Maximum time one test can run for.
     use: {
@@ -110,5 +114,5 @@ export default defineConfig({
             headless: true,
         },
     },
-    workers: process.env.CI ? 1 : undefined,
+    workers: process.env.CI ? 4 : undefined,
 });

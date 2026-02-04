@@ -225,10 +225,10 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeInfo *overlay
 
 		// graceful exit initiation metrics
 		age := endpoint.nowFunc().Sub(node.CreatedAt)
-		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                          //mon:locked
-		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount) //mon:locked
-		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)     //mon:locked
-		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                          //mon:locked
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount)
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)
 	} else {
 		// the node has already initiated GE and hasn't finished yet... or has it?!?!
 		geDoneDate := nodeInfo.ExitStatus.ExitInitiatedAt.AddDate(0, 0, endpoint.config.GracefulExitDurationInDays)
@@ -263,16 +263,16 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeInfo *overlay
 				reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
 			}
 			endpoint.log.Info("node completed graceful exit",
-				zap.Float64("online score", reputationInfo.OnlineScore),
+				zap.Float64("online_score", reputationInfo.OnlineScore),
 				zap.Bool("suspended", reputationInfo.UnknownAuditSuspended != nil),
 				zap.Bool("success", request.ExitSuccess),
-				zap.Stringer("node ID", nodeInfo.Id))
+				zap.Stringer("node_id", nodeInfo.Id))
 			updatedNode, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
 			if request.ExitSuccess {
-				mon.Meter("graceful_exit_success").Mark(1) //mon:locked
+				mon.Meter("graceful_exit_success").Mark(1)
 				return endpoint.getFinishedSuccessMessage(ctx, updatedNode.Id, *updatedNode.ExitStatus.ExitFinishedAt)
 			}
 			mon.Meter("graceful_exit_failure").Mark(1)
@@ -297,7 +297,7 @@ func (endpoint *Endpoint) GracefulExitFeasibility(ctx context.Context, req *pb.G
 
 	nodeDossier, err := endpoint.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node ID", peer.ID))
+		endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node_id", peer.ID))
 		return nil, Error.Wrap(err)
 	}
 

@@ -23,12 +23,7 @@ var _ stripe.CustomersDB = (*customers)(nil)
 //
 // architecture: Database
 type customers struct {
-	db *satelliteDB
-}
-
-// Raw returns the raw dbx handle.
-func (customers *customers) Raw() *dbx.DB {
-	return customers.db.DB
+	db dbx.DriverMethods
 }
 
 // Insert inserts a stripe customer into the database.
@@ -45,6 +40,39 @@ func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, custom
 	return err
 }
 
+// StripeSignupInfo is used in generateStripeCustomer information.
+type StripeSignupInfo struct {
+	ID              uuid.UUID
+	Email           string
+	SignupPromoCode string
+}
+
+// ListMissingCustomers lists users that have a missing stripe entry.
+func (customers *customers) ListMissingCustomers(ctx context.Context) (_ []stripe.MissingCustomer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := customers.db.QueryContext(ctx, "SELECT id, email, signup_promo_code FROM users WHERE id NOT IN (SELECT user_id FROM stripe_customers) AND users.status=1")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var users []stripe.MissingCustomer
+
+	for rows.Next() {
+		var user stripe.MissingCustomer
+		err := rows.Scan(&user.ID, &user.Email, &user.SignupPromoCode)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
 // GetCustomerID returns stripe customers id.
 func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID) (_ string, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
@@ -59,22 +87,6 @@ func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID)
 	}
 
 	return idRow.CustomerId, nil
-}
-
-// GetStripeIDs returns stripe customer and billing ids.
-func (customers *customers) GetStripeIDs(ctx context.Context, userID uuid.UUID) (billingID *string, customerID string, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
-
-	idRow, err := customers.db.Get_StripeCustomer_CustomerId_StripeCustomer_BillingCustomerId_By_UserId(ctx, dbx.StripeCustomer_UserId(userID[:]))
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, "", stripe.ErrNoCustomer
-		}
-
-		return nil, "", err
-	}
-
-	return idRow.BillingCustomerId, idRow.CustomerId, nil
 }
 
 // GetUserID return userID given stripe customer id.
@@ -166,7 +178,7 @@ func (customers *customers) UpdatePackage(ctx context.Context, userID uuid.UUID,
 	return fromDBXCustomer(dbxCustomer)
 }
 
-// UpdatePackage updates the customer's package plan and purchase time.
+// GetPackageInfo returns the package plan and time of purchase for a user.
 func (customers *customers) GetPackageInfo(ctx context.Context, userID uuid.UUID) (_ *string, _ *time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -191,25 +203,4 @@ func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripe.Customer, error) 
 		PackagePlan:        dbxCustomer.PackagePlan,
 		PackagePurchasedAt: dbxCustomer.PurchasedPackageAt,
 	}, nil
-}
-
-// UpdateBillingCustomerID updates the customer's billing customer id.
-func (customers *customers) UpdateBillingCustomerID(ctx context.Context, userID uuid.UUID, billingCustomerID *string) (c *stripe.Customer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	updateFields := dbx.StripeCustomer_Update_Fields{
-		BillingCustomerId: dbx.StripeCustomer_BillingCustomerId_Null(),
-	}
-	if billingCustomerID != nil {
-		updateFields.BillingCustomerId = dbx.StripeCustomer_BillingCustomerId(*billingCustomerID)
-	}
-
-	dbxCustomer, err := customers.db.Update_StripeCustomer_By_UserId(ctx,
-		dbx.StripeCustomer_UserId(userID[:]),
-		updateFields,
-	)
-	if err != nil {
-		return c, err
-	}
-	return fromDBXCustomer(dbxCustomer)
 }

@@ -27,8 +27,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/processgroup"
 	"storj.io/common/sync2"
+	"storj.io/storj/shared/processgroup"
 )
 
 type NewRelicConfig struct {
@@ -409,7 +409,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	}
 
 	if _, ok := process.Arguments[command]; !ok {
-		fmt.Fprintf(process.processes.Output, "%s running: %s\n", process.Name, command)
+		_, _ = fmt.Fprintf(process.processes.Output, "%s running: %s\n", process.Name, command)
 		//TODO: This doesn't look right, but keeping the same behaviour as before.
 		return nil
 	}
@@ -437,9 +437,9 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	processgroup.Setup(cmd)
 
 	if printCommands {
-		fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
+		_, _ = fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
 		defer func() {
-			fmt.Fprintf(process.processes.Output, "%s exited (code:%d): %v\n", process.Name, cmd.ProcessState.ExitCode(), err)
+			_, _ = fmt.Fprintf(process.processes.Output, "%s exited (code:%d): %v\n", process.Name, cmd.ProcessState.ExitCode(), err)
 		}()
 	}
 
@@ -475,9 +475,9 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		go func() {
 			defer process.Status.Started.Release()
 
-			err := process.waitForAddress(process.processes.MaxStartupWait)
+			err := process.waitForAddress(ctx, process.processes.MaxStartupWait)
 			if err != nil {
-				fmt.Fprintf(process.processes.Output, "failed to wait startup: %v", err)
+				_, _ = fmt.Fprintf(process.processes.Output, "failed to wait startup: %v", err)
 				cancelProcess()
 			}
 		}()
@@ -500,10 +500,10 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 }
 
 // waitForAddress will monitor starting when we are able to start the process.
-func (process *Process) waitForAddress(maxStartupWait time.Duration) error {
+func (process *Process) waitForAddress(ctx context.Context, maxStartupWait time.Duration) error {
 	start := time.Now()
 	for !process.Status.Started.Released() {
-		if tryConnect(process.Info.Address) {
+		if tryConnect(ctx, process.Info.Address) {
 			return nil
 		}
 
@@ -518,8 +518,8 @@ func (process *Process) waitForAddress(maxStartupWait time.Duration) error {
 }
 
 // tryConnect will try to connect to the process public address.
-func tryConnect(address string) bool {
-	conn, err := net.Dial("tcp", address)
+func tryConnect(ctx context.Context, address string) bool {
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", address)
 	if err != nil {
 		return false
 	}

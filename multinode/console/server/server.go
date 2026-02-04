@@ -34,7 +34,7 @@ var (
 
 // Config contains configuration for Multinode Dashboard http server.
 type Config struct {
-	Address   string `json:"address" help:"server address of the api gateway and frontend app" default:"127.0.0.1:15002"`
+	Address   string `json:"address" help:"server address of the api gateway and frontend app" default:"127.0.0.1:15002" testDefault:"$HOST:0"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 
@@ -134,7 +134,7 @@ func NewServer(log *zap.Logger, listener net.Listener, assets fs.FS, services Se
 	reputationRouter.HandleFunc("/satellites/{satelliteID}", reputationController.Stats)
 
 	staticServer := http.FileServer(http.FS(server.assets))
-	router.PathPrefix("/static").Handler(web.CacheHandler(staticServer))
+	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", web.CacheHandler(staticServer)))
 	router.PathPrefix("/").HandlerFunc(server.appHandler)
 
 	server.http = http.Server{

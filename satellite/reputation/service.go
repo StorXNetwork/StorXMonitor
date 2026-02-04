@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
@@ -31,10 +32,17 @@ type DB interface {
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 }
 
+// DirectDB is used only for mud, to differentiate between the interface (reputation.DB) and the two implementation (reputation.CachingDB and reputation.DirectDB).
+// as the satellitedb.Reputation() doesn't return with any concrete type.
+type DirectDB interface {
+	DB
+}
+
 // Info contains all reputation data to be stored in DB.
 type Info struct {
 	AuditSuccessCount           int64
 	TotalAuditCount             int64
+	CreatedAt                   *time.Time
 	VettedAt                    *time.Time
 	UnknownAuditSuspended       *time.Time
 	OfflineSuspended            *time.Time
@@ -52,6 +60,7 @@ type Info struct {
 // Copy creates a deep copy of the Info object.
 func (i *Info) Copy() *Info {
 	i2 := *i
+	i2.CreatedAt = cloneTime(i.CreatedAt)
 	i2.VettedAt = cloneTime(i.VettedAt)
 	i2.UnknownAuditSuspended = cloneTime(i.UnknownAuditSuspended)
 	i2.OfflineSuspended = cloneTime(i.OfflineSuspended)
@@ -134,13 +143,9 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 		return err
 	}
 
-	// only update node if its health status has changed, or it's a newly vetted
-	// node.
-	// this prevents the need to require caller of ApplyAudit() to always know
-	// the previous VettedAt time for a node.
-	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
-	// for the VettedAt status is done using time values that are truncated to second precision.
-	changed, repChanges := hasReputationChanged(*statusUpdate, reputation, now)
+	// Only update node if its health status has changed, or the vetted information
+	// is not set in the nodes table yet.
+	changed, repChanges := hasReputationChanged(*statusUpdate, reputation)
 	if changed {
 		reputationUpdate := &overlay.ReputationUpdate{
 			Disqualified:           statusUpdate.Disqualified,
@@ -151,11 +156,11 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 		}
 		err = service.overlay.UpdateReputation(ctx, nodeID, reputation.Email, *reputationUpdate, repChanges)
 		if err != nil {
-			return err
+			return errs.New("'nodes' table reputation updated failed: %+v. %w", reputationUpdate, err)
 		}
 	}
 
-	return err
+	return nil
 }
 
 // Get returns a node's reputation info from DB.
@@ -276,7 +281,7 @@ func (service *Service) Close() error { return nil }
 
 // hasReputationChanged determines if the current node reputation is different from the newly updated reputation. This
 // function will only consider the Disqualified, UnknownAudiSuspended and OfflineSuspended statuses for changes.
-func hasReputationChanged(updated Info, current overlay.ReputationStatus, now time.Time) (changed bool, repChanges []nodeevents.Type) {
+func hasReputationChanged(updated Info, current overlay.ReputationStatus) (changed bool, repChanges []nodeevents.Type) {
 	// there is no unDQ, so only update if changed from nil to not nil
 	if current.Disqualified == nil && updated.Disqualified != nil {
 		repChanges = append(repChanges, nodeevents.Disqualified)
@@ -299,10 +304,7 @@ func hasReputationChanged(updated Info, current overlay.ReputationStatus, now ti
 		changed = true
 	}
 
-	// check for newly vetted nodes.
-	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
-	// for the VettedAt status is done using time values that are truncated to second precision.
-	if updated.VettedAt != nil && updated.VettedAt.Truncate(time.Second).Equal(now.Truncate(time.Second)) {
+	if updated.VettedAt != nil && current.VettedAt == nil {
 		changed = true
 	}
 	return changed, repChanges

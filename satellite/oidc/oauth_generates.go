@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/go-oauth2/oauth2/v4"
@@ -41,7 +40,7 @@ type MacaroonAccessGenerate struct {
 // GenerateService defines the minimal interface needed to generate macaroon based api keys.
 type GenerateService interface {
 	GetAPIKeyInfoByName(context.Context, uuid.UUID, string) (*console.APIKeyInfo, error)
-	CreateAPIKey(context.Context, uuid.UUID, string) (*console.APIKeyInfo, *macaroon.APIKey, error)
+	CreateAPIKey(context.Context, uuid.UUID, string, macaroon.APIKeyVersion) (*console.APIKeyInfo, *macaroon.APIKey, error)
 	GetUser(ctx context.Context, id uuid.UUID) (u *console.User, err error)
 }
 
@@ -75,7 +74,7 @@ func (a *MacaroonAccessGenerate) apiKeyForProject(ctx context.Context, data *oau
 	if err == nil {
 		key, err = macaroon.FromParts(apiKeyInfo.Head, apiKeyInfo.Secret)
 	} else if errors.Is(err, sql.ErrNoRows) {
-		_, key, err = a.Service.CreateAPIKey(ctx, projectID, name)
+		_, key, err = a.Service.CreateAPIKey(ctx, projectID, name, macaroon.APIKeyVersionMin)
 	}
 
 	if err != nil {
@@ -116,7 +115,7 @@ func (a *MacaroonAccessGenerate) Token(ctx context.Context, data *oauth2.Generat
 		}
 
 		if info.Project == "" {
-			return access, refresh, fmt.Errorf("missing project")
+			return access, refresh, errors.New("missing project")
 		}
 
 		apiKey, err = a.apiKeyForProject(ctx, data, info.Project)
@@ -192,7 +191,7 @@ func parseScope(scope string) (UserInfo, macaroon.Caveat, error) {
 		switch {
 		case strings.HasPrefix(scopes[i], "project:"):
 			if info.Project != "" {
-				return info, perms, fmt.Errorf("multiple project scopes provided")
+				return info, perms, errors.New("multiple project scopes provided")
 			}
 
 			info.Project = strings.TrimPrefix(scopes[i], "project:")

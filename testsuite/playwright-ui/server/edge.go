@@ -62,6 +62,7 @@ type EdgeTest func(t *testing.T, ctx *testcontext.Context, planet *EdgePlanet)
 
 var counter int64
 
+// Edge starts a new test which includes edge services.
 func Edge(t *testing.T, test EdgeTest) {
 	edgehost := os.Getenv("STORJ_TEST_EDGE_HOST")
 	if edgehost == "" {
@@ -75,7 +76,7 @@ func Edge(t *testing.T, test EdgeTest) {
 	certFile, keyFile, _, _ := createSelfSignedCertificateFile(t, edgehost)
 
 	testplanet.Run(t, testplanet.Config{
-		Timeout:        10 * time.Minute,
+		Timeout:        15 * time.Minute,
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
@@ -111,8 +112,7 @@ func Edge(t *testing.T, test EdgeTest) {
 			CertFile:          certFile.Name(),
 			KeyFile:           keyFile.Name(),
 			Node: badgerauth.Config{
-				FirstStart:          true,
-				ReplicationInterval: 5 * time.Second,
+				FirstStart: true,
 			},
 		}
 		authService, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))

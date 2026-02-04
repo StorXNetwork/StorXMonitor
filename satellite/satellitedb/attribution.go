@@ -6,230 +6,43 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 )
 
-const (
-	// I can see how keeping around the query to only get attribution for one partner might be good,
-	// but that means we need to maintain both queries. Maybe we should get rid of this one.
-	valueAttrQuery = `
-	-- A union of both the storage tally and bandwidth rollups.
-	-- Should be 1 row per project/bucket by partner within the timeframe specified
-	SELECT 
-		o.user_agent as user_agent, 
-		o.project_id as project_id, 
-		o.bucket_name as bucket_name, 
-		SUM(o.total) as total_byte_hours,
-		SUM(o.remote) as remote_byte_hours,
-		SUM(o.inline) as inline_byte_hours,
-		SUM(o.segments) as segment_hours,
-		SUM(o.objects) as object_hours,
-		SUM(o.settled) as settled, 
-		COALESCE(SUM(o.hours),0) as hours
-	FROM 
-		(
-			-- SUM the storage and hours
-			-- Hours are used to calculate byte hours above
-			SELECT 
-				bsti.user_agent as user_agent, 
-				bsto.project_id as project_id, 
-				bsto.bucket_name as bucket_name,
-				SUM(bsto.total_bytes) as total,
-				SUM(bsto.remote) as remote, 
-				SUM(bsto.inline) as inline, 
-				SUM(bsto.total_segments_count) as segments,
-				SUM(bsto.object_count) as objects,
-				0 as settled, 
-				count(1) as hours 
-			FROM 
-				(
-					-- Collapse entries by the latest record in the hour
-					-- If there are more than 1 records within the hour, only the latest will be considered
-					SELECT 
-						va.user_agent, 
-						date_trunc('hour', bst.interval_start) as hours,
-						bst.project_id, 
-						bst.bucket_name, 
-						MAX(bst.interval_start) as max_interval 
-					FROM 
-						bucket_storage_tallies bst 
-						RIGHT JOIN value_attributions va ON (
-							bst.project_id = va.project_id 
-							AND bst.bucket_name = va.bucket_name
-						) 
-					WHERE 
-						va.user_agent = ? 
-						AND bst.interval_start >= ? 
-						AND bst.interval_start < ? 
-					GROUP BY 
-						va.user_agent, 
-						bst.project_id, 
-						bst.bucket_name, 
-						date_trunc('hour', bst.interval_start) 
-					ORDER BY 
-						max_interval DESC
-				) bsti 
-				INNER JOIN bucket_storage_tallies bsto ON (
-					bsto.project_id = bsti.project_id 
-					AND bsto.bucket_name = bsti.bucket_name 
-					AND bsto.interval_start = bsti.max_interval
-				) 
-			GROUP BY 
-				bsti.user_agent, 
-				bsto.project_id, 
-				bsto.bucket_name 
-			UNION 
-			-- SUM the bandwidth for the timeframe specified grouping by the user_agent, project_id, and bucket_name
-			SELECT 
-				va.user_agent as user_agent, 
-				bbr.project_id as project_id, 
-				bbr.bucket_name as bucket_name, 
-				0 as total,
-				0 as remote, 
-				0 as inline, 
-				0 as segments,
-				0 as objects,
-				SUM(settled)::integer as settled, 
-				NULL as hours 
-			FROM 
-				bucket_bandwidth_rollups bbr 
-				INNER JOIN value_attributions va ON (
-					bbr.project_id = va.project_id 
-					AND bbr.bucket_name = va.bucket_name
-				) 
-			WHERE 
-				va.user_agent = ? 
-				AND bbr.interval_start >= ? 
-				AND bbr.interval_start < ? 
-				-- action 2 is GET
-				AND bbr.action = 2 
-			GROUP BY 
-				va.user_agent, 
-				bbr.project_id, 
-				bbr.bucket_name
-		) AS o 
-	GROUP BY 
-		o.user_agent, 
-		o.project_id, 
-		o.bucket_name;
-	`
-	allValueAttrQuery = `
-	-- A union of both the storage tally and bandwidth rollups.
-	-- Should be 1 row per project/bucket by partner within the timeframe specified
-	SELECT
-		o.user_agent as user_agent,
-		o.project_id as project_id,
-		o.bucket_name as bucket_name,
-		SUM(o.total) as total_byte_hours,
-		SUM(o.remote) as remote_byte_hours,
-		SUM(o.inline) as inline_byte_hours,
-		SUM(o.segments) as segment_hours,
-		SUM(o.objects) as object_hours,
-		SUM(o.settled) as settled,
-		COALESCE(SUM(o.hours),0) as hours
-	FROM
-		(
-			-- SUM the storage and hours
-			-- Hours are used to calculate byte hours above
-			SELECT
-				bsti.user_agent as user_agent,
-				bsto.project_id as project_id,
-				bsto.bucket_name as bucket_name,
-				SUM(bsto.total_bytes) as total,
-				SUM(bsto.remote) as remote,
-				SUM(bsto.inline) as inline,
-				SUM(bsto.total_segments_count) as segments,
-				SUM(bsto.object_count) as objects,
-				0 as settled,
-				count(1) as hours
-			FROM
-				(
-					-- Collapse entries by the latest record in the hour
-					-- If there are more than 1 records within the hour, only the latest will be considered
-					SELECT
-						va.user_agent,
-						date_trunc('hour', bst.interval_start) as hours,
-						bst.project_id,
-						bst.bucket_name,
-						MAX(bst.interval_start) as max_interval
-					FROM
-						bucket_storage_tallies bst
-						INNER JOIN value_attributions va ON (
-							bst.project_id = va.project_id
-							AND bst.bucket_name = va.bucket_name
-						)
-					WHERE
-						bst.interval_start >= $1
-						AND bst.interval_start < $2
-					GROUP BY
-						va.user_agent,
-						bst.project_id,
-						bst.bucket_name,
-						date_trunc('hour', bst.interval_start)
-					ORDER BY
-						max_interval DESC
-				) bsti
-				INNER JOIN bucket_storage_tallies bsto ON (
-					bsto.project_id = bsti.project_id
-					AND bsto.bucket_name = bsti.bucket_name
-					AND bsto.interval_start = bsti.max_interval
-				)
-			GROUP BY
-				bsti.user_agent,
-				bsto.project_id,
-				bsto.bucket_name
-			UNION
-			-- SUM the bandwidth for the timeframe specified grouping by the user_agent, project_id, and bucket_name
-			SELECT
-				va.user_agent as user_agent,
-				bbr.project_id as project_id,
-				bbr.bucket_name as bucket_name,
-				0 as total,
-				0 as remote,
-				0 as inline,
-				0 as segments,
-				0 as objects,
-				SUM(settled)::integer as settled,
-				null as hours
-			FROM
-				bucket_bandwidth_rollups bbr
-				INNER JOIN value_attributions va ON (
-					bbr.project_id = va.project_id
-					AND bbr.bucket_name = va.bucket_name
-				)
-			WHERE
-				bbr.interval_start >= $1
-				AND bbr.interval_start < $2
-				-- action 2 is GET
-				AND bbr.action = 2
-			GROUP BY
-				va.user_agent,
-				bbr.project_id,
-				bbr.bucket_name
-		) AS o
-	GROUP BY
-		o.user_agent,
-		o.project_id,
-		o.bucket_name;
-	`
-)
+// I can see how keeping around the query to only get attribution for one partner might be good,
+// but that means we need to maintain both queries. Maybe we should get rid of this one.
+//
+//go:embed attribution_value_psql.sql
+var valueAttrCockroachQuery string
+
+//go:embed attribution_value_spanner.sql
+var valueAttrSpannerQuery string
+
+//go:embed attribution_all_value_psql.sql
+var allValueAttrPsqlQuery string
+
+//go:embed attribution_all_value_spanner.sql
+var allValueAttrSpannerQuery string
 
 type attributionDB struct {
 	db *satelliteDB
 }
 
 // Get reads the partner info.
-func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (info *attribution.Info, err error) {
+func (a *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (info *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxInfo, err := keys.db.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+	dbxInfo, err := a.db.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx,
 		dbx.ValueAttribution_ProjectId(projectID[:]),
 		dbx.ValueAttribution_BucketName(bucketName),
 	)
@@ -244,10 +57,10 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 }
 
 // UpdateUserAgent updates bucket attribution data.
-func (keys *attributionDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
+func (a *attributionDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = keys.db.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+	_, err = a.db.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx,
 		dbx.ValueAttribution_ProjectId(projectID[:]),
 		dbx.ValueAttribution_BucketName([]byte(bucketName)),
 		dbx.ValueAttribution_Update_Fields{
@@ -257,32 +70,94 @@ func (keys *attributionDB) UpdateUserAgent(ctx context.Context, projectID uuid.U
 	return err
 }
 
-// Insert implements create partner info.
-func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
+// UpdatePlacement updates bucket placement.
+func (a *attributionDB) UpdatePlacement(ctx context.Context, projectID uuid.UUID, bucketName string, placement *storj.PlacementConstraint) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = keys.db.QueryRowContext(ctx, `
-		INSERT INTO value_attributions (project_id, bucket_name, user_agent, last_updated) 
-		VALUES ($1, $2, $3, now())
-		ON CONFLICT (project_id, bucket_name) DO NOTHING
-		RETURNING last_updated
-	`, info.ProjectID[:], info.BucketName, info.UserAgent).Scan(&info.CreatedAt)
-	// TODO when sql.ErrNoRows is returned then CreatedAt is not set
-	if errors.Is(err, sql.ErrNoRows) {
-		return info, nil
+	updateFields := dbx.ValueAttribution_Update_Fields{}
+	if placement == nil {
+		updateFields.Placement = dbx.ValueAttribution_Placement_Null()
+	} else {
+		updateFields.Placement = dbx.ValueAttribution_Placement(int(*placement))
 	}
-	if err != nil {
-		return nil, Error.Wrap(err)
+
+	_, err = a.db.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+		dbx.ValueAttribution_ProjectId(projectID[:]),
+		dbx.ValueAttribution_BucketName([]byte(bucketName)),
+		updateFields)
+
+	return err
+}
+
+// TestDelete is used for testing purposes to delete all attribution data for a given project and bucket.
+func (a *attributionDB) TestDelete(ctx context.Context, projectID uuid.UUID, bucketName []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = a.db.Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+		dbx.ValueAttribution_ProjectId(projectID[:]),
+		dbx.ValueAttribution_BucketName(bucketName))
+
+	return err
+}
+
+// Insert implements create partner info.
+func (a *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch a.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		err = a.db.QueryRowContext(ctx, `
+				INSERT INTO value_attributions (project_id, bucket_name, user_agent, placement, last_updated) 
+				VALUES ($1, $2, $3, $4, now())
+				ON CONFLICT (project_id, bucket_name) DO NOTHING
+				RETURNING last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent, info.Placement).Scan(&info.CreatedAt)
+		// TODO when sql.ErrNoRows is returned then CreatedAt is not set
+		if errors.Is(err, sql.ErrNoRows) {
+			return info, nil
+		}
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	case dbutil.Spanner:
+		err := a.db.QueryRowContext(ctx, `
+			INSERT OR IGNORE INTO value_attributions (project_id, bucket_name, user_agent, placement, last_updated)
+			VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP())
+			THEN RETURN last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent, info.Placement).Scan(&info.CreatedAt)
+		// TODO when sql.ErrNoRows is returned then CreatedAt is not set
+		if errors.Is(err, sql.ErrNoRows) {
+			return info, nil
+		}
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+	default:
+		return nil, errs.New("unsupported database dialect: %s", a.db.impl)
 	}
 
 	return info, nil
 }
 
 // QueryAttribution queries partner bucket attribution data.
-func (keys *attributionDB) QueryAttribution(ctx context.Context, userAgent []byte, start time.Time, end time.Time) (_ []*attribution.BucketUsage, err error) {
+func (a *attributionDB) QueryAttribution(ctx context.Context, userAgent []byte, start time.Time, end time.Time) (_ []*attribution.BucketUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(valueAttrQuery), userAgent, start.UTC(), end.UTC(), userAgent, start.UTC(), end.UTC())
+	var query string
+	var args []interface{}
+	switch a.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		query = valueAttrCockroachQuery
+		args = append(args, userAgent, start.UTC(), end.UTC())
+	case dbutil.Spanner:
+		query = valueAttrSpannerQuery
+		args = append(args, sql.Named("user_agent", userAgent))
+		args = append(args, sql.Named("start", start.UTC()))
+		args = append(args, sql.Named("end", end.UTC()))
+	default:
+		return nil, errs.New("unsupported database dialect: %s", a.db.impl)
+	}
+
+	rows, err := a.db.DB.QueryContext(ctx, a.db.Rebind(query), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -307,10 +182,24 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, userAgent []byt
 }
 
 // QueryAllAttribution queries all partner bucket attribution data.
-func (keys *attributionDB) QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) (_ []*attribution.BucketUsage, err error) {
+func (a *attributionDB) QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) (_ []*attribution.BucketUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(allValueAttrQuery), start.UTC(), end.UTC())
+	var query string
+	var args []interface{}
+	switch a.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		query = allValueAttrPsqlQuery
+		args = append(args, start.UTC(), end.UTC())
+	case dbutil.Spanner:
+		query = allValueAttrSpannerQuery
+		args = append(args, sql.Named("start", start.UTC()))
+		args = append(args, sql.Named("end", end.UTC()))
+	default:
+		return nil, errs.New("unsupported database dialect: %s", a.db.impl)
+	}
+
+	rows, err := a.db.DB.QueryContext(ctx, a.db.Rebind(query), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -333,17 +222,107 @@ func (keys *attributionDB) QueryAllAttribution(ctx context.Context, start time.T
 	return results, Error.Wrap(rows.Err())
 }
 
+// BackfillPlacementBatch updates up to batchSize rows of value_attributions.placement from bucket_metainfos.
+// It returns:
+//
+//	rowsProcessed = number of rows updated in this batch
+//	hasNext       = true if there may be more batches to run
+func (a *attributionDB) BackfillPlacementBatch(
+	ctx context.Context,
+	batchSize int,
+) (rowsProcessed int64, hasNext bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch a.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		res, err := a.db.ExecContext(ctx, `
+		WITH to_update AS (
+			SELECT va.project_id, va.bucket_name
+			FROM value_attributions AS va
+			JOIN bucket_metainfos   AS bm
+				ON va.project_id = bm.project_id
+				AND va.bucket_name = bm.name
+			WHERE va.placement IS NULL
+				AND bm.placement IS NOT NULL
+			ORDER BY va.project_id, va.bucket_name
+			LIMIT $1
+		)
+		UPDATE value_attributions AS va
+		SET placement = bm.placement
+		FROM to_update AS u
+		JOIN bucket_metainfos AS bm
+			ON bm.project_id = u.project_id
+			AND bm.name = u.bucket_name
+		WHERE va.project_id = u.project_id
+			AND va.bucket_name = u.bucket_name
+			AND bm.placement IS NOT NULL;
+		`, batchSize)
+		if err != nil {
+			return 0, false, Error.Wrap(err)
+		}
+
+		n, err := res.RowsAffected()
+		if err != nil {
+			return 0, false, Error.New("could not get rows affected: %w", err)
+		}
+
+		return n, n == int64(batchSize), nil
+	case dbutil.Spanner:
+		res, err := a.db.ExecContext(ctx, `
+		UPDATE value_attributions AS va
+		SET placement = (
+		SELECT bm.placement
+		FROM bucket_metainfos AS bm
+		WHERE bm.project_id = va.project_id
+			AND bm.name = va.bucket_name
+			AND bm.placement IS NOT NULL
+		)
+		WHERE STRUCT<project_id BYTES, bucket_name BYTES>(va.project_id, va.bucket_name)
+			IN UNNEST(
+				ARRAY(
+					SELECT AS STRUCT va2.project_id, va2.bucket_name
+					FROM value_attributions AS va2
+					JOIN bucket_metainfos AS bm2
+						ON va2.project_id = bm2.project_id
+						AND va2.bucket_name = bm2.name
+					WHERE va2.placement IS NULL
+						AND bm2.placement IS NOT NULL
+			    	ORDER BY va2.project_id, va2.bucket_name
+			    	LIMIT ?
+				)
+			);
+		`, batchSize)
+		if err != nil {
+			return 0, false, Error.Wrap(err)
+		}
+
+		n, err := res.RowsAffected()
+		if err != nil {
+			return 0, false, Error.New("could not get rows affected: %w", err)
+		}
+
+		return n, n == int64(batchSize), nil
+	default:
+		return 0, false, errs.New("unsupported database dialect: %s", a.db.impl)
+	}
+}
+
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
 	userAgent := info.UserAgent
 	projectID, err := uuid.FromBytes(info.ProjectId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
+	var placementPtr *storj.PlacementConstraint
+	if info.Placement != nil {
+		placementVal := storj.PlacementConstraint(*info.Placement)
+		placementPtr = &placementVal
+	}
 	return &attribution.Info{
 		ProjectID:  projectID,
 		BucketName: info.BucketName,
 		UserAgent:  userAgent,
+		Placement:  placementPtr,
 		CreatedAt:  info.LastUpdated,
 	}, nil
 }

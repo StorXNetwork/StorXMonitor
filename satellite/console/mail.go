@@ -20,7 +20,22 @@ type TrialExpirationReminderEmail struct {
 func (*TrialExpirationReminderEmail) Template() string { return "TrialExpirationReminder" }
 
 // Subject gets email subject.
-func (*TrialExpirationReminderEmail) Subject() string { return "Your Storj trial is ending soon" }
+func (*TrialExpirationReminderEmail) Subject() string { return "Your trial is ending soon" }
+
+// TrialExpirationEscalationReminderEmail is mailservice template with trial expiration escalation reminder data.
+type TrialExpirationEscalationReminderEmail struct {
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*TrialExpirationEscalationReminderEmail) Template() string {
+	return "TrialExpirationEscalationReminder"
+}
+
+// Subject gets email subject.
+func (*TrialExpirationEscalationReminderEmail) Subject() string {
+	return "Your trial has ended"
+}
 
 // TrialExpiredEmail is mailservice template with trial expiration data.
 type TrialExpiredEmail struct {
@@ -35,7 +50,7 @@ func (*TrialExpiredEmail) Template() string { return "TrialExpired" }
 
 // Subject gets email subject.
 func (*TrialExpiredEmail) Subject() string {
-	return "Your Storj trial has ended - Act now to continue!"
+	return "Your trial has ended - Act now to continue!"
 }
 
 // AccountActivationEmail is mailservice template with activation data.
@@ -64,6 +79,36 @@ func (*AccountActivationCodeEmail) Template() string { return "WelcomeWithCode" 
 // Subject gets email subject.
 func (*AccountActivationCodeEmail) Subject() string { return "Activate your email" }
 
+// ChangeEmailSuccessEmail is mailservice template to notify user about successful email change.
+type ChangeEmailSuccessEmail struct{}
+
+// Template returns email template name.
+func (*ChangeEmailSuccessEmail) Template() string { return "EmailChangeSuccess" }
+
+// Subject gets email subject.
+func (*ChangeEmailSuccessEmail) Subject() string { return "Email has been changed" }
+
+// AccountDeletionSuccessEmail is mailservice template to notify user about successful account deletion.
+type AccountDeletionSuccessEmail struct{}
+
+// Template returns email template name.
+func (*AccountDeletionSuccessEmail) Template() string { return "AccountDeletionSuccess" }
+
+// Subject gets email subject.
+func (*AccountDeletionSuccessEmail) Subject() string { return "Account deletion" }
+
+// EmailAddressVerificationEmail is mailservice template with a verification code.
+type EmailAddressVerificationEmail struct {
+	Action           string
+	VerificationCode string
+}
+
+// Template returns email template name.
+func (*EmailAddressVerificationEmail) Template() string { return "EmailAddressVerification" }
+
+// Subject gets email subject.
+func (*EmailAddressVerificationEmail) Subject() string { return "Verify your email" }
+
 // ForgotPasswordEmail is mailservice template with reset password data.
 type ForgotPasswordEmail struct {
 	UserName                   string
@@ -86,14 +131,19 @@ type ProjectInvitationEmail struct {
 	InviterEmail string
 	SignInLink   string
 }
+// PasswordChangedEmail is mailservice template with password changed data.
+type PasswordChangedEmail struct {
+	ResetPasswordLink string
+}
 
 // Template returns email template name.
-func (*ProjectInvitationEmail) Template() string { return "Invite" }
+func (*PasswordChangedEmail) Template() string { return "PasswordChanged" }
 
 // Subject gets email subject.
 func (email *ProjectInvitationEmail) Subject() string {
 	return "You were invited to join a project on StorX"
 }
+func (*PasswordChangedEmail) Subject() string { return "Your password changed" }
 
 // StorageUsageEmail is the email sent for storage usage reminders
 type StorageUsageEmail struct {
@@ -251,11 +301,31 @@ func (*ContactUsSubmittedEmail) Template() string { return "ContactUsSubmitted" 
 func (*ContactUsSubmittedEmail) Subject() string {
 	return "Thank you for contacting us - StorX"
 }
+// LockAccountActivityType is an auth activity type which led to account lock.
+type LockAccountActivityType = string
+
+const (
+	// LoginAccountLock represents an account lock activity type triggered by multiple failed login attempts.
+	LoginAccountLock LockAccountActivityType = "login"
+
+	// MfaAccountLock stands for "2fa check" and represents an account lock activity type triggered by multiple failed two-factor authentication attempts.
+	MfaAccountLock LockAccountActivityType = "2fa check"
+
+	// ChangeEmailLock stands for "change email" and represents an account lock activity type triggered by multiple failed change email actions.
+	ChangeEmailLock LockAccountActivityType = "change email"
+
+	// DeleteProjectLock stands for "delete project" and represents an account lock activity type triggered by multiple failed delete project actions.
+	DeleteProjectLock LockAccountActivityType = "delete project"
+
+	// DeleteAccountLock stands for "delete project" and represents an account lock activity type triggered by multiple failed delete account actions.
+	DeleteAccountLock LockAccountActivityType = "delete account"
+)
 
 // LoginLockAccountEmail is mailservice template with login lock account data.
 type LoginLockAccountEmail struct {
 	LockoutDuration   time.Duration
 	ResetPasswordLink string
+	ActivityType      LockAccountActivityType
 }
 
 // Template returns email template name.
@@ -425,4 +495,87 @@ func (*PlanPurchasedEmail) Template() string { return "PlanPurchased" }
 // Subject gets email subject.
 func (*PlanPurchasedEmail) Subject() string {
 	return "Plan Purchase Confirmation - StorX"
+// BillingWarningEmail is an email sent to notify users of billing warning event.
+type BillingWarningEmail struct {
+	EmailNumber int
+	Days        int
+	SignInLink  string
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*BillingWarningEmail) Template() string { return "BillingWarning" }
+
+// Subject gets email subject.
+func (*BillingWarningEmail) Subject() string {
+	return "Your payment is outstanding - Act now to continue!"
+}
+
+// BillingFreezeNotificationEmail is an email sent to notify users of account freeze event.
+type BillingFreezeNotificationEmail struct {
+	EmailNumber int
+	Days        int
+	SignInLink  string
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*BillingFreezeNotificationEmail) Template() string { return "BillingFreezeNotification" }
+
+// Subject gets email subject.
+func (b *BillingFreezeNotificationEmail) Subject() string {
+	title := "Your account has been suspended"
+	if b.Days <= 0 {
+		title = "Your data is marked for deletion"
+	}
+	return title + " - Act now to continue!"
+}
+
+// MFAActivatedEmail is an email sent to notify users of successful two-factor authentication activation.
+type MFAActivatedEmail struct{}
+
+// Template returns email template name.
+func (*MFAActivatedEmail) Template() string { return "MFAActivated" }
+
+// Subject gets email subject.
+func (*MFAActivatedEmail) Subject() string {
+	return "Two-factor authentication has been activated"
+}
+
+// MFADisabledEmail is an email sent to notify users of successful two-factor authentication deactivation.
+type MFADisabledEmail struct{}
+
+// Template returns email template name.
+func (*MFADisabledEmail) Template() string { return "MFADisabled" }
+
+// Subject gets email subject.
+func (*MFADisabledEmail) Subject() string {
+	return "Two-factor authentication has been disabled"
+}
+
+// CreditCardAddedEmail is the template for sending card added emails.
+type CreditCardAddedEmail struct {
+	LoginURL   string
+	SupportURL string
+}
+
+// Template returns email template name.
+func (*CreditCardAddedEmail) Template() string { return "CreditCardAdded" }
+
+// Subject gets email subject.
+func (*CreditCardAddedEmail) Subject() string {
+	return "Your new payment method has been added"
+}
+
+// UpgradeToProEmail is the template for account upgraded emails.
+type UpgradeToProEmail struct {
+	LoginURL string
+}
+
+// Template returns email template name.
+func (*UpgradeToProEmail) Template() string { return "UpgradeToPro" }
+
+// Subject gets email subject.
+func (*UpgradeToProEmail) Subject() string {
+	return "Your Account Has Been Upgraded to Pro"
 }

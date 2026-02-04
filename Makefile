@@ -39,9 +39,9 @@ DOCKER_BUILDX := docker buildx build
 help:
 	@awk 'BEGIN { \
 		FS = ":.*##"; \
-		printf "\nUsage:\n  make \033[36m<target>\033[0m\n"\
+		printf "Usage:\n  make \033[36m<target>\033[0m\n"\
 	} \
-	/^[a-zA-Z_-]+:.*?##/ { \
+	/^[^: \t]+:.*?##/ { \
 		printf "  \033[36m%-17s\033[0m %s\n", $$1, $$2 \
 	} \
 	/^##@/ { \

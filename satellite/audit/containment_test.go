@@ -9,14 +9,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
+	"storj.io/storj/storagenode"
 )
 
 func TestContainInsertAndGet(t *testing.T) {
@@ -149,6 +152,14 @@ func TestContainDelete(t *testing.T) {
 func TestContainUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Audit.ContainmentSyncChoreInterval = -1 // disable containment sync chore
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Contact.Interval = -1 // disable contact chore
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
 		cache := planet.Satellites[0].DB.OverlayCache()

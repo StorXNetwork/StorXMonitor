@@ -6,7 +6,10 @@ package console
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
+
+	"github.com/shopspring/decimal"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -21,16 +24,27 @@ type Projects interface {
 	GetAll(ctx context.Context) ([]Project, error)
 	// GetCreatedBefore retrieves all projects created before provided date.
 	GetCreatedBefore(ctx context.Context, before time.Time) ([]Project, error)
-	// GetByUserID returns a list of projects where user is a project member.
+	// GetByUserID returns a list of projects (including disabled) where user is a project member.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
-	// GetOwn returns a list of projects where user is an owner.
+	// GetActiveByUserID returns a list of active projects where user is a project member.
+	GetActiveByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// GetOwn returns a list of projects (including disabled) where user is an owner.
 	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// GetOwnActive returns a list of active projects where user is an owner.
+	GetOwnActive(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// GetSalt returns the project's salt.
 	GetSalt(ctx context.Context, id uuid.UUID) ([]byte, error)
+	// GetEncryptedPassphrase gets the encrypted passphrase of this project.
+	// NB: projects that don't have satellite managed encryption will not have this.
+	GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) ([]byte, *int, error)
 	// GetByPublicID is a method for querying project from the database by public_id.
 	GetByPublicID(ctx context.Context, publicID uuid.UUID) (*Project, error)
+	// GetByPublicOrPrivateID is a method for querying project from the database by either publicID or id.
+	GetByPublicOrPrivateID(ctx context.Context, id uuid.UUID) (*Project, error)
+	// GetPublicID returns the public project ID for a given project ID.
+	GetPublicID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	// Insert is a method for inserting project into the database.
 	Insert(ctx context.Context, project *Project) (*Project, error)
 	// Delete is a method for deleting project by Id from the database.
@@ -39,8 +53,10 @@ type Projects interface {
 	Update(ctx context.Context, project *Project) error
 	// List returns paginated projects, created before provided timestamp.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
-	// ListByOwnerID is a method for querying all projects from the database by ownerID. It also includes the number of members for each project.
+	// ListByOwnerID is a method for querying all projects (including disabled) from the database by ownerID. It also includes the number of members for each project.
 	ListByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
+	// ListActiveByOwnerID is a method for querying only active projects from the database by ownerID. It also includes the number of members for each project.
+	ListActiveByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
 
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
@@ -63,8 +79,15 @@ type Projects interface {
 	// UpdateAllLimits is a method for updating max buckets, storage, bandwidth, segment, rate, and burst limits.
 	UpdateAllLimits(ctx context.Context, id uuid.UUID, storage, bandwidth, segment *int64, buckets, rate, burst *int) error
 
+	// UpdateLimitsGeneric is a method for updating any or all types of limits on a project.
+	// ALL limits passed in to the request will be updated i.e. if a limit type is passed in with a null value, that limit will be updated to null.
+	UpdateLimitsGeneric(ctx context.Context, id uuid.UUID, toUpdate []Limit) error
+
 	// UpdateUserAgent is a method for updating projects user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
+
+	// UpdateStatus is a method for updating projects status.
+	UpdateStatus(ctx context.Context, id uuid.UUID, status ProjectStatus) error
 
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
@@ -74,6 +97,13 @@ type Projects interface {
 
 	// Delete is a method for deleting project by userID from the database.
 	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
+	// ListPendingDeletionBefore returns a list of project and owner IDs that are pending deletion and were marked before the specified time.
+	ListPendingDeletionBefore(ctx context.Context, offset int64, limit int, before time.Time) (page ProjectIdOwnerIdPage, err error)
+
+	// GetNowFn returns the current time function.
+	GetNowFn() func() time.Time
+	// TestSetNowFn is used to set the current time for testing purposes.
+	TestSetNowFn(func() time.Time)
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
@@ -100,12 +130,14 @@ type BandwidthLimitConfig struct {
 type SegmentLimitConfig struct {
 	Free int64 `help:"the default free-tier segment usage limit" default:"1000000"`
 	Paid int64 `help:"the default paid-tier segment usage limit" default:"100000000"`
+	Nfr  int64 `help:"the default NFR segment usage limit" default:"10000000"`
 }
 
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
-	Free int `help:"the default free-tier project limit" default:"1"`
+	Free int `help:"the default free-tier project limit" default:"1" testDefault:"10"`
 	Paid int `help:"the default paid-tier project limit" default:"3"`
+	Nfr  int `help:"the default NFR project limit" default:"1"`
 }
 
 // Project is a database object that describes Project entity.
@@ -113,26 +145,79 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name                        string                    `json:"name"`
-	Description                 string                    `json:"description"`
-	UserAgent                   []byte                    `json:"userAgent"`
-	OwnerID                     uuid.UUID                 `json:"ownerId"`
-	RateLimit                   *int                      `json:"rateLimit"`
-	BurstLimit                  *int                      `json:"burstLimit"`
-	MaxBuckets                  *int                      `json:"maxBuckets"`
-	CreatedAt                   time.Time                 `json:"createdAt"`
-	MemberCount                 int                       `json:"memberCount"`
-	StorageLimit                *memory.Size              `json:"storageLimit"`
-	StorageUsed                 int64                     `json:"-"`
-	BandwidthLimit              *memory.Size              `json:"bandwidthLimit"`
-	BandwidthUsed               int64                     `json:"-"`
-	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
-	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
-	StorageUsedPercentage       float64                   `json:"storageUsedPercentage"`
-	SegmentLimit                *int64                    `json:"segmentLimit"`
-	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
-	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`
-	PrevDaysUntilExpiration     int                       `json:"prevDaysUntilExpiration"`
+	Name            string         `json:"name"`
+	Description     string         `json:"description"`
+	UserAgent       []byte         `json:"userAgent"`
+	OwnerID         uuid.UUID      `json:"ownerId"`
+	MaxBuckets      *int           `json:"maxBuckets"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	MemberCount     int            `json:"memberCount"`
+	Status          *ProjectStatus `json:"status"`
+	StatusUpdatedAt *time.Time     `json:"-"`
+
+	StorageLimit                *memory.Size `json:"storageLimit"`
+	StorageUsed                 int64        `json:"-"`
+	BandwidthLimit              *memory.Size `json:"bandwidthLimit"`
+	BandwidthUsed               int64        `json:"-"`
+	UserSpecifiedStorageLimit   *memory.Size `json:"userSpecifiedStorageLimit"`
+	UserSpecifiedBandwidthLimit *memory.Size `json:"userSpecifiedBandwidthLimit"`
+	SegmentLimit                *int64       `json:"segmentLimit"`
+
+	RateLimit               *int    `json:"rateLimit"`
+	BurstLimit              *int    `json:"burstLimit"`
+	RateLimitHead           *int    `json:"rateLimitHead,omitempty"`
+	BurstLimitHead          *int    `json:"burstLimitHead,omitempty"`
+	RateLimitGet            *int    `json:"rateLimitGet,omitempty"`
+	BurstLimitGet           *int    `json:"burstLimitGet,omitempty"`
+	RateLimitPut            *int    `json:"rateLimitPut,omitempty"`
+	BurstLimitPut           *int    `json:"burstLimitPut,omitempty"`
+	RateLimitList           *int    `json:"rateLimitList,omitempty"`
+	BurstLimitList          *int    `json:"burstLimitList,omitempty"`
+	RateLimitDelete         *int    `json:"rateLimitDelete,omitempty"`
+	BurstLimitDelete        *int    `json:"burstLimitDelete,omitempty"`
+	StorageUsedPercentage   float64 `json:"storageUsedPercentage"`
+	PrevDaysUntilExpiration int     `json:"prevDaysUntilExpiration"`
+
+	DefaultPlacement   storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning  DefaultVersioning         `json:"defaultVersioning"`
+	PassphraseEnc      []byte                    `json:"-"`
+	PassphraseEncKeyID *int                      `json:"-"`
+	PathEncryption     *bool                     `json:"-"`
+
+	IsClassic bool `json:"isClassic"`
+}
+
+// ProjectStatus - is used to indicate status of the user's project.
+type ProjectStatus int
+
+const (
+	// ProjectDisabled is a status that project receives after deleting/disabling by the user.
+	ProjectDisabled ProjectStatus = 0
+	// ProjectActive is a status that project receives after creation.
+	ProjectActive ProjectStatus = 1
+	// ProjectPendingDeletion is a status that project receives after user initiates deletion
+	// in the abbreviated flow, but before the project is fully deleted.
+	ProjectPendingDeletion ProjectStatus = 2
+)
+
+// ProjectStatuses are all valid project statuses.
+var ProjectStatuses = []ProjectStatus{ProjectDisabled, ProjectActive, ProjectPendingDeletion}
+
+// String returns the string name.
+func (status *ProjectStatus) String() string {
+	if status == nil {
+		return "unset"
+	}
+	switch *status {
+	case ProjectDisabled:
+		return "Disabled"
+	case ProjectActive:
+		return "Active"
+	case ProjectPendingDeletion:
+		return "Pending Deletion"
+	default:
+		return fmt.Sprintf("unknown ProjectStatus(%d)", *status)
+	}
 }
 
 // UpsertProjectInfo holds data needed to create/update Project.
@@ -143,21 +228,25 @@ type UpsertProjectInfo struct {
 	BandwidthLimit          memory.Size `json:"bandwidthLimit"`
 	CreatedAt               time.Time   `json:"createdAt"`
 	PrevDaysUntilExpiration int         `json:"prevDaysUntilExpiration"`
+	ManagePassphrase        bool        `json:"managePassphrase"`
 }
 
 // ProjectInfo holds data sent via user facing http endpoints.
 type ProjectInfo struct {
-	ID                      uuid.UUID         `json:"id"`
-	Name                    string            `json:"name"`
-	OwnerID                 uuid.UUID         `json:"ownerId"`
-	Description             string            `json:"description"`
-	MemberCount             int               `json:"memberCount"`
-	CreatedAt               time.Time         `json:"createdAt"`
-	EdgeURLOverrides        *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
-	StorageUsed             int64             `json:"storageUsed"`
-	BandwidthUsed           int64             `json:"bandwidthUsed"`
-	Versioning              DefaultVersioning `json:"versioning"`
-	PrevDaysUntilExpiration int               `json:"prevDaysUntilExpiration"`
+	ID                      uuid.UUID                 `json:"id"`
+	Name                    string                    `json:"name"`
+	OwnerID                 uuid.UUID                 `json:"ownerId"`
+	Description             string                    `json:"description"`
+	MemberCount             int                       `json:"memberCount"`
+	CreatedAt               time.Time                 `json:"createdAt"`
+	EdgeURLOverrides        *EdgeURLOverrides         `json:"edgeURLOverrides,omitempty"`
+	StorageUsed             int64                     `json:"storageUsed"`
+	BandwidthUsed           int64                     `json:"bandwidthUsed"`
+	Versioning              DefaultVersioning         `json:"versioning"`
+	PrevDaysUntilExpiration int                       `json:"prevDaysUntilExpiration"`
+	Placement               storj.PlacementConstraint `json:"placement"`
+	HasManagedPassphrase    bool                      `json:"hasManagedPassphrase"`
+	IsClassic               bool                      `json:"isClassic"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.
@@ -180,11 +269,9 @@ type ProjectsCursor struct {
 	Page  int
 }
 
-// ProjectsPage returns paginated projects,
-// providing next offset if there are more projects
-// to retrieve.
-type ProjectsPage struct {
-	Projects   []Project
+// PageInfo contains details about a pagination
+// result set.
+type PageInfo struct {
 	Next       bool
 	NextOffset int64
 
@@ -196,17 +283,23 @@ type ProjectsPage struct {
 	TotalCount  int64
 }
 
-// ProjectInfoPage is similar to ProjectsPage
-// except the Projects field is ProjectInfo and is sent over HTTP API.
-type ProjectInfoPage struct {
-	Projects []ProjectInfo `json:"projects"`
+// ProjectsPage returns paginated projects.
+type ProjectsPage struct {
+	PageInfo
+	Projects []Project
+}
 
-	Limit  int   `json:"limit"`
-	Offset int64 `json:"offset"`
+// ProjectIdOwnerId holds a project ID and its owner's ID.
+type ProjectIdOwnerId struct {
+	ProjectID       uuid.UUID
+	ProjectPublicID uuid.UUID
+	OwnerID         uuid.UUID
+}
 
-	PageCount   int   `json:"pageCount"`
-	CurrentPage int   `json:"currentPage"`
-	TotalCount  int64 `json:"totalCount"`
+// ProjectIdOwnerIdPage holds a page of project IDs and their owner IDs.
+type ProjectIdOwnerIdPage struct {
+	PageInfo
+	Ids []ProjectIdOwnerId
 }
 
 // LimitRequestInfo holds data needed to request limit increase.
@@ -218,7 +311,29 @@ type LimitRequestInfo struct {
 
 // ProjectConfig holds config for available "features" for a project.
 type ProjectConfig struct {
-	VersioningUIEnabled bool `json:"versioningUIEnabled"`
+	// HasManagedPassphrase is a failsafe to prevent user-managed-encryption behavior in the UI if
+	// managed encryption is enabled for a project, but the satellite is unable to decrypt the passphrase.
+	HasManagedPassphrase bool              `json:"hasManagedPassphrase"`
+	EncryptPath          bool              `json:"encryptPath"`
+	Passphrase           string            `json:"passphrase,omitempty"`
+	IsOwnerPaidTier      bool              `json:"isOwnerPaidTier"`
+	HasPaidPrivileges    bool              `json:"hasPaidPrivileges"`
+	Role                 ProjectMemberRole `json:"role"`
+	Salt                 string            `json:"salt"`
+	MembersCount         uint64            `json:"membersCount"`
+	AvailablePlacements  []PlacementDetail `json:"availablePlacements"`
+	ComputeAuthToken     string            `json:"computeAuthToken,omitempty"`
+	EventingEnabled      bool              `json:"eventingEnabled"`
+}
+
+// DeleteProjectInfo holds data for project deletion UI flow.
+type DeleteProjectInfo struct {
+	LockEnabledBuckets  int             `json:"lockEnabledBuckets"`
+	Buckets             int             `json:"buckets"`
+	APIKeys             int             `json:"apiKeys"`
+	CurrentUsage        bool            `json:"currentUsage"`
+	CurrentMonthPrice   decimal.Decimal `json:"-"`
+	InvoicingIncomplete bool            `json:"invoicingIncomplete"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.

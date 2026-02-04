@@ -1,4 +1,4 @@
-// bucket_bandwidth_roolup contains per bucket infromation about bandwidth used.
+// bucket_bandwidth_rollup contains per bucket information about bandwidth used.
 model bucket_bandwidth_rollup (
 	key    project_id bucket_name interval_start action
 	index (
@@ -23,6 +23,9 @@ model bucket_bandwidth_rollup (
 	// It is one of put = 1, get = 2, get audit = 3, get repair = 4, put repair = 5, delete = 6 or put graceful exit = 7.
 	field action           uint
 
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
 	// inline is the number of bytes of inline traffic.
 	field inline    uint64 ( updatable )
 	// allocated is the number of bytes that the satellite has budgeted for.
@@ -33,8 +36,8 @@ model bucket_bandwidth_rollup (
 )
 
 read paged (
-    select bucket_bandwidth_rollup
-    where bucket_bandwidth_rollup.interval_start >= ?
+	select bucket_bandwidth_rollup
+	where bucket_bandwidth_rollup.interval_start >= ?
 )
 
 // bucket_bandwidth_rollup_archive contains historical condensed data from bucket_bandwidth_rollup table.
@@ -54,6 +57,9 @@ model bucket_bandwidth_rollup_archive (
 	// project_id is an UUID that refers to project.id.
 	field project_id        blob
 
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
 	// interval_start is when the measurement interval started.
 	field interval_start   timestamp
 	// interval_seconds is the duration of the measurement interval in seconds.
@@ -72,11 +78,11 @@ model bucket_bandwidth_rollup_archive (
 )
 
 read paged (
-    select bucket_bandwidth_rollup_archive
-    where bucket_bandwidth_rollup_archive.interval_start >= ?
+	select bucket_bandwidth_rollup_archive
+	where bucket_bandwidth_rollup_archive.interval_start >= ?
 )
 
-// project_bandwidth_daily_rollup contains the total traffic for a given project.
+// project_bandwidth_daily_rollup contains the total traffic for a given product and project.
 model project_bandwidth_daily_rollup (
 	key    project_id interval_day
 	index (
@@ -86,6 +92,10 @@ model project_bandwidth_daily_rollup (
 
 	// project_id is an UUID that refers to projects.id.
 	field project_id       blob
+
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
 	// interval_day is the total for a given day.
 	field interval_day     date
 	// egress_allocated is the total budgeted download traffic.
@@ -119,8 +129,14 @@ model bucket_storage_tally (
 	// The measurement is collected over several hours, so it is not consistent.
 	field interval_start   timestamp
 
-	// total_bytes is the total bytes at rest.
-	field total_bytes uint64 ( default 0)
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
+	// total_bytes is the total bytes stored in the bucket including remainder bytes.
+	field total_bytes     uint64 ( default 0)
+	// remainder_bytes is the bytes to be charged due to minimum object size policy.
+	field remainder_bytes uint64 ( nullable, updatable )
+
 	// inline is the amount of bytes stored in inline segments.
 	field inline uint64
 	// remote is the amount of bytes stored on storagenodes, pre-expansion.
@@ -140,15 +156,55 @@ model bucket_storage_tally (
 )
 
 read all (
-    select bucket_storage_tally
-    orderby desc bucket_storage_tally.interval_start
+	select bucket_storage_tally
+	orderby desc bucket_storage_tally.interval_start
 )
 
 read all (
-    select bucket_storage_tally
-    where bucket_storage_tally.project_id = ?
-    where bucket_storage_tally.bucket_name = ?
-    where bucket_storage_tally.interval_start >= ?
-    where bucket_storage_tally.interval_start <= ?
-    orderby desc bucket_storage_tally.interval_start
+	select bucket_storage_tally
+	where bucket_storage_tally.project_id = ?
+	where bucket_storage_tally.bucket_name = ?
+	where bucket_storage_tally.interval_start >= ?
+	where bucket_storage_tally.interval_start <= ?
+	orderby desc bucket_storage_tally.interval_start
+)
+
+delete bucket_storage_tally ( where bucket_storage_tally.interval_start < ? )
+
+// retention_remainder_charge contains records of charges for objects deleted before the minimum storage retention.
+model retention_remainder_charge (
+	key    project_id bucket_name deleted_at
+
+	index (
+		name retention_remainder_charges_project_id_deleted_at_billed_index
+		fields project_id deleted_at billed
+	)
+
+	// project_id is an UUID that refers to projects.id.
+	field project_id        blob
+
+	// bucket_name refers to buckets.name table.
+	field bucket_name       blob
+
+	// deleted_at is when (to the month) the object was deleted.
+	// inserts with the same project_id, bucket_name and deleted_at will be aggregated.
+	field deleted_at       timestamp
+
+	// remainder_byte_hours is the number of hours the remainder bytes are charged for.
+	field remainder_byte_hours float64 ( updatable )
+
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
+	// billed indicates whether this charge has been billed.
+	field billed      bool ( updatable, default false )
+)
+
+read paged (
+	suffix RetentionRemainderChargesInDeletedAtRangeByProjectID
+	select retention_remainder_charge
+	where retention_remainder_charge.project_id = ?
+	where retention_remainder_charge.deleted_at >= ?
+	where retention_remainder_charge.deleted_at < ?
+	where retention_remainder_charge.billed = false
 )

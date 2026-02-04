@@ -12,6 +12,8 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/private/post"
 )
 
 const (
@@ -35,6 +37,9 @@ var (
 
 	// ErrMFAConflict is error type that occurs when both a passcode and recovery code are given.
 	ErrMFAConflict = errs.Class("MFA conflict")
+
+	// ErrMFAEnabled is error type that occurs when user tries to enable MFA when it's already enabled.
+	ErrMFAEnabled = errs.Class("MFA already enabled")
 
 	// ErrMFARecoveryCode is error type that represents usage of invalid MFA recovery code.
 	ErrMFARecoveryCode = errs.Class("MFA recovery code")
@@ -89,6 +94,10 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 	user, err := s.getUserAndAuditLog(ctx, "enable MFA")
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	if user.MFAEnabled {
+		return ErrMFAEnabled.New("")
 	}
 
 	valid, err := ValidateMFAPasscode(passcode, user.MFASecretKey, t)
@@ -201,6 +210,10 @@ func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error)
 	user, err := s.getUserAndAuditLog(ctx, "reset MFA secret key")
 	if err != nil {
 		return "", Error.Wrap(err)
+	}
+
+	if user.MFAEnabled {
+		return "", ErrMFAEnabled.New("")
 	}
 
 	key, err = NewMFASecretKey()

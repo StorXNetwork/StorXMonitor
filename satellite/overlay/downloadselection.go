@@ -87,7 +87,9 @@ func (cache *DownloadSelectionCache) GetNodeIPsFromPlacement(ctx context.Context
 		return nil, Error.Wrap(err)
 	}
 
-	return state.FilteredIPs(nodes, cache.placementRules(placement)), nil
+	filter, _ := cache.placementRules(placement)
+
+	return state.FilteredIPs(nodes, filter), nil
 }
 
 // GetNodes gets nodes by ID from the cache, and refreshes the cache if it is stale.
@@ -99,6 +101,21 @@ func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj
 		return nil, Error.Wrap(err)
 	}
 	return state.Nodes(nodes), nil
+}
+
+// GetNode gets a node by ID from the cache, and refreshes the cache if it is stale.
+func (cache *DownloadSelectionCache) GetNode(ctx context.Context, nodeID storj.NodeID) (_ *nodeselection.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	state, err := cache.cache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	selected, ok := state.byID[nodeID]
+	if !ok {
+		return nil, Error.New("node not found")
+	}
+	return selected.Clone(), nil
 }
 
 // Size returns how many nodes are in the cache.

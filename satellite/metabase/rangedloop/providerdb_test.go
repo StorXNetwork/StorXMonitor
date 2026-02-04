@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -105,8 +106,12 @@ func runTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, in in, exp
 		createSegment(ctx, t, db, u)
 	}
 
-	provider := rangedloop.NewMetabaseRangeSplitter(db, -1*time.Microsecond, in.batchSize)
-	ranges, err := provider.CreateRanges(in.nRanges, in.batchSize)
+	provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, rangedloop.Config{
+		AsOfSystemInterval:   -1 * time.Microsecond,
+		SpannerStaleInterval: -1 * time.Microsecond,
+		BatchSize:            in.batchSize,
+	})
+	ranges, err := provider.CreateRanges(ctx, in.nRanges, in.batchSize)
 	require.NoError(t, err)
 
 	nBatches := 0
@@ -155,12 +160,9 @@ func createSegment(ctx *testcontext.Context, t testing.TB, db *metabase.DB, stre
 		},
 	}.Check(ctx, t, db)
 
-	metabasetest.CommitObjectWithSegments{
-		Opts: metabase.CommitObjectWithSegments{
+	metabasetest.CommitObject{
+		Opts: metabase.CommitObject{
 			ObjectStream: obj,
-			Segments: []metabase.SegmentPosition{
-				{Part: 0, Index: 0},
-			},
 		},
 	}.Check(ctx, t, db)
 }

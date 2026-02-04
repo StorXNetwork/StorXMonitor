@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build ignore
-// +build ignore
 
 package main
 
@@ -16,7 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/apigen"
 	"storj.io/storj/private/apigen/example"
@@ -212,6 +210,11 @@ func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, e
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}`, !nocookie, !noapikey)
+}
+
+// ExtraServiceParams satisfies the apigen.Middleware interface.
+func (a authMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, _ *apigen.FullEndpoint) []apigen.Param {
+	return nil
 }
 
 var _ apigen.Middleware = authMiddleware{}

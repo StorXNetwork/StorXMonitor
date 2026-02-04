@@ -1,5 +1,6 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 package metabase_test
 
 import (
@@ -19,12 +20,12 @@ import (
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyz")
 
-func randBucketname(n int) string {
+func randBucketname(n int) metabase.BucketName {
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letters[testrand.Intn(len(letters))]
 	}
-	return string(b)
+	return metabase.BucketName(b)
 }
 
 func BenchmarkExpiredDeletion(b *testing.B) {
@@ -136,7 +137,7 @@ func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metaba
 					StreamID:   testrand.UUID(),
 				}
 				s.objectStream = append(s.objectStream, objectStream)
-				_, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 					ObjectStream: objectStream,
 					Encryption: storj.EncryptionParameters{
 						CipherSuite: storj.EncAESGCM,

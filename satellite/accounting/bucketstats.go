@@ -4,6 +4,7 @@
 package accounting
 
 import (
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -15,8 +16,11 @@ type BucketTally struct {
 	PendingObjectCount int64
 	TotalSegments      int64
 	TotalBytes         int64
+	RemainderBytes     int64
 
 	MetadataSize int64
+
+	Placement storj.PlacementConstraint
 }
 
 // Combine aggregates all the tallies.
@@ -25,6 +29,8 @@ func (s *BucketTally) Combine(o *BucketTally) {
 	s.PendingObjectCount += o.PendingObjectCount
 	s.TotalSegments += o.TotalSegments
 	s.TotalBytes += o.TotalBytes
+	s.RemainderBytes += o.RemainderBytes
+	s.MetadataSize += o.MetadataSize
 }
 
 // Segments returns total number of segments.

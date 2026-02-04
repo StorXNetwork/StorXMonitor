@@ -71,6 +71,9 @@ func (types *Types) All() map[reflect.Type]string {
 			walk(t.Elem())
 		case reflect.Array, reflect.Slice:
 			walk(t.Elem())
+		case reflect.Map:
+			walk(t.Key())
+			walk(t.Elem())
 		case reflect.Struct:
 			if t.Name() == "" {
 				panic(fmt.Sprintf("BUG: found an anonymous 'struct'. Found type=%q", t))
@@ -104,6 +107,8 @@ func (types *Types) All() map[reflect.Type]string {
 			reflect.Float32, reflect.Float64,
 			reflect.String:
 			all[t] = t.Name()
+		case reflect.Interface:
+			all[t] = "unknown"
 		default:
 			panic(fmt.Sprintf("type %q is not supported", t.Kind().String()))
 		}
@@ -197,6 +202,10 @@ func TypescriptTypeName(t reflect.Type) string {
 		}
 
 		return TypescriptTypeName(elem) + "[]"
+	case reflect.Map:
+		keyType := TypescriptTypeName(t.Key())
+		valueType := TypescriptTypeName(t.Elem())
+		return fmt.Sprintf("Record<%s, %s>", keyType, valueType)
 	case reflect.String:
 		return "string"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -207,6 +216,8 @@ func TypescriptTypeName(t reflect.Type) string {
 		return "number"
 	case reflect.Bool:
 		return "boolean"
+	case reflect.Interface:
+		return "unknown"
 	case reflect.Struct:
 		if t.Name() == "" {
 			panic(fmt.Sprintf(`anonymous struct aren't accepted because their type doesn't have a name. Type="%+v"`, t))

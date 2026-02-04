@@ -24,13 +24,13 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/base58"
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/processgroup"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/processgroup"
 	"storj.io/uplink"
 )
 
@@ -208,11 +208,11 @@ func networkTest(flags *Flags, command string, args []string) error {
 	processgroup.Setup(cmd)
 
 	if printCommands {
-		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
+		_, _ = fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
 	errRun := cmd.Run()
 	if errRun != nil {
-		fmt.Fprintf(processes.Output, "test command failed: %v\n", errRun)
+		_, _ = fmt.Fprintf(processes.Output, "test command failed: %v\n", errRun)
 	}
 
 	cancel()
@@ -304,7 +304,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			process := processes.New(Info{
 				Name:       fmt.Sprintf("redis/%d", i),
 				Executable: "redis-server",
-				Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
+				Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i), "redis"),
 				Address:    net.JoinHostPort(host, rp),
 			})
 			redisServers = append(redisServers, process)
@@ -339,7 +339,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		apiProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicRPC)),
 		})
 		satellites = append(satellites, apiProcess)
@@ -425,7 +425,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		migrationProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-migration/%d", i),
 			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 		})
 		migrationProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
@@ -438,7 +438,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		coreProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-core/%d", i),
 			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 			Address:    "",
 		})
 		coreProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
@@ -452,7 +452,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		rangedLoopProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-rangedloop/%d", i),
 			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 			Address:    "",
 		})
 		rangedLoopProcess.Arguments = withCommon(rangedLoopProcess.Directory, Arguments{
@@ -466,7 +466,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		adminProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-admin/%d", i),
 			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 			Address:    net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
 		})
 		adminProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
@@ -493,7 +493,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
 			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 		})
 		repairProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
@@ -507,7 +507,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		garbageCollectionProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-garbage-collection/%d", i),
 			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 		})
 		garbageCollectionProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
@@ -527,7 +527,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
-			Directory:  filepath.Join(processes.Directory, "gateway", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "gateway", strconv.Itoa(i)),
 			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicRPC)),
 		})
 
@@ -631,7 +631,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("storagenode/%d", i),
 			Executable: "storagenode",
-			Directory:  filepath.Join(processes.Directory, "storagenode", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "storagenode", strconv.Itoa(i)),
 			Address:    net.JoinHostPort(host, port(storagenodePeer, i, publicRPC)),
 		})
 
@@ -691,7 +691,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("multinode/%d", 0),
 			Executable: "multinode",
-			Directory:  filepath.Join(processes.Directory, "multinode", fmt.Sprint(0)),
+			Directory:  filepath.Join(processes.Directory, "multinode", strconv.Itoa(0)),
 		})
 
 		process.Arguments = withCommon(process.Directory, Arguments{

@@ -9,10 +9,10 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -21,8 +21,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/version"
@@ -31,6 +29,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/location"
 )
 
 var nodeSelectionConfig = overlay.NodeSelectionConfig{
@@ -59,7 +58,9 @@ const (
 )
 
 func TestRefresh(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	satellitedbtest.RunWithConfig(t, satellitedbtest.Config{
+		NonParallel: true,
+	}, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
@@ -83,6 +84,11 @@ func TestRefresh(t *testing.T) {
 
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
+		monkit.Default.Stats(func(key monkit.SeriesKey, field string, val float64) {
+			if key.Measurement == "placement" && (field == "UploadCount" || field == "Count") {
+				require.Equal(t, float64(nodeCount), val)
+			}
+		})
 		require.NoError(t, err)
 	})
 }
@@ -125,38 +131,13 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 	return ids
 }
 
-type mockdb struct {
-	mu        sync.Mutex
-	callCount int
-	reputable []*nodeselection.SelectedNode
-	new       []*nodeselection.SelectedNode
-}
-
-func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	sync2.Sleep(ctx, 500*time.Millisecond)
-	m.callCount++
-
-	reputable = make([]*nodeselection.SelectedNode, len(m.reputable))
-	for i, n := range m.reputable {
-		reputable[i] = n.Clone()
-	}
-	new = make([]*nodeselection.SelectedNode, len(m.new))
-	for i, n := range m.new {
-		new[i] = n.Clone()
-	}
-
-	return reputable, new, nil
-}
-
 func TestRefreshConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	// concurrent cache.Refresh with high staleness, where high staleness means the
 	// cache should only be refreshed the first time we call cache.Refresh
-	mockDB := mockdb{}
+	mockDB := overlay.Mockdb{}
 	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
@@ -179,11 +160,11 @@ func TestRefreshConcurrent(t *testing.T) {
 	})
 	require.NoError(t, group.Wait())
 
-	require.Equal(t, 1, mockDB.callCount)
+	require.Equal(t, 1, mockDB.CallCount)
 
 	// concurrent cache.Refresh with low staleness, where low staleness
 	// means that the cache will refresh *every time* cache.Refresh is called
-	mockDB = mockdb{}
+	mockDB = overlay.Mockdb{}
 	cache, err = overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		lowStaleness,
@@ -202,7 +183,7 @@ func TestRefreshConcurrent(t *testing.T) {
 	err = group.Wait()
 	require.NoError(t, err)
 
-	require.True(t, 1 <= mockDB.callCount && mockDB.callCount <= 2, "calls %d", mockDB.callCount)
+	require.True(t, 1 <= mockDB.CallCount && mockDB.CallCount <= 2, "calls %d", mockDB.CallCount)
 }
 
 func TestSelectNodes(t *testing.T) {
@@ -215,8 +196,8 @@ func TestSelectNodes(t *testing.T) {
 			MinimumDiskSpace: 100 * memory.MiB,
 		}
 		placementRules := nodeselection.TestPlacementDefinitionsWithFraction(nodeSelectionConfig.NewNodeFraction)
-		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)))
-		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF))
+		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.DefaultDownloadSelector)
+		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF), nodeselection.DefaultDownloadSelector)
 
 		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
@@ -327,14 +308,24 @@ func TestSelectNodes(t *testing.T) {
 					Placement:      0,
 				})
 				require.NoError(t, err)
+				require.Len(t, selectedNodes, 3)
 
-				subnets := map[string]struct{}{}
+				// Becaus in how is setup the overlay cache for this test, there should be 0 or 1 unvetted
+				// node and in that case it may be in the same subnet of a vetted node or in a new one.
+
+				subnets := map[string]*nodeselection.SelectedNode{}
 				for _, node := range selectedNodes {
-					subnets[node.LastNet] = struct{}{}
+					if prev, ok := subnets[node.LastNet]; ok {
+						// xor between the already tracked and the one in this iteration.
+						require.True(t, (prev.Vetted || node.Vetted) && !(prev.Vetted && node.Vetted))
+					} else {
+						subnets[node.LastNet] = node
+					}
 				}
 
-				require.Len(t, selectedNodes, 3)
-				require.Len(t, subnets, 3)
+				// 2 or 3 depending if an unvetted node was selected and it's the same subnet of any of the
+				// other 2 vetted nodes.
+				require.GreaterOrEqual(t, len(subnets), 2)
 			}
 		})
 
@@ -345,7 +336,9 @@ func TestGetNodesExcludeCountryCodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, planet.StorageNodes[0].ID(), "FR")
+		planet.StorageNodes[0].Contact.Chore.Pause(ctx)
+
+		err := planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, planet.StorageNodes[0].ID(), "FR")
 		require.NoError(t, err)
 
 		cache := planet.Satellites[0].Overlay.Service.UploadSelectionCache
@@ -380,9 +373,9 @@ func TestGetNodesConcurrent(t *testing.T) {
 
 	// concurrent GetNodes with high staleness, where high staleness means the
 	// cache should only be refreshed the first time we call cache.GetNodes
-	mockDB := mockdb{
-		reputable: reputableNodes,
-		new:       newNodes,
+	mockDB := overlay.Mockdb{
+		Reputable: reputableNodes,
+		New:       newNodes,
 	}
 	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
@@ -423,13 +416,13 @@ func TestGetNodesConcurrent(t *testing.T) {
 
 	require.NoError(t, group.Wait())
 	// expect only one call to the db via cache.GetNodes
-	require.Equal(t, 1, mockDB.callCount)
+	require.Equal(t, 1, mockDB.CallCount)
 
 	// concurrent get nodes with low staleness, where low staleness means that
 	// the cache will refresh each time cache.GetNodes is called
-	mockDB = mockdb{
-		reputable: reputableNodes,
-		new:       newNodes,
+	mockDB = overlay.Mockdb{
+		Reputable: reputableNodes,
+		New:       newNodes,
 	}
 	cache, err = overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
@@ -467,7 +460,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 	err = group.Wait()
 	require.NoError(t, err)
 	// expect up to two calls to the db via cache.GetNodes
-	require.True(t, 1 <= mockDB.callCount && mockDB.callCount <= 2, "calls %d", mockDB.callCount)
+	require.True(t, 1 <= mockDB.CallCount && mockDB.CallCount <= 2, "calls %d", mockDB.CallCount)
 }
 
 func TestGetNodesDistinct(t *testing.T) {
@@ -513,9 +506,9 @@ func TestGetNodesDistinct(t *testing.T) {
 		LastIPPort: "127.0.2.8:8000",
 	}}
 
-	mockDB := mockdb{
-		reputable: reputableNodes,
-		new:       newNodes,
+	mockDB := overlay.Mockdb{
+		Reputable: reputableNodes,
+		New:       newNodes,
 	}
 
 	{
@@ -588,7 +581,7 @@ func TestGetNodesError(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	mockDB := mockdb{}
+	mockDB := overlay.Mockdb{}
 	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
@@ -695,7 +688,7 @@ func BenchmarkGetNodes(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 			RequestedCount: required,
-			Placement:      storj.US,
+			Placement:      storj.PlacementConstraint(1),
 		})
 		require.NoError(b, err)
 	}

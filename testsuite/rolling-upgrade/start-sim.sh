@@ -22,6 +22,8 @@
 set -ueo pipefail
 set +x
 
+TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+
 old_api_pid=-1
 cleanup(){
     ret=$?
@@ -50,11 +52,16 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # in stage 1: satellite, uplink, and storagenode use latest release version
 # in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the latest release version plus main
 BRANCH_NAME=${BRANCH_NAME:-""}
-git fetch --tags
+# Note: tags should be fetched before running this script (e.g., in run.sh or Jenkinsfile)
+# to avoid needing network/SSH access from within the container.
+# Disable remote access by removing the remote URL - all required refs should already be local.
+git remote set-url origin /dev/null 2>/dev/null || true
+git fetch --tags 2>/dev/null || true
 # if it's running on a release branch, we will set the stage 1 version to be the latest previous major release
 # if it's running on main, we will set the stage 1 version to be the current release version
 current_commit=$(git rev-parse HEAD)
-stage1_release_version=$(git tag -l --sort -version:refname | grep -v rc | head -1)
+# uses { head -1; cat >/dev/null; } to ensure all output from grep is consumed and pipe won't fail
+stage1_release_version=$(git tag -l --sort -version:refname | grep -v rc | { head -1; cat >/dev/null; } )
 if [[ $BRANCH_NAME = v* ]]; then
     stage1_release_version=$($SCRIPTDIR/../find-previous-release.sh --major)
 fi
@@ -71,8 +78,6 @@ echo "stage1_storagenode_versions" $stage1_storagenode_versions
 echo "stage2_sat_version" $stage2_sat_version
 echo "stage2_uplink_versions" $stage2_uplink_versions
 echo "stage2_storagenode_versions" $stage2_storagenode_versions
-
-TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 
 find_unique_versions(){
     echo "$*" | tr " " "\n" | sort | uniq
@@ -100,25 +105,25 @@ install_sim(){
     local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go build -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+    go build -race -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
+    go build -race -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
+    go build -race -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
+    go build -race -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol 2>&1
 
-    go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
+    go build -race -o ${bin_dir}/identity storj.io/storj/cmd/identity 2>&1
+    go build -race -o ${bin_dir}/certificates storj.io/storj/cmd/certificates 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
         pushd ${work_dir}/cmd/gateway
-            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+            go build -race -o ${bin_dir}/gateway storj.io/storj/cmd/gateway 2>&1
         popd
     else
         GOBIN=${bin_dir} go install -race storj.io/gateway@latest
     fi
 
     if [ -d "${work_dir}/cmd/multinode" ]; then
-        go build -race -v -o ${bin_dir}/multinode storj.io/storj/cmd/multinode >/dev/null 2>&1
+        go build -race -o ${bin_dir}/multinode storj.io/storj/cmd/multinode 2>&1
     fi
 }
 
@@ -246,7 +251,7 @@ for version in ${unique_versions}; do
         pushd ${dir}
         mkdir -p ${bin_dir}
 
-        go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+        go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
 
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
@@ -254,6 +259,9 @@ for version in ${unique_versions}; do
         shasum ${bin_dir}/uplink
     fi
 done
+
+# TODO remove this when all tested satellite versions will support compressed baches
+export STORJ_COMPRESSED_BATCH=false
 
 # Use stage 1 satellite version as the starting state. Create a cp of that
 # version folder so we don't worry about dirty states. Then copy/link/mv
@@ -263,7 +271,7 @@ cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
 test_versions_path="$( dirname "${SCRIPTDIR}" )/uplink-versions/steps.sh"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "1"
-update_access_script_path="$(version_dir $current_commit)/testsuite/update-access.go"
+update_access_script_path="$(version_dir $current_commit)/testsuite/update-access/main.go"
 
 # Uploading files to the network using the latest release version
 echo "Stage 1 uplink version: ${stage1_uplink_version}"

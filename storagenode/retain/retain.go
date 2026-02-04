@@ -15,8 +15,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -32,20 +33,25 @@ var (
 type Config struct {
 	MaxTimeSkew time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"72h0m0s"`
 	Status      Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"enabled"`
-	Concurrency int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
+	Concurrency int           `help:"how many concurrent retain requests can be processed at the same time." default:"1"`
 	CachePath   string        `help:"path to the cache directory for retain requests." default:"$CONFDIR/retain"`
 }
 
 // Request contains all the info necessary to process a retain request.
 type Request struct {
+	Filename      string
 	SatelliteID   storj.NodeID
 	CreatedBefore time.Time
 	Filter        *bloomfilter.Filter
 }
 
-// Filename returns the filename used to store the request in the cache directory.
-func (req *Request) Filename() string {
-	return fmt.Sprintf("%s-%s",
+// GetFilename returns the filename used to store the request in the cache directory.
+func (req *Request) GetFilename() string {
+	if req.Filename != "" {
+		return req.Filename
+	}
+
+	return fmt.Sprintf("%s-%s.pb",
 		filestore.PathEncoding.EncodeToString(req.SatelliteID.Bytes()),
 		strconv.FormatInt(req.CreatedBefore.UnixNano(), 10),
 	)
@@ -54,7 +60,7 @@ func (req *Request) Filename() string {
 // Queue manages the retain requests queue.
 type Queue interface {
 	// Add adds a request to the queue.
-	Add(request Request) (bool, error)
+	Add(satelliteID storj.NodeID, request *pb.RetainRequest) (bool, error)
 	// Remove removes a request from the queue.
 	// Returns true if there was a request to remove.
 	Remove(request Request) bool
@@ -77,6 +83,8 @@ const (
 	Enabled
 	// Debug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them.
 	Debug
+	// Store means the retain messages will be saved, but not processed.
+	Store
 )
 
 // Set implements pflag.Value.
@@ -88,6 +96,8 @@ func (v *Status) Set(s string) error {
 		*v = Enabled
 	case "debug":
 		*v = Debug
+	case "store":
+		*v = Store
 	default:
 		return Error.New("invalid status %q", s)
 	}
@@ -132,7 +142,7 @@ type Service struct {
 
 // NewService creates a new retain service.
 func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
-	log = log.With(zap.String("cachePath", config.CachePath))
+	log = log.With(zap.String("cache_path", config.CachePath))
 	cache, err := NewRequestStore(config.CachePath)
 	if err != nil {
 		log.Warn("encountered error(s) while loading cache", zap.Error(err))
@@ -151,26 +161,37 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 	}
 }
 
+const (
+	closedErrMsg = "Retain job not queued (queue is closed)"
+)
+
 // Queue adds a retain request to the queue.
 // true is returned if the request is added to the queue, false if queue is closed.
-func (s *Service) Queue(req Request) bool {
+func (s *Service) Queue(ctx context.Context, satelliteID storj.NodeID, req *pb.RetainRequest) error {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
 	select {
 	case <-s.closed:
-		return false
+
+		s.log.Info(closedErrMsg, zap.Stringer("satellite_id", satelliteID))
+		return errs.New(closedErrMsg)
 	default:
 	}
 
-	ok, err := s.queue.Add(req)
+	ok, err := s.queue.Add(satelliteID, req)
 	if err != nil {
-		s.log.Warn("encountered an error while adding request to queue", zap.Error(err), zap.Bool("Queued", ok), zap.Stringer("Satellite ID", req.SatelliteID))
+		s.log.Warn("encountered an error while adding request to queue", zap.Error(err), zap.Bool("queued", ok), zap.Stringer("satellite_id", satelliteID))
+		return err
+	}
+	if ok {
+		s.log.Info("Retain job queued", zap.Stringer("satellite_id", satelliteID))
+	} else {
+		s.log.Info(closedErrMsg, zap.Stringer("satellite_id", satelliteID))
 	}
 
 	s.cond.Broadcast()
-
-	return ok
+	return nil
 }
 
 // Run listens for queued retain requests and processes them as they come in.
@@ -221,8 +242,25 @@ func (s *Service) Run(ctx context.Context) (err error) {
 			return ctx.Err()
 		}
 	})
+	concurrency := s.config.Concurrency
+	if s.config.Status == Store {
+		// we don't run the real loop, as it immediately deletes the BFs, what we need to store
+		s.group.Go(func() error {
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-s.closed:
+					return nil
+				}
+			}
+		})
 
-	for i := 0; i < s.config.Concurrency; i++ {
+		// disable the real loop
+		concurrency = 0
+
+	}
+	for i := 0; i < concurrency; i++ {
 		s.group.Go(func() error {
 			// Grab lock to check things.
 			s.cond.L.Lock()
@@ -255,15 +293,17 @@ func (s *Service) Run(ctx context.Context) (err error) {
 				s.cond.Broadcast()
 
 				// Run retaining process.
+				successful := true
 				err := s.retainPieces(ctx, request)
 				if err != nil {
 					s.log.Error("retain pieces failed", zap.Error(err))
+					successful = false
 				}
 
 				// Mark the request as finished. Relock to maintain that
 				// at the top of the for loop the lock is held.
 				s.cond.L.Lock()
-				s.finish(request)
+				s.finish(request, successful)
 				s.cond.Broadcast()
 			}
 		})
@@ -303,11 +343,13 @@ func (s *Service) next() (Request, bool) {
 }
 
 // finish marks the request as finished and removes the cache, requires mutex to be held.
-func (s *Service) finish(request Request) {
+func (s *Service) finish(request Request, successful bool) {
 	delete(s.working, request.SatelliteID)
-	err := s.queue.DeleteCache(request)
-	if err != nil {
-		s.log.Warn("encountered an error while removing request from queue", zap.Error(err), zap.Stringer("Satellite ID", request.SatelliteID))
+	if successful {
+		err := s.queue.DeleteCache(request)
+		if err != nil {
+			s.log.Warn("encountered an error while removing request from queue", zap.Error(err), zap.Stringer("satellite_id", request.SatelliteID))
+		}
 	}
 }
 
@@ -342,7 +384,7 @@ func (s *Service) Status() Status {
 
 func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	// if retain status is disabled, return immediately
-	if s.config.Status == Disabled {
+	if s.config.Status == Disabled || s.config.Status == Store {
 		return nil
 	}
 
@@ -362,17 +404,25 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	mon.IntVal("garbage_collection_started").Observe(startedAt.Unix())
 
 	s.log.Info("Prepared to run a Retain request.",
-		zap.Time("Created Before", createdBefore),
-		zap.Int64("Filter Size", filter.Size()),
-		zap.Stringer("Satellite ID", satelliteID))
+		zap.Time("created_before", createdBefore),
+		zap.Int64("filter_size", filter.Size()),
+		zap.Stringer("satellite_id", satelliteID))
 
-	pieceIDs, piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
+	piecesToDeleteCount := 0
+	piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
+		s.log.Debug("About to move piece to trash",
+			zap.String("bf", req.Filename),
+			zap.Stringer("satellite_id", satelliteID),
+			zap.Stringer("piece_id", pieceID),
+			zap.Stringer("status", &s.config.Status))
+
+		piecesToDeleteCount++
 		// if retain status is enabled, trash the piece
 		if s.config.Status == Enabled {
-			if err := s.trash(ctx, satelliteID, pieceID, startedAt); err != nil {
+			if err := s.store.Trash(ctx, satelliteID, pieceID, startedAt); err != nil {
 				s.log.Warn("failed to trash piece",
-					zap.Stringer("Satellite ID", satelliteID),
-					zap.Stringer("Piece ID", pieceID),
+					zap.Stringer("satellite_id", satelliteID),
+					zap.Stringer("piece_id", pieceID),
 					zap.Error(err))
 				return nil
 			}
@@ -386,8 +436,6 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		return Error.Wrap(err)
 	}
 
-	piecesToDeleteCount := len(pieceIDs)
-
 	mon.IntVal("garbage_collection_pieces_count").Observe(piecesCount)
 	mon.IntVal("garbage_collection_pieces_skipped").Observe(piecesSkipped)
 	mon.IntVal("garbage_collection_pieces_to_delete_count").Observe(int64(piecesToDeleteCount))
@@ -395,22 +443,16 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	duration := time.Now().UTC().Sub(startedAt)
 	mon.DurationVal("garbage_collection_loop_duration").Observe(duration)
 	s.log.Info("Moved pieces to trash during retain",
-		zap.Int("Deleted pieces", numTrashed),
-		zap.Int("Failed to delete", piecesToDeleteCount-numTrashed),
-		zap.Int64("Pieces failed to read", piecesSkipped),
-		zap.Int64("Pieces count", piecesCount),
-		zap.Stringer("Satellite ID", satelliteID),
-		zap.Duration("Duration", duration),
-		zap.String("Retain Status", s.config.Status.String()),
+		zap.Int("deleted_pieces", numTrashed),
+		zap.Int("failed_to_delete", piecesToDeleteCount-numTrashed),
+		zap.Int64("pieces_failed_to_read", piecesSkipped),
+		zap.Int64("pieces_count", piecesCount),
+		zap.Stringer("satellite_id", satelliteID),
+		zap.Duration("duration", duration),
+		zap.String("retain_status", s.config.Status.String()),
 	)
 
 	return nil
-}
-
-// trash wraps retains piece deletion to monitor moving retained piece to trash error during garbage collection.
-func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, timestamp time.Time) (err error) {
-	defer mon.Task()(&ctx, satelliteID)(&err)
-	return s.store.Trash(ctx, satelliteID, pieceID, timestamp)
 }
 
 // TestingHowManyQueued peeks at the number of bloom filters queued.

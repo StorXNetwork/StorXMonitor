@@ -22,6 +22,7 @@ import (
 	"storj.io/common/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/accountfreeze"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
@@ -33,11 +34,14 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/dbcleanup"
+	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/secretconstants"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -46,10 +50,10 @@ import (
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/smartcontract"
@@ -78,8 +82,13 @@ type Core struct {
 		Service *analytics.Service
 	}
 
+	Entitlements struct {
+		Service *entitlements.Service
+	}
+
 	Mail struct {
 		Service        *mailservice.Service
+		HubspotService *hubspotmails.Service
 		EmailReminders *emailreminders.Chore
 	}
 
@@ -111,7 +120,6 @@ type Core struct {
 	}
 
 	Audit struct {
-		VerifyQueue          audit.VerifyQueue
 		ReverifyQueue        audit.ReverifyQueue
 		ContainmentSyncChore *audit.ContainmentSyncChore
 	}
@@ -136,8 +144,13 @@ type Core struct {
 		Cache accounting.Cache
 	}
 
+	AccountFreeze struct {
+		BillingFreezeChore *accountfreeze.Chore
+		BotFreezeChore     *accountfreeze.BotFreezeChore
+		TrialFreezeChore   *accountfreeze.TrialFreezeChore
+	}
+
 	Payments struct {
-		AccountFreeze    *accountfreeze.Chore
 		Accounts         payments.Accounts
 		BillingChore     *billing.Chore
 		StorjscanClient  *storjscan.Client
@@ -146,7 +159,8 @@ type Core struct {
 	}
 
 	ConsoleDBCleanup struct {
-		Chore *dbcleanup.Chore
+		Chore              *dbcleanup.Chore
+		PendingDeleteChore *pendingdelete.Chore
 	}
 
 	GarbageCollection struct {
@@ -154,6 +168,7 @@ type Core struct {
 	}
 
 	RepairQueueStat struct {
+		Queue queue.RepairQueue
 		Chore *repairer.QueueStat
 	}
 
@@ -163,8 +178,8 @@ type Core struct {
 }
 
 // New creates a new satellite.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB,
-	metabaseDB *metabase.DB, revocationDB extensions.RevocationDB,
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metabase.DB,
+	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
 	liveAccounting accounting.Cache, versionInfo version.Info, config *Config,
 	atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{
@@ -194,10 +209,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup version control
 		peer.Log.Info("Version info",
-			zap.Stringer("Version", versionInfo.Version.Version),
-			zap.String("Commit Hash", versionInfo.CommitHash),
-			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
-			zap.Bool("Release Build", versionInfo.Release),
+			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("commit_hash", versionInfo.CommitHash),
+			zap.Stringer("build_timestamp", versionInfo.Timestamp),
+			zap.Bool("release_build", versionInfo.Release),
 		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
@@ -219,8 +234,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 	}
 
-	{ // setup mailservice
-		peer.Mail.Service, err = setupMailService(peer.Log, *config)
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
+	{ // setup legacy and hubspot mail services
+		peer.Mail.Service, err = setupMailService(peer.Log, config.Mail, config.Console)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -229,9 +254,39 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "mail:service",
 			Close: peer.Mail.Service.Close,
 		})
+
+		peer.Mail.HubspotService = hubspotmails.NewService(peer.Log.Named("mail:hubspotservice"), peer.Analytics.Service, config.HubspotMails)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "hubspotmails:service",
+			Close: peer.Mail.HubspotService.Close,
+		})
 	}
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	{ // setup email reminders
+		if config.EmailReminders.Enable {
+			authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
+
+			peer.Mail.EmailReminders = emailreminders.NewChore(
+				peer.Log.Named("console:chore"),
+				authTokens,
+				peer.DB.Console().Users(),
+				peer.Mail.Service,
+				config.EmailReminders,
+				config.Console.ExternalAddress,
+				config.Console.GeneralRequestURL,
+				config.Console.ScheduleMeetingURL,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "mail:email-reminders",
+				Run:   peer.Mail.EmailReminders.Run,
+				Close: peer.Mail.EmailReminders.Close,
+			})
+		}
+	}
+
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +382,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup audit
 		config := config.Audit
 
-		peer.Audit.VerifyQueue = db.VerifyQueue()
 		peer.Audit.ReverifyQueue = db.ReverifyQueue()
 
 		peer.Audit.ContainmentSyncChore = audit.NewContainmentSyncChore(peer.Log.Named("audit:containment-sync-chore"),
@@ -373,8 +427,39 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Zombie Objects Chore", peer.ZombieDeletion.Chore.Loop))
 	}
 
+	// Parse product prices early for use in tally service
+	productPrices, err := config.Payments.Products.ToModels()
+	if err != nil {
+		return nil, errs.Combine(err, peer.Close())
+	}
+
 	{ // setup accounting
-		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Metabase, peer.DB.Buckets(), config.Tally)
+		// Convert product prices to tally-compatible format.
+		tallyProductPrices := make(map[int32]tally.ProductUsagePriceModel)
+		for id, price := range productPrices {
+			tallyProductPrices[id] = tally.ProductUsagePriceModel{
+				ProductID:             price.ProductID,
+				StorageRemainderBytes: price.StorageRemainderBytes,
+			}
+		}
+
+		// Convert global placement map.
+		globalPlacementMap := make(tally.PlacementProductMap)
+		for placement, productID := range config.Payments.PlacementPriceOverrides.ToMap() {
+			globalPlacementMap[placement] = productID
+		}
+
+		peer.Accounting.Tally = tally.New(
+			peer.Log.Named("accounting:tally"),
+			peer.DB.StoragenodeAccounting(),
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Cache,
+			peer.Metainfo.Metabase,
+			peer.DB.Buckets(),
+			config.Tally,
+			tallyProductPrices,
+			globalPlacementMap,
+		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:tally",
 			Run:   peer.Accounting.Tally.Run,
@@ -429,14 +514,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup analytics service
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "analytics:service",
-			Run:   peer.Analytics.Service.Run,
-			Close: peer.Analytics.Service.Close,
-		})
+	{ // setup entitlements
+		peer.Entitlements.Service = entitlements.NewService(
+			peer.Log.Named("entitlements:service"),
+			db.Console().Entitlements(),
+		)
 	}
 
 	{ // setup email reminders (after accounting to have access to ProjectUsage)
@@ -495,22 +577,43 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		// productPrices already parsed earlier for tally service
+
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		service, err := stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
+			stripe.ServiceDependencies{
+				DB:           peer.DB.StripeCoinPayments(),
+				WalletsDB:    peer.DB.Wallets(),
+				BillingDB:    peer.DB.Billing(),
+				ProjectsDB:   peer.DB.Console().Projects(),
+				UsersDB:      peer.DB.Console().Users(),
+				UsageDB:      peer.DB.ProjectAccounting(),
+				Analytics:    peer.Analytics.Service,
+				Emission:     emission.NewService(config.Emission),
+				Entitlements: peer.Entitlements.Service,
+			},
+			stripe.ServiceConfig{
+				DeleteAccountEnabled:       config.Console.SelfServeAccountDeleteEnabled,
+				DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+				EntitlementsEnabled:        config.Entitlements.Enabled,
+			},
 			pc.StripeCoinPayments,
-			peer.DB.StripeCoinPayments(),
-			peer.DB.Wallets(),
-			peer.DB.Billing(),
-			peer.DB.Console().Projects(),
-			peer.DB.Console().Users(),
-			peer.DB.ProjectAccounting(),
-			prices,
-			priceOverrides,
-			pc.PackagePlans.Packages,
-			pc.BonusRate,
-			peer.Analytics.Service,
-			emission.NewService(config.Emission),
+			stripe.PricingConfig{
+				UsagePrices:         prices,
+				UsagePriceOverrides: priceOverrides,
+				ProductPriceMap:     productPrices,
+				PlacementProductMap: pc.PlacementPriceOverrides.ToMap(),
+				PackagePlans:        pc.PackagePlans.Packages,
+				BonusRate:           pc.BonusRate,
+				MinimumChargeAmount: pc.MinimumCharge.Amount,
+				MinimumChargeDate:   minimumChargeDate,
+			},
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -548,7 +651,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		freezeService := console.NewAccountFreezeService(peer.DB.Console(), peer.Analytics.Service, config.Console.AccountFreeze)
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade, freezeService, peer.Analytics.Service),
+			UpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade, config.Console.ExternalAddress, freezeService, peer.Analytics.Service, peer.Mail.Service),
 			PayInvoices: console.NewInvoiceTokenPaymentObserver(
 				peer.DB.Console(), peer.Payments.Accounts.Invoices(),
 				freezeService,
@@ -573,23 +676,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
-			peer.Payments.AccountFreeze = accountfreeze.NewChore(
-				peer.Log.Named("payments.accountfreeze:chore"),
-				peer.DB.StripeCoinPayments(),
-				peer.Payments.Accounts,
-				peer.DB.Console().Users(),
-				peer.DB.Wallets(),
-				peer.DB.StorjscanPayments(),
-				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
-				peer.Analytics.Service,
-				config.AccountFreeze,
-				config.Console.Captcha.FlagBotsEnabled,
-			)
+			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
+			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, config.Console.Captcha.FlagBotsEnabled)
+			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
 
 			peer.Services.Add(lifecycle.Item{
-				Name:  "accountfreeze:chore",
-				Run:   peer.Payments.AccountFreeze.Run,
-				Close: peer.Payments.AccountFreeze.Close,
+				Name:  "accountfreeze:billingfreezechore",
+				Run:   peer.AccountFreeze.BillingFreezeChore.Run,
+				Close: peer.AccountFreeze.BillingFreezeChore.Close,
+			})
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "accountfreeze:botfreezechore",
+				Run:   peer.AccountFreeze.BotFreezeChore.Run,
+				Close: peer.AccountFreeze.BotFreezeChore.Close,
+			})
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "accountfreeze:trialfreezechore",
+				Run:   peer.AccountFreeze.TrialFreezeChore.Run,
+				Close: peer.AccountFreeze.TrialFreezeChore.Close,
 			})
 		}
 	}
@@ -600,6 +706,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("console.dbcleanup:chore"),
 			peer.DB.Console(),
 			config.ConsoleDBCleanup,
+			config.Console.Config,
 		)
 
 		peer.Services.Add(lifecycle.Item{
@@ -609,9 +716,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup pending delete escalator
+		if config.PendingDeleteCleanup.Enabled {
+			peer.ConsoleDBCleanup.PendingDeleteChore = pendingdelete.NewChore(
+				peer.Log.Named("console.dbcleanup.pendingdelete:chore"),
+				config.PendingDeleteCleanup,
+				peer.Payments.Accounts,
+				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
+				peer.DB.Buckets(),
+				peer.DB.Console(),
+				peer.Metainfo.Metabase,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "dbcleanup.pendingdelete:chore",
+				Run:   peer.ConsoleDBCleanup.PendingDeleteChore.Run,
+				Close: peer.ConsoleDBCleanup.PendingDeleteChore.Close,
+			})
+		}
+	}
+
 	{
+		peer.RepairQueueStat.Queue = repairQueue
+
 		if config.RepairQueueCheck.Interval.Seconds() > 0 {
-			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement.SupportedPlacements(), db.RepairQueue(), config.RepairQueueCheck.Interval)
+			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement.SupportedPlacements(), repairQueue, config.RepairQueueCheck.Interval)
 
 			peer.Services.Add(lifecycle.Item{
 				Name: "queue-stat",

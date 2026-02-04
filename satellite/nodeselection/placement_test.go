@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 func TestPlacementFromString(t *testing.T) {
@@ -47,6 +47,7 @@ func TestPlacementFromString(t *testing.T) {
 		countryTest(`country("EEA")`, []location.CountryCode{location.Germany, location.Hungary, location.Norway, location.Iceland}, []location.CountryCode{location.UnitedStates})
 		countryTest(`country("ALL","!EU")`, []location.CountryCode{location.Norway, location.India}, []location.CountryCode{location.Germany, location.Hungary})
 		countryTest(`country("ALL", "!RU", "!BY")`, []location.CountryCode{location.Norway, location.India, location.UnitedStates}, []location.CountryCode{location.Russia, location.Belarus})
+		countryTest(`country("EU", "!DE")`, []location.CountryCode{location.Hungary, location.TheNetherlands}, []location.CountryCode{location.Germany, location.UnitedStates, location.Russia})
 
 	})
 
@@ -369,7 +370,7 @@ func TestPlacementFromString(t *testing.T) {
 		p.AddLegacyStaticRules()
 
 		t.Run("nr", func(t *testing.T) {
-			nr := p[storj.NR]
+			nr := p[storj.NR] //lint:ignore SA1019 testing legacy placement
 			require.True(t, nr.Match(&SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
@@ -381,7 +382,7 @@ func TestPlacementFromString(t *testing.T) {
 			}))
 		})
 		t.Run("us", func(t *testing.T) {
-			us := p[storj.US]
+			us := p[storj.US] //lint:ignore SA1019 testing legacy placement
 			require.True(t, us.Match(&SelectedNode{
 				CountryCode: location.UnitedStates,
 			}))
@@ -430,9 +431,10 @@ func TestPlacementFromString(t *testing.T) {
 		testCountries = append(testCountries, EuCountries...)
 
 		// check if old geofencing rules are working as before (and string based config is the same as the code base)
-		for _, placement := range []storj.PlacementConstraint{storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
-			filter1 := rules1.CreateFilters(placement)
-			filter2 := rules2.CreateFilters(placement)
+		// Using numeric values for legacy placements: EU=1, EEA=2, DE=4, US=3, NR=6
+		for _, placement := range []storj.PlacementConstraint{1, 2, 4, 3, 6} {
+			filter1, _ := rules1.CreateFilters(placement)
+			filter2, _ := rules2.CreateFilters(placement)
 			for _, country := range testCountries {
 				result1 := filter1.Match(&SelectedNode{
 					CountryCode: country,
@@ -444,9 +446,11 @@ func TestPlacementFromString(t *testing.T) {
 			}
 		}
 
+		filter1, _ := rules1.CreateFilters(storj.NR) //lint:ignore SA1019 testing legacy placement
+		filter2, _ := rules2.CreateFilters(storj.NR) //lint:ignore SA1019 testing legacy placement
 		// make sure that new rules exclude location.None from NR
-		assert.False(t, rules1.CreateFilters(storj.NR).Match(&SelectedNode{}))
-		assert.False(t, rules2.CreateFilters(storj.NR).Match(&SelectedNode{}))
+		assert.False(t, filter1.Match(&SelectedNode{}))
+		assert.False(t, filter2.Match(&SelectedNode{}))
 
 		// make sure tagged nodes (even from EU) matches only the special placement
 		node := &SelectedNode{
@@ -460,13 +464,17 @@ func TestPlacementFromString(t *testing.T) {
 			},
 		}
 
-		for _, placement := range []storj.PlacementConstraint{storj.EveryCountry, storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
-			assert.False(t, rules1.CreateFilters(placement).Match(node))
+		// Using numeric values for legacy placements: EveryCountry=0, EU=1, EEA=2, DE=4, US=3, NR=6
+		for _, placement := range []storj.PlacementConstraint{0, 1, 2, 4, 3, 6} {
+			filter, _ := rules1.CreateFilters(placement)
+			assert.False(t, filter.Match(node))
 		}
-		assert.False(t, rules1.CreateFilters(6).Match(node))
+		filter, _ := rules1.CreateFilters(6)
+		assert.False(t, filter.Match(node))
 
 		// any value is accepted
-		assert.True(t, rules1.CreateFilters(11).Match(&SelectedNode{
+		filter, _ = rules1.CreateFilters(11)
+		assert.True(t, filter.Match(&SelectedNode{
 			Tags: NodeTags{
 				{
 					Signer: signer,
@@ -477,7 +485,8 @@ func TestPlacementFromString(t *testing.T) {
 		}))
 
 		// but not empty
-		assert.False(t, rules1.CreateFilters(11).Match(&SelectedNode{
+		filter, _ = rules1.CreateFilters(11)
+		assert.False(t, filter.Match(&SelectedNode{
 			Tags: NodeTags{
 				{
 					Signer: signer,
@@ -497,12 +506,15 @@ func TestPlacementFromString(t *testing.T) {
 				},
 			},
 		}
-		for _, placement := range []storj.PlacementConstraint{storj.EveryCountry, storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
-			value := rules1.CreateFilters(placement).Match(datacenterNode)
+		// Using numeric values for legacy placements: EveryCountry=0, EU=1, EEA=2, DE=4, US=3, NR=6
+		for _, placement := range []storj.PlacementConstraint{0, 1, 2, 4, 3, 6} {
+			filter, _ := rules1.CreateFilters(placement)
+			value := filter.Match(datacenterNode)
 			assert.False(t, value)
 		}
 
-		assert.True(t, rules1.CreateFilters(13).Match(&SelectedNode{
+		filter, _ = rules1.CreateFilters(13)
+		assert.True(t, filter.Match(&SelectedNode{
 			Tags: NodeTags{
 				{
 					Signer: signer,
@@ -514,7 +526,8 @@ func TestPlacementFromString(t *testing.T) {
 
 		// check if annotation present on 11,12, but not on other
 		for i := 0; i < 20; i++ {
-			subnetDisabled := GetAnnotation(rules1.CreateFilters(storj.PlacementConstraint(i)), AutoExcludeSubnet) == AutoExcludeSubnetOFF
+			filter, _ := rules1.CreateFilters(storj.PlacementConstraint(i))
+			subnetDisabled := GetAnnotation(filter, AutoExcludeSubnet) == AutoExcludeSubnetOFF
 			if i == 11 || i == 12 || i == 14 {
 				require.True(t, subnetDisabled, "Placement filter should be disabled for %d", i)
 			} else {

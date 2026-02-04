@@ -5,7 +5,9 @@ package metabase
 
 import (
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/binary"
+	"reflect"
 )
 
 // AliasPieces is a slice of AliasPiece.
@@ -110,16 +112,23 @@ func (aliases AliasPieces) Bytes() ([]byte, error) {
 
 // SetBytes decompresses alias pieces from a slice of bytes.
 func (aliases *AliasPieces) SetBytes(data []byte) error {
-	*aliases = nil
 	if len(data) == 0 {
+		*aliases = nil
 		return nil
 	}
 	if data[0] != aliasPieceEncodingRLE {
+		*aliases = nil
 		return Error.New("unknown alias pieces header: %v", data[0])
 	}
 
-	// we're going to guess there's two alias pieces per two bytes of data
-	*aliases = make(AliasPieces, 0, len(data)/2)
+	if cap(*aliases) == 0 {
+		// we're going to guess there's one alias pieces per two bytes of data
+		*aliases = make(AliasPieces, 0, len(data)/2)
+	} else {
+		// if we have initial capacity, we can reuse the slice
+		// and avoid the allocation
+		*aliases = (*aliases)[:0]
+	}
 
 	p := 1
 	pieceNumber := uint16(0)
@@ -157,8 +166,12 @@ func (aliases *AliasPieces) SetBytes(data []byte) error {
 }
 
 // Scan implements the database/sql Scanner interface.
-func (aliases *AliasPieces) Scan(src interface{}) error {
+func (aliases *AliasPieces) Scan(src any) error {
 	if src == nil {
+		*aliases = nil
+		return nil
+	}
+	if reflect.ValueOf(src).IsNil() {
 		*aliases = nil
 		return nil
 	}
@@ -174,6 +187,25 @@ func (aliases *AliasPieces) Scan(src interface{}) error {
 // Value implements the database/sql/driver Valuer interface.
 func (aliases AliasPieces) Value() (driver.Value, error) {
 	return aliases.Bytes()
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (aliases *AliasPieces) DecodeSpanner(val any) (err error) {
+	// TODO(spanner) why spanner returns BYTES as base64
+	if v, ok := val.(string); ok {
+		var buffer [256 + 128]byte
+		decoded, err := base64.StdEncoding.AppendDecode(buffer[:0], []byte(v))
+		if err != nil {
+			return err
+		}
+		return aliases.SetBytes(decoded)
+	}
+	return aliases.Scan(val)
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (aliases AliasPieces) EncodeSpanner() (any, error) {
+	return aliases.Value()
 }
 
 // EqualAliasPieces compares whether xs and ys are equal.

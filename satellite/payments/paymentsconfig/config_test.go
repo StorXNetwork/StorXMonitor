@@ -4,19 +4,22 @@
 package paymentsconfig_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
-func TestProjectUsagePriceOverrides(t *testing.T) {
+func TestPriceOverrides(t *testing.T) {
 	type Prices map[string]payments.ProjectUsagePriceModel
 
 	cases := []struct {
@@ -30,19 +33,19 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			expectedModel: Prices{},
 		}, {
 			testID:      "missing values",
-			configValue: "partner",
+			configValue: "key0",
 		}, {
-			testID:      "missing partner",
+			testID:      "missing key",
 			configValue: ":1,2,3,4",
 		}, {
 			testID:      "too few values",
-			configValue: "partner:1",
+			configValue: "key0:1",
 		}, {
 			testID:      "single price override",
-			configValue: "partner:1,2,3,4",
+			configValue: "key0:1,2,3,4",
 			expectedModel: Prices{
 				// Shift is to change the precision from TB dollars to MB cents
-				"partner": payments.ProjectUsagePriceModel{
+				"key0": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
@@ -51,21 +54,21 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			},
 		}, {
 			testID:      "too many values",
-			configValue: "partner:1,2,3,4,5",
+			configValue: "key0:1,2,3,4,5",
 		}, {
 			testID:      "invalid price",
-			configValue: "partner:0.0.1,2,3,4",
+			configValue: "key0:0.0.1,2,3,4",
 		}, {
 			testID:      "multiple price overrides",
-			configValue: "partner1:1,2,3,4;partner2:5,6,7,8",
+			configValue: "key1:1,2,3,4;key2:5,6,7,8",
 			expectedModel: Prices{
-				"partner1": payments.ProjectUsagePriceModel{
+				"key1": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
 					EgressDiscountRatio: 4,
 				},
-				"partner2": payments.ProjectUsagePriceModel{
+				"key2": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(5).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(6).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(7).Shift(2),
@@ -78,7 +81,7 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.testID, func(t *testing.T) {
-			price := &paymentsconfig.ProjectUsagePriceOverrides{}
+			price := &paymentsconfig.PriceOverrides{}
 			err := price.Set(c.configValue)
 			if c.expectedModel == nil {
 				require.Error(t, err)
@@ -93,9 +96,9 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			models, err := price.ToModels()
 			require.NoError(t, err)
 			require.Len(t, models, len(c.expectedModel))
-			for partner, price := range c.expectedModel {
-				model := models[partner]
-				require.Contains(t, models, partner)
+			for key, price := range c.expectedModel {
+				model := models[key]
+				require.Contains(t, models, key)
 				require.Equal(t, price.StorageMBMonthCents, model.StorageMBMonthCents)
 				require.Equal(t, price.EgressMBCents, model.EgressMBCents)
 				require.Equal(t, price.SegmentMonthCents, model.SegmentMonthCents)
@@ -242,6 +245,156 @@ func TestPackagePlansGet(t *testing.T) {
 				require.Empty(t, p)
 			}
 
+		})
+	}
+}
+
+var placementOverrides = paymentsconfig.PlacementOverrides{
+	ProductPlacements: map[int32][]int{
+		1: {0},
+	},
+}
+
+func TestPlacementPriceOverrides(t *testing.T) {
+	bytes, err := yaml.Marshal(placementOverrides.ProductPlacements)
+	require.NoError(t, err)
+	validYaml := string(bytes)
+
+	bytes, err = json.Marshal(placementOverrides.ProductPlacements)
+	require.NoError(t, err)
+	jsonStr := string(bytes)
+
+	tmpFile, err := os.CreateTemp(t.TempDir(), "mapping_*.yaml")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, tmpFile.Close())
+	}()
+
+	bytes, err = yaml.Marshal(placementOverrides)
+	require.NoError(t, err)
+	_, err = tmpFile.Write(bytes)
+	require.NoError(t, err)
+
+	tests := []struct {
+		id     string
+		config string
+		// in the case of JSON, we only allow using it for backwards compatibility
+		// the expected config string of cfg.String() will be in YAML format.
+		expectStr string
+		expectErr bool
+	}{
+		{
+			id:     "empty string",
+			config: "",
+		},
+		{
+			id:     "valid YAML",
+			config: validYaml,
+		},
+		{
+			id:        "YAML file",
+			config:    tmpFile.Name(),
+			expectStr: validYaml,
+		},
+		{
+			id:        "valid JSON",
+			config:    jsonStr,
+			expectStr: validYaml,
+		},
+		{
+			id:        "invalid string",
+			config:    "invalid string",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.id, func(t *testing.T) {
+			mapFromCfg := &paymentsconfig.PlacementProductMap{}
+			err := mapFromCfg.Set(tt.config)
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tt.expectStr != "" {
+				require.Equal(t, tt.expectStr, mapFromCfg.String())
+				return
+			}
+			require.Equal(t, tt.config, mapFromCfg.String())
+		})
+	}
+}
+
+func TestProductPriceOverrides(t *testing.T) {
+	price := paymentsconfig.ProductUsagePriceYaml{
+		ID:                  1,
+		Name:                "select-product",
+		Storage:             "5",
+		StorageSKU:          "storage",
+		Egress:              "6",
+		EgressSKU:           "egress",
+		Segment:             "6",
+		SegmentSKU:          "segment",
+		EgressDiscountRatio: "0.10",
+	}
+	bytes, err := yaml.Marshal([]paymentsconfig.ProductUsagePriceYaml{price})
+	require.NoError(t, err)
+	validYaml := string(bytes)
+
+	tmpFile, err := os.CreateTemp(t.TempDir(), "products_*.yaml")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, tmpFile.Close())
+	}()
+
+	_, err = tmpFile.WriteString(validYaml)
+	require.NoError(t, err)
+
+	tests := []struct {
+		id     string
+		config string
+		// in the case of JSON, we only allow using it for backwards compatibility
+		// the expected config string of cfg.String() will be in YAML format.
+		expectStr string
+		expectErr bool
+	}{
+		{
+			id:     "empty string",
+			config: "",
+		},
+		{
+			id:     "valid YAML",
+			config: validYaml,
+		},
+		{
+			id:        "YAML file",
+			config:    tmpFile.Name(),
+			expectStr: validYaml,
+		},
+		{
+			id:        "invalid YAML",
+			config:    "invalid string",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.id, func(t *testing.T) {
+			mapFromCfg := &paymentsconfig.ProductPriceOverrides{}
+			err := mapFromCfg.Set(tt.config)
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tt.expectStr != "" {
+				require.Equal(t, tt.expectStr, mapFromCfg.String())
+				return
+			}
+			require.Equal(t, tt.config, mapFromCfg.String())
 		})
 	}
 }

@@ -15,7 +15,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/pb"
-	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -97,22 +96,21 @@ type Service struct {
 
 	dialer      rpc.Dialer
 	ordersStore *FileStore
-	orders      DB
-	trust       *trust.Pool
+
+	trustSource trust.TrustedSatelliteSource
 
 	Sender  *sync2.Cycle
 	Cleanup *sync2.Cycle
 }
 
 // NewService creates an order service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, orders DB, trust *trust.Pool, config Config) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, trustSource trust.TrustedSatelliteSource, config Config) *Service {
 	return &Service{
 		log:         log,
 		dialer:      dialer,
 		ordersStore: ordersStore,
-		orders:      orders,
 		config:      config,
-		trust:       trust,
+		trustSource: trustSource,
 
 		Sender:  sync2.NewCycle(config.SenderInterval),
 		Cleanup: sync2.NewCycle(config.CleanupInterval),
@@ -204,10 +202,10 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 			attemptedSatellites++
 
 			group.Go(func() error {
-				log := process.NamedLog(service.log, satelliteID.String())
+				log := service.log.With(zap.Stringer("satellite_id", satelliteID))
 
 				skipSettlement := false
-				nodeURL, err := service.trust.GetNodeURL(ctx, satelliteID)
+				nodeURL, err := service.trustSource.GetNodeURL(ctx, satelliteID)
 				if err != nil {
 					log.Error("unable to get satellite address", zap.Error(err))
 
@@ -224,11 +222,11 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 					if err != nil {
 						// satellite returned an error, but settlement was not explicitly rejected; we want to retry later
 						addErrorSatellite(satelliteID)
-						log.Error("failed to settle orders for satellite", zap.String("satellite ID", satelliteID.String()), zap.Error(err))
+						log.Error("failed to settle orders for satellite", zap.String("satellite_id", satelliteID.String()), zap.Error(err))
 						return nil
 					}
 				} else {
-					log.Warn("skipping order settlement for untrusted satellite. Order will be archived", zap.String("satellite ID", satelliteID.String()))
+					log.Warn("skipping order settlement for untrusted satellite. Order will be archived", zap.String("satellite_id", satelliteID.String()))
 				}
 
 				err = service.ordersStore.Archive(satelliteID, unsentInfo, time.Now().UTC(), status)

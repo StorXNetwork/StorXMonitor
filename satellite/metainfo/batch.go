@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -40,6 +39,10 @@ func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.Compresse
 		return nil, errs.Wrap(err)
 	}
 
+	if len(unReq.Requests) == 0 {
+		return &pb.CompressedBatchResponse{}, nil
+	}
+
 	unResp, err := endpoint.Batch(ctx, &unReq)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -59,6 +62,17 @@ func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.Compresse
 		resp.Selected = pb.CompressedBatchRequest_NONE
 	}
 
+	rpc := ""
+	for i, resp := range unResp.Responses {
+		rpc += fmt.Sprintf("%T", resp.Response)
+		if i >= 2 {
+			rpc += "..."
+			break
+		}
+	}
+
+	mon.IntVal("compressed_batch_response_sizes", monkit.NewSeriesTag("rpc", rpc)).Observe(int64(len(resp.Data)))
+
 	return resp, nil
 }
 
@@ -69,6 +83,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	resp = &pb.BatchResponse{
 		Responses: make([]*pb.BatchResponseItem, 0, len(req.Requests)),
 	}
+	mon.IntVal("batch_request_length").Observe(int64(len(req.Requests)))
 
 	defer func() {
 		if resp == nil {
@@ -77,7 +92,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		for _, response := range resp.Responses {
 			mon.IntVal("batch_response_sizes",
 				monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", response.Response)),
-			).Observe(int64(proto.Size(response)))
+			).Observe(int64(pb.Size(response)))
 		}
 	}()
 
@@ -85,10 +100,12 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	var lastSegmentID storj.SegmentID
 	var prevSegmentReq *pb.BatchRequestItem
 
-	for i, request := range req.Requests {
+	for i := 0; i < len(req.Requests); i++ {
+		request := req.Requests[i]
+
 		mon.IntVal("batch_request_sizes",
 			monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", request.Request)),
-		).Observe(int64(proto.Size(request)))
+		).Observe(int64(pb.Size(request)))
 
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
@@ -147,6 +164,28 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					BucketSetVersioning: response,
 				},
 			})
+		case *pb.BatchRequestItem_BucketGetObjectLockConfiguration:
+			singleRequest.BucketGetObjectLockConfiguration.Header = req.Header
+			response, err := endpoint.GetBucketObjectLockConfiguration(ctx, singleRequest.BucketGetObjectLockConfiguration)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_BucketGetObjectLockConfiguration{
+					BucketGetObjectLockConfiguration: response,
+				},
+			})
+		case *pb.BatchRequestItem_BucketSetObjectLockConfiguration:
+			singleRequest.BucketSetObjectLockConfiguration.Header = req.Header
+			response, err := endpoint.SetBucketObjectLockConfiguration(ctx, singleRequest.BucketSetObjectLockConfiguration)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_BucketSetObjectLockConfiguration{
+					BucketSetObjectLockConfiguration: response,
+				},
+			})
 		case *pb.BatchRequestItem_BucketDelete:
 			singleRequest.BucketDelete.Header = req.Header
 			response, err := endpoint.DeleteBucket(ctx, singleRequest.BucketDelete)
@@ -173,7 +212,38 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		// OBJECT
 		case *pb.BatchRequestItem_ObjectBegin:
 			singleRequest.ObjectBegin.Header = req.Header
-			response, err := endpoint.BeginObject(ctx, singleRequest.ObjectBegin)
+
+			if makeInlineSeg, commitObj, should := shouldDoInlineObject(i, req.Requests); should && endpoint.config.TestOptimizedInlineObjectUpload {
+				makeInlineSeg.Header = req.Header
+				commitObj.Header = req.Header
+				beginObjResp, makeInlineSegResp, commitObjResp, err := endpoint.CommitInlineObject(ctx, singleRequest.ObjectBegin, makeInlineSeg, commitObj)
+				if err != nil {
+					return resp, err
+				}
+
+				resp.Responses = append(resp.Responses,
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_ObjectBegin{
+							ObjectBegin: beginObjResp,
+						},
+					},
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_SegmentMakeInline{
+							SegmentMakeInline: makeInlineSegResp,
+						},
+					},
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_ObjectCommit{
+							ObjectCommit: commitObjResp,
+						},
+					},
+				)
+
+				i += 2
+				continue
+			}
+
+			response, err := endpoint.beginObject(ctx, singleRequest.ObjectBegin, multipartUpload(i, req.Requests))
 			if err != nil {
 				return resp, err
 			}
@@ -299,6 +369,50 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
 				Response: &pb.BatchResponseItem_ObjectFinishDelete{
 					ObjectFinishDelete: response,
+				},
+			})
+		case *pb.BatchRequestItem_ObjectsDelete:
+			singleRequest.ObjectsDelete.Header = req.Header
+			response, err := endpoint.DeleteObjects(ctx, singleRequest.ObjectsDelete)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectsDelete{
+					ObjectsDelete: response,
+				},
+			})
+		case *pb.BatchRequestItem_ObjectGetRetention:
+			singleRequest.ObjectGetRetention.Header = req.Header
+			response, err := endpoint.GetObjectRetention(ctx, singleRequest.ObjectGetRetention)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectGetRetention{
+					ObjectGetRetention: response,
+				},
+			})
+		case *pb.BatchRequestItem_ObjectSetRetention:
+			singleRequest.ObjectSetRetention.Header = req.Header
+			response, err := endpoint.SetObjectRetention(ctx, singleRequest.ObjectSetRetention)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectSetRetention{
+					ObjectSetRetention: response,
+				},
+			})
+		case *pb.BatchRequestItem_ObjectSetLegalHold:
+			singleRequest.ObjectSetLegalHold.Header = req.Header
+			response, err := endpoint.SetObjectLegalHold(ctx, singleRequest.ObjectSetLegalHold)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectSetLegalHold{
+					ObjectSetLegalHold: response,
 				},
 			})
 		// SEGMENT
@@ -438,6 +552,22 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentFinishDelete: response,
 				},
 			})
+		case *pb.BatchRequestItem_SegmentBeginRetryPieces:
+			singleRequest.SegmentBeginRetryPieces.Header = req.Header
+
+			if singleRequest.SegmentBeginRetryPieces.SegmentId.IsZero() && !lastSegmentID.IsZero() {
+				singleRequest.SegmentBeginRetryPieces.SegmentId = lastSegmentID
+			}
+
+			response, err := endpoint.RetryBeginSegmentPieces(ctx, singleRequest.SegmentBeginRetryPieces)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_SegmentBeginRetryPieces{
+					SegmentBeginRetryPieces: response,
+				},
+			})
 
 			// Revoke API key.
 		case *pb.BatchRequestItem_RevokeApiKey:
@@ -479,4 +609,31 @@ func (endpoint *Endpoint) shouldCombine(segmentIndex int32, reqIndex int, reques
 		return int64(segmentIndex) != streamMeta.NumberOfSegments-2
 	}
 	return false
+}
+
+func shouldDoInlineObject(index int, requests []*pb.BatchRequestItem) (_ *pb.SegmentMakeInlineRequest, _ *pb.ObjectCommitRequest, should bool) {
+	if index+2 >= len(requests) {
+		return nil, nil, false
+	}
+
+	request := requests[index+1]
+	makeInlineSegReq, ok := request.Request.(*pb.BatchRequestItem_SegmentMakeInline)
+	if !ok {
+		return nil, nil, false
+	}
+
+	request = requests[index+2]
+	commitObjReq, ok := request.Request.(*pb.BatchRequestItem_ObjectCommit)
+	if !ok {
+		return nil, nil, false
+	}
+
+	return makeInlineSegReq.SegmentMakeInline, commitObjReq.ObjectCommit, true
+}
+
+// multipartUpload checks whether the current ObjectBegin request is part of a multipart upload
+// or regular upload. We can detect that by checking if the next request is segment creation (inline/remote)
+// which is never the case for multipart uploads.
+func multipartUpload(index int, requests []*pb.BatchRequestItem) bool {
+	return !(len(requests) > index+1 && (requests[index+1].GetSegmentBegin() != nil || requests[index+1].GetSegmentMakeInline() != nil))
 }

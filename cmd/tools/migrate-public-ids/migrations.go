@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 )
 
 // MigrateProjects updates all rows in the projects table, giving them a new UUID if they do not already have one.
@@ -87,7 +87,7 @@ func MigrateProjects(ctx context.Context, log *zap.Logger, conn *pgx.Conn, confi
 			)
 			err := row.Scan(&updated)
 			if err != nil {
-				if cockroachutil.NeedsRetry(err) {
+				if retrydb.ShouldRetry(err) {
 					continue
 				} else if errs.Is(err, pgx.ErrNoRows) {
 					break
@@ -97,8 +97,8 @@ func MigrateProjects(ctx context.Context, log *zap.Logger, conn *pgx.Conn, confi
 			break
 		}
 		total += updated
-		log.Info("batch update complete", zap.Int("rows updated", updated), zap.Binary("last id", lastID))
+		log.Info("batch update complete", zap.Int("rows_updated", updated), zap.Binary("last_id", lastID))
 	}
-	log.Info("projects migration complete", zap.Int("total rows updated", total))
+	log.Info("projects migration complete", zap.Int("total_rows_updated", total))
 	return nil
 }

@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
@@ -29,6 +28,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -66,6 +66,11 @@ type Config struct {
 	Timeout     time.Duration
 
 	applicationName string
+
+	// SkipSpanner is a flag used to tell tests to skip Spanner tests.
+	SkipSpanner bool
+	// ExerciseJobq is a flag used to tell tests to exercise the jobq implementation of the repair queue.
+	ExerciseJobq bool
 }
 
 // DatabaseConfig defines connection strings for database.
@@ -213,11 +218,51 @@ func (planet *Planet) createPeers(ctx context.Context, satelliteDatabases satell
 		return errs.Wrap(err)
 	}
 
+	for _, satellite := range planet.Satellites {
+		for _, node := range planet.StorageNodes {
+			if err := checkInManually(ctx, satellite, node); err != nil {
+				return errs.Wrap(err)
+			}
+		}
+	}
+
 	return nil
 }
 
+func checkInManually(ctx context.Context, satellite *Satellite, node *StorageNode) error {
+	err := satellite.DB.PeerIdentities().Set(ctx, node.ID(), node.Identity.PeerIdentity())
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	_, _, lastNet, err := satellite.Overlay.Service.ResolveIPAndNetwork(ctx, node.Addr())
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	availableSpace, err := node.Storage2.Monitor.AvailableSpace(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	self := node.Contact.Service.Local()
+	return satellite.DB.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+		NodeID:     node.ID(),
+		Address:    &pb.NodeAddress{Address: node.Addr()},
+		IsUp:       true,
+		Version:    &self.Version,
+		LastNet:    lastNet,
+		LastIPPort: node.Addr(),
+		Capacity: &pb.NodeCapacity{
+			FreeDisk: availableSpace,
+		},
+		Operator: &pb.NodeOperator{
+			Email:  node.Config.Operator.Email,
+			Wallet: node.Config.Operator.Wallet,
+		},
+	}, time.Now(), satellite.Config.Overlay.Node)
+}
+
 // Start starts all the nodes.
-func (planet *Planet) Start(ctx context.Context) {
+func (planet *Planet) Start(ctx context.Context) error {
 	defer mon.Task()(&ctx)(nil)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -248,15 +293,17 @@ func (planet *Planet) Start(ctx context.Context) {
 		pprof.Do(ctx, pprof.Labels("peer", peer.Label(), "startup", "contact"), func(ctx context.Context) {
 			group.Go(func() error {
 				peer.Storage2.Monitor.Loop.TriggerWait()
-				peer.Contact.Chore.TriggerWait(ctx)
 				return nil
 			})
 		})
 	}
 
-	_ = group.Wait()
+	if err := group.Wait(); err != nil {
+		return err
+	}
 
 	planet.started = true
+	return nil
 }
 
 // StopPeer stops a single peer in the planet.
@@ -365,12 +412,23 @@ func (planet *Planet) Shutdown() error {
 
 	errlist.Add(os.RemoveAll(planet.directory))
 
-	// workaround for not being able to catch context.Canceled error from net package
-	err := errlist.Err()
-	if err != nil && strings.Contains(err.Error(), "operation was canceled") {
-		return nil
+	var filtered errs.Group
+	for _, err := range errlist {
+		errmsg := err.Error()
+		// workaround for not being able to catch context.Canceled error from net package
+		if strings.Contains(errmsg, "operation was canceled") {
+			continue
+		}
+		// workaround for not being able to catch context.Canceled from Spanner
+		//
+		// TODO(spanner): figure out why it's not possible to catch this earlier
+		if strings.Contains(errmsg, "context canceled") {
+			continue
+		}
+		filtered.Add(err)
 	}
-	return err
+
+	return filtered.Err()
 }
 
 // Identities returns the identity provider for this planet.

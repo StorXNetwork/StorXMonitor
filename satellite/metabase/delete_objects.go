@@ -5,92 +5,37 @@ package metabase
 
 import (
 	"context"
-	"encoding/hex"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/pgxutil"
-	"storj.io/common/tagsql"
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
-const (
-	deleteBatchsizeLimit = intLimitRange(1000)
-)
+// DeleteObjectsMaxItems is the maximum amount of items that are allowed
+// in a DeleteObjects request.
+const DeleteObjectsMaxItems = 1000
 
-// DeleteExpiredObjects contains all the information necessary to delete expired objects and segments.
-type DeleteExpiredObjects struct {
-	ExpiredBefore      time.Time
-	AsOfSystemInterval time.Duration
-	BatchSize          int
+// DeleteObjects contains options for deleting multiple committed objects from a bucket.
+type DeleteObjects struct {
+	ProjectID  uuid.UUID
+	BucketName BucketName
+	Items      []DeleteObjectsItem
+
+	Versioned bool
+	Suspended bool
+
+	ObjectLock ObjectLockDeleteOptions
+
+	// supported only by Spanner.
+	TransmitEvent bool
 }
 
-// DeleteExpiredObjects deletes all objects that expired before expiredBefore.
-func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObjects) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
-		query := `
-			SELECT
-				project_id, bucket_name, object_key, version, stream_id,
-				expires_at
-			FROM objects
-			` + db.impl.AsOfSystemInterval(opts.AsOfSystemInterval) + `
-			WHERE
-				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-				AND expires_at < $5
-				ORDER BY project_id, bucket_name, object_key, version
-			LIMIT $6;`
-
-		expiredObjects := make([]ObjectStream, 0, batchsize)
-
-		scanErrClass := errs.Class("DB rows scan has failed")
-		err = withRows(db.db.QueryContext(ctx, query,
-			startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
-			opts.ExpiredBefore,
-			batchsize),
-		)(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				var expiresAt time.Time
-				err = rows.Scan(
-					&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID,
-					&expiresAt)
-				if err != nil {
-					return scanErrClass.Wrap(err)
-				}
-
-				db.log.Info("Deleting expired object",
-					zap.Stringer("Project", last.ProjectID),
-					zap.String("Bucket", last.BucketName),
-					zap.String("Object Key", string(last.ObjectKey)),
-					zap.Int64("Version", int64(last.Version)),
-					zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
-					zap.Time("Expired At", expiresAt),
-				)
-				expiredObjects = append(expiredObjects, last)
-			}
-
-			return nil
-		})
-		if err != nil {
-			if scanErrClass.Has(err) {
-				return ObjectStream{}, Error.New("unable to select expired objects for deletion: %w", err)
-			}
-
-			db.log.Warn("unable to select expired objects for deletion", zap.Error(Error.Wrap(err)))
-			return ObjectStream{}, nil
-		}
-
-		err = db.deleteObjectsAndSegments(ctx, expiredObjects)
-		if err != nil {
-			db.log.Warn("delete from DB expired objects", zap.Error(err))
-			return ObjectStream{}, nil
-		}
-
-		return last, nil
-	})
+// DeleteObjectsItem describes the location of an object in a bucket to be deleted.
+type DeleteObjectsItem struct {
+	ObjectKey       ObjectKey
+	StreamVersionID StreamVersionID
 }
 
 // DeleteZombieObjects contains all the information necessary to delete zombie objects and segments.
@@ -175,111 +120,266 @@ func (db *DB) deleteObjectsAndSegmentsBatch(ctx context.Context, batchsize int, 
 		}
 		startAfter = lastDeleted
 	}
-}
-
-func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStream) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(objects) == 0 {
-		return nil
-	}
-
-	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
-		var batch pgx.Batch
-		for _, obj := range objects {
-			obj := obj
-
-			batch.Queue(`
-				WITH deleted_objects AS (
-					DELETE FROM objects
-					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1::BYTEA, $2, $3, $4, $5::BYTEA)
-					RETURNING stream_id
-				)
-				DELETE FROM segments
-				WHERE segments.stream_id = $5::BYTEA
-			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID)
+	for i, item := range opts.Items {
+		if item.ObjectKey == "" {
+			return ErrInvalidRequest.New("Items[%d].ObjectKey missing", i)
 		}
-
-		results := conn.SendBatch(ctx, &batch)
-		defer func() { err = errs.Combine(err, results.Close()) }()
-
-		var objectsDeletedGuess, segmentsDeleted int64
-
-		var errlist errs.Group
-		for i := 0; i < batch.Len(); i++ {
-			result, err := results.Exec()
-			errlist.Add(err)
-
-			if affectedSegmentCount := result.RowsAffected(); affectedSegmentCount > 0 {
-				// Note, this slightly miscounts objects without any segments
-				// there doesn't seem to be a simple work around for this.
-				// Luckily, this is used only for metrics, where it's not a
-				// significant problem to slightly miscount.
-				objectsDeletedGuess++
-				segmentsDeleted += affectedSegmentCount
-			}
+		version := item.StreamVersionID.Version()
+		if !item.StreamVersionID.IsZero() && version == 0 {
+			return ErrInvalidRequest.New("Items[%d].StreamVersionID invalid: version is %v", i, version)
 		}
-
-		mon.Meter("object_delete").Mark64(objectsDeletedGuess)
-		mon.Meter("segment_delete").Mark64(segmentsDeleted)
-
-		return errlist.Err()
-	})
-	if err != nil {
-		return Error.New("unable to delete expired objects: %w", err)
 	}
 	return nil
 }
 
-func (db *DB) deleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (err error) {
+// DeleteObjectsResult contains the results of an attempt to delete specific objects from a bucket.
+type DeleteObjectsResult struct {
+	Items               []DeleteObjectsResultItem
+	DeletedSegmentCount int64
+}
+
+// DeleteObjectsResultItem contains the result of an attempt to delete a specific object from a bucket.
+type DeleteObjectsResultItem struct {
+	ObjectKey                ObjectKey
+	RequestedStreamVersionID StreamVersionID
+
+	Removed *DeleteObjectsInfo
+	Marker  *DeleteObjectsInfo
+
+	Status storj.DeleteObjectsStatus
+}
+
+// DeleteObjectsInfo contains information about an object that was deleted or a delete marker that was inserted
+// as a result of processing a DeleteObjects request item.
+type DeleteObjectsInfo struct {
+	StreamVersionID    StreamVersionID
+	Status             ObjectStatus
+	CreatedAt          time.Time
+	TotalEncryptedSize int64
+}
+
+// DeleteObjects deletes specific objects from a bucket.
+func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(objects) == 0 {
-		return nil
+	if err := opts.Verify(); err != nil {
+		return DeleteObjectsResult{}, errs.Wrap(err)
 	}
 
-	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
-		var batch pgx.Batch
-		for _, obj := range objects {
-			batch.Queue(`
-				WITH check_segments AS (
-					SELECT 1 FROM segments
-					WHERE stream_id = $5::BYTEA AND created_at > $6
-				), deleted_objects AS (
-					DELETE FROM objects
-					WHERE
-						(project_id, bucket_name, object_key, version) = ($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) AND
-						NOT EXISTS (SELECT 1 FROM check_segments)
-					RETURNING stream_id
-				)
-				DELETE FROM segments
-				WHERE segments.stream_id IN (SELECT stream_id FROM deleted_objects)
-			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID, opts.InactiveDeadline)
+	deletedObjectOffset, deletedSegmentOffset := 0, 0
+
+	defer func() {
+		var deletedObjects int
+		for _, item := range result.Items {
+			if item.Status == storj.DeleteObjectsStatusOK && item.Removed != nil {
+				deletedObjects++
+			}
+		}
+		mon.Meter("object_delete").Mark(deletedObjects - deletedObjectOffset)
+		mon.Meter("segment_delete").Mark64(result.DeletedSegmentCount - int64(deletedSegmentOffset))
+	}()
+
+	adapter := db.ChooseAdapter(opts.ProjectID)
+	processedOpts := opts.processResults()
+	result.Items = processedOpts.results
+
+	for i := 0; i < processedOpts.lastCommittedCount; i++ {
+		resultItem := &processedOpts.results[i]
+
+		deleteOpts := DeleteObjectLastCommitted{
+			ObjectLocation: ObjectLocation{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.BucketName,
+				ObjectKey:  resultItem.ObjectKey,
+			},
+			ObjectLock:    opts.ObjectLock,
+			TransmitEvent: opts.TransmitEvent,
 		}
 
-		results := conn.SendBatch(ctx, &batch)
-		defer func() { err = errs.Combine(err, results.Close()) }()
+		var deleteObjectResult DeleteObjectResult
+		if opts.Versioned {
+			var deleteMarkerStreamID uuid.UUID
+			deleteMarkerStreamID, err = generateDeleteMarkerStreamID()
+			if err != nil {
+				return result, err
+			}
+			deleteObjectResult, err = adapter.DeleteObjectLastCommittedVersioned(ctx, deleteOpts, deleteMarkerStreamID)
+		} else if opts.Suspended {
+			var deleteMarkerStreamID uuid.UUID
+			deleteMarkerStreamID, err = generateDeleteMarkerStreamID()
+			if err != nil {
+				return result, err
+			}
+			deleteObjectResult, err = db.DeleteObjectLastCommittedSuspended(ctx, deleteOpts, deleteMarkerStreamID)
+			if ErrObjectNotFound.Has(err) {
+				err = nil
+			}
+			// HACKFIX: `DeleteObjectLastCommittedSuspended` internally already submits metrics and we don't want
+			// to send them twice. Ideally the whole switch should be replaced by `db.DeleteObjectLastCommitted`.
+			deletedObjectOffset += len(deleteObjectResult.Removed)
+			deletedSegmentOffset += deleteObjectResult.DeletedSegmentCount
+		} else {
+			deleteObjectResult, err = adapter.DeleteObjectLastCommittedPlain(ctx, deleteOpts)
+		}
 
-		var segmentsDeleted int64
-		var errlist errs.Group
-		for i := 0; i < batch.Len(); i++ {
-			result, err := results.Exec()
-			errlist.Add(err)
+		result.DeletedSegmentCount += int64(deleteObjectResult.DeletedSegmentCount)
 
-			if err == nil {
-				segmentsDeleted += result.RowsAffected()
+		if len(deleteObjectResult.Removed) > 0 {
+			removed := deleteObjectResult.Removed[0]
+			sv := removed.StreamVersionID()
+			deleteInfo := &DeleteObjectsInfo{
+				StreamVersionID:    sv,
+				Status:             CommittedUnversioned,
+				CreatedAt:          removed.CreatedAt,
+				TotalEncryptedSize: removed.TotalEncryptedSize,
+			}
+			resultItem.Removed = deleteInfo
+			resultItem.Status = storj.DeleteObjectsStatusOK
+
+			if !opts.Versioned {
+				// Handle the case where an object was specified twice in the deletion request:
+				// once with a version omitted and once with a version set. We must ensure that
+				// when the object is deleted, both result items that reference it are updated.
+				if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
+					ObjectKey:       resultItem.ObjectKey,
+					StreamVersionID: sv,
+				}]; ok {
+					processedOpts.results[i].Removed = deleteInfo
+					processedOpts.results[i].Status = storj.DeleteObjectsStatusOK
+				}
 			}
 		}
 
-		// TODO calculate deleted objects
-		mon.Meter("zombie_segment_delete").Mark64(segmentsDeleted)
-		mon.Meter("segment_delete").Mark64(segmentsDeleted)
+		if len(deleteObjectResult.Markers) > 0 {
+			marker := deleteObjectResult.Markers[0]
+			resultItem.Marker = &DeleteObjectsInfo{
+				StreamVersionID:    marker.StreamVersionID(),
+				Status:             marker.Status,
+				CreatedAt:          marker.CreatedAt,
+				TotalEncryptedSize: marker.TotalEncryptedSize,
+			}
+			resultItem.Status = storj.DeleteObjectsStatusOK
+		}
 
-		return errlist.Err()
-	})
-	if err != nil {
-		return Error.New("unable to delete zombie objects: %w", err)
+		if err != nil {
+			if ErrObjectLock.Has(err) {
+				resultItem.Status = storj.DeleteObjectsStatusLocked
+				err = nil
+			} else {
+				return result, err
+			}
+		}
+
+		if resultItem.Status == storj.DeleteObjectsStatusInternalError {
+			resultItem.Status = storj.DeleteObjectsStatusNotFound
+		}
 	}
 
-	return nil
+	for i := processedOpts.lastCommittedCount; i < len(processedOpts.results); i++ {
+		resultItem := &processedOpts.results[i]
+		if resultItem.Status == storj.DeleteObjectsStatusOK {
+			continue
+		}
+
+		if opts.Versioned || opts.Suspended {
+			// Prevent the removal of a delete marker that was added in a previous iteration.
+			if linkedItemIdx, ok := processedOpts.resultsIndices[DeleteObjectsItem{
+				ObjectKey: resultItem.ObjectKey,
+			}]; ok {
+				marker := processedOpts.results[linkedItemIdx].Marker
+				if marker != nil && marker.StreamVersionID == resultItem.RequestedStreamVersionID {
+					resultItem.Status = storj.DeleteObjectsStatusNotFound
+					continue
+				}
+			}
+		}
+
+		var deleteObjectResult DeleteObjectResult
+		deleteObjectResult, err = adapter.DeleteObjectExactVersion(ctx, DeleteObjectExactVersion{
+			ObjectLocation: ObjectLocation{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.BucketName,
+				ObjectKey:  resultItem.ObjectKey,
+			},
+			Version:        resultItem.RequestedStreamVersionID.Version(),
+			StreamIDSuffix: resultItem.RequestedStreamVersionID.StreamIDSuffix(),
+			ObjectLock:     opts.ObjectLock,
+			TransmitEvent:  opts.TransmitEvent,
+		})
+
+		result.DeletedSegmentCount += int64(deleteObjectResult.DeletedSegmentCount)
+
+		if len(deleteObjectResult.Removed) > 0 {
+			resultItem.Status = storj.DeleteObjectsStatusOK
+			resultItem.Removed = &DeleteObjectsInfo{
+				StreamVersionID:    resultItem.RequestedStreamVersionID,
+				Status:             deleteObjectResult.Removed[0].Status,
+				CreatedAt:          deleteObjectResult.Removed[0].CreatedAt,
+				TotalEncryptedSize: deleteObjectResult.Removed[0].TotalEncryptedSize,
+			}
+		}
+
+		if err != nil {
+			if ErrObjectLock.Has(err) {
+				resultItem.Status = storj.DeleteObjectsStatusLocked
+				err = nil
+			} else {
+				return result, err
+			}
+		}
+
+		if resultItem.Status == storj.DeleteObjectsStatusInternalError {
+			resultItem.Status = storj.DeleteObjectsStatusNotFound
+		}
+	}
+
+	return result, err
+}
+
+type deleteObjectsSetupInfo struct {
+	results            []DeleteObjectsResultItem
+	resultsIndices     map[DeleteObjectsItem]int
+	lastCommittedCount int
+}
+
+// processResults returns data that (*Adapter).DeleteObjects implementations require for executing database queries.
+func (opts DeleteObjects) processResults() (info deleteObjectsSetupInfo) {
+	info.resultsIndices = make(map[DeleteObjectsItem]int, len(opts.Items))
+	for _, item := range opts.Items {
+		if _, exists := info.resultsIndices[item]; !exists {
+			info.resultsIndices[item] = -1
+			if item.StreamVersionID.IsZero() {
+				info.lastCommittedCount++
+			}
+		}
+	}
+
+	info.results = make([]DeleteObjectsResultItem, len(info.resultsIndices))
+
+	// We process last committed items first to allow for a simpler implementation
+	// than what would otherwise be possible. This shouldn't result in any difference
+	// in the result items' contents or the overall effect on the database.
+	// If an object is requested for deletion both by last committed and exact version
+	// request items, each result item should reflect the effects of processing its
+	// respective request item in isolation, so the order in which the request items
+	// are processed isn't significant.
+
+	lastCommittedCounter := 0
+	versionedCounter := info.lastCommittedCount
+	for _, item := range opts.Items {
+		if info.resultsIndices[item] == -1 {
+			counter := &lastCommittedCounter
+			if !item.StreamVersionID.IsZero() {
+				counter = &versionedCounter
+			}
+			info.results[*counter] = DeleteObjectsResultItem{
+				ObjectKey:                item.ObjectKey,
+				RequestedStreamVersionID: item.StreamVersionID,
+			}
+			info.resultsIndices[item] = *counter
+			*counter++
+		}
+	}
+
+	return info
 }

@@ -83,7 +83,7 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 	limiter := sync2.NewLimiter(service.config.Concurrency)
 	for _, batch := range batches {
 		batch := batch
-		log := service.log.With(zap.Int("num pieces", batch.Len()))
+		log := service.log.With(zap.Int("num_pieces", batch.Len()))
 
 		info, err := service.GetNodeInfo(ctx, batch.Alias)
 		if err != nil {
@@ -97,12 +97,12 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 			}
 			return Error.Wrap(err)
 		}
-		log = log.With(zap.Stringer("node ID", info.NodeURL.ID))
+		log = log.With(zap.Stringer("node_id", info.NodeURL.ID))
 
 		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
 
 		limiter.Go(ctx, func() {
-			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, info.NodeURL, info.Version, batch.Items, ignoreThrottle)
+			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, info.NodeURL, batch.Items, ignoreThrottle)
 			if err != nil {
 				switch {
 				case ErrNodeOffline.Has(err):

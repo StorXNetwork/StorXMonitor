@@ -10,24 +10,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/satellite/repair/repairqueuetest"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestUntilEmpty(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		repairQueue := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
 		// insert a bunch of segments
 		idsMap := make(map[uuid.UUID]int)
 		for i := 0; i < 20; i++ {
@@ -42,12 +36,14 @@ func TestUntilEmpty(t *testing.T) {
 
 		// select segments until no more are returned, and we should get each one exactly once
 		for {
-			injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+			injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 			if err != nil {
 				require.True(t, queue.ErrEmpty.Has(err))
 				break
 			}
-			idsMap[injuredSeg.StreamID]++
+			err = repairQueue.Release(ctx, injuredSegs[0], true)
+			require.NoError(t, err)
+			idsMap[injuredSegs[0].StreamID]++
 		}
 
 		for _, selectCount := range idsMap {
@@ -57,9 +53,7 @@ func TestUntilEmpty(t *testing.T) {
 }
 
 func TestOrder(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		repairQueue := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
 		nullID := testrand.UUID()
 		recentID := testrand.UUID()
 		oldID := testrand.UUID()
@@ -84,55 +78,56 @@ func TestOrder(t *testing.T) {
 			{olderID, time.Now().Add(-8 * time.Hour)},
 		}
 		for _, item := range updateList {
-			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx,
-				item.streamID, metabase.SegmentPosition{}, item.attemptedAt)
+			rowsAffected, err := repairQueue.TestingSetAttemptedTime(ctx,
+				0, item.streamID, metabase.SegmentPosition{}, item.attemptedAt)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, rowsAffected)
 		}
 
 		// segment with attempted = null should be selected first
-		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, nullID, injuredSeg.StreamID)
+		err = repairQueue.Release(ctx, injuredSegs[0], true)
+		require.NoError(t, err)
+		assert.Equal(t, nullID, injuredSegs[0].StreamID)
 
 		// segment with attempted = 8 hours ago should be selected next
-		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err = repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, olderID, injuredSeg.StreamID)
+		err = repairQueue.Release(ctx, injuredSegs[0], true)
+		require.NoError(t, err)
+		assert.Equal(t, olderID, injuredSegs[0].StreamID)
 
 		// segment with attempted = 7 hours ago should be selected next
-		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err = repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, oldID, injuredSeg.StreamID)
+		err = repairQueue.Release(ctx, injuredSegs[0], true)
+		require.NoError(t, err)
+		assert.Equal(t, oldID, injuredSegs[0].StreamID)
 
 		// segment should be considered "empty" now
-		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err = repairQueue.Select(ctx, 1, nil, nil)
 		assert.True(t, queue.ErrEmpty.Has(err))
-		assert.Nil(t, injuredSeg)
+		assert.Nil(t, injuredSegs)
 	})
 }
 
 // TestOrderHealthyPieces ensures that we select in the correct order, accounting for segment health as well as last attempted repair time. We only test on Postgres since Cockraoch doesn't order by segment health due to performance.
 func TestOrderHealthyPieces(t *testing.T) {
-	testorderHealthyPieces(t, pgtest.PickPostgres(t))
+	type hasImplementation interface {
+		Implementation() dbutil.Implementation
+	}
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, rq queue.RepairQueue) {
+		if dbi, ok := rq.(hasImplementation); ok {
+			if dbi.Implementation() == dbutil.Cockroach {
+				t.Skip("Cockroach does not order by segment health")
+			}
+		}
+		testorderHealthyPieces(ctx, t, rq)
+	})
 }
 
-func testorderHealthyPieces(t *testing.T, connStr string) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	// create tempDB
-	tempDB, err := tempdb.OpenUnique(ctx, connStr, "orderhealthy")
-	require.NoError(t, err)
-	defer func() { require.NoError(t, tempDB.Close()) }()
-
-	// create a new satellitedb connection
-	db, err := satellitedb.Open(ctx, zaptest.NewLogger(t), tempDB.ConnStr, satellitedb.Options{ApplicationName: "satellite-repair-test"})
-	require.NoError(t, err)
-	defer func() { require.NoError(t, db.Close()) }()
-	require.NoError(t, db.MigrateToLatest(ctx))
-
-	repairQueue := db.RepairQueue()
+func testorderHealthyPieces(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
 	// we insert (path, segmentHealth, lastAttempted) as follows:
 	// ("a", 6, now-8h)
 	// ("b", 7, now)
@@ -174,7 +169,7 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 
 		// next, if applicable, update the "attempted at" timestamp
 		if !item.attempted.IsZero() {
-			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.streamID, metabase.SegmentPosition{}, item.attempted)
+			rowsAffected, err := repairQueue.TestingSetAttemptedTime(ctx, 0, item.streamID, metabase.SegmentPosition{}, item.attempted)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, rowsAffected)
 		}
@@ -197,22 +192,22 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 		{'g'},
 		{'h'},
 	} {
-		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, nextID, injuredSeg.StreamID)
+		assert.Equal(t, nextID, injuredSegs[0].StreamID)
+		err = repairQueue.Release(ctx, injuredSegs[0], true)
+		require.NoError(t, err)
 	}
 
 	// queue should be considered "empty" now
-	injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+	injuredSeg, err := repairQueue.Select(ctx, 1, nil, nil)
 	assert.True(t, queue.ErrEmpty.Has(err))
 	assert.Nil(t, injuredSeg)
 }
 
 // TestOrderOverwrite ensures that re-inserting the same segment with a lower health, will properly adjust its prioritizationTestOrderOverwrite ensures that re-inserting the same segment with a lower health, will properly adjust its prioritization.
 func TestOrderOverwrite(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		repairQueue := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
 		// insert segment A with segment health 10
 		// insert segment B with segment health 9
 		// re-insert segment A with segment segment health 8
@@ -247,22 +242,22 @@ func TestOrderOverwrite(t *testing.T) {
 			segmentA,
 			segmentB,
 		} {
-			injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+			injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
-			assert.Equal(t, nextStreamID, injuredSeg.StreamID)
+			assert.Equal(t, nextStreamID, injuredSegs[0].StreamID)
+			err = repairQueue.Release(ctx, injuredSegs[0], true)
+			require.NoError(t, err)
 		}
 
 		// queue should be considered "empty" now
-		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 		assert.True(t, queue.ErrEmpty.Has(err))
-		assert.Nil(t, injuredSeg)
+		assert.Empty(t, injuredSegs)
 	})
 }
 
 func TestCount(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		repairQueue := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
 		// insert a bunch of segments
 		numSegments := 20
 		for i := 0; i < numSegments; i++ {

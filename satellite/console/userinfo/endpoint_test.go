@@ -4,7 +4,6 @@
 package userinfo_test
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"testing"
@@ -27,7 +26,7 @@ import (
 func TestEndpointGet(t *testing.T) {
 
 	// trusted identity
-	ident, err := testidentity.NewTestIdentity(context.TODO())
+	ident, err := testidentity.NewTestIdentity(t.Context())
 	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
@@ -90,7 +89,7 @@ func TestEndpointGet(t *testing.T) {
 
 				user, err := sat.AddUser(ctx, newUser, 1)
 				require.NoError(t, err)
-				require.Equal(t, false, user.PaidTier)
+				require.Equal(t, console.FreeUser, user.Kind)
 
 				project, err := sat.AddProject(ctx, user.ID, "info")
 				require.NoError(t, err)
@@ -134,6 +133,19 @@ func TestEndpointGet(t *testing.T) {
 				require.NoError(t, err)
 
 				// get user info again
+				response, err = endpoint.Get(peerCtx, &pb.GetUserInfoRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: key.SerializeRaw(),
+					},
+				})
+				require.NoError(t, err)
+				// user should now be in paid tier.
+				require.Equal(t, true, response.PaidTier)
+
+				kind := console.NFRUser
+				err = sat.API.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+
 				response, err = endpoint.Get(peerCtx, &pb.GetUserInfoRequest{
 					Header: &pb.RequestHeader{
 						ApiKey: key.SerializeRaw(),

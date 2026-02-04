@@ -23,7 +23,7 @@ import (
 var _ DB = (*CachingDB)(nil)
 
 // NewCachingDB creates a new CachingDB instance.
-func NewCachingDB(log *zap.Logger, backingStore DB, reputationConfig Config) *CachingDB {
+func NewCachingDB(log *zap.Logger, backingStore DirectDB, reputationConfig Config) *CachingDB {
 	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return &CachingDB{
 		log:                log,
@@ -139,7 +139,7 @@ func (cdb *CachingDB) Update(ctx context.Context, request UpdateRequest, auditTi
 func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, updates Mutations, config Config, now time.Time) (info *Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	logger := cdb.log.With(zap.Stringer("node-id", nodeID))
+	logger := cdb.log.With(zap.Stringer("node_id", nodeID))
 	doRequestSync := false
 
 	cdb.getEntry(ctx, nodeID, now, func(nodeEntry *cachedNodeReputationInfo) {
@@ -185,12 +185,15 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 		cachedInfo.TotalAuditCount += int64(updates.PositiveResults + updates.FailureResults + updates.OfflineResults + updates.UnknownResults)
 		cachedInfo.OnlineScore = cachedInfo.AuditHistory.Score
 
-		if cachedInfo.VettedAt == nil && cachedInfo.TotalAuditCount >= config.AuditCount {
-			cachedInfo.VettedAt = &now
-			// if we think the node is newly vetted, perform a sync to
-			// have the best chance of propagating that information to
-			// other satellite services.
-			doRequestSync = true
+		if cachedInfo.CreatedAt != nil {
+			timeSinceCreation := now.Sub(*cachedInfo.CreatedAt)
+			if cachedInfo.VettedAt == nil && timeSinceCreation >= config.MinimumNodeAge && cachedInfo.TotalAuditCount >= config.AuditCount {
+				cachedInfo.VettedAt = &now
+				// if we think the node is newly vetted, perform a sync to
+				// have the best chance of propagating that information to
+				// other satellite services.
+				doRequestSync = true
+			}
 		}
 
 		// for audit failure, only update normal alpha/beta
@@ -248,7 +251,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 			if cachedInfo.Disqualified == nil {
 				cachedInfo.Disqualified = &now
 				cachedInfo.DisqualificationReason = overlay.DisqualificationReasonAuditFailure
-				logger.Info("Disqualified", zap.String("dq-type", "audit failure"))
+				logger.Info("Disqualified", zap.String("dq_type", "audit failure"))
 				// if we think the node is newly disqualified, perform a sync
 				// to have the best chance of propagating that information to
 				// other satellite services.
@@ -274,7 +277,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 			if cachedInfo.UnknownAuditSuspended != nil &&
 				now.Sub(*cachedInfo.UnknownAuditSuspended) > config.SuspensionGracePeriod &&
 				config.SuspensionDQEnabled {
-				logger.Info("Disqualified", zap.String("dq-type", "suspension grace period expired for unknown-result audits"))
+				logger.Info("Disqualified", zap.String("dq_type", "suspension grace period expired for unknown-result audits"))
 				cachedInfo.Disqualified = &now
 				cachedInfo.DisqualificationReason = overlay.DisqualificationReasonSuspension
 				cachedInfo.UnknownAuditSuspended = nil
@@ -320,7 +323,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 			if trackingPeriodPassed {
 				if penalizeOfflineNode {
 					if config.AuditHistory.OfflineDQEnabled {
-						logger.Info("Disqualified", zap.String("dq-type", "node offline"))
+						logger.Info("Disqualified", zap.String("dq_type", "node offline"))
 						cachedInfo.Disqualified = &now
 						cachedInfo.DisqualificationReason = overlay.DisqualificationReasonNodeOffline
 					}
@@ -429,6 +432,12 @@ func (cdb *CachingDB) FlushAll(ctx context.Context) (err error) {
 		}())
 	}
 	return errg.Err()
+}
+
+// Run runs the cache.
+// NOTE: Run is automatically called by mud framework, but Manage doesn't.
+func (cdb *CachingDB) Run(ctx context.Context) error {
+	return cdb.Manage(ctx)
 }
 
 // Manage should be run in its own goroutine while a CachingDB is in use. This

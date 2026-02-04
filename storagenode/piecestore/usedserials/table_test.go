@@ -5,6 +5,7 @@ package usedserials_test
 
 import (
 	"encoding/binary"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 )
@@ -25,6 +27,8 @@ type Serial struct {
 }
 
 func TestUsedSerials(t *testing.T) {
+	ctx := testcontext.New(t)
+
 	usedSerials := usedserials.NewTable(memory.MiB)
 
 	node0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
@@ -46,7 +50,7 @@ func TestUsedSerials(t *testing.T) {
 	now := time.Now()
 
 	// queries on empty table
-	usedSerials.DeleteExpired(now.Add(6 * time.Minute))
+	usedSerials.DeleteExpired(ctx, now.Add(6*time.Minute))
 	require.Zero(t, usedSerials.Count())
 
 	// let's start adding data
@@ -73,13 +77,13 @@ func TestUsedSerials(t *testing.T) {
 
 	// basic adding
 	for _, serial := range serialNumbers {
-		err := usedSerials.Add(serial.SatelliteID, serial.SerialNumber, serial.Expiration)
+		err := usedSerials.Add(ctx, serial.SatelliteID, serial.SerialNumber, serial.Expiration)
 		require.NoError(t, err)
 	}
 
 	// duplicate adds should fail
 	for _, serial := range serialNumbers {
-		err := usedSerials.Add(serial.SatelliteID, serial.SerialNumber, serial.Expiration)
+		err := usedSerials.Add(ctx, serial.SatelliteID, serial.SerialNumber, serial.Expiration)
 		require.Error(t, err)
 		require.True(t, usedserials.ErrSerialAlreadyExists.Has(err))
 	}
@@ -91,7 +95,7 @@ func TestUsedSerials(t *testing.T) {
 	}
 
 	// ensure we can delete expired
-	usedSerials.DeleteExpired(now.Add(6 * time.Hour))
+	usedSerials.DeleteExpired(ctx, now.Add(6*time.Hour))
 
 	// check that we have actually deleted things
 	expectedAfterDelete := []Serial{
@@ -109,6 +113,8 @@ func TestUsedSerials(t *testing.T) {
 
 // TestUsedSerialsMemory ensures that random serials are deleted if the allocated memory size is exceeded.
 func TestUsedSerialsMemory(t *testing.T) {
+	ctx := testcontext.New(t)
+
 	// first, test with partial serial numbers
 	entrySize := usedserials.PartialSize
 
@@ -122,7 +128,7 @@ func TestUsedSerialsMemory(t *testing.T) {
 		expiration := time.Now().Add(time.Hour)
 		newSerial := createExpirationSerial(testrand.SerialNumber(), expiration)
 
-		err := usedSerials.Add(newNodeID, newSerial, expiration)
+		err := usedSerials.Add(ctx, newNodeID, newSerial, expiration)
 		require.NoError(t, err)
 
 		expectedCount := 3
@@ -146,7 +152,7 @@ func TestUsedSerialsMemory(t *testing.T) {
 		expiration := time.Now().Add(time.Hour)
 		newSerial := testrand.SerialNumber()
 
-		err := usedSerials.Add(newNodeID, newSerial, expiration)
+		err := usedSerials.Add(ctx, newNodeID, newSerial, expiration)
 		require.NoError(t, err)
 
 		expectedCount := 3
@@ -166,4 +172,33 @@ func createExpirationSerial(originalSerial storj.SerialNumber, expiration time.T
 	binary.BigEndian.PutUint64(serialWithExp[0:8], uint64(expiration.Unix()))
 
 	return serialWithExp
+}
+
+func Benchmark(b *testing.B) {
+	ctx := testcontext.New(b)
+	size := memory.MiB
+	used := usedserials.NewTable(size)
+	nodeID := testrand.NodeID()
+
+	r := rand.NewSource(0)
+	now := time.Now().Add(10 * 24 * time.Hour)
+	insertRandom := func() {
+		var serial storj.SerialNumber
+		v := r.Int63()
+		binary.LittleEndian.PutUint64(serial[:8], uint64(v))
+		binary.LittleEndian.PutUint64(serial[8:], uint64(v))
+		_ = used.Add(ctx, nodeID, serial, now)
+	}
+
+	// fill the used table
+	for i := 0; i < int(size/usedserials.FullSize); i++ {
+		insertRandom()
+	}
+
+	b.Run("AddDelete", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			insertRandom()
+		}
+	})
+
 }

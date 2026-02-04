@@ -9,6 +9,8 @@ import (
 	"storj.io/storj/satellite/console/configs"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/pushnotifications"
+	"storj.io/storj/satellite/console/restapikeys"
+	"storj.io/storj/satellite/entitlements"
 )
 
 // DB contains access to different satellite databases.
@@ -31,6 +33,8 @@ type DB interface {
 	ProjectInvitations() ProjectInvitations
 	// APIKeys is a getter for APIKeys repository.
 	APIKeys() APIKeys
+	// RestApiKeys returns the database for REST API keys.
+	RestApiKeys() restapikeys.DB
 	// RegistrationTokens is a getter for RegistrationTokens repository.
 	RegistrationTokens() RegistrationTokens
 	// ResetPasswordTokens is a getter for ResetPasswordTokens repository.
@@ -61,6 +65,12 @@ type DB interface {
 
 	// UserNotificationPreferences is a getter for UserNotificationPreferences repository.
 	UserNotificationPreferences() configs.UserPreferenceDB
+	// APIKeyTails is a getter for APIKeyTails repository.
+	APIKeyTails() APIKeyTails
+	// Domains is a getter for Domains repository.
+	Domains() Domains
+	// Entitlements is a getter for Entitlements repository.
+	Entitlements() entitlements.DB
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

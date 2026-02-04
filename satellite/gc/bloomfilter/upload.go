@@ -5,8 +5,12 @@ package bloomfilter
 
 import (
 	"archive/zip"
+	"bufio"
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -14,6 +18,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/uplink"
 )
@@ -47,10 +52,10 @@ func (bfu *Upload) CheckConfig() error {
 }
 
 // UploadBloomFilters stores a zipfile with multiple bloom filters in a bucket.
-func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate time.Time, retainInfos map[storj.NodeID]*RetainInfo) (err error) {
+func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Time, retainInfos MinimalRetainInfoMap) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(retainInfos) == 0 {
+	if retainInfos.IsEmpty() {
 		return nil
 	}
 
@@ -95,31 +100,70 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate ti
 		return nil
 	}
 
-	infos := make([]internalpb.RetainInfo, 0, bfu.config.ZipBatchSize)
+	var limiter *sync2.Limiter
+	if l := bfu.config.UploadPackConcurrency; l <= 0 {
+		limiter = sync2.NewLimiter(1)
+	} else {
+		limiter = sync2.NewLimiter(l)
+	}
+
+	batches := sync.Pool{
+		New: func() any {
+			s := make([]internalpb.RetainInfo, 0, bfu.config.ZipBatchSize)
+			return &s
+		},
+	}
+
+	rangeCtx, rangeCancel := context.WithCancelCause(ctx)
+	defer rangeCancel(nil)
+
+	infos := batches.Get().(*[]internalpb.RetainInfo)
 	batchNumber := 0
-	for nodeID, info := range retainInfos {
-		infos = append(infos, internalpb.RetainInfo{
+	retainInfos.Range(func(nodeID storj.NodeID, info *RetainInfo) bool {
+		if rerr := rangeCtx.Err(); rerr != nil {
+			err = rerr
+			return false
+		}
+
+		*infos = append(*infos, internalpb.RetainInfo{
 			Filter: info.Filter.Bytes(),
 			// because bloom filters should be created from immutable database
 			// snapshot we are using latest segment creation date
-			CreationDate:  latestCreationDate,
+			CreationDate:  creationDate,
 			PieceCount:    int64(info.Count),
 			StorageNodeId: nodeID,
 		})
 
-		if len(infos) == bfu.config.ZipBatchSize {
-			err = bfu.uploadPack(ctx, project, prefix, batchNumber, expirationTime, infos)
-			if err != nil {
-				return err
-			}
-
-			infos = infos[:0]
+		if len(*infos) == bfu.config.ZipBatchSize {
+			bNum := batchNumber
 			batchNumber++
+
+			batch := infos
+			infos = batches.Get().(*[]internalpb.RetainInfo)
+			*infos = (*infos)[:0]
+			return limiter.Go(rangeCtx, func() {
+				defer func() {
+					batches.Put(batch)
+				}()
+
+				err := bfu.uploadPack(rangeCtx, project, prefix, bNum, expirationTime, *batch)
+				if err != nil {
+					rangeCancel(err)
+					return
+				}
+			})
 		}
+
+		return true
+	})
+
+	limiter.Wait()
+	if err != nil {
+		return err
 	}
 
 	// upload rest of infos if any
-	if err := bfu.uploadPack(ctx, project, prefix, batchNumber, expirationTime, infos); err != nil {
+	if err := bfu.uploadPack(ctx, project, prefix, batchNumber, expirationTime, *infos); err != nil {
 		return err
 	}
 
@@ -208,4 +252,58 @@ func (bfu *Upload) cleanup(ctx context.Context, project *uplink.Project, prefix 
 	}
 
 	return iterator.Err()
+}
+
+// UploadPieceIDs uploads piece IDs to the bucket.
+func (bfu *Upload) UploadPieceIDs(ctx context.Context, nodeID storj.NodeID, pieceIDs []storj.PieceID,
+	startTime time.Time, index int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(pieceIDs) == 0 {
+		return nil
+	}
+
+	accessGrant, err := uplink.ParseAccess(bfu.config.AccessGrant)
+	if err != nil {
+		return err
+	}
+
+	project, err := uplink.OpenProject(ctx, accessGrant)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
+
+	_, err = project.EnsureBucket(ctx, bfu.config.Bucket)
+	if err != nil {
+		return err
+	}
+
+	objectKey := fmt.Sprintf("piece-ids/%s/start-time-%s/ids-%d-%d", nodeID.String(), startTime.Format("2006-01-02"), time.Now().Unix(), index)
+	expirationTime := time.Now().Add(bfu.config.ExpireIn)
+	upload, err := project.UploadObject(ctx, bfu.config.Bucket, objectKey, &uplink.UploadOptions{
+		Expires: expirationTime,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		abortErr := upload.Abort()
+		if err != nil && !errors.Is(err, uplink.ErrUploadDone) {
+			err = errs.Combine(err, abortErr)
+		}
+	}()
+
+	// TODO consider compressing ids
+	writer := bufio.NewWriter(upload)
+	for _, pieceID := range pieceIDs {
+		_, err := writer.WriteString(pieceID.String() + "\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	return upload.Commit()
 }

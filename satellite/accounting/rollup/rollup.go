@@ -12,37 +12,41 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
 )
 
 // Config contains configurable values for rollup.
 type Config struct {
-	Interval               time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s" testDefault:"$TESTINTERVAL"`
-	DeleteTallies          bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
-	DeleteTalliesBatchSize int           `help:"how many tallies to delete in a batch" default:"10000"`
+	Interval                time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s" testDefault:"$TESTINTERVAL"`
+	DeleteTallies           bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
+	DeleteTalliesBatchSize  int           `help:"how many tallies to delete in a batch" default:"10000"`
+	EventkitTrackingEnabled bool          `help:"whether to emit eventkit events for storage and bandwidth rollup" default:"false"`
 }
 
 // Service is the rollup service for totalling data on storage nodes on daily intervals.
 //
 // architecture: Chore
 type Service struct {
-	logger                 *zap.Logger
-	Loop                   *sync2.Cycle
-	sdb                    accounting.StoragenodeAccounting
-	deleteTallies          bool
-	deleteTalliesBatchSize int
-	OrderExpiration        time.Duration
+	logger                  *zap.Logger
+	Loop                    *sync2.Cycle
+	sdb                     accounting.StoragenodeAccounting
+	deleteTallies           bool
+	deleteTalliesBatchSize  int
+	OrderExpiration         time.Duration
+	eventkitTrackingEnabled bool
 }
 
 // New creates a new rollup service.
 func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, config Config, orderExpiration time.Duration) *Service {
 	return &Service{
-		logger:                 logger,
-		Loop:                   sync2.NewCycle(config.Interval),
-		sdb:                    sdb,
-		deleteTallies:          config.DeleteTallies,
-		deleteTalliesBatchSize: config.DeleteTalliesBatchSize,
-		OrderExpiration:        orderExpiration,
+		logger:                  logger,
+		Loop:                    sync2.NewCycle(config.Interval),
+		sdb:                     sdb,
+		deleteTallies:           config.DeleteTallies,
+		deleteTalliesBatchSize:  config.DeleteTalliesBatchSize,
+		OrderExpiration:         orderExpiration,
+		eventkitTrackingEnabled: config.EventkitTrackingEnabled,
 	}
 }
 
@@ -99,6 +103,11 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 	err = r.sdb.SaveRollup(ctx, latestTally, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	// Emit eventkit events for storage and bandwidth rollup if enabled
+	if r.eventkitTrackingEnabled {
+		r.emitRollupEvents(rollupStats)
 	}
 
 	if r.deleteTallies {
@@ -190,4 +199,86 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 	}
 
 	return nil
+}
+
+// emitRollupEvents emits eventkit events for storage and bandwidth rollup data.
+func (r *Service) emitRollupEvents(rollupStats accounting.RollupStats) {
+	for day, nodeRollups := range rollupStats {
+		for nodeID, rollup := range nodeRollups {
+			// Emit storage rollup event if there's storage data
+			if rollup.AtRestTotal > 0 {
+				r.emitStorageRollupEvents(nodeID, day, rollup)
+			}
+
+			// Emit bandwidth rollup event if there's bandwidth data
+			hasBandwidth := rollup.PutTotal > 0 || rollup.GetTotal > 0 ||
+				rollup.GetAuditTotal > 0 || rollup.GetRepairTotal > 0 || rollup.PutRepairTotal > 0
+			if hasBandwidth {
+				ek.Event("bandwidth_rollup",
+					eventkit.Bytes("node_id", nodeID.Bytes()),
+					eventkit.String("tenant_id", ""), // Reserved for future use
+					eventkit.Timestamp("day", day),
+					eventkit.Int64("put_total", rollup.PutTotal),
+					eventkit.Int64("get_total", rollup.GetTotal),
+					eventkit.Int64("get_audit_total", rollup.GetAuditTotal),
+					eventkit.Int64("get_repair_total", rollup.GetRepairTotal),
+					eventkit.Int64("put_repair_total", rollup.PutRepairTotal),
+					eventkit.String("event_type", "time_aggregated"),
+				)
+			}
+		}
+	}
+}
+
+func (r *Service) emitStorageRollupEvents(nodeID storj.NodeID, day time.Time, rollup *accounting.Rollup) {
+	startTime := rollup.StartTime
+	endTime := rollup.IntervalEndTime
+
+	emitSingle := func() {
+		ek.Event("storage_rollup",
+			eventkit.Bytes("node_id", nodeID.Bytes()),
+			eventkit.String("tenant_id", ""), // Reserved for future use
+			eventkit.Timestamp("day", day),
+			eventkit.Timestamp("interval_start", startTime),
+			eventkit.Timestamp("interval_end", endTime),
+			eventkit.Float64("at_rest_total", rollup.AtRestTotal),
+			eventkit.String("event_type", "time_aggregated"),
+		)
+	}
+
+	// Check if the interval crosses day boundaries
+	if startTime.UTC().Truncate(24 * time.Hour).Equal(endTime.UTC().Truncate(24 * time.Hour)) {
+		emitSingle()
+	} else {
+		// Crosses day boundaries - normalize and emit one event per day
+		dailyEvents, err := accounting.NormalizeAcrossDayBoundaries(startTime, endTime, rollup.AtRestTotal)
+		if err != nil {
+			r.logger.Error("failed to normalize storage rollup across day boundaries; reporting single event instead", zap.Error(err))
+			emitSingle()
+			return
+		}
+		for _, dailyEvent := range dailyEvents {
+			dayStart := dailyEvent.Date
+			dayEnd := dayStart.Add(24 * time.Hour)
+
+			intervalStart := startTime
+			if intervalStart.Before(dayStart) {
+				intervalStart = dayStart
+			}
+			intervalEnd := endTime
+			if intervalEnd.After(dayEnd) {
+				intervalEnd = dayEnd
+			}
+
+			ek.Event("storage_rollup",
+				eventkit.Bytes("node_id", nodeID.Bytes()),
+				eventkit.String("tenant_id", ""), // Reserved for future use
+				eventkit.Timestamp("day", dailyEvent.Date),
+				eventkit.Timestamp("interval_start", intervalStart),
+				eventkit.Timestamp("interval_end", intervalEnd),
+				eventkit.Float64("at_rest_total", dailyEvent.Amount),
+				eventkit.String("event_type", "time_aggregated"),
+			)
+		}
+	}
 }

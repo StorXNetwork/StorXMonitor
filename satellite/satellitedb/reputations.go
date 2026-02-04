@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 )
 
 var _ reputation.DB = (*reputations)(nil)
@@ -174,6 +175,7 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 	return &reputation.Info{
 		AuditSuccessCount:           res.AuditSuccessCount,
 		TotalAuditCount:             res.TotalAuditCount,
+		CreatedAt:                   &res.CreatedAt,
 		VettedAt:                    res.VettedAt,
 		UnknownAuditSuspended:       res.UnknownAuditSuspended,
 		OfflineSuspended:            res.OfflineSuspended,
@@ -194,9 +196,11 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
+		if reputations.db.impl == dbutil.Cockroach || reputations.db.impl == dbutil.Postgres {
+			_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
@@ -206,11 +210,19 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 				return err
 			}
 
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO reputations (id, audit_history)
-				VALUES ($1, $2)
-				ON CONFLICT (id) DO NOTHING
-			`, nodeID.Bytes(), historyBytes)
+			switch reputations.db.impl {
+			case dbutil.Cockroach, dbutil.Postgres:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT INTO reputations (id, audit_history)
+					VALUES ($1, $2)
+					ON CONFLICT (id) DO NOTHING`,
+					nodeID, historyBytes)
+			case dbutil.Spanner:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT OR IGNORE INTO reputations (id, audit_history)
+					VALUES (?, ?)`,
+					nodeID, historyBytes)
+			}
 			if err != nil {
 				return err
 			}
@@ -234,9 +246,11 @@ func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nod
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
+		if reputations.db.impl == dbutil.Cockroach || reputations.db.impl == dbutil.Postgres {
+			_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
@@ -246,11 +260,19 @@ func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nod
 				return err
 			}
 
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO reputations (id, audit_history)
-				VALUES ($1, $2)
-				ON CONFLICT (id) DO NOTHING
-			`, nodeID.Bytes(), historyBytes)
+			switch reputations.db.impl {
+			case dbutil.Cockroach, dbutil.Postgres:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT INTO reputations (id, audit_history)
+					VALUES ($1, $2)
+					ON CONFLICT (id) DO NOTHING
+				`, nodeID, historyBytes)
+			case dbutil.Spanner:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT OR IGNORE INTO reputations (id, audit_history)
+					VALUES (?, ?);
+				`, nodeID, historyBytes)
+			}
 			if err != nil {
 				return err
 			}
@@ -273,9 +295,11 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
+		if reputations.db.impl == dbutil.Cockroach || reputations.db.impl == dbutil.Postgres {
+			_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
@@ -285,11 +309,20 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 				return err
 			}
 
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO reputations (id, audit_history)
-				VALUES ($1, $2)
-				ON CONFLICT (id) DO NOTHING
-			`, nodeID.Bytes(), historyBytes)
+			switch reputations.db.impl {
+			case dbutil.Cockroach, dbutil.Postgres:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT INTO reputations (id, audit_history)
+					VALUES ($1, $2)
+					ON CONFLICT (id) DO NOTHING
+				`, nodeID, historyBytes)
+			case dbutil.Spanner:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT OR IGNORE INTO reputations (id, audit_history)
+					VALUES (?, ?);
+				`, nodeID, historyBytes)
+			}
+
 			if err != nil {
 				return err
 			}
@@ -439,7 +472,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	totalAuditCount := dbNode.TotalAuditCount
 	vettedAt := dbNode.VettedAt
 
-	logger := reputations.db.log.With(zap.Stringer("Node ID", zapNodeIDBytes(dbNode.Id)))
+	logger := reputations.db.log.With(zap.Stringer("node_id", zapNodeIDBytes(dbNode.Id)))
 
 	// Here we rely on the observation that, conceptually, if we have
 	// collected some list of successes failures while auditing node N
@@ -500,11 +533,11 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	// offline results affect only the total count.
 	updatedTotalAuditCount := totalAuditCount + int64(updates.OfflineResults+updates.UnknownResults+updates.FailureResults+updates.PositiveResults)
 
-	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)                //mon:locked
-	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //mon:locked
-	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //mon:locked
-	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //mon:locked
-	mon.FloatVal("audit_online_score").Observe(historyResponse.NewScore)      //mon:locked
+	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
+	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha)
+	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)
+	mon.FloatVal("audit_online_score").Observe(historyResponse.NewScore)
 
 	updateFields := updateNodeStats{
 		NodeID:                      dbNode.Id,
@@ -519,7 +552,8 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		OnlineScore: float64Field{set: true, value: historyResponse.NewScore},
 	}
 
-	if vettedAt == nil && updatedTotalAuditCount >= config.AuditCount {
+	timeSinceCreation := now.Sub(dbNode.CreatedAt)
+	if vettedAt == nil && timeSinceCreation >= config.MinimumNodeAge && updatedTotalAuditCount >= config.AuditCount {
 		updateFields.VettedAt = timeField{set: true, value: now}
 	}
 
@@ -527,8 +561,8 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	//   a) Success/fail audit reputation falls below audit DQ threshold
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= config.AuditDQ {
-		logger.Info("Disqualified", zap.String("DQ type", "audit failure"))
-		mon.Meter("bad_audit_dqs").Mark(1) //mon:locked
+		logger.Info("Disqualified", zap.String("dq_type", "audit failure"))
+		mon.Meter("bad_audit_dqs").Mark(1)
 		updateFields.Disqualified = timeField{set: true, value: now}
 		updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonAuditFailure)}
 	}
@@ -537,7 +571,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	unknownAuditRep := unknownAuditAlpha / (unknownAuditAlpha + unknownAuditBeta)
 	if unknownAuditRep <= config.UnknownAuditDQ {
 		if dbNode.UnknownAuditSuspended == nil {
-			logger.Info("Suspended", zap.String("Category", "Unknown Audits"))
+			logger.Info("Suspended", zap.String("category", "Unknown Audits"))
 			updateFields.UnknownAuditSuspended = timeField{set: true, value: now}
 		}
 
@@ -553,14 +587,14 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		if dbNode.UnknownAuditSuspended != nil && !updateFields.UnknownAuditSuspended.set &&
 			time.Since(*dbNode.UnknownAuditSuspended) > config.SuspensionGracePeriod &&
 			config.SuspensionDQEnabled {
-			logger.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"))
-			mon.Meter("unknown_suspension_dqs").Mark(1) //mon:locked
+			logger.Info("Disqualified", zap.String("dq_type", "suspension grace period expired for unknown audits"))
+			mon.Meter("unknown_suspension_dqs").Mark(1)
 			updateFields.Disqualified = timeField{set: true, value: now}
 			updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonSuspension)}
 			updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 		}
 	} else if dbNode.UnknownAuditSuspended != nil {
-		logger.Info("Suspension lifted", zap.String("Category", "Unknown Audits"))
+		logger.Info("Suspension lifted", zap.String("category", "Unknown Audits"))
 		updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 	}
 
@@ -602,8 +636,8 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		if trackingPeriodPassed {
 			if penalizeOfflineNode {
 				if config.AuditHistory.OfflineDQEnabled {
-					logger.Info("Disqualified", zap.String("DQ type", "node offline"))
-					mon.Meter("offline_dqs").Mark(1) //mon:locked
+					logger.Info("Disqualified", zap.String("dq_type", "node offline"))
+					mon.Meter("offline_dqs").Mark(1)
 					updateFields.Disqualified = timeField{set: true, value: now}
 					updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonNodeOffline)}
 				}
@@ -669,6 +703,7 @@ func dbxToReputationInfo(dbNode *dbx.Reputation) (reputation.Info, error) {
 	info := reputation.Info{
 		AuditSuccessCount:           dbNode.AuditSuccessCount,
 		TotalAuditCount:             dbNode.TotalAuditCount,
+		CreatedAt:                   &dbNode.CreatedAt,
 		VettedAt:                    dbNode.VettedAt,
 		UnknownAuditSuspended:       dbNode.UnknownAuditSuspended,
 		OfflineSuspended:            dbNode.OfflineSuspended,

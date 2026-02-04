@@ -5,7 +5,7 @@ package emailreminders
 
 import (
 	"context"
-	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -130,16 +130,19 @@ func (chore *Chore) sendVerificationReminders(ctx context.Context) (err error) {
 
 	for _, u := range users {
 		token, err := chore.tokens.CreateToken(ctx, u.ID, u.Email)
-
 		if err != nil {
 			return errs.New("error generating activation token: %w", err)
 		}
-		authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, "", chore.address, "", "", "", "", false, nil)
 
-		link := authController.ActivateAccountURL + "?token=" + token
+		authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, nil, nil, "", chore.address, "", "", "", "", false, false, nil, "", nil, console.TenantWhiteLabelConfig{}, console.SingleWhiteLabelConfig{})
+
+		linkBase, err := url.JoinPath(authController.ExternalAddress, "activation")
+		if err != nil {
+			return errs.New("error sending verification reminder: %w", err)
+		}
 
 		err = chore.sendEmail(ctx, u.Email, &console.AccountActivationEmail{
-			ActivationLink: link,
+			ActivationLink: linkBase + "?token=" + token,
 			Origin:         authController.ExternalAddress,
 		})
 		if err != nil {
@@ -169,7 +172,7 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 	mon.IntVal("expiring_needing_reminder").Observe(int64(len(users)))
 
 	expirationWarning := &console.TrialExpirationReminderEmail{
-		SignInLink:          chore.address + fmt.Sprintf("login?source=%s", analytics.SourceTrialExpiringNotice),
+		SignInLink:          chore.address + "login?source=" + analytics.SourceTrialExpiringNotice,
 		Origin:              chore.address,
 		ContactInfoURL:      chore.supportURL,
 		ScheduleMeetingLink: chore.scheduleMeetingURL,
@@ -196,7 +199,7 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 	mon.IntVal("expired_needing_notice").Observe(int64(len(users)))
 
 	expirationNotice := &console.TrialExpiredEmail{
-		SignInLink:          chore.address + fmt.Sprintf("login?source=%s", analytics.SourceTrialExpiredNotice),
+		SignInLink:          chore.address + "login?source=" + analytics.SourceTrialExpiredNotice,
 		Origin:              chore.address,
 		ContactInfoURL:      chore.supportURL,
 		ScheduleMeetingLink: chore.scheduleMeetingURL,

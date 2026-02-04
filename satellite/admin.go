@@ -22,13 +22,16 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/auditlogger"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
@@ -61,6 +64,10 @@ type Admin struct {
 		Service *analytics.Service
 	}
 
+	Entitlements struct {
+		Service *entitlements.Service
+	}
+
 	Payments struct {
 		Accounts payments.Accounts
 		Service  *stripe.Service
@@ -70,6 +77,7 @@ type Admin struct {
 	Admin struct {
 		Listener net.Listener
 		Server   *admin.Server
+		Service  *admin.Service
 	}
 
 	Buckets struct {
@@ -77,7 +85,7 @@ type Admin struct {
 	}
 
 	REST struct {
-		Keys *restkeys.Service
+		Keys restapikeys.Service
 	}
 
 	FreezeAccounts struct {
@@ -107,11 +115,17 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 	}
 
 	{
-		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
+		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB, db.Attribution())
 	}
 
 	{ // setup rest keys
-		peer.REST.Keys = restkeys.NewService(db.OIDC().OAuthTokens(), config.RESTKeys)
+		peer.REST.Keys = console.NewRestKeysService(
+			log.Named("restKeyService"),
+			db.Console().RestApiKeys(),
+			restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.Console.RestAPIKeys.DefaultExpiration),
+			time.Now,
+			config.Console.Config,
+		)
 	}
 
 	{ // setup debug
@@ -141,13 +155,20 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 	}
 
 	{ // setup analytics
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "analytics:service",
 			Run:   peer.Analytics.Service.Run,
 			Close: peer.Analytics.Service.Close,
 		})
+	}
+
+	{ // setup entitlements
+		peer.Entitlements.Service = entitlements.NewService(
+			peer.Log.Named("entitlements:service"),
+			db.Console().Entitlements(),
+		)
 	}
 
 	{ // setup payments
@@ -178,28 +199,59 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		productPrices, err := pc.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.FreezeAccounts.Service = console.NewAccountFreezeService(
 			db.Console(),
 			peer.Analytics.Service,
 			config.Console.AccountFreeze,
 		)
 
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		if config.Console.NewPricingStartDate != "" {
+			_, err = time.Parse("2006-01-02", config.Console.NewPricingStartDate)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+		}
+
 		peer.Payments.Service, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
+			stripe.ServiceDependencies{
+				DB:           peer.DB.StripeCoinPayments(),
+				WalletsDB:    peer.DB.Wallets(),
+				BillingDB:    peer.DB.Billing(),
+				ProjectsDB:   peer.DB.Console().Projects(),
+				UsersDB:      peer.DB.Console().Users(),
+				UsageDB:      peer.DB.ProjectAccounting(),
+				Analytics:    peer.Analytics.Service,
+				Emission:     emission.NewService(config.Emission),
+				Entitlements: peer.Entitlements.Service,
+			},
+			stripe.ServiceConfig{
+				DeleteAccountEnabled:       config.Console.SelfServeAccountDeleteEnabled,
+				DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+				EntitlementsEnabled:        config.Entitlements.Enabled,
+			},
 			pc.StripeCoinPayments,
-			peer.DB.StripeCoinPayments(),
-			peer.DB.Wallets(),
-			peer.DB.Billing(),
-			peer.DB.Console().Projects(),
-			peer.DB.Console().Users(),
-			peer.DB.ProjectAccounting(),
-			prices,
-			priceOverrides,
-			pc.PackagePlans.Packages,
-			pc.BonusRate,
-			peer.Analytics.Service,
-			emission.NewService(config.Emission),
+			stripe.PricingConfig{
+				UsagePrices:         prices,
+				UsagePriceOverrides: priceOverrides,
+				ProductPriceMap:     productPrices,
+				PlacementProductMap: pc.PlacementPriceOverrides.ToMap(),
+				PackagePlans:        pc.PackagePlans.Packages,
+				BonusRate:           pc.BonusRate,
+				MinimumChargeAmount: pc.MinimumCharge.Amount,
+				MinimumChargeDate:   minimumChargeDate,
+			},
 		)
 
 		if err != nil {
@@ -216,6 +268,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 	{ // setup accounting project usage
 		peer.Accounting.Service = accounting.NewService(
+			log.Named("accounting:projectusage-service"),
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			*metabaseDB,
@@ -234,7 +287,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -281,13 +334,18 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			log.Named("admin"),
 			peer.Admin.Listener,
 			peer.DB,
+			metabaseDB,
 			peer.LiveAccounting.Cache,
 			peer.Buckets.Service,
 			peer.REST.Keys,
 			peer.FreezeAccounts.Service,
 			peer.Analytics.Service,
 			peer.Payments.Accounts,
+			peer.Admin.Service,
+			peer.Entitlements.Service,
+			placement,
 			config.Console,
+			config.Entitlements,
 			adminConfig,
 			placement,
 			developerService,
