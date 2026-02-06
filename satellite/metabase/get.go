@@ -331,6 +331,76 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 	return !value, nil
 }
 
+// GetBucketLatestObjectCreatedAt returns the latest (most recent) object created_at in the bucket.
+// Used for bucket-level immutability: expiry = latest object created_at + retention period.
+// If the bucket has no objects, returns (zero time, false, nil).
+func (db *DB) GetBucketLatestObjectCreatedAt(ctx context.Context, opts BucketEmpty) (latest time.Time, hasObjects bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch {
+	case opts.ProjectID.IsZero():
+		return time.Time{}, false, ErrInvalidRequest.New("ProjectID missing")
+	case opts.BucketName == "":
+		return time.Time{}, false, ErrInvalidRequest.New("BucketName missing")
+	}
+
+	var nullableLatest sql.NullTime
+	err = db.db.QueryRowContext(ctx, `
+		SELECT MAX(created_at) FROM objects
+		WHERE (project_id, bucket_name) = ($1, $2)
+	`, opts.ProjectID, []byte(opts.BucketName)).Scan(&nullableLatest)
+	if err != nil {
+		return time.Time{}, false, Error.New("unable to query latest object created_at: %w", err)
+	}
+	if !nullableLatest.Valid {
+		return time.Time{}, false, nil
+	}
+	return nullableLatest.Time, true, nil
+}
+
+// GetPrefixLatestObjectCreatedAtOptions contains arguments for getting latest object created_at under a prefix (folder).
+type GetPrefixLatestObjectCreatedAtOptions struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	Prefix     ObjectKey 
+}
+
+// GetPrefixLatestObjectCreatedAt returns the latest (most recent) object created_at under the given prefix (folder).
+// Used for folder-level immutability: expiry = latest object created_at in prefix + retention period.
+// If the prefix has no objects, returns (zero time, false, nil).
+func (db *DB) GetPrefixLatestObjectCreatedAt(ctx context.Context, opts GetPrefixLatestObjectCreatedAtOptions) (latest time.Time, hasObjects bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch {
+	case opts.ProjectID.IsZero():
+		return time.Time{}, false, ErrInvalidRequest.New("ProjectID missing")
+	case opts.BucketName == "":
+		return time.Time{}, false, ErrInvalidRequest.New("BucketName missing")
+	}
+
+	var nullableLatest sql.NullTime
+	if opts.Prefix == "" {
+		err = db.db.QueryRowContext(ctx, `
+			SELECT MAX(created_at) FROM objects
+			WHERE (project_id, bucket_name) = ($1, $2)
+			`, opts.ProjectID, []byte(opts.BucketName)).Scan(&nullableLatest)
+	} else {
+		prefixLimit := prefixLimit(opts.Prefix)
+		err = db.db.QueryRowContext(ctx, `
+			SELECT MAX(created_at) FROM objects
+			WHERE (project_id, bucket_name) = ($1, $2)
+			AND object_key >= $3 AND object_key < $4
+			`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.Prefix), []byte(prefixLimit)).Scan(&nullableLatest)
+	}
+	if err != nil {
+		return time.Time{}, false, Error.New("unable to query latest object created_at for prefix: %w", err)
+	}
+	if !nullableLatest.Valid {
+		return time.Time{}, false, nil
+	}
+	return nullableLatest.Time, true, nil
+}
+
 // TestingAllCommittedObjects gets all objects from bucket.
 // Use only for testing purposes.
 func (db *DB) TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []ObjectEntry, err error) {

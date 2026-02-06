@@ -255,6 +255,8 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 }
 
 // DeleteBucket deletes a bucket.
+// Empty buckets are deleted immediately. When the bucket has objects, immutability uses
+// the latest object created_at in the bucket + retention period; delete is allowed only after that expiry.
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -301,12 +303,23 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	// Check immutability rules: deletion allowed only after bucket's latest-creation reference + retention period (using bucket creation time).
+	// Bucket has objects: apply immutability based on latest object created_at + retention.
+	// Expiry = (latest object inserted in bucket).CreatedAt + retention period; delete allowed only after that.
 	bucketData, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err == nil && bucketData.ImmutabilityRules.Immutability && bucketData.ImmutabilityRules.RetentionPeriod > 0 {
-		expiry := bucketData.Created.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
-		if time.Now().Before(expiry) {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("bucket is immutable until %s", expiry.Format(time.RFC3339)))
+		latestCreatedAt, hasObjects, err := endpoint.metabase.GetBucketLatestObjectCreatedAt(ctx, metabase.BucketEmpty{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Name),
+		})
+		if err != nil {
+			return nil, err
+		}
+		// If no objects in bucket, skip immutability check and allow delete.
+		if hasObjects {
+			expiry := latestCreatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
+			if time.Now().Before(expiry) {
+				return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("bucket is immutable until %s", expiry.Format(time.RFC3339)))
+			}
 		}
 	}
 

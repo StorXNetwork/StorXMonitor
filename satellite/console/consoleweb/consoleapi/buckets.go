@@ -146,7 +146,14 @@ func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetImmutabilityRules returns the immutability rules (status) for a specific bucket.
+// bucketImmutabilityRulesItem is the per-bucket payload for GetImmutabilityRules.
+type bucketImmutabilityRulesItem struct {
+	BucketName        string                    `json:"bucketName"`
+	ImmutabilityRules buckets.ImmutabilityRules `json:"immutabilityRules"`
+}
+
+// GetImmutabilityRules returns immutability rules for all buckets in the project.
+// Response: { "buckets": [ { "bucketName", "immutabilityRules" }, ... ] }.
 // Project-scoped authorization is enforced via GetProject before fetching bucket metadata.
 func (b *Buckets) GetImmutabilityRules(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -166,13 +173,6 @@ func (b *Buckets) GetImmutabilityRules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bucketName := r.URL.Query().Get("bucketName")
-	if bucketName == "" {
-		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "bucketName"))
-		return
-	}
-
-	// Project-scoped authorization: fail fast before fetching bucket metadata.
 	if _, err = b.service.GetProject(ctx, projectID); err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -192,22 +192,19 @@ func (b *Buckets) GetImmutabilityRules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rules *buckets.ImmutabilityRules
+	resp := struct {
+		Buckets []bucketImmutabilityRulesItem `json:"buckets"`
+	}{
+		Buckets: make([]bucketImmutabilityRulesItem, 0, len(bucketMetadata)),
+	}
 	for _, bm := range bucketMetadata {
-		if bm.Name == bucketName {
-			ruleCopy := bm.ImmutabilityRules
-			rules = &ruleCopy
-			break
-		}
+		resp.Buckets = append(resp.Buckets, bucketImmutabilityRulesItem{
+			BucketName:        bm.Name,
+			ImmutabilityRules: bm.ImmutabilityRules,
+		})
 	}
-	if rules == nil {
-		b.serveJSONError(ctx, w, http.StatusNotFound, errs.New("bucket %q not found in project", bucketName))
-		return
-	}
-
-	if err = json.NewEncoder(w).Encode(rules); err != nil {
+	if err = json.NewEncoder(w).Encode(resp); err != nil {
 		b.log.Error("failed to write json get immutability rules response", zap.Error(ErrBucketsAPI.Wrap(err)))
-		return
 	}
 }
 
