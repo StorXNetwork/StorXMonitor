@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"time"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
@@ -35,9 +34,6 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	}
 	if !bucket.CreatedBy.IsZero() {
 		optionalFields.CreatedBy = dbx.BucketMetainfo_CreatedBy(bucket.CreatedBy[:])
-	}
-	if bucket.ImmutabilityRules.UpdatedAt.IsZero() {
-		bucket.ImmutabilityRules.UpdatedAt = time.Now()
 	}
 	rules, err := json.Marshal(bucket.ImmutabilityRules)
 	if err != nil {
@@ -217,9 +213,6 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	}
 
 	updateFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
-	if bucket.ImmutabilityRules.UpdatedAt.IsZero() {
-		bucket.ImmutabilityRules.UpdatedAt = time.Now()
-	}
 
 	rules, err := json.Marshal(bucket.ImmutabilityRules)
 	if err != nil {
@@ -252,10 +245,6 @@ func (db *bucketsDB) UpdateBucketMigrationStatus(ctx context.Context, bucketName
 // UpdateBucketImmutabilityRules updates the immutability rules of a bucket.
 func (db *bucketsDB) UpdateBucketImmutabilityRules(ctx context.Context, bucketName []byte, projectID uuid.UUID, rules buckets.ImmutabilityRules) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if rules.UpdatedAt.IsZero() {
-		rules.UpdatedAt = time.Now()
-	}
 
 	marshaledRules, err := json.Marshal(rules)
 	if err != nil {

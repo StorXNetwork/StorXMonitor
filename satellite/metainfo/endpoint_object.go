@@ -1669,12 +1669,24 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 	}
 
 	var result metabase.DeleteObjectResult
-	// Check immutability rules
+	// Check immutability rules: deletion allowed only after object's created_at + retention period.
 	bucketData, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
-	if err == nil && bucketData.ImmutabilityRules.Immutability {
-		expiry := bucketData.ImmutabilityRules.UpdatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
-		if time.Now().Before(expiry) {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("object is immutable until %s", expiry.Format(time.RFC3339)))
+	if err == nil && bucketData.ImmutabilityRules.Immutability && bucketData.ImmutabilityRules.RetentionPeriod > 0 {
+		var obj metabase.Object
+		if len(version) == 0 {
+			obj, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{ObjectLocation: req})
+		} else {
+			var sv metabase.StreamVersionID
+			sv, err = metabase.StreamVersionIDFromBytes(version)
+			if err == nil {
+				obj, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{ObjectLocation: req, Version: sv.Version()})
+			}
+		}
+		if err == nil {
+			expiry := obj.CreatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
+			if time.Now().Before(expiry) {
+				return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("object is immutable until %s", expiry.Format(time.RFC3339)))
+			}
 		}
 	}
 

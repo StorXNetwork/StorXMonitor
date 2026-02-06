@@ -301,10 +301,10 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	// Check immutability rules
+	// Check immutability rules: deletion allowed only after bucket's latest-creation reference + retention period (using bucket creation time).
 	bucketData, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
-	if err == nil && bucketData.ImmutabilityRules.Immutability {
-		expiry := bucketData.ImmutabilityRules.UpdatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
+	if err == nil && bucketData.ImmutabilityRules.Immutability && bucketData.ImmutabilityRules.RetentionPeriod > 0 {
+		expiry := bucketData.Created.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
 		if time.Now().Before(expiry) {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("bucket is immutable until %s", expiry.Format(time.RFC3339)))
 		}
@@ -520,18 +520,15 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 
 	// Set default immutability rules for automated backup buckets
 	bucketName := strings.ToLower(bucket.Name)
-	now := time.Now()
 	if bucketName == "gmail" || bucketName == "google-drive" || bucketName == "google-photos" || bucketName == "outlook" {
 		bucket.ImmutabilityRules = buckets.ImmutabilityRules{
 			Immutability:    true,
 			RetentionPeriod: 90,
-			UpdatedAt:       now,
 		}
 	} else {
 		bucket.ImmutabilityRules = buckets.ImmutabilityRules{
 			Immutability:    false,
 			RetentionPeriod: 0,
-			UpdatedAt:       now,
 		}
 	}
 

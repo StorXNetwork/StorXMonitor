@@ -48,10 +48,11 @@ type Bucket struct {
 }
 
 // ImmutabilityRules represents the immutability rules of a bucket.
+// Deletion permission is based on the object's or bucket's latest file/folder created_at
+// plus RetentionPeriod, not on when these rules were updated.
 type ImmutabilityRules struct {
-	Immutability    bool      `json:"immutability"`
-	RetentionPeriod int       `json:"retention_period"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	Immutability    bool `json:"immutability"`
+	RetentionPeriod int  `json:"retention_period"`
 }
 
 // ListDirection specifies listing direction.

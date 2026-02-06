@@ -146,6 +146,71 @@ func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetImmutabilityRules returns the immutability rules (status) for a specific bucket.
+// Project-scoped authorization is enforced via GetProject before fetching bucket metadata.
+func (b *Buckets) GetImmutabilityRules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "projectID"))
+		return
+	}
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, projectIDString, "projectID", err))
+		return
+	}
+
+	bucketName := r.URL.Query().Get("bucketName")
+	if bucketName == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "bucketName"))
+		return
+	}
+
+	// Project-scoped authorization: fail fast before fetching bucket metadata.
+	if _, err = b.service.GetProject(ctx, projectID); err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	bucketMetadata, err := b.service.GetBucketMetadata(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	var rules *buckets.ImmutabilityRules
+	for _, bm := range bucketMetadata {
+		if bm.Name == bucketName {
+			ruleCopy := bm.ImmutabilityRules
+			rules = &ruleCopy
+			break
+		}
+	}
+	if rules == nil {
+		b.serveJSONError(ctx, w, http.StatusNotFound, errs.New("bucket %q not found in project", bucketName))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(rules); err != nil {
+		b.log.Error("failed to write json get immutability rules response", zap.Error(ErrBucketsAPI.Wrap(err)))
+		return
+	}
+}
+
 // UpdateImmutabilityRules updates the immutability rules of a bucket with re-authentication.
 func (b *Buckets) UpdateImmutabilityRules(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -212,7 +277,6 @@ func (b *Buckets) UpdateImmutabilityRules(w http.ResponseWriter, r *http.Request
 	rules := buckets.ImmutabilityRules{
 		Immutability:    request.Immutability,
 		RetentionPeriod: request.RetentionPeriod,
-		UpdatedAt:       time.Now(),
 	}
 
 	if !rules.Immutability {
