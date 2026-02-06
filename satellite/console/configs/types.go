@@ -23,6 +23,8 @@ const (
 	ConfigTypePushTemplate ConfigType = "sms"
 	// ConfigTypeDashboardCards represents dashboard cards configuration.
 	ConfigTypeDashboardCards ConfigType = "dashboard_cards"
+	// ConfigTypePopupMessages represents popup messages configuration.
+	ConfigTypePopupMessages ConfigType = "popup_messages"
 )
 
 // PreferenceCategory represents the category for user notification preferences.
