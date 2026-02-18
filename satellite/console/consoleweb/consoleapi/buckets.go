@@ -143,6 +143,49 @@ func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetPlacementDetails returns a list of available placements and their details.
+func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("Project ID was not provided."))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	placementDetails, err := b.service.GetPlacementDetails(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	details := make([]console.PlacementDetail, 0, len(placementDetails))
+	for _, detail := range placementDetails {
+		detail.Pending = detail.WaitlistURL != ""
+		detail.WaitlistURL = ""
+		details = append(details, detail)
+	}
+	err = json.NewEncoder(w).Encode(details)
+	if err != nil {
+		b.log.Error("failed to write placement details json", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
 func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -280,6 +323,59 @@ func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(totals)
 	if err != nil {
 		b.log.Error("failed to write json bucket totals response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
+// GetSingleBucketTotals returns a single bucket usage totals since project creation.
+func (b *Buckets) GetSingleBucketTotals(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "projectID"))
+		return
+	}
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, projectIDString, "projectID", err))
+		return
+	}
+
+	beforeString := r.URL.Query().Get("before")
+	if beforeString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "before"))
+		return
+	}
+	before, err := time.Parse(dateLayout, beforeString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, beforeString, "before", err))
+		return
+	}
+
+	bucketString := r.URL.Query().Get("bucket")
+	if len(bucketString) < 3 || len(bucketString) > 63 {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, bucketString, "bucket", errs.New("bucket name must be at least 3 and no more than 63 characters long")))
+		return
+	}
+
+	totals, err := b.service.GetSingleBucketTotals(ctx, projectID, bucketString, before)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(totals)
+	if err != nil {
+		b.log.Error("failed to write json single bucket totals response", zap.Error(ErrBucketsAPI.Wrap(err)))
 	}
 }
 

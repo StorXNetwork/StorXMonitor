@@ -16,6 +16,9 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"net/http"
+	"net/mail"
+	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,6 +42,8 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/blockchain"
@@ -49,6 +54,12 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/configs"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"storj.io/storj/satellite/console/pushnotifications"
+	"storj.io/storj/satellite/console/restapikeys"
+	"storj.io/storj/satellite/console/valdi"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing/eventingconfig"
@@ -59,6 +70,8 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/smartcontract"
+	"storj.io/storj/satellite/tenancy"
 )
 
 var mon = monkit.Package()
@@ -105,6 +118,11 @@ const (
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
 	contactSupportErrMsg                 = "Please contact support"
 	accountActionWrongStepOrderErrMsg    = "Wrong step order. Please restart the flow"
+)
+
+var (
+	Regex_EmailValidation = regexp.MustCompile(`^([a-zA-Z0-9._%-+]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$`)
+	Regex_NameValidation  = regexp.MustCompile(`^(?:(?:[a-zA-z,\.-]+)\s*){2,6}$`)
 )
 
 var (
@@ -211,6 +229,22 @@ var (
 
 	// ErrLoginRestricted occurs when a user with PendingBotVerification or LegalHold status tries to log in.
 	ErrLoginRestricted = errs.Class("user can't be authenticated")
+
+	// ErrFailedToUpgrade occurs when a user can't be upgraded to paid tier.
+	ErrFailedToUpgrade = errs.Class("failed to upgrade user to paid tier")
+
+	// ErrPlacementNotFound occurs when a placement is not found.
+	ErrPlacementNotFound = errs.Class("placement not found")
+
+	// ErrAccountFrozen occurs when an action cannot be performed because the account is frozen.
+	ErrAccountFrozen = errs.Class("Account frozen")
+
+	// ErrInvalidKey is an error type that occurs when a user submits an API key
+	// that does not match anything in the database.
+	ErrInvalidKey = errs.Class("invalid key")
+
+	// ErrInvalidUserDetails occurs when basic detail of the users are not as per expectation.
+	ErrInvalidUserDetails = errs.Class("invalid user details")
 )
 
 // Service is handling accounts related logic.
@@ -240,18 +274,42 @@ type Service struct {
 	hubspotMailService         *hubspotmails.Service
 	accountFreezeService       *AccountFreezeService
 	emission                   *emission.Service
+	kmsService                 *kms.Service
+	ssoService                 *sso.Service
+	valdiService               *valdi.Service
 
-	satelliteAddress string
-	satelliteName    string
+	satelliteAddress        string
+	satelliteName           string
+	whiteLabelConfig        TenantWhiteLabelConfig
+	pushNotificationService *pushnotifications.Service
+
+	paymentSourceChainIDs map[int64]string
+
+	entitlementsService *entitlements.Service
+	entitlementsConfig  entitlements.Config
+
+	minimumChargeAmount int64
+	minimumChargeDate   *time.Time
+
+	packagePlans map[string]payments.PackagePlan
+
+	legacyPlacements []storj.PlacementConstraint
 
 	config            Config
 	maxProjectBuckets int
+	ssoEnabled        bool
 
-	varPartners map[string]struct{}
+	varPartners             map[string]struct{}
+	auditableAPIKeyProjects map[string]struct{}
 
 	versioningConfig VersioningConfig
 
+	SatelliteNodeAddress string
+
 	nowFn func() time.Time
+
+	socialShareHelper smartcontract.SocialShareHelper
+	backupToolsURL    string
 
 	loginURL   string
 	supportURL string
@@ -627,7 +685,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, whiteLabelConfig TenantWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -706,7 +764,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		productConfigs:             productConfigs,
 		accounts:                   accounts,
 		depositWallets:             depositWallets,
-		billing:                    billingDb,
+		billing:                    billingDB,
 		registrationCaptchaHandler: registrationCaptchaHandler,
 		loginCaptchaHandler:        loginCaptchaHandler,
 		analytics:                  analytics,
@@ -724,6 +782,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		whiteLabelConfig:           whiteLabelConfig,
 		maxProjectBuckets:          maxProjectBuckets,
 		ssoEnabled:                 ssoEnabled,
+		pushNotificationService:    pushNotificationService,
 		config:                     config,
 		varPartners:                partners,
 		versioningConfig:           versioning,
@@ -736,6 +795,197 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 		return req.RemoteAddr, req.Header.Get("X-Forwarded-For")
 	}
 	return "", ""
+}
+
+// parseDeviceInfo extracts device and browser information from User-Agent string.
+func parseDeviceInfo(userAgent string) (device, browser string) {
+	if userAgent == "" {
+		return "Unknown Device", "Unknown Browser"
+	}
+
+	ua := strings.ToLower(userAgent)
+
+	// Detect device type
+	device = "Desktop"
+	if strings.Contains(ua, "mobile") || strings.Contains(ua, "android") || strings.Contains(ua, "iphone") || strings.Contains(ua, "ipod") {
+		device = "Mobile"
+	} else if strings.Contains(ua, "tablet") || strings.Contains(ua, "ipad") {
+		device = "Tablet"
+	}
+
+	// Detect browser
+	browser = "Unknown Browser"
+	browserVersion := ""
+
+	// Chrome
+	if strings.Contains(ua, "chrome") && !strings.Contains(ua, "edg") && !strings.Contains(ua, "opr") {
+		browser = "Chrome"
+		if match := regexp.MustCompile(`chrome/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "safari") && !strings.Contains(ua, "chrome") && !strings.Contains(ua, "crios") {
+		browser = "Safari"
+		if match := regexp.MustCompile(`version/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "firefox") {
+		browser = "Firefox"
+		if match := regexp.MustCompile(`firefox/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "edg") {
+		browser = "Edge"
+		if match := regexp.MustCompile(`edg/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			browserVersion = match[1]
+		}
+	} else if strings.Contains(ua, "opr") || strings.Contains(ua, "opera") {
+		browser = "Opera"
+		if match := regexp.MustCompile(`opr/([\d.]+)|opera/([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			if match[1] != "" {
+				browserVersion = match[1]
+			} else if len(match) > 2 && match[2] != "" {
+				browserVersion = match[2]
+			}
+		}
+	}
+
+	// Detect OS and append to device
+	os := ""
+	if strings.Contains(ua, "windows") {
+		os = "Windows"
+	} else if strings.Contains(ua, "mac os x") || strings.Contains(ua, "macintosh") {
+		os = "macOS"
+	} else if strings.Contains(ua, "linux") {
+		os = "Linux"
+	} else if strings.Contains(ua, "android") {
+		os = "Android"
+		if match := regexp.MustCompile(`android ([\d.]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			os += " " + match[1]
+		}
+	} else if strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod") {
+		os = "iOS"
+		if match := regexp.MustCompile(`os ([\d_]+)`).FindStringSubmatch(ua); len(match) > 1 {
+			os += " " + strings.ReplaceAll(match[1], "_", ".")
+		}
+	}
+
+	// Format device string
+	if os != "" {
+		device = device + " (" + os + ")"
+	}
+
+	// Format browser string
+	if browserVersion != "" {
+		browser = browser + " " + browserVersion
+	}
+
+	return device, browser
+}
+
+// getLocationFromIP gets location information from IP address.
+// Returns location string with state if available, otherwise country or "Unknown Location".
+// This can be enhanced with MaxMind City DB or geolocation API service.
+func getLocationFromIP(ipAddress string) (location, state string) {
+	if ipAddress == "" || ipAddress == "0.0.0.0" || ipAddress == "127.0.0.1" || ipAddress == "::1" {
+		return "Unknown Location", ""
+	}
+
+	// TODO: Enhance this with MaxMind GeoIP2 City database or geolocation API
+	// For now, return a placeholder that can be enhanced
+	// Example implementation would use MaxMind City DB:
+	// - Lookup IP in MaxMind City database
+	// - Extract state/region (subdivisions_iso_code or subdivisions_name)
+	// - Extract country
+	// - Format as "State, Country" or "Country" if state not available
+
+	// Placeholder: Return formatted string
+	// In production, this should use MaxMind City DB or a geolocation API
+	location = "Unknown Location"
+	state = ""
+
+	// For now, we'll return a generic location
+	// This should be replaced with actual geolocation lookup
+	return location, state
+}
+
+// sendLoginNotificationEmail sends email notification for successful login.
+func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ipAddress, userAgent string) {
+	if s.mailService == nil {
+		return
+	}
+
+	go func() {
+		// Use background context to avoid cancellation when HTTP request completes
+		emailCtx := context.Background()
+		emailUserID := user.ID       // Capture user ID before closure
+		emailUserEmail := user.Email // Capture email before closure
+		emailUserName := user.ShortName
+		if emailUserName == "" {
+			emailUserName = user.FullName
+		}
+		emailIPAddress := ipAddress
+		if emailIPAddress == "" {
+			emailIPAddress = "0.0.0.0"
+		}
+		emailUserAgent := userAgent
+
+		// Parse device and browser information
+		device, browser := parseDeviceInfo(emailUserAgent)
+
+		// Get location from IP
+		location, state := getLocationFromIP(emailIPAddress)
+		locationStr := location
+		if state != "" {
+			locationStr = state + ", " + location
+		}
+
+		// Format login time
+		loginTime := time.Now().Format("January 2, 2006 at 3:04 PM MST")
+
+		// Prepare satellite address
+		satelliteAddress := s.satelliteAddress
+		if satelliteAddress == "" {
+			satelliteAddress = "https://storx.io/"
+		}
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+
+		signInLink := satelliteAddress + "login"
+		contactInfoURL := "https://forum.storx.io" // Default contact info URL
+
+		s.mailService.SendRenderedAsync(
+			emailCtx,
+			[]post.Address{{Address: emailUserEmail, Name: emailUserName}},
+			&LoginNotificationEmail{
+				Username:       emailUserName,
+				Device:         device,
+				Browser:        browser,
+				Location:       locationStr,
+				State:          state,
+				IPAddress:      emailIPAddress,
+				LoginTime:      loginTime,
+				SignInLink:     signInLink,
+				ContactInfoURL: contactInfoURL,
+			},
+		)
+		s.auditLog(emailCtx, "login notification email sent", &emailUserID, emailUserEmail,
+			zap.String("device", device),
+			zap.String("location", locationStr))
+	}()
+}
+
+// getSatelliteAddress returns the external satellite address for the current tenant context.
+// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
+// to the global satellite address.
+func (s *Service) getSatelliteAddress(ctx context.Context) string {
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if tenantID != "" {
+		if wlConfig, ok := s.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
+			return wlConfig.ExternalAddress
+		}
+	}
+	return s.satelliteAddress
 }
 
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
@@ -1061,15 +1311,26 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	if !user.PaidTier {
-		err = payment.upgradeToPaidTier(ctx, user)
-		if err != nil {
-			return payments.CreditCard{}, Error.Wrap(err)
-		}
+	card, err = payment.service.accounts.CreditCards().AddByPaymentMethodID(ctx, user.ID, params.Token, force)
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	return card, nil
-}
+	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
+
+	if user.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount == 0 {
+		err = payment.upgradeToPaidTier(ctx, user)
+		if err != nil {
+			return payments.CreditCard{}, err
+		}
+
+		payment.service.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&UpgradeToProEmail{LoginURL: payment.service.loginURL},
+		)
+		return card, nil
+	}
 
 	payment.service.mailService.SendRenderedAsync(
 		ctx,
@@ -1394,7 +1655,7 @@ func (payment Payments) RemoveCreditCard(ctx context.Context, cardID string) (er
 		return Error.Wrap(err)
 	}
 
-	return payment.service.accounts.CreditCards().Remove(ctx, user.ID, cardID)
+	return payment.service.accounts.CreditCards().Remove(ctx, user.ID, cardID, false)
 }
 
 // BillingHistory returns a list of billing history items for payment account.
@@ -1659,8 +1920,8 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 	return registrationToken, nil
 }
 
-// CreateUser gets password hash value and creates new inactive User.
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
+// VerifyRegistrationCaptcha verifies the registration captcha response.
+func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, userIP string) (valid bool, score *float64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if s.registrationCaptchaHandler != nil {
 		return s.registrationCaptchaHandler.Verify(ctx, captchaResp, userIP)
@@ -1687,7 +1948,7 @@ func (s *Service) ValidateSecurityToken(value string) error {
 }
 
 // CreateUser gets password hash value and creates new inactive User.
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, socialsign bool) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	mon.Counter("create_user_attempt").Inc(1)
@@ -2145,15 +2406,10 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token.
-func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, user *User) (token string, err error) {
+func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if s.ShouldRequireSsoByUser(user) {
-		s.auditLog(ctx, "sso user attempted 'forgot password' flow", &user.ID, user.Email)
-		return "", ErrSsoUserRestricted.New("SSO users cannot reset their password")
-	}
-
-	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, id)
 	if err == nil {
 		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
 		if err != nil {
@@ -2161,30 +2417,18 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, user *User)
 		}
 	}
 
-	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, user.ID)
+	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, id)
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
 
-	s.auditLog(ctx, "generate password recovery token", &user.ID, "")
+	s.auditLog(ctx, "generate password recovery token", &id, "")
 
 	return resetPasswordToken.Secret.String(), nil
 }
 
-// SessionTokenRequest contains information needed to create a session token.
-type SessionTokenRequest struct {
-	UserID          uuid.UUID
-	TenantID        *string
-	Email           string
-	IP              string
-	UserAgent       string
-	AnonymousID     string
-	CustomDuration  *time.Duration
-	HubspotObjectID *string
-}
-
 // GenerateSessionToken creates a new session and returns the string representation of its token.
-func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequest) (_ *TokenInfo, err error) {
+func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent, anonymousID string, hubspotObjectID, tenantID *string, customDuration *time.Duration) (_ *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sessionID, err := uuid.New()
@@ -2193,10 +2437,10 @@ func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequ
 	}
 
 	duration := s.config.Session.Duration
-	if req.CustomDuration != nil {
-		duration = *req.CustomDuration
+	if customDuration != nil {
+		duration = *customDuration
 	} else if s.config.Session.InactivityTimerEnabled {
-		settings, err := s.store.Users().GetSettings(ctx, req.UserID)
+		settings, err := s.store.Users().GetSettings(ctx, userID)
 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
@@ -2208,7 +2452,7 @@ func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequ
 	}
 	expiresAt := time.Now().Add(duration)
 
-	_, err = s.store.WebappSessions().Create(ctx, sessionID, req.UserID, req.IP, req.UserAgent, expiresAt)
+	_, err = s.store.WebappSessions().Create(ctx, sessionID, userID, ip, userAgent, expiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -2221,15 +2465,75 @@ func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequ
 	}
 	token.Signature = signature
 
-	s.auditLog(ctx, "login", &req.UserID, req.Email)
+	s.auditLog(ctx, "login", &userID, email)
 
-	s.analytics.TrackSignedIn(req.UserID, req.Email, req.AnonymousID, req.HubspotObjectID, req.TenantID)
+	s.analytics.TrackSignedIn(userID, email, anonymousID, hubspotObjectID, tenantID)
 
 	return &TokenInfo{
 		Token:     token,
 		ExpiresAt: expiresAt,
 	}, nil
 }
+
+// // SessionTokenRequest contains information needed to create a session token.
+// type SessionTokenRequest struct {
+// 	UserID          uuid.UUID
+// 	TenantID        *string
+// 	Email           string
+// 	IP              string
+// 	UserAgent       string
+// 	AnonymousID     string
+// 	CustomDuration  *time.Duration
+// 	HubspotObjectID *string
+// }
+
+// // GenerateSessionToken creates a new session and returns the string representation of its token.
+// func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequest) (_ *TokenInfo, err error) {
+// 	defer mon.Task()(&ctx)(&err)
+
+// 	sessionID, err := uuid.New()
+// 	if err != nil {
+// 		return nil, Error.Wrap(err)
+// 	}
+
+// 	duration := s.config.Session.Duration
+// 	if req.CustomDuration != nil {
+// 		duration = *req.CustomDuration
+// 	} else if s.config.Session.InactivityTimerEnabled {
+// 		settings, err := s.store.Users().GetSettings(ctx, req.UserID)
+// 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+// 			return nil, Error.Wrap(err)
+// 		}
+// 		if settings != nil && settings.SessionDuration != nil {
+// 			duration = *settings.SessionDuration
+// 		} else {
+// 			duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+// 		}
+// 	}
+// 	expiresAt := time.Now().Add(duration)
+
+// 	_, err = s.store.WebappSessions().Create(ctx, sessionID, req.UserID, req.IP, req.UserAgent, expiresAt)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	token := consoleauth.Token{Payload: sessionID.Bytes()}
+
+// 	signature, err := s.tokens.SignToken(token)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	token.Signature = signature
+
+// 	s.auditLog(ctx, "login", &req.UserID, req.Email)
+
+// 	s.analytics.TrackSignedIn(req.UserID, req.Email, req.AnonymousID, req.HubspotObjectID, req.TenantID)
+
+// 	return &TokenInfo{
+// 		Token:     token,
+// 		ExpiresAt: expiresAt,
+// 	}, nil
+// }
 
 // ActivateAccount - is a method for activating user account after registration.
 func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (user *User, err error) {
@@ -2308,7 +2612,13 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 	}
 
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
-	s.analytics.TrackAccountVerified(user.ID, user.Email)
+	s.analytics.TrackAccountVerified(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+
+	// Send push notification for account activated
+	variables := map[string]interface{}{
+		"email": user.Email,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "account_activated", "account", variables)
 
 	return nil
 }
@@ -2601,16 +2911,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		weekDuration := 7 * 24 * time.Hour
 		customDurationPtr = &weekDuration
 	}
-	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
-		UserID:          user.ID,
-		TenantID:        user.TenantID,
-		Email:           user.Email,
-		IP:              request.IP,
-		UserAgent:       request.UserAgent,
-		AnonymousID:     request.AnonymousID,
-		CustomDuration:  customDurationPtr,
-		HubspotObjectID: user.HubspotObjectID,
-	})
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, request.AnonymousID, user.HubspotObjectID, user.TenantID, customDurationPtr)
 	if err != nil {
 		return nil, err
 	}
@@ -2740,6 +3041,215 @@ func LoadAjsAnonymousID(req *http.Request) string {
 	if err != nil {
 		return ""
 	}
+	return cookie.Value
+}
+
+// TokenWithoutPassword authenticates User without credentials and returns session token.
+func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutPassword) (response *TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	mon.Counter("login_attempt").Inc(1) //mon:locked
+
+	user, err := s.store.Users().GetByEmail(ctx, request.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+
+	if user.LoginLockoutExpiration.After(now) {
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
+	if user.Status == PendingBotVerification || user.Status == LegalHold {
+		return nil, ErrLoginRestricted.New("")
+	}
+
+	if user.MFAEnabled {
+		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
+			mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa conflict", &user.ID, user.Email)
+			return nil, ErrMFAConflict.New(mfaConflictErrMsg)
+		}
+
+		handleLockAccount := func() error {
+			lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
+			if err != nil {
+				return err
+			}
+			if lockoutDuration > 0 {
+				address := s.satelliteAddress
+				if !strings.HasSuffix(address, "/") {
+					address += "/"
+				}
+
+				s.mailService.SendRenderedAsync(
+					ctx,
+					[]post.Address{{Address: user.Email, Name: user.FullName}},
+					&LoginLockAccountEmail{
+						LockoutDuration:   lockoutDuration,
+						ResetPasswordLink: address + "forgot-password",
+					},
+				)
+			}
+
+			mon.Counter("login_failed").Inc(1)                                          //mon:locked
+			mon.IntVal("login_user_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+
+			if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+				mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed login count reached maximum attempts", &user.ID, request.Email)
+			}
+
+			if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+				mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed locked account", &user.ID, request.Email)
+			}
+
+			return nil
+		}
+
+		if request.MFARecoveryCode != "" {
+			found := false
+			codeIndex := -1
+
+			for i, code := range user.MFARecoveryCodes {
+				if code == request.MFARecoveryCode {
+					found = true
+					codeIndex = i
+					break
+				}
+			}
+			if !found {
+				err = handleLockAccount()
+				if err != nil {
+					return nil, err
+				}
+				mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed mfa recovery", &user.ID, user.Email)
+				return nil, ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
+			}
+
+			mon.Counter("login_mfa_recovery_success").Inc(1) //mon:locked
+
+			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
+
+			err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+				MFARecoveryCodes: &user.MFARecoveryCodes,
+			})
+			if err != nil {
+				return nil, err
+			}
+		} else if request.MFAPasscode != "" {
+
+			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, now)
+			if err != nil {
+				err = handleLockAccount()
+				if err != nil {
+					return nil, err
+				}
+
+				return nil, ErrMFAPasscode.Wrap(err)
+			}
+			if !valid {
+				err = handleLockAccount()
+				if err != nil {
+					return nil, err
+				}
+				mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed mfa passcode invalid", &user.ID, user.Email)
+				return nil, ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
+			}
+			mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
+		} else {
+			mon.Counter("login_mfa_missing").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa missing", &user.ID, user.Email)
+			return nil, ErrMFAMissing.New(mfaRequiredErrMsg)
+		}
+	}
+
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, "", user.HubspotObjectID, user.TenantID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send push notification for successful login (MFA flow)
+	ipAddress := request.IP
+	if ipAddress == "" {
+		ipAddress = "0.0.0.0"
+	}
+	location := "Unknown Location" // Could be enhanced with geolocation lookup
+	variables := map[string]interface{}{
+		"ip_address": ipAddress,
+		"location":   location,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+
+	// Send email notification for successful login
+	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
+
+	return response, nil
+}
+
+func (s *Service) Token_google(ctx context.Context, request AuthUser) (response *TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	mon.Counter("login_attempt").Inc(1) //mon:locked
+
+	user, unverified, err := s.store.Users().GetByEmailWithUnverified_google(ctx, request.Email)
+
+	if user == nil {
+		if len(unverified) > 0 {
+			mon.Counter("login_email_unverified").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
+		} else {
+			mon.Counter("login_email_invalid").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
+		}
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
+	now := time.Now()
+
+	if user.LoginLockoutExpiration.After(now) {
+		mon.Counter("login_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed account locked out", &user.ID, request.Email)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
+	if user.FailedLoginCount != 0 {
+		user.FailedLoginCount = 0
+		loginLockoutExpirationPtr := &time.Time{}
+		err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+			FailedLoginCount:       &user.FailedLoginCount,
+			LoginLockoutExpiration: &loginLockoutExpirationPtr,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	customeExpiry := time.Duration(7*24) * time.Hour
+
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, "", user.HubspotObjectID, user.TenantID, &customeExpiry)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send push notification for successful login (Google OAuth)
+	ipAddress := request.IP
+	if ipAddress == "" {
+		ipAddress = "0.0.0.0"
+	}
+	location := "Unknown Location" // Could be enhanced with geolocation lookup
+	variables := map[string]interface{}{
+		"ip_address": ipAddress,
+		"location":   location,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+
+	// Send email notification for successful login
+	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
 
 	mon.Counter("login_success").Inc(1) //mon:locked
 
@@ -2760,16 +3270,7 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 		return nil, Error.New(failedToRetrieveUserErrMsg)
 	}
 
-	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
-		UserID:          user.ID,
-		TenantID:        user.TenantID,
-		Email:           user.Email,
-		IP:              ip,
-		UserAgent:       userAgent,
-		AnonymousID:     "",
-		CustomDuration:  nil,
-		HubspotObjectID: user.HubspotObjectID,
-	})
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, "", user.HubspotObjectID, user.TenantID, nil)
 	if err != nil {
 		return nil, Error.New(generateSessionTokenErrMsg)
 	}
@@ -2882,6 +3383,40 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 	return verified, unverified, err
 }
 
+func (s *Service) GetUserByEmailWithUnverified_google(ctx context.Context, email string) (verified *User, unverified []User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if email == "" {
+		return nil, nil, ErrEmailNotFound.New("email is empty")
+	}
+
+	verified, unverified, err = s.store.Users().GetByEmailWithUnverified_google(ctx, email)
+	if err != nil {
+		return verified, unverified, err
+	}
+
+	if verified == nil && len(unverified) == 0 {
+		err = ErrEmailNotFound.New(emailNotFoundErrMsg)
+	}
+
+	return verified, unverified, err
+}
+
+// GetUserByExternalID returns a user with specified external ID.
+func (s *Service) GetUserByExternalID(ctx context.Context, externalID string) (user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err = s.store.Users().GetByExternalID(ctx, externalID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrExternalIdNotFound.New("user not found")
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	return user, nil
+}
+
 // GetUserHasVarPartner returns whether the user in context is associated with a VAR partner.
 func (s *Service) GetUserHasVarPartner(ctx context.Context) (has bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -2939,153 +3474,6 @@ const (
 	// during project or account deletion.
 	SkipObjectLockEnabledBuckets = "skip-object-lock-enabled-buckets"
 )
-
-// DeleteAccount handles self-serve account delete actions.
-func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, data string) (resp *DeleteAccountResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if !s.config.SelfServeAccountDeleteEnabled {
-		return nil, ErrForbidden.New("this feature is disabled")
-	}
-
-	user, err := s.getUserAndAuditLog(ctx, "delete account")
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	if user.Status == LegalHold {
-		return nil, ErrForbidden.New("account can't be deleted")
-	}
-
-	if user.ExternalID != nil && *user.ExternalID != "" {
-		return nil, ErrForbidden.New("sso users must contact support to delete their accounts")
-	}
-
-	if user.LoginLockoutExpiration.After(s.nowFn()) {
-		mon.Counter("delete_account_locked_out").Inc(1)
-		s.auditLog(ctx, "delete account: failed account locked out", &user.ID, user.Email)
-		return nil, ErrUnauthorized.New("please try again later")
-	}
-
-	resp = &DeleteAccountResponse{}
-	deletionRestricted := false
-	var projects []Project
-
-	if !s.config.AbbreviatedDeleteAccountEnabled || (step == DeleteAccountInit && data != SkipObjectLockEnabledBuckets) {
-		projects, err = s.store.Projects().GetOwnActive(ctx, user.ID)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		resp.OwnedProjects = len(projects)
-	}
-
-	// check project deletion restrictions
-	for _, p := range projects {
-		if step == DeleteAccountInit && s.config.AbbreviatedDeleteAccountEnabled && data != SkipObjectLockEnabledBuckets {
-			// check for buckets with Object Lock enabled
-			for _, p := range projects {
-				count, err := s.buckets.CountObjectLockBuckets(ctx, p.ID)
-				if err != nil {
-					return nil, err
-				}
-				resp.LockEnabledBuckets += count
-			}
-			if resp.LockEnabledBuckets > 0 {
-				return resp, nil
-			}
-		}
-
-		if !s.config.AbbreviatedDeleteAccountEnabled {
-			buckets, err := s.buckets.CountBuckets(ctx, p.ID)
-			if err != nil {
-				return nil, err
-			}
-			if buckets > 0 {
-				deletionRestricted = true
-				resp.Buckets += buckets
-			}
-
-			// ignore object browser api key because we hide it from the user, so they can't delete it.
-			// project row deletion cascades to api keys, so it's okay.
-			keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, p.ID, APIKeyCursor{Limit: 1, Page: 1}, s.config.ObjectBrowserKeyNamePrefix)
-			if err != nil {
-				return nil, err
-			}
-			if keys.TotalCount > 0 {
-				deletionRestricted = true
-				resp.ApiKeys += int(keys.TotalCount)
-			}
-		}
-	}
-
-	if user.IsPaid() {
-		if len(projects) == 0 {
-			projects, err = s.store.Projects().GetOwnActive(ctx, user.ID)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-		}
-		for _, p := range projects {
-			currentUsage, invoicingIncomplete, _, err := s.Payments().checkProjectUsageStatus(ctx, p)
-			if err != nil && !payments.ErrUnbilledUsage.Has(err) {
-				return nil, err
-			}
-
-			if currentUsage {
-				deletionRestricted = true
-				resp.CurrentUsage = true
-			}
-			if invoicingIncomplete {
-				deletionRestricted = true
-				resp.InvoicingIncomplete = true
-			}
-		}
-	}
-
-	// check for unpaid invoices.
-	invoices, err := s.accounts.Invoices().List(ctx, user.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, invoice := range invoices {
-		if invoice.Status == payments.InvoiceStatusOpen || invoice.Status == payments.InvoiceStatusDraft {
-			deletionRestricted = true
-			resp.UnpaidInvoices++
-			resp.AmountOwed += invoice.Amount
-		}
-	}
-
-	// check for pending invoice items.
-	hasItems, err := s.accounts.Invoices().CheckPendingItems(ctx, user.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if hasItems {
-		deletionRestricted = true
-		resp.InvoicingIncomplete = true
-	}
-
-	if deletionRestricted {
-		return resp, nil
-	}
-
-	switch step {
-	case DeleteAccountInit:
-		return nil, nil
-	case VerifyAccountPasswordStep:
-		return nil, s.handlePasswordStep(ctx, user, data, deleteAccountAction)
-	case VerifyAccountMfaStep:
-		return nil, s.handleMfaStep(ctx, user, data, deleteAccountAction)
-	case VerifyAccountEmailStep:
-		return nil, s.handleVerifyCurrentEmailStep(ctx, user, data, deleteAccountAction)
-	case DeleteAccountStep:
-		return nil, s.handleDeleteAccountStep(ctx, user)
-	default:
-		return nil, ErrValidation.New("step value is out of range")
-	}
-}
 
 // ChangeEmail handles change user's email actions.
 func (s *Service) ChangeEmail(ctx context.Context, step AccountActionStep, data string) (err error) {
@@ -3826,6 +4214,74 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	return nil
 }
 
+func (s *Service) getValidatedFullName(requestData *SetUpAccountRequest) (name string, err error) {
+	if requestData.IsProfessional {
+		if requestData.FirstName == nil {
+			return "", errs.New("First name wasn't provided")
+		}
+
+		if len(*requestData.FirstName) == 0 || len(*requestData.FirstName) > s.config.MaxNameCharacters {
+			return "", errs.New("First name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
+		}
+
+		name = *requestData.FirstName
+
+		if requestData.LastName != nil {
+			if len(*requestData.LastName) > s.config.MaxNameCharacters {
+				return "", errs.New("Last name length must be less then or equal to %d", s.config.MaxNameCharacters)
+			}
+
+			name += " " + *requestData.LastName
+		}
+	} else {
+		if requestData.FullName == nil {
+			return "", errs.New("Full name wasn't provided")
+		}
+
+		if len(*requestData.FullName) == 0 || len(*requestData.FullName) > s.config.MaxNameCharacters {
+			return "", errs.New("Full name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
+		}
+
+		name = *requestData.FullName
+	}
+
+	return name, nil
+}
+
+func (s *Service) getValidatedCompanyName(requestData *SetUpAccountRequest) (name *string, err error) {
+	if requestData.IsProfessional {
+		if requestData.CompanyName == nil {
+			return nil, errs.New("Company name wasn't provided")
+		}
+
+		if len(*requestData.CompanyName) == 0 || len(*requestData.CompanyName) > s.config.MaxNameCharacters {
+			return nil, errs.New("Company name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
+		}
+
+		name = requestData.CompanyName
+	}
+
+	return name, nil
+}
+
+func (s *Service) DeleteAccountRequest(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "delete account request")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	deleteAt := time.Now().AddDate(0, 1, 0)
+
+	err = s.store.Users().CreateDeleteRequest(ctx, user.ID, deleteAt)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // ChangePassword updates password for a given user.
 func (s *Service) ChangePassword(ctx context.Context, pass, newPass string, sessionID *uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -4348,20 +4804,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, Error.Wrap(err)
 	}
 
-	if user.Status == PendingBotVerification || user.Status == LegalHold || user.Status == PendingDeletion {
+	if user.Status == PendingBotVerification {
 		return nil, ErrBotUser.New(contactSupportErrMsg)
-	}
-
-	freezeEvents := []AccountFreezeEventType{BillingFreeze, TrialExpirationFreeze, LegalFreeze, BotFreeze, ViolationFreeze}
-	if frozen, err := s.accountFreezeService.IsUserFrozen(ctx, user.ID, freezeEvents...); err == nil && frozen {
-		return nil, ErrAccountFrozen.New("")
-	} else if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
-	if err != nil {
-		return nil, ErrValidation.Wrap(err)
 	}
 
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
@@ -4380,23 +4824,21 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
-	var (
-		projectID            uuid.UUID
-		satManagedPassphrase bool
-	)
+	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
-				Description:      projectInfo.Description,
-				Name:             projectInfo.Name,
-				OwnerID:          user.ID,
-				UserAgent:        user.UserAgent,
-				StorageLimit:     &storageLimit,
-				BandwidthLimit:   &bandwidthLimit,
-				SegmentLimit:     &newProjectLimits.Segment,
-				DefaultPlacement: user.DefaultPlacement,
+				Description:             projectInfo.Description,
+				Name:                    projectInfo.Name,
+				OwnerID:                 user.ID,
+				UserAgent:               user.UserAgent,
+				StorageLimit:            &storageLimit,
+				BandwidthLimit:          &bandwidthLimit,
+				SegmentLimit:            &newProjectLimits.Segment,
+				DefaultPlacement:        user.DefaultPlacement,
+				PrevDaysUntilExpiration: 0,
 			},
 		)
 		if err != nil {
@@ -4408,7 +4850,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return err
 		}
 
-		projects, err := tx.Projects().GetOwnActive(ctx, user.ID)
+		projects, err := tx.Projects().GetOwn(ctx, user.ID)
 		if err != nil {
 			return err
 		}
@@ -4426,53 +4868,37 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			}
 		}
 		if numBefore >= limit {
-			s.analytics.TrackProjectLimitError(user.ID, user.Email)
+			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+			// Send push notification for project limit error (before returning error)
+			variables := map[string]interface{}{
+				"project_name": p.Name,
+				"limit_type":   "project",
+			}
+			s.SendNotificationAsync(user.ID, user.Email, "project_limit_error", "account", variables)
 			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
 		}
 
-		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID, RoleAdmin)
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID, RoleMember)
 		if err != nil {
 			return Error.Wrap(err)
-		}
-
-		if s.entitlementsConfig.Enabled {
-			// We have to use a direct DB call here because we are in a transaction.
-			placementMap := s.accounts.GetPlacementProductMappings()
-			mapping := entitlements.PlacementProductMappings{}
-			for placement, productID := range placementMap {
-				mapping[storj.PlacementConstraint(placement)] = productID
-			}
-			feats := entitlements.ProjectFeatures{
-				NewBucketPlacements:      s.config.Placement.AllowedPlacementIdsForNewProjects,
-				PlacementProductMappings: mapping,
-			}
-			if user.DefaultPlacement != storj.DefaultPlacement {
-				feats.NewBucketPlacements = []storj.PlacementConstraint{user.DefaultPlacement}
-			}
-			featBytes, err := json.Marshal(feats)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			_, err = tx.Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
-				Scope:     entitlements.ConvertPublicIDToProjectScope(p.PublicID),
-				Features:  featBytes,
-				UpdatedAt: s.nowFn(),
-			})
-			if err != nil {
-				return Error.Wrap(err)
-			}
 		}
 
 		projectID = p.ID
 
 		return nil
 	})
+
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1)
+	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1, user.IsProfessional, user.HubspotObjectID, user.TenantID)
+
+	// Send push notification for project created
+	variables := map[string]interface{}{
+		"project_name": projectInfo.Name,
+	}
+	s.SendNotificationAsync(user.ID, user.Email, "project_created", "account", variables)
 
 	return p, nil
 }
@@ -4498,12 +4924,10 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 		return nil, ErrForbidden.New("this feature is disabled")
 	}
 
-	_, _, err = s.isProjectOwner(ctx, user.ID, projectID)
+	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	projectName := project.Name // Capture project name before deletion
 
 	if user.ExternalID != nil && *user.ExternalID != "" {
 		return nil, ErrForbidden.New("sso users must ask support to delete projects")
@@ -4526,12 +4950,6 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 	if err != nil {
 		return info, Error.Wrap(err)
 	}
-
-	// Send push notification for project deleted
-	variables := map[string]interface{}{
-		"project_name": projectName,
-	}
-	s.SendNotificationAsync(user.ID, user.Email, "project_deleted", "account", variables)
 
 	switch step {
 	case DeleteProjectInit:
@@ -4713,7 +5131,12 @@ func (s *Service) UpdatingProject(ctx context.Context, userID, projectID uuid.UU
 func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, updatedProject UpsertProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("project_id", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = ValidateNameAndDescription(updatedProject.Name, updatedProject.Description)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4721,11 +5144,6 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-
-	err = ValidateNameAndDescription(updatedProject.Name, updatedProject.Description)
-	if err != nil {
-		return nil, ErrValidation.Wrap(err)
 	}
 
 	if updatedProject.Name != project.Name {
@@ -4756,20 +5174,58 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		s.SendNotificationAsync(user.ID, user.Email, "project_description_updated", "account", variables)
 	}
 
-	if user.HasPaidPrivileges() {
-		err = s.validateLimits(ctx, project, UpdateLimitsInfo{
-			StorageLimit:   updatedProject.StorageLimit,
-			BandwidthLimit: updatedProject.BandwidthLimit,
-		}, false)
+	if user.IsPaid() {
+		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
+			return nil, Error.New("current bandwidth limit for project is set to 0 (updating disabled)")
+		}
+		if project.StorageLimit != nil && *project.StorageLimit == 0 {
+			return nil, Error.New("current storage limit for project is set to 0 (updating disabled)")
+		}
+		if updatedProject.StorageLimit <= 0 || updatedProject.BandwidthLimit <= 0 {
+			return nil, ErrInvalidProjectLimit.New("Project limits must be greater than 0")
+		}
+
+		if updatedProject.StorageLimit > s.config.UsageLimits.Storage.Paid && updatedProject.StorageLimit > *project.StorageLimit {
+			return nil, ErrInvalidProjectLimit.New("Specified storage limit exceeds allowed maximum for current tier")
+		}
+
+		if updatedProject.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && updatedProject.BandwidthLimit > *project.BandwidthLimit {
+			return nil, ErrInvalidProjectLimit.New("Specified bandwidth limit exceeds allowed maximum for current tier")
+		}
+
+		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, project.ID)
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
-		if updatedProject.StorageLimit != nil {
-			project.UserSpecifiedStorageLimit = updatedProject.StorageLimit
+		if updatedProject.StorageLimit.Int64() < storageUsed {
+			return nil, ErrInvalidProjectLimit.New("Cannot set storage limit below current usage")
 		}
-		if updatedProject.BandwidthLimit != nil {
-			project.UserSpecifiedBandwidthLimit = updatedProject.BandwidthLimit
+
+		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, project.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
+		if updatedProject.BandwidthLimit.Int64() < bandwidthUsed {
+			return nil, ErrInvalidProjectLimit.New("Cannot set bandwidth limit below current usage")
+		}
+		/*
+			The purpose of userSpecifiedBandwidthLimit and userSpecifiedStorageLimit is to know if a user has set a bandwidth
+			or storage limit in the UI (to ensure their limits are not unintentionally modified by the satellite admin),
+			the BandwidthLimit and StorageLimit is still used for verifying limits during uploads and downloads.
+		*/
+		if project.StorageLimit != nil && updatedProject.StorageLimit != *project.StorageLimit {
+			project.UserSpecifiedStorageLimit = new(memory.Size)
+			*project.UserSpecifiedStorageLimit = updatedProject.StorageLimit
+		}
+		if project.BandwidthLimit != nil && updatedProject.BandwidthLimit != *project.BandwidthLimit {
+			project.UserSpecifiedBandwidthLimit = new(memory.Size)
+			*project.UserSpecifiedBandwidthLimit = updatedProject.BandwidthLimit
+		}
+
+		project.StorageLimit = new(memory.Size)
+		*project.StorageLimit = updatedProject.StorageLimit
+		project.BandwidthLimit = new(memory.Size)
+		*project.BandwidthLimit = updatedProject.BandwidthLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -4977,7 +5433,7 @@ func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID,
 		LimitType:    info.LimitType,
 		CurrentLimit: info.CurrentLimit.String(),
 		DesiredLimit: info.DesiredLimit.String(),
-	})
+	}, user.HubspotObjectID, user.TenantID)
 
 	return nil
 }
@@ -5008,7 +5464,7 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 		LimitType:    "projects",
 		CurrentLimit: strconv.Itoa(user.ProjectLimit),
 		DesiredLimit: limit,
-	})
+	}, user.HubspotObjectID, user.TenantID)
 
 	return nil
 }
@@ -5018,32 +5474,27 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("project_id", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
+	}
+	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.Wrap(err),
+		}
 	}
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
+		return nil, s.convertToHTTPError(ctx, Error.Wrap(err), http.StatusUnauthorized)
 	}
-
-	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
-	}
-
 	project := isMember.project
 	project.Name = projectInfo.Name
 	project.Description = projectInfo.Description
 
-	if user.HasPaidPrivileges() && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
+	if user.IsPaid() {
 		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusInternalServerError,
@@ -5056,21 +5507,21 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 				Err:    Error.New("current storage limit for project is set to 0 (updating disabled)"),
 			}
 		}
-		if *projectInfo.StorageLimit <= 0 || *projectInfo.BandwidthLimit <= 0 {
+		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("project limits must be greater than 0"),
 			}
 		}
 
-		if *projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid && *projectInfo.StorageLimit > *project.StorageLimit {
+		if projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid && projectInfo.StorageLimit > *project.StorageLimit {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("specified storage limit exceeds allowed maximum for current tier"),
 			}
 		}
 
-		if *projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && *projectInfo.BandwidthLimit > *project.BandwidthLimit {
+		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && projectInfo.BandwidthLimit > *project.BandwidthLimit {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("specified bandwidth limit exceeds allowed maximum for current tier"),
@@ -5099,8 +5550,10 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			}
 		}
 
-		project.UserSpecifiedStorageLimit = projectInfo.StorageLimit
-		project.UserSpecifiedBandwidthLimit = projectInfo.BandwidthLimit
+		project.StorageLimit = new(memory.Size)
+		*project.StorageLimit = projectInfo.StorageLimit
+		project.BandwidthLimit = new(memory.Size)
+		*project.BandwidthLimit = projectInfo.BandwidthLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -5152,7 +5605,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectMemberAddition(user.ID, user.Email)
+	s.analytics.TrackProjectMemberAddition(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 
 	return users, nil
 }
@@ -5238,7 +5691,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 		return nil
 	})
 
-	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email)
+	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 
 	return Error.Wrap(err)
 }
@@ -5439,14 +5892,14 @@ func (s *Service) GetAllDomainNames(ctx context.Context, projectID uuid.UUID) (n
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string, version macaroon.APIKeyVersion) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("project_id", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, nil, ErrUnauthorized.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
@@ -5787,7 +6240,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, reqProjectID uuid.UUID, cursor
 		cursor.Limit = maxLimit
 	}
 
-	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor, s.config.ObjectBrowserKeyNamePrefix)
+	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5882,7 +6335,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 
 	cursor.EventingEnabled = s.bucketEventing.Projects.Enabled(isMember.project.ID)
 
-	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, since, before)
+	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, before)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5897,6 +6350,83 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 	}
 
 	return usage, nil
+}
+
+// GetSingleBucketTotals retrieves a single bucket total usages since project creation.
+func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (_ *accounting.BucketUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get single bucket totals", zap.String("project_id", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	usage, err := s.projectAccounting.GetSingleBucketTotals(ctx, isMember.project.ID, bucketName, before)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	usage.Location = s.getLocationName(ctx, isMember.project.PublicID, usage.DefaultPlacement)
+
+	return usage, nil
+}
+
+// GetBucketTotals retrieves paged bucket total usages since project creation.
+func (s *Service) GetBucketTotalsForReserveBucket(ctx context.Context, projectID uuid.UUID) (_ []accounting.BucketUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get bucket totals", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	usage, err := s.projectAccounting.GetBucketTotalsForReservedBuckets(ctx, isMember.project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if usage == nil {
+		return usage, nil
+	}
+
+	for i := range usage {
+		placementID := usage[i].DefaultPlacement
+		usage[i].Location = s.placements[placementID].Name
+	}
+
+	return usage, nil
+}
+
+// UpdateBucketMigrationStatus updates the migration status of a bucket.
+func (s *Service) UpdateBucketMigrationStatus(ctx context.Context, bucketName []byte, projectID uuid.UUID, status int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update bucket migration status", zap.String("bucketName", string(bucketName)), zap.String("projectID", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	err = s.buckets.UpdateBucketMigrationStatus(ctx, bucketName, isMember.project.ID, status)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 // GetAllBucketNames retrieves all bucket names of a specific project.
@@ -8451,7 +8981,7 @@ func (s *Service) ExchangeOAuth2Code(ctx context.Context, req ExchangeOAuth2Code
 	fmt.Println("projects stage completed")
 	// Create API key for the project
 	apiKeyName := fmt.Sprintf("OAUTH2_API_KEY_FOR_%s_%s", req.ClientID, oauthReq.ID.String())
-	_, apiKey, err := s.CreateAPIKey(ctx, project.ID, apiKeyName)
+	_, apiKey, err := s.CreateAPIKey(ctx, project.ID, apiKeyName, macaroon.APIKeyVersionMin)
 	if err != nil {
 		return nil, errs.New("failed_to_create_api_key")
 	}
@@ -8749,7 +9279,7 @@ func (s *Service) getStatus(statusValue string) Status {
 func (s *Service) enrichBillingCard(ctx context.Context, card *BaseCard, user *User) {
 	now := time.Now()
 
-	if !user.PaidTier {
+	if !user.IsPaid() {
 		status := s.getStatus("active")
 		card.Status = &status
 		card.Value1 = "Free"
@@ -8825,7 +9355,7 @@ func (s *Service) enrichVaultCard(ctx context.Context, card *BaseCard, projectID
 		bandwidthBytes = usageLimits.BandwidthUsed
 	}
 
-	if bucketTotals, err := s.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now()); err == nil && bucketTotals != nil {
+	if bucketTotals, err := s.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 1, Page: 1}, time.Now(), time.Now()); err == nil && bucketTotals != nil {
 		vaultsCount = int(bucketTotals.TotalCount)
 	}
 

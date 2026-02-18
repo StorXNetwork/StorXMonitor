@@ -5,8 +5,8 @@ package console
 
 import (
 	"context"
-	"fmt"
 	"database/sql/driver"
+	"fmt"
 	"net/mail"
 	"strings"
 	"time"
@@ -41,14 +41,14 @@ type Users interface {
 	GetEmailsForDeletion(ctx context.Context, statusUpdatedBefore time.Time) ([]string, error)
 	// UpdateVerificationReminders increments verification_reminders.
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
-	// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
-	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) error
+	// // UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
+	// UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
 	//boris
 	GetByEmailWithUnverified_google(ctx context.Context, email string) (*User, []User, error)
-	// GetByStatus is a method for querying user by status from the database.
-	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
+	// // GetByStatus is a method for querying user by status from the database.
+	// GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
 	// GetByEmail is a method for querying user by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	// GetUserStats returns counts of users grouped by status and paid tier using optimized SQL aggregation
@@ -94,6 +94,8 @@ type Users interface {
 	GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limit *ProjectLimits, err error)
 	// GetUserKind returns the kind of user.
 	GetUserKind(ctx context.Context, id uuid.UUID) (kind UserKind, err error)
+	// GetUserPaidTier is a method to gather whether the specified user is on the Paid Tier or not.
+	GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error)
 	// GetSettings is a method for returning a user's set of configurations.
 	GetSettings(ctx context.Context, userID uuid.UUID) (*UserSettings, error)
 	// GetUpgradeTime is a method for returning a user's upgrade time.
@@ -132,7 +134,6 @@ type Users interface {
 	// TestingGetAll returns all users in the database.
 	TestingGetAll(ctx context.Context) ([]*User, error)
 }
-	
 
 // UserCursor holds info for user info cursor pagination.
 type UserCursor struct {
@@ -179,30 +180,31 @@ type UtmParams struct {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	ExternalId        *string  `json:"-"`
-	FullName          string   `json:"fullName"`
-	ShortName         string   `json:"shortName"`
-	Email             string   `json:"email"`
-	UserAgent         []byte   `json:"userAgent"`
-	Password          string   `json:"password"`
-	IsProfessional    bool     `json:"isProfessional"`
-	Position          string   `json:"position"`
-	CompanyName       string   `json:"companyName"`
-	WorkingOn         string   `json:"workingOn"`
-	EmployeeCount     string   `json:"employeeCount"`
-	HaveSalesContact  bool     `json:"haveSalesContact"`
-	CaptchaResponse   string   `json:"captchaResponse"`
-	IP                string   `json:"ip"`
-	SignupPromoCode   string   `json:"signupPromoCode"`
-	CaptchaScore      *float64 `json:"-"`
-	ActivationCode    string   `json:"-"`
-	SignupId          string   `json:"-"`
-	AllowNoName       bool     `json:"-"`
-	NoTrialExpiration bool     `json:"-"`
-	Kind              UserKind `json:"-"`
-	Source           string     `json:"-"`
-	WalletId         string     `json:"-"`
-	UtmParams        *UtmParams `json:"-"`
+	ExternalId        *string    `json:"-"`
+	FullName          string     `json:"fullName"`
+	ShortName         string     `json:"shortName"`
+	Email             string     `json:"email"`
+	Status            UserStatus `json:"status"`
+	UserAgent         []byte     `json:"userAgent"`
+	Password          string     `json:"password"`
+	IsProfessional    bool       `json:"isProfessional"`
+	Position          string     `json:"position"`
+	CompanyName       string     `json:"companyName"`
+	WorkingOn         string     `json:"workingOn"`
+	EmployeeCount     string     `json:"employeeCount"`
+	HaveSalesContact  bool       `json:"haveSalesContact"`
+	CaptchaResponse   string     `json:"captchaResponse"`
+	IP                string     `json:"ip"`
+	SignupPromoCode   string     `json:"signupPromoCode"`
+	CaptchaScore      *float64   `json:"-"`
+	ActivationCode    string     `json:"-"`
+	SignupId          string     `json:"-"`
+	AllowNoName       bool       `json:"-"`
+	NoTrialExpiration bool       `json:"-"`
+	Kind              UserKind   `json:"-"`
+	Source            string     `json:"-"`
+	WalletId          string     `json:"-"`
+	UtmParams         *UtmParams `json:"-"`
 }
 
 // CreateSsoUser struct holds info for SSO User creation.
@@ -297,12 +299,12 @@ const (
 	// ResetPass is a status that developer receives when admin creates account and needs to reset password.
 	ResetPass UserStatus = 6
 	// UserRequestedDeletion is a status that user receives after account owner completed delete account flow.
-	UserRequestedDeletion UserStatus = 6
+	UserRequestedDeletion UserStatus = 7
 
 	// UserStatusCount indicates how many user status are currently supported.
 	// It is mainly used as a control that some UserStatus tests are updated when when the UserStatus
 	// valid values defined in this const block are updated.
-	UserStatusCount = 7
+	UserStatusCount = 8
 )
 
 // UserKind - is used to indicate kind of the user's account.
@@ -509,7 +511,7 @@ type User struct {
 	SocialFacebook string `json:"socialFacebook"`
 	SocialGithub   string `json:"socialGithub"`
 
-	WalletId string `json:"walletId"`
+	WalletId                    string  `json:"walletId"`
 	NewUnverifiedEmail          *string `json:"-"`
 	EmailChangeVerificationStep int     `json:"-"`
 
@@ -640,8 +642,6 @@ type UpdateUserRequest struct {
 	SocialGithub   *string `json:"socialGithub"`
 
 	WalletID *string `json:"walletId"`
-
-	UpgradeTime        **time.Time
 
 	NewUnverifiedEmail          **string
 	EmailChangeVerificationStep *int
@@ -778,6 +778,8 @@ func (s *Service) DeleteAccount(ctx context.Context, email string) (err error) {
 	}
 
 	return nil
+}
+
 // Value implements database/sql/driver.Valuer for TrialNotificationStatus.
 func (t TrialNotificationStatus) Value() (driver.Value, error) {
 	return int64(t), nil

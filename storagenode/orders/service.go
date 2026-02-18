@@ -152,7 +152,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) CleanArchive(ctx context.Context, deleteBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = service.orders.CleanArchive(ctx, deleteBefore)
+	err = service.ordersStore.CleanArchive(deleteBefore)
 	if err != nil {
 		service.log.Error("cleaning DB archive", zap.Error(err))
 		return nil

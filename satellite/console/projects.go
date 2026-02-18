@@ -231,6 +231,12 @@ type UpsertProjectInfo struct {
 	ManagePassphrase        bool        `json:"managePassphrase"`
 }
 
+// UpdateLimitsInfo holds data needed to update project limits.
+type UpdateLimitsInfo struct {
+	StorageLimit   *memory.Size `json:"storageLimit"`
+	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
+}
+
 // ProjectInfo holds data sent via user facing http endpoints.
 type ProjectInfo struct {
 	ID                      uuid.UUID                 `json:"id"`

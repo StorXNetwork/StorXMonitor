@@ -35,12 +35,14 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleservice"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
@@ -107,6 +109,15 @@ func Module(ball *mud.Ball) {
 	contact.Module(ball)
 	nodetag.Module(ball)
 	gracefulexit.Module(ball)
+
+	// Push notifications and developer services for console web server
+	mud.Provide[*pushnotifications.Service](ball, func(log *zap.Logger, db console.DB, cfg console.Config) (*pushnotifications.Service, error) {
+		return pushnotifications.NewService(log.Named("pushnotifications"), db.FCMTokens(), db.PushNotifications(), cfg.PushNotifications)
+	})
+	mud.Provide[*developer.Service](ball, func(log *zap.Logger, store console.DB, analytics *analytics.Service, tokens *consoleauth.Service, cfg console.Config) (*developer.Service, error) {
+		regTokenChecker := developer.NewConsoleServiceAdapter(store, cfg)
+		return developer.NewService(log, store, analytics, tokens, cfg, regTokenChecker)
+	})
 
 	// initialize here due to circular dependencies
 	mud.Provide[*consoleweb.Server](ball, CreateServer)
@@ -394,6 +405,9 @@ func CreateServer(logger *zap.Logger,
 
 	cwconfig *consoleweb.Config,
 	analyticsConfig analytics.Config,
+	notificationService *pushnotifications.Service,
+	stripeService *stripe.Service,
+	developerService *developer.Service,
 	ecfg entitlements.Config,
 	ssoCfg sso.Config,
 	stripeCfg stripe.Config,
@@ -423,7 +437,7 @@ func CreateServer(logger *zap.Logger,
 
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
 		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
-		analyticsConfig, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled), nil
+		analyticsConfig, notificationService, pc.PackagePlans, stripeService, developerService, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled), nil
 }
 
 // CreateService creates console service.
@@ -450,8 +464,12 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		return nil, err
 	}
 	return console.NewService(log, store, restKeys, oauthRestKeys, projectAccounting, projectUsage, buckets, attributions, accounts, depositWallets,
-		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
-		cw.ExternalAddress, cw.SatelliteName, cfg.WhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
-		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
-		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing)
+		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, valdiService, ssoService,
+		cw.ExternalAddress, cw.ExternalAddress, cw.SatelliteName, cfg.WhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
+		console.VersioningConfig{
+			UseBucketLevelObjectVersioning: mcfg.UseBucketLevelObjectVersioning,
+		},
+		cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing,
+		entitlementsService, entitlementsConfig, pc.PlacementPriceOverrides.ToMap(), productModels,
+		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, nil)
 }

@@ -101,38 +101,20 @@ model node (
 	// limit of how many of the same message can be debounced.
 	field debounce_limit int ( updatable, default 0 )
 
-    // contained indicates when and whether the storagenode has been placed into containment mode.
-    field contained                 timestamp ( updatable, nullable )
+	// features is a bitmask of pb.NodeAddress_Feature values.
+	field features int ( updatable, default 0 )
 
-    // last_offline_email indicates when the last offline email was sent to the storagenode operator.
-    field last_offline_email         timestamp ( updatable, nullable )
-    // last_software_update_email indicates when the last software update email was sent to the storagenode operator.
-    field last_software_update_email timestamp ( updatable, nullable )
+	// isp show in which isp node is hosted
+	field isp text ( updatable, nullable )
 
-    // noise_proto is the noise protocol version that the storagenode has implemented.
-    field noise_proto int ( updatable, nullable )
-    // noise_public_key is the last known public key for the storagenode.
-    field noise_public_key blob ( updatable, nullable )
+	// location is the location of the node.
+	field location text ( updatable, nullable )
 
-    // debounce_limit is the limit of the number of identical messages this
-    // node can defend against. this is not the limit of messages, just the
-    // limit of how many of the same message can be debounced.
-    field debounce_limit int ( updatable, default 0 )
+	// stack is the stack amount of the node.
+	field stack int ( updatable, default 0 )
 
-    // features is a bitmask of pb.NodeAddress_Feature values.
-    field features int ( updatable, default 0 )
-
-    // isp show in which isp node is hosted
-    field isp text ( updatable, nullable )
-
-    // location is the location of the node.
-    field location text ( updatable, nullable )
-
-    // stack is the stack amount of the node.
-    field stack int ( updatable, default 0 )
-
-    // inactive is set then we will not send reputation data to smart contract.
-    field inactive bool ( updatable, default false )
+	// inactive is set then we will not send reputation data to smart contract.
+	field inactive bool ( updatable, default false )
 )
 
 update node ( where node.id = ? )

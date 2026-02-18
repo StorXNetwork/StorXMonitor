@@ -118,6 +118,12 @@ func NewServer(
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_developer_tokenKey",
 		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "developer_sso_state",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "developer_sso_email_token",
+		Path: "/",
 	}, "") // AuthCookieDomain - can be set from config if needed
 
 	root := mux.NewRouter()

@@ -25,7 +25,7 @@ CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
-);
+) ;
 CREATE TABLE admins (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE admins (
 	updated_at timestamp with time zone NOT NULL,
 	deleted_at timestamp with time zone,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE backup_final_statuses (
 	backup_date text NOT NULL,
 	status text NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE backup_final_statuses (
 	checksum text NOT NULL,
 	file_size bigint NOT NULL,
 	PRIMARY KEY ( backup_date )
-);
+) ;
 CREATE TABLE backup_page_statuses (
 	backup_date text NOT NULL,
 	page_number integer NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE backup_page_statuses (
 	checksum text NOT NULL,
 	file_size bigint NOT NULL,
 	PRIMARY KEY ( backup_date, page_number )
-);
+) ;
 CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
@@ -146,7 +146,7 @@ CREATE TABLE coinpayments_transactions (
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE configs (
 	id bytea NOT NULL,
 	config_type text NOT NULL,
@@ -159,7 +159,7 @@ CREATE TABLE configs (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( config_type, name )
-);
+) ;
 CREATE TABLE coupons (
 	code text NOT NULL,
 	discount double precision NOT NULL,
@@ -170,7 +170,7 @@ CREATE TABLE coupons (
 	valid_to timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( code )
-);
+) ;
 CREATE TABLE developers (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -185,7 +185,7 @@ CREATE TABLE developers (
 	activation_code text,
 	signup_id text,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE developer_oauth_clients (
 	id bytea NOT NULL,
 	developer_id bytea NOT NULL,
@@ -199,13 +199,13 @@ CREATE TABLE developer_oauth_clients (
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE developer_user_mappings (
 	id bytea NOT NULL,
 	developer_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE email_subscriptions (
 	email text NOT NULL,
 	status integer NOT NULL DEFAULT 1,
@@ -213,7 +213,14 @@ CREATE TABLE email_subscriptions (
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( email )
-);
+) ;
+CREATE TABLE entitlements (
+	scope bytea NOT NULL,
+	features jsonb NOT NULL DEFAULT '{}',
+	updated_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( scope )
+) ;
 CREATE TABLE fcm_tokens (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -231,43 +238,11 @@ CREATE TABLE fcm_tokens (
 	last_used_at timestamp with time zone,
 	is_active boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE graceful_exit_progress (
-	node_id bytea NOT NULL,
-	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint NOT NULL DEFAULT 0,
-	pieces_failed bigint NOT NULL DEFAULT 0,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE graceful_exit_segment_transfer_queue (
-	node_id bytea NOT NULL,
-	stream_id bytea NOT NULL,
-	position bigint NOT NULL,
-	piece_num integer NOT NULL,
-	root_piece_id bytea,
-	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
-	last_failed_code integer,
-	failed_count integer,
-	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, stream_id, position, piece_num )
-);
+) ;
 CREATE TABLE key_versions (
 	key_id bytea NOT NULL,
 	version text NOT NULL,
 	PRIMARY KEY ( key_id )
-);
-
-CREATE TABLE entitlements (
-	scope bytea NOT NULL,
-	features jsonb NOT NULL DEFAULT '{}',
-	updated_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( scope )
 ) ;
 CREATE TABLE nodes (
 	id bytea NOT NULL,
@@ -332,7 +307,7 @@ CREATE TABLE node_events (
 	last_attempted timestamp with time zone,
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE node_smart_contract_updates (
 	id bytea NOT NULL,
 	wallet text NOT NULL,
@@ -341,7 +316,7 @@ CREATE TABLE node_smart_contract_updates (
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE node_tags (
 	node_id bytea NOT NULL,
 	name text NOT NULL,
@@ -349,7 +324,7 @@ CREATE TABLE node_tags (
 	signed_at timestamp with time zone NOT NULL,
 	signer bytea NOT NULL,
 	PRIMARY KEY ( node_id, name, signer )
-);
+) ;
 CREATE TABLE oauth2_requests (
 	id bytea NOT NULL,
 	client_id text NOT NULL,
@@ -364,7 +339,7 @@ CREATE TABLE oauth2_requests (
 	approved_scopes text NOT NULL,
 	rejected_scopes text NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
@@ -396,7 +371,7 @@ CREATE TABLE oauth_tokens (
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
-);
+) ;
 CREATE TABLE payment_plans (
 	id bigserial NOT NULL,
 	name text NOT NULL,
@@ -408,7 +383,7 @@ CREATE TABLE payment_plans (
 	validity_unit text NOT NULL,
 	group text NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	leaf_serial_number bytea NOT NULL,
@@ -442,17 +417,14 @@ CREATE TABLE projects (
 	user_agent bytea,
 	owner_id bytea NOT NULL,
 	salt bytea,
-	status integer DEFAULT 1,
-	status_updated_at timestamp with time zone,
-	created_at timestamp with time zone NOT NULL,
-	default_placement integer,
-	default_versioning integer NOT NULL DEFAULT 1,
-	prompted_for_versioning_beta boolean NOT NULL DEFAULT false,
 	passphrase_enc bytea,
 	passphrase_enc_key_id integer,
-	path_encryption boolean NOT NULL DEFAULT true,
-	prevDays_UntilExpiration integer,
-	storage_used_percentage double precision NOT NULL DEFAULT 0,
+	created_at timestamp with time zone NOT NULL,
+	status integer,
+	status_updated_at timestamp with time zone,
+	default_placement integer,
+	default_versioning integer NOT NULL DEFAULT 1,
+	prevDays_UntilExpiration integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
 ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
@@ -463,7 +435,7 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_settled bigint NOT NULL,
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
-);
+) ;
 CREATE TABLE push_notifications (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -478,7 +450,7 @@ CREATE TABLE push_notifications (
 	sent_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
@@ -486,7 +458,7 @@ CREATE TABLE registration_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
+) ;
 CREATE TABLE registration_token_developers (
 	secret bytea NOT NULL,
 	owner_id bytea,
@@ -494,7 +466,7 @@ CREATE TABLE registration_token_developers (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
+) ;
 CREATE TABLE repair_queue (
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -531,15 +503,14 @@ CREATE TABLE reset_password_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
+) ;
 CREATE TABLE reset_password_token_developers (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
-
+) ;
 CREATE TABLE retention_remainder_charges (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
@@ -706,6 +677,18 @@ CREATE TABLE users (
 	project_storage_limit bigint NOT NULL DEFAULT 0,
 	project_segment_limit bigint NOT NULL DEFAULT 0,
 	kind integer NOT NULL DEFAULT 0,
+	source text,
+	utm_source text,
+	utm_medium text,
+	utm_campaign text,
+	utm_term text,
+	utm_content text,
+	social_linkedin text,
+	social_twitter text,
+	social_facebook text,
+	social_github text,
+	wallet_id text,
+	migration_date timestamp with time zone,
 	position text,
 	company_name text,
 	company_size integer,
@@ -727,21 +710,9 @@ CREATE TABLE users (
 	signup_id text,
 	trial_expiration timestamp with time zone,
 	upgrade_time timestamp with time zone,
-	source text,
-	utm_source text,
-	utm_medium text,
-	utm_campaign text,
-	utm_term text,
-	utm_content text,
-	social_linkedin text,
-	social_twitter text,
-	social_facebook text,
-	social_github text,
-	wallet_id text,
-	migration_date timestamp with time zone,
-	PRIMARY KEY ( id )
 	hubspot_object_id text,
-);
+	PRIMARY KEY ( id )
+) ;
 CREATE TABLE user_delete_requests (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -750,7 +721,7 @@ CREATE TABLE user_delete_requests (
 	delete_at timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE user_notification_preferences (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -785,12 +756,12 @@ CREATE TABLE verification_audits (
 	expires_at timestamp with time zone,
 	encrypted_size integer NOT NULL,
 	PRIMARY KEY ( inserted_at, stream_id, position )
-);
+) ;
 CREATE TABLE web3_backup_shares (
 	backup_id bytea NOT NULL,
 	share bytea NOT NULL,
 	PRIMARY KEY ( backup_id )
-);
+) ;
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -800,7 +771,7 @@ CREATE TABLE webapp_sessions (
 	expires_at timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE webapp_session_developers (
 	id bytea NOT NULL,
 	developer_id bytea NOT NULL,
@@ -915,13 +886,17 @@ CREATE TABLE api_key_tails (
 ) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
 CREATE INDEX admin_email_status_index ON admins ( email, status ) ;
-CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
+CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
+CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp ) ;
+CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp ) ;
+CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp ) ;
+CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp ) ;
 CREATE INDEX configs_type_category_index ON configs ( config_type, category ) ;
 CREATE INDEX configs_active_type_index ON configs ( is_active, config_type ) ;
 CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
@@ -930,11 +905,6 @@ CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_use
 CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
 CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
 CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
-CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX node_last_ip ON nodes ( last_net ) ;
-CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
-CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
-CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
 CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;
@@ -965,9 +935,15 @@ CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjsc
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE stripecoinpayments_invoice_project_records.state = 0 ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
+CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
+CREATE INDEX users_external_id_index ON users ( external_id ) WHERE users.external_id is not NULL ;
+CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) WHERE users.status_updated_at is not NULL ;
+CREATE INDEX users_tenant_id_index ON users ( tenant_id ) WHERE users.tenant_id is not NULL ;
+CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status ) WHERE users.tenant_id is not NULL ;
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
+CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;

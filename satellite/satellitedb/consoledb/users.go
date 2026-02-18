@@ -298,7 +298,7 @@ func (users *users) GetByEmailWithUnverified_google(ctx context.Context, email s
 
 	var errors errs.Group
 	for _, userDbx := range usersDbx {
-		u, err := userFromDBX(ctx, userDbx)
+		u, err := UserFromDBX(ctx, userDbx)
 		if err != nil {
 			errors.Add(err)
 			continue
@@ -313,14 +313,12 @@ func (users *users) GetByEmailWithUnverified_google(ctx context.Context, email s
 func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	statusRow, err := users.db.Get_User_Status_By_Project_Id(ctx, dbx.Project_Id(id[:]))
+	user, err := users.db.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
 	if err != nil {
 		return nil, err
 	}
 
-	return &console.UserInfo{
-		Status: console.UserStatus(statusRow.Status),
-	}, nil
+	return UserFromDBX(ctx, user)
 }
 
 // GetByEmailAndTenant is a method for querying user by email and tenantID from the database.
@@ -382,7 +380,7 @@ func (users *users) GetAllUsers(ctx context.Context) (usersFromDB []*console.Use
 
 	// var usersFromDB []*console.User
 	for _, user := range allUsers {
-		userFromDB, err := userFromDBX(ctx, user)
+		userFromDB, err := UserFromDBX(ctx, user)
 		if err != nil {
 			return nil, err
 		}
@@ -581,7 +579,7 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 		err = rows.Scan(
 			&user.ID, &user.FullName, &user.Email, &user.Status, &user.CreatedAt, &source,
 			&utmSource, &utmMedium, &utmCampaign, &utmTerm, &utmContent,
-			&user.PaidTier, &user.ProjectStorageLimit, &user.ProjectBandwidthLimit,
+			&user.Kind, &user.ProjectStorageLimit, &user.ProjectBandwidthLimit,
 			&lastExp, &firstExp, &totalCount,
 			&projectCount,
 		)
@@ -987,7 +985,7 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		}
 	}
 
-	return userFromDBX(ctx, createdUser)
+	return UserFromDBX(ctx, createdUser)
 }
 
 // Delete is a method for deleting user by ID from the database.
@@ -1162,7 +1160,7 @@ func (users *users) UpdatePaidTiers(ctx context.Context, id uuid.UUID, paidTier 
 		ctx,
 		dbx.User_Id(id[:]),
 		dbx.User_Update_Fields{
-			PaidTier: dbx.User_PaidTier(paidTier),
+			Kind: dbx.User_Kind(int(console.PaidUser)),
 		},
 	)
 
@@ -1655,7 +1653,7 @@ func (users *users) toUpdateUser(request console.UpdateUserRequest) (*dbx.User_U
 		update.TrialNotifications = dbx.User_TrialNotifications(int(*request.TrialNotifications))
 	}
 	if request.UpgradeTime != nil {
-		update.UpgradeTime = dbx.User_UpgradeTime_Raw(*request.UpgradeTime)
+		update.UpgradeTime = dbx.User_UpgradeTime_Raw(request.UpgradeTime)
 	}
 
 	if request.NewUnverifiedEmail != nil {
@@ -1855,6 +1853,56 @@ func limitsFromDBX(ctx context.Context, limits *dbx.ProjectStorageLimit_ProjectB
 		ProjectSegmentLimit:   limits.ProjectSegmentLimit,
 	}
 	return &result, nil
+}
+
+// GetByEmailWithUnverified is a method for querying users by email from the database.
+func (users *users) GetByEmailWithUnverified(ctx context.Context, email string) (verified *console.User, unverified []console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	usersDbx, err := users.db.All_User_By_NormalizedEmail(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var errors errs.Group
+	for _, userDbx := range usersDbx {
+		u, err := UserFromDBX(ctx, userDbx)
+		if err != nil {
+			errors.Add(err)
+			continue
+		}
+
+		if u.Status == console.Active {
+			verified = u
+		} else {
+			unverified = append(unverified, *u)
+		}
+	}
+
+	return verified, unverified, errors.Err()
+}
+
+// GetUserInfoByProjectID gets the user info of the project (id) owner.
+func (users *users) GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (_ *console.UserInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	statusRow, err := users.db.Get_User_Status_By_Project_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return &console.UserInfo{
+		Status: console.UserStatus(statusRow.Status),
+	}, nil
+}
+func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_User_PaidTier_By_Id(ctx, dbx.User_Id(id[:]))
+	if err != nil {
+		return false, err
+	}
+	return row.PaidTier, nil
 }
 
 func normalizeEmail(email string) string {

@@ -66,7 +66,7 @@ func NewDeveloper(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseD
 	}
 
 	{ // setup analytics
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "analytics:service",
@@ -99,9 +99,7 @@ func NewDeveloper(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseD
 		regTokenChecker := developer.NewConsoleServiceAdapter(peer.DB.Console(), config.Console.Config)
 
 		// Setup mail service for developer emails
-		mailService, err := setupMailService(log, Config{
-			Mail: config.Mail,
-		})
+		mailService, err := setupMailService(log, config.Mail, config.Console)
 		if err != nil {
 			log.Warn("Failed to setup mail service for developer", zap.Error(err))
 			// Continue without mail service - emails won't be sent

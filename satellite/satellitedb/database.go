@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin"
-	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/backup"
@@ -286,15 +285,15 @@ func (dbc *satelliteDBCollection) Console() console.DB {
 	return db.consoleDB
 }
 
+// Web3Auth returns the backup/Web3 auth DB by delegating to the console DB implementation.
+func (dbc *satelliteDBCollection) Web3Auth() backup.DB {
+	return dbc.Console().Web3Auth().(backup.DB)
+}
+
 // AdminUsers returns database for admin users.
 func (dbc *satelliteDBCollection) AdminUsers() admin.Users {
 	db := dbc.getByName("console")
 	return &adminUsers{db: db}
-}
-
-// Web3Auth returns database for web3 auth.
-func (dbc *satelliteDBCollection) Web3Auth() backup.DB {
-	return &web3Auth{db: dbc.getByName("web3_auth")}
 }
 
 // LiveAccounting returns database for caching project usage data.
@@ -306,9 +305,9 @@ func (dbc *satelliteDBCollection) LiveAccounting() accounting.Cache {
 }
 
 // AdminChangeHistory returns the database for storing admin change history.
-func (dbc *satelliteDBCollection) AdminChangeHistory() changehistory.DB {
-	return &ChangeHistories{db: dbc.getByName("adminchangehistory")}
-}
+// func (dbc *satelliteDBCollection) AdminChangeHistory() changehistory.DB {
+// 	return &ChangeHistories{db: dbc.getByName("adminchangehistory")}
+// }
 
 // OIDC returns the database for storing OAuth and OIDC information.
 func (dbc *satelliteDBCollection) OIDC() oidc.DB {
@@ -493,17 +492,4 @@ func (dbc *satelliteDBCollectionTesting) ProductionMigration() *migrate.Migratio
 // TestMigration returns the migration used for tests.
 func (dbc *satelliteDBCollectionTesting) TestMigration() *migrate.Migration {
 	return dbc.getByName("").TestMigration()
-}
-
-// DeveloperOAuthClients returns database for developer oauth clients.
-func (dbc *satelliteDBCollection) DeveloperOAuthClients() console.DeveloperOAuthClients {
-	return &developerOAuthClients{db: dbc.getByName("developer_oauth_clients")}
-}
-
-func (db *satelliteDB) OAuth2Requests() console.OAuth2Requests {
-	return &oauth2Requests{db: db}
-}
-
-func (dbc *satelliteDBCollection) OAuth2Requests() console.OAuth2Requests {
-	return dbc.getByName("").OAuth2Requests()
 }

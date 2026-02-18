@@ -735,8 +735,7 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, sat.Config.Console.Placement.AllowedPlacementIdsForNewProjects, project.DefaultPlacement)
 
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "ent-key", macaroon.APIKeyVersionMin)
-		require.NoError(t, err)
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
 
 		mkReq := func(name, placement string) *pb.CreateBucketRequest {
 			var p []byte
@@ -1605,7 +1604,7 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
 		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.VersioningEnabled))
@@ -1683,7 +1682,7 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
 		createBucket := func(t *testing.T, name []byte, lockEnabled bool) {
@@ -1801,7 +1800,7 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
 		createBucket := func(t *testing.T, name []byte, lockEnabled bool) {
@@ -2108,7 +2107,7 @@ func TestBucketNotificationConfiguration(t *testing.T) {
 		require.False(t, *proj.PathEncryption)
 
 		// Create API key for the project without path encryption
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectWithoutPathEncryption.ID, "test-key", macaroon.APIKeyVersionEventing)
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectWithoutPathEncryption.ID, "test-key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
 		// Enable bucket eventing for both projects
@@ -2122,7 +2121,7 @@ func TestBucketNotificationConfiguration(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, apiKeyNotEnabled, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectNotEnabled.ID, "test-key", macaroon.APIKeyVersionEventing)
+		_, apiKeyNotEnabled, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectNotEnabled.ID, "test-key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
 		endpoint := sat.API.Metainfo.Endpoint

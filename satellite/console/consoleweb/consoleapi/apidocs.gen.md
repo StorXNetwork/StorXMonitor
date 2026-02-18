@@ -35,6 +35,7 @@ Creates new Project with given info
 	storageLimit: string // Amount of memory formatted as `15 GB`
 	bandwidthLimit: string // Amount of memory formatted as `15 GB`
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	prevDaysUntilExpiration: number
 	managePassphrase: boolean
 }
 
@@ -71,6 +72,8 @@ Creates new Project with given info
 	burstLimitList: number
 	rateLimitDelete: number
 	burstLimitDelete: number
+	storageUsedPercentage: number
+	prevDaysUntilExpiration: number
 	defaultPlacement: number
 	defaultVersioning: number
 	isClassic: boolean
@@ -99,6 +102,7 @@ Updates project with given info
 	storageLimit: string // Amount of memory formatted as `15 GB`
 	bandwidthLimit: string // Amount of memory formatted as `15 GB`
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	prevDaysUntilExpiration: number
 	managePassphrase: boolean
 }
 
@@ -135,6 +139,8 @@ Updates project with given info
 	burstLimitList: number
 	rateLimitDelete: number
 	burstLimitDelete: number
+	storageUsedPercentage: number
+	prevDaysUntilExpiration: number
 	defaultPlacement: number
 	defaultVersioning: number
 	isClassic: boolean
@@ -192,6 +198,8 @@ Gets all projects user has
 		burstLimitList: number
 		rateLimitDelete: number
 		burstLimitDelete: number
+		storageUsedPercentage: number
+		prevDaysUntilExpiration: number
 		defaultPlacement: number
 		defaultVersioning: number
 		isClassic: boolean

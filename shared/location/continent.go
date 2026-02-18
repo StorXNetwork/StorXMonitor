@@ -8,6 +8,124 @@ package location
 // license of the datasource: Creative Commons Attribution 4.0 License,
 // https://creativecommons.org/licenses/by/4.0/
 
+var ContinentEU = [...]CountryCode{
+	AlandIslands,         //AX
+	Albania,              //AL
+	Andorra,              //AD
+	Austria,              //AT
+	Belarus,              //BY
+	Belgium,              //BE
+	BosniaandHerzegovina, //BA
+	Bulgaria,             //BG
+	Croatia,              //HR
+	Cyprus,               //CY
+	Czechia,              //CZ
+	Denmark,              //DK
+	Estonia,              //EE
+	FaroeIslands,         //FO
+	Finland,              //FI
+	France,               //FR
+	Germany,              //DE
+	Gibraltar,            //GI
+	Greece,               //GR
+	Guernsey,             //GG
+	Hungary,              //HU
+	Iceland,              //IS
+	Ireland,              //IE
+	IsleofMan,            //IM
+	Italy,                //IT
+	Jersey,               //JE
+	Kosovo,               //XK
+	Latvia,               //LV
+	Liechtenstein,        //LI
+	Lithuania,            //LT
+	Luxembourg,           //LU
+	Malta,                //MT
+	Moldova,              //MD
+	Monaco,               //MC
+	Montenegro,           //ME
+	NorthMacedonia,       //MK
+	Norway,               //NO
+	Poland,               //PL
+	Portugal,             //PT
+	Romania,              //RO
+	Russia,               //RU
+	SanMarino,            //SM
+	Serbia,               //RS
+	SerbiaandMontenegro,  //CS
+	Slovakia,             //SK
+	Slovenia,             //SI
+	Spain,                //ES
+	SvalbardandJanMayen,  //SJ
+	Sweden,               //SE
+	Switzerland,          //CH
+	TheNetherlands,       //NL
+	Ukraine,              //UA
+	UnitedKingdom,        //GB
+	Vatican,              //VA
+}
+
+var ContinentAF = [...]CountryCode{
+	Algeria,                      //DZ
+	Angola,                       //AO
+	Benin,                        //BJ
+	Botswana,                     //BW
+	BurkinaFaso,                  //BF
+	Burundi,                      //BI
+	CaboVerde,                    //CV
+	Cameroon,                     //CM
+	CentralAfricanRepublic,       //CF
+	Chad,                         //TD
+	Comoros,                      //KM
+	DemocraticRepublicoftheCongo, //CD
+	Djibouti,                     //DJ
+	Egypt,                        //EG
+	EquatorialGuinea,             //GQ
+	Eritrea,                      //ER
+	Eswatini,                     //SZ
+	Ethiopia,                     //ET
+	Gabon,                        //GA
+	Gambia,                       //GM
+	Ghana,                        //GH
+	Guinea,                       //GN
+	GuineaBissau,                 //GW
+	IvoryCoast,                   //CI
+	Kenya,                        //KE
+	Lesotho,                      //LS
+	Liberia,                      //LR
+	Libya,                        //LY
+	Madagascar,                   //MG
+	Malawi,                       //MW
+	Mali,                         //ML
+	Mauritania,                   //MR
+	Mauritius,                    //MU
+	Mayotte,                      //YT
+	Morocco,                      //MA
+	Mozambique,                   //MZ
+	Namibia,                      //NA
+	Niger,                        //NE
+	Nigeria,                      //NG
+	RepublicoftheCongo,           //CG
+	Reunion,                      //RE
+	Rwanda,                       //RW
+	SaintHelena,                  //SH
+	SaoTomeandPrincipe,           //ST
+	Senegal,                      //SN
+	Seychelles,                   //SC
+	SierraLeone,                  //SL
+	Somalia,                      //SO
+	SouthAfrica,                  //ZA
+	SouthSudan,                   //SS
+	Sudan,                        //SD
+	Tanzania,                     //TZ
+	Togo,                         //TG
+	Tunisia,                      //TN
+	Uganda,                       //UG
+	WesternSahara,                //EH
+	Zambia,                       //ZM
+	Zimbabwe,                     //ZW
+}
+
 var ContinentOC = [...]CountryCode{
 	AmericanSamoa,                    //AS
 	Australia,                        //AU
@@ -163,130 +281,12 @@ var ContinentAS = [...]CountryCode{
 	Yemen,                       //YE
 }
 
-var ContinentEU = [...]CountryCode{
-	AlandIslands,         //AX
-	Albania,              //AL
-	Andorra,              //AD
-	Austria,              //AT
-	Belarus,              //BY
-	Belgium,              //BE
-	BosniaandHerzegovina, //BA
-	Bulgaria,             //BG
-	Croatia,              //HR
-	Cyprus,               //CY
-	Czechia,              //CZ
-	Denmark,              //DK
-	Estonia,              //EE
-	FaroeIslands,         //FO
-	Finland,              //FI
-	France,               //FR
-	Germany,              //DE
-	Gibraltar,            //GI
-	Greece,               //GR
-	Guernsey,             //GG
-	Hungary,              //HU
-	Iceland,              //IS
-	Ireland,              //IE
-	IsleofMan,            //IM
-	Italy,                //IT
-	Jersey,               //JE
-	Kosovo,               //XK
-	Latvia,               //LV
-	Liechtenstein,        //LI
-	Lithuania,            //LT
-	Luxembourg,           //LU
-	Malta,                //MT
-	Moldova,              //MD
-	Monaco,               //MC
-	Montenegro,           //ME
-	NorthMacedonia,       //MK
-	Norway,               //NO
-	Poland,               //PL
-	Portugal,             //PT
-	Romania,              //RO
-	Russia,               //RU
-	SanMarino,            //SM
-	Serbia,               //RS
-	SerbiaandMontenegro,  //CS
-	Slovakia,             //SK
-	Slovenia,             //SI
-	Spain,                //ES
-	SvalbardandJanMayen,  //SJ
-	Sweden,               //SE
-	Switzerland,          //CH
-	TheNetherlands,       //NL
-	Ukraine,              //UA
-	UnitedKingdom,        //GB
-	Vatican,              //VA
-}
-
-var ContinentAF = [...]CountryCode{
-	Algeria,                      //DZ
-	Angola,                       //AO
-	Benin,                        //BJ
-	Botswana,                     //BW
-	BurkinaFaso,                  //BF
-	Burundi,                      //BI
-	CaboVerde,                    //CV
-	Cameroon,                     //CM
-	CentralAfricanRepublic,       //CF
-	Chad,                         //TD
-	Comoros,                      //KM
-	DemocraticRepublicoftheCongo, //CD
-	Djibouti,                     //DJ
-	Egypt,                        //EG
-	EquatorialGuinea,             //GQ
-	Eritrea,                      //ER
-	Eswatini,                     //SZ
-	Ethiopia,                     //ET
-	Gabon,                        //GA
-	Gambia,                       //GM
-	Ghana,                        //GH
-	Guinea,                       //GN
-	GuineaBissau,                 //GW
-	IvoryCoast,                   //CI
-	Kenya,                        //KE
-	Lesotho,                      //LS
-	Liberia,                      //LR
-	Libya,                        //LY
-	Madagascar,                   //MG
-	Malawi,                       //MW
-	Mali,                         //ML
-	Mauritania,                   //MR
-	Mauritius,                    //MU
-	Mayotte,                      //YT
-	Morocco,                      //MA
-	Mozambique,                   //MZ
-	Namibia,                      //NA
-	Niger,                        //NE
-	Nigeria,                      //NG
-	RepublicoftheCongo,           //CG
-	Reunion,                      //RE
-	Rwanda,                       //RW
-	SaintHelena,                  //SH
-	SaoTomeandPrincipe,           //ST
-	Senegal,                      //SN
-	Seychelles,                   //SC
-	SierraLeone,                  //SL
-	Somalia,                      //SO
-	SouthAfrica,                  //ZA
-	SouthSudan,                   //SS
-	Sudan,                        //SD
-	Tanzania,                     //TZ
-	Togo,                         //TG
-	Tunisia,                      //TN
-	Uganda,                       //UG
-	WesternSahara,                //EH
-	Zambia,                       //ZM
-	Zimbabwe,                     //ZW
-}
-
 var Continents = map[string][]CountryCode{
+	"OC": ContinentOC[:],
+	"NA": ContinentNA[:],
+	"AN": ContinentAN[:],
 	"SA": ContinentSA[:],
 	"AS": ContinentAS[:],
 	"EU": ContinentEU[:],
 	"AF": ContinentAF[:],
-	"OC": ContinentOC[:],
-	"NA": ContinentNA[:],
-	"AN": ContinentAN[:],
 }

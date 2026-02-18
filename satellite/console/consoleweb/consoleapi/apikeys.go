@@ -375,7 +375,7 @@ func (keys *APIKeys) GetAccessGrantForDeveloper(w http.ResponseWriter, r *http.R
 	project := projects[0]
 	name := "API_KEY_FOR_DEVELOPER_FOR_DATA_SYNC"
 
-	_, apiKey, err := keys.service.CreateAPIKey(ctxWithUser, project.ID, name)
+	_, apiKey, err := keys.service.CreateAPIKey(ctxWithUser, project.ID, name, macaroon.APIKeyVersionMin)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)

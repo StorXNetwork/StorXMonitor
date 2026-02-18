@@ -13,6 +13,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"fmt"
+
 	"storj.io/common/sync2"
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/accounting"

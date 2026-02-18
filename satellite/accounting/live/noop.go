@@ -14,6 +14,11 @@ import (
 type noopCache struct {
 }
 
+// GetProjectSegmentUsage noop method.
+func (noopCache) GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
+	return 0, nil
+}
+
 // GetProjectStorageUsage noop method.
 func (noopCache) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
 	return 0, nil

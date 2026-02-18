@@ -24,8 +24,7 @@ import (
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
-	backoffice "storj.io/storj/satellite/admin"
-	"storj.io/storj/satellite/admin/changehistory"
+	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
@@ -40,6 +39,7 @@ import (
 	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
 	"storj.io/storj/satellite/console/emailreminders"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/contact"
@@ -127,10 +127,10 @@ type DB interface {
 	ReverifyQueue() audit.ReverifyQueue
 	// Console returns database for satellite console
 	Console() console.DB
-	// AdminUsers returns database for admin users
+	// AdminUsers returns database for admin users.
 	AdminUsers() admin.Users
-	// AdminChangeHistory returns the database for storing admin change history.
-	AdminChangeHistory() changehistory.DB
+	// // AdminChangeHistory returns the database for storing admin change history.
+	// AdminChangeHistory() changehistory.DB
 	// OIDC returns the database for OIDC resources.
 	OIDC() oidc.DB
 	// Orders returns database for orders
@@ -147,7 +147,7 @@ type DB interface {
 	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
 	Billing() billing.TransactionsDB
-
+	// NodeReputation returns database for node reputation.
 	NodeReputation() audit.NodeReputation
 	// Wallets returns storjscan wallets database.
 	Wallets() storjscan.WalletsDB
@@ -197,7 +197,6 @@ type Config struct {
 
 	Placement nodeselection.ConfigurablePlacementRule `help:"detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...)."`
 
-	Admin backoffice.Config
 	Admin     admin.Config
 	Developer developer.Config
 
@@ -274,9 +273,11 @@ type Config struct {
 
 	HealthCheck healthcheck.Config
 
+	Backup backup.Config
+
 	FlightRecorder flightrecorder.Config
 
-	Backup backup.Config
+	RESTKeys restkeys.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 
@@ -303,157 +304,53 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		}
 	}
 
-	var defaultBranding mailservice.WhiteLabelConfig
+	// Extract tenant configurations from console config
 	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
-
-	// Check if single white label mode is enabled (for dedicated deployments).
-	if consoleConfig.SingleWhiteLabel.Enabled() {
-		cfg := consoleConfig.SingleWhiteLabel
-		defaultBranding = mailservice.WhiteLabelConfig{
-			BrandName:         cfg.Name,
-			LogoURL:           cfg.LogoURLs["mail"],
-			HomepageURL:       cfg.HomepageURL,
-			SupportURL:        cfg.SupportURL,
-			DocsURL:           cfg.DocsURL,
-			SourceCodeURL:     cfg.SourceCodeURL,
-			SocialURL:         cfg.SocialURL,
-			PrivacyPolicyURL:  cfg.PrivacyPolicyURL,
-			TermsOfServiceURL: cfg.TermsOfServiceURL,
-			TermsOfUseURL:     cfg.TermsOfUseURL,
-			BlogURL:           cfg.BlogURL,
-			CompanyName:       cfg.CompanyName,
-			AddressLine1:      cfg.AddressLine1,
-			AddressLine2:      cfg.AddressLine2,
-			PrimaryColor:      cfg.Colors["primary"],
-		}
-
-		// If single-brand mode has SMTP config, use that as well.
-		if cfg.SMTP.AuthType != "" && cfg.TenantID != "" {
-			tenantConfigs[cfg.TenantID] = mailservice.TenantSMTPConfig{
-				Branding: defaultBranding,
-				SMTP: mailservice.Config{
-					From:              cfg.SMTP.From,
-					SMTPServerAddress: cfg.SMTP.ServerAddress,
-					AuthType:          cfg.SMTP.AuthType,
-					Login:             cfg.SMTP.Login,
-					Password:          cfg.SMTP.Password,
-				},
-			}
-		}
-	} else {
-		// Extract tenant configurations from multi-tenant console config.
-		for tenantID, config := range consoleConfig.WhiteLabel.Value {
-			tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
-				Branding: mailservice.WhiteLabelConfig{
-					BrandName:         config.Name,
-					LogoURL:           config.LogoURLs["mail"],
-					HomepageURL:       config.HomepageURL,
-					SupportURL:        config.SupportURL,
-					DocsURL:           config.DocsURL,
-					SourceCodeURL:     config.SourceCodeURL,
-					SocialURL:         config.SocialURL,
-					PrivacyPolicyURL:  config.PrivacyPolicyURL,
-					TermsOfServiceURL: config.TermsOfServiceURL,
-					TermsOfUseURL:     config.TermsOfUseURL,
-					BlogURL:           config.BlogURL,
-					CompanyName:       config.CompanyName,
-					AddressLine1:      config.AddressLine1,
-					AddressLine2:      config.AddressLine2,
-					PrimaryColor:      config.Colors["primary"],
-				},
-				SMTP: mailservice.Config{
-					From:              config.SMTP.From,
-					SMTPServerAddress: config.SMTP.ServerAddress,
-					AuthType:          config.SMTP.AuthType,
-					Login:             config.SMTP.Login,
-					Password:          config.SMTP.Password,
-				},
-			}
-		}
-
-		// Default Storj branding.
-		defaultBranding = mailservice.WhiteLabelConfig{
-			BrandName:         "Storj",
-			LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
-			HomepageURL:       consoleConfig.HomepageURL,
-			SupportURL:        consoleConfig.GeneralRequestURL,
-			DocsURL:           consoleConfig.DocumentationURL,
-			PrivacyPolicyURL:  "https://www.storj.io/legal/privacy-policy",
-			TermsOfServiceURL: consoleConfig.TermsAndConditionsURL,
-			TermsOfUseURL:     "https://www.storj.io/legal/terms-of-use",
-			SourceCodeURL:     "https://github.com/storj",
-			SocialURL:         "https://twitter.com/storj",
-			BlogURL:           "https://storj.io/blog",
-			PrimaryColor:      "#0052FF",
-			CompanyName:       "Storj Labs",
-			AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
-			AddressLine2:      "Atlanta, GA 30339-2171, United States",
-		}
-
-		from, _, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		sender = &post.SMTPSender{
-			From: *from,
-			Auth: &oauth2.Auth{
-				UserEmail: from.Address,
-				Storage:   oauth2.NewTokenStore(creds, *token),
+	for tenantID, config := range consoleConfig.WhiteLabel.Value {
+		tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
+			Branding: mailservice.WhiteLabelConfig{
+				BrandName:         config.Name,
+				LogoURL:           config.LogoURLs["mail"],
+				HomepageURL:       config.HomepageURL,
+				SupportURL:        config.SupportURL,
+				DocsURL:           config.DocsURL,
+				SourceCodeURL:     config.SourceCodeURL,
+				SocialURL:         config.SocialURL,
+				PrivacyPolicyURL:  config.PrivacyPolicyURL,
+				TermsOfServiceURL: config.TermsOfServiceURL,
+				TermsOfUseURL:     config.TermsOfUseURL,
+				BlogURL:           config.BlogURL,
+				CompanyName:       config.CompanyName,
+				AddressLine1:      config.AddressLine1,
+				AddressLine2:      config.AddressLine2,
+				PrimaryColor:      config.Colors["primary"],
 			},
-			ServerAddress: mailConfig.SMTPServerAddress,
-		}
-	case "plain":
-		from, host, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		sender = &post.SMTPSender{
-			From:          *from,
-			Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
-			ServerAddress: mailConfig.SMTPServerAddress,
-		}
-	case "login":
-		from, _, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		sender = &post.SMTPSender{
-			From: *from,
-			Auth: post.LoginAuth{
-				Username: mailConfig.Login,
-				Password: mailConfig.Password,
+			SMTP: mailservice.Config{
+				From:              config.SMTP.From,
+				SMTPServerAddress: config.SMTP.ServerAddress,
+				AuthType:          config.SMTP.AuthType,
+				Login:             config.SMTP.Login,
+				Password:          config.SMTP.Password,
 			},
-			ServerAddress: mailConfig.SMTPServerAddress,
 		}
-	case "insecure":
-		from, _, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-		sender = &post.SMTPSender{
-			From:          *from,
-			ServerAddress: mailConfig.SMTPServerAddress,
-		}
-	case "mailv2":
-		from, _, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-		sender = &post.MailV2{
-			From: *from,
-			Auth: post.LoginAuth{
-				Username: mailConfig.Login,
-				Password: mailConfig.Password,
-			},
-			ServerAddress: mailConfig.SMTPServerAddress,
-		}
-	case "nomail":
-		sender = simulate.NoMail{}
-	default:
-		sender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
+	}
+
+	defaultBranding := mailservice.WhiteLabelConfig{
+		BrandName:         "Storj",
+		LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
+		HomepageURL:       consoleConfig.HomepageURL,
+		SupportURL:        consoleConfig.GeneralRequestURL,
+		DocsURL:           consoleConfig.DocumentationURL,
+		PrivacyPolicyURL:  "https://www.storj.io/legal/privacy-policy",
+		TermsOfServiceURL: consoleConfig.TermsAndConditionsURL,
+		TermsOfUseURL:     "https://www.storj.io/legal/terms-of-use",
+		SourceCodeURL:     "https://github.com/storj",
+		SocialURL:         "https://twitter.com/storj",
+		BlogURL:           "https://storj.io/blog",
+		PrimaryColor:      "#0052FF",
+		CompanyName:       "Storj Labs",
+		AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
+		AddressLine2:      "Atlanta, GA 30339-2171, United States",
 	}
 
 	return mailservice.SetupWithTenants(log, mailservice.SetupConfig{

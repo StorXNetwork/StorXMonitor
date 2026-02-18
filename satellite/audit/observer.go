@@ -151,6 +151,7 @@ func newObserverFork(reservoirSlots int, r *rand.Rand, include AuditedNodes) *ob
 
 // Process performs per-node reservoir sampling on remote segments for addition into the audit queue.
 func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) (err error) {
+	now := time.Now()
 	defer mon.Task()(&ctx)(&err)
 	for _, segment := range segments {
 		// The reservoir ends up deferencing and copying the segment internally

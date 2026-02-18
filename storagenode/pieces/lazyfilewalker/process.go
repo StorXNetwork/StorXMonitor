@@ -22,6 +22,7 @@ type process struct {
 	executable string
 	args       []string
 
+	stdout io.ReadWriter
 	stderr io.Writer
 
 	cmd execwrapper.Command
@@ -41,7 +42,7 @@ func newProcess(cmd execwrapper.Command, log *zap.Logger, executable string, arg
 
 // run runs the process.
 // It returns an error if the Process fails to start, or if the Process exits with a non-zero status.
-func (p *process) run(ctx context.Context, stdout io.Writer, req interface{}) (err error) {
+func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -63,7 +64,7 @@ func (p *process) run(ctx context.Context, stdout io.Writer, req interface{}) (e
 	}
 
 	p.cmd.SetIn(&buf)
-	p.cmd.SetOut(stdout)
+	p.cmd.SetOut(p.stdout)
 	p.cmd.SetErr(p.stderr)
 
 	if err := p.cmd.Start(); err != nil {

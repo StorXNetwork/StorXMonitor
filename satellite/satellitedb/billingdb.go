@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 )
 
 // ensures that *billingDB implements billing.TransactionsDB.
@@ -113,7 +114,7 @@ func (db billingDB) tryInserts(ctx context.Context, primaryTx billing.Transactio
 			dbx.BillingTransaction_Status(string(billingTX.Status)),
 			dbx.BillingTransaction_Type(string(billingTX.Type)),
 			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
-			dbx.BillingTransaction_Timestamp(billingTX.Timestamp),
+			dbx.BillingTransaction_TxTimestamp(billingTX.Timestamp),
 			createFields)
 		if err != nil {
 			return Error.Wrap(err)
@@ -560,7 +561,7 @@ func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.T
 // boris
 func (db billingDB) Lists(ctx context.Context, userID uuid.UUID) (txs []billing.Transactions, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx,
+	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestamp(ctx,
 		dbx.BillingTransaction_UserId(userID[:]))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -612,7 +613,7 @@ func fromDBXBillingTransactions(dbxTX *dbx.BillingTransaction) (billing.Transact
 		Status:      billing.TransactionStatus(dbxTX.Status),
 		Type:        billing.TransactionType(dbxTX.Type),
 		Metadata:    dbxTX.Metadata,
-		Timestamp:   dbxTX.Timestamp,
+		Timestamp:   dbxTX.TxTimestamp,
 		CreatedAt:   dbxTX.CreatedAt,
 		PlanID:      dbxTX.PlanId,
 	}, nil
@@ -709,7 +710,7 @@ func (db billingDB) GetLatestCompletedDebitTransaction(ctx context.Context, user
 		string(billing.TransactionTypeDebit),
 		string(billing.TransactionStatusCompleted),
 	).Scan(
-		&dbxTX.Id, &dbxTX.UserId, &dbxTX.Amount, &dbxTX.Description, &dbxTX.Source, &dbxTX.Status, &dbxTX.Type, &dbxTX.Metadata, &dbxTX.Timestamp, &dbxTX.CreatedAt, &dbxTX.PlanId,
+		&dbxTX.Id, &dbxTX.UserId, &dbxTX.Amount, &dbxTX.Description, &dbxTX.Source, &dbxTX.Status, &dbxTX.Type, &dbxTX.Metadata, &dbxTX.TxTimestamp, &dbxTX.CreatedAt, &dbxTX.PlanId,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

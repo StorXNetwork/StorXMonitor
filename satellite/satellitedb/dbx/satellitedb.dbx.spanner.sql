@@ -23,6 +23,38 @@ CREATE TABLE accounting_timestamps (
 	name STRING(MAX) NOT NULL,
 	value TIMESTAMP NOT NULL
 ) PRIMARY KEY ( name ) ;
+CREATE TABLE admins (
+	id BYTES(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	password_hash BYTES(MAX) NOT NULL,
+	roles STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP
+) PRIMARY KEY ( id ) ;
+CREATE TABLE backup_final_statuses (
+	backup_date STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	completed_at TIMESTAMP NOT NULL,
+	total_pages INT64 NOT NULL,
+	total_keys INT64 NOT NULL,
+	backup_file_path STRING(MAX) NOT NULL,
+	error_message STRING(MAX) NOT NULL,
+	checksum STRING(MAX) NOT NULL,
+	file_size INT64 NOT NULL
+) PRIMARY KEY ( backup_date ) ;
+CREATE TABLE backup_page_statuses (
+	backup_date STRING(MAX) NOT NULL,
+	page_number INT64 NOT NULL,
+	status STRING(MAX) NOT NULL,
+	completed_at TIMESTAMP NOT NULL,
+	keys_count INT64 NOT NULL,
+	file_path STRING(MAX) NOT NULL,
+	error_message STRING(MAX) NOT NULL,
+	checksum STRING(MAX) NOT NULL,
+	file_size INT64 NOT NULL
+) PRIMARY KEY ( backup_date, page_number ) ;
 CREATE TABLE billing_balances (
 	user_id BYTES(MAX) NOT NULL,
 	balance INT64 NOT NULL,
@@ -35,6 +67,7 @@ CREATE TABLE billing_transactions (
 	amount INT64 NOT NULL,
 	currency STRING(MAX) NOT NULL,
 	description STRING(MAX) NOT NULL,
+	plan_id INT64,
 	source STRING(MAX) NOT NULL,
 	status STRING(MAX) NOT NULL,
 	type STRING(MAX) NOT NULL,
@@ -102,12 +135,94 @@ CREATE TABLE coinpayments_transactions (
 	timeout INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE configs (
+	id BYTES(MAX) NOT NULL,
+	config_type STRING(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	category STRING(MAX),
+	config_data JSON NOT NULL,
+	is_active BOOL NOT NULL DEFAULT (true),
+	created_by BYTES(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_configs_config_type_name ON configs ( config_type, name ) ;
+CREATE TABLE coupons (
+	code STRING(MAX) NOT NULL,
+	discount FLOAT64 NOT NULL,
+	discount_type STRING(MAX) NOT NULL,
+	max_discount FLOAT64 NOT NULL,
+	min_order_amount FLOAT64 NOT NULL,
+	valid_from TIMESTAMP NOT NULL,
+	valid_to TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( code ) ;
+CREATE TABLE developers (
+	id BYTES(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	normalized_email STRING(MAX) NOT NULL,
+	full_name STRING(MAX) NOT NULL,
+	password_hash BYTES(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	company_name STRING(MAX),
+	failed_login_count INT64,
+	login_lockout_expiration TIMESTAMP,
+	activation_code STRING(MAX),
+	signup_id STRING(MAX)
+) PRIMARY KEY ( id ) ;
+CREATE TABLE developer_oauth_clients (
+	id BYTES(MAX) NOT NULL,
+	developer_id BYTES(MAX) NOT NULL,
+	client_id STRING(MAX) NOT NULL,
+	client_secret STRING(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	redirect_uris STRING(MAX) NOT NULL,
+	scopes STRING(MAX) NOT NULL,
+	description STRING(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE developer_user_mappings (
+	id BYTES(MAX) NOT NULL,
+	developer_id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE email_subscriptions (
+	email STRING(MAX) NOT NULL,
+	status INT64 NOT NULL DEFAULT (1),
+	unsubscribed_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( email ) ;
 CREATE TABLE entitlements (
 	scope BYTES(MAX) NOT NULL,
 	features JSON NOT NULL DEFAULT (JSON "{}"),
 	updated_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( scope ) ;
+CREATE TABLE fcm_tokens (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	token STRING(MAX) NOT NULL,
+	device_id STRING(MAX),
+	device_type STRING(MAX),
+	app_version STRING(MAX),
+	os_version STRING(MAX),
+	device_model STRING(MAX),
+	browser_name STRING(MAX),
+	user_agent STRING(MAX),
+	ip_address STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	last_used_at TIMESTAMP,
+	is_active BOOL NOT NULL DEFAULT (true)
+) PRIMARY KEY ( id ) ;
+CREATE TABLE key_versions (
+	key_id BYTES(MAX) NOT NULL,
+	version STRING(MAX) NOT NULL
+) PRIMARY KEY ( key_id ) ;
 CREATE TABLE nodes (
 	id BYTES(MAX) NOT NULL,
 	address STRING(MAX) NOT NULL DEFAULT (""),
@@ -147,7 +262,11 @@ CREATE TABLE nodes (
 	noise_proto INT64,
 	noise_public_key BYTES(MAX),
 	debounce_limit INT64 NOT NULL DEFAULT (0),
-	features INT64 NOT NULL DEFAULT (0)
+	features INT64 NOT NULL DEFAULT (0),
+	isp STRING(MAX),
+	location STRING(MAX),
+	stack INT64 NOT NULL DEFAULT (0),
+	inactive BOOL NOT NULL DEFAULT (false)
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE node_api_versions (
 	id BYTES(MAX) NOT NULL,
@@ -165,6 +284,14 @@ CREATE TABLE node_events (
 	last_attempted TIMESTAMP,
 	email_sent TIMESTAMP
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE node_smart_contract_updates (
+	id BYTES(MAX) NOT NULL,
+	wallet STRING(MAX) NOT NULL,
+	message STRING(MAX) NOT NULL,
+	message_type STRING(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
 CREATE TABLE node_tags (
 	node_id BYTES(MAX) NOT NULL,
 	name STRING(MAX) NOT NULL,
@@ -172,6 +299,20 @@ CREATE TABLE node_tags (
 	signed_at TIMESTAMP NOT NULL,
 	signer BYTES(MAX) NOT NULL
 ) PRIMARY KEY ( node_id, name, signer ) ;
+CREATE TABLE oauth2_requests (
+	id BYTES(MAX) NOT NULL,
+	client_id STRING(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	redirect_uri STRING(MAX) NOT NULL,
+	scopes STRING(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	consent_expires_at TIMESTAMP NOT NULL,
+	code STRING(MAX) NOT NULL,
+	code_expires_at TIMESTAMP NOT NULL,
+	approved_scopes STRING(MAX) NOT NULL,
+	rejected_scopes STRING(MAX) NOT NULL
+) PRIMARY KEY ( id ) ;
 CREATE TABLE oauth_clients (
 	id BYTES(MAX) NOT NULL,
 	encrypted_secret BYTES(MAX) NOT NULL,
@@ -201,6 +342,18 @@ CREATE TABLE oauth_tokens (
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( token ) ;
+CREATE SEQUENCE payment_plans_id OPTIONS (sequence_kind='bit_reversed_positive') ;
+CREATE TABLE payment_plans (
+	id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE payment_plans_id)),
+	name STRING(MAX) NOT NULL,
+	storage INT64 NOT NULL,
+	price FLOAT64 NOT NULL,
+	benefit JSON NOT NULL,
+	bandwidth INT64 NOT NULL,
+	validity INT64 NOT NULL,
+	validity_unit STRING(MAX) NOT NULL,
+	group STRING(MAX) NOT NULL
+) PRIMARY KEY ( id ) ;
 CREATE TABLE peer_identities (
 	node_id BYTES(MAX) NOT NULL,
 	leaf_serial_number BYTES(MAX) NOT NULL,
@@ -233,15 +386,14 @@ CREATE TABLE projects (
 	user_agent BYTES(MAX),
 	owner_id BYTES(MAX) NOT NULL,
 	salt BYTES(MAX),
-	status INT64 DEFAULT (1),
-	status_updated_at TIMESTAMP,
-	created_at TIMESTAMP NOT NULL,
-	default_placement INT64,
-	default_versioning INT64 NOT NULL DEFAULT (1),
-	prompted_for_versioning_beta BOOL NOT NULL DEFAULT (false),
 	passphrase_enc BYTES(MAX),
 	passphrase_enc_key_id INT64,
-	path_encryption BOOL NOT NULL DEFAULT (true)
+	created_at TIMESTAMP NOT NULL,
+	status INT64,
+	status_updated_at TIMESTAMP,
+	default_placement INT64,
+	default_versioning INT64 NOT NULL DEFAULT (1),
+	prevDays_UntilExpiration INT64 NOT NULL DEFAULT (0)
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
 	project_id BYTES(MAX) NOT NULL,
@@ -251,6 +403,20 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_settled INT64 NOT NULL,
 	egress_dead INT64 NOT NULL DEFAULT (0)
 ) PRIMARY KEY ( project_id, interval_day ) ;
+CREATE TABLE push_notifications (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	token_id BYTES(MAX),
+	title STRING(MAX) NOT NULL,
+	body STRING(MAX) NOT NULL,
+	data JSON,
+	status STRING(MAX) NOT NULL,
+	error_message STRING(MAX),
+	retry_count INT64 NOT NULL DEFAULT (0),
+	hide BOOL NOT NULL DEFAULT (false),
+	sent_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
 CREATE TABLE registration_tokens (
 	secret BYTES(MAX) NOT NULL,
 	owner_id BYTES(MAX),
@@ -258,6 +424,13 @@ CREATE TABLE registration_tokens (
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
 CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id ) ;
+CREATE TABLE registration_token_developers (
+	secret BYTES(MAX) NOT NULL,
+	owner_id BYTES(MAX),
+	project_limit INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( secret ) ;
+CREATE UNIQUE INDEX index_registration_token_developers_owner_id ON registration_token_developers ( owner_id ) ;
 CREATE TABLE repair_queue (
 	stream_id BYTES(MAX) NOT NULL,
 	position INT64 NOT NULL,
@@ -292,6 +465,12 @@ CREATE TABLE reset_password_tokens (
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
 CREATE UNIQUE INDEX index_reset_password_tokens_owner_id ON reset_password_tokens ( owner_id ) ;
+CREATE TABLE reset_password_token_developers (
+	secret BYTES(MAX) NOT NULL,
+	owner_id BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( secret ) ;
+CREATE UNIQUE INDEX index_reset_password_token_developers_owner_id ON reset_password_token_developers ( owner_id ) ;
 CREATE TABLE retention_remainder_charges (
 	project_id BYTES(MAX) NOT NULL,
 	bucket_name BYTES(MAX) NOT NULL,
@@ -445,6 +624,18 @@ CREATE TABLE users (
 	project_storage_limit INT64 NOT NULL DEFAULT (0),
 	project_segment_limit INT64 NOT NULL DEFAULT (0),
 	kind INT64 NOT NULL DEFAULT (0),
+	source STRING(MAX),
+	utm_source STRING(MAX),
+	utm_medium STRING(MAX),
+	utm_campaign STRING(MAX),
+	utm_term STRING(MAX),
+	utm_content STRING(MAX),
+	social_linkedin STRING(MAX),
+	social_twitter STRING(MAX),
+	social_facebook STRING(MAX),
+	social_github STRING(MAX),
+	wallet_id STRING(MAX),
+	migration_date TIMESTAMP,
 	position STRING(MAX),
 	company_name STRING(MAX),
 	company_size INT64,
@@ -467,6 +658,22 @@ CREATE TABLE users (
 	trial_expiration TIMESTAMP,
 	upgrade_time TIMESTAMP,
 	hubspot_object_id STRING(MAX)
+) PRIMARY KEY ( id ) ;
+CREATE TABLE user_delete_requests (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	error STRING(MAX),
+	delete_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE user_notification_preferences (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	category STRING(MAX),
+	preferences JSON NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE user_settings (
 	user_id BYTES(MAX) NOT NULL,
@@ -491,11 +698,23 @@ CREATE TABLE verification_audits (
 	expires_at TIMESTAMP,
 	encrypted_size INT64 NOT NULL
 ) PRIMARY KEY ( inserted_at, stream_id, position ) ;
+CREATE TABLE web3_backup_shares (
+	backup_id BYTES(MAX) NOT NULL,
+	share BYTES(MAX) NOT NULL
+) PRIMARY KEY ( backup_id ) ;
 CREATE TABLE webapp_sessions (
 	id BYTES(MAX) NOT NULL,
 	user_id BYTES(MAX) NOT NULL,
 	ip_address STRING(MAX) NOT NULL,
 	user_agent STRING(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE webapp_session_developers (
+	id BYTES(MAX) NOT NULL,
+	developer_id BYTES(MAX) NOT NULL,
+	ip_address STRING(MAX) NOT NULL,
 	status INT64 NOT NULL,
 	expires_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
@@ -537,6 +756,8 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_optimal_shares INT64 NOT NULL,
 	default_redundancy_total_shares INT64 NOT NULL,
 	placement INT64,
+	migration_status INT64 NOT NULL DEFAULT (0),
+	immutability_rules JSON,
 	created_by BYTES(MAX),
 	CONSTRAINT bucket_metainfos_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
 	CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
@@ -607,6 +828,7 @@ CREATE TABLE api_key_tails (
 	CONSTRAINT api_key_tails_root_key_id_fkey FOREIGN KEY (root_key_id) REFERENCES api_keys (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( tail ) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
+CREATE INDEX admin_email_status_index ON admins ( email, status ) ;
 CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
@@ -618,7 +840,18 @@ CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id,
 CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp ) ;
 CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp ) ;
 CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp ) ;
+CREATE INDEX configs_type_category_index ON configs ( config_type, category ) ;
+CREATE INDEX configs_active_type_index ON configs ( is_active, config_type ) ;
+CREATE INDEX developer_email_status_index ON developers ( normalized_email, status ) ;
+CREATE INDEX developer_oauth_clients_developer_id_index ON developer_oauth_clients ( developer_id ) ;
+CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_user_mappings ( developer_id, user_id ) ;
+CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
+CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
+CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
+CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
+CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;
+CREATE INDEX oauth2_requests_user_id_index ON oauth2_requests ( user_id ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -628,6 +861,9 @@ CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
+CREATE INDEX push_notifications_user_id_index ON push_notifications ( user_id ) ;
+CREATE INDEX push_notifications_status_index ON push_notifications ( status ) ;
+CREATE INDEX push_notifications_created_at_index ON push_notifications ( created_at ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
@@ -647,7 +883,9 @@ CREATE INDEX users_external_id_index ON users ( external_id ) ;
 CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) ;
 CREATE INDEX users_tenant_id_index ON users ( tenant_id ) ;
 CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status ) ;
+CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;

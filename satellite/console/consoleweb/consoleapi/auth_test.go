@@ -47,15 +47,7 @@ func doRequestWithAuth(
 ) (responseBody []byte, statusCode int, err error) {
 	fullURL := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/" + endpoint
 
-	tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, console.SessionTokenRequest{
-		UserID:          user.ID,
-		Email:           user.Email,
-		IP:              "",
-		UserAgent:       "",
-		AnonymousID:     "",
-		CustomDuration:  nil,
-		HubspotObjectID: user.HubspotObjectID,
-	})
+	tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", "", nil, nil, nil)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -184,7 +176,7 @@ func TestAuth_ChangeEmail(t *testing.T) {
 			require.NoError(t, err)
 			buf := bytes.NewBuffer(bodyBytes)
 
-			responseBody, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/change-email", buf)
+			responseBody, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, "auth/change-email", buf)
 			require.NoError(t, err)
 
 			return responseBody, status
@@ -222,11 +214,11 @@ func TestAuth_InvalidateSession(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		_, status, err := doRequestWithAuth(ctx, t, sat, traitor, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
+		_, status, err := doRequestWithAuth(ctx, sat, traitor, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnauthorized, status)
 
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
+		_, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -1477,7 +1469,7 @@ func TestSsoMethods(t *testing.T) {
 				FullName: "Test User",
 				Email:    email,
 				Password: "password",
-			}, regToken.Secret)
+			}, regToken.Secret, false)
 			require.NoError(t, err)
 			return user
 		}
@@ -2286,7 +2278,7 @@ func TestAuth_DeleteAccount(t *testing.T) {
 					payload, err := json.Marshal(tt.req)
 					require.NoError(t, err)
 
-					resp, status, err := doRequestWithAuth(ctx, t, sat, u, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+					resp, status, err := doRequestWithAuth(ctx, sat, u, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 					require.NoError(t, err)
 
 					switch u.ID {

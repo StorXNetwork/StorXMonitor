@@ -13,6 +13,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -32,6 +33,8 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 var (
@@ -841,6 +844,18 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 
 	var params payments.PurchaseParams
 
+	u, err := console.GetUser(ctx)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	pkg, err := p.packagePlans.Get(u.UserAgent)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusNotFound, err)
+		return
+	}
+
 	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
@@ -850,6 +865,16 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("credit card ID is required"))
 		return
 	}
+
+	description := fmt.Sprintf("%s package plan", string(u.UserAgent))
+	err = p.service.Payments().UpdatePackage(ctx, description, time.Now())
+	if err != nil {
+		if !console.ErrAlreadyHasPackage.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
 	if params.Intent != payments.PurchasePackageIntent && params.Intent != payments.PurchaseUpgradedAccountIntent {
 		p.serveJSONError(ctx, w, http.StatusForbidden, errs.New("invalid intent: %d", params.Intent))
 		return
@@ -882,7 +907,7 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 		emailUserEmail := u.Email
 		userName := u.FullName
 		if userName == "" {
-			userName = u.Email
+			userName = emailUserEmail
 		}
 
 		// Format price and credit from cents to dollars
@@ -1892,5 +1917,24 @@ func (p *Payments) BillingTransactionHistory(w http.ResponseWriter, r *http.Requ
 
 	if err != nil {
 		p.log.Error("failed to write json billing history response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+func rootError(err error) error {
+	for {
+		if multiUnwrappingErr, ok := err.(interface {
+			Unwrap() []error
+		}); ok {
+			unwrappedGroup := multiUnwrappingErr.Unwrap()
+			if len(unwrappedGroup) == 0 {
+				return err
+			}
+			err = unwrappedGroup[0]
+			continue
+		}
+		unwrappedErr := errors.Unwrap(err)
+		if unwrappedErr == nil {
+			return err
+		}
+		err = unwrappedErr
 	}
 }

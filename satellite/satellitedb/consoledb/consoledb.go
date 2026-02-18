@@ -11,7 +11,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/configs"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -122,6 +124,56 @@ func (db *ConsoleDB) APIKeyTails() console.APIKeyTails {
 // Domains is a getter for Domains repository.
 func (db *ConsoleDB) Domains() console.Domains {
 	return &domains{db: db.Methods}
+}
+
+// OAuth2Requests is a getter for OAuth2Requests repository.
+func (db *ConsoleDB) OAuth2Requests() console.OAuth2Requests {
+	return &oauth2Requests{db: db.DB}
+}
+
+// EmailSubscriptions is a getter for EmailSubscriptions repository.
+func (db *ConsoleDB) EmailSubscriptions() console.EmailSubscriptions {
+	return &emailSubscriptions{db: db.DB}
+}
+
+// FCMTokens is a getter for FCMTokens repository.
+func (db *ConsoleDB) FCMTokens() pushnotifications.DB {
+	return &fcmTokens{db: db.DB}
+}
+
+// PushNotifications is a getter for PushNotifications repository.
+func (db *ConsoleDB) PushNotifications() pushnotifications.PushNotificationDB {
+	return &pushNotifications{db: db.DB}
+}
+
+// Configs is a getter for Configs repository.
+func (db *ConsoleDB) Configs() configs.DB {
+	return &configsDB{db: db.DB}
+}
+
+// UserNotificationPreferences is a getter for UserNotificationPreferences repository.
+func (db *ConsoleDB) UserNotificationPreferences() configs.UserPreferenceDB {
+	return &userNotificationPreferencesDB{db: db.DB}
+}
+
+// Developers is getter a for Developers repository.
+func (db *ConsoleDB) Developers() console.Developers {
+	return &developers{db: db.DB}
+}
+
+// DeveloperOAuthClients is a getter for DeveloperOAuthClients repository.
+func (db *ConsoleDB) DeveloperOAuthClients() console.DeveloperOAuthClients {
+	return &developerOAuthClients{db: db.DB}
+}
+
+// Web3Auth is a getter for Web3Auth repository.
+func (db *ConsoleDB) Web3Auth() console.Web3Auth {
+	return &web3Auth{db: db.DB}
+}
+
+// WebappSessionDevelopers is a getter for WebappSessionDevelopers repository.
+func (db *ConsoleDB) WebappSessionDevelopers() consoleauth.WebappSessionDevelopers {
+	return &webappSessionDevelopers{db: db.DB}
 }
 
 // WithTx is a method for executing and retrying transaction.

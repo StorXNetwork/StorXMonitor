@@ -417,6 +417,8 @@ type Cache interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
 	// GetProjectBandwidthUsage returns the project's bandwidth usage.
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
+	// GetProjectSegmentUsage returns the project's segment usage.
+	GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error)
 	// GetProjectStorageAndSegmentUsage returns the project's storage and segment usage.
 	GetProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID) (storage, segment int64, err error)
 	// AddProjectSegmentUsageUpToLimit increases segment usage up to the limit.

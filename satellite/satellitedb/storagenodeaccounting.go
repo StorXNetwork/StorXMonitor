@@ -491,10 +491,13 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 
 	start, end = start.UTC(), end.UTC()
 
-	// TODO: remove COALESCE when we're sure the interval_end_time in the
-	// accounting_rollups table are fully populated or back-filled with
-	// the start_time, and the interval_end_time is non-nullable
-	query := `
+	switch db.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		var nodeStorageUsages []accounting.StorageNodeUsage
+		// TODO: remove COALESCE when we're sure the interval_end_time in the
+		// accounting_rollups table are fully populated or back-filled with
+		// the start_time, and the interval_end_time is non-nullable
+		query := `
 		SELECT SUM(r1.at_rest_total) as at_rest_total,
 				(r1.start_time at time zone 'UTC')::date as start_time,
 				COALESCE(MAX(r1.interval_end_time), MAX(r1.start_time)) AS interval_end_time
@@ -516,8 +519,9 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < t.interval_end_time AND t.interval_end_time <= $3
 				GROUP BY (t.interval_end_time at time zone 'UTC')::date
 		ORDER BY start_time;
-	`
-
+		`
+		rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
+			nodeID, start, end, accounting.LastRollup)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

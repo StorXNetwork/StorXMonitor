@@ -34,13 +34,14 @@ type WebappSessions interface {
 
 // WebappSession represents a session on the satellite web app.
 type WebappSession struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	Address   string
-	UserAgent string
-	Status    int
-	ExpiresAt time.Time
-	CreatedAt time.Time
+	ID                        uuid.UUID
+	UserID                    uuid.UUID
+	Address                   string
+	UserAgent                 string
+	Status                    int
+	ExpiresAt                 time.Time
+	CreatedAt                 time.Time
+	IsRequesterCurrentSession bool
 }
 
 // WebappSessionDevelopers is the repository for developer sessions.
@@ -68,4 +69,45 @@ type WebappSessionDeveloper struct {
 	IP          string
 	Status      int
 	ExpiresAt   time.Time
+}
+
+// WebappSessionsOrder is used for querying webapp sessions in specified order.
+type WebappSessionsOrder int8
+
+const (
+	// UserAgent indicates that we should order by user agent.
+	UserAgent WebappSessionsOrder = 1
+	// ExpiresAt indicates that we should order by expiration date.
+	ExpiresAt WebappSessionsOrder = 2
+)
+
+// OrderDirection is used for members in specific order direction.
+type OrderDirection uint8
+
+const (
+	// Ascending indicates that we should order ascending.
+	Ascending OrderDirection = 1
+	// Descending indicates that we should order descending.
+	Descending OrderDirection = 2
+)
+
+// WebappSessionsCursor holds info for webapp sessions cursor pagination.
+type WebappSessionsCursor struct {
+	Limit          uint
+	Page           uint
+	Order          WebappSessionsOrder
+	OrderDirection OrderDirection
+}
+
+// WebappSessionsPage represents a page of webapp sessions.
+type WebappSessionsPage struct {
+	Sessions []WebappSession `json:"sessions"`
+
+	Limit          uint                `json:"limit"`
+	Order          WebappSessionsOrder `json:"order"`
+	OrderDirection OrderDirection      `json:"orderDirection"`
+	Offset         uint64              `json:"offset"`
+	PageCount      uint                `json:"pageCount"`
+	CurrentPage    uint                `json:"currentPage"`
+	TotalCount     uint64              `json:"totalCount"`
 }

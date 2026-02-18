@@ -40,11 +40,14 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleservice"
 	"storj.io/storj/satellite/console/consoleweb"
+	consoleapi "storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/pushnotifications"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
+	"storj.io/storj/satellite/developer"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/kms"
@@ -123,6 +126,7 @@ type ConsoleAPI struct {
 
 		StripeService *stripe.Service
 		StripeClient  stripe.Client
+		EmailWebhook  *consoleapi.EmailWebhook
 	}
 
 	Console struct {
@@ -600,25 +604,31 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			accountFreezeService,
 			emissionService,
 			peer.KeyManagement.Service,
+			peer.Valdi.Service,
 			peer.SSO.Service,
 			externalAddress,
+			peer.URL().String(),
 			consoleConfig.SatelliteName,
 			consoleConfig.WhiteLabel,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.SSO.Enabled,
 			placement,
-			peer.Valdi.Service,
-			config.Payments.MinimumCharge.Amount,
-			minimumChargeDate,
-			config.Payments.PackagePlans.Packages,
-			config.Entitlements,
-			peer.Entitlements.Service,
-			config.Payments.PlacementPriceOverrides.ToMap(),
-			productModels,
+			console.VersioningConfig{
+				UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
+			},
 			consoleConfig.Config,
 			config.Payments.StripeCoinPayments.SkuEnabled,
 			loginURL, supportURL,
 			config.BucketEventing,
+			peer.Entitlements.Service,
+			config.Entitlements,
+			config.Payments.PlacementPriceOverrides.ToMap(),
+			productModels,
+			config.Payments.MinimumCharge.Amount,
+			minimumChargeDate,
+			config.Payments.PackagePlans.Packages,
+			consoleConfig.BackupToolsURL,
+			nil, // socialShareHelper - Web3 auth not set up in console-api
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -649,6 +659,29 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		pushNotificationService, err := pushnotifications.NewService(
+			peer.Log.Named("pushnotifications"),
+			peer.Console.Service.GetFCMTokens(),
+			peer.Console.Service.GetPushNotifications(),
+			consoleConfig.Config.PushNotifications,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		regTokenChecker := developer.NewConsoleServiceAdapter(peer.DB.Console(), consoleConfig.Config)
+		developerService, err := developer.NewService(
+			peer.Log.Named("developerservice"),
+			peer.DB.Console(),
+			peer.Analytics.Service,
+			peer.Console.AuthTokens,
+			consoleConfig.Config,
+			regTokenChecker,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
@@ -667,6 +700,10 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Payments.Storjscan.Confirmations,
 			peer.URL(),
 			config.Analytics,
+			pushNotificationService,
+			config.Payments.PackagePlans,
+			peer.Payments.StripeService,
+			developerService,
 			config.Payments.MinimumCharge,
 			prices,
 			priceSummaries,

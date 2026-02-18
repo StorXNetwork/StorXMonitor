@@ -34,7 +34,7 @@ type apikeys struct {
 }
 
 // GetPagedByProjectID retrieves API keys for a given projectID and cursor.
-func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor, ignoredNamePrefix string) (page *console.APIKeyPage, err error) {
+func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor) (page *console.APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	search := strings.ToLower("%" + strings.ReplaceAll(cursor.Search, " ", "%") + "%")
@@ -65,9 +65,6 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
           OR LOWER(` + emailExpr + `) LIKE ?
         )
     `
-	if ignoredNamePrefix != "" {
-		whereClause += " AND ak.name NOT LIKE '" + ignoredNamePrefix + "%' "
-	}
 
 	countQuery := keys.db.Rebind(`
 		SELECT COUNT(*)
@@ -305,6 +302,13 @@ func (keys *apikeys) DeleteMultiple(ctx context.Context, ids []uuid.UUID) (err e
 func (keys *apikeys) DeleteAllByProjectID(ctx context.Context, id uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = keys.db.Delete_ApiKey_By_ProjectId(ctx, dbx.ApiKey_ProjectId(id[:]))
+	return err
+}
+
+// DeleteByProjectID implements satellite.APIKeys.
+func (keys *apikeys) DeleteByProjectID(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = keys.db.Delete_ApiKey_By_ProjectId(ctx, dbx.ApiKey_ProjectId(projectID[:]))
 	return err
 }
 

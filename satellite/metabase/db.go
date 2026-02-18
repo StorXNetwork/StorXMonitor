@@ -63,6 +63,10 @@ type Config struct {
 type DB struct {
 	log *zap.Logger
 
+	db      tagsql.DB
+	connstr string
+	impl    dbutil.Implementation
+
 	aliasCache *NodeAliasCache
 
 	testCleanup func() error
@@ -899,6 +903,9 @@ func (s *SpannerAdapter) Now(ctx context.Context) (time.Time, error) {
 			return row.Columns(now)
 		},
 	)
+}
+func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
+	return LimitedAsOfSystemTime(db.impl, time.Now(), asOfSystemTime, asOfSystemInterval)
 }
 
 // LimitedAsOfSystemTime returns a SQL query clause for AS OF SYSTEM TIME.

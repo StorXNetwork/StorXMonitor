@@ -30,7 +30,7 @@ var _ audit.NodeReputation = (*nodeReputation)(nil)
 func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeReputationEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := nr.db.Query(ctx, `SELECT n.id, n.wallet, n.disqualified, n.exit_initiated_at, n.exit_finished_at,
+	rows, err := nr.db.QueryContext(ctx, `SELECT n.id, n.wallet, n.disqualified, n.exit_initiated_at, n.exit_finished_at,
 										n.exit_success, n.under_review, n.inactive, r.audit_reputation_alpha, r.disqualified,
 										n.piece_count, n.last_contact_success
                                     FROM reputations r

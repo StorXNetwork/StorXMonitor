@@ -415,7 +415,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err := json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectInit, Data: ""})
 		require.NoError(t, err)
 
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnauthorized, status)
 		require.Contains(t, string(body), "error")
@@ -426,7 +426,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: -1, Data: ""})
 		require.NoError(t, err)
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, status)
 		require.Contains(t, string(body), "error")
@@ -435,7 +435,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: 100, Data: ""})
 		require.NoError(t, err)
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, status)
 		require.Contains(t, string(body), "error")
@@ -444,7 +444,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.VerifyAccountEmailStep, Data: ""})
 		require.NoError(t, err)
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, status)
 		require.Contains(t, string(body), "error")
@@ -457,7 +457,7 @@ func TestDeleteProject(t *testing.T) {
 		ptr := &expires
 		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{LoginLockoutExpiration: &ptr}))
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnauthorized, status)
 		require.Contains(t, string(body), "error")
@@ -476,7 +476,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectInit})
 		require.NoError(t, err)
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, status)
 
@@ -487,7 +487,7 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p))
 
 		// test deleting project with api key fails
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, status)
 
@@ -499,7 +499,7 @@ func TestDeleteProject(t *testing.T) {
 		// test pro user deleting project with current usage fails
 		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, timestamp.Add(-time.Hour)))
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, status)
 
@@ -515,7 +515,7 @@ func TestDeleteProject(t *testing.T) {
 
 		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, lastMonth))
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, status)
 
@@ -531,7 +531,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.VerifyAccountPasswordStep, Data: user.FullName})
 		require.NoError(t, err)
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 		require.Empty(t, body)
@@ -540,7 +540,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.VerifyAccountMfaStep, Data: goodCode})
 		require.NoError(t, err)
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 		require.Empty(t, body)
@@ -552,7 +552,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.VerifyAccountEmailStep, Data: code})
 		require.NoError(t, err)
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 		require.Empty(t, body)
@@ -561,7 +561,7 @@ func TestDeleteProject(t *testing.T) {
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectStep})
 		require.NoError(t, err)
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 		require.Empty(t, body)

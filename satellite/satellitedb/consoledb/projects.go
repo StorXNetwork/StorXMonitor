@@ -190,7 +190,7 @@ func (projects *projects) Get(ctx context.Context, id uuid.UUID) (_ *console.Pro
 		return nil, err
 	}
 
-	return ProjectFromDBX(ctx, project)
+	return projectFromDBX(ctx, project)
 }
 
 // GetSalt returns the project's salt.
@@ -236,7 +236,7 @@ func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID)
 		return nil, err
 	}
 
-	return ProjectFromDBX(ctx, project)
+	return projectFromDBX(ctx, project)
 }
 
 // GetByPublicOrPrivateID is a method for querying project from the database by either publicID or id.
@@ -248,7 +248,7 @@ func (projects *projects) GetByPublicOrPrivateID(ctx context.Context, id uuid.UU
 		return nil, err
 	}
 
-	return ProjectFromDBX(ctx, project)
+	return projectFromDBX(ctx, project)
 }
 
 // GetPublicID returns the public project ID for a given project ID.
@@ -303,9 +303,6 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if project.PassphraseEncKeyID != nil {
 		createFields.PassphraseEncKeyId = dbx.Project_PassphraseEncKeyId(*project.PassphraseEncKeyID)
 	}
-	if project.PathEncryption != nil {
-		createFields.PathEncryption = dbx.Project_PathEncryption(*project.PathEncryption)
-	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
@@ -326,7 +323,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		return nil, err
 	}
 
-	return ProjectFromDBX(ctx, createdProject)
+	return projectFromDBX(ctx, createdProject)
 }
 
 // Delete is a method for deleting project by Id from the database.
@@ -965,7 +962,7 @@ func projectsFromDbxSlice(ctx context.Context, projectsDbx []*dbx.Project) (_ []
 
 	projects, errors := slices2.ConvertErrs(projectsDbx,
 		func(v *dbx.Project) (r console.Project, _ error) {
-			p, err := ProjectFromDBX(ctx, v)
+			p, err := projectFromDBX(ctx, v)
 			if err != nil {
 				return r, err
 			}

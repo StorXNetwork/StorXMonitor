@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"

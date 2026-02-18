@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,6 +34,8 @@ import (
 )
 
 const (
+	projectNoLockErrMsg      = "Object Lock is not enabled for this project"
+	objectLockDisabledErrMsg = "Object Lock feature is not enabled"
 	bucketNoLockErrMsg       = "Object Lock is not enabled for this bucket"
 	methodNotAllowedErrMsg   = "method not allowed"
 	objectInvalidStateErrMsg = "The operation is not permitted for this object"
@@ -101,6 +104,10 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if (retention.Enabled() || req.LegalHold) && !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, req.Header)
 	if err != nil {
@@ -286,7 +293,8 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create stream id")
 	}
 
-	mon.Meter("req_put_object").Mark(1)
+	endpoint.log.Debug("Object Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "object"))
+	mon.Meter("req_put_object", monkit.NewSeriesTag("multipart", strconv.FormatBool(multipartUpload))).Mark(1)
 
 	return &pb.ObjectBeginResponse{
 		Bucket:             req.Bucket,
@@ -466,11 +474,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, err
 	}
 
-	// Add VerifyLimits callback to check limits with actual object size
-	request.VerifyLimits = func(encryptedObjectSize int64, nSegments int64) error {
-		return endpoint.addStorageUsageUpToLimit(ctx, keyInfo, encryptedObjectSize, nSegments)
-	}
-
 	object, err := endpoint.metabase.CommitObject(ctx, request)
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -580,6 +583,10 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	endpoint.usageTracking(keyInfo, beginObjectReq.Header, fmt.Sprintf("%T", beginObjectReq))
 	endpoint.usageTracking(keyInfo, makeInlineSegReq.Header, fmt.Sprintf("%T", makeInlineSegReq))
 	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
+
+	if (retention.Enabled() || beginObjectReq.LegalHold) && !endpoint.config.ObjectLockEnabled {
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, beginObjectReq.Header)
 	if err != nil {
@@ -925,6 +932,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		object.LegalHold = nil
 	}
 
+	endpoint.log.Debug("Object Get", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "object"))
 	mon.Meter("req_get_object").Mark(1)
 
 	return &pb.ObjectGetResponse{Object: object}, nil
@@ -1117,6 +1125,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			}
 			endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
+			endpoint.log.Debug("Inline Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
 			mon.Meter("req_get_inline").Mark(1)
 			mon.Counter("req_get_inline_bytes").Inc(int64(len(segment.InlineData)))
 
@@ -1186,6 +1195,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		}
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
+		endpoint.log.Debug("Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
 		mon.Meter("req_get_remote").Mark(1)
 
 		return []*pb.SegmentDownloadResponse{{
@@ -1236,6 +1246,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to convert stream list")
 	}
 
+	endpoint.log.Debug("Object Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "download"), zap.String("type", "object"))
 	mon.Meter("req_download_object").Mark(1)
 
 	return &pb.ObjectDownloadResponse{
@@ -1741,6 +1752,8 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			}
 		}
 	}
+
+	endpoint.log.Debug("Object List", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "list"), zap.String("type", "object"))
 	mon.Meter("req_list_object").Mark(1)
 
 	return resp, nil
@@ -1834,119 +1847,11 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		resp.Items = resp.Items[:limit]
 	}
 
+	endpoint.log.Debug("List pending object streams", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "list"), zap.String("type", "object"))
+
 	mon.Meter("req_list_pending_object_streams").Mark(1)
 
 	return resp, nil
-}
-
-// BeginDeleteObject begins object deletion process.
-func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
-	now := time.Now()
-
-	var canRead, canList bool
-
-	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
-		verifyPermission{
-			action: macaroon.Action{
-				Op:            macaroon.ActionDelete,
-				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedObjectKey,
-				Time:          now,
-			},
-		},
-		verifyPermission{
-			action: macaroon.Action{
-				Op:            macaroon.ActionRead,
-				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedObjectKey,
-				Time:          now,
-			},
-			actionPermitted: &canRead,
-			optional:        true,
-		},
-		verifyPermission{
-			action: macaroon.Action{
-				Op:            macaroon.ActionList,
-				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedObjectKey,
-				Time:          now,
-			},
-			actionPermitted: &canList,
-			optional:        true,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	if err := validateObjectVersion(req.ObjectVersion); err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	var deletedObjects []*pb.Object
-
-	if req.GetStatus() == int32(metabase.Pending) {
-		if req.StreamId == nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "StreamID missing")
-		}
-		var pbStreamID *internalpb.StreamID
-		pbStreamID, err = endpoint.unmarshalSatStreamID(ctx, *(req.StreamId))
-		if err == nil {
-			var streamID uuid.UUID
-			streamID, err = uuid.FromBytes(pbStreamID.StreamId)
-			if err == nil {
-				deletedObjects, err = endpoint.DeletePendingObject(ctx,
-					metabase.ObjectStream{
-						ProjectID:  keyInfo.ProjectID,
-						BucketName: string(pbStreamID.Bucket),
-						ObjectKey:  metabase.ObjectKey(pbStreamID.EncryptedObjectKey),
-						Version:    metabase.Version(pbStreamID.Version),
-						StreamID:   streamID,
-					})
-			}
-		}
-	} else {
-		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedObjectKey), req.ObjectVersion)
-	}
-	if err != nil {
-		if !canRead && !canList {
-			// No error info is returned if neither Read, nor List permission is granted
-			return &pb.ObjectBeginDeleteResponse{}, nil
-		}
-		return nil, endpoint.convertMetabaseErr(err)
-	}
-
-	var object *pb.Object
-	if canRead || canList {
-		// Info about deleted object is returned only if either Read, or List permission is granted
-		if err != nil {
-			endpoint.log.Error("failed to construct deleted object information",
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-				zap.String("Bucket", string(req.Bucket)),
-				zap.String("Encrypted Path", string(req.EncryptedObjectKey)),
-				zap.Error(err),
-			)
-		}
-		if len(deletedObjects) > 0 {
-			object = deletedObjects[0]
-		}
-	}
-
-	mon.Meter("req_delete_object").Mark(1)
-
-	return &pb.ObjectBeginDeleteResponse{
-		Object: object,
-	}, nil
 }
 
 // GetObjectIPs returns the IP addresses of the nodes holding the pieces for
@@ -2137,6 +2042,10 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
+
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
@@ -2204,6 +2113,10 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
+
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
@@ -2269,6 +2182,10 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
@@ -2359,6 +2276,10 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
 
 	retention := protobufRetentionToMetabase(req.Retention)
 
@@ -2745,6 +2666,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create stream id")
 	}
 
+	endpoint.log.Debug("Object Move Begins", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "move"), zap.String("type", "object"))
 	mon.Meter("req_move_object_begins").Mark(1)
 
 	response.StreamId = satStreamID
@@ -2872,6 +2794,10 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
+	if (retention.Enabled() || req.LegalHold) && !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
+
 	// TODO this needs to be optimized to avoid DB call on each request
 	bucket, err := endpoint.buckets.GetBucket(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
@@ -2927,6 +2853,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
+	endpoint.log.Debug("Object Move Finished", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "move"), zap.String("type", "object"))
 	mon.Meter("req_move_object_finished").Mark(1)
 
 	return &pb.ObjectFinishMoveResponse{}, nil
@@ -3039,6 +2966,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create stream ID")
 	}
 
+	endpoint.log.Debug("Object Copy Begins", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "copy"), zap.String("type", "object"))
 	mon.Meter("req_copy_object_begins").Mark(1)
 
 	response.StreamId = satStreamID
@@ -3140,6 +3068,10 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
+	if (retention.Enabled() || req.LegalHold) && !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
+
 	encryptedUserData := metabase.EncryptedUserData{
 		EncryptedMetadata:             req.NewEncryptedMetadata,
 		EncryptedMetadataNonce:        nonceBytes(req.NewEncryptedMetadataKeyNonce),
@@ -3224,6 +3156,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
+	endpoint.log.Debug("Object Copy Finished", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "copy"), zap.String("type", "object"))
 	mon.Meter("req_copy_object_finished").Mark(1)
 
 	return &pb.ObjectFinishCopyResponse{

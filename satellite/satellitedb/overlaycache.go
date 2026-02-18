@@ -788,11 +788,11 @@ func (cache *overlaycache) GetAllNodesWithFilters(ctx context.Context, onlineWin
 		countArgs := make([]interface{}, len(args))
 		copy(countArgs, args)
 		countArgs = convertArrayArgs(countArgs)
-		if err = cache.db.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+		if err = cache.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
 			return nil, 0, Error.Wrap(err)
 		}
 	} else {
-		if err = cache.db.QueryRow(ctx, countQuery).Scan(&totalCount); err != nil {
+		if err = cache.db.QueryRowContext(ctx, countQuery).Scan(&totalCount); err != nil {
 			return nil, 0, Error.Wrap(err)
 		}
 	}
@@ -821,7 +821,7 @@ func (cache *overlaycache) GetAllNodesWithFilters(ctx context.Context, onlineWin
 	}
 	nodes := make([]*nodeselection.SelectedNodeWithExtendedData, 0, capacity)
 
-	err = withRows(cache.db.Query(ctx, query, args...))(func(rows tagsql.Rows) error {
+	err = withRows(cache.db.QueryContext(ctx, query, args...))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			node, err := scanSelectedNodeWithExtendedData(rows)
 			if err != nil {
@@ -2489,7 +2489,7 @@ func (cache *overlaycache) GetNodesByEmail(ctx context.Context, options overlay.
 	}
 
 	for _, dbxNode := range dbxNodes {
-		dossier, err := convertDBNode(ctx, dbxNode)
+		dossier, err := convertDBNode(dbxNode)
 		if err != nil {
 			return nil, nil, Error.Wrap(err)
 		}
@@ -2695,7 +2695,7 @@ func (cache *overlaycache) GetNodeStats(ctx context.Context, onlineWindow time.D
 	var usedCapacity int64
 	var averageLatency float64
 
-	err = cache.db.QueryRow(ctx, query, onlineThreshold).Scan(
+	err = cache.db.QueryRowContext(ctx, query, onlineThreshold).Scan(
 		&totalNodes,
 		&onlineNodes,
 		&offlineNodes,

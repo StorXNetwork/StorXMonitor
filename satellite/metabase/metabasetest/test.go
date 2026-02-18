@@ -789,7 +789,6 @@ func (step DeleteObjects) Check(ctx *testcontext.Context, t testing.TB, db *meta
 	for _, item := range result.Items {
 		if item.Marker != nil {
 			item.Marker.StreamVersionID.SetStreamID(uuid.UUID{})
-			item.Marker.CreatedAt = time.Time{}
 		}
 	}
 

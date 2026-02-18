@@ -271,11 +271,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 				peer.Log.Named("console:chore"),
 				authTokens,
 				peer.DB.Console().Users(),
+				peer.DB.Console().Projects(),
+				liveAccounting,
 				peer.Mail.Service,
 				config.EmailReminders,
 				config.Console.ExternalAddress,
 				config.Console.GeneralRequestURL,
 				config.Console.ScheduleMeetingURL,
+				nil,
+				peer.Accounting.ProjectUsage,
 			)
 
 			peer.Services.Add(lifecycle.Item{
@@ -490,6 +494,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 		// Setup accounting project usage
 		peer.Accounting.ProjectUsage = accounting.NewService(
+			peer.Log.Named("accounting:projectusage-service"),
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			*metabaseDB,

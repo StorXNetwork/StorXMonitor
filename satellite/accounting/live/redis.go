@@ -427,3 +427,10 @@ func createSegmentProjectIDKey(projectID uuid.UUID) string {
 func createStorageProjectIDKey(projectID uuid.UUID) string {
 	return string(projectID[:])
 }
+
+// GetProjectSegmentUsage returns the current segment usage from specific project.
+func (cache *redisLiveAccounting) GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	return cache.getInt64(ctx, createSegmentProjectIDKey(projectID))
+}

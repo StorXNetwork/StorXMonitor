@@ -228,7 +228,7 @@ func (s *Service) SetAccountActiveDeveloper(ctx context.Context, developer *cons
 	}
 
 	s.auditLog(ctx, "activate account", &developer.ID, developer.Email)
-	s.analytics.TrackAccountVerified(developer.ID, developer.Email)
+	s.analytics.TrackAccountVerified(developer.ID, developer.Email, nil, nil)
 
 	return nil
 }

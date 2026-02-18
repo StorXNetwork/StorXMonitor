@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
+	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore/signaturecheck"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/retain"
@@ -127,15 +128,16 @@ type Endpoint struct {
 	config Config
 
 	ident       *identity.FullIdentity
+	trust       *trust.Pool
 	trustSource trust.TrustedSatelliteSource
 	monitor     *monitor.Service
 	retain      []QueueRetain
 	pingStats   PingStatsSource
 
-	usage       bandwidth.Writer
-	ordersStore *orders.FileStore
-	usedSerials *usedserials.Table
-
+	usage          bandwidth.Writer
+	ordersStore    *orders.FileStore
+	usedSerials    *usedserials.Table
+	store          *pieces.Store
 	pieceBackend   PieceBackend
 	signatureCheck signaturecheck.Check
 

@@ -1,1160 +1,772 @@
-// Copyright (C) 2023 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package admin
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
+	"github.com/zeebo/errs/v2"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/admin/auditlogger"
-	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
-// NullableLimitValue is the value used to indicate that a limit should be set to null.
-const NullableLimitValue = -1
-
-// Project contains the information and configurations of a project.
-type Project struct {
-	ID                   uuid.UUID                 `json:"-"`
-	PublicID             uuid.UUID                 `json:"id"`
-	Name                 string                    `json:"name"`
-	Description          string                    `json:"description"`
-	UserAgent            string                    `json:"userAgent"`
-	Owner                User                      `json:"owner"`
-	CreatedAt            time.Time                 `json:"createdAt"`
-	DefaultPlacement     storj.PlacementConstraint `json:"defaultPlacement"`
-	HasManagedPassphrase bool                      `json:"hasManagedPassphrase"`
-
-	// RateLimit is `nil` when satellite applies the configured default rate limit.
-	RateLimit *int `json:"rateLimit"`
-	// BurstLimit is `nil` when satellite applies the configured default burst limit.
-	BurstLimit       *int `json:"burstLimit"`
-	RateLimitHead    *int `json:"rateLimitHead"`
-	BurstLimitHead   *int `json:"burstLimitHead"`
-	RateLimitGet     *int `json:"rateLimitGet"`
-	BurstLimitGet    *int `json:"burstLimitGet"`
-	RateLimitPut     *int `json:"rateLimitPut"`
-	BurstLimitPut    *int `json:"burstLimitPut"`
-	RateLimitDelete  *int `json:"rateLimitDelete"`
-	BurstLimitDelete *int `json:"burstLimitDelete"`
-	RateLimitList    *int `json:"rateLimitList"`
-	BurstLimitList   *int `json:"burstLimitList"`
-	// Maxbuckets is `nil` when satellite applies the configured default max buckets.
-	MaxBuckets *int `json:"maxBuckets"`
-	ProjectUsageLimits[*int64]
-	Status       *ProjectStatusInfo   `json:"status"`
-	Entitlements *ProjectEntitlements `json:"entitlements"`
-}
-
-// ProjectUsageLimits holds project usage limits and current usage. It uses generics for allowing
-// to report the limits fields with nil values when they are read from the DB projects table.
-//
-// StorageUsed and SegmentUsed are nil if there was an error connecting to the Redis
-// live accounting cache.
-type ProjectUsageLimits[T ~int64 | *int64] struct {
-	BandwidthLimit        T      `json:"bandwidthLimit"`
-	UserSetBandwidthLimit *int64 `json:"userSetBandwidthLimit"`
-	BandwidthUsed         int64  `json:"bandwidthUsed"`
-	StorageLimit          T      `json:"storageLimit"`
-	UserSetStorageLimit   *int64 `json:"userSetStorageLimit"`
-	StorageUsed           *int64 `json:"storageUsed"`
-	SegmentLimit          T      `json:"segmentLimit"`
-	SegmentUsed           *int64 `json:"segmentUsed"`
-}
-
-// ProjectLimitsUpdateRequest contains all limit values to be updated.
-type ProjectLimitsUpdateRequest struct {
-	MaxBuckets     *int   `json:"maxBuckets"`
-	StorageLimit   *int64 `json:"storageLimit"`
-	BandwidthLimit *int64 `json:"bandwidthLimit"`
-	SegmentLimit   *int64 `json:"segmentLimit"`
-	RateLimit      *int   `json:"rateLimit"`
-	BurstLimit     *int   `json:"burstLimit"`
-	// the following limits are nullable; setting them to 0
-	// sets them to null in the DB
-	UserSetStorageLimit   *int64 `json:"userSetStorageLimit"`
-	UserSetBandwidthLimit *int64 `json:"userSetBandwidthLimit"`
-	RateLimitHead         *int   `json:"rateLimitHead"`
-	BurstLimitHead        *int   `json:"burstLimitHead"`
-	RateLimitGet          *int   `json:"rateLimitGet"`
-	BurstLimitGet         *int   `json:"burstLimitGet"`
-	RateLimitPut          *int   `json:"rateLimitPut"`
-	BurstLimitPut         *int   `json:"burstLimitPut"`
-	RateLimitDelete       *int   `json:"rateLimitDelete"`
-	BurstLimitDelete      *int   `json:"burstLimitDelete"`
-	RateLimitList         *int   `json:"rateLimitList"`
-	BurstLimitList        *int   `json:"burstLimitList"`
-
-	Reason string `json:"reason"` // reason for audit log
-}
-
-// ProjectStatusInfo is used to list the possible project statuses in the UI.
-type ProjectStatusInfo struct {
-	Name  string                `json:"name"`
-	Value console.ProjectStatus `json:"value"`
-}
-
-// UpdateProjectRequest contains the fields that can be updated in a project.
-type UpdateProjectRequest struct {
-	Name             *string                    `json:"name"`
-	Description      *string                    `json:"description"`
-	UserAgent        *string                    `json:"userAgent"`
-	Status           *console.ProjectStatus     `json:"status"`
-	DefaultPlacement *storj.PlacementConstraint `json:"defaultPlacement"`
-
-	Reason string `json:"reason"` // Reason for the change, for audit logging
-}
-
-// UpdateProjectEntitlementsRequest contains the fields that can be updated in a project's entitlements.
-type UpdateProjectEntitlementsRequest struct {
-	NewBucketPlacements      []storj.PlacementConstraint           `json:"newBucketPlacements"`
-	ComputeAccessToken       *string                               `json:"computeAccessToken"`
-	PlacementProductMappings entitlements.PlacementProductMappings `json:"placementProductMappings"`
-
-	// Reason for the change, for audit logging
-	Reason string `json:"reason"`
-}
-
-// ProjectEntitlements holds a project's entitlements.
-type ProjectEntitlements struct {
-	NewBucketPlacements      []string                   `json:"newBucketPlacements"`
-	ComputeAccessToken       string                     `json:"computeAccessToken"`
-	PlacementProductMappings map[string]MiniProductInfo `json:"placementProductMappings"`
-}
-
-// DisableProjectRequest contains the fields required to delete a project.
-type DisableProjectRequest struct {
-	SetPendingDeletion bool   `json:"setPendingDeletion"`
-	Reason             string `json:"reason"` // Reason for the deletion, for audit logging
-}
-
-// GetProject gets the project info by either private or public ID.
-func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.HTTPError) {
+func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	p, err := s.consoleDB.Projects().GetByPublicOrPrivateID(ctx, id)
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-			err = errs.New("project not found")
-		}
-		return nil, api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	u, err := s.consoleDB.Users().Get(ctx, p.OwnerID)
-	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			// If user doesn't exist, then the project doesn't exist either.
-			status = http.StatusNotFound
-		}
-		return nil, api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+	if !server.checkUsage(ctx, w, project.ID) {
+		sendJSONData(w, http.StatusOK, []byte(`{"result":"no project usage exist"}`))
 	}
-
-	bandwidthu, storageu, segmentu, apiErr := s.getProjectUsage(ctx, p.ID)
-	if apiErr.Err != nil {
-		return nil, apiErr
-	}
-
-	userAgent := ""
-	if p.UserAgent != nil {
-		userAgent = string(p.UserAgent)
-	}
-
-	var bandwidthl *int64
-	if p.BandwidthLimit != nil {
-		l := p.BandwidthLimit.Int64()
-		bandwidthl = &l
-	}
-
-	var storagel *int64
-	if p.StorageLimit != nil {
-		l := p.StorageLimit.Int64()
-		storagel = &l
-	}
-	var userStoragel *int64
-	if p.UserSpecifiedStorageLimit != nil {
-		l := p.UserSpecifiedStorageLimit.Int64()
-		userStoragel = &l
-	}
-	var userBandwidthl *int64
-	if p.UserSpecifiedBandwidthLimit != nil {
-		l := p.UserSpecifiedBandwidthLimit.Int64()
-		userBandwidthl = &l
-	}
-
-	var status *ProjectStatusInfo
-	if p.Status != nil {
-		status = &ProjectStatusInfo{Name: p.Status.String(), Value: *p.Status}
-	}
-
-	var ents *ProjectEntitlements
-	feats, err := s.entitlements.Projects().GetByPublicID(ctx, p.PublicID)
-	if err != nil && !entitlements.ErrNotFound.Has(err) {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
-	} else if err == nil {
-		ents, apiErr = s.toProjectEntitlements(feats)
-		if apiErr.Err != nil {
-			return nil, apiErr
-		}
-	}
-
-	return &Project{
-		ID:          p.ID,
-		PublicID:    p.PublicID,
-		Name:        p.Name,
-		Description: p.Description,
-		UserAgent:   userAgent,
-		Owner: User{
-			ID:       p.OwnerID,
-			FullName: u.FullName,
-			Email:    u.Email,
-		},
-		CreatedAt:            p.CreatedAt,
-		DefaultPlacement:     p.DefaultPlacement,
-		HasManagedPassphrase: p.PassphraseEnc != nil,
-		RateLimit:            p.RateLimit,
-		BurstLimit:           p.BurstLimit,
-		RateLimitList:        p.RateLimitList,
-		BurstLimitList:       p.BurstLimitList,
-		RateLimitHead:        p.RateLimitHead,
-		BurstLimitHead:       p.BurstLimitHead,
-		RateLimitGet:         p.RateLimitGet,
-		BurstLimitGet:        p.BurstLimitGet,
-		RateLimitPut:         p.RateLimitPut,
-		BurstLimitPut:        p.BurstLimitPut,
-		RateLimitDelete:      p.RateLimitDelete,
-		BurstLimitDelete:     p.BurstLimitDelete,
-		MaxBuckets:           p.MaxBuckets,
-		ProjectUsageLimits: ProjectUsageLimits[*int64]{
-			BandwidthLimit:        bandwidthl,
-			UserSetBandwidthLimit: userBandwidthl,
-			BandwidthUsed:         bandwidthu,
-			StorageLimit:          storagel,
-			UserSetStorageLimit:   userStoragel,
-			StorageUsed:           storageu,
-			SegmentLimit:          p.SegmentLimit,
-			SegmentUsed:           segmentu,
-		},
-		Status:       status,
-		Entitlements: ents,
-	}, api.HTTPError{}
 }
 
-// getProjectLimits returns the project's limits returning the default limits when the limits are
-// `nil` in the DB projects table.
-//
-// id is the ID of a project (NOT the public ID).
-func (s *Service) getProjectLimits(ctx context.Context, id uuid.UUID) (bandwidth, storage, segment int64, _ api.HTTPError) {
+func (server *Server) getProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	// We return status 409 in the rare case that a project is deleted
-	// before its limits can be obtained.
-	makeDBErr := func(err error) api.HTTPError {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-		}
-		return api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
 	}
 
-	bandwidthl, err := s.accounting.GetProjectBandwidthLimit(ctx, id)
+	if err := r.ParseForm(); err != nil {
+		sendJSONError(w, "invalid form",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		return 0, 0, 0, makeDBErr(err)
+		sendJSONError(w, "unable to fetch project details",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	storagel, err := s.accounting.GetProjectStorageLimit(ctx, id)
+	data, err := json.Marshal(project)
 	if err != nil {
-		return 0, 0, 0, makeDBErr(err)
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	segmentl, err := s.accounting.GetProjectSegmentLimit(ctx, id)
-	if err != nil {
-		return 0, 0, 0, makeDBErr(err)
-	}
-
-	return bandwidthl.Int64(), storagel.Int64(), segmentl.Int64(), api.HTTPError{}
+	sendJSONData(w, http.StatusOK, data)
 }
 
-// getProjectUsage returns the project's usage and limits. If there is an error connecting to Redis
-// live accounting cache, some of the usage fields are nil and it will be reported as a warning log
-// message.
-//
-// id is the ID of a project (NOT the public ID).
-func (s *Service) getProjectUsage(
-	ctx context.Context,
-	id uuid.UUID,
-) (bandwidth int64, storage, segment *int64, _ api.HTTPError) {
+func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	bandwidt, err := s.accounting.GetProjectBandwidthTotals(ctx, id)
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-		}
-		return 0, nil, nil, api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+		sendJSONError(w, "failed to get project",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	var cacheErrs []error
-	handleLiveAccountingErr := func(err error) *api.HTTPError {
-		if accounting.ErrSystemOrNetError.Has(err) {
-			cacheErrs = append(cacheErrs, err)
-			return nil
-		}
-
-		return &api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+	var output struct {
+		Usage struct {
+			Amount memory.Size `json:"amount"`
+			Bytes  int64       `json:"bytes"`
+		} `json:"usage"`
+		Bandwidth struct {
+			Amount memory.Size `json:"amount"`
+			Bytes  int64       `json:"bytes"`
+		} `json:"bandwidth"`
+		Rate struct {
+			RPS *int `json:"rps"`
+		} `json:"rate"`
+		Burst    *int  `json:"burst"`
+		Buckets  *int  `json:"maxBuckets"`
+		Segments int64 `json:"maxSegments"`
+	}
+	if project.StorageLimit != nil {
+		output.Usage.Amount = *project.StorageLimit
+		output.Usage.Bytes = project.StorageLimit.Int64()
+	}
+	if project.BandwidthLimit != nil {
+		output.Bandwidth.Amount = *project.BandwidthLimit
+		output.Bandwidth.Bytes = project.BandwidthLimit.Int64()
 	}
 
-	// GetProjectStorageAndSegmentUsage uses the live accounting, so we need to check if
-	// there is an error connecting to it.
-	storageUsage, segmentUsage, err := s.accounting.GetProjectStorageAndSegmentUsage(ctx, id)
+	output.Buckets = project.MaxBuckets
+	output.Rate.RPS = project.RateLimit
+	output.Burst = project.BurstLimit
+
+	if project.SegmentLimit != nil {
+		output.Segments = *project.SegmentLimit
+	}
+
+	data, err := json.Marshal(output)
 	if err != nil {
-		if aerr := handleLiveAccountingErr(err); aerr != nil {
-			return 0, nil, nil, *aerr
-		}
-	} else {
-		storage = &storageUsage
-		segment = &segmentUsage
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	if len(cacheErrs) != 0 {
-		s.log.Warn(
-			"Error getting project usage data from live accounting cache",
-			zap.Errors("errors", cacheErrs),
-		)
-	}
-
-	return bandwidt, storage, segment, api.HTTPError{}
+	sendJSONData(w, http.StatusOK, data)
 }
 
-// UpdateProjectLimits updates the project's max buckets, storage, bandwidth, segment, rate, and burst limits.
-func (s *Service) UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, id uuid.UUID, req ProjectLimitsUpdateRequest) (*Project, api.HTTPError) {
+func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if authInfo == nil {
-		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.New("not authorized"),
-		}
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
 	}
 
-	if req.Reason == "" {
-		return nil, api.HTTPError{
-			Status: http.StatusBadRequest,
-			Err:    Error.New("reason is required"),
-		}
+	var arguments struct {
+		Usage     *memory.Size `schema:"usage"`
+		Bandwidth *memory.Size `schema:"bandwidth"`
+		Rate      *int         `schema:"rate"`
+		Burst     *int         `schema:"burst"`
+		Buckets   *int         `schema:"buckets"`
+		Segments  *int64       `schema:"segments"`
 	}
 
-	p, err := s.consoleDB.Projects().GetByPublicID(ctx, id)
+	if err := r.ParseForm(); err != nil {
+		sendJSONError(w, "invalid form",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	decoder := schema.NewDecoder()
+	err = decoder.Decode(&arguments, r.Form)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-			err = errs.New("project not found")
-		}
-		return nil, api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+		sendJSONError(w, "invalid arguments",
+			err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	toUpdate, err := s.validateProjectLimitRequest(p, req)
+	// check if the project exists.
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusBadRequest,
-			Err:    Error.Wrap(err),
+		sendJSONError(w, "failed to get project",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if arguments.Usage != nil {
+		if *arguments.Usage < 0 {
+			sendJSONError(w, "negative usage",
+				fmt.Sprintf("%v", arguments.Usage), http.StatusBadRequest)
+			return
+		}
+
+		err = server.db.ProjectAccounting().UpdateProjectUsageLimit(ctx, project.ID, *arguments.Usage)
+		if err != nil {
+			sendJSONError(w, "failed to update usage",
+				err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 
-	err = s.consoleDB.Projects().UpdateLimitsGeneric(ctx, p.ID, toUpdate)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
+	if arguments.Bandwidth != nil {
+		if *arguments.Bandwidth < 0 {
+			sendJSONError(w, "negative bandwidth",
+				fmt.Sprintf("%v", arguments.Usage), http.StatusBadRequest)
+			return
+		}
+
+		err = server.db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, project.ID, *arguments.Bandwidth)
+		if err != nil {
+			sendJSONError(w, "failed to update bandwidth",
+				err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 
-	afterState, err := s.consoleDB.Projects().GetByPublicID(ctx, id)
-	if err != nil {
-		s.log.Error("Failed to fetch project after updating limits", zap.Error(err))
-	} else {
-		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-			UserID:     p.OwnerID,
-			ProjectID:  &p.PublicID,
-			Action:     "update_project_limits",
-			AdminEmail: authInfo.Email,
-			ItemType:   changehistory.ItemTypeProject,
-			Reason:     req.Reason,
-			Before:     p,
-			After:      afterState,
-			Timestamp:  s.nowFn(),
-		})
+	if arguments.Rate != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		if *arguments.Rate < 0 {
+			arguments.Rate = nil
+		}
+
+		err = server.db.Console().Projects().UpdateRateLimit(ctx, project.ID, arguments.Rate)
+		if err != nil {
+			sendJSONError(w, "failed to update rate",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
-	return s.GetProject(ctx, id)
+	if arguments.Burst != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		if *arguments.Burst < 0 {
+			arguments.Burst = nil
+		}
+
+		err = server.db.Console().Projects().UpdateBurstLimit(ctx, project.ID, arguments.Burst)
+		if err != nil {
+			sendJSONError(w, "failed to update burst",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if arguments.Buckets != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		if *arguments.Buckets < 0 {
+			arguments.Buckets = nil
+		}
+
+		err = server.db.Console().Projects().UpdateBucketLimit(ctx, project.ID, arguments.Buckets)
+		if err != nil {
+			sendJSONError(w, "failed to update bucket limit",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if arguments.Segments != nil {
+		if *arguments.Segments < 0 {
+			sendJSONError(w, "negative segments count",
+				fmt.Sprintf("t: %v", arguments.Buckets), http.StatusBadRequest)
+			return
+		}
+
+		err = server.db.ProjectAccounting().UpdateProjectSegmentLimit(ctx, project.ID, *arguments.Segments)
+		if err != nil {
+			sendJSONError(w, "failed to update segments limit",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 }
 
-func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLimitsUpdateRequest) (toUpdate []console.Limit, err error) {
-	var errGroup errs.Group
-	intTo64 := func(i *int) *int64 {
-		if i == nil {
-			return nil
-		}
-		v := int64(*i)
-		return &v
-	}
-	sizeTo64 := func(i *memory.Size) *int64 {
-		if i == nil {
-			return nil
-		}
-		i64 := i.Int64()
-		return &i64
-	}
-
-	limits := []struct {
-		requestValue *int64
-		currentValue *int64
-		limitKind    console.LimitKind
-		disallowNull bool
-	}{
-		{
-			requestValue: req.StorageLimit,
-			currentValue: sizeTo64(p.StorageLimit),
-			limitKind:    console.StorageLimit,
-			disallowNull: true,
-		}, {
-			requestValue: req.BandwidthLimit,
-			currentValue: sizeTo64(p.BandwidthLimit),
-			limitKind:    console.BandwidthLimit,
-			disallowNull: true,
-		}, {
-			requestValue: req.SegmentLimit,
-			currentValue: p.SegmentLimit,
-			limitKind:    console.SegmentLimit,
-			disallowNull: true,
-		}, {
-			requestValue: intTo64(req.MaxBuckets),
-			currentValue: intTo64(p.MaxBuckets),
-			limitKind:    console.BucketsLimit,
-		}, {
-			requestValue: intTo64(req.RateLimit),
-			currentValue: intTo64(p.RateLimit),
-			limitKind:    console.RateLimit,
-		}, {
-			requestValue: intTo64(req.BurstLimit),
-			currentValue: intTo64(p.BurstLimit),
-			limitKind:    console.BurstLimit,
-		}, {
-			requestValue: req.UserSetStorageLimit,
-			currentValue: sizeTo64(p.UserSpecifiedStorageLimit),
-			limitKind:    console.UserSetStorageLimit,
-		}, {
-			requestValue: req.UserSetBandwidthLimit,
-			currentValue: sizeTo64(p.UserSpecifiedBandwidthLimit),
-			limitKind:    console.UserSetBandwidthLimit,
-		}, {
-			requestValue: intTo64(req.RateLimitHead),
-			currentValue: intTo64(p.RateLimitHead),
-			limitKind:    console.RateLimitHead,
-		}, {
-			requestValue: intTo64(req.BurstLimitHead),
-			currentValue: intTo64(p.BurstLimitHead),
-			limitKind:    console.BurstLimitHead,
-		}, {
-			requestValue: intTo64(req.RateLimitGet),
-			currentValue: intTo64(p.RateLimitGet),
-			limitKind:    console.RateLimitGet,
-		}, {
-			requestValue: intTo64(req.BurstLimitGet),
-			currentValue: intTo64(p.BurstLimitGet),
-			limitKind:    console.BurstLimitGet,
-		}, {
-			requestValue: intTo64(req.RateLimitPut),
-			currentValue: intTo64(p.RateLimitPut),
-			limitKind:    console.RateLimitPut,
-		}, {
-			requestValue: intTo64(req.BurstLimitPut),
-			currentValue: intTo64(p.BurstLimitPut),
-			limitKind:    console.BurstLimitPut,
-		}, {
-			requestValue: intTo64(req.RateLimitDelete),
-			currentValue: intTo64(p.RateLimitDelete),
-			limitKind:    console.RateLimitDelete,
-		}, {
-			requestValue: intTo64(req.BurstLimitDelete),
-			currentValue: intTo64(p.BurstLimitDelete),
-			limitKind:    console.BurstLimitDelete,
-		}, {
-			requestValue: intTo64(req.RateLimitList),
-			currentValue: intTo64(p.RateLimitList),
-			limitKind:    console.RateLimitList,
-		}, {
-			requestValue: intTo64(req.BurstLimitList),
-			currentValue: intTo64(p.BurstLimitList),
-			limitKind:    console.BurstLimitList,
-		},
-	}
-	for _, limit := range limits {
-		if limit.requestValue == nil {
-			continue
-		}
-
-		allowNull := !limit.disallowNull
-		if allowNull && *limit.requestValue == NullableLimitValue && limit.currentValue != nil {
-			toUpdate = append(toUpdate, console.Limit{Kind: limit.limitKind, Value: nil})
-			continue
-		}
-		if *limit.requestValue < 0 {
-			errGroup = append(errGroup, errs.New("%s cannot be negative", limit.limitKind))
-			continue
-		}
-		if limit.currentValue == nil || *limit.requestValue != *limit.currentValue {
-			toUpdate = append(toUpdate, console.Limit{Kind: limit.limitKind, Value: limit.requestValue})
-		}
-	}
-
-	if err = errGroup.Err(); err != nil {
-		return nil, err
-	}
-
-	return toUpdate, nil
-}
-
-// GetProjectStatuses returns the possible project statuses.
-func (s *Service) GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError) {
+func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	statuses := make([]ProjectStatusInfo, len(console.ProjectStatuses))
-	for i, k := range console.ProjectStatuses {
-		statuses[i] = ProjectStatusInfo{
-			Name:  k.String(),
-			Value: k,
-		}
-	}
-	return statuses, api.HTTPError{}
-}
-
-// UpdateProject updates the project's information by public ID.
-func (s *Service) UpdateProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, req UpdateProjectRequest) (*Project, api.HTTPError) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	apiErr := s.validateUpdateProjectRequest(ctx, authInfo, req)
-	if apiErr.Err != nil {
-		return nil, apiErr
-	}
-
-	p, err := s.consoleDB.Projects().GetByPublicID(ctx, publicID)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-			err = errs.New("project not found")
-		}
-		return nil, api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	beforeState := *p
-
-	if req.Name != nil {
-		p.Name = *req.Name
-	}
-	if req.Description != nil {
-		p.Description = *req.Description
-	}
-	if req.UserAgent != nil {
-		p.UserAgent = []byte(*req.UserAgent)
-	}
-	if req.Status != nil {
-		p.Status = req.Status
-	}
-	if req.DefaultPlacement != nil {
-		p.DefaultPlacement = *req.DefaultPlacement
+	var input struct {
+		OwnerID     uuid.UUID `json:"ownerId"`
+		ProjectName string    `json:"projectName"`
 	}
 
-	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
-		if err = tx.Projects().Update(ctx, p); err != nil {
-			return err
-		}
-		if req.DefaultPlacement != nil {
-			if err = tx.Projects().UpdateDefaultPlacement(ctx, p.ID, *req.DefaultPlacement); err != nil {
-				return err
-			}
-		}
-		if req.UserAgent != nil {
-			if err = tx.Projects().UpdateUserAgent(ctx, p.ID, []byte(*req.UserAgent)); err != nil {
-				return err
-			}
-		}
-		return nil
+	var output struct {
+		ProjectID uuid.UUID `json:"projectId"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if input.OwnerID.IsZero() {
+		sendJSONError(w, "OwnerID is not set",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	if input.ProjectName == "" {
+		sendJSONError(w, "ProjectName is not set",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.db.Console().Projects().Insert(ctx, &console.Project{
+		Name:    input.ProjectName,
+		OwnerID: input.OwnerID,
 	})
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		sendJSONError(w, "failed to insert project",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-		UserID:     p.OwnerID,
-		ProjectID:  &p.PublicID,
-		Action:     "update_project",
-		AdminEmail: authInfo.Email,
-		ItemType:   changehistory.ItemTypeProject,
-		Reason:     req.Reason,
-		Before:     beforeState,
-		After:      *p,
-		Timestamp:  s.nowFn(),
-	})
+	_, err = server.db.Console().ProjectMembers().Insert(ctx, project.OwnerID, project.ID, console.RoleAdmin)
+	if err != nil {
+		sendJSONError(w, "failed to insert project member",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	return s.GetProject(ctx, publicID)
+	output.ProjectID = project.ID
+	data, err := json.Marshal(output)
+	if err != nil {
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
 }
 
-func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *AuthInfo, request UpdateProjectRequest) api.HTTPError {
+func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	apiError := func(status int, err error) api.HTTPError {
-		return api.HTTPError{
-			Status: status, Err: Error.Wrap(err),
-		}
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
-		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	groups := authInfo.Groups
-	hasPerm := func(perm Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "ailed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	valid := false
-	var errGroup errs.Group
-	if request.Reason == "" {
-		errGroup = append(errGroup, errs.New("reason is required"))
+	var input struct {
+		ProjectName string `json:"projectName"`
+		Description string `json:"description"`
 	}
 
-	if request.Status != nil {
-		if !hasPerm(PermProjectUpdate) {
-			return apiError(http.StatusForbidden, errs.New("not authorized to change project status"))
-		}
-		if *request.Status == console.ProjectPendingDeletion {
-			// this is because setting to pending deletion may lead to data deletion by a chore
-			return apiError(http.StatusForbidden, errs.New("not authorized to set project status to pending deletion"))
-		}
-		for _, ps := range console.ProjectStatuses {
-			if *request.Status == ps {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			errGroup = append(errGroup, errs.New("invalid project status %d", *request.Status))
-		}
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	if request.Name != nil {
-		if !hasPerm(PermProjectUpdate) {
-			return apiError(http.StatusForbidden, errs.New("not authorized to change project name"))
-		}
-		if *request.Name == "" {
-			errGroup = append(errGroup, errs.New("name cannot be empty"))
-		}
+	if input.ProjectName == "" {
+		sendJSONError(w, "ProjectName is not set",
+			"", http.StatusBadRequest)
+		return
 	}
 
-	if request.Description != nil && !hasPerm(PermProjectUpdate) {
-		return apiError(http.StatusForbidden, errs.New("not authorized to change project description"))
+	project.Name = input.ProjectName
+	if input.Description != "" {
+		project.Description = input.Description
 	}
 
-	if request.UserAgent != nil && !hasPerm(PermProjectSetUserAgent) {
-		return apiError(http.StatusForbidden, errs.New("not authorized to set user agent"))
+	err = server.db.Console().Projects().Update(ctx, project)
+	if err != nil {
+		sendJSONError(w, "error renaming project",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
-
-	if request.DefaultPlacement != nil {
-		if !hasPerm(PermProjectSetDataPlacement) {
-			return apiError(http.StatusForbidden, errs.New("not authorized to change project default placement"))
-		}
-		if _, ok := s.placement[*request.DefaultPlacement]; !ok {
-			return apiError(http.StatusBadRequest, errs.New("invalid placement ID %d", *request.DefaultPlacement))
-		}
-	}
-
-	if errGroup != nil {
-		return apiError(http.StatusBadRequest, errGroup.Err())
-	}
-
-	if request.DefaultPlacement == nil {
-		return api.HTTPError{}
-	}
-
-	return api.HTTPError{}
 }
 
-// DisableProject deletes a project by ID.
-func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uuid.UUID, request DisableProjectRequest) api.HTTPError {
+func (server *Server) updateProjectsUserAgent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	apiError := func(status int, err error) api.HTTPError {
-		return api.HTTPError{
-			Status: status, Err: Error.Wrap(err),
-		}
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
 	}
 
-	if authInfo == nil {
-		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
 	}
-
-	if request.Reason == "" {
-		return apiError(http.StatusBadRequest, errs.New("reason is required"))
-	}
-
-	hasPerm := func(perm ...Permission) bool {
-		for _, g := range authInfo.Groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
-	}
-
-	if request.SetPendingDeletion {
-		if !hasPerm(PermProjectMarkPendingDeletion) {
-			return apiError(http.StatusForbidden, errs.New("not authorized to mark project pending deletion"))
-		}
-		if !s.adminConfig.PendingDeleteProjectCleanupEnabled {
-			return apiError(http.StatusConflict, errs.New("abbreviated project deletion is not enabled"))
-		}
-	} else {
-		if !hasPerm(PermProjectDeleteNoData) {
-			return apiError(http.StatusForbidden, errs.New("not authorized to disable project"))
-		}
-	}
-
-	p, err := s.consoleDB.Projects().GetByPublicOrPrivateID(ctx, id)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-			err = errs.New("project not found")
-		}
-		return apiError(status, err)
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	user, err := s.consoleDB.Users().Get(ctx, p.OwnerID)
+	creationDatePlusMonth := project.CreatedAt.AddDate(0, 1, 0)
+	if time.Now().After(creationDatePlusMonth) {
+		sendJSONError(w, "this project was created more than a month ago",
+			"we should update user agent only for recently created projects", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return apiError(http.StatusInternalServerError, err)
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	afterState := *p
-	disabledStatus := console.ProjectDisabled
-	if request.SetPendingDeletion {
-		// for abbreviated project deletion, status is set to ProjectPendingDeletion
-		// so a cleanup chore can later finalize the deletion
-		disabledStatus = console.ProjectPendingDeletion
-	}
-	afterState.Status = &disabledStatus
-
-	auditLog := func(action string) {
-		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-			UserID:     p.OwnerID,
-			ProjectID:  &p.PublicID,
-			Action:     action,
-			AdminEmail: authInfo.Email,
-			ItemType:   changehistory.ItemTypeProject,
-			Reason:     request.Reason,
-			Before:     *p,
-			After:      afterState,
-			Timestamp:  s.nowFn(),
-		})
+	var input struct {
+		UserAgent string `json:"userAgent"`
 	}
 
-	// Check if the project should be force deleted
-	if s.consoleConfig.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsBillingExempt() || user.FinalInvoiceGenerated) {
-		err = s.forceDisableProject(ctx, p.ID)
-		if err != nil {
-			return apiError(http.StatusInternalServerError, err)
-		}
-
-		auditLog("force_disable_project")
-
-		return api.HTTPError{}
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	apiErr := s.checkProjectUsageForDisabling(ctx, user, p)
-	if apiErr.Err != nil {
-		return apiErr
+	if input.UserAgent == "" {
+		sendJSONError(w, "UserAgent was not provided",
+			"", http.StatusBadRequest)
+		return
 	}
 
-	if request.SetPendingDeletion {
-		err = s.completeProjectDisabling(ctx, p.ID, false)
-		if err != nil {
-			return apiError(http.StatusInternalServerError, err)
-		}
+	newUserAgent := []byte(input.UserAgent)
 
-		auditLog("mark_project_pending_deletion")
-
-		return api.HTTPError{}
+	if bytes.Equal(project.UserAgent, newUserAgent) {
+		sendJSONError(w, "new UserAgent is equal to existing projects UserAgent",
+			"", http.StatusBadRequest)
+		return
 	}
 
-	// Check for existing buckets
+	err = server._updateProjectsUserAgent(ctx, project.ID, newUserAgent)
+	if err != nil {
+		sendJSONError(w, "failed to update projects user agent",
+			err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if err != nil {
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		sendJSONError(w, "invalid form",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	options := buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward}
-	bucketsList, err := s.buckets.ListBuckets(ctx, p.ID, options, macaroon.AllowedBuckets{All: true})
+	buckets, err := server.buckets.ListBuckets(ctx, project.ID, options, macaroon.AllowedBuckets{All: true})
 	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		sendJSONError(w, "unable to list buckets",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
-	if len(bucketsList.Items) > 0 {
-		return apiError(http.StatusConflict, errs.New("buckets still exist"))
+	if len(buckets.Items) > 0 {
+		sendJSONError(w, "buckets still exist",
+			fmt.Sprintf("%v", bucketNames(buckets.Items)), http.StatusConflict)
+		return
 	}
 
-	err = s.completeProjectDisabling(ctx, p.ID, false)
+	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{Limit: 1, Page: 1})
 	if err != nil {
-		return apiError(http.StatusInternalServerError, err)
+		sendJSONError(w, "unable to list api-keys",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if keys.TotalCount > 0 {
+		sendJSONError(w, "api-keys still exist",
+			fmt.Sprintf("count %d", keys.TotalCount), http.StatusConflict)
+		return
 	}
 
-	auditLog("disable_project")
+	// if usage exist, return error to client and exit
+	if server.checkUsage(ctx, w, project.ID) {
+		return
+	}
 
-	return api.HTTPError{}
+	err = server.db.Console().Projects().Delete(ctx, project.ID)
+	if err != nil {
+		sendJSONError(w, "unable to delete project",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
-func (s *Service) checkProjectUsageForDisabling(ctx context.Context, u *console.User, p *console.Project) api.HTTPError {
-	if u.Kind != console.PaidUser {
-		return api.HTTPError{}
-	}
-
-	// Check project usage status
-	_, invoicingIncomplete, _, err := s.payments.CheckProjectUsageStatus(ctx, p.ID, p.PublicID)
-	if err != nil {
-		if payments.ErrUnbilledUsage.Has(err) {
-			return api.HTTPError{
-				Status: http.StatusConflict,
-				Err:    Error.New("usage for current month exists"),
-			}
-		}
-		return api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
-	}
-	if invoicingIncomplete {
-		return api.HTTPError{
-			Status: http.StatusConflict,
-			Err:    Error.New("usage for last month exists but is not billed yet"),
-		}
-	}
-
-	// Check for open invoice items
-	err = s.payments.CheckProjectInvoicingStatus(ctx, p.ID)
-	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusConflict,
-			Err:    Error.Wrap(err),
-		}
-	}
-
-	return api.HTTPError{}
-}
-
-// forceDisableProject deletes all of a project's buckets and data.
-func (s *Service) forceDisableProject(ctx context.Context, projectID uuid.UUID) error {
-	listOptions := buckets.ListOptions{Direction: buckets.DirectionForward}
-	allowedBuckets := macaroon.AllowedBuckets{All: true}
-
-	bucketsList, err := s.buckets.ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+func (server *Server) _updateProjectsUserAgent(ctx context.Context, projectID uuid.UUID, newUserAgent []byte) (err error) {
+	err = server.db.Console().Projects().UpdateUserAgent(ctx, projectID, newUserAgent)
 	if err != nil {
 		return err
 	}
 
-	if len(bucketsList.Items) > 0 {
-		var errList errs.Group
-		for _, bucket := range bucketsList.Items {
-			bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: metabase.BucketName(bucket.Name)}
-			_, err = s.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
-				Bucket: bucketLocation,
-			})
-			if err != nil {
-				errList.Add(err)
-				continue
-			}
+	listOptions := buckets.ListOptions{
+		Direction: buckets.DirectionForward,
+	}
 
-			empty, err := s.metabase.BucketEmpty(ctx, metabase.BucketEmpty{
-				ProjectID:  projectID,
-				BucketName: metabase.BucketName(bucket.Name),
-			})
-			if err != nil {
-				errList.Add(err)
-				continue
-			}
-			if !empty {
-				errList.Add(errs.New("bucket not empty: %s", bucket.Name))
-				continue
-			}
+	allowedBuckets := macaroon.AllowedBuckets{
+		All: true,
+	}
 
-			err = s.buckets.DeleteBucket(ctx, []byte(bucket.Name), projectID)
-			if err != nil {
-				errList.Add(err)
-			}
+	projectBuckets, err := server.db.Buckets().ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+	if err != nil {
+		return err
+	}
+
+	var errList errs.Group
+	for _, bucket := range projectBuckets.Items {
+		err = server.db.Buckets().UpdateUserAgent(ctx, projectID, bucket.Name, newUserAgent)
+		if err != nil {
+			errList.Append(err)
 		}
-		if errList.Err() != nil {
-			return errList.Err()
+
+		err = server.db.Attribution().UpdateUserAgent(ctx, projectID, bucket.Name, newUserAgent)
+		if err != nil {
+			errList.Append(err)
 		}
 	}
 
-	return s.completeProjectDisabling(ctx, projectID, true)
-}
-
-func (s *Service) completeProjectDisabling(ctx context.Context, projectID uuid.UUID, forced bool) error {
-	if !forced && s.adminConfig.PendingDeleteProjectCleanupEnabled {
-		return s.consoleDB.Projects().UpdateStatus(ctx, projectID, console.ProjectPendingDeletion)
+	if errList.Err() != nil {
+		return errList.Err()
 	}
 
-	return s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
-		err := tx.APIKeys().DeleteAllByProjectID(ctx, projectID)
-		if err != nil {
-			return err
-		}
-
-		err = tx.Domains().DeleteAllByProjectID(ctx, projectID)
-		if err != nil {
-			s.log.Error("failed to delete all domains for project",
-				zap.String("project_id", projectID.String()),
-				zap.Error(err),
-			)
-		}
-
-		err = tx.Projects().UpdateStatus(ctx, projectID, console.ProjectDisabled)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	return nil
 }
 
-// UpdateProjectEntitlements updates the entitlements for a project by its public ID.
-// Only one of new bucket placements, placement:product mappings and compute access token
-// can be updated at a time.
-func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectEntitlementsRequest) (*ProjectEntitlements, api.HTTPError) {
+func (server *Server) checkInvoicing(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (openInvoices bool) {
+	year, month, _ := server.nowFn().UTC().Date()
+	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+	// Check if an invoice project record exists already
+	err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+	if errors.Is(err, stripe.ErrProjectRecordExists) {
+		record, err := server.db.StripeCoinPayments().
+			ProjectRecords().
+			Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+		if err != nil {
+			sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
+			return true
+		}
+		// state = 0 means unapplied and not invoiced yet.
+		if record.State == 0 {
+			sendJSONError(w, "unapplied project invoice record exist", "", http.StatusConflict)
+			return true
+		}
+		// Record has been applied, so project can be deleted.
+		return false
+	}
+	if err != nil {
+		sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
+		return true
+	}
+
+	return false
+}
+
+func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (hasUsage bool) {
+	year, month, _ := server.nowFn().UTC().Date()
+	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+	prj, err := server.db.Console().Projects().Get(ctx, projectID)
+	if err != nil {
+		sendJSONError(w, "unable to get project details",
+			err.Error(), http.StatusInternalServerError)
+		return false
+	}
+
+	// If user is paid tier, check the usage limit, otherwise it is ok to delete it.
+	paid, err := server.db.Console().Users().GetUserPaidTier(ctx, prj.OwnerID)
+	if err != nil {
+		sendJSONError(w, "unable to project owner tier",
+			err.Error(), http.StatusInternalServerError)
+		return false
+	}
+	if paid {
+		// check current month usage and do not allow deletion if usage exists
+		currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, server.nowFn())
+		if err != nil {
+			sendJSONError(w, "unable to list project usage", err.Error(), http.StatusInternalServerError)
+			return true
+		}
+		if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
+			sendJSONError(w, "usage for current month exists", "", http.StatusConflict)
+			return true
+		}
+
+		// check usage for last month, if exists, ensure we have an invoice item created.
+		lastMonthUsage, err := server.db.ProjectAccounting().
+			GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+		if err != nil {
+			sendJSONError(w, "error getting project totals",
+				"", http.StatusInternalServerError)
+			return true
+		}
+		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
+			err = server.db.StripeCoinPayments().
+				ProjectRecords().
+				Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+			if !errors.Is(err, stripe.ErrProjectRecordExists) {
+				sendJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
+				return true
+			}
+		}
+	}
+
+	// If we have open invoice items, do not delete the project yet and wait for invoice completion.
+	return server.checkInvoicing(ctx, w, projectID)
+}
+
+func (server *Server) createGeofenceForProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	apiError := func(status int, err error) (*ProjectEntitlements, api.HTTPError) {
-		return nil, api.HTTPError{
-			Status: status, Err: Error.Wrap(err),
-		}
-	}
-
-	if request.Reason == "" {
-		return apiError(http.StatusBadRequest, errs.New("reason is required"))
-	}
-
-	fieldCount := 0
-	if request.NewBucketPlacements != nil {
-		fieldCount++
-	}
-	if request.PlacementProductMappings != nil {
-		fieldCount++
-	}
-	if request.ComputeAccessToken != nil {
-		fieldCount++
-	}
-	if fieldCount == 0 {
-		return apiError(http.StatusBadRequest, errs.New("no fields to update"))
-	}
-	if fieldCount > 1 {
-		return apiError(http.StatusBadRequest, errs.New("only one field can be updated at a time"))
-	}
-
-	var errGroup errs.Group
-
-	if request.NewBucketPlacements != nil {
-		if len(request.NewBucketPlacements) == 0 {
-			errGroup = append(errGroup, errs.New("new bucket placements cannot be empty"))
-		}
-
-		for _, placement := range request.NewBucketPlacements {
-			if _, exists := s.placement[placement]; !exists {
-				errGroup = append(errGroup, errs.New("invalid placement constraint in new bucket placements: %v", placement))
-			}
-		}
-	}
-
-	if request.PlacementProductMappings != nil {
-		if len(request.PlacementProductMappings) == 0 {
-			errGroup = append(errGroup, errs.New("placement:product mappings cannot be empty"))
-		}
-		for placement, productID := range request.PlacementProductMappings {
-			if _, exists := s.placement[placement]; !exists {
-				errGroup = append(errGroup, errs.New("invalid placement constraint in placement:product mapping: %v", placement))
-			}
-			if _, exists := s.products[productID]; !exists {
-				errGroup = append(errGroup, errs.New("invalid product ID in placement:product mapping: %d", productID))
-			}
-		}
-	}
-
-	if errGroup != nil {
-		return apiError(http.StatusBadRequest, errGroup.Err())
-	}
-
-	p, err := s.consoleDB.Projects().GetByPublicID(ctx, publicID)
+	placement, err := parsePlacementConstraint(r.URL.Query().Get("region"))
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-			err = errs.New("project not found")
-		}
-		return apiError(status, err)
+		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
+		return
 	}
 
-	feats, err := s.entitlements.Projects().GetByPublicID(ctx, publicID)
-	if err != nil {
-		if entitlements.ErrNotFound.Has(err) {
-			feats = entitlements.ProjectFeatures{}
-		} else {
-			return apiError(http.StatusInternalServerError, err)
-		}
-	}
-
-	if request.ComputeAccessToken != nil {
-		newAccessToken := []byte(*request.ComputeAccessToken)
-		if *request.ComputeAccessToken == "" {
-			newAccessToken = nil
-		}
-
-		err = s.entitlements.Projects().SetComputeAccessTokenByPublicID(ctx, publicID, newAccessToken)
-		if err != nil {
-			return apiError(http.StatusInternalServerError, err)
-		}
-	} else if request.NewBucketPlacements != nil {
-		err = s.entitlements.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, request.NewBucketPlacements)
-		if err != nil {
-			return apiError(http.StatusInternalServerError, err)
-		}
-	} else if request.PlacementProductMappings != nil {
-		err = s.entitlements.Projects().SetPlacementProductMappingsByPublicID(ctx, publicID, request.PlacementProductMappings)
-		if err != nil {
-			return apiError(http.StatusInternalServerError, err)
-		}
-	}
-
-	newEntitlements, err := s.entitlements.Projects().GetByPublicID(ctx, publicID)
-	if err != nil {
-		return apiError(http.StatusInternalServerError, err)
-	}
-
-	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-		UserID:     p.OwnerID,
-		ProjectID:  &p.PublicID,
-		Action:     "update_project_entitlements",
-		AdminEmail: authInfo.Email,
-		ItemType:   changehistory.ItemTypeProject,
-		Reason:     request.Reason,
-		Before:     feats,
-		After:      newEntitlements,
-		Timestamp:  s.nowFn(),
-	})
-
-	return s.toProjectEntitlements(newEntitlements)
+	server.setGeofenceForProject(w, r, placement)
 }
 
-func (s *Service) toProjectEntitlements(feats entitlements.ProjectFeatures) (*ProjectEntitlements, api.HTTPError) {
-	mappedProducts := make(map[string]MiniProductInfo)
-	for placementID, productID := range feats.PlacementProductMappings {
-		productInfo, err := s.getProductByID(productID)
-		if err != nil {
-			return nil, api.HTTPError{
-				Status: http.StatusInternalServerError,
-				Err:    Error.Wrap(err),
-			}
-		}
-		var placement string
-		if pc, ok := s.placement[placementID]; ok {
-			placement = fmt.Sprintf("(%d) - %s", pc.ID, pc.Name)
-		}
-		mappedProducts[placement] = productInfo.MiniInfo()
-	}
-	var computeAccessToken string
-	if len(feats.ComputeAccessToken) > 0 {
-		computeAccessToken = string(feats.ComputeAccessToken)
-	}
-
-	var newBucketPlacements []string
-	for _, placement := range feats.NewBucketPlacements {
-		if pc, ok := s.placement[placement]; ok {
-			newBucketPlacements = append(newBucketPlacements, fmt.Sprintf("(%d) - %s", pc.ID, pc.Name))
-		}
-	}
-
-	return &ProjectEntitlements{
-		NewBucketPlacements:      newBucketPlacements,
-		ComputeAccessToken:       computeAccessToken,
-		PlacementProductMappings: mappedProducts,
-	}, api.HTTPError{}
+func (server *Server) deleteGeofenceForProject(w http.ResponseWriter, r *http.Request) {
+	server.setGeofenceForProject(w, r, storj.DefaultPlacement)
 }
 
-// TestToggleSelfServeAccountDelete is a test helper to toggle self-serve account deletion.
-func (s *Service) TestToggleSelfServeAccountDelete(enabled bool) {
-	s.consoleConfig.SelfServeAccountDeleteEnabled = enabled
+func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "error getting project",
+			"", http.StatusInternalServerError)
+		return
+
+	}
+
+	err = server.db.Console().Projects().UpdateDefaultPlacement(ctx, project.ID, placement)
+	if err != nil {
+		sendJSONError(w, "unable to set geofence for project",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
-// TestToggleAbbreviatedProjectDelete is a test helper to toggle abbreviated project deletion.
-func (s *Service) TestToggleAbbreviatedProjectDelete(enabled bool) {
-	s.adminConfig.PendingDeleteProjectCleanupEnabled = enabled
+func bucketNames(buckets []buckets.Bucket) []string {
+	var xs []string
+	for _, b := range buckets {
+		xs = append(xs, b.Name)
+	}
+	return xs
+}
+
+// getProjectByAnyID takes a string version of a project public or private ID. If a valid public or private UUID, the associated project will be returned.
+func (server *Server) getProjectByAnyID(ctx context.Context, projectUUIDString string) (p *console.Project, err error) {
+	projectID, err := uuidFromString(projectUUIDString)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	p, err = server.db.Console().Projects().GetByPublicID(ctx, projectID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		// if failed to get by public ID, try using provided ID as a private ID
+		p, err = server.db.Console().Projects().Get(ctx, projectID)
+		return p, Error.Wrap(err)
+	case err != nil:
+		return nil, Error.Wrap(err)
+	default:
+		return p, nil
+	}
 }

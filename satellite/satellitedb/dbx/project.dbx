@@ -43,6 +43,17 @@ model project (
     // burst_limit defines number of requests that are not throttled by rate_limit.
     // See golang.org/x/time/rate#Limiter for details.
     field burst_limit                       int       ( nullable, updatable )
+    // rate_limit_head, burst_limit_head, rate_limit_get, burst_limit_get, etc. are per-operation rate limits.
+    field rate_limit_head                   int       ( nullable, updatable )
+    field burst_limit_head                  int       ( nullable, updatable )
+    field rate_limit_get                    int       ( nullable, updatable )
+    field burst_limit_get                   int       ( nullable, updatable )
+    field rate_limit_put                    int       ( nullable, updatable )
+    field burst_limit_put                   int       ( nullable, updatable )
+    field rate_limit_list                   int       ( nullable, updatable )
+    field burst_limit_list                  int       ( nullable, updatable )
+    field rate_limit_del                    int       ( nullable, updatable )
+    field burst_limit_del                   int       ( nullable, updatable )
     // max_buckets is the maximum number of buckets that can be created for the project.
     field max_buckets                       int       ( nullable, updatable )
     // user_agent is the referred partner who created the project.
@@ -51,9 +62,18 @@ model project (
     field owner_id                          blob
     // salt is used for salting the user passphrase for the content.
     field salt                              blob      ( nullable )
+    // passphrase_enc is the encrypted project passphrase.
+    field passphrase_enc                    blob      ( nullable, updatable )
+    // passphrase_enc_key_id identifies the key used to encrypt passphrase_enc.
+    field passphrase_enc_key_id             int       ( nullable, updatable )
 
     // created_at indicates when the project was created.
     field created_at                        timestamp ( autoinsert )
+
+	// status indicates project state: 0=disabled, 1=active, 2=pending deletion.
+	field status int ( updatable, nullable )
+	// status_updated_at is when status was last changed.
+	field status_updated_at timestamp ( updatable, nullable )
 
 	// placement to be used for every new bucket.
 	field default_placement int (nullable, updatable)
@@ -64,6 +84,8 @@ model project (
     //2 - VersioningEnabled (versioning for new buckets is supported and enabled)
     // note: suspended is not a valid state for new buckets
     field default_versioning int (updatable, default 1)
+    // prevDays_UntilExpiration is the previous value of days until subscription expiration (for UI).
+    field prevDays_UntilExpiration int ( updatable, default 0 )
 )
 
 create project ( )

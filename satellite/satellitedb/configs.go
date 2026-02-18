@@ -122,7 +122,7 @@ func (c *configsDB) ListConfigs(ctx context.Context, filters configs.ListConfigF
 
 		query += ` ORDER BY created_at DESC`
 
-		rows, err := c.db.Query(ctx, query, args...)
+		rows, err := c.db.QueryContext(ctx, query, args...)
 		if err != nil {
 			if errs.Is(err, sql.ErrNoRows) {
 				return []configs.Config{}, nil

@@ -1558,7 +1558,7 @@ func (db *ProjectAccounting) GetSingleBucketTotals(ctx context.Context, projectI
 }
 
 // GetBucketTotals retrieves bucket usage totals for period of time.
-func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
+func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if cursor.Limit > maxLimit {
@@ -1705,7 +1705,6 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			DefaultPlacement:      placement,
 			DefaultRetentionDays:  defaultRetentionDays,
 			DefaultRetentionYears: defaultRetentionYears,
-			Since:                 since,
 			Before:                before,
 			CreatedAt:             createdAt,
 			CreatorEmail:          creatorEmail,
@@ -1735,7 +1734,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		// get bucket_bandwidth_rollups
 		// use int64 for compatibility with Spanner
 		actionGet := int64(pb.PieceAction_GET)
-		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(usage.BucketName), since, before, actionGet)
+		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(usage.BucketName), before, actionGet)
 
 		var egress int64
 		err = rollupRow.Scan(&egress)
@@ -1747,7 +1746,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 
 		usages[i].Egress = memory.Size(egress).GB()
 
-		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(usage.BucketName), since, before)
+		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(usage.BucketName), before)
 
 		var tally accounting.BucketStorageTally
 		var inline, remote int64

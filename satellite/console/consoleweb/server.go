@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleservice"
@@ -248,6 +249,7 @@ type Server struct {
 	service             *console.Service
 	developerService    *developer.Service
 	mailService         *mailservice.Service
+	consoleService      *consoleservice.Service
 	hubspotMailService  *hubspotmails.Service
 	notificationService *pushnotifications.Service
 	analytics           *analytics.Service
@@ -338,6 +340,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 
 	server.developerCookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_developer_tokenKey",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "developer_sso_state",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "developer_sso_email_token",
 		Path: "/",
 	}, server.config.AuthCookieDomain)
 
@@ -439,7 +447,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
 	socialmedia.SetXSocialMediaConfig(config.XClientID, config.XClientSecret, config.XSignupRedirectURLstring, config.XLoginRedirectURLstring)
 	socialmedia.SetPipeDriveSocialMediaConfig(config.PipeDriveClientID, config.PipeDriveClientSecret, config.PipeDriveRedirectUrl)
-	badPasswords, err := server.loadBadPasswords()
+	badPasswords, badPasswordsEncoded, err := server.loadBadPasswords()
 	if err != nil {
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
@@ -450,11 +458,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		valdiRouter.Use(server.withCORS)
 		valdiRouter.Use(server.withAuth)
 		valdiRouter.Handle("/api-keys/{project-id}", server.userIDRateLimiter.Limit(http.HandlerFunc(valdiController.GetAPIKey))).Methods(http.MethodGet, http.MethodOptions)
-	}
-
-	badPasswords, badPasswordsEncoded, err := server.loadBadPasswords()
-	if err != nil {
-		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
 	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.WhiteLabel, config.SingleWhiteLabel)
@@ -503,7 +506,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/delete-request", server.withAuth(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch, http.MethodOptions)
@@ -543,7 +545,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
 
 	authRouter.Handle("/bad-passwords", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetBadPasswords))).Methods(http.MethodGet, http.MethodOptions)
-	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/resend-email", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost, http.MethodOptions)
@@ -1236,6 +1237,81 @@ func (server *Server) withAuthDeveloper(handler http.Handler) http.Handler {
 }
 */
 
+func (server *Server) checkGhostSession(ctx context.Context, r *http.Request, session *consoleauth.WebappSession) error {
+	if session == nil {
+		return nil
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		return err
+	}
+	userAgent := r.UserAgent()
+
+	if session.UserAgent != userAgent || session.Address != ip {
+		user, err := console.GetUser(ctx)
+		if err != nil {
+			return err
+		}
+
+		// Atomic check-and-send operation to prevent race conditions.
+		server.ghostSessionEmailMutex.Lock()
+		defer server.ghostSessionEmailMutex.Unlock()
+
+		lastSent, exists := server.ghostSessionEmailSent[user.ID]
+		if exists && time.Since(lastSent) < 2*time.Hour {
+			return nil // Email sent recently, skip.
+		}
+
+		// Simple size limit: if we're at capacity, remove a random entry.
+		if len(server.ghostSessionEmailSent) >= server.config.GhostSessionCacheLimit {
+			for cached := range server.ghostSessionEmailSent {
+				if cached != user.ID {
+					delete(server.ghostSessionEmailSent, cached)
+					break
+				}
+			}
+		}
+
+		server.ghostSessionEmailSent[user.ID] = time.Now()
+		server.hubspotMailService.SendAsync(ctx, &hubspotmails.SendEmailRequest{
+			Kind: hubspotmails.GhostSessionWarning,
+			To:   user.Email,
+		})
+	}
+
+	return nil
+}
+
+// runGhostSessionCacheCleanup periodically cleans up old ghost session email timestamps to prevent memory leaks.
+func (server *Server) runGhostSessionCacheCleanup(ctx context.Context) {
+	ticker := time.NewTicker(24 * time.Hour) // Clean up daily.
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Remove timestamps older than 24 hours.
+			cutoff := time.Now().Add(-24 * time.Hour)
+			server.ghostSessionEmailMutex.Lock()
+
+			var removed int
+			for userID, timestamp := range server.ghostSessionEmailSent {
+				if timestamp.Before(cutoff) {
+					delete(server.ghostSessionEmailSent, userID)
+					removed++
+				}
+			}
+
+			server.ghostSessionEmailMutex.Unlock()
+
+			server.log.Info("Cleaned up old ghost session email timestamps", zap.Int("removed", removed))
+		}
+	}
+}
+
 // withRequest ensures the http request itself is reachable from the context.
 func (server *Server) withRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1675,16 +1751,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tokenInfo, err := server.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
-		UserID:          user.ID,
-		TenantID:        user.TenantID,
-		Email:           user.Email,
-		IP:              ip,
-		UserAgent:       r.UserAgent(),
-		AnonymousID:     consoleapi.LoadAjsAnonymousID(r),
-		CustomDuration:  nil,
-		HubspotObjectID: user.HubspotObjectID,
-	})
+	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), consoleapi.LoadAjsAnonymousID(r), nil, nil, nil)
 	if err != nil {
 		server.serveError(w, http.StatusInternalServerError)
 		return

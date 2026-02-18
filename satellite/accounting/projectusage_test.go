@@ -736,7 +736,7 @@ func TestUsageRollups(t *testing.T) {
 
 			cursor := accounting.BucketUsageCursor{Limit: 20, Page: 1}
 
-			totals, err := usageRollups.GetBucketTotals(ctx, project1, cursor, since, now)
+			totals, err := usageRollups.GetBucketTotals(ctx, project1, cursor, since)
 			require.NoError(t, err)
 			require.NotNil(t, totals)
 			require.NotZero(t, len(totals.BucketUsages))
@@ -753,7 +753,7 @@ func TestUsageRollups(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, since, now)
+			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, since)
 			require.NoError(t, err)
 			require.NotNil(t, totals)
 
@@ -802,7 +802,7 @@ func TestUsageRollups(t *testing.T) {
 			require.NoError(t, err)
 
 			cursor.Search = lockedBucket
-			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, since, now)
+			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, since)
 			require.NoError(t, err)
 			require.NotNil(t, totals)
 			require.Len(t, totals.BucketUsages, 1)
@@ -829,7 +829,7 @@ func TestUsageRollups(t *testing.T) {
 				_, err = db.Buckets().UpdateBucket(ctx, b)
 				require.NoError(t, err)
 			}
-			page, err := usageRollups.GetBucketTotals(ctx, planet.Uplinks[0].Projects[0].ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, since, now)
+			page, err := usageRollups.GetBucketTotals(ctx, planet.Uplinks[0].Projects[0].ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, since)
 			require.NoError(t, err)
 			require.NotNil(t, page)
 			for _, b := range page.BucketUsages {
@@ -912,12 +912,12 @@ func TestGetBucketTotals(t *testing.T) {
 			now = currentMonthStart.Add(48 * time.Hour) // bump to day 3.
 		}
 
-		listSince, listBefore := twoMonthsAgoStart, now
+		listSince := twoMonthsAgoStart
 
 		t.Run("Basic functionality", func(t *testing.T) {
 			cursor := accounting.BucketUsageCursor{Limit: 10, Page: 1}
 
-			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 			require.Equal(t, uint64(4), totals.TotalCount)
 			require.Equal(t, uint(1), totals.CurrentPage)
@@ -937,7 +937,7 @@ func TestGetBucketTotals(t *testing.T) {
 		t.Run("Pagination", func(t *testing.T) {
 			cursor := accounting.BucketUsageCursor{Limit: 2, Page: 1}
 
-			t1, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			t1, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 			require.Equal(t, uint64(4), t1.TotalCount)
 			require.Equal(t, uint(1), t1.CurrentPage)
@@ -945,7 +945,7 @@ func TestGetBucketTotals(t *testing.T) {
 			require.Len(t, t1.BucketUsages, 2)
 
 			cursor.Page = 2
-			t2, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			t2, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 			require.Equal(t, uint64(4), t2.TotalCount)
 			require.Equal(t, uint(2), t2.CurrentPage)
@@ -956,14 +956,14 @@ func TestGetBucketTotals(t *testing.T) {
 		t.Run("Search functionality", func(t *testing.T) {
 			cursor := accounting.BucketUsageCursor{Limit: 10, Page: 1, Search: "bucket-2"}
 
-			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), totals.TotalCount)
 			require.Len(t, totals.BucketUsages, 1)
 			require.Equal(t, "bucket-2", totals.BucketUsages[0].BucketName)
 
 			cursor.Search = "buck%' OR 'x' != '"
-			totals, err = usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			totals, err = usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 			require.Equal(t, uint64(0), totals.TotalCount)
 			require.Len(t, totals.BucketUsages, 0)
@@ -973,7 +973,7 @@ func TestGetBucketTotals(t *testing.T) {
 			cursor := accounting.BucketUsageCursor{Limit: 10, Page: 1}
 
 			// current month: since = first of this month, before = now.
-			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, currentMonthStart, now)
+			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, currentMonthStart)
 			require.NoError(t, err)
 
 			for _, usage := range totals.BucketUsages {
@@ -997,8 +997,7 @@ func TestGetBucketTotals(t *testing.T) {
 			}
 
 			// previous month: since = first of previous, before = last instant of previous
-			prevLast := currentMonthStart.Add(-time.Second)
-			t2, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, previousMonthStart, prevLast)
+			t2, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, previousMonthStart)
 			require.NoError(t, err)
 
 			for _, usage := range t2.BucketUsages {
@@ -1016,8 +1015,7 @@ func TestGetBucketTotals(t *testing.T) {
 			}
 
 			// two months ago: since = first of that month, before = last instant of that month
-			twoLast := previousMonthStart.Add(-time.Second)
-			t3, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, twoMonthsAgoStart, twoLast)
+			t3, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, twoMonthsAgoStart)
 
 			require.NoError(t, err)
 			for _, usage := range t3.BucketUsages {
@@ -1037,18 +1035,18 @@ func TestGetBucketTotals(t *testing.T) {
 
 		t.Run("Error conditions", func(t *testing.T) {
 			// page zero
-			_, err := usageRollups.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 10, Page: 0}, twoMonthsAgoStart, now)
+			_, err := usageRollups.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 10, Page: 0}, twoMonthsAgoStart)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "page can not be 0")
 
 			// page out of range
-			_, err = usageRollups.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 10, Page: 999}, twoMonthsAgoStart, now)
+			_, err = usageRollups.GetBucketTotals(ctx, projectID, accounting.BucketUsageCursor{Limit: 10, Page: 999}, twoMonthsAgoStart)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "page is out of range")
 
 			// limit capped
 			largeCursor := accounting.BucketUsageCursor{Limit: 1000000, Page: 1}
-			totals, err := usageRollups.GetBucketTotals(ctx, projectID, largeCursor, twoMonthsAgoStart, now)
+			totals, err := usageRollups.GetBucketTotals(ctx, projectID, largeCursor, twoMonthsAgoStart)
 			require.NoError(t, err)
 			require.Less(t, totals.Limit, uint(1000000))
 		})
@@ -1074,7 +1072,7 @@ func TestGetBucketTotals(t *testing.T) {
 			require.NoError(t, err)
 
 			cursor := accounting.BucketUsageCursor{Limit: 10, Page: 1, Search: memberUser.Email}
-			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 			require.NotNil(t, totals)
 			require.NotNil(t, totals.BucketUsages)
@@ -1086,7 +1084,7 @@ func TestGetBucketTotals(t *testing.T) {
 			require.NoError(t, err)
 
 			cursor.Search = ""
-			totals, err = usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			totals, err = usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 
 			var found bool
@@ -1107,7 +1105,7 @@ func TestGetBucketTotals(t *testing.T) {
 				Search:          bucketName,
 				EventingEnabled: true,
 			}
-			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 			require.Len(t, totals.BucketUsages, 1)
 			require.Equal(t, bucketName, totals.BucketUsages[0].BucketName)
@@ -1121,7 +1119,7 @@ func TestGetBucketTotals(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			totals, err = usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			totals, err = usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince)
 			require.NoError(t, err)
 			require.Len(t, totals.BucketUsages, 1)
 			require.Equal(t, bucketName, totals.BucketUsages[0].BucketName)

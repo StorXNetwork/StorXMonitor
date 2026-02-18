@@ -102,7 +102,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 10)
@@ -115,7 +115,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  2,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 2)
@@ -129,7 +129,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 10)
@@ -148,7 +148,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 10)
 			assert.NoError(t, err)
@@ -175,7 +175,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 10)
 			assert.NoError(t, err)
@@ -190,7 +190,7 @@ func TestApiKeysRepository(t *testing.T) {
 			err = apikeys.Delete(ctx, key.ID)
 			assert.NoError(t, err)
 
-			page, err = apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err = apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 9)
 			assert.NoError(t, err)
@@ -202,7 +202,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 
 			assert.Nil(t, page)
 			assert.Error(t, err)
@@ -304,7 +304,7 @@ func TestApiKeysRepository(t *testing.T) {
 			assert.NotNil(t, createdKey2)
 
 			cursor := console.APIKeyCursor{Page: 1, Limit: 10}
-			keys, err := apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, ignoredPrefix)
+			keys, err := apikeys.GetPagedByProjectID(ctx, pr.ID, cursor)
 			assert.NoError(t, err)
 			assert.NotNil(t, keys)
 			assert.Equal(t, uint64(2), keys.TotalCount)
@@ -313,7 +313,7 @@ func TestApiKeysRepository(t *testing.T) {
 			assert.Equal(t, keyInfo1.Name, keys.APIKeys[1].Name)
 
 			cursor.Search = ignoredPrefix
-			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, ignoredPrefix)
+			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor)
 			assert.NoError(t, err)
 			assert.NotNil(t, keys)
 			assert.Equal(t, uint64(0), keys.TotalCount)
@@ -386,7 +386,7 @@ func TestApiKeysRepository(t *testing.T) {
 			assert.NoError(t, err)
 
 			cursor := console.APIKeyCursor{Page: 1, Limit: 10}
-			keys, err := apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			keys, err := apikeys.GetPagedByProjectID(ctx, pr.ID, cursor)
 			assert.NoError(t, err)
 			assert.NotNil(t, keys)
 			assert.Len(t, keys.APIKeys, 4)
@@ -395,7 +395,7 @@ func TestApiKeysRepository(t *testing.T) {
 			err = apikeys.DeleteExpiredByNamePrefix(ctx, time.Hour*47, prefix, 0, 1)
 			assert.NoError(t, err)
 
-			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor)
 			assert.NoError(t, err)
 			assert.NotNil(t, keys)
 			assert.Len(t, keys.APIKeys, 2)
@@ -404,7 +404,7 @@ func TestApiKeysRepository(t *testing.T) {
 			err = apikeys.DeleteExpiredByNamePrefix(ctx, time.Hour*23, prefix, 0, 1)
 			assert.NoError(t, err)
 
-			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor)
 			assert.NoError(t, err)
 			assert.NotNil(t, keys)
 			assert.Len(t, keys.APIKeys, 1)
@@ -504,7 +504,7 @@ func TestApiKeysRepository(t *testing.T) {
 			require.NoError(t, err)
 
 			cursor := console.APIKeyCursor{Page: 1, Limit: 10}
-			keys, err := apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			keys, err := apikeys.GetPagedByProjectID(ctx, pr.ID, cursor)
 			require.NoError(t, err)
 			require.Len(t, keys.APIKeys, 3)
 
@@ -513,7 +513,7 @@ func TestApiKeysRepository(t *testing.T) {
 			require.NoError(t, err)
 
 			// Only owner2's key should remain.
-			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor)
 			require.NoError(t, err)
 			require.Len(t, keys.APIKeys, 1)
 			require.Equal(t, "owner2-key1", keys.APIKeys[0].Name)
@@ -523,7 +523,7 @@ func TestApiKeysRepository(t *testing.T) {
 			require.NoError(t, err)
 
 			// Verify nothing changed.
-			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor)
 			require.NoError(t, err)
 			require.Len(t, keys.APIKeys, 1)
 		})
@@ -555,7 +555,7 @@ func TestApiKeysRepository(t *testing.T) {
 
 			// member‐search — the key be returned with CreatorEmail set to member's email.
 			cursor := console.APIKeyCursor{Page: 1, Limit: 10, Search: memberEmail}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 			require.NoError(t, err)
 			require.NotNil(t, page)
 			require.NotNil(t, page.APIKeys)
@@ -567,7 +567,7 @@ func TestApiKeysRepository(t *testing.T) {
 
 			// blank‐search — the key should still be returned, but CreatorEmail must now be empty
 			cursor.Search = ""
-			page, err = apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
+			page, err = apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
 			require.NoError(t, err)
 			require.NotNil(t, page)
 			require.NotNil(t, page.APIKeys)

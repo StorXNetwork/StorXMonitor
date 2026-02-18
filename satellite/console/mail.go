@@ -131,6 +131,7 @@ type ProjectInvitationEmail struct {
 	InviterEmail string
 	SignInLink   string
 }
+
 // PasswordChangedEmail is mailservice template with password changed data.
 type PasswordChangedEmail struct {
 	ResetPasswordLink string
@@ -301,6 +302,7 @@ func (*ContactUsSubmittedEmail) Template() string { return "ContactUsSubmitted" 
 func (*ContactUsSubmittedEmail) Subject() string {
 	return "Thank you for contacting us - StorX"
 }
+
 // LockAccountActivityType is an auth activity type which led to account lock.
 type LockAccountActivityType = string
 
@@ -495,6 +497,8 @@ func (*PlanPurchasedEmail) Template() string { return "PlanPurchased" }
 // Subject gets email subject.
 func (*PlanPurchasedEmail) Subject() string {
 	return "Plan Purchase Confirmation - StorX"
+}
+
 // BillingWarningEmail is an email sent to notify users of billing warning event.
 type BillingWarningEmail struct {
 	EmailNumber int

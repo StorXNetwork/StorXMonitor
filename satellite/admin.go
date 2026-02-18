@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin"
-	"storj.io/storj/satellite/admin/auditlogger"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -77,7 +76,6 @@ type Admin struct {
 	Admin struct {
 		Listener net.Listener
 		Server   *admin.Server
-		Service  *admin.Service
 	}
 
 	Buckets struct {
@@ -301,7 +299,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		regTokenChecker := developer.NewConsoleServiceAdapter(peer.DB.Console(), config.Console.Config)
 
 		// Setup mail service for developer emails (when admin creates developer)
-		mailService, _ := setupMailService(log, Config{Mail: config.Mail})
+		mailService, _ := setupMailService(log, config.Mail, config.Console)
 		// Continue without mail service if setup fails - emails won't be sent
 
 		// External address is required for developer service (used in activation emails)
@@ -330,22 +328,19 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		// This ensures consistency between console and admin authentication
 		adminConfig.JWTSecretKey = config.Console.AuthTokenSecret
 
+		restKeysSvc := restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.Console.RestAPIKeys.DefaultExpiration)
+
 		adminServer, err := admin.NewServer(
 			log.Named("admin"),
 			peer.Admin.Listener,
 			peer.DB,
-			metabaseDB,
 			peer.LiveAccounting.Cache,
 			peer.Buckets.Service,
-			peer.REST.Keys,
+			restKeysSvc,
 			peer.FreezeAccounts.Service,
 			peer.Analytics.Service,
 			peer.Payments.Accounts,
-			peer.Admin.Service,
-			peer.Entitlements.Service,
-			placement,
 			config.Console,
-			config.Entitlements,
 			adminConfig,
 			placement,
 			developerService,

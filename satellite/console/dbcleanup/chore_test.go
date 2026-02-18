@@ -107,7 +107,7 @@ func TestChore(t *testing.T) {
 			// Non-expired key and expired but not-prefixed key are both present.
 			cursor := console.APIKeyCursor{Page: 1, Limit: 10}
 
-			page, err := db.Console().APIKeys().GetPagedByProjectID(ctx, pr2.ID, cursor, "")
+			page, err := db.Console().APIKeys().GetPagedByProjectID(ctx, pr2.ID, cursor)
 			require.NoError(t, err)
 			require.NotNil(t, page)
 			require.Len(t, page.APIKeys, 2)

@@ -174,7 +174,7 @@ func TestCreateAuditableAPIKey(t *testing.T) {
 		endpoint := "api-keys/create/" + project.PublicID.String()
 		buf := bytes.NewBufferString("testName")
 
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -188,7 +188,7 @@ func TestCreateAuditableAPIKey(t *testing.T) {
 		service.TestSetAuditableAPIKeyProjects(map[string]struct{}{project.PublicID.String(): {}})
 		buf = bytes.NewBufferString("testName1")
 
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -229,7 +229,7 @@ func TestCreateEventingAPIKey(t *testing.T) {
 		endpoint := "api-keys/create/" + project.PublicID.String()
 		buf := bytes.NewBufferString("testName")
 
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -244,7 +244,7 @@ func TestCreateEventingAPIKey(t *testing.T) {
 		enabledProjects[project.ID] = struct{}{}
 		buf = bytes.NewBufferString("testName1")
 
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 

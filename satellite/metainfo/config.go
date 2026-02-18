@@ -233,7 +233,7 @@ type Config struct {
 	FailureTrackerChanceToSkip   float64               `help:"the chance to skip a failure tracker generation bump" default:".6"`
 	TrustedUplinks               []string              `help:"list of trusted uplinks"`
 	AlwaysUpdateGlobalTracker    bool                  `help:"if true, always update the global tracker with info, even if the uplink is registered" default:"false"`
-
+	ObjectLockEnabled            bool                  `help:"enable the use of bucket-level Object Lock" default:"true"`
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
@@ -241,6 +241,8 @@ type Config struct {
 	UseListObjectsForListing bool `help:"switch to new ListObjects implementation" default:"false" devDefault:"true" testDefault:"true"`
 
 	ListObjects ListObjectsFlags `help:"tuning parameters for list objects"`
+
+	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"true"`
 
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 

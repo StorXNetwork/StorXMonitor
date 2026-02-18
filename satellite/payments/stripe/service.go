@@ -604,6 +604,100 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 	return txIDs[0], nil
 }
 
+func (service *Service) productIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, payments.ProductUsagePriceModel) {
+	placement := int(storj.DefaultPlacement)
+
+	// The key format is now just "placement" (e.g., "25").
+	// Parse the placement directly from the key.
+	placement64, err := strconv.ParseInt(key, 10, 32)
+	if err == nil {
+		placement = int(placement64)
+	}
+
+	// Get price model for the placement.
+	return service.Accounts().GetPlacementPriceModel(ctx, projectPublicID, storj.PlacementConstraint(placement))
+}
+
+func (service *Service) getAndProcessUsages(
+	ctx context.Context,
+	projectID, projectPublicID uuid.UUID,
+	productUsages map[int32]accounting.ProjectUsage,
+	productInfos map[int32]payments.ProductUsagePriceModel,
+	from, to time.Time,
+) error {
+	usages, err := service.usageDB.GetProjectTotalByPlacement(ctx, projectID, from, to, false)
+	if err != nil {
+		return err
+	}
+
+	// Process each placement usage entry.
+	for key, usage := range usages {
+		if key == "" {
+			return errs.New("invalid usage key format")
+		}
+
+		productID, priceModel := service.productIdAndPriceForUsageKey(ctx, projectPublicID, key)
+
+		// Create or update the product usage entry.
+		if existingUsage, ok := productUsages[productID]; ok {
+			// Add to existing usage.
+			if service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+				existingUsage.Storage += usage.Storage - usage.RemainderStorage // We subtract remainder storage here to have Storage as actual usage.
+				existingUsage.RemainderStorage += usage.RemainderStorage
+			} else {
+				existingUsage.Storage += usage.Storage
+			}
+			existingUsage.Egress += usage.Egress
+			existingUsage.SegmentCount += usage.SegmentCount
+			productUsages[productID] = existingUsage
+		} else {
+			// Initialize with this usage.
+			if service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+				usage.Storage -= usage.RemainderStorage // We subtract remainder storage here to have Storage as actual usage.
+			}
+			productUsages[productID] = usage
+
+			// Get product name and SKU.
+			var (
+				productName string
+				storageSKU  string
+				egressSKU   string
+				segmentSKU  string
+			)
+			if product, ok := service.pricingConfig.ProductPriceMap[productID]; ok {
+				productName = product.ProductName
+				storageSKU = product.StorageSKU
+				egressSKU = product.EgressSKU
+				segmentSKU = product.SegmentSKU
+			} else {
+				service.log.Error("failed to get product for ID", zap.Int("product_id", int(productID)))
+				// fall back to  "Product x" as the name for an "unknown" product.
+				productName = fmt.Sprintf("Product %d", productID)
+			}
+
+			// Initialize product info.
+			productInfos[productID] = payments.ProductUsagePriceModel{
+				ProductID:                productID,
+				ProductName:              productName,
+				StorageSKU:               storageSKU,
+				EgressSKU:                egressSKU,
+				SegmentSKU:               segmentSKU,
+				SmallObjectFeeCents:      priceModel.SmallObjectFeeCents,
+				MinimumRetentionFeeCents: priceModel.MinimumRetentionFeeCents,
+				SmallObjectFeeSKU:        priceModel.SmallObjectFeeSKU,
+				MinimumRetentionFeeSKU:   priceModel.MinimumRetentionFeeSKU,
+				EgressOverageMode:        priceModel.EgressOverageMode,
+				IncludedEgressSKU:        priceModel.IncludedEgressSKU,
+				ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
+				UseGBUnits:               priceModel.UseGBUnits,
+				StorageRemainderBytes:    priceModel.StorageRemainderBytes,
+			}
+		}
+	}
+
+	return nil
+}
+
 // boris
 func (service *Service) CreateTokenPaymentBillingTransaction(ctx context.Context, user *console.User, amountTemp string, planID *int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -639,450 +733,451 @@ func (service *Service) GetBillingHistory(ctx context.Context, userID uuid.UUID)
 }
 
 // applyProjectRecords applies invoice intents as invoice line items to stripe customer.
-func (service *Service) applyProjectRecords(ctx context.Context, records []ProjectRecord, period time.Time) (skipCount int, err error) {
-	defer mon.Task()(&ctx)(&err)
+// func (service *Service) applyProjectRecords(ctx context.Context, records []ProjectRecord, period time.Time) (skipCount int, err error) {
+// 	defer mon.Task()(&ctx)(&err)
 
-	var mu sync.Mutex
-	var errGrp errs.Group
-	limiter := sync2.NewLimiter(service.maxParallelCalls)
-	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		cancel()
-		limiter.Wait()
-	}()
+// 	var mu sync.Mutex
+// 	var errGrp errs.Group
+// 	limiter := sync2.NewLimiter(service.stripeConfig.MaxParallelCalls)
+// 	ctx, cancel := context.WithCancel(ctx)
+// 	defer func() {
+// 		cancel()
+// 		limiter.Wait()
+// 	}()
 
-	for _, record := range records {
-		if err = ctx.Err(); err != nil {
-			return 0, errs.Wrap(err)
-		}
+// 	for _, record := range records {
+// 		if err = ctx.Err(); err != nil {
+// 			return 0, errs.Wrap(err)
+// 		}
 
-		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
-		if err != nil {
-			// This should never happen, but be sure to log info to further troubleshoot before exiting.
-			service.log.Error("project ID for corresponding project record not found", zap.Stringer("Record ID", record.ID), zap.Stringer("Project ID", record.ProjectID))
-			return 0, errs.Wrap(err)
-		}
+// 		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
+// 		if err != nil {
+// 			// This should never happen, but be sure to log info to further troubleshoot before exiting.
+// 			service.log.Error("project ID for corresponding project record not found", zap.Stringer("Record ID", record.ID), zap.Stringer("Project ID", record.ProjectID))
+// 			return 0, errs.Wrap(err)
+// 		}
 
-		if skip, err := service.mustSkipUser(ctx, proj.OwnerID); err != nil {
-			return 0, errs.Wrap(err)
-		} else if skip {
-			mu.Lock()
-			skipCount++
-			mu.Unlock()
-			continue
-		}
+// 		_, skip, err := service.mustSkipUser(ctx, proj.OwnerID)
+// 		if err != nil {
+// 			return 0, errs.Wrap(err)
+// 		} else if skip {
+// 			mu.Lock()
+// 			skipCount++
+// 			mu.Unlock()
+// 			continue
+// 		}
 
-		billingID, cusID, err := service.db.Customers().GetStripeIDs(ctx, proj.OwnerID)
-		if err != nil {
-			if errors.Is(err, ErrNoCustomer) {
-				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
-				continue
-			}
+// 		billingID, cusID, err := service.db.Customers().GetStripeIDs(ctx, proj.OwnerID)
+// 		if err != nil {
+// 			if errors.Is(err, ErrNoCustomer) {
+// 				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
+// 				continue
+// 			}
 
-			return 0, errs.Wrap(err)
-		}
+// 			return 0, errs.Wrap(err)
+// 		}
 
-		record := record
-		limiter.Go(ctx, func() {
-			skipped, err := service.createInvoiceItems(ctx, billingID, cusID, proj.Name, record, proj.OwnerID, period)
-			if err != nil {
-				mu.Lock()
-				errGrp.Add(errs.Wrap(err))
-				mu.Unlock()
-				return
-			}
-			if skipped {
-				mu.Lock()
-				skipCount++
-				mu.Unlock()
-			}
-		})
-	}
+// 		record := record
+// 		limiter.Go(ctx, func() {
+// 			skipped, err := service.createInvoiceItems(ctx, billingID, cusID, proj.Name, record, proj.OwnerID, period)
+// 			if err != nil {
+// 				mu.Lock()
+// 				errGrp.Add(errs.Wrap(err))
+// 				mu.Unlock()
+// 				return
+// 			}
+// 			if skipped {
+// 				mu.Lock()
+// 				skipCount++
+// 				mu.Unlock()
+// 			}
+// 		})
+// 	}
 
-	limiter.Wait()
+// 	limiter.Wait()
 
-	return skipCount, errGrp.Err()
-}
+// 	return skipCount, errGrp.Err()
+// }
 
 // applyToBeAggregatedProjectRecords applies to be aggregated invoice intents as invoice line items to stripe customer.
-func (service *Service) applyToBeAggregatedProjectRecords(ctx context.Context, records []ProjectRecord, period time.Time) (skipCount int, err error) {
-	defer mon.Task()(&ctx)(&err)
+// func (service *Service) applyToBeAggregatedProjectRecords(ctx context.Context, records []ProjectRecord, period time.Time) (skipCount int, err error) {
+// 	defer mon.Task()(&ctx)(&err)
 
-	for _, record := range records {
-		if err = ctx.Err(); err != nil {
-			return 0, errs.Wrap(err)
-		}
+// 	for _, record := range records {
+// 		if err = ctx.Err(); err != nil {
+// 			return 0, errs.Wrap(err)
+// 		}
 
-		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
-		if err != nil {
-			service.log.Error("project ID for corresponding project record not found", zap.Stringer("Record ID", record.ID), zap.Stringer("Project ID", record.ProjectID))
-			return 0, errs.Wrap(err)
-		}
+// 		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
+// 		if err != nil {
+// 			service.log.Error("project ID for corresponding project record not found", zap.Stringer("Record ID", record.ID), zap.Stringer("Project ID", record.ProjectID))
+// 			return 0, errs.Wrap(err)
+// 		}
 
-		if skip, err := service.mustSkipUser(ctx, proj.OwnerID); err != nil {
-			return 0, errs.Wrap(err)
-		} else if skip {
-			skipCount++
-			continue
-		}
+// 		_, skip, err := service.mustSkipUser(ctx, proj.OwnerID)
+// 		if err != nil {
+// 			return 0, errs.Wrap(err)
+// 		} else if skip {
+// 			skipCount++
+// 			continue
+// 		}
 
-		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
-		if err != nil {
-			if errors.Is(err, ErrNoCustomer) {
-				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
-				continue
-			}
+// 		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
+// 		if err != nil {
+// 			if errors.Is(err, ErrNoCustomer) {
+// 				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
+// 				continue
+// 			}
 
-			return 0, errs.Wrap(err)
-		}
+// 			return 0, errs.Wrap(err)
+// 		}
 
-		record := record
-		skipped, err := service.processProjectRecord(ctx, cusID, proj.Name, record, proj.OwnerID, period)
-		if err != nil {
-			return 0, errs.Wrap(err)
-		}
-		if skipped {
-			skipCount++
-		}
-	}
+// 		record := record
+// 		skipped, err := service.processProjectRecord(ctx, cusID, proj.Name, record, proj.OwnerID, period)
+// 		if err != nil {
+// 			return 0, errs.Wrap(err)
+// 		}
+// 		if skipped {
+// 			skipCount++
+// 		}
+// 	}
 
-	return skipCount, nil
-}
+// 	return skipCount, nil
+// }
 
 // createInvoiceItems creates invoice line items for stripe customer.
-func (service *Service) createInvoiceItems(ctx context.Context, billingID *string, cusID, projName string, record ProjectRecord, userID uuid.UUID, period time.Time) (skipped bool, err error) {
-	defer mon.Task()(&ctx)(&err)
+// func (service *Service) createInvoiceItems(ctx context.Context, billingID *string, cusID, projName string, record ProjectRecord, userID uuid.UUID, period time.Time) (skipped bool, err error) {
+// 	defer mon.Task()(&ctx)(&err)
 
-	if !service.useIdempotency {
-		if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-			return false, err
-		}
-	}
+// 	if !service.stripeConfig.UseIdempotency {
+// 		if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
+// 			return false, err
+// 		}
+// 	}
 
-	if service.skipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
-		if service.useIdempotency {
-			if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-				return false, err
-			}
-		}
+// 	if service.stripeConfig.SkipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
+// 		if service.stripeConfig.UseIdempotency {
+// 			if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
+// 				return false, err
+// 			}
+// 		}
 
-		return true, nil
-	}
+// 		return true, nil
+// 	}
 
-	from := record.PeriodStart
-	if service.enableFreeTrialLogic {
-		from, err = service.getFromDate(ctx, userID, record.PeriodStart, record.PeriodEnd)
-		if err != nil {
-			return false, err
-		}
-	}
+// 	from := record.PeriodStart
+// 	if service.stripeConfig.EnableFreeTrialLogic {
+// 		from, to, err := service.getFromToDates(ctx, userID, record.PeriodStart, record.PeriodEnd)
+// 		if err != nil {
+// 			return false, err
+// 		}
+// 		usages, err := service.usageDB.GetProjectTotal(ctx, record.ProjectID, from, to)
+// 		if err != nil {
+// 			return false, err
+// 		}
 
-	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, record.PeriodEnd)
-	if err != nil {
-		return false, err
-	}
+// 		items := service.InvoiceItemsFromProjectUsage(projName, usages, false)
 
-	items := service.InvoiceItemsFromProjectUsage(projName, usages, false)
+// 		var invoiceID *string
+// 		if billingID == nil {
+// 			billingID = &cusID
+// 		} else {
+// 			// create parent invoice
+// 			invoiceID, err = service.createParentInvoice(ctx, *billingID, cusID, projName, period)
+// 		}
+// 		for _, item := range items {
+// 			item.Params = stripe.Params{Context: ctx}
+// 			item.Currency = stripe.String(string(stripe.CurrencyUSD))
+// 			item.Customer = stripe.String(*billingID)
+// 			if invoiceID != nil {
+// 				item.Invoice = invoiceID
+// 			}
+// 			// TODO: do not expose regular project ID.
+// 			item.AddMetadata("projectID", record.ProjectID.String())
 
-	var invoiceID *string
-	if billingID == nil {
-		billingID = &cusID
-	} else {
-		// create parent invoice
-		invoiceID, err = service.createParentInvoice(ctx, *billingID, cusID, projName, period)
-	}
-	for _, item := range items {
-		item.Params = stripe.Params{Context: ctx}
-		item.Currency = stripe.String(string(stripe.CurrencyUSD))
-		item.Customer = stripe.String(*billingID)
-		if invoiceID != nil {
-			item.Invoice = invoiceID
-		}
-		// TODO: do not expose regular project ID.
-		item.AddMetadata("projectID", record.ProjectID.String())
+// 			if service.useIdempotency {
+// 				item.SetIdempotencyKey(getIdempotencyKey(record.ProjectID, *item.Description, period))
+// 			}
 
-		if service.useIdempotency {
-			item.SetIdempotencyKey(getIdempotencyKey(record.ProjectID, *item.Description, period))
-		}
+// 			result = append(result, storageItem)
 
-		result = append(result, storageItem)
+// 			// Create egress invoice item(s).
+// 			if info.EgressOverageMode {
+// 				// In overage mode, show both included egress (at $0) and overage (when present).
 
-		// Create egress invoice item(s).
-		if info.EgressOverageMode {
-			// In overage mode, show both included egress (at $0) and overage (when present).
+// 				var totalEgressQuantity, overageEgressQuantity, includedEgressQuantity int64
+// 				var egressUnitDesc string
 
-			var totalEgressQuantity, overageEgressQuantity, includedEgressQuantity int64
-			var egressUnitDesc string
+// 				if info.UseGBUnits {
+// 					// New products: convert from bytes to GB.
+// 					// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+// 					totalEgressAdjusted := decimal.NewFromInt(usage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+// 					overageEgressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
 
-			if info.UseGBUnits {
-				// New products: convert from bytes to GB.
-				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
-				totalEgressAdjusted := decimal.NewFromInt(usage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
-				overageEgressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+// 					if service.stripeConfig.RoundUpInvoiceUsage {
+// 						totalEgressQuantity = totalEgressAdjusted.Ceil().IntPart()
+// 						overageEgressQuantity = overageEgressAdjusted.Ceil().IntPart()
 
-				if service.stripeConfig.RoundUpInvoiceUsage {
-					totalEgressQuantity = totalEgressAdjusted.Ceil().IntPart()
-					overageEgressQuantity = overageEgressAdjusted.Ceil().IntPart()
+// 						// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+// 						if usage.Egress > 0 && totalEgressQuantity == 0 {
+// 							totalEgressQuantity = 1
+// 						}
+// 						if discountedUsage.Egress > 0 && overageEgressQuantity == 0 {
+// 							overageEgressQuantity = 1
+// 						}
+// 					} else {
+// 						totalEgressQuantity = totalEgressAdjusted.Round(0).IntPart()
+// 						overageEgressQuantity = overageEgressAdjusted.Round(0).IntPart()
+// 					}
 
-					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
-					if usage.Egress > 0 && totalEgressQuantity == 0 {
-						totalEgressQuantity = 1
-					}
-					if discountedUsage.Egress > 0 && overageEgressQuantity == 0 {
-						overageEgressQuantity = 1
-					}
-				} else {
-					totalEgressQuantity = totalEgressAdjusted.Round(0).IntPart()
-					overageEgressQuantity = overageEgressAdjusted.Round(0).IntPart()
-				}
+// 					includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
+// 					egressUnitDesc = "GB"
+// 				} else {
+// 					// Legacy products: use MB with rounding.
+// 					totalEgressMB := egressMBDecimal(usage.Egress)
+// 					overageEgressMB := egressMBDecimal(discountedUsage.Egress)
+// 					totalEgressQuantity = totalEgressMB.IntPart()
+// 					overageEgressQuantity = overageEgressMB.IntPart()
+// 					includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
+// 					egressUnitDesc = "MB"
+// 				}
 
-				includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
-				egressUnitDesc = "GB"
-			} else {
-				// Legacy products: use MB with rounding.
-				totalEgressMB := egressMBDecimal(usage.Egress)
-				overageEgressMB := egressMBDecimal(discountedUsage.Egress)
-				totalEgressQuantity = totalEgressMB.IntPart()
-				overageEgressQuantity = overageEgressMB.IntPart()
-				includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
-				egressUnitDesc = "MB"
-			}
+// 				if includedEgressQuantity > 0 {
+// 					includedEgressItem := &stripe.InvoiceItemParams{}
 
-			if includedEgressQuantity > 0 {
-				includedEgressItem := &stripe.InvoiceItemParams{}
+// 					// Format discount ratio for description (e.g., "3X" for ratio 3.0, "0.5X" for 0.5).
+// 					discountRatio := info.ProjectUsagePriceModel.EgressDiscountRatio
+// 					var discountRatioStr string
+// 					if discountRatio == float64(int64(discountRatio)) {
+// 						// Whole number, format without decimal places.
+// 						discountRatioStr = fmt.Sprintf("%.0fX", discountRatio)
+// 					} else {
+// 						// Has decimal places, show with appropriate precision.
+// 						discountRatioStr = fmt.Sprintf("%.1fX", discountRatio)
+// 					}
+// 					includedEgressDesc := prefix + fmt.Sprintf(" - %s Included Egress (%s)", discountRatioStr, egressUnitDesc)
+// 					if info.IncludedEgressSKU != "" && service.stripeConfig.SkuEnabled {
+// 						includedEgressItem.AddMetadata("SKU", info.IncludedEgressSKU)
+// 						includedEgressItem.AddMetadata("ItemCode", info.IncludedEgressSKU)
+// 						if service.stripeConfig.InvItemSKUInDescription {
+// 							includedEgressDesc += " - " + info.IncludedEgressSKU
+// 						}
+// 					}
+// 					includedEgressItem.Description = stripe.String(includedEgressDesc)
+// 					includedEgressItem.Quantity = stripe.Int64(includedEgressQuantity)
+// 					includedEgressItem.UnitAmountDecimal = stripe.Float64(0) // $0 price for included egress.
+// 					if service.stripeConfig.UseIdempotency {
+// 						includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
+// 					}
 
-				// Format discount ratio for description (e.g., "3X" for ratio 3.0, "0.5X" for 0.5).
-				discountRatio := info.ProjectUsagePriceModel.EgressDiscountRatio
-				var discountRatioStr string
-				if discountRatio == float64(int64(discountRatio)) {
-					// Whole number, format without decimal places.
-					discountRatioStr = fmt.Sprintf("%.0fX", discountRatio)
-				} else {
-					// Has decimal places, show with appropriate precision.
-					discountRatioStr = fmt.Sprintf("%.1fX", discountRatio)
-				}
-				includedEgressDesc := prefix + fmt.Sprintf(" - %s Included Egress (%s)", discountRatioStr, egressUnitDesc)
-				if info.IncludedEgressSKU != "" && service.stripeConfig.SkuEnabled {
-					includedEgressItem.AddMetadata("SKU", info.IncludedEgressSKU)
-					includedEgressItem.AddMetadata("ItemCode", info.IncludedEgressSKU)
-					if service.stripeConfig.InvItemSKUInDescription {
-						includedEgressDesc += " - " + info.IncludedEgressSKU
-					}
-				}
-				includedEgressItem.Description = stripe.String(includedEgressDesc)
-				includedEgressItem.Quantity = stripe.Int64(includedEgressQuantity)
-				includedEgressItem.UnitAmountDecimal = stripe.Float64(0) // $0 price for included egress.
-				if service.stripeConfig.UseIdempotency {
-					includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
-				}
+// 					result = append(result, includedEgressItem)
+// 				}
 
-				result = append(result, includedEgressItem)
-			}
+// 				if overageEgressQuantity > 0 {
+// 					overageEgressItem := &stripe.InvoiceItemParams{}
+// 					overageEgressDesc := prefix + fmt.Sprintf(" - Additional Egress (%s)", egressUnitDesc)
 
-			if overageEgressQuantity > 0 {
-				overageEgressItem := &stripe.InvoiceItemParams{}
-				overageEgressDesc := prefix + fmt.Sprintf(" - Additional Egress (%s)", egressUnitDesc)
+// 					if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
+// 						overageEgressItem.AddMetadata("SKU", info.EgressSKU)
+// 						overageEgressItem.AddMetadata("ItemCode", info.EgressSKU)
+// 						if service.stripeConfig.InvItemSKUInDescription {
+// 							overageEgressDesc += " - " + info.EgressSKU
+// 						}
+// 					}
+// 					overageEgressItem.Description = stripe.String(overageEgressDesc)
+// 					overageEgressItem.Quantity = stripe.Int64(overageEgressQuantity)
+// 					if info.UseGBUnits {
+// 						// New products: multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+// 						egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+// 						overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+// 					} else {
+// 						// Legacy products: use price as-is.
+// 						egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+// 						overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+// 					}
+// 					if service.stripeConfig.UseIdempotency {
+// 						overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
+// 					}
 
-				if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
-					overageEgressItem.AddMetadata("SKU", info.EgressSKU)
-					overageEgressItem.AddMetadata("ItemCode", info.EgressSKU)
-					if service.stripeConfig.InvItemSKUInDescription {
-						overageEgressDesc += " - " + info.EgressSKU
-					}
-				}
-				overageEgressItem.Description = stripe.String(overageEgressDesc)
-				overageEgressItem.Quantity = stripe.Int64(overageEgressQuantity)
-				if info.UseGBUnits {
-					// New products: multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
-					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
-					overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-				} else {
-					// Legacy products: use price as-is.
-					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
-					overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-				}
-				if service.stripeConfig.UseIdempotency {
-					overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
-				}
+// 					result = append(result, overageEgressItem)
+// 				}
+// 			} else {
+// 				egressItem := &stripe.InvoiceItemParams{}
+// 				var egressDesc string
+// 				if info.UseGBUnits {
+// 					egressDesc = prefix + " - Egress Bandwidth (GB)"
+// 				} else {
+// 					egressDesc = prefix + " - Egress Bandwidth (MB)"
+// 				}
+// 				if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
+// 					egressItem.AddMetadata("SKU", info.EgressSKU)
+// 					egressItem.AddMetadata("ItemCode", info.EgressSKU)
+// 					if service.stripeConfig.InvItemSKUInDescription {
+// 						egressDesc += " - " + info.EgressSKU
+// 					}
+// 				}
+// 				egressItem.Description = stripe.String(egressDesc)
+// 				if info.UseGBUnits {
+// 					// New products: convert from bytes to GB.
+// 					// Avoid intermediate MB rounding to preserve precision.
+// 					// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+// 					egressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+// 					var egressQuantity int64
+// 					if service.stripeConfig.RoundUpInvoiceUsage {
+// 						egressQuantity = egressAdjusted.Ceil().IntPart()
+// 						// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+// 						if discountedUsage.Egress > 0 && egressQuantity == 0 {
+// 							egressQuantity = 1
+// 						}
+// 					} else {
+// 						egressQuantity = egressAdjusted.Round(0).IntPart()
+// 					}
+// 					egressItem.Quantity = stripe.Int64(egressQuantity)
+// 					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+// 					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+// 					egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+// 				} else {
+// 					// Legacy products: use MB with rounding.
+// 					egressMB := egressMBDecimal(discountedUsage.Egress)
+// 					egressItem.Quantity = stripe.Int64(egressMB.IntPart())
+// 					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+// 					egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+// 				}
+// 				if service.stripeConfig.UseIdempotency {
+// 					egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
+// 				}
 
-				result = append(result, overageEgressItem)
-			}
-		} else {
-			egressItem := &stripe.InvoiceItemParams{}
-			var egressDesc string
-			if info.UseGBUnits {
-				egressDesc = prefix + " - Egress Bandwidth (GB)"
-			} else {
-				egressDesc = prefix + " - Egress Bandwidth (MB)"
-			}
-			if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
-				egressItem.AddMetadata("SKU", info.EgressSKU)
-				egressItem.AddMetadata("ItemCode", info.EgressSKU)
-				if service.stripeConfig.InvItemSKUInDescription {
-					egressDesc += " - " + info.EgressSKU
-				}
-			}
-			egressItem.Description = stripe.String(egressDesc)
-			if info.UseGBUnits {
-				// New products: convert from bytes to GB.
-				// Avoid intermediate MB rounding to preserve precision.
-				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
-				egressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
-				var egressQuantity int64
-				if service.stripeConfig.RoundUpInvoiceUsage {
-					egressQuantity = egressAdjusted.Ceil().IntPart()
-					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
-					if discountedUsage.Egress > 0 && egressQuantity == 0 {
-						egressQuantity = 1
-					}
-				} else {
-					egressQuantity = egressAdjusted.Round(0).IntPart()
-				}
-				egressItem.Quantity = stripe.Int64(egressQuantity)
-				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
-				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
-				egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-			} else {
-				// Legacy products: use MB with rounding.
-				egressMB := egressMBDecimal(discountedUsage.Egress)
-				egressItem.Quantity = stripe.Int64(egressMB.IntPart())
-				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
-				egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-			}
-			if service.stripeConfig.UseIdempotency {
-				egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
-			}
+// 				result = append(result, egressItem)
+// 			}
 
-			result = append(result, egressItem)
-		}
+// 			// Create segment invoice item.
+// 			// Note: Segment fees are not affected by UseGBUnits, they use the same units for all products.
+// 			if !info.ProjectUsagePriceModel.SegmentMonthCents.IsZero() {
+// 				segmentItem := &stripe.InvoiceItemParams{}
+// 				segmentDesc := prefix + segmentInvoiceItemDesc
+// 				if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
+// 					segmentItem.AddMetadata("SKU", info.SegmentSKU)
+// 					segmentItem.AddMetadata("ItemCode", info.SegmentSKU)
+// 					if service.stripeConfig.InvItemSKUInDescription {
+// 						segmentDesc += " - " + info.SegmentSKU
+// 					}
+// 				}
+// 				segmentItem.Description = stripe.String(segmentDesc)
+// 				segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
+// 				segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
+// 				segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
+// 				if service.stripeConfig.UseIdempotency {
+// 					segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
+// 				}
 
-		// Create segment invoice item.
-		// Note: Segment fees are not affected by UseGBUnits, they use the same units for all products.
-		if !info.ProjectUsagePriceModel.SegmentMonthCents.IsZero() {
-			segmentItem := &stripe.InvoiceItemParams{}
-			segmentDesc := prefix + segmentInvoiceItemDesc
-			if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
-				segmentItem.AddMetadata("SKU", info.SegmentSKU)
-				segmentItem.AddMetadata("ItemCode", info.SegmentSKU)
-				if service.stripeConfig.InvItemSKUInDescription {
-					segmentDesc += " - " + info.SegmentSKU
-				}
-			}
-			segmentItem.Description = stripe.String(segmentDesc)
-			segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
-			segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
-			segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
-			if service.stripeConfig.UseIdempotency {
-				segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
-			}
+// 				result = append(result, segmentItem)
+// 			}
 
-			result = append(result, segmentItem)
-		}
+// 			if !info.SmallObjectFeeCents.IsZero() {
+// 				smallObjectFeeItem := &stripe.InvoiceItemParams{}
+// 				if service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+// 					storageRemainderStr := memory.Size(info.StorageRemainderBytes).Base10String()
 
-		if !info.SmallObjectFeeCents.IsZero() {
-			smallObjectFeeItem := &stripe.InvoiceItemParams{}
-			if service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
-				storageRemainderStr := memory.Size(info.StorageRemainderBytes).Base10String()
+// 					var smallObjectFeeDesc string
+// 					if info.UseGBUnits {
+// 						smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (GB-Month)"
 
-				var smallObjectFeeDesc string
-				if info.UseGBUnits {
-					smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (GB-Month)"
+// 						var smallObjectFeeQuantity int64
+// 						// New products: convert from byte-hours to GB-Month.
+// 						// storage remainder (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
+// 						storageRemainderAdjustedMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
+// 						if service.stripeConfig.RoundUpInvoiceUsage {
+// 							smallObjectFeeQuantity = storageRemainderAdjustedMonth.Ceil().IntPart()
+// 							// Ensure at least 1 unit if there's any storage remainder usage (even if it rounds to 0).
+// 							if discountedUsage.RemainderStorage > 0 && smallObjectFeeQuantity == 0 {
+// 								smallObjectFeeQuantity = 1
+// 							}
+// 						} else {
+// 							smallObjectFeeQuantity = storageRemainderAdjustedMonth.Round(0).IntPart()
+// 						}
+// 						smallObjectFeeItem.Quantity = stripe.Int64(smallObjectFeeQuantity)
 
-					var smallObjectFeeQuantity int64
-					// New products: convert from byte-hours to GB-Month.
-					// storage remainder (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
-					storageRemainderAdjustedMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
-					if service.stripeConfig.RoundUpInvoiceUsage {
-						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Ceil().IntPart()
-						// Ensure at least 1 unit if there's any storage remainder usage (even if it rounds to 0).
-						if discountedUsage.RemainderStorage > 0 && smallObjectFeeQuantity == 0 {
-							smallObjectFeeQuantity = 1
-						}
-					} else {
-						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Round(0).IntPart()
-					}
-					smallObjectFeeItem.Quantity = stripe.Int64(smallObjectFeeQuantity)
+// 						// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+// 						smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+// 						smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+// 					} else {
+// 						smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (MB-Month)"
 
-					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
-					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
-					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
-				} else {
-					smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (MB-Month)"
+// 						smallObjectFeeItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.RemainderStorage).IntPart())
+// 						smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
+// 						smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+// 					}
+// 					if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
+// 						smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+// 						smallObjectFeeItem.AddMetadata("ItemCode", info.SmallObjectFeeSKU)
+// 						if service.stripeConfig.InvItemSKUInDescription {
+// 							smallObjectFeeDesc += " - " + info.SmallObjectFeeSKU
+// 						}
+// 					}
+// 					smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
+// 				} else {
+// 					var smallObjectFeeDesc string
+// 					if info.UseGBUnits {
+// 						smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (GB-Month)"
+// 					} else {
+// 						smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (MB-Month)"
+// 					}
+// 					smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
+// 					smallObjectFeeItem.Quantity = stripe.Int64(0) // not applied for now.
+// 					if info.UseGBUnits {
+// 						// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+// 						smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+// 						smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+// 					} else {
+// 						smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
+// 						smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+// 					}
+// 					if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
+// 						smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+// 						smallObjectFeeItem.AddMetadata("ItemCode", info.SmallObjectFeeSKU)
+// 					}
+// 				}
+// 				if service.stripeConfig.UseIdempotency {
+// 					smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
+// 				}
 
-					smallObjectFeeItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.RemainderStorage).IntPart())
-					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
-					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
-				}
-				if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
-					smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
-					smallObjectFeeItem.AddMetadata("ItemCode", info.SmallObjectFeeSKU)
-					if service.stripeConfig.InvItemSKUInDescription {
-						smallObjectFeeDesc += " - " + info.SmallObjectFeeSKU
-					}
-				}
-				smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
-			} else {
-				var smallObjectFeeDesc string
-				if info.UseGBUnits {
-					smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (GB-Month)"
-				} else {
-					smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (MB-Month)"
-				}
-				smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
-				smallObjectFeeItem.Quantity = stripe.Int64(0) // not applied for now.
-				if info.UseGBUnits {
-					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
-					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
-					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
-				} else {
-					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
-					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
-				}
-				if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
-					smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
-					smallObjectFeeItem.AddMetadata("ItemCode", info.SmallObjectFeeSKU)
-				}
-			}
-			if service.stripeConfig.UseIdempotency {
-				smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
-			}
+// 				result = append(result, smallObjectFeeItem)
+// 			}
 
-			result = append(result, smallObjectFeeItem)
-		}
+// 			if !info.MinimumRetentionFeeCents.IsZero() {
+// 				minimumRetentionFeeItem := &stripe.InvoiceItemParams{}
+// 				var minimumRetentionFeeDesc string
+// 				if info.UseGBUnits {
+// 					minimumRetentionFeeDesc = prefix + " - Minimum Storage Retention Remainder (GB-Month)"
+// 				} else {
+// 					minimumRetentionFeeDesc = prefix + " - Minimum Storage Retention Remainder (MB-Month)"
+// 				}
+// 				minimumRetentionFeeItem.Description = stripe.String(minimumRetentionFeeDesc)
+// 				minimumRetentionFeeItem.Quantity = stripe.Int64(0) // not applied for now.
+// 				if info.UseGBUnits {
+// 					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+// 					minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+// 					minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
+// 				} else {
+// 					minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Float64()
+// 					minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
+// 				}
+// 				if info.MinimumRetentionFeeSKU != "" && service.stripeConfig.SkuEnabled {
+// 					minimumRetentionFeeItem.AddMetadata("SKU", info.MinimumRetentionFeeSKU)
+// 					minimumRetentionFeeItem.AddMetadata("ItemCode", info.MinimumRetentionFeeSKU)
+// 				}
+// 				if service.stripeConfig.UseIdempotency {
+// 					minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
+// 				}
 
-		if !info.MinimumRetentionFeeCents.IsZero() {
-			minimumRetentionFeeItem := &stripe.InvoiceItemParams{}
-			var minimumRetentionFeeDesc string
-			if info.UseGBUnits {
-				minimumRetentionFeeDesc = prefix + " - Minimum Storage Retention Remainder (GB-Month)"
-			} else {
-				minimumRetentionFeeDesc = prefix + " - Minimum Storage Retention Remainder (MB-Month)"
-			}
-			minimumRetentionFeeItem.Description = stripe.String(minimumRetentionFeeDesc)
-			minimumRetentionFeeItem.Quantity = stripe.Int64(0) // not applied for now.
-			if info.UseGBUnits {
-				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
-				minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
-				minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
-			} else {
-				minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Float64()
-				minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
-			}
-			if info.MinimumRetentionFeeSKU != "" && service.stripeConfig.SkuEnabled {
-				minimumRetentionFeeItem.AddMetadata("SKU", info.MinimumRetentionFeeSKU)
-				minimumRetentionFeeItem.AddMetadata("ItemCode", info.MinimumRetentionFeeSKU)
-			}
-			if service.stripeConfig.UseIdempotency {
-				minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
-			}
+// 				result = append(result, minimumRetentionFeeItem)
+// 			}
+// 		}
+// 	}
 
-			result = append(result, minimumRetentionFeeItem)
-		}
-	}
-
-	service.log.Info("invoice items by product", zap.Any("result", result))
-	return result
-}
+// 	service.log.Info("invoice items by product", zap.Any("result", result))
+// 	return result
+// }
 
 func getSortedProductIDs(productUsages map[int32]accounting.ProjectUsage) (productIDs []int32) {
 	// Sort product IDs for consistent ordering.
@@ -2245,4 +2340,358 @@ func (service *Service) Healthy(ctx context.Context) bool {
 // Name returns the name of this service.
 func (service *Service) Name() string {
 	return "stripeService"
+}
+
+// ProcessRecord processes record and mutates overall customer usages.
+// It is only used if product-based invoicing is enabled.
+// Exported for testing.
+func (service *Service) ProcessRecord(
+	ctx context.Context,
+	record ProjectRecord,
+	productUsages map[int32]accounting.ProjectUsage,
+	productInfos map[int32]payments.ProductUsagePriceModel,
+	from, to time.Time,
+) (skipped bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if service.stripeConfig.SkipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
+		// TODO: should we consider this as skipped?
+		return true, nil
+	}
+
+	err = service.getAndProcessUsages(ctx, record.ProjectID, record.ProjectPublicID, productUsages, productInfos, from, to)
+	if err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
+func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int32]accounting.ProjectUsage, productInfos map[int32]payments.ProductUsagePriceModel, period time.Time) (result []*stripe.InvoiceItemParams) {
+	productIDs := getSortedProductIDs(productUsages)
+
+	// Generate invoice items from aggregated product usage.
+	for _, productID := range productIDs {
+		usage := productUsages[productID]
+		info := productInfos[productID]
+		prefix := info.ProductName
+		productIDStr := strconv.Itoa(int(productID))
+
+		// Calculate egress discount.
+		discountedUsage := usage.Clone()
+		discountedUsage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
+
+		// Create storage invoice item.
+		storageItem := &stripe.InvoiceItemParams{}
+		var storageDesc string
+		if info.UseGBUnits {
+			storageDesc = prefix + " - Storage (GB-Month)"
+
+			var storageQuantity int64
+			// New products: convert from byte-hours to GB-Month.
+			// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
+			storageAdjustedMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
+			if service.stripeConfig.RoundUpInvoiceUsage {
+				storageQuantity = storageAdjustedMonth.Ceil().IntPart()
+				// Ensure at least 1 unit if there's any storage usage (even if it rounds to 0).
+				if discountedUsage.Storage > 0 && storageQuantity == 0 {
+					storageQuantity = 1
+				}
+			} else {
+				storageQuantity = storageAdjustedMonth.Round(0).IntPart()
+			}
+			storageItem.Quantity = stripe.Int64(storageQuantity)
+
+			// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+			storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+			storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
+		} else {
+			storageDesc = prefix + " - Storage (MB-Month)"
+
+			// Legacy products: use MB-Month with rounding.
+			storageItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.Storage).IntPart())
+			storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Float64()
+			storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
+		}
+		if info.StorageSKU != "" && service.stripeConfig.SkuEnabled {
+			storageItem.AddMetadata("SKU", info.StorageSKU)
+			if service.stripeConfig.InvItemSKUInDescription {
+				storageDesc += " - " + info.StorageSKU
+			}
+		}
+		storageItem.Description = stripe.String(storageDesc)
+		if service.stripeConfig.UseIdempotency {
+			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
+		}
+
+		result = append(result, storageItem)
+
+		// Create egress invoice item(s).
+		if info.EgressOverageMode {
+			// In overage mode, show both included egress (at $0) and overage (when present).
+
+			var totalEgressQuantity, overageEgressQuantity, includedEgressQuantity int64
+			var egressUnitDesc string
+
+			if info.UseGBUnits {
+				// New products: convert from bytes to GB.
+				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+				totalEgressAdjusted := decimal.NewFromInt(usage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+				overageEgressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+
+				if service.stripeConfig.RoundUpInvoiceUsage {
+					totalEgressQuantity = totalEgressAdjusted.Ceil().IntPart()
+					overageEgressQuantity = overageEgressAdjusted.Ceil().IntPart()
+
+					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+					if usage.Egress > 0 && totalEgressQuantity == 0 {
+						totalEgressQuantity = 1
+					}
+					if discountedUsage.Egress > 0 && overageEgressQuantity == 0 {
+						overageEgressQuantity = 1
+					}
+				} else {
+					totalEgressQuantity = totalEgressAdjusted.Round(0).IntPart()
+					overageEgressQuantity = overageEgressAdjusted.Round(0).IntPart()
+				}
+
+				includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
+				egressUnitDesc = "GB"
+			} else {
+				// Legacy products: use MB with rounding.
+				totalEgressMB := egressMBDecimal(usage.Egress)
+				overageEgressMB := egressMBDecimal(discountedUsage.Egress)
+				totalEgressQuantity = totalEgressMB.IntPart()
+				overageEgressQuantity = overageEgressMB.IntPart()
+				includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
+				egressUnitDesc = "MB"
+			}
+
+			if includedEgressQuantity > 0 {
+				includedEgressItem := &stripe.InvoiceItemParams{}
+
+				// Format discount ratio for description (e.g., "3X" for ratio 3.0, "0.5X" for 0.5).
+				discountRatio := info.ProjectUsagePriceModel.EgressDiscountRatio
+				var discountRatioStr string
+				if discountRatio == float64(int64(discountRatio)) {
+					// Whole number, format without decimal places.
+					discountRatioStr = fmt.Sprintf("%.0fX", discountRatio)
+				} else {
+					// Has decimal places, show with appropriate precision.
+					discountRatioStr = fmt.Sprintf("%.1fX", discountRatio)
+				}
+				includedEgressDesc := prefix + fmt.Sprintf(" - %s Included Egress (%s)", discountRatioStr, egressUnitDesc)
+				if info.IncludedEgressSKU != "" && service.stripeConfig.SkuEnabled {
+					includedEgressItem.AddMetadata("SKU", info.IncludedEgressSKU)
+					if service.stripeConfig.InvItemSKUInDescription {
+						includedEgressDesc += " - " + info.IncludedEgressSKU
+					}
+				}
+				includedEgressItem.Description = stripe.String(includedEgressDesc)
+				includedEgressItem.Quantity = stripe.Int64(includedEgressQuantity)
+				includedEgressItem.UnitAmountDecimal = stripe.Float64(0) // $0 price for included egress.
+				if service.stripeConfig.UseIdempotency {
+					includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
+				}
+
+				result = append(result, includedEgressItem)
+			}
+
+			if overageEgressQuantity > 0 {
+				overageEgressItem := &stripe.InvoiceItemParams{}
+				overageEgressDesc := prefix + fmt.Sprintf(" - Additional Egress (%s)", egressUnitDesc)
+
+				if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
+					overageEgressItem.AddMetadata("SKU", info.EgressSKU)
+					if service.stripeConfig.InvItemSKUInDescription {
+						overageEgressDesc += " - " + info.EgressSKU
+					}
+				}
+				overageEgressItem.Description = stripe.String(overageEgressDesc)
+				overageEgressItem.Quantity = stripe.Int64(overageEgressQuantity)
+				if info.UseGBUnits {
+					// New products: multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+					overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+				} else {
+					// Legacy products: use price as-is.
+					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+					overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+				}
+				if service.stripeConfig.UseIdempotency {
+					overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
+				}
+
+				result = append(result, overageEgressItem)
+			}
+		} else {
+			egressItem := &stripe.InvoiceItemParams{}
+			var egressDesc string
+			if info.UseGBUnits {
+				egressDesc = prefix + " - Egress Bandwidth (GB)"
+			} else {
+				egressDesc = prefix + " - Egress Bandwidth (MB)"
+			}
+			if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
+				egressItem.AddMetadata("SKU", info.EgressSKU)
+				if service.stripeConfig.InvItemSKUInDescription {
+					egressDesc += " - " + info.EgressSKU
+				}
+			}
+			egressItem.Description = stripe.String(egressDesc)
+			if info.UseGBUnits {
+				// New products: convert from bytes to GB.
+				// Avoid intermediate MB rounding to preserve precision.
+				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+				egressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+				var egressQuantity int64
+				if service.stripeConfig.RoundUpInvoiceUsage {
+					egressQuantity = egressAdjusted.Ceil().IntPart()
+					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+					if discountedUsage.Egress > 0 && egressQuantity == 0 {
+						egressQuantity = 1
+					}
+				} else {
+					egressQuantity = egressAdjusted.Round(0).IntPart()
+				}
+				egressItem.Quantity = stripe.Int64(egressQuantity)
+				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+				egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+			} else {
+				// Legacy products: use MB with rounding.
+				egressMB := egressMBDecimal(discountedUsage.Egress)
+				egressItem.Quantity = stripe.Int64(egressMB.IntPart())
+				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+				egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+			}
+			if service.stripeConfig.UseIdempotency {
+				egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
+			}
+
+			result = append(result, egressItem)
+		}
+
+		// Create segment invoice item.
+		// Note: Segment fees are not affected by UseGBUnits, they use the same units for all products.
+		if !info.ProjectUsagePriceModel.SegmentMonthCents.IsZero() {
+			segmentItem := &stripe.InvoiceItemParams{}
+			segmentDesc := prefix + segmentInvoiceItemDesc
+			if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
+				segmentItem.AddMetadata("SKU", info.SegmentSKU)
+				if service.stripeConfig.InvItemSKUInDescription {
+					segmentDesc += " - " + info.SegmentSKU
+				}
+			}
+			segmentItem.Description = stripe.String(segmentDesc)
+			segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
+			segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
+			segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
+			if service.stripeConfig.UseIdempotency {
+				segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
+			}
+
+			result = append(result, segmentItem)
+		}
+
+		if !info.SmallObjectFeeCents.IsZero() {
+			smallObjectFeeItem := &stripe.InvoiceItemParams{}
+			if service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+				storageRemainderStr := memory.Size(info.StorageRemainderBytes).Base10String()
+
+				var smallObjectFeeDesc string
+				if info.UseGBUnits {
+					smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (GB-Month)"
+
+					var smallObjectFeeQuantity int64
+					// New products: convert from byte-hours to GB-Month.
+					// storage remainder (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
+					storageRemainderAdjustedMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
+					if service.stripeConfig.RoundUpInvoiceUsage {
+						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Ceil().IntPart()
+						// Ensure at least 1 unit if there's any storage remainder usage (even if it rounds to 0).
+						if discountedUsage.RemainderStorage > 0 && smallObjectFeeQuantity == 0 {
+							smallObjectFeeQuantity = 1
+						}
+					} else {
+						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Round(0).IntPart()
+					}
+					smallObjectFeeItem.Quantity = stripe.Int64(smallObjectFeeQuantity)
+
+					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+				} else {
+					smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (MB-Month)"
+
+					smallObjectFeeItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.RemainderStorage).IntPart())
+					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
+					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+				}
+				if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
+					smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+					if service.stripeConfig.InvItemSKUInDescription {
+						smallObjectFeeDesc += " - " + info.SmallObjectFeeSKU
+					}
+				}
+				smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
+			} else {
+				var smallObjectFeeDesc string
+				if info.UseGBUnits {
+					smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (GB-Month)"
+				} else {
+					smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (MB-Month)"
+				}
+				smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
+				smallObjectFeeItem.Quantity = stripe.Int64(0) // not applied for now.
+				if info.UseGBUnits {
+					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+				} else {
+					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
+					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+				}
+				if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
+					smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+				}
+			}
+			if service.stripeConfig.UseIdempotency {
+				smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
+			}
+
+			result = append(result, smallObjectFeeItem)
+		}
+
+		if !info.MinimumRetentionFeeCents.IsZero() {
+			minimumRetentionFeeItem := &stripe.InvoiceItemParams{}
+			var minimumRetentionFeeDesc string
+			if info.UseGBUnits {
+				minimumRetentionFeeDesc = prefix + " - Minimum Storage Retention Remainder (GB-Month)"
+			} else {
+				minimumRetentionFeeDesc = prefix + " - Minimum Storage Retention Remainder (MB-Month)"
+			}
+			minimumRetentionFeeItem.Description = stripe.String(minimumRetentionFeeDesc)
+			minimumRetentionFeeItem.Quantity = stripe.Int64(0) // not applied for now.
+			if info.UseGBUnits {
+				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+				minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+				minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
+			} else {
+				minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Float64()
+				minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
+			}
+			if info.MinimumRetentionFeeSKU != "" && service.stripeConfig.SkuEnabled {
+				minimumRetentionFeeItem.AddMetadata("SKU", info.MinimumRetentionFeeSKU)
+			}
+			if service.stripeConfig.UseIdempotency {
+				minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
+			}
+
+			result = append(result, minimumRetentionFeeItem)
+		}
+	}
+
+	service.log.Info("invoice items by product", zap.Any("result", result))
+	return result
 }

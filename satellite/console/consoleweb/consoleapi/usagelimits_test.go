@@ -290,10 +290,17 @@ func TestTotalUsageReport(t *testing.T) {
 		err = satelliteSys.DB.ProjectAccounting().SaveTallies(ctx, inFiveMinutes, bucketTallies)
 		require.NoError(t, err)
 
-		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, before)
-		body, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, status)
+		checkCSVContent := func(para console.GetUsageReportParam, newReportEnabled bool) {
+			endpoint = fmt.Sprintf(
+				"projects/usage-report?project-summary=%v&cost=%v&since=%s&before=%s&projectID=%s",
+				para.GroupByProject, para.IncludeCost,
+				strconv.FormatInt(para.Since.Unix(), 10),
+				strconv.FormatInt(para.Before.Unix(), 10),
+				para.ProjectID,
+			)
+			body, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
 
 			reader := csv.NewReader(strings.NewReader(string(body)))
 			records, err := reader.ReadAll()
@@ -359,10 +366,10 @@ func TestTotalUsageReport(t *testing.T) {
 			t.Run(conf.name, func(t *testing.T) {
 				service.TestSetNewUsageReportEnabled(conf.newReportEnabled)
 
-		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=%s", since, before, project1.PublicID)
-		body, status, err = doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, status)
+				param := console.GetUsageReportParam{
+					Since:  now,
+					Before: inAnHour,
+				}
 
 				// test without projectID
 				endpoint = fmt.Sprintf(
@@ -370,7 +377,7 @@ func TestTotalUsageReport(t *testing.T) {
 					strconv.FormatInt(param.Since.Unix(), 10),
 					strconv.FormatInt(param.Before.Unix(), 10),
 				)
-				body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+				body, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, status)
 

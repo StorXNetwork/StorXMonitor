@@ -185,6 +185,10 @@ type API struct {
 		Client  *valdiclient.Client
 	}
 
+	REST struct {
+		Keys restapikeys.Service
+	}
+
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
@@ -560,19 +564,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		}
 
-		placementOverrideMap := config.Payments.PlacementPriceOverrides.ToMap()
-
-		// Parse product prices for use in metainfo endpoint
-		productPrices, err := config.Payments.Products.ToModels()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Buckets.Service,
 			peer.Metainfo.Metabase,
-			peer.DB.RetentionRemainderCharges(),
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
@@ -598,10 +593,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			bucketEventingCache,
 			peer.Entitlements.Service,
 			config.Entitlements,
-			stripe.PricingConfig{
-				ProductPriceMap:     productPrices,
-				PlacementProductMap: placementOverrideMap,
-			},
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -664,12 +655,23 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
 
-		prices, err := pc.UsagePrice.ToModel()
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
+		productPrices, err := pc.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		placementOverrideMap := pc.PlacementPriceOverrides.ToMap()
+		if err := paymentsconfig.ValidatePlacementOverrideMap(placementOverrideMap, productPrices, placements); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		prices, err := pc.UsagePrice.ToModel()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -677,19 +679,33 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Payments.StripeService, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
+			stripe.ServiceDependencies{
+				DB:           peer.DB.StripeCoinPayments(),
+				WalletsDB:    peer.DB.Wallets(),
+				BillingDB:    peer.DB.Billing(),
+				ProjectsDB:   peer.DB.Console().Projects(),
+				UsersDB:      peer.DB.Console().Users(),
+				UsageDB:      peer.DB.ProjectAccounting(),
+				Analytics:    peer.Analytics.Service,
+				Emission:     emissionService,
+				Entitlements: peer.Entitlements.Service,
+			},
+			stripe.ServiceConfig{
+				DeleteAccountEnabled:       config.Console.SelfServeAccountDeleteEnabled,
+				DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+				EntitlementsEnabled:        config.Entitlements.Enabled,
+			},
 			pc.StripeCoinPayments,
-			peer.DB.StripeCoinPayments(),
-			peer.DB.Wallets(),
-			peer.DB.Billing(),
-			peer.DB.Console().Projects(),
-			peer.DB.Console().Users(),
-			peer.DB.ProjectAccounting(),
-			prices,
-			priceOverrides,
-			pc.PackagePlans.Packages,
-			pc.BonusRate,
-			peer.Analytics.Service,
-			emissionService,
+			stripe.PricingConfig{
+				UsagePrices:         prices,
+				UsagePriceOverrides: priceOverrides,
+				ProductPriceMap:     productPrices,
+				PlacementProductMap: placementOverrideMap,
+				PackagePlans:        pc.PackagePlans.Packages,
+				BonusRate:           pc.BonusRate,
+				MinimumChargeAmount: pc.MinimumCharge.Amount,
+				MinimumChargeDate:   minimumChargeDate,
+			},
 		)
 
 		if err != nil {
@@ -715,7 +731,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup account management api keys
-		peer.REST.Keys = restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.RESTKeys)
+		peer.REST.Keys = restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.RESTKeys.DefaultExpiration)
 	}
 
 	{ // setup console
@@ -740,7 +756,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+		signer := &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)}
+		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, signer)
 
 		externalAddress := consoleConfig.ExternalAddress
 		if externalAddress == "" {
@@ -755,34 +772,91 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.AccountFreeze,
 		)
 
+		loginURL, err := consoleConfig.LoginURL()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		supportURL := consoleConfig.SupportURL()
+
+		pc := config.Payments
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		productModels, err := pc.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
+			peer.DB.Console().RestApiKeys(),
 			peer.REST.Keys,
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
 			peer.Buckets.Service,
+			peer.DB.Attribution(),
 			peer.Payments.Accounts,
 			peer.Payments.DepositWallets,
 			peer.DB.Billing(),
 			peer.Analytics.Service,
 			peer.Console.AuthTokens,
 			peer.Mail.Service,
+			peer.Mail.HubspotService,
 			accountFreezeService,
 			emissionService,
+			peer.KeyManagement.Service,
+			peer.Valdi.Service,
+			peer.SSO.Service,
 			externalAddress,
-			consoleConfig.SatelliteName,
 			peer.URL().String(),
+			consoleConfig.SatelliteName,
+			consoleConfig.WhiteLabel,
 			config.Metainfo.ProjectLimits.MaxBuckets,
-			placement,
+			config.SSO.Enabled,
+			placements,
 			console.VersioningConfig{
-				UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
-				UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
+				UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
 			},
 			consoleConfig.Config,
-			web3AuthSocialShareHelper,
+			pc.StripeCoinPayments.SkuEnabled,
+			loginURL,
+			supportURL,
+			config.BucketEventing,
+			peer.Entitlements.Service,
+			config.Entitlements,
+			pc.PlacementPriceOverrides.ToMap(),
+			productModels,
+			pc.MinimumCharge.Amount,
+			minimumChargeDate,
+			pc.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
+			web3AuthSocialShareHelper,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.ConsoleService, err = consoleservice.NewService(
+			peer.Log.Named("console:service"),
+			consoleservice.ServiceDependencies{
+				ConsoleDB:            peer.DB.Console(),
+				AccountFreezeService: accountFreezeService,
+			},
+			consoleConfig.Config,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.CSRF.Service = csrf.NewService(signer)
+
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		priceSummaries, err := consoleweb.CreateProductPriceSummaries(config.Payments.Products)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -805,20 +879,29 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Service,
+			peer.Console.ConsoleService,
 			peer.OIDC.Service,
 			peer.Mail.Service,
-			peer.PushNotification.Service,
+			peer.Mail.HubspotService,
 			peer.Analytics.Service,
 			peer.ABTesting.Service,
 			accountFreezeService,
+			peer.SSO.Service,
+			peer.CSRF.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			config.Payments.Storjscan.Confirmations,
 			peer.URL(),
 			config.Analytics,
+			peer.PushNotification.Service,
 			config.Payments.PackagePlans,
 			peer.Payments.StripeService,
 			developerService,
+			config.Payments.MinimumCharge,
+			prices,
+			priceSummaries,
+			config.Entitlements.Enabled,
+			config.SSO.Enabled,
 		)
 
 		peer.Servers.Add(lifecycle.Item{
@@ -1124,25 +1207,31 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				accountFreezeService,
 				emissionService,
 				peer.KeyManagement.Service,
+				peer.Valdi.Service,
 				peer.SSO.Service,
 				externalAddress,
+				peer.URL().String(),
 				consoleConfig.SatelliteName,
 				consoleConfig.WhiteLabel,
 				config.Metainfo.ProjectLimits.MaxBuckets,
 				config.SSO.Enabled,
 				placements,
-				peer.Valdi.Service,
-				config.Payments.MinimumCharge.Amount,
-				minimumChargeDate,
-				config.Payments.PackagePlans.Packages,
-				config.Entitlements,
-				peer.Entitlements.Service,
-				config.Payments.PlacementPriceOverrides.ToMap(),
-				productModels,
+				console.VersioningConfig{
+					UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
+				},
 				consoleConfig.Config,
 				config.Payments.StripeCoinPayments.SkuEnabled,
 				loginURL, supportURL,
 				config.BucketEventing,
+				peer.Entitlements.Service,
+				config.Entitlements,
+				config.Payments.PlacementPriceOverrides.ToMap(),
+				productModels,
+				config.Payments.MinimumCharge.Amount,
+				minimumChargeDate,
+				config.Payments.PackagePlans.Packages,
+				consoleConfig.BackupToolsURL,
+				nil, // socialShareHelper - Web3 auth not set up in this code path
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
@@ -1174,6 +1263,29 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.Combine(err, peer.Close())
 			}
 
+			pushNotificationService, err := pushnotifications.NewService(
+				peer.Log.Named("pushnotifications"),
+				peer.Console.Service.GetFCMTokens(),
+				peer.Console.Service.GetPushNotifications(),
+				consoleConfig.Config.PushNotifications,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			regTokenChecker := developer.NewConsoleServiceAdapter(peer.DB.Console(), consoleConfig.Config)
+			developerService, err := developer.NewService(
+				peer.Log.Named("developerservice"),
+				peer.DB.Console(),
+				peer.Analytics.Service,
+				peer.Console.AuthTokens,
+				consoleConfig.Config,
+				regTokenChecker,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
 			peer.Console.Endpoint = consoleweb.NewServer(
 				peer.Log.Named("console:endpoint"),
 				consoleConfig,
@@ -1192,6 +1304,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Payments.Storjscan.Confirmations,
 				peer.URL(),
 				config.Analytics,
+				pushNotificationService,
+				config.Payments.PackagePlans,
+				peer.Payments.StripeService,
+				developerService,
 				config.Payments.MinimumCharge,
 				prices,
 				priceSummaries,

@@ -1,4 +1,4 @@
-s// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package overlay
@@ -80,8 +80,8 @@ type DB interface {
 	// SelectedNode will have a zero value.
 	GetParticipatingNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// GetAllParticipatingNodes returns all known participating nodes (this includes all known nodes
-	// excluding nodes that have been disqualified or gracefully exited).
-	GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
+	// // excluding nodes that have been disqualified or gracefully exited).
+	// GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// GetAllNodesWithFilters returns filtered and paginated nodes with total count.
 	// All filters and sorting are applied at the database level for optimal performance.
 	GetAllNodesWithFilters(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration, filters nodeselection.NodeQueryFilters, limit, offset int, sortColumn, sortOrder string) (records []nodeselection.SelectedNodeWithExtendedData, totalCount int, err error)

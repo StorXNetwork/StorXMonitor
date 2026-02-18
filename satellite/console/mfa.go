@@ -12,8 +12,6 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/private/post"
 )
 
 const (

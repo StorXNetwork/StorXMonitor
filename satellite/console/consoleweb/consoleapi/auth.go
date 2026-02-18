@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/tenancy"
@@ -55,27 +54,30 @@ var signupSuccessURL string = "/project-dashboard"
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
-	log                    *zap.Logger
-	ExternalAddress        string
-	LetUsKnowURL           string
-	TermsAndConditionsURL  string
-	ContactInfoURL         string
-	GeneralRequestURL      string
-	ActivationCodeEnabled  bool
-	MemberAccountsEnabled  bool
-	SatelliteName          string
-	badPasswords           map[string]struct{}
-	badPasswordsEncoded    string
-	validAnnouncementNames []string
-	whiteLabelConfig       console.TenantWhiteLabelConfig
-	singleWhiteLabel       console.SingleWhiteLabelConfig
-	service                *console.Service
-	accountFreezeService   *console.AccountFreezeService
-	analytics              *analytics.Service
-	mailService            *mailservice.Service
-	ssoService             *sso.Service
-	csrfService            *csrf.Service
-	cookieAuth             *consolewebauth.CookieAuth
+	log                       *zap.Logger
+	ExternalAddress           string
+	PasswordRecoveryURL       string
+	CancelPasswordRecoveryURL string
+	ActivateAccountURL        string
+	LetUsKnowURL              string
+	TermsAndConditionsURL     string
+	ContactInfoURL            string
+	GeneralRequestURL         string
+	ActivationCodeEnabled     bool
+	MemberAccountsEnabled     bool
+	SatelliteName             string
+	badPasswords              map[string]struct{}
+	badPasswordsEncoded       string
+	validAnnouncementNames    []string
+	whiteLabelConfig          console.TenantWhiteLabelConfig
+	singleWhiteLabel          console.SingleWhiteLabelConfig
+	service                   *console.Service
+	accountFreezeService      *console.AccountFreezeService
+	analytics                 *analytics.Service
+	mailService               *mailservice.Service
+	ssoService                *sso.Service
+	csrfService               *csrf.Service
+	cookieAuth                *consolewebauth.CookieAuth
 }
 
 // ErrorResponse is struct for sending error message with code.
@@ -371,16 +373,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
-		UserID:          user.ID,
-		TenantID:        user.TenantID,
-		Email:           user.Email,
-		IP:              ip,
-		UserAgent:       userAgent,
-		AnonymousID:     LoadAjsAnonymousID(r),
-		CustomDuration:  nil,
-		HubspotObjectID: user.HubspotObjectID,
-	})
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, LoadAjsAnonymousID(r), nil, nil, nil)
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -542,37 +535,6 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 
 func CreateToken(ttl time.Duration, payload interface{}, privateKey string) (string, error) {
 	decodedPrivateKey, err := base64.StdEncoding.DecodeString(privateKey)
-}
-
-// Register creates new user, sends activation e-mail.
-// If a user with the given e-mail address already exists, a password reset e-mail is sent instead.
-func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var registerData struct {
-		FullName         string `json:"fullName"`
-		ShortName        string `json:"shortName"`
-		Email            string `json:"email"`
-		Partner          string `json:"partner"`
-		UserAgent        []byte `json:"userAgent"`
-		Password         string `json:"password"`
-		SecretInput      string `json:"secret"`
-		ReferrerUserID   string `json:"referrerUserId"`
-		IsProfessional   bool   `json:"isProfessional"`
-		Position         string `json:"position"`
-		CompanyName      string `json:"companyName"`
-		StorageNeeds     string `json:"storageNeeds"`
-		EmployeeCount    string `json:"employeeCount"`
-		HaveSalesContact bool   `json:"haveSalesContact"`
-		CaptchaResponse  string `json:"captchaResponse"`
-		SignupPromoCode  string `json:"signupPromoCode"`
-		IsMinimal        bool   `json:"isMinimal"`
-		InviterEmail     string `json:"inviterEmail"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&registerData)
 	if err != nil {
 		return "", fmt.Errorf("could not decode key: %w", err)
 	}
@@ -781,6 +743,17 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
 }
 
+// loadSession looks for a cookie for the session id.
+// this cookie is set from the reverse proxy if the user opts into cookies from Storj.
+func loadSession(req *http.Request) string {
+	sessionCookie, err := req.Cookie("webtraf-sid")
+	if err != nil {
+		return ""
+	}
+	return sessionCookie.Value
+}
+
+// SendResponse sends a response to the client.
 func (a *Auth) SendResponse(w http.ResponseWriter, r *http.Request, errorMessage, redirectUri string) {
 	if !r.URL.Query().Has("json") {
 		if errorMessage != "" {
@@ -1055,61 +1028,6 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
-	}
-
-	if registerData.Partner != "" {
-		registerData.UserAgent = []byte(registerData.Partner)
-	}
-
-	var code string
-	var requestID string
-	if a.ActivationCodeEnabled {
-		randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
-		if err != nil {
-			a.serveJSONError(ctx, w, console.Error.Wrap(err))
-			return
-		}
-		randNum = randNum.Add(randNum, big.NewInt(100000))
-		code = randNum.String()
-
-		requestID = requestid.FromContext(ctx)
-	}
-
-	requestData := console.CreateUser{
-		FullName:         registerData.FullName,
-		ShortName:        registerData.ShortName,
-		Email:            registerData.Email,
-		UserAgent:        registerData.UserAgent,
-		Password:         registerData.Password,
-		IsProfessional:   registerData.IsProfessional,
-		Position:         registerData.Position,
-		CompanyName:      registerData.CompanyName,
-		EmployeeCount:    registerData.EmployeeCount,
-		HaveSalesContact: registerData.HaveSalesContact,
-		CaptchaResponse:  registerData.CaptchaResponse,
-		CaptchaScore:     captchaScore,
-		IP:               ip,
-		SignupPromoCode:  registerData.SignupPromoCode,
-		ActivationCode:   code,
-		SignupId:         requestID,
-		// the minimal signup from the v2 app doesn't require name.
-		AllowNoName: registerData.IsMinimal,
-	}
-
-	var invitation *console.ProjectInvitation
-
-	if tenantID := tenancy.TenantIDFromContext(ctx); tenantID != "" {
-		requestData.Kind = console.TenantUser
-		requestData.NoTrialExpiration = true
-	} else if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
-		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		requestData.Kind = console.MemberUser
-		requestData.NoTrialExpiration = true
 	}
 
 	var user *console.User
@@ -2590,16 +2508,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
-		UserID:          user.ID,
-		TenantID:        user.TenantID,
-		Email:           user.Email,
-		IP:              ip,
-		UserAgent:       r.UserAgent(),
-		AnonymousID:     LoadAjsAnonymousID(r),
-		CustomDuration:  nil,
-		HubspotObjectID: user.HubspotObjectID,
-	})
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), LoadAjsAnonymousID(r), nil, nil, nil)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -2659,42 +2568,6 @@ func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
 
 	if err = a.service.ChangeEmail(ctx, data.Step, data.Data); err != nil {
 		a.serveJSONError(ctx, w, err)
-	}
-}
-
-// DeleteAccount handles self-serve delete account flow requests.
-func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var data AccountActionData
-	err = json.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	if data.Step < console.DeleteAccountInit || data.Step > console.DeleteAccountStep {
-		a.serveJSONError(ctx, w, console.ErrValidation.New("step value is out of range"))
-		return
-	}
-
-	if data.Step > console.DeleteAccountInit && data.Step != console.DeleteAccountStep && data.Data == "" {
-		a.serveJSONError(ctx, w, console.ErrValidation.New("data value can't be empty"))
-		return
-	}
-
-	resp, err := a.service.DeleteAccount(ctx, data.Step, data.Data)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-	}
-
-	if resp != nil {
-		w.WriteHeader(http.StatusConflict)
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			a.log.Error("could not encode account deletion response", zap.Error(ErrAuthAPI.Wrap(err)))
-		}
 	}
 }
 
@@ -2799,7 +2672,6 @@ func (a *Auth) GetBadPasswords(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetAccount gets authorized user and take it's params.
 func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2844,33 +2716,10 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	freezes, err := a.accountFreezeService.GetAll(ctx, consoleUser.ID)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	user := console.UserAccount{
-		FreezeStatus: console.FreezeStat{
-			Frozen:             freezes.BillingFreeze != nil,
-			Warned:             freezes.BillingWarning != nil,
-			TrialExpiredFrozen: freezes.TrialExpirationFreeze != nil,
-		},
-	}
-	if user.FreezeStatus.TrialExpiredFrozen {
-		days := a.accountFreezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, time.Now())
-		if days != nil && *days > 0 {
-			user.FreezeStatus.TrialExpirationGracePeriod = *days
-		}
-	}
-
 	user.ShortName = consoleUser.ShortName
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
-	if consoleUser.ExternalID != nil {
-		user.ExternalID = *consoleUser.ExternalID
-	}
 	if consoleUser.UserAgent != nil {
 		user.Partner = string(consoleUser.UserAgent)
 	}
@@ -2884,7 +2733,6 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.EmployeeCount = consoleUser.EmployeeCount
 	user.HaveSalesContact = consoleUser.HaveSalesContact
 	user.PaidTier = consoleUser.IsPaid()
-	user.Kind = consoleUser.Kind.Info()
 	user.MFAEnabled = consoleUser.MFAEnabled
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 	user.CreatedAt = consoleUser.CreatedAt
@@ -3013,7 +2861,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user)
+	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user.ID)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3058,40 +2906,19 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var resendEmail struct {
-		Email           string `json:"email"`
-		CaptchaResponse string `json:"captchaResponse"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&resendEmail)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
+	params := mux.Vars(r)
+	email, ok := params["email"]
+	if !ok {
 		return
 	}
 
-	ip, err := web.GetRequestIP(r)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	valid, _, err := a.service.VerifyRegistrationCaptcha(ctx, resendEmail.CaptchaResponse, ip)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-	if !valid {
-		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
-		return
-	}
-
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, resendEmail.Email)
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, email)
 	if err != nil {
 		return
 	}
 
 	if verified != nil {
-		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified)
+		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified.ID)
 		if err != nil {
 			a.serveJSONError(ctx, w, err)
 			return
@@ -3100,11 +2927,6 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		userName := verified.ShortName
 		if verified.ShortName == "" {
 			userName = verified.FullName
-		}
-
-		externalAddr := a.getExternalAddress(ctx)
-		if !strings.HasSuffix(externalAddr, "/") {
-			externalAddr += "/"
 		}
 
 		a.mailService.SendRenderedAsync(
@@ -3149,12 +2971,9 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	externalAddr := a.getExternalAddress(ctx)
-	linkBase, err := url.JoinPath(externalAddr, "activation")
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
+	link := a.ActivateAccountURL + "?token=" + token
+	contactInfoURL := a.ContactInfoURL
+	termsAndConditionsURL := a.TermsAndConditionsURL
 
 	a.mailService.SendRenderedAsync(
 		ctx,
@@ -3327,6 +3146,26 @@ func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(key)
 	if err != nil {
 		a.log.Error("could not encode MFA secret key", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// GenerateMFARecoveryCodes creates a new set of MFA recovery codes for the user.
+func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	codes, err := a.service.ResetMFARecoveryCodes(ctx, false, "", "")
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(codes)
+	if err != nil {
+		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
@@ -3865,14 +3704,12 @@ func (a *Auth) RegisterPipedriveForApp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		status := console.Active
-
 		user, err = a.service.CreateUser(ctx, console.CreateUser{
 			Email:           pipedriveUser.Data.Email,
 			FullName:        pipedriveUser.Data.Name,
 			ShortName:       "",
 			Password:        "",
-			Status:          int(status),
+			Status:          console.Active,
 			SignupPromoCode: "",
 			IsProfessional:  true,
 			Source:          "",
@@ -3885,7 +3722,7 @@ func (a *Auth) RegisterPipedriveForApp(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", "", nil, nil, nil)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return

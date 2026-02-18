@@ -584,7 +584,7 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, log *zap.Logger, lim
 		Address: limit.GetStorageNodeAddress().Address,
 	})
 	if err != nil {
-		ec.log.Warn("Failed dialing for putting piece to node",
+		log.Warn("Failed dialing for putting piece to node",
 			zap.Stringer("Piece ID", pieceID),
 			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),

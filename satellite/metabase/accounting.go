@@ -81,60 +81,70 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 		opts.Now = time.Now()
 	}
 
-	err = withRows(db.db.QueryContext(ctx, `
-			SELECT
-				project_id, bucket_name,
-				SUM(total_encrypted_size) FILTER (WHERE status <> `+statusPending+`), 
-				SUM(segment_count) FILTER (WHERE status <> `+statusPending+`), 
-				COALESCE(SUM(length(encrypted_metadata)) FILTER (WHERE status <> `+statusPending+`), 0),
-				count(*) FILTER (WHERE status <> `+statusPending+`), 
-				count(*) FILTER (WHERE status = `+statusPending+`)
-			FROM objects
-			`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
-			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
-			(expires_at IS NULL OR expires_at > $5)
-			GROUP BY (project_id, bucket_name)
-			ORDER BY (project_id, bucket_name) ASC
-		`, opts.From.ProjectID, []byte(opts.From.BucketName), opts.To.ProjectID, []byte(opts.To.BucketName), opts.Now))(func(rows tagsql.Rows) error {
+	for _, adapter := range db.adapters {
+		adapterResult, err := adapter.CollectBucketTallies(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, adapterResult...)
+	}
+
+	// only a merge sort should be strictly required here, but this is much easier to implement for now
+	slices.SortFunc(result, func(a, b BucketTally) int {
+		return a.BucketLocation.Compare(b.BucketLocation)
+	})
+
+	return result, nil
+}
+
+// CollectBucketTallies collect limited bucket tallies from given bucket locations.
+func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return nil, err
+	}
+
+	if opts.Now.IsZero() {
+		opts.Now = time.Now()
+	}
+
+	asOfClause := LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)
+	err = withRows(p.db.QueryContext(ctx, `
+		SELECT
+			project_id, bucket_name,
+			SUM(total_encrypted_size) FILTER (WHERE status <> `+statusPending+`),
+			SUM(segment_count) FILTER (WHERE status <> `+statusPending+`),
+			COALESCE(SUM(length(encrypted_metadata)) FILTER (WHERE status <> `+statusPending+`), 0),
+			count(*) FILTER (WHERE status <> `+statusPending+`),
+			count(*) FILTER (WHERE status = `+statusPending+`)
+		FROM objects
+		`+asOfClause+`
+		WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
+		(expires_at IS NULL OR expires_at > $5)
+		GROUP BY (project_id, bucket_name)
+		ORDER BY (project_id, bucket_name) ASC
+	`, opts.From.ProjectID, []byte(opts.From.BucketName), opts.To.ProjectID, []byte(opts.To.BucketName), opts.Now))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var bucketTally BucketTally
 
-			// Prepare slice to scan remainder bytes.
-			bytesByRemainder := make([]int64, len(remainders))
-			scanDest := []interface{}{
+			if err = rows.Scan(
 				&bucketTally.ProjectID, &bucketTally.BucketName,
-			}
-			for i := range remainders {
-				scanDest = append(scanDest, &bytesByRemainder[i])
-			}
-			scanDest = append(scanDest,
-				&bucketTally.TotalSegments,
-				&bucketTally.MetadataSize,
-				&bucketTally.ObjectCount,
+				&bucketTally.TotalBytes, &bucketTally.TotalSegments,
+				&bucketTally.MetadataSize, &bucketTally.ObjectCount,
 				&bucketTally.PendingObjectCount,
-			)
-
-			if err = rows.Scan(scanDest...); err != nil {
+			); err != nil {
 				return Error.New("unable to query bucket tally: %w", err)
 			}
 
-			// Populate BytesByRemainder map with all calculated values.
-			bucketTally.BytesByRemainder = make(map[int64]int64)
-			for i, remainder := range remainders {
-				bucketTally.BytesByRemainder[remainder] = bytesByRemainder[i]
-			}
-
-			// For backward compatibility, populate TotalBytes with actual bytes (remainder=0).
-			// We always ensure remainder=0 is in the list, so BytesByRemainder[0] is always present.
-			bucketTally.TotalBytes = bucketTally.BytesByRemainder[0]
-
+			bucketTally.BytesByRemainder = map[int64]int64{0: bucketTally.TotalBytes}
 			result = append(result, bucketTally)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return []BucketTally{}, err
+		return nil, err
 	}
 
 	return result, nil

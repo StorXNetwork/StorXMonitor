@@ -365,7 +365,7 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
 		getObject := func(bucketName, key string) metabase.Object {
@@ -585,7 +585,7 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 		apiKeyHeader := &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()}
 
@@ -1898,7 +1898,7 @@ func TestEndpoint_DeleteObjectsDisabled(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
 		_, err = endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{

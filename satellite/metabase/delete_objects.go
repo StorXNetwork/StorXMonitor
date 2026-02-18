@@ -5,7 +5,6 @@ package metabase
 
 import (
 	"context"
-	"time"
 
 	"github.com/zeebo/errs"
 
@@ -38,87 +37,20 @@ type DeleteObjectsItem struct {
 	StreamVersionID StreamVersionID
 }
 
-// DeleteZombieObjects contains all the information necessary to delete zombie objects and segments.
-type DeleteZombieObjects struct {
-	DeadlineBefore     time.Time
-	InactiveDeadline   time.Time
-	AsOfSystemInterval time.Duration
-	BatchSize          int
-}
-
-// DeleteZombieObjects deletes all objects that zombie deletion deadline passed.
-// TODO will be removed when objects table will be free from pending objects.
-func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
-		// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
-		// of that we need to get into account also object with zombie_deletion_deadline set to NULL
-		query := `
-			SELECT
-				project_id, bucket_name, object_key, version, stream_id
-			FROM objects
-			` + db.impl.AsOfSystemInterval(opts.AsOfSystemInterval) + `
-			WHERE
-				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-				AND status = ` + statusPending + `
-				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < $5)
-				ORDER BY project_id, bucket_name, object_key, version
-			LIMIT $6;`
-
-		objects := make([]ObjectStream, 0, batchsize)
-
-		scanErrClass := errs.Class("DB rows scan has failed")
-		err = withRows(db.db.QueryContext(ctx, query,
-			startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
-			opts.DeadlineBefore,
-			batchsize),
-		)(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				err = rows.Scan(&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID)
-				if err != nil {
-					return scanErrClass.Wrap(err)
-				}
-
-				objects = append(objects, last)
-			}
-
-			return nil
-		})
-		if err != nil {
-			if scanErrClass.Has(err) {
-				return ObjectStream{}, Error.New("unable to select zombie objects for deletion: %w", err)
-			}
-
-			db.log.Warn("unable to select zombie objects for deletion", zap.Error(Error.Wrap(err)))
-			return ObjectStream{}, nil
-		}
-
-		err = db.deleteInactiveObjectsAndSegments(ctx, objects, opts)
-		if err != nil {
-			db.log.Warn("delete from DB zombie objects", zap.Error(err))
-			return ObjectStream{}, nil
-		}
-
-		return last, nil
-	})
-}
-
-func (db *DB) deleteObjectsAndSegmentsBatch(ctx context.Context, batchsize int, deleteBatch func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error)) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	deleteBatchsizeLimit.Ensure(&batchsize)
-
-	var startAfter ObjectStream
-	for {
-		lastDeleted, err := deleteBatch(startAfter, batchsize)
-		if err != nil {
-			return err
-		}
-		if lastDeleted.StreamID.IsZero() {
-			return nil
-		}
-		startAfter = lastDeleted
+// Verify verifies bucket object deletion request fields.
+func (opts DeleteObjects) Verify() error {
+	itemCount := len(opts.Items)
+	switch {
+	case opts.Versioned && opts.Suspended:
+		return ErrInvalidRequest.New("Versioned and Suspended must not be simultaneously enabled")
+	case opts.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case opts.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case itemCount == 0:
+		return ErrInvalidRequest.New("Items missing")
+	case itemCount > DeleteObjectsMaxItems:
+		return ErrInvalidRequest.New("Items is too long; expected <= %d, but got %d", DeleteObjectsMaxItems, itemCount)
 	}
 	for i, item := range opts.Items {
 		if item.ObjectKey == "" {
@@ -152,10 +84,8 @@ type DeleteObjectsResultItem struct {
 // DeleteObjectsInfo contains information about an object that was deleted or a delete marker that was inserted
 // as a result of processing a DeleteObjects request item.
 type DeleteObjectsInfo struct {
-	StreamVersionID    StreamVersionID
-	Status             ObjectStatus
-	CreatedAt          time.Time
-	TotalEncryptedSize int64
+	StreamVersionID StreamVersionID
+	Status          ObjectStatus
 }
 
 // DeleteObjects deletes specific objects from a bucket.
@@ -228,10 +158,8 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			removed := deleteObjectResult.Removed[0]
 			sv := removed.StreamVersionID()
 			deleteInfo := &DeleteObjectsInfo{
-				StreamVersionID:    sv,
-				Status:             CommittedUnversioned,
-				CreatedAt:          removed.CreatedAt,
-				TotalEncryptedSize: removed.TotalEncryptedSize,
+				StreamVersionID: sv,
+				Status:          CommittedUnversioned,
 			}
 			resultItem.Removed = deleteInfo
 			resultItem.Status = storj.DeleteObjectsStatusOK
@@ -253,10 +181,8 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		if len(deleteObjectResult.Markers) > 0 {
 			marker := deleteObjectResult.Markers[0]
 			resultItem.Marker = &DeleteObjectsInfo{
-				StreamVersionID:    marker.StreamVersionID(),
-				Status:             marker.Status,
-				CreatedAt:          marker.CreatedAt,
-				TotalEncryptedSize: marker.TotalEncryptedSize,
+				StreamVersionID: marker.StreamVersionID(),
+				Status:          marker.Status,
 			}
 			resultItem.Status = storj.DeleteObjectsStatusOK
 		}
@@ -312,10 +238,8 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		if len(deleteObjectResult.Removed) > 0 {
 			resultItem.Status = storj.DeleteObjectsStatusOK
 			resultItem.Removed = &DeleteObjectsInfo{
-				StreamVersionID:    resultItem.RequestedStreamVersionID,
-				Status:             deleteObjectResult.Removed[0].Status,
-				CreatedAt:          deleteObjectResult.Removed[0].CreatedAt,
-				TotalEncryptedSize: deleteObjectResult.Removed[0].TotalEncryptedSize,
+				StreamVersionID: resultItem.RequestedStreamVersionID,
+				Status:          deleteObjectResult.Removed[0].Status,
 			}
 		}
 
