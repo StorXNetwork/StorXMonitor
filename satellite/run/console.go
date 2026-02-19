@@ -4,9 +4,9 @@
 package root
 
 import (
-	"storj.io/storj/private/healthcheck"
-	"storj.io/storj/satellite/console/consoleweb"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/private/healthcheck"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Console defines the satellite console configuration and component selection.

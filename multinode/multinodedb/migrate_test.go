@@ -18,13 +18,13 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/multinode/multinodedb"
-	"storj.io/storj/shared/dbutil/dbschema"
-	"storj.io/storj/shared/dbutil/dbtest"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/sqliteutil"
-	"storj.io/storj/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
 )
 
 func TestMigrateSQLite3(t *testing.T) {

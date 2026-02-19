@@ -6,7 +6,7 @@ package internal
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 )
 
 const maxPartCount int64 = 10000

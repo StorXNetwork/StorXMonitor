@@ -431,7 +431,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.connect-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io'
 
 # url link to contacts page
-# console.contact-info-url: https://forum.storj.io
+# console.contact-info-url: https://forum.storxnetwork.io
 
 # indicates if user is allowed to add coupon codes to account from billing
 # console.coupon-code-billing-ui-enabled: true
@@ -458,7 +458,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.delete-project-enabled: false
 
 # url link to documentation
-# console.documentation-url: https://docs.storj.io/
+# console.documentation-url: https://docs.storxnetwork.io/
 
 # whether domains page should be shown
 # console.domains-page-enabled: false
@@ -485,7 +485,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.file-browser-flow-disabled: false
 
 # allow domains to embed the satellite in a frame, space separated
-# console.frame-ancestors: tardigrade.io storj.io
+# console.frame-ancestors: tardigrade.io storxnetwork.io
 
 # duration for which users can access the system free of charge, 0 = unlimited time trial
 # console.free-trial-duration: 0s
@@ -503,7 +503,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.gateway-credentials-request-url: https://auth.storjsatelliteshare.io
 
 # url link to general request page
-# console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
+# console.general-request-url: https://supportdcs.storxnetwork.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
 # indicates if generated console api should be used
 # console.generated-api-enabled: true
@@ -520,8 +520,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to hide uplink behavior in the UI
 # console.hide-uplink-behavior: false
 
-# url link to storj.io homepage
-# console.homepage-url: https://www.storj.io
+# url link to storxnetwork.io homepage
+# console.homepage-url: https://www.storxnetwork.io
 
 # additional values for Content Security Policy img-src, space separated
 # console.img-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
@@ -574,7 +574,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # minimum amount (in cents) allowed to be added to an account balance.
 # console.min-add-funds-amount: 1000
 
-# indicates if storj native token payments system is enabled
+# indicates if storxnetwork native token payments system is enabled
 # console.native-token-payments-enabled: false
 
 # whether to use the new detailed usage report
@@ -599,7 +599,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.object-browser-key-lifetime: 72h0m0s
 
 # prefix for object browser API key names
-# console.object-browser-key-name-prefix: .storj-web-file-browser-api-key-
+# console.object-browser-key-name-prefix: .storxnetwork-web-file-browser-api-key-
 
 # whether object lock UI should be shown, regardless of whether the feature is enabled
 # console.object-lock-ui-enabled: true
@@ -617,7 +617,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.partner-ui: ""
 
 # names and addresses of partnered satellites in JSON list format
-# console.partnered-satellites: '[{"name":"US1","address":"https://us1.storj.io"},{"name":"EU1","address":"https://eu1.storj.io"},{"name":"AP1","address":"https://ap1.storj.io"}]'
+# console.partnered-satellites: '[{"name":"US1","address":"https://us1.storxnetwork.io"},{"name":"EU1","address":"https://eu1.storxnetwork.io"},{"name":"AP1","address":"https://ap1.storxnetwork.io"}]'
 
 # password hashing cost (0=automatic)
 # console.password-cost: 0
@@ -644,7 +644,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.project-invitation-expiration: 168h0m0s
 
 # url link to project limit increase request page
-# console.project-limits-increase-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212
+# console.project-limits-increase-request-url: https://supportdcs.storxnetwork.io/hc/en-us/requests/new?ticket_form_id=360000683212
 
 # url link for linksharing requests for external sharing
 # console.public-linksharing-url: https://link.storjshare.io
@@ -676,8 +676,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # name of organization which set up satellite
 # console.satellite-operator: Storj Labs
 
-# url link to schedule a meeting with a storj representative
-# console.schedule-meeting-url: https://www.storj.io/landing/get-in-touch
+# url link to schedule a meeting with a storxnetwork representative
+# console.schedule-meeting-url: https://www.storxnetwork.io/landing/get-in-touch
 
 # whether segments UI should be shown in project dashboard
 # console.segments-ui-enabled: true
@@ -710,7 +710,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.static-dir: ""
 
 # url link to terms and conditions page
-# console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
+# console.terms-and-conditions-url: https://www.storxnetwork.io/terms-of-service/
 
 # indicates whether invitation emails can be sent to unregistered email addresses
 # console.unregistered-invite-emails-enabled: true
@@ -947,32 +947,32 @@ contact.external-address: ""
 # standard hard drive life period, in years
 # emission.standard-drive-life: 4
 
-# amount of carbon emission from storj CRDB, in kg
-# emission.storj-crdb-carbon: 2650
+# amount of carbon emission from storxnetwork CRDB, in kg
+# emission.storxnetwork-crdb-carbon: 2650
 
-# amount of carbon emission from storj Edge, in kg
-# emission.storj-edge-carbon: 10924
+# amount of carbon emission from storxnetwork Edge, in kg
+# emission.storxnetwork-edge-carbon: 10924
 
 # amount of expanded network storage, in TB
-# emission.storj-expanded-network-storage: 18933
+# emission.storxnetwork-expanded-network-storage: 18933
 
-# expansion factor of storj network
-# emission.storj-expansion-factor: 2.7
+# expansion factor of storxnetwork network
+# emission.storxnetwork-expansion-factor: 2.7
 
-# amount of carbon emission from storj GCP, in kg
-# emission.storj-gcp-carbon: 3600
+# amount of carbon emission from storxnetwork GCP, in kg
+# emission.storxnetwork-gcp-carbon: 3600
 
 # network weighting of new nodes, in fraction
-# emission.storj-new-network-weighting: 0.582
+# emission.storxnetwork-new-network-weighting: 0.582
 
-# region count of storj network
-# emission.storj-region-count: 1
+# region count of storxnetwork network
+# emission.storxnetwork-region-count: 1
 
 # network weighting of already provisioned, powered drives, in fraction
-# emission.storj-standard-network-weighting: 0.21
+# emission.storxnetwork-standard-network-weighting: 0.21
 
-# utilization fraction of storj network, in fraction
-# emission.storj-utilization-fraction: 0.85
+# utilization fraction of storxnetwork network, in fraction
+# emission.storxnetwork-utilization-fraction: 0.85
 
 # energy needed to write 1GB of data, in W-hours/GB
 # emission.write-energy: 0.005
@@ -1095,10 +1095,10 @@ contact.external-address: ""
 # hubspot-mails.send-email-api: https://api.hubapi.com/marketing/v3/transactional/single-email/send
 
 # path to the certificate chain for this identity
-identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
+identity.cert-path: /root/.local/share/storxnetwork/identity/satellite/identity.cert
 
 # path to the private key for this identity
-identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
+identity.key-path: /root/.local/share/storxnetwork/identity/satellite/identity.key
 
 # "node URL" of the job queue server
 # job-queue.server-node-url: ""
@@ -1383,7 +1383,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.user-info-validation.enabled: false
 
 # address(es) to send telemetry to (comma-separated)
-# metrics.addr: collectora.storj.io:9000
+# metrics.addr: collectora.storxnetwork.io:9000
 
 # application name for telemetry identification. Ignored for certain applications.
 # metrics.app: satellite
@@ -1392,7 +1392,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metrics.app-suffix: -release
 
 # address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=..., depends on the config/usage)
-# metrics.event-addr: eventkitd.datasci.storj.io:9002
+# metrics.event-addr: eventkitd.datasci.storxnetwork.io:9002
 
 # size of the internal eventkit queue for UDP sending
 # metrics.event-queue: 10000
@@ -2010,7 +2010,7 @@ server.private-address: 127.0.0.1:7778
 # tally.use-ranged-loop: true
 
 # address for jaeger agent
-# tracing.agent-addr: agent.tracing.datasci.storj.io:5775
+# tracing.agent-addr: agent.tracing.datasci.storxnetwork.io:5775
 
 # application name for tracing identification
 # tracing.app: satellite
@@ -2025,7 +2025,7 @@ server.private-address: 127.0.0.1:7778
 # tracing.enabled: true
 
 # the possible hostnames that trace-host designated traces can be sent to
-# tracing.host-regex: \.storj\.tools:[0-9]+$
+# tracing.host-regex: \.storxnetwork\.tools:[0-9]+$
 
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s
@@ -2061,7 +2061,7 @@ server.private-address: 127.0.0.1:7778
 # version.request-timeout: 1m0s
 
 # server address to check its version against
-# version.server-address: https://version.storj.io
+# version.server-address: https://version.storxnetwork.io
 
 # as of system interval
 # zombie-deletion.as-of-system-interval: -5m0s

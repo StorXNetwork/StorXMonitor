@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"time"
 
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 // FileInfo is a simple implementation of blobstore.FileInfo.

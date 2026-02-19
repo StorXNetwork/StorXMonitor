@@ -6,11 +6,11 @@ package console
 import (
 	"context"
 
-	"storj.io/storj/satellite/console/configs"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/pushnotifications"
-	"storj.io/storj/satellite/console/restapikeys"
-	"storj.io/storj/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
 )
 
 // DB contains access to different satellite databases.

@@ -4,9 +4,9 @@
 package root
 
 import (
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // GcBf is a subcommand to start only a ranged loop with BF generation.

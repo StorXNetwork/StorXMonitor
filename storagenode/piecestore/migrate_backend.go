@@ -16,10 +16,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/satstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satstore"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // MigrationState keeps track of the migration state for a satellite.
@@ -34,7 +34,7 @@ type MigrationState struct {
 
 // Migrator is an interface for migrating pieces.
 type Migrator interface {
-	TryMigrateOne(sat storj.NodeID, piece storj.PieceID)
+	TryMigrateOne(sat storxnetwork.NodeID, piece storxnetwork.PieceID)
 }
 
 // MigratingBackend is a PieceBackend that can passively migrate pieces
@@ -44,7 +44,7 @@ type MigratingBackend struct {
 	new      *HashStoreBackend
 	store    *satstore.SatelliteStore
 	migrator Migrator
-	states   atomic.Pointer[map[storj.NodeID]MigrationState]
+	states   atomic.Pointer[map[storxnetwork.NodeID]MigrationState]
 
 	updateMu sync.Mutex // ensure one UpdateState call at a time
 }
@@ -61,8 +61,8 @@ func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBa
 		migrator: migrator,
 	}
 
-	states := make(map[storj.NodeID]MigrationState)
-	err := store.Range(func(satellite storj.NodeID, data []byte) error {
+	states := make(map[storxnetwork.NodeID]MigrationState)
+	err := store.Range(func(satellite storxnetwork.NodeID, data []byte) error {
 		var ms MigrationState
 		err := json.Unmarshal(data, &ms)
 		if err != nil {
@@ -78,7 +78,7 @@ func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBa
 	mb.states.Store(&states)
 
 	if !suppressCentralMigration {
-		contactService.RegisterCheckinCallback(func(ctx context.Context, satelliteID storj.NodeID, resp *pb.CheckInResponse) error {
+		contactService.RegisterCheckinCallback(func(ctx context.Context, satelliteID storxnetwork.NodeID, resp *pb.CheckInResponse) error {
 			if resp.HashstoreSettings == nil {
 				return nil
 			}
@@ -99,7 +99,7 @@ func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBa
 // Stats implements monkit.StatSource.
 func (m *MigratingBackend) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
 	type IDState struct {
-		id    storj.NodeID
+		id    storxnetwork.NodeID
 		state MigrationState
 	}
 
@@ -122,7 +122,7 @@ func (m *MigratingBackend) Stats(cb func(key monkit.SeriesKey, field string, val
 }
 
 // UpdateState calls the callback with the current MigrationState for the satellite allowing the caller to inspect or modify the state.
-func (m *MigratingBackend) UpdateState(ctx context.Context, satellite storj.NodeID, cb func(state *MigrationState)) {
+func (m *MigratingBackend) UpdateState(ctx context.Context, satellite storxnetwork.NodeID, cb func(state *MigrationState)) {
 	m.updateMu.Lock()
 	defer m.updateMu.Unlock()
 
@@ -136,7 +136,7 @@ func (m *MigratingBackend) UpdateState(ctx context.Context, satellite storj.Node
 	changed := beforeCallback != state
 
 	// make a copy of the current state map into a new one and update the value for the satellite.
-	next := make(map[storj.NodeID]MigrationState, len(states))
+	next := make(map[storxnetwork.NodeID]MigrationState, len(states))
 	for k, v := range states {
 		next[k] = v
 	}
@@ -152,7 +152,7 @@ func (m *MigratingBackend) UpdateState(ctx context.Context, satellite storj.Node
 	}
 }
 
-func (m *MigratingBackend) getState(ctx context.Context, satellite storj.NodeID) MigrationState {
+func (m *MigratingBackend) getState(ctx context.Context, satellite storxnetwork.NodeID) MigrationState {
 	if state, ok := (*m.states.Load())[satellite]; ok {
 		return state
 	}
@@ -161,7 +161,7 @@ func (m *MigratingBackend) getState(ctx context.Context, satellite storj.NodeID)
 }
 
 // Writer implements PieceBackend by writing to the store appropriate for the migration status.
-func (m *MigratingBackend) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hash pb.PieceHashAlgorithm, expires time.Time) (_ PieceWriter, err error) {
+func (m *MigratingBackend) Writer(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, hash pb.PieceHashAlgorithm, expires time.Time) (_ PieceWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if state := m.getState(ctx, satellite); state.WriteToNew || (state.TTLToNew && !expires.IsZero()) {
@@ -172,7 +172,7 @@ func (m *MigratingBackend) Writer(ctx context.Context, satellite storj.NodeID, p
 
 // Reader implements PieceBackend by reading from the store appropriate for the migration status, potentially
 // triggering a passive migration for the piece.
-func (m *MigratingBackend) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (r PieceReader, err error) {
+func (m *MigratingBackend) Reader(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (r PieceReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state := m.getState(ctx, satellite)
@@ -198,7 +198,7 @@ func (m *MigratingBackend) Reader(ctx context.Context, satellite storj.NodeID, p
 }
 
 // StartRestore implements PieceBackend and triggers a restore on both backends.
-func (m *MigratingBackend) StartRestore(ctx context.Context, satellite storj.NodeID) (err error) {
+func (m *MigratingBackend) StartRestore(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task(monkit.NewSeriesTag("satellite", satellite.String()))(&ctx)(&err)
 
 	return errs.Combine(

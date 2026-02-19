@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -90,9 +90,9 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	observer.log.Info("piecetracker observer finished")
 
 	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
-	nodesToUpdate := make(map[storj.NodeID]int64, observer.config.UpdateBatchSize)
+	nodesToUpdate := make(map[storxnetwork.NodeID]int64, observer.config.UpdateBatchSize)
 
-	updateNodes := func(nodesToUpdate map[storj.NodeID]int64) {
+	updateNodes := func(nodesToUpdate map[storxnetwork.NodeID]int64) {
 		err = observer.overlay.UpdatePieceCounts(ctx, nodesToUpdate)
 		if err != nil {
 			// don't stop on error as updating always all nodes is not critical

@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ProjectSet is a set of project UUIDs that are enabled for bucket eventing.

@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/cmd/satellite/reports"
-	"storj.io/storj/satellite/attribution"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/cmd/satellite/reports"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
 )
 
 func TestProcessAttributions(t *testing.T) {

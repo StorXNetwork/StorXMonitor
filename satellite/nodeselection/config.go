@@ -16,7 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func convertToCompareNodes(arg any) (CompareNodes, error) {
@@ -26,7 +26,7 @@ func convertToCompareNodes(arg any) (CompareNodes, error) {
 	case ScoreNode:
 		return Compare(a), nil
 	case NodeValue:
-		return Compare(ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		return Compare(ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 			return a(*node)
 		})), nil
 	}
@@ -44,7 +44,7 @@ type placementConfig struct {
 }
 
 type placementDefinition struct {
-	ID                 storj.PlacementConstraint
+	ID                 storxnetwork.PlacementConstraint
 	Name               string
 	Filter             string
 	UploadFilter       string `yaml:"upload-filter"`
@@ -58,7 +58,7 @@ type placementDefinition struct {
 // UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
 type UploadSuccessTracker interface {
 	// Get gives a Score to the node based on the upload success rate. Can be math.NaN (no information). Higher is better.
-	Get(uplink storj.NodeID) func(node *SelectedNode) float64
+	Get(uplink storxnetwork.NodeID) func(node *SelectedNode) float64
 }
 
 // UploadFailureTracker keeps track of node failures.
@@ -75,7 +75,7 @@ type NoopSuccessTracker struct {
 }
 
 // Get implements UploadSuccessTracker.
-func (n NoopSuccessTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
+func (n NoopSuccessTracker) Get(uplink storxnetwork.NodeID) func(node *SelectedNode) float64 {
 	return func(node *SelectedNode) float64 { return 0 }
 }
 
@@ -237,7 +237,7 @@ var supportedFilters = map[any]any{
 		return OrFilter{filter1, filter2}, nil
 	},
 	"tag": func(nodeIDstr string, key string, value any) (NodeFilters, error) {
-		nodeID, err := storj.NodeIDFromString(nodeIDstr)
+		nodeID, err := storxnetwork.NodeIDFromString(nodeIDstr)
 		if err != nil {
 			return nil, err
 		}

@@ -39,7 +39,7 @@ model bucket_metainfo (
 	field default_retention_years int  (nullable, updatable)
 
 	// path_cipher is denotes how the paths have been encoded.
-	// The corresponding type storj.CipherSuite contains the relevant values.
+	// The corresponding type storxnetwork.CipherSuite contains the relevant values.
 	// deprecated: in favor of a storing it in an access grant.
 	field path_cipher    int
 
@@ -50,14 +50,14 @@ model bucket_metainfo (
 	// deprecated: in favor of global metainfo service settings.
 	field default_segment_size int (updatable)
 
-	// default_encryption_cipher_suite is the storj.CipherSuite used for the bucket objects.
+	// default_encryption_cipher_suite is the storxnetwork.CipherSuite used for the bucket objects.
 	// deprecated: in favor of global metainfo service settings.
 	field default_encryption_cipher_suite int (updatable)
 	// default_encryption_block_size is the block size argument for encryption.
 	// deprecated: in favor of global metainfo service settings.
 	field default_encryption_block_size   int (updatable)
 
-	// default_redundancy_algorithm is storj.RedundancyAlgorithm.
+	// default_redundancy_algorithm is storxnetwork.RedundancyAlgorithm.
 	// deprecated: in favor of global metainfo service settings.
 	field default_redundancy_algorithm       int (updatable)
 	// default_redundancy_share_size is share size parameter for Reed-Solomon encoding.
@@ -77,7 +77,7 @@ model bucket_metainfo (
 	field default_redundancy_total_shares    int (updatable)
 
 	// placement indicates how the objects should be stored in this bucket.
-	// See storj.PlacementConstraint for the relevant information:
+	// See storxnetwork.PlacementConstraint for the relevant information:
 	//    0 - every country
 	//    1 - EU
 	//    2 - EEA

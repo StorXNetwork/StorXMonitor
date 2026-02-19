@@ -8,7 +8,7 @@ allowed-tools: bash, git, WebFetch
 
 # Storj Gerrit
 
-Storj has a Gerrit service hosted on review.dev.storj.tools sub-domain. This document refers to it
+Storxnetwork has a Gerrit service hosted on review.dev.storxnetwork.tools sub-domain. This document refers to it
 as Gerrit.
 
 The service allows read-only public access to the open source repositories. Write access requires
@@ -16,7 +16,7 @@ users to have an account.
 
 This skill focus on users with write access.
 
-Repositories are under `storj/` path. This repository URL is review.dev.storj.tools/c/storj/storj
+Repositories are under `storxnetwork/` path. This repository URL is review.dev.storxnetwork.tools/c/storxnetwork/storxnetwork
 
 This document use curly-brackets as variable values substitutions for URL, command, etc., patterns.
 
@@ -34,7 +34,7 @@ If user doesn't have the hook download it executing
 
 ```
 mkdir -p `git rev-parse --git-dir`/hooks/ \
-    && curl -Lo `git rev-parse --git-dir`/hooks/commit-msg https://review.dev.storj.tools/tools/hooks/commit-msg \
+    && curl -Lo `git rev-parse --git-dir`/hooks/commit-msg https://review.dev.storxnetwork.tools/tools/hooks/commit-msg \
     && chmod +x `git rev-parse --git-dir`/hooks/commit-msg
 ```
 
@@ -57,7 +57,7 @@ it doesn't exist, otherwise `gerrit`, and if they have both list them to the use
 any.
 
 Add the new remote with
-`git remote add {remote-name} "ssh://{username}@review.dev.storj.tools:29418/storj/storj"`
+`git remote add {remote-name} "ssh://{username}@review.dev.storxnetwork.tools:29418/storxnetwork/storxnetwork"`
 
 And download the hook as mentioned in the above "commit-msg hook" section.
 

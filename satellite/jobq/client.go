@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"time"
 
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	pb "storj.io/storj/satellite/internalpb"
+	pb "github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrQueueEmpty is returned by the client when the queue is empty.
@@ -73,7 +73,7 @@ func (c *Client) PushBatch(ctx context.Context, jobs []RepairJob) (wasNew []bool
 // Pop removes and returns the 'limit' lowest-health items from the indicated
 // job queues. If there are less than 'limit' items in the queue, it removes
 // and returns all of them.
-func (c *Client) Pop(ctx context.Context, limit int, includedPlacements, excludedPlacements []storj.PlacementConstraint) (jobs []RepairJob, err error) {
+func (c *Client) Pop(ctx context.Context, limit int, includedPlacements, excludedPlacements []storxnetwork.PlacementConstraint) (jobs []RepairJob, err error) {
 	resp, err := c.client.Pop(ctx, &pb.JobQueuePopRequest{
 		IncludedPlacements: placementConstraintsToInt32Slice(includedPlacements),
 		ExcludedPlacements: placementConstraintsToInt32Slice(excludedPlacements),
@@ -98,7 +98,7 @@ func (c *Client) Pop(ctx context.Context, limit int, includedPlacements, exclude
 // Peek returns the 'limit' lowest-health items from the indicated job queues
 // without removing them. If there are less than 'limit' items in all the
 // queues, it returns all of them.
-func (c *Client) Peek(ctx context.Context, limit int, includedPlacements, excludedPlacements []storj.PlacementConstraint) (jobs []RepairJob, err error) {
+func (c *Client) Peek(ctx context.Context, limit int, includedPlacements, excludedPlacements []storxnetwork.PlacementConstraint) (jobs []RepairJob, err error) {
 	resp, err := c.client.Peek(ctx, &pb.JobQueuePeekRequest{
 		IncludedPlacements: placementConstraintsToInt32Slice(includedPlacements),
 		ExcludedPlacements: placementConstraintsToInt32Slice(excludedPlacements),
@@ -123,7 +123,7 @@ func (c *Client) Peek(ctx context.Context, limit int, includedPlacements, exclud
 // Inspect finds a job in the queue by streamID, position, and placement, and
 // returns all of the job information. If the job is not found, it returns
 // ErrJobNotFound.
-func (c *Client) Inspect(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64) (job RepairJob, err error) {
+func (c *Client) Inspect(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position uint64) (job RepairJob, err error) {
 	resp, err := c.client.Inspect(ctx, &pb.JobQueueInspectRequest{
 		Placement: int32(placement),
 		StreamId:  streamID[:],
@@ -143,7 +143,7 @@ func (c *Client) Inspect(ctx context.Context, placement storj.PlacementConstrain
 }
 
 // Len returns the number of items in the indicated job queue.
-func (c *Client) Len(ctx context.Context, placement storj.PlacementConstraint) (repairLen, retryLen int64, err error) {
+func (c *Client) Len(ctx context.Context, placement storxnetwork.PlacementConstraint) (repairLen, retryLen int64, err error) {
 	resp, err := c.client.Len(ctx, &pb.JobQueueLengthRequest{
 		Placement: int32(placement),
 	})
@@ -165,7 +165,7 @@ func (c *Client) LenAll(ctx context.Context) (repairLen, retryLen int64, err err
 }
 
 // Delete removes a specific job from the indicated queue.
-func (c *Client) Delete(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64) (wasDeleted bool, err error) {
+func (c *Client) Delete(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position uint64) (wasDeleted bool, err error) {
 	resp, err := c.client.Delete(ctx, &pb.JobQueueDeleteRequest{
 		Placement: int32(placement),
 		StreamId:  streamID[:],
@@ -178,7 +178,7 @@ func (c *Client) Delete(ctx context.Context, placement storj.PlacementConstraint
 }
 
 // Stat collects statistics about the indicated job queue.
-func (c *Client) Stat(ctx context.Context, placement storj.PlacementConstraint, withHistogram bool) (stat QueueStat, err error) {
+func (c *Client) Stat(ctx context.Context, placement storxnetwork.PlacementConstraint, withHistogram bool) (stat QueueStat, err error) {
 	resp, err := c.client.Stat(ctx, &pb.JobQueueStatRequest{
 		Placement:     int32(placement),
 		WithHistogram: withHistogram,
@@ -188,7 +188,7 @@ func (c *Client) Stat(ctx context.Context, placement storj.PlacementConstraint, 
 	}
 	s := resp.Stats[0]
 	return QueueStat{
-		Placement:        storj.PlacementConstraint(s.Placement),
+		Placement:        storxnetwork.PlacementConstraint(s.Placement),
 		Count:            s.Count,
 		MaxInsertedAt:    s.MaxInsertedAt,
 		MinInsertedAt:    s.MinInsertedAt,
@@ -212,7 +212,7 @@ func (c *Client) StatAll(ctx context.Context, withHistogram bool) (stats []Queue
 	stats = make([]QueueStat, 0, len(resp.Stats))
 	for _, s := range resp.Stats {
 		stats = append(stats, QueueStat{
-			Placement:        storj.PlacementConstraint(s.Placement),
+			Placement:        storxnetwork.PlacementConstraint(s.Placement),
 			Count:            s.Count,
 			MaxInsertedAt:    s.MaxInsertedAt,
 			MinInsertedAt:    s.MinInsertedAt,
@@ -247,7 +247,7 @@ func histogramItemFromProtobuf(protoItem []*pb.QueueStatHistogram) (res []Histog
 }
 
 // Truncate removes all items from a job queue.
-func (c *Client) Truncate(ctx context.Context, placement storj.PlacementConstraint) error {
+func (c *Client) Truncate(ctx context.Context, placement storxnetwork.PlacementConstraint) error {
 	_, err := c.client.Truncate(ctx, &pb.JobQueueTruncateRequest{
 		Placement: int32(placement),
 	})
@@ -263,7 +263,7 @@ func (c *Client) TruncateAll(ctx context.Context) error {
 }
 
 // Clean removes all jobs with UpdatedAt time before the given cutoff.
-func (c *Client) Clean(ctx context.Context, placement storj.PlacementConstraint, updatedBefore time.Time) (removedSegments int32, err error) {
+func (c *Client) Clean(ctx context.Context, placement storxnetwork.PlacementConstraint, updatedBefore time.Time) (removedSegments int32, err error) {
 	resp, err := c.client.Clean(ctx, &pb.JobQueueCleanRequest{
 		Placement:     int32(placement),
 		UpdatedBefore: updatedBefore,
@@ -288,7 +288,7 @@ func (c *Client) CleanAll(ctx context.Context, updatedBefore time.Time) (removed
 }
 
 // Trim removes all jobs with Health greater than the given threshold.
-func (c *Client) Trim(ctx context.Context, placement storj.PlacementConstraint, healthGreaterThan float64) (removedSegments int32, err error) {
+func (c *Client) Trim(ctx context.Context, placement storxnetwork.PlacementConstraint, healthGreaterThan float64) (removedSegments int32, err error) {
 	resp, err := c.client.Trim(ctx, &pb.JobQueueTrimRequest{
 		Placement:         int32(placement),
 		HealthGreaterThan: healthGreaterThan,
@@ -314,7 +314,7 @@ func (c *Client) TrimAll(ctx context.Context, healthGreaterThan float64) (remove
 
 // TestingSetAttemptedTime sets the LastAttemptedAt field of a specific job.
 // This is only intended for testing scenarios.
-func (c *Client) TestingSetAttemptedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64, t time.Time) (rowsAffected int64, err error) {
+func (c *Client) TestingSetAttemptedTime(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position uint64, t time.Time) (rowsAffected int64, err error) {
 	resp, err := c.client.TestingSetAttemptedTime(ctx, &pb.JobQueueTestingSetAttemptedTimeRequest{
 		Placement: int32(placement),
 		StreamId:  streamID[:],
@@ -329,7 +329,7 @@ func (c *Client) TestingSetAttemptedTime(ctx context.Context, placement storj.Pl
 
 // TestingSetUpdatedTime sets the UpdatedAt field of a specific job.
 // This is only intended for testing scenarios.
-func (c *Client) TestingSetUpdatedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64, t time.Time) (rowsAffected int64, err error) {
+func (c *Client) TestingSetUpdatedTime(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position uint64, t time.Time) (rowsAffected int64, err error) {
 	resp, err := c.client.TestingSetUpdatedTime(ctx, &pb.JobQueueTestingSetUpdatedTimeRequest{
 		Placement: int32(placement),
 		StreamId:  streamID[:],
@@ -360,7 +360,7 @@ func NewDialer(tlsOpts *tlsopts.Options) rpc.Dialer {
 	return dialer
 }
 
-func placementConstraintsToInt32Slice(placements []storj.PlacementConstraint) []int32 {
+func placementConstraintsToInt32Slice(placements []storxnetwork.PlacementConstraint) []int32 {
 	slice := make([]int32, len(placements))
 	for i, c := range placements {
 		slice[i] = int32(c)

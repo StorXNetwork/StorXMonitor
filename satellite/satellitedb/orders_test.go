@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestSortRollupKeys(t *testing.T) {
@@ -176,7 +176,7 @@ func TestUpdateBucketBandwidthInline(t *testing.T) {
 func TestUpdateStoragenodeBandwidthSettle(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 
-		nodeID := storj.NodeID{}
+		nodeID := storxnetwork.NodeID{}
 
 		err := db.Orders().UpdateStoragenodeBandwidthSettle(ctx, nodeID, pb.PieceAction_GET, 100, time.Date(2024, 01, 01, 12, 00, 0, 0, time.UTC))
 		require.NoError(t, err)

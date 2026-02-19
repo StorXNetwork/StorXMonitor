@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 func TestCreateSelector(t *testing.T) {

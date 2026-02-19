@@ -19,20 +19,20 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop/rangedlooptest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink"
 )
 
 func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
@@ -59,18 +59,18 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 			Bucket            string
 			ZipBatchSize      int
 			ExpectedPacks     int
-			DisqualifiedNodes []storj.NodeID
+			DisqualifiedNodes []storxnetwork.NodeID
 		}
 
 		testCases := []testCase{
-			{"bloomfilters-bucket-1", 1, 7, []storj.NodeID{}},
-			{"bloomfilters-bucket-2", 2, 4, []storj.NodeID{}},
-			{"bloomfilters-bucket-2-dq-nodes", 2, 3, []storj.NodeID{
+			{"bloomfilters-bucket-1", 1, 7, []storxnetwork.NodeID{}},
+			{"bloomfilters-bucket-2", 2, 4, []storxnetwork.NodeID{}},
+			{"bloomfilters-bucket-2-dq-nodes", 2, 3, []storxnetwork.NodeID{
 				planet.StorageNodes[0].ID(),
 				planet.StorageNodes[3].ID(),
 			}},
-			{"bloomfilters-bucket-7", 7, 1, []storj.NodeID{}},
-			{"bloomfilters-bucket-100", 100, 1, []storj.NodeID{}},
+			{"bloomfilters-bucket-7", 7, 1, []storxnetwork.NodeID{}},
+			{"bloomfilters-bucket-100", 100, 1, []storxnetwork.NodeID{}},
 		}
 
 		for _, tc := range testCases {
@@ -165,7 +165,7 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 
 							nodeIds = append(nodeIds, pbRetainInfo.StorageNodeId.String())
 
-							nodeID, err := storj.NodeIDFromBytes(pbRetainInfo.StorageNodeId.Bytes())
+							nodeID, err := storxnetwork.NodeIDFromBytes(pbRetainInfo.StorageNodeId.Bytes())
 							require.NoError(t, err)
 							require.NotContains(t, tc.DisqualifiedNodes, nodeID)
 						}
@@ -337,7 +337,7 @@ func TestObserverGarbageCollection_CreationDate_MultipleSources(t *testing.T) {
 	}
 
 	overlay := &mockOverlay{
-		pieceCounts: map[storj.NodeID]int64{
+		pieceCounts: map[storxnetwork.NodeID]int64{
 			testNodeID: 1,
 		},
 	}
@@ -424,9 +424,9 @@ func TestObserverGarbageCollection_CreationDate_MultipleSources(t *testing.T) {
 }
 
 type mockOverlay struct {
-	pieceCounts map[storj.NodeID]int64
+	pieceCounts map[storxnetwork.NodeID]int64
 }
 
-func (o *mockOverlay) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
+func (o *mockOverlay) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storxnetwork.NodeID]int64, err error) {
 	return o.pieceCounts, nil
 }

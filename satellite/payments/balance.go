@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Balances exposes needed functionality for managing customer balances.

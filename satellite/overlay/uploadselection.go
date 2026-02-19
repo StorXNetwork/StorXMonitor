@@ -11,9 +11,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // UploadSelectionDB implements the database for upload selection cache.
@@ -96,9 +96,9 @@ type PlacementMetrics struct {
 
 func reportMetrics(nodes []*nodeselection.SelectedNode, placements nodeselection.PlacementDefinitions) {
 	reputable := 0
-	count := map[storj.PlacementConstraint]int64{}
-	uploadCount := map[storj.PlacementConstraint]int64{}
-	uploadFreeDisk := map[storj.PlacementConstraint]int64{}
+	count := map[storxnetwork.PlacementConstraint]int64{}
+	uploadCount := map[storxnetwork.PlacementConstraint]int64{}
+	uploadFreeDisk := map[storxnetwork.PlacementConstraint]int64{}
 	for _, node := range nodes {
 		if node.Vetted {
 			reputable++

@@ -14,14 +14,14 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestStore_SmallBlobReadsDontCreateData(t *testing.T) {
@@ -95,7 +95,7 @@ func BenchmarkReadWrite(b *testing.B) {
 		}
 	})
 
-	testPieceID := storj.PieceID{1}
+	testPieceID := storxnetwork.PieceID{1}
 	{ // write a test piece
 		writer, err := store.Writer(ctx, satelliteID, testPieceID, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(b, err)

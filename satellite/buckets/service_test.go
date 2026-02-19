@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 const TestBucket = "testbucket"
@@ -38,7 +38,7 @@ func TestBucketPlacement_EmptyBucket(t *testing.T) {
 			assert.Empty(t, bucket.Placement)
 
 			// set bucket placement
-			euPlacement := storj.PlacementConstraint(1)
+			euPlacement := storxnetwork.PlacementConstraint(1)
 			bucket.Placement = euPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
@@ -49,7 +49,7 @@ func TestBucketPlacement_EmptyBucket(t *testing.T) {
 			assert.Equal(t, euPlacement, bucket.Placement)
 
 			// change bucket placement to new location
-			usPlacement := storj.PlacementConstraint(3)
+			usPlacement := storxnetwork.PlacementConstraint(3)
 			bucket.Placement = usPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestBucketPlacement_EmptyBucket(t *testing.T) {
 			assert.Equal(t, usPlacement, bucket.Placement)
 
 			// remove bucket placement constraints
-			bucket.Placement = storj.DefaultPlacement
+			bucket.Placement = storxnetwork.DefaultPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
 
@@ -96,7 +96,7 @@ func TestBucketPlacement_SetOnNonEmptyBucket(t *testing.T) {
 			err = uplink.Upload(ctx, satellite, TestBucket, TestObject, []byte{})
 			require.NoError(t, err)
 
-			euPlacement := storj.PlacementConstraint(1)
+			euPlacement := storxnetwork.PlacementConstraint(1)
 
 			// set bucket placement - it should fail
 			bucket.Placement = euPlacement
@@ -136,9 +136,9 @@ func TestBucketPlacement_ChangeOnNonEmptyBucket(t *testing.T) {
 			uplink := planet.Uplinks[0]
 			projectID := uplink.Projects[0].ID
 
-			euPlacement := storj.PlacementConstraint(1)
-			usPlacement := storj.PlacementConstraint(3)
-			everyCountryPlacement := storj.DefaultPlacement
+			euPlacement := storxnetwork.PlacementConstraint(1)
+			usPlacement := storxnetwork.PlacementConstraint(3)
+			everyCountryPlacement := storxnetwork.DefaultPlacement
 
 			// create new bucket
 			err := uplink.TestingCreateBucket(ctx, satellite, TestBucket)
@@ -211,7 +211,7 @@ func TestBucketPlacement_PendingObject(t *testing.T) {
 			uplink := planet.Uplinks[0]
 			projectID := uplink.Projects[0].ID
 
-			euPlacement := storj.PlacementConstraint(1)
+			euPlacement := storxnetwork.PlacementConstraint(1)
 
 			// create new bucket
 			err := uplink.TestingCreateBucket(ctx, satellite, TestBucket)

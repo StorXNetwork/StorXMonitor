@@ -12,16 +12,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/uplink"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
-const storjrelease = "v1.0.0" // uses storj.io/uplink v1.0.0-rc.5.0.20200311190324-aee82d3f05aa
+const storjrelease = "v1.0.0" // uses github.com/StorXNetwork/uplink v1.0.0-rc.5.0.20200311190324-aee82d3f05aa
 
 func TestOldUplink(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -31,7 +31,7 @@ func TestOldUplink(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// TODO add different kinds of files: inline, multi segment, multipart
 
-		cmd := exec.Command("go", "install", "storj.io/storj/cmd/uplink@"+storjrelease)
+		cmd := exec.Command("go", "install", "github.com/StorXNetwork/StorXMonitor/cmd/uplink@"+storjrelease)
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "GOBIN="+ctx.Dir("binary"))
 		output, err := cmd.CombinedOutput()
@@ -207,7 +207,7 @@ func TestMove(t *testing.T) {
 		// old upling is uploading object and moving it
 		// new uplink should be able to list it
 
-		cmd := exec.Command("go1.17.13", "install", "storj.io/storj/cmd/uplink@v1.40.4")
+		cmd := exec.Command("go1.17.13", "install", "github.com/StorXNetwork/StorXMonitor/cmd/uplink@v1.40.4")
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "GOBIN="+ctx.Dir("binary"))
 		output, err := cmd.CombinedOutput()

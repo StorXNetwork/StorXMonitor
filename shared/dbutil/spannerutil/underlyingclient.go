@@ -9,7 +9,7 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // UnderlyingClient implements exposing *spanner.Client from a tagsql.DB.

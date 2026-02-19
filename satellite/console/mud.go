@@ -4,8 +4,8 @@
 package console
 
 import (
-	"storj.io/storj/satellite/console/restapikeys"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module is a mud module.

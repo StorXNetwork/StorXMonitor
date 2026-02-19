@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/errs2"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestEndpoint_Run_httpSuccess(t *testing.T) {

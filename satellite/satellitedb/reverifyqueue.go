@@ -11,15 +11,15 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
-// reverifyQueue implements storj.io/storj/satellite/audit.ReverifyQueue.
+// reverifyQueue implements github.com/StorXNetwork/StorXMonitor/satellite/audit.ReverifyQueue.
 type reverifyQueue struct {
 	db *satelliteDB
 }
@@ -174,7 +174,7 @@ func (rq *reverifyQueue) TestingFudgeUpdateTime(ctx context.Context, piece *audi
 	return nil
 }
 
-func (rq *reverifyQueue) GetByNodeID(ctx context.Context, nodeID storj.NodeID) (pendingJob *audit.ReverificationJob, err error) {
+func (rq *reverifyQueue) GetByNodeID(ctx context.Context, nodeID storxnetwork.NodeID) (pendingJob *audit.ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pending, err := rq.db.First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx, dbx.ReverificationAudits_NodeId(nodeID.Bytes()))
@@ -193,7 +193,7 @@ func (rq *reverifyQueue) GetByNodeID(ctx context.Context, nodeID storj.NodeID) (
 	return convertDBJob(ctx, pending)
 }
 
-func (rq *reverifyQueue) GetAllContainedNodes(ctx context.Context) (nodes []storj.NodeID, err error) {
+func (rq *reverifyQueue) GetAllContainedNodes(ctx context.Context) (nodes []storxnetwork.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := rq.db.QueryContext(ctx, `SELECT DISTINCT node_id FROM reverification_audits`)
@@ -209,7 +209,7 @@ func (rq *reverifyQueue) GetAllContainedNodes(ctx context.Context) (nodes []stor
 		if err := result.Scan(&nodeIDBytes); err != nil {
 			return nil, audit.ContainError.Wrap(err)
 		}
-		nodeID, err := storj.NodeIDFromBytes(nodeIDBytes)
+		nodeID, err := storxnetwork.NodeIDFromBytes(nodeIDBytes)
 		if err != nil {
 			return nil, audit.ContainError.Wrap(err)
 		}
@@ -234,7 +234,7 @@ func convertDBJob(ctx context.Context, info *dbx.ReverificationAudits) (pendingJ
 		ReverifyCount: int(info.ReverifyCount),
 	}
 
-	pendingJob.Locator.NodeID, err = storj.NodeIDFromBytes(info.NodeId)
+	pendingJob.Locator.NodeID, err = storxnetwork.NodeIDFromBytes(info.NodeId)
 	if err != nil {
 		return nil, audit.ContainError.Wrap(err)
 	}

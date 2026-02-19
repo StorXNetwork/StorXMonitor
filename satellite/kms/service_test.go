@@ -12,9 +12,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/kms"
+	"github.com/StorXNetwork/StorXMonitor/satellite/kms"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestService(t *testing.T) {
@@ -24,9 +24,9 @@ func TestService(t *testing.T) {
 	id1 := 1
 	id2 := 2
 
-	key1, err := storj.NewKey([]byte("testkey1"))
+	key1, err := storxnetwork.NewKey([]byte("testkey1"))
 	require.NoError(t, err)
-	key2, err := storj.NewKey([]byte("testkey2"))
+	key2, err := storxnetwork.NewKey([]byte("testkey2"))
 	require.NoError(t, err)
 
 	t.Run("invalid provider", func(t *testing.T) {

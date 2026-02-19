@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // Queryer is a representation for something that can query.

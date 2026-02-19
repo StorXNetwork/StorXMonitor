@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/metabase/changestream"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/changestream"
 )
 
 // ReadChangeStreamPartition reads records from a change stream partition and processes records via callback.

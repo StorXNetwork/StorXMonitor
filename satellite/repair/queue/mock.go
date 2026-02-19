@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // MockRepairQueue helps testing RepairQueue.
@@ -47,7 +47,7 @@ func (m *MockRepairQueue) InsertBatch(ctx context.Context, segments []*InjuredSe
 }
 
 // Select implements RepairQueue.
-func (m *MockRepairQueue) Select(context.Context, int, []storj.PlacementConstraint, []storj.PlacementConstraint) ([]InjuredSegment, error) {
+func (m *MockRepairQueue) Select(context.Context, int, []storxnetwork.PlacementConstraint, []storxnetwork.PlacementConstraint) ([]InjuredSegment, error) {
 	panic("implement me")
 }
 
@@ -77,12 +77,12 @@ func (m *MockRepairQueue) Count(ctx context.Context) (count int, err error) {
 }
 
 // TestingSetAttemptedTime implements RepairQueue.
-func (m *MockRepairQueue) TestingSetAttemptedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+func (m *MockRepairQueue) TestingSetAttemptedTime(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 	panic("implement me")
 }
 
 // TestingSetUpdatedTime implements RepairQueue.
-func (m *MockRepairQueue) TestingSetUpdatedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+func (m *MockRepairQueue) TestingSetUpdatedTime(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 	panic("implement me")
 }
 

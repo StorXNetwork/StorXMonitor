@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestBeginCopyObject(t *testing.T) {
@@ -1609,7 +1609,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 				NewVersioned: true,
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: now,
 				},
 			}
@@ -1658,7 +1658,7 @@ func TestFinishCopyObject(t *testing.T) {
 				NewVersioned: true,
 
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: now,
 				},
 			}
@@ -1702,7 +1702,7 @@ func TestFinishCopyObject(t *testing.T) {
 				NewVersioned: false,
 
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 				},
 			}
@@ -1759,7 +1759,7 @@ func TestFinishCopyObject(t *testing.T) {
 				NewVersioned: false,
 
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 				},
 			}
@@ -1833,13 +1833,13 @@ func TestFinishCopyObject(t *testing.T) {
 
 			// retention and no legal hold
 			test(t, metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}, false)
 
 			// retention and legal hold
 			test(t, metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}, true)
 
@@ -1892,13 +1892,13 @@ func TestFinishCopyObject(t *testing.T) {
 
 			// retention and no legal hold
 			test(t, metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}, false)
 
 			// retention and legal hold
 			test(t, metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}, true)
 

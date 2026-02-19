@@ -8,7 +8,7 @@ import (
 	"math"
 	"sort"
 
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 var _ rangedloop.RangeSplitter = (*RangeSplitter)(nil)

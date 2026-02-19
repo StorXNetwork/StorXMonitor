@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"storj.io/storj/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
 )
 
 // memAlloc allocates memory using mmap and returns it as a byte slice (with the

@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	mainpkg = flag.String("pkg", "storj.io/storj/private/multinodepb", "main package name")
+	mainpkg = flag.String("pkg", "github.com/StorXNetwork/StorXMonitor/private/multinodepb", "main package name")
 	protoc  = flag.String("protoc", "protoc", "protoc compiler")
 )
 
@@ -36,7 +36,7 @@ func ignore(files []string) []string {
 // Programs needed for code generation:
 //
 // github.com/ckaznocha/protoc-gen-lint
-// storj.io/drpc/cmd/protoc-gen-drpc
+// github.com/StorXNetwork/drpc/cmd/protoc-gen-drpc
 // github.com/nilslice/protolock/cmd/protolock
 
 func main() {
@@ -91,7 +91,7 @@ func main() {
 
 	{
 		// format code to get rid of extra imports
-		out, err := exec.Command("goimports", "-local", "storj.io", "-w", ".").CombinedOutput()
+		out, err := exec.Command("goimports", "-local", "storxnetwork.io", "-w", ".").CombinedOutput()
 		if len(out) > 0 {
 			fmt.Println(string(out))
 		}

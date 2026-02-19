@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestDeleteExpiredObjects(t *testing.T) {
@@ -119,14 +119,14 @@ func TestDeleteExpiredObjects(t *testing.T) {
 
 			expectedObj1Segment := metabase.Segment{
 				StreamID:          obj1.StreamID,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				CreatedAt:         now,
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1060,
 				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 

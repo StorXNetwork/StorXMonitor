@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"storj.io/storj/storagenode/load"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/load"
 )
 
 func showIOStatsMain(args []string, output io.Writer) error {

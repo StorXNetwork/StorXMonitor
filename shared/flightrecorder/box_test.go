@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"storj.io/storj/shared/flightrecorder"
+	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
 )
 
 func TestFlightRecorder(t *testing.T) {

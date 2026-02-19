@@ -11,16 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestServicePayments(t *testing.T) {
@@ -35,7 +35,7 @@ func TestServicePayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1337,
@@ -48,7 +48,7 @@ func TestServicePayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1337,
@@ -61,7 +61,7 @@ func TestServicePayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet2,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1337,
@@ -74,7 +74,7 @@ func TestServicePayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusPending,
 				ChainID:     1337,
@@ -195,7 +195,7 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1,
@@ -208,7 +208,7 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1,
@@ -221,7 +221,7 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1,
@@ -234,7 +234,7 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1,
@@ -283,7 +283,7 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1,
@@ -296,7 +296,7 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1,
@@ -309,7 +309,7 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1,
@@ -365,7 +365,7 @@ func TestListPaymentsMultipleChainIds(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     5,
@@ -378,7 +378,7 @@ func TestListPaymentsMultipleChainIds(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1337,
@@ -391,7 +391,7 @@ func TestListPaymentsMultipleChainIds(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     5,
@@ -404,7 +404,7 @@ func TestListPaymentsMultipleChainIds(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				ChainID:     1337,

@@ -16,14 +16,14 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/sync2"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -622,7 +622,7 @@ func (chore *Chore) deactivateUser(ctx context.Context, userID uuid.UUID, freeze
 			return err
 		}
 
-		deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", userID.String())
+		deactivatedEmail := fmt.Sprintf("deactivated+%s@storxnetwork.io", userID.String())
 		status := console.Deleted
 		err = tx.Users().Update(ctx, userID, console.UpdateUserRequest{
 			FullName:                    new(string),

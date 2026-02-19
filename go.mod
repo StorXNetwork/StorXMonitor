@@ -1,4 +1,4 @@
-module storj.io/storj
+module github.com/StorXNetwork/StorXMonitor
 
 go 1.25
 
@@ -10,6 +10,12 @@ require (
 	cloud.google.com/go/spanner v1.80.0
 	cloud.google.com/go/storage v1.53.0
 	firebase.google.com/go/v4 v4.19.0
+	github.com/StorXNetwork/common v0.0.3
+	github.com/StorXNetwork/drpc v0.0.36
+	github.com/StorXNetwork/eventkit v0.0.2
+	github.com/StorXNetwork/minmaxheap v0.0.1
+	github.com/StorXNetwork/monkit-jaeger v0.0.4
+	github.com/StorXNetwork/uplink v1.13.4
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
 	github.com/blang/semver v3.5.1+incompatible
@@ -100,12 +106,6 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	storj.io/common v0.0.0-20260123113635-a4b3510b6286
-	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
-	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
-	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
-	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad
-	storj.io/uplink v1.13.2-0.20251205102608-fcbae6793ee8
 )
 
 require (
@@ -125,6 +125,8 @@ require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/MicahParks/keyfunc v1.9.0 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
+	github.com/StorXNetwork/infectious v0.0.4 // indirect
+	github.com/StorXNetwork/picobuf v0.0.6 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
@@ -252,8 +254,6 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-	storj.io/infectious v0.0.2 // indirect
-	storj.io/picobuf v0.0.4 // indirect
 )
 
 replace github.com/tyler-smith/go-bip39 => github.com/cosmos/go-bip39 v1.0.0

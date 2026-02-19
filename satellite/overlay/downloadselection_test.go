@@ -11,14 +11,14 @@ package overlay_test
 // 	"github.com/stretchr/testify/require"
 // 	"go.uber.org/zap"
 
-// 	"storj.io/common/pb"
-// 	"storj.io/common/storj"
-// 	"storj.io/common/testcontext"
-// 	"storj.io/common/testrand"
-// 	"storj.io/storj/satellite"
-// 	"storj.io/storj/satellite/nodeselection"
-// 	"storj.io/storj/satellite/overlay"
-// 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+// 	"github.com/StorXNetwork/common/pb"
+// 	"github.com/StorXNetwork/common/storxnetwork"
+// 	"github.com/StorXNetwork/common/testcontext"
+// 	"github.com/StorXNetwork/common/testrand"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 // )
 
 // var downloadSelectionCacheConfig = overlay.DownloadSelectionCacheConfig{
@@ -78,7 +78,7 @@ package overlay_test
 // 		ids := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 0)
 
 // 		// confirm nodes are in the cache once
-// 		nodeips, err := cache.GetNodeIPsFromPlacement(ctx, ids, storj.DefaultPlacement)
+// 		nodeips, err := cache.GetNodeIPsFromPlacement(ctx, ids, storxnetwork.DefaultPlacement)
 // 		require.NoError(t, err)
 // 		for _, id := range ids {
 // 			require.NotEmpty(t, nodeips[id])
@@ -102,7 +102,7 @@ package overlay_test
 // 	state := overlay.NewDownloadSelectionCacheState([]*nodeselection.SelectedNode{node})
 // 	require.Equal(t, state.Size(), 1)
 
-// 	ips := state.IPs([]storj.NodeID{testrand.NodeID(), node.ID})
+// 	ips := state.IPs([]storxnetwork.NodeID{testrand.NodeID(), node.ID})
 // 	require.Len(t, ips, 1)
 // 	require.Equal(t, node.LastIPPort, ips[node.ID])
 // }

@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/clingy"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 // Commands is an alias to refer to a function that builds clingy commands.

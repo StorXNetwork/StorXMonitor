@@ -12,19 +12,19 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/cmd/storagenode/internalcmd"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDBInit(t *testing.T) {
@@ -76,7 +76,7 @@ func TestUpdate(t *testing.T) {
 	defer ctx.Cleanup()
 
 	sat1 := testrand.NodeID()
-	startSats := map[storj.NodeID]pieces.SatelliteUsage{
+	startSats := map[storxnetwork.NodeID]pieces.SatelliteUsage{
 		sat1: {
 			Total:       -20,
 			ContentSize: -21,
@@ -135,7 +135,7 @@ func TestCacheInit(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(0), piecesTotal)
 		require.Equal(t, int64(0), piecesContentSize)
-		satPiecesTotal, satPiecesContentSize, err := cache.SpaceUsedBySatellite(ctx, storj.NodeID{1})
+		satPiecesTotal, satPiecesContentSize, err := cache.SpaceUsedBySatellite(ctx, storxnetwork.NodeID{1})
 		require.NoError(t, err)
 		require.Equal(t, int64(0), satPiecesTotal)
 		require.Equal(t, int64(0), satPiecesContentSize)
@@ -145,7 +145,7 @@ func TestCacheInit(t *testing.T) {
 
 		// setup: update the cache then sync those cache values
 		// to the database
-		expectedTotalBySA := map[storj.NodeID]pieces.SatelliteUsage{
+		expectedTotalBySA := map[storxnetwork.NodeID]pieces.SatelliteUsage{
 			{1}: {
 				Total:       100,
 				ContentSize: 101,
@@ -193,11 +193,11 @@ func TestCacheInit(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedPiecesTotal, piecesTotal)
 		require.Equal(t, expectedPiecesContentSize, piecesContentSize)
-		sat1PiecesTotal, sat1PiecesContentSize, err := cache.SpaceUsedBySatellite(ctx, storj.NodeID{1})
+		sat1PiecesTotal, sat1PiecesContentSize, err := cache.SpaceUsedBySatellite(ctx, storxnetwork.NodeID{1})
 		require.NoError(t, err)
 		require.Equal(t, int64(100), sat1PiecesTotal)
 		require.Equal(t, int64(101), sat1PiecesContentSize)
-		sat2PiecesTotal, sat2PiecesContentSize, err := cache.SpaceUsedBySatellite(ctx, storj.NodeID{2})
+		sat2PiecesTotal, sat2PiecesContentSize, err := cache.SpaceUsedBySatellite(ctx, storxnetwork.NodeID{2})
 		require.NoError(t, err)
 		require.Equal(t, int64(50), sat2PiecesTotal)
 		require.Equal(t, int64(51), sat2PiecesContentSize)
@@ -208,10 +208,10 @@ func TestCacheInit(t *testing.T) {
 		// let's remove the blobs directory for one satellite and check if the cache is updated
 		// when we call init again.
 		// Calling DeleteNamespace directly on filestore, to sure we delete the namespace without updating the cache
-		err = db.Pieces().DeleteNamespace(ctx, storj.NodeID{1}.Bytes())
+		err = db.Pieces().DeleteNamespace(ctx, storxnetwork.NodeID{1}.Bytes())
 		require.NoError(t, err)
 		// check that the cache is not updated
-		sat1PiecesTotal, sat1PiecesContentSize, err = cache.SpaceUsedBySatellite(ctx, storj.NodeID{1})
+		sat1PiecesTotal, sat1PiecesContentSize, err = cache.SpaceUsedBySatellite(ctx, storxnetwork.NodeID{1})
 		require.NoError(t, err)
 		require.Equal(t, int64(100), sat1PiecesTotal)
 		require.Equal(t, int64(101), sat1PiecesContentSize)
@@ -219,7 +219,7 @@ func TestCacheInit(t *testing.T) {
 		err = cacheService.Init(ctx)
 		require.NoError(t, err)
 		// check that the cache is updated
-		sat1PiecesTotal, sat1PiecesContentSize, err = cache.SpaceUsedBySatellite(ctx, storj.NodeID{1})
+		sat1PiecesTotal, sat1PiecesContentSize, err = cache.SpaceUsedBySatellite(ctx, storxnetwork.NodeID{1})
 		require.NoError(t, err)
 		require.Equal(t, int64(0), sat1PiecesTotal)
 		require.Equal(t, int64(0), sat1PiecesContentSize)
@@ -426,7 +426,7 @@ func TestPersistCacheTotals(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expectedTrash, trashTotal)
 
-		var expectedTotalsBySA = map[storj.NodeID]pieces.SatelliteUsage{}
+		var expectedTotalsBySA = map[storxnetwork.NodeID]pieces.SatelliteUsage{}
 		totalsBySA, err := spaceUsedDB.GetPieceTotalsForAllSatellites(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, expectedTotalsBySA, totalsBySA)
@@ -434,7 +434,7 @@ func TestPersistCacheTotals(t *testing.T) {
 		// setup: update the cache then sync those cache values
 		// to the database
 		// setup the cache with zero values
-		expectedTotalsBySA = map[storj.NodeID]pieces.SatelliteUsage{
+		expectedTotalsBySA = map[storxnetwork.NodeID]pieces.SatelliteUsage{
 			{1}: {
 				Total:       100,
 				ContentSize: 101,
@@ -481,7 +481,7 @@ func TestPersistCacheTotals(t *testing.T) {
 		piecesTotalDelta := int64(35)
 		piecesContentSizeDelta := int64(30)
 		trashDelta := int64(35)
-		cache.Update(ctx, storj.NodeID{1}, -piecesTotalDelta, -piecesContentSizeDelta, trashDelta)
+		cache.Update(ctx, storxnetwork.NodeID{1}, -piecesTotalDelta, -piecesContentSizeDelta, trashDelta)
 		err = cacheService.PersistCacheTotals(ctx)
 		require.NoError(t, err)
 
@@ -495,7 +495,7 @@ func TestPersistCacheTotals(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expectedTrash+trashDelta, trashTotal)
 
-		expectedTotalsBySA = map[storj.NodeID]pieces.SatelliteUsage{
+		expectedTotalsBySA = map[storxnetwork.NodeID]pieces.SatelliteUsage{
 			{1}: {
 				Total:       65,
 				ContentSize: 71,
@@ -646,12 +646,12 @@ func TestRecalculateCache(t *testing.T) {
 			defer ctx.Cleanup()
 			log := zaptest.NewLogger(t)
 
-			ID1 := storj.NodeID{1, 1}
+			ID1 := storxnetwork.NodeID{1, 1}
 			cache, err := pieces.NewBlobsUsageCacheTest(ctx, log, nil,
 				tt.piecesTotal.end,
 				tt.piecesContentSize.end,
 				tt.trash.end,
-				map[storj.NodeID]pieces.SatelliteUsage{ID1: {Total: tt.piecesTotal.end, ContentSize: tt.piecesContentSize.end}},
+				map[storxnetwork.NodeID]pieces.SatelliteUsage{ID1: {Total: tt.piecesTotal.end, ContentSize: tt.piecesContentSize.end}},
 			)
 
 			require.NoError(t, err)
@@ -663,8 +663,8 @@ func TestRecalculateCache(t *testing.T) {
 				tt.piecesContentSize.start,
 				tt.trash.new,
 				tt.trash.start,
-				map[storj.NodeID]pieces.SatelliteUsage{ID1: {Total: tt.piecesTotal.new, ContentSize: tt.piecesContentSize.new}},
-				map[storj.NodeID]pieces.SatelliteUsage{ID1: {Total: tt.piecesTotal.start, ContentSize: tt.piecesContentSize.start}},
+				map[storxnetwork.NodeID]pieces.SatelliteUsage{ID1: {Total: tt.piecesTotal.new, ContentSize: tt.piecesContentSize.new}},
+				map[storxnetwork.NodeID]pieces.SatelliteUsage{ID1: {Total: tt.piecesTotal.start, ContentSize: tt.piecesContentSize.start}},
 			)
 
 			// Test: confirm correct cache values
@@ -690,8 +690,8 @@ func TestRecalculateCacheMissed(t *testing.T) {
 	defer ctx.Cleanup()
 	log := zaptest.NewLogger(t)
 
-	ID1 := storj.NodeID{1}
-	ID2 := storj.NodeID{2}
+	ID1 := storxnetwork.NodeID{1}
+	ID2 := storxnetwork.NodeID{2}
 
 	// setup: once we are done recalculating the pieces on disk,
 	// there are items in the cache that are not in the
@@ -700,7 +700,7 @@ func TestRecalculateCacheMissed(t *testing.T) {
 		150,
 		200,
 		100,
-		map[storj.NodeID]pieces.SatelliteUsage{ID1: {Total: 100, ContentSize: 50}, ID2: {Total: 100, ContentSize: 50}},
+		map[storxnetwork.NodeID]pieces.SatelliteUsage{ID1: {Total: 100, ContentSize: 50}, ID2: {Total: 100, ContentSize: 50}},
 	)
 	require.NoError(t, err)
 
@@ -711,8 +711,8 @@ func TestRecalculateCacheMissed(t *testing.T) {
 		25,
 		200,
 		0,
-		map[storj.NodeID]pieces.SatelliteUsage{ID1: {Total: 100, ContentSize: 50}},
-		map[storj.NodeID]pieces.SatelliteUsage{ID1: {Total: 0, ContentSize: 0}},
+		map[storxnetwork.NodeID]pieces.SatelliteUsage{ID1: {Total: 100, ContentSize: 50}},
+		map[storxnetwork.NodeID]pieces.SatelliteUsage{ID1: {Total: 0, ContentSize: 0}},
 	)
 
 	// Test: confirm correct cache values
@@ -758,7 +758,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		assertValues := func(msg string, satID storj.NodeID, expPiecesTotal, expPiecesContentSize, expTrash int) {
+		assertValues := func(msg string, satID storxnetwork.NodeID, expPiecesTotal, expPiecesContentSize, expTrash int) {
 			piecesTotal, piecesContentSize, err := cache.SpaceUsedForPieces(ctx)
 			require.NoError(t, err, msg)
 			assert.Equal(t, expPiecesTotal, int(piecesTotal), msg)

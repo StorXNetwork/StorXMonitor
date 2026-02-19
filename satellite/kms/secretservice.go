@@ -6,7 +6,7 @@ package kms
 import (
 	"context"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // SecretsService is a service for retrieving keys.
@@ -14,7 +14,7 @@ import (
 // architecture: Service
 type SecretsService interface {
 	// GetKeys gets key from the source.
-	GetKeys(ctx context.Context) (map[int]*storj.Key, error)
+	GetKeys(ctx context.Context) (map[int]*storxnetwork.Key, error)
 	// Close closes the service.
 	Close() error
 }

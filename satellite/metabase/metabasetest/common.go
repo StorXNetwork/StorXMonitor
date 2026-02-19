@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // DeleteAll deletes all data from metabase.

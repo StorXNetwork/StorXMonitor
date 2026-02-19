@@ -10,8 +10,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 type segmentState struct {

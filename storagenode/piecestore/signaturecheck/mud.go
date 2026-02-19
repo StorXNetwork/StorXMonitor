@@ -4,8 +4,8 @@
 package signaturecheck
 
 import (
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module registers the signature checking components with the mud.Ball.

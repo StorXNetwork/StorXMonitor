@@ -10,12 +10,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestListVerifySegments(t *testing.T) {
@@ -432,7 +432,7 @@ func defaultVerifySegment(streamID uuid.UUID, index uint32) metabase.VerifySegme
 			Index: index,
 		},
 		CreatedAt:   time.Now(),
-		RootPieceID: storj.PieceID{1},
+		RootPieceID: storxnetwork.PieceID{1},
 		AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 1}},
 		Redundancy:  metabasetest.DefaultRedundancy,
 	}

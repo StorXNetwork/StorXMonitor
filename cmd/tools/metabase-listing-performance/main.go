@@ -22,9 +22,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	_ "storj.io/storj/shared/dbutil/cockroachutil"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	_ "github.com/StorXNetwork/StorXMonitor/shared/dbutil/cockroachutil"
 )
 
 // Scenario declares a specific test scenario.

@@ -8,8 +8,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/uplink"
 )
 
 // MethodUnsupported is an error class indicating that a method is unsupported.

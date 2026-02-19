@@ -33,13 +33,13 @@ go run main.go gateway,link-share
 ## Services Managed
 
 ### Core Services
-- **storj-sim**: Storj simulation network (always started)
+- **storxnetwork-sim**: Storj simulation network (always started)
 - **authservice**: Authentication and authorization service
 - **gateway-mt**: Multi-tenant gateway service
 - **linksharing**: Link sharing service for public access
 
 ### Service Ports
-- **storj-sim**: Various ports (managed by storj-sim)
+- **storxnetwork-sim**: Various ports (managed by storxnetwork-sim)
 - **authservice**: `:8000`
 - **gateway-mt**: `localhost:8002`
 - **linksharing**: `:8001`
@@ -51,7 +51,7 @@ go run main.go gateway,link-share
 ### Prerequisites
 
 Ensure you have the following StorX tools installed and available in your PATH:
-- `storj-sim`
+- `storxnetwork-sim`
 - `authservice`
 - `gateway-mt`
 - `linksharing`
@@ -86,8 +86,8 @@ linkShareAddr = ":8001"
 
 ## How It Works
 
-1. **Network Setup**: Always starts the `storj-sim` network first
-2. **Satellite Discovery**: If authservice is requested, fetches the `SATELLITE_0_URL` from storj-sim
+1. **Network Setup**: Always starts the `storxnetwork-sim` network first
+2. **Satellite Discovery**: If authservice is requested, fetches the `SATELLITE_0_URL` from storxnetwork-sim
 3. **Service Startup**: Starts requested services in sequence with proper configuration
 4. **Link Sharing Setup**: For link sharing, runs setup command first, then starts the service
 5. **Signal Handling**: Listens for interrupt signals (Ctrl+C) to gracefully shutdown all services

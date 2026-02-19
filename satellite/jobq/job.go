@@ -8,9 +8,9 @@ import (
 	"time"
 	"unsafe"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	pb "storj.io/storj/satellite/internalpb"
+	pb "github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // SegmentIdentifier identifies individual segments in the repair queue.
@@ -138,7 +138,7 @@ func ConvertJobFromProtobuf(protoJob *pb.RepairJob) (RepairJob, error) {
 
 // QueueStat contains statistics about a queue or set of queues.
 type QueueStat struct {
-	Placement        storj.PlacementConstraint
+	Placement        storxnetwork.PlacementConstraint
 	Count            int64
 	MaxInsertedAt    time.Time
 	MinInsertedAt    time.Time

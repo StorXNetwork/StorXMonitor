@@ -14,13 +14,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensures that users implements console.Users.
@@ -1200,7 +1200,7 @@ func (users *users) UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, l
 }
 
 // UpdateDefaultPlacement is a method to update the user's default placement for new projects.
-func (users *users) UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) (err error) {
+func (users *users) UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storxnetwork.PlacementConstraint) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = users.db.Update_User_By_Id(
@@ -1778,7 +1778,7 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	if user.DefaultPlacement != nil {
-		result.DefaultPlacement = storj.PlacementConstraint(*user.DefaultPlacement)
+		result.DefaultPlacement = storxnetwork.PlacementConstraint(*user.DefaultPlacement)
 	}
 
 	if user.UserAgent != nil {

@@ -20,19 +20,19 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/memory"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
@@ -193,7 +193,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 
 		// replace the piece id of the selected stripe with a new random one
 		// to simulate missing piece on the storage nodes
-		segment.RootPieceID = storj.NewPieceID()
+		segment.RootPieceID = storxnetwork.NewPieceID()
 
 		shareSize := segment.Redundancy.ShareSize
 
@@ -1106,7 +1106,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		remotePieces := segment.Pieces
 
 		numExcluded := 5
-		var nodesInExcluded storj.NodeIDList
+		var nodesInExcluded storxnetwork.NodeIDList
 		for i := 0; i < numExcluded; i++ {
 			planet.FindNode(remotePieces[i].StorageNode).Contact.Chore.Pause(ctx)
 			err = planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, remotePieces[i].StorageNode, "FR")
@@ -1174,7 +1174,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 			}
 		}
 		require.Equal(t, expectRemainingExcluded, found, "found wrong number of excluded-country pieces after repair")
-		nodesInPointer := make(map[storj.NodeID]bool)
+		nodesInPointer := make(map[storxnetwork.NodeID]bool)
 		for _, n := range segmentAfterRepair.Pieces {
 			// check for duplicates
 			_, ok := nodesInPointer[n.StorageNode]
@@ -1642,7 +1642,7 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 		}
 		require.Len(t, queuedReverifies, numConcurrentAudits*slowNodes)
 
-		appearancesPerNode := make(map[storj.NodeID]int)
+		appearancesPerNode := make(map[storxnetwork.NodeID]int)
 		for _, job := range queuedReverifies {
 			appearancesPerNode[job.Locator.NodeID]++
 		}

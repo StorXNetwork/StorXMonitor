@@ -4,7 +4,7 @@
 package csrf
 
 import (
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module is a mud module.

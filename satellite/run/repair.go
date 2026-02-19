@@ -4,8 +4,8 @@
 package root
 
 import (
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Repair is a subcommand to start only Repairer (worker) service.

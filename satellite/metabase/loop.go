@@ -14,11 +14,11 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const loopIteratorBatchSizeLimit = intLimitRange(50000)
@@ -30,14 +30,14 @@ type LoopSegmentEntry struct {
 	CreatedAt     time.Time // non-nillable
 	ExpiresAt     *time.Time
 	RepairedAt    *time.Time // repair
-	RootPieceID   storj.PieceID
+	RootPieceID   storxnetwork.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
 	PlainOffset   int64 // verify
 	PlainSize     int32 // verify
 	AliasPieces   AliasPieces
-	Redundancy    storj.RedundancyScheme
+	Redundancy    storxnetwork.RedundancyScheme
 	Pieces        Pieces
-	Placement     storj.PlacementConstraint
+	Placement     storxnetwork.PlacementConstraint
 	Source        string
 }
 

@@ -21,8 +21,8 @@ import (
 	"go.uber.org/zap"
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var mon = monkit.Package()
@@ -330,10 +330,10 @@ type TrackJoinCunoFSBetaFields struct {
 
 // TrackJoinPlacementWaitlistFields contains input data for join placement waitlist event.
 type TrackJoinPlacementWaitlistFields struct {
-	Email        string                    `json:"email"`
-	StorageNeeds string                    `json:"storageNeeds"`
-	WaitlistURL  string                    `json:"-"`
-	Placement    storj.PlacementConstraint `json:"placement"`
+	Email        string                           `json:"email"`
+	StorageNeeds string                           `json:"storageNeeds"`
+	WaitlistURL  string                           `json:"-"`
+	Placement    storxnetwork.PlacementConstraint `json:"placement"`
 }
 
 // TrackObjectMountConsultationFields contains input data for tracking an object mount consultation event.

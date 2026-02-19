@@ -51,7 +51,7 @@ func TestGetClientIP(t *testing.T) {
 				RemoteAddr: "172.20.20.20",
 				Header: map[string][]string{
 					"Forwarded": {
-						"by=storj;for=172.31.254.15,for=172.17.5.10;host=example.test;proto=https",
+						"by=storxnetwork;for=172.31.254.15,for=172.17.5.10;host=example.test;proto=https",
 						"for=172.28.15.15",
 					},
 				},
@@ -92,7 +92,7 @@ func TestGetClientIP(t *testing.T) {
 				RemoteAddr: "172.20.20.20",
 				Header: map[string][]string{
 					"Forwarded": {
-						"by=storj;For=172.31.254.15,for=172.17.5.10;host=example.test;proto=https",
+						"by=storxnetwork;For=172.31.254.15,for=172.17.5.10;host=example.test;proto=https",
 						"For=172.28.15.15",
 					},
 				},
@@ -105,7 +105,7 @@ func TestGetClientIP(t *testing.T) {
 				RemoteAddr: "172.20.20.20",
 				Header: map[string][]string{
 					"Forwarded": {
-						`by=storj;for="172.31.254.15:9089",for=172.17.5.10;host=example.test;proto=https`,
+						`by=storxnetwork;for="172.31.254.15:9089",for=172.17.5.10;host=example.test;proto=https`,
 						"for=172.28.15.15",
 					},
 				},
@@ -118,7 +118,7 @@ func TestGetClientIP(t *testing.T) {
 				RemoteAddr: "172.20.20.20",
 				Header: map[string][]string{
 					"Forwarded": {
-						`by=storj;for="6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7",for=172.17.5.10;host=example.test;proto=https`,
+						`by=storxnetwork;for="6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7",for=172.17.5.10;host=example.test;proto=https`,
 						"for=172.28.15.15",
 					},
 				},
@@ -131,7 +131,7 @@ func TestGetClientIP(t *testing.T) {
 				RemoteAddr: "172.20.20.20",
 				Header: map[string][]string{
 					"Forwarded": {
-						`by=storj;for="[6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7]:7896",for=172.17.5.10;host=example.test;proto=https`,
+						`by=storxnetwork;for="[6934:9e20:e075:a5f6:c8d2:21d1:124d:94b7]:7896",for=172.17.5.10;host=example.test;proto=https`,
 						"for=172.28.15.15",
 					},
 				},
@@ -144,7 +144,7 @@ func TestGetClientIP(t *testing.T) {
 				RemoteAddr: "172.20.20.20",
 				Header: map[string][]string{
 					"Forwarded": {
-						"by=storj;xfor=172.31.254.15;for=172.17.5.10,for=172.17.5.12;host=example.test;proto=https",
+						"by=storxnetwork;xfor=172.31.254.15;for=172.17.5.10,for=172.17.5.12;host=example.test;proto=https",
 						"For=172.28.15.15",
 					},
 				},
@@ -216,18 +216,18 @@ func TestStripPort(t *testing.T) {
 	}{
 		{
 			desc: "hostname no port",
-			addr: "storj.test",
-			exp:  "storj.test",
+			addr: "storxnetwork.test",
+			exp:  "storxnetwork.test",
 		},
 		{
 			desc: "hostname port",
-			addr: "storj.test:1234",
-			exp:  "storj.test",
+			addr: "storxnetwork.test:1234",
+			exp:  "storxnetwork.test",
 		},
 		{
 			desc: "hostname invalid",
-			addr: "storj:test:123:",
-			exp:  "storj:test:123:",
+			addr: "storxnetwork:test:123:",
+			exp:  "storxnetwork:test:123:",
 		},
 		{
 			desc: "IPv4 no port",

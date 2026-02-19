@@ -13,12 +13,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/piecestore"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
 )
 
 var (

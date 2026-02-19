@@ -2,7 +2,7 @@
 
 &nbsp;
 
-![](https://github.com/storj/storj/raw/main/resources/logo.png)
+![](https://github.com/storxnetwork/storxnetwork/raw/main/resources/logo.png)
 
 
 &nbsp;
@@ -156,11 +156,11 @@ By now if you have followed along thus far you should have a pretty awesome high
 
 ```
 
-is to head to [testplan repo](https://github.com/storj/storj/tree/main/docs/testplan) and open a pull request titled **Test Plan** on said feature by [using our template here](TEMPLATE.md)! If you think you are done writing your awesome test plan, head to the testplan repo and open a pull request with an appropriate title containing the keywords, **Test Plan** along with the **Test Plan** label.
+is to head to [testplan repo](https://github.com/storxnetwork/storxnetwork/tree/main/docs/testplan) and open a pull request titled **Test Plan** on said feature by [using our template here](TEMPLATE.md)! If you think you are done writing your awesome test plan, head to the testplan repo and open a pull request with an appropriate title containing the keywords, **Test Plan** along with the **Test Plan** label.
 
 ## Support
 
 
 
-If you have any questions or suggestions please reach out to us on [our community forum](https://forum.storj.io/) or file a support ticket at [https://support.storj.io](https://support.storj.io/).
+If you have any questions or suggestions please reach out to us on [our community forum](https://forum.storxnetwork.io/) or file a support ticket at [https://support.storxnetwork.io](https://support.storxnetwork.io/).
 

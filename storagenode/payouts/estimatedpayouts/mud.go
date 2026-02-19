@@ -4,7 +4,7 @@
 package estimatedpayouts
 
 import (
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module registers the estimated payouts service dependency injection components.

@@ -51,7 +51,7 @@ func TestZapWrapper(t *testing.T) {
 		require.True(t, errors.As(err, &expectedError))
 		require.Error(t, err)
 
-		// https://github.com/storj/storj/issues/6006
+		// https://github.com/storxnetwork/storxnetwork/issues/6006
 		expectedErrMsg := `parsing time "2023-06-25T18:21:16.181+0200" as "2006-01-02T15:04:05Z07:00": cannot parse "+0200" as "Z07:00"`
 		require.Contains(t, expectedErrMsg, err.Error())
 	})

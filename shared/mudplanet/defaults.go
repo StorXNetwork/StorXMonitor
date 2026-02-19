@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // InitConfigDefaults initializes the configuration with the default values from the annotations.

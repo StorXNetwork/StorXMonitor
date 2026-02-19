@@ -29,12 +29,12 @@ target "storagenode-modular" {
   cache-from = [
     {
       type = "registry",
-      ref  = "ghcr.io/storj/storagenode-modular-cache:main"
+      ref  = "ghcr.io/storxnetwork/storagenode-modular-cache:main"
     }
   ]
 
   tags = [
-   "ghcr.io/storj/storagenode-modular:${BUILD_VERSION}"
+   "ghcr.io/storxnetwork/storagenode-modular:${BUILD_VERSION}"
   ]
 }
 
@@ -51,12 +51,12 @@ target "storagenode-ui" {
   cache-from = [
     {
       type = "registry",
-      ref  = "ghcr.io/storj/storagenode-ui-cache:main"
+      ref  = "ghcr.io/storxnetwork/storagenode-ui-cache:main"
     }
   ]
 
   tags = [
-    "ghcr.io/storj/storagenode-ui:${BUILD_VERSION}"
+    "ghcr.io/storxnetwork/storagenode-ui:${BUILD_VERSION}"
   ]
 }
 
@@ -76,12 +76,12 @@ target "satellite-modular" {
   cache-from = [
     {
       type = "registry",
-      ref  = "ghcr.io/storj/satellite-modular-cache:main"
+      ref  = "ghcr.io/storxnetwork/satellite-modular-cache:main"
     }
   ]
 
   tags = [
-   "ghcr.io/storj/satellite-modular:${BUILD_VERSION}"
+   "ghcr.io/storxnetwork/satellite-modular:${BUILD_VERSION}"
   ]
 }
 
@@ -98,12 +98,12 @@ target "satellite-ui" {
   cache-from = [
     {
       type = "registry",
-      ref  = "ghcr.io/storj/satellite-ui-cache:main"
+      ref  = "ghcr.io/storxnetwork/satellite-ui-cache:main"
     }
   ]
 
   tags = [
-    "ghcr.io/storj/satellite-ui:${BUILD_VERSION}"
+    "ghcr.io/storxnetwork/satellite-ui:${BUILD_VERSION}"
   ]
 }
 

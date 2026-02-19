@@ -9,7 +9,7 @@ import (
 	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // EncryptedUserData contains user data that has been encrypted with the nonce and key.

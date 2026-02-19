@@ -10,9 +10,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // TrashChore is the chore that periodically empties the trash.
@@ -29,7 +29,7 @@ type TrashChore struct {
 
 	mu         sync.Mutex
 	done       bool
-	satellites map[storj.NodeID]*sync2.Workplace
+	satellites map[storxnetwork.NodeID]*sync2.Workplace
 }
 
 const (
@@ -48,7 +48,7 @@ func NewTrashChore(log *zap.Logger, choreInterval, trashExpiryInterval time.Dura
 		trust:               trust,
 
 		Cycle:      sync2.NewCycle(choreInterval),
-		satellites: map[storj.NodeID]*sync2.Workplace{},
+		satellites: map[storxnetwork.NodeID]*sync2.Workplace{},
 	}
 }
 
@@ -116,7 +116,7 @@ func (chore *TrashChore) Close() error {
 
 // StartRestore starts a satellite restore, if it hasn't already started and
 // the chore is not shutting down.
-func (chore *TrashChore) StartRestore(ctx context.Context, satellite storj.NodeID) error {
+func (chore *TrashChore) StartRestore(ctx context.Context, satellite storxnetwork.NodeID) error {
 	if !chore.started.Wait(ctx) {
 		return ctx.Err()
 	}
@@ -139,7 +139,7 @@ func (chore *TrashChore) StartRestore(ctx context.Context, satellite storj.NodeI
 }
 
 // ensurePlace creates a work place for the specified satellite.
-func (chore *TrashChore) ensurePlace(satellite storj.NodeID) *sync2.Workplace {
+func (chore *TrashChore) ensurePlace(satellite storxnetwork.NodeID) *sync2.Workplace {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 	if chore.done {

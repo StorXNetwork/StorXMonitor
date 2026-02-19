@@ -7,30 +7,30 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RollupStats is a convenience alias.
-type RollupStats map[time.Time]map[storj.NodeID]*Rollup
+type RollupStats map[time.Time]map[storxnetwork.NodeID]*Rollup
 
 // StoragenodeStorageTally mirrors dbx.StoragenodeStorageTally, allowing us to use that struct without leaking dbx.
 type StoragenodeStorageTally struct {
 	ID              int64
-	NodeID          storj.NodeID
+	NodeID          storxnetwork.NodeID
 	IntervalEndTime time.Time
 	DataTotal       float64
 }
 
 // StoragenodeBandwidthRollup mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx.
 type StoragenodeBandwidthRollup struct {
-	NodeID        storj.NodeID
+	NodeID        storxnetwork.NodeID
 	IntervalStart time.Time
 	Action        uint
 	Settled       uint64
@@ -39,7 +39,7 @@ type StoragenodeBandwidthRollup struct {
 // Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx.
 type Rollup struct {
 	ID              int64
-	NodeID          storj.NodeID
+	NodeID          storxnetwork.NodeID
 	StartTime       time.Time
 	PutTotal        int64
 	GetTotal        int64
@@ -54,12 +54,12 @@ type Rollup struct {
 type BucketInfo struct {
 	Name      string
 	UserAgent []byte
-	Placement *storj.PlacementConstraint
+	Placement *storxnetwork.PlacementConstraint
 }
 
 // StorageNodePeriodUsage represents a statement for a node for a compensation period.
 type StorageNodePeriodUsage struct {
-	NodeID         storj.NodeID
+	NodeID         storxnetwork.NodeID
 	AtRestTotal    float64
 	GetTotal       int64
 	PutTotal       int64
@@ -70,7 +70,7 @@ type StorageNodePeriodUsage struct {
 
 // StorageNodeUsage is node at rest space usage over a period of time.
 type StorageNodeUsage struct {
-	NodeID      storj.NodeID
+	NodeID      storxnetwork.NodeID
 	StorageUsed float64
 
 	Timestamp       time.Time
@@ -79,7 +79,7 @@ type StorageNodeUsage struct {
 
 // NodePaymentInfo contains data for a node payment information.
 type NodePaymentInfo struct {
-	NodeID storj.NodeID
+	NodeID storxnetwork.NodeID
 
 	AtRestTotal    float64
 	GetRepairTotal int64
@@ -167,13 +167,13 @@ type BucketUsage struct {
 	BucketName string    `json:"bucketName"`
 	UserAgent  []byte    `json:"-"`
 
-	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultPlacement storxnetwork.PlacementConstraint `json:"defaultPlacement"`
 	Location         string                    `json:"location"`
 
 	Versioning            buckets.Versioning  `json:"versioning"`
 	ObjectLockEnabled     bool                `json:"objectLockEnabled"`
 	EventingEnabled       bool                `json:"eventingEnabled"`
-	DefaultRetentionMode  storj.RetentionMode `json:"defaultRetentionMode"`
+	DefaultRetentionMode  storxnetwork.RetentionMode `json:"defaultRetentionMode"`
 	DefaultRetentionDays  *int                `json:"defaultRetentionDays"`
 	DefaultRetentionYears *int                `json:"defaultRetentionYears"`
 
@@ -220,7 +220,7 @@ type BucketUsageRollup struct {
 	ProjectID  uuid.UUID `json:"projectID"`
 	BucketName string    `json:"bucketName"`
 
-	Placement storj.PlacementConstraint `json:"-"`
+	Placement storxnetwork.PlacementConstraint `json:"-"`
 	UserAgent []byte                    `json:"-"`
 
 	TotalStoredData float64 `json:"totalStoredData"`
@@ -244,7 +244,7 @@ type ProjectReportItem struct {
 	ProjectName     string
 	ProductName     string
 
-	Placement storj.PlacementConstraint
+	Placement storxnetwork.PlacementConstraint
 	UserAgent []byte
 
 	BucketName        string
@@ -278,7 +278,7 @@ type Usage struct {
 // BucketLocationWithEntitlements represents a bucket location with its placement and project entitlements.
 type BucketLocationWithEntitlements struct {
 	Location         metabase.BucketLocation
-	Placement        storj.PlacementConstraint
+	Placement        storxnetwork.PlacementConstraint
 	ProjectFeatures  entitlements.ProjectFeatures
 	HasPreviousTally bool
 }
@@ -288,7 +288,7 @@ type BucketLocationWithEntitlements struct {
 // architecture: Database
 type StoragenodeAccounting interface {
 	// SaveTallies records tallies of data at rest
-	SaveTallies(ctx context.Context, latestTally time.Time, nodes []storj.NodeID, tallies []float64) error
+	SaveTallies(ctx context.Context, latestTally time.Time, nodes []storxnetwork.NodeID, tallies []float64) error
 	// GetTallies retrieves all tallies
 	GetTallies(ctx context.Context) ([]*StoragenodeStorageTally, error)
 	// GetTalliesSince retrieves all tallies since latestRollup
@@ -304,7 +304,7 @@ type StoragenodeAccounting interface {
 	// QueryStorageNodePeriodUsage returns accounting statements for nodes for a given compensation period
 	QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) ([]StorageNodePeriodUsage, error)
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
-	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
+	QueryStorageNodeUsage(ctx context.Context, nodeID storxnetwork.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time, batchSize int) error
 	// ArchiveRollupsBefore archives rollups older than a given time and returns num storagenode and bucket bandwidth rollups archived.
@@ -334,7 +334,7 @@ type ProjectAccounting interface {
 	GetPreviouslyNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) ([]metabase.BucketLocation, error)
 	// GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange returns a map of bucket locations to their placement
 	// for buckets within the given range whose most recent tally does not represent empty usage.
-	GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (map[metabase.BucketLocation]storj.PlacementConstraint, error)
+	GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (map[metabase.BucketLocation]storxnetwork.PlacementConstraint, error)
 	// GetBucketsWithEntitlementsInRange returns all bucket locations within the given range along with their placement and entitlements.
 	// The HasPreviousTally field indicates whether each bucket had a non-empty tally in the past.
 	GetBucketsWithEntitlementsInRange(ctx context.Context, from, to metabase.BucketLocation, projectScopePrefix string) ([]BucketLocationWithEntitlements, error)

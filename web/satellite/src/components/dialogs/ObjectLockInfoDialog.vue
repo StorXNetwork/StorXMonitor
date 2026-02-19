@@ -151,7 +151,7 @@ const configStore = useConfigStore();
 
 const model = defineModel<boolean>({ default: false });
 
-const docsLink = 'https://storj.dev/dcs/api/s3/object-lock';
+const docsLink = 'https://storxnetwork.dev/dcs/api/s3/object-lock';
 
 function trackGoToDocs(): void {
     analyticsStore.pageVisit(docsLink, PageVisitSource.DOCS);

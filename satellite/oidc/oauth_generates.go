@@ -11,9 +11,9 @@ import (
 
 	"github.com/go-oauth2/oauth2/v4"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // UUIDAuthorizeGenerate generates an auth code using Storj's uuid.
@@ -84,7 +84,7 @@ func (a *MacaroonAccessGenerate) apiKeyForProject(ctx context.Context, data *oau
 	return key, nil
 }
 
-// Token issues access and refresh tokens that are backed by storj's Macaroons. This expects several scopes to be set on
+// Token issues access and refresh tokens that are backed by storxnetwork's Macaroons. This expects several scopes to be set on
 // the request. The following describes the available scopes supported by the macaroon style of access token.
 //
 //	project:<projectId>  - required, scopes operations to a single project (one)

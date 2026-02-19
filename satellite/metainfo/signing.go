@@ -6,9 +6,9 @@ package metainfo
 import (
 	"context"
 
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/storj/satellite/internalpb"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 )
 
 // SignStreamID signs the stream ID using the specified signer.

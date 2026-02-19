@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // ContainmentSyncChore is a chore to update the set of contained nodes in the

@@ -17,21 +17,21 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/memory"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/storj"
-	"storj.io/storj/cmd/storagenode/internalcmd"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/console/consoleserver"
-	"storj.io/storj/storagenode/operator"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console/consoleserver"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/operator"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // StorageNode contains all the processes needed to run a full StorageNode setup.
@@ -47,13 +47,13 @@ func (system *StorageNode) Label() string { return system.Name }
 // URL returns the node url as a string.
 func (system *StorageNode) URL() string { return system.NodeURL().String() }
 
-// NodeURL returns the storj.NodeURL.
-func (system *StorageNode) NodeURL() storj.NodeURL {
-	return storj.NodeURL{ID: system.Peer.ID(), Address: system.Peer.Addr()}
+// NodeURL returns the storxnetwork.NodeURL.
+func (system *StorageNode) NodeURL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: system.Peer.ID(), Address: system.Peer.Addr()}
 }
 
 // newStorageNodes initializes storage nodes.
-func (planet *Planet) newStorageNodes(ctx context.Context, count int, whitelistedSatellites storj.NodeURLs) (_ []*StorageNode, err error) {
+func (planet *Planet) newStorageNodes(ctx context.Context, count int, whitelistedSatellites storxnetwork.NodeURLs) (_ []*StorageNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var sources []trust.Source

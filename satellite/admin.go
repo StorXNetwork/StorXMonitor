@@ -14,26 +14,26 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/admin"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/restapikeys"
-	"storj.io/storj/satellite/console/restkeys"
-	"storj.io/storj/satellite/developer"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/admin"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restkeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Admin is the satellite core process that runs chores.
@@ -388,4 +388,4 @@ func (peer *Admin) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Admin) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Admin) ID() storxnetwork.NodeID { return peer.Identity.ID }

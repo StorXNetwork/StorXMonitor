@@ -15,55 +15,55 @@ import (
 	"github.com/spacemonkeygo/monkit/v3/environment"
 	"go.uber.org/zap"
 
-	"storj.io/common/debug"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/version/checker"
-	sdebug "storj.io/storj/shared/debug"
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/modular/profiler"
-	"storj.io/storj/shared/modular/tracing"
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/cleanup"
-	"storj.io/storj/storagenode/collector"
-	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/console/consoleserver"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/hashstore"
-	"storj.io/storj/storagenode/healthcheck"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/nodestats"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/operator"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/payouts/estimatedpayouts"
-	"storj.io/storj/storagenode/piecemigrate"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/piecestore/signaturecheck"
-	"storj.io/storj/storagenode/piecestore/usedserials"
-	"storj.io/storj/storagenode/preflight"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/retain"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/satstore"
-	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/trust"
-	snversion "storj.io/storj/storagenode/version"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	sdebug "github.com/StorXNetwork/StorXMonitor/shared/debug"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/profiler"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/tracing"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/cleanup"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/collector"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console/consoleserver"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/healthcheck"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/nodestats"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/operator"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts/estimatedpayouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecemigrate"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/signaturecheck"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/preflight"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	snversion "github.com/StorXNetwork/StorXMonitor/storagenode/version"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // RawBlobs is an interface to save the original blob implementation to mud.
@@ -153,7 +153,7 @@ func Module(ball *mud.Ball) {
 
 		versionCheckInterval := 12 * time.Hour
 
-		mud.Provide[*snversion.Chore](ball, func(log *zap.Logger, checker *checker.Service, notificationsService *notifications.Service, nodeID storj.NodeID) *snversion.Chore {
+		mud.Provide[*snversion.Chore](ball, func(log *zap.Logger, checker *checker.Service, notificationsService *notifications.Service, nodeID storxnetwork.NodeID) *snversion.Chore {
 			return snversion.NewChore(log, checker, notificationsService, nodeID, versionCheckInterval)
 		})
 
@@ -205,7 +205,7 @@ func Module(ball *mud.Ball) {
 	}
 
 	{ // setup contact service
-		mud.Provide[contact.NodeInfo](ball, func(ctx context.Context, log *zap.Logger, id storj.NodeID, contactConfig contact.Config, operator operator.Config, versionInfo version.Info, server *server.Server, state *satstore.SatelliteStore, hashstoreConfig hashstore.Config) (contact.NodeInfo, error) {
+		mud.Provide[contact.NodeInfo](ball, func(ctx context.Context, log *zap.Logger, id storxnetwork.NodeID, contactConfig contact.Config, operator operator.Config, versionInfo version.Info, server *server.Server, state *satstore.SatelliteStore, hashstoreConfig hashstore.Config) (contact.NodeInfo, error) {
 			externalAddress := contactConfig.ExternalAddress
 			if externalAddress == "" {
 				externalAddress = server.Addr().String()
@@ -455,7 +455,7 @@ type HttpFallbackHandler struct {
 func ReportHashstoreWriteToNew(log *zap.Logger, store *satstore.SatelliteStore) func() bool {
 	return func() bool {
 		var res bool
-		err := store.Range(func(id storj.NodeID, bytes []byte) error {
+		err := store.Range(func(id storxnetwork.NodeID, bytes []byte) error {
 			var ms piecestore.MigrationState
 			err := json.Unmarshal(bytes, &ms)
 			if err != nil {

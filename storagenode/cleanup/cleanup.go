@@ -9,11 +9,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/collector"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/collector"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
 )
 
 // Config is the config for the Cleanup.

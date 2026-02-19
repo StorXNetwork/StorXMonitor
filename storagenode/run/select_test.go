@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/modular/cli"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/cli"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 func TestSetupModule(t *testing.T) {

@@ -14,12 +14,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var (
@@ -70,7 +70,7 @@ type Config struct {
 
 // DiskVerification is an interface for verifying disk storage healthiness during startup.
 type DiskVerification interface {
-	VerifyStorageDirWithTimeout(ctx context.Context, id storj.NodeID, timeout time.Duration) error
+	VerifyStorageDirWithTimeout(ctx context.Context, id storxnetwork.NodeID, timeout time.Duration) error
 
 	CheckWritabilityWithTimeout(ctx context.Context, timeout time.Duration) error
 }

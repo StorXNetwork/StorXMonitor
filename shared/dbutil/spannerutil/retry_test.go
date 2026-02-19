@@ -13,12 +13,12 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/shared/dbutil/dbtest"
-	"storj.io/storj/shared/dbutil/tempdb"
-	"storj.io/storj/shared/dbutil/txutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 func TestQueryRetry(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/dbutil/txutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // Error is the default migrate errs class.

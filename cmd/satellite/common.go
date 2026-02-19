@@ -9,8 +9,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 func checkDBVersions(ctx context.Context, log *zap.Logger, cfg Satellite, satelliteDB satellite.DB, metabaseDB *metabase.DB) error {

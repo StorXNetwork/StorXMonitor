@@ -181,9 +181,9 @@ function formatDate(date?: Date): string {
 }
 
 function goToDocs() {
-    analyticsStore.pageVisit('https://storj.dev/dcs/api/s3/object-lock', PageVisitSource.DOCS);
+    analyticsStore.pageVisit('https://storxnetwork.dev/dcs/api/s3/object-lock', PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-    window.open('https://storj.dev/dcs/api/s3/object-lock', '_blank', 'noreferrer');
+    window.open('https://storxnetwork.dev/dcs/api/s3/object-lock', '_blank', 'noreferrer');
 }
 
 watch(innerContent, comp => !comp && emit('contentRemoved'));

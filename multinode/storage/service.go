@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -42,7 +42,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes *nodes.Service) *Servi
 }
 
 // Usage retrieves node's daily storage usage for provided interval.
-func (service *Service) Usage(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ Usage, err error) {
+func (service *Service) Usage(ctx context.Context, nodeID storxnetwork.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -59,7 +59,7 @@ func (service *Service) Usage(ctx context.Context, nodeID storj.NodeID, from, to
 }
 
 // UsageSatellite retrieves node's daily storage usage for provided interval and satellite.
-func (service *Service) UsageSatellite(ctx context.Context, nodeID, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
+func (service *Service) UsageSatellite(ctx context.Context, nodeID, satelliteID storxnetwork.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -111,7 +111,7 @@ func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ U
 }
 
 // TotalUsageSatellite retrieves aggregated daily storage usage for provided interval and satellite.
-func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
+func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodesList, err := service.nodes.List(ctx)
@@ -168,7 +168,7 @@ func (service *Service) TotalDiskSpace(ctx context.Context) (totalDiskSpace Disk
 }
 
 // DiskSpace returns all info about concrete storagenode disk space usage.
-func (service *Service) DiskSpace(ctx context.Context, nodeID storj.NodeID) (_ DiskSpace, err error) {
+func (service *Service) DiskSpace(ctx context.Context, nodeID storxnetwork.NodeID) (_ DiskSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -181,7 +181,7 @@ func (service *Service) DiskSpace(ctx context.Context, nodeID storj.NodeID) (_ D
 
 // dialDiskSpace dials node and retrieves all info about concrete storagenode disk space usage.
 func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (diskSpace DiskSpace, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -219,7 +219,7 @@ func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (dis
 func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -261,10 +261,10 @@ func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to
 }
 
 // dialUsageSatellite dials node and retrieves it's storage usage for provided interval and satellite.
-func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
+func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node, satelliteID storxnetwork.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})

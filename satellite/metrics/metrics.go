@@ -4,12 +4,12 @@
 package metrics
 
 import (
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // PlacementsMetrics tracks metrics related to object and segments by placement.
 //
-// storj.PlacmentConstraints are the indexes of the slice.
+// storxnetwork.PlacmentConstraints are the indexes of the slice.
 type PlacementsMetrics []Metrics
 
 // Reset resets all the metrics to zero.
@@ -38,9 +38,9 @@ func (metrics *PlacementsMetrics) Aggregate(partial PlacementsMetrics) {
 }
 
 // Read reads the metrics for all the placements and calls cb for each placement and its metrics.
-func (metrics *PlacementsMetrics) Read(cb func(_ storj.PlacementConstraint, _ Metrics)) {
+func (metrics *PlacementsMetrics) Read(cb func(_ storxnetwork.PlacementConstraint, _ Metrics)) {
 	for i, pm := range *metrics {
-		cb(storj.PlacementConstraint(i), pm)
+		cb(storxnetwork.PlacementConstraint(i), pm)
 	}
 }
 

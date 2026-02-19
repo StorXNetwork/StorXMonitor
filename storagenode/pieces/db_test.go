@@ -11,30 +11,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestV0PieceInfo(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		pieceinfos := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
-		satellite2 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion())
+		satellite2 := testidentity.MustPregeneratedSignedIdentity(2, storxnetwork.LatestIDVersion())
 
-		uplink0 := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
-		uplink1 := testidentity.MustPregeneratedSignedIdentity(4, storj.LatestIDVersion())
-		uplink2 := testidentity.MustPregeneratedSignedIdentity(5, storj.LatestIDVersion())
+		uplink0 := testidentity.MustPregeneratedSignedIdentity(3, storxnetwork.LatestIDVersion())
+		uplink1 := testidentity.MustPregeneratedSignedIdentity(4, storxnetwork.LatestIDVersion())
+		uplink2 := testidentity.MustPregeneratedSignedIdentity(5, storxnetwork.LatestIDVersion())
 
-		pieceid0 := storj.NewPieceID()
+		pieceid0 := storxnetwork.NewPieceID()
 
 		now := time.Now()
 

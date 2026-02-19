@@ -4,9 +4,9 @@
 package root
 
 import (
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Api is a subcommand to start only API services.

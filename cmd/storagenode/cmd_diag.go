@@ -15,12 +15,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/memory"
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type diagCfg struct {
@@ -74,7 +74,7 @@ func cmdDiag(cmd *cobra.Command, cfg *diagCfg) (err error) {
 		return err
 	}
 
-	satellites := storj.NodeIDList{}
+	satellites := storxnetwork.NodeIDList{}
 	for id := range summaries {
 		satellites = append(satellites, id)
 	}

@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 const infoMaxAge = time.Minute

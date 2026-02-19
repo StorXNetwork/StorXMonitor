@@ -12,15 +12,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
-	"storj.io/storj/satellite/geoip"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/satellite/geoip"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.
@@ -60,25 +60,25 @@ type DB interface {
 	// GetOnlineNodesForAuditAndRepair returns a map of nodes for the supplied nodeIDs.
 	// The return value contains necessary information to create audit and repair orders as well as
 	// 	nodes' current reputation status.
-	GetOnlineNodesForAuditAndRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
+	GetOnlineNodesForAuditAndRepair(ctx context.Context, nodeIDs []storxnetwork.NodeID, onlineWindow time.Duration) (map[storxnetwork.NodeID]*NodeReputation, error)
 	// GetAllOnlineNodesForRepair returns a map of all the online and valid nodes for upload repaired
 	// pieces.
 	// The return value contains necessary information to create repair orders as well as nodes'
 	// current reputation status.
-	GetAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
+	GetAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (map[storxnetwork.NodeID]*NodeReputation, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error)
 	// SelectAllStorageNodesDownload returns a nodes that are ready for downloading
 	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error)
 	// Get looks up the node by nodeID
-	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
+	Get(ctx context.Context, nodeID storxnetwork.NodeID) (*NodeDossier, error)
 	// GetParticipatingNodes gets records for nodes that have not exited or disqualified
 	// The onlineWindow is used to determine whether each node is marked as Online.
 	// The results are returned in a slice of the same length as the input nodeIDs,
 	// and each index of the returned list corresponds to the same index in nodeIDs.
 	// If a node is not known, or is disqualified or exited, the corresponding returned
 	// SelectedNode will have a zero value.
-	GetParticipatingNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
+	GetParticipatingNodes(ctx context.Context, nodeIDs storxnetwork.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// GetAllParticipatingNodes returns all known participating nodes (this includes all known nodes
 	// // excluding nodes that have been disqualified or gracefully exited).
 	// GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
@@ -89,66 +89,66 @@ type DB interface {
 	GetNodeStats(ctx context.Context, onlineWindow time.Duration) (stats *AggregateNodeStats, err error)
 	GetAllParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
-	UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error
+	UpdateReputation(ctx context.Context, id storxnetwork.NodeID, request ReputationUpdate) error
 	// UpdateLastContactSuccess updates the last_contact_success timestamp for a node.
 	// This is used to manually set a node's online/offline status.
-	UpdateLastContactSuccess(ctx context.Context, nodeID storj.NodeID, timestamp time.Time) error
+	UpdateLastContactSuccess(ctx context.Context, nodeID storxnetwork.NodeID, timestamp time.Time) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
-	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
+	UpdateNodeInfo(ctx context.Context, node storxnetwork.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 	// SetNodeContained updates the contained field for the node record.
-	SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error)
+	SetNodeContained(ctx context.Context, node storxnetwork.NodeID, contained bool) (err error)
 	// SetAllContainedNodes updates the contained field for all nodes, as necessary.
-	SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error)
+	SetAllContainedNodes(ctx context.Context, containedNodes []storxnetwork.NodeID) (err error)
 
 	// ActiveNodesPieceCounts returns a map of node IDs to piece counts from the db.
 	// Returns only pieces for nodes that are not disqualified.
-	ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
+	ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storxnetwork.NodeID]int64, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
-	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error)
+	UpdatePieceCounts(ctx context.Context, pieceCounts map[storxnetwork.NodeID]int64) (err error)
 
 	// UpdateExitStatus is used to update a node's graceful exit status.
 	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (_ *NodeDossier, err error)
 	// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
 	GetExitingNodes(ctx context.Context) (exitingNodes []*ExitStatus, err error)
 	// GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
-	GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error)
+	GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storxnetwork.NodeIDList, err error)
 	// GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
-	GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error)
+	GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storxnetwork.NodeIDList, err error)
 	// GetExitStatus returns a node's graceful exit status.
-	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
+	GetExitStatus(ctx context.Context, nodeID storxnetwork.NodeID) (exitStatus *ExitStatus, err error)
 
 	// AccountingNodeInfo gets records for all specified nodes for accounting.
-	AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]NodeAccountingInfo, err error)
+	AccountingNodeInfo(ctx context.Context, nodeIDs storxnetwork.NodeIDList) (_ map[storxnetwork.NodeID]NodeAccountingInfo, err error)
 
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
+	DisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
 
 	// GetOfflineNodesForEmail gets offline nodes in need of an email.
-	GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error)
+	GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storxnetwork.NodeID]string, err error)
 	// UpdateLastOfflineEmail updates last_offline_email for a list of nodes.
-	UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error)
+	UpdateLastOfflineEmail(ctx context.Context, nodeIDs storxnetwork.NodeIDList, timestamp time.Time) (err error)
 
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
-	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error)
+	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storxnetwork.NodeID]string, count int, err error)
 
 	// TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
-	TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error)
 	// TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-	TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
+	TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error)
 
 	// TestAddNodes adds or updates nodes in the database.
 	TestAddNodes(ctx context.Context, nodes []*NodeDossier) (err error)
 	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
-	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
+	TestVetNode(ctx context.Context, nodeID storxnetwork.NodeID) (vettedTime *time.Time, err error)
 	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
-	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	TestUnvetNode(ctx context.Context, nodeID storxnetwork.NodeID) (err error)
 	// TestSuspendNodeOffline directly sets a node's offline_suspended timestamp to make testing easier
-	TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	TestSuspendNodeOffline(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error)
 	// TestSetNodeCountryCode sets node country code.
-	TestSetNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
+	TestSetNodeCountryCode(ctx context.Context, nodeID storxnetwork.NodeID, countryCode string) (err error)
 	// TestUpdateCheckInDirectUpdate tries to update a node info directly. Returns true if it succeeded, false if there were no node with the provided (used for testing).
 	TestUpdateCheckInDirectUpdate(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error)
 	// OneTimeFixLastNets updates the last_net values for all node records to be equal to their
@@ -164,10 +164,10 @@ type DB interface {
 	UpdateNodeTags(ctx context.Context, tags nodeselection.NodeTags) error
 
 	// GetNodeTags returns all nodes for a specific node.
-	GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error)
+	GetNodeTags(ctx context.Context, id storxnetwork.NodeID) (nodeselection.NodeTags, error)
 
 	// GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
-	GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error)
+	GetLastIPPortByNodeTagNames(ctx context.Context, ids storxnetwork.NodeIDList, tagName []string) (lastIPPorts map[storxnetwork.NodeID]*string, err error)
 
 	// GetNodesByEmail returns all nodes with the specified operator email address.
 	GetNodesByEmail(ctx context.Context, options GetNodesByEmailOptions) ([]*NodeDossier, *NodesByEmailCursor, error)
@@ -201,7 +201,7 @@ const (
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
 type NodeCheckInInfo struct {
-	NodeID                  storj.NodeID
+	NodeID                  storxnetwork.NodeID
 	Address                 *pb.NodeAddress
 	LastNet                 string
 	LastIPPort              string
@@ -224,16 +224,16 @@ type InfoResponse struct {
 // FindStorageNodesRequest defines easy request parameters.
 type FindStorageNodesRequest struct {
 	RequestedCount  int
-	ExcludedIDs     []storj.NodeID
+	ExcludedIDs     []storxnetwork.NodeID
 	AlreadySelected []*nodeselection.SelectedNode
-	Placement       storj.PlacementConstraint
-	Requester       storj.NodeID
+	Placement       storxnetwork.PlacementConstraint
+	Requester       storxnetwork.NodeID
 }
 
 // NodeCriteria are the requirements for selecting nodes.
 type NodeCriteria struct {
 	FreeDisk           int64
-	ExcludedIDs        []storj.NodeID
+	ExcludedIDs        []storxnetwork.NodeID
 	ExcludedNetworks   []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
 	MinimumVersion     string   // semver or empty
 	OnlineWindow       time.Duration
@@ -261,7 +261,7 @@ type ReputationUpdate struct {
 
 // ExitStatus is used for reading graceful exit status.
 type ExitStatus struct {
-	NodeID              storj.NodeID
+	NodeID              storxnetwork.NodeID
 	ExitInitiatedAt     *time.Time
 	ExitLoopCompletedAt *time.Time
 	ExitFinishedAt      *time.Time
@@ -270,7 +270,7 @@ type ExitStatus struct {
 
 // ExitStatusRequest is used to update a node's graceful exit status.
 type ExitStatusRequest struct {
-	NodeID              storj.NodeID
+	NodeID              storxnetwork.NodeID
 	ExitInitiatedAt     time.Time
 	ExitLoopCompletedAt time.Time
 	ExitFinishedAt      time.Time
@@ -324,7 +324,7 @@ type AggregateNodeStats struct {
 
 // NodeLastContact contains the ID, address, and timestamp.
 type NodeLastContact struct {
-	URL                storj.NodeURL
+	URL                storxnetwork.NodeURL
 	LastIPPort         string
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
@@ -332,7 +332,7 @@ type NodeLastContact struct {
 
 // NodeReputation is used as a result for creating orders limits for audits.
 type NodeReputation struct {
-	ID         storj.NodeID
+	ID         storxnetwork.NodeID
 	Address    *pb.NodeAddress
 	LastNet    string
 	LastIPPort string
@@ -363,7 +363,7 @@ type Service struct {
 	DownloadSelectionCache *DownloadSelectionCache
 	LastNetFunc            LastNetFunc
 	placementDefinitions   nodeselection.PlacementDefinitions
-	placementLookup        map[string]storj.PlacementConstraint
+	placementLookup        map[string]storxnetwork.PlacementConstraint
 }
 
 // LastNetFunc is the type of a function that will be used to derive a network from an ip and port.
@@ -416,7 +416,7 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 		return nil, errs.Wrap(err)
 	}
 
-	placementLookup := make(map[string]storj.PlacementConstraint, len(placements))
+	placementLookup := make(map[string]storxnetwork.PlacementConstraint, len(placements))
 	for _, placement := range placements {
 		placementLookup[placement.Name] = placement.ID
 	}
@@ -454,7 +454,7 @@ func (service *Service) Close() error {
 }
 
 // Get looks up the provided nodeID from the overlay.
-func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {
+func (service *Service) Get(ctx context.Context, nodeID storxnetwork.NodeID) (_ *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if nodeID.IsZero() {
 		return nil, ErrEmptyNode
@@ -463,19 +463,19 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 }
 
 // CachedGetOnlineNodesForGet returns a map of nodes from the download selection cache from the suppliedIDs.
-func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*nodeselection.SelectedNode, err error) {
+func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs []storxnetwork.NodeID) (_ map[storxnetwork.NodeID]*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
 }
 
 // CachedGet returns a node from the download selection cache from the supplied nodeID.
-func (service *Service) CachedGet(ctx context.Context, nodeID storj.NodeID) (_ *nodeselection.SelectedNode, err error) {
+func (service *Service) CachedGet(ctx context.Context, nodeID storxnetwork.NodeID) (_ *nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.DownloadSelectionCache.GetNode(ctx, nodeID)
 }
 
 // GetOnlineNodesForAudit returns a map of nodes for the supplied nodeIDs.
-func (service *Service) GetOnlineNodesForAudit(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
+func (service *Service) GetOnlineNodesForAudit(ctx context.Context, nodeIDs []storxnetwork.NodeID) (_ map[storxnetwork.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetOnlineNodesForAuditAndRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
@@ -484,8 +484,8 @@ func (service *Service) GetOnlineNodesForAudit(ctx context.Context, nodeIDs []st
 // GetOnlineNodesForRepair returns a map of nodes for the supplied nodeIDs.
 // The passed onlineWindow is used to determine whether each node is marked as Online.
 func (service *Service) GetOnlineNodesForRepair(
-	ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration,
-) (_ map[storj.NodeID]*NodeReputation, err error) {
+	ctx context.Context, nodeIDs []storxnetwork.NodeID, onlineWindow time.Duration,
+) (_ map[storxnetwork.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetOnlineNodesForAuditAndRepair(ctx, nodeIDs, onlineWindow)
@@ -494,14 +494,14 @@ func (service *Service) GetOnlineNodesForRepair(
 // GetAllOnlineNodesForRepair returns a map of online and valid nodes to upload repaired pieces.
 // The passed onlineWindow is used to determine whether each node is marked as Online.
 func (service *Service) GetAllOnlineNodesForRepair(
-	ctx context.Context, onlineWindow time.Duration) (_ map[storj.NodeID]*NodeReputation, err error) {
+	ctx context.Context, onlineWindow time.Duration) (_ map[storxnetwork.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetAllOnlineNodesForRepair(ctx, onlineWindow)
 }
 
 // GetNodeIPsFromPlacement returns a map of node ip:port for the supplied nodeIDs. Results are filtered out by placement.
-func (service *Service) GetNodeIPsFromPlacement(ctx context.Context, nodeIDs []storj.NodeID, placement storj.PlacementConstraint) (_ map[storj.NodeID]string, err error) {
+func (service *Service) GetNodeIPsFromPlacement(ctx context.Context, nodeIDs []storxnetwork.NodeID, placement storxnetwork.PlacementConstraint) (_ map[storxnetwork.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.DownloadSelectionCache.GetNodeIPsFromPlacement(ctx, nodeIDs, placement)
 }
@@ -524,7 +524,7 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 	selectedNodes, err := service.UploadSelectionCache.GetNodes(ctx, req)
 	if len(selectedNodes) < req.RequestedCount {
 
-		var alreadySelectedIDs []storj.NodeID
+		var alreadySelectedIDs []storxnetwork.NodeID
 		for _, e := range req.AlreadySelected {
 			alreadySelectedIDs = append(alreadySelectedIDs, e.ID)
 		}
@@ -559,9 +559,9 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 
 	count = len(nodes)
 
-	var lastIPPorts map[storj.NodeID]*string
+	var lastIPPorts map[storxnetwork.NodeID]*string
 	if len(service.nodeTagsIPPortEmails) > 0 {
-		var nodeIDs storj.NodeIDList
+		var nodeIDs storxnetwork.NodeIDList
 		for id := range nodes {
 			nodeIDs = append(nodeIDs, id)
 		}
@@ -571,7 +571,7 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 		}
 	}
 
-	var successful storj.NodeIDList
+	var successful storxnetwork.NodeIDList
 	for id, email := range nodes {
 		lastIPPort := lastIPPorts[id]
 		_, err = service.nodeEvents.Insert(ctx, email, lastIPPort, id, nodeevents.Offline)
@@ -597,7 +597,7 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 // and each index of the returned list corresponds to the same index in nodeIDs.
 // If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
 // will have a zero value.
-func (service *Service) GetParticipatingNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
+func (service *Service) GetParticipatingNodes(ctx context.Context, nodeIDs storxnetwork.NodeIDList) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetParticipatingNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
@@ -611,7 +611,7 @@ func (service *Service) GetParticipatingNodes(ctx context.Context, nodeIDs storj
 // If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
 // will have a zero value.
 func (service *Service) GetParticipatingNodesForRepair(
-	ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow time.Duration,
+	ctx context.Context, nodeIDs storxnetwork.NodeIDList, onlineWindow time.Duration,
 ) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -637,7 +637,7 @@ func (service *Service) GetAllParticipatingNodesForRepair(
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.
-func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, email string, request ReputationUpdate, reputationChanges []nodeevents.Type) (err error) {
+func (service *Service) UpdateReputation(ctx context.Context, id storxnetwork.NodeID, email string, request ReputationUpdate, reputationChanges []nodeevents.Type) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = service.db.UpdateReputation(ctx, id, request)
@@ -653,7 +653,7 @@ func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, e
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
-func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
+func (service *Service) UpdateNodeInfo(ctx context.Context, node storxnetwork.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
@@ -663,7 +663,7 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 // database time, if it is not already set. If `contained` is false, the
 // contained field in the record is set to NULL. All other fields are left
 // alone.
-func (service *Service) SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error) {
+func (service *Service) SetNodeContained(ctx context.Context, node storxnetwork.NodeID, contained bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.SetNodeContained(ctx, node, contained)
@@ -812,7 +812,7 @@ func (service *Service) DQNodesLastSeenBefore(ctx context.Context, cutoff time.T
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason DisqualificationReason) (err error) {
+func (service *Service) DisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, reason DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	email, err := service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
 	if err != nil {
@@ -845,18 +845,18 @@ func (service *Service) UpdateNodeTags(ctx context.Context, tags []nodeselection
 }
 
 // GetNodeTags returns the node tags of a node.
-func (service *Service) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error) {
+func (service *Service) GetNodeTags(ctx context.Context, id storxnetwork.NodeID) (nodeselection.NodeTags, error) {
 	return service.db.GetNodeTags(ctx, id)
 }
 
 // GetLocationFromPlacement returns the location identifier of the bucket.
 // It comes from the name of the placement (or `nodeselection.Location` in case of legacy config).
-func (service *Service) GetLocationFromPlacement(placement storj.PlacementConstraint) string {
+func (service *Service) GetLocationFromPlacement(placement storxnetwork.PlacementConstraint) string {
 	return service.placementDefinitions[placement].Name
 }
 
 // GetPlacementConstraintFromName returns the placement constraint given the placement name.
-func (service *Service) GetPlacementConstraintFromName(name string) (id storj.PlacementConstraint, exists bool) {
+func (service *Service) GetPlacementConstraintFromName(name string) (id storxnetwork.PlacementConstraint, exists bool) {
 	id, exists = service.placementLookup[name]
 	return id, exists
 }
@@ -920,7 +920,7 @@ func (service *Service) TestAddNodes(ctx context.Context, nodes []*NodeDossier) 
 }
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
-func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+func (service *Service) TestVetNode(ctx context.Context, nodeID storxnetwork.NodeID) (vettedTime *time.Time, err error) {
 	vettedTime, err = service.db.TestVetNode(ctx, nodeID)
 	service.log.Warn("node vetted", zap.Stringer("node_id", nodeID), zap.Stringer("vetted_time", vettedTime))
 	if err != nil {
@@ -936,7 +936,7 @@ func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (v
 }
 
 // TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
-func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (service *Service) TestUnvetNode(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	err = service.db.TestUnvetNode(ctx, nodeID)
 	if err != nil {
 		service.log.Warn("error unvetting node", zap.Stringer("node_id", nodeID), zap.Error(err))
@@ -951,7 +951,7 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 }
 
 // TestSetNodeCountryCode directly sets a node's vetted_at timestamp to null to make testing easier.
-func (service *Service) TestSetNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+func (service *Service) TestSetNodeCountryCode(ctx context.Context, nodeID storxnetwork.NodeID, countryCode string) (err error) {
 	err = service.db.TestSetNodeCountryCode(ctx, nodeID, countryCode)
 	if err != nil {
 		service.log.Warn("error updating node", zap.Stringer("node_id", nodeID), zap.Error(err))
@@ -961,7 +961,7 @@ func (service *Service) TestSetNodeCountryCode(ctx context.Context, nodeID storj
 	return nil
 }
 
-func (service *Service) insertReputationNodeEvents(ctx context.Context, email string, id storj.NodeID, repEvents []nodeevents.Type) {
+func (service *Service) insertReputationNodeEvents(ctx context.Context, email string, id storxnetwork.NodeID, repEvents []nodeevents.Type) {
 	defer mon.Task()(&ctx)(nil)
 
 	for _, event := range repEvents {

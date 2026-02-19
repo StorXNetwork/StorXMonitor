@@ -9,7 +9,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/common/pb"
+	"github.com/StorXNetwork/common/pb"
 )
 
 func pieceHashAndOrderLimitFromReader(reader PieceReader) (_ pb.PieceHash, _ pb.OrderLimit, err error) {

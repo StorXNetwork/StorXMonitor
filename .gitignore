@@ -38,7 +38,7 @@ resource_*.syso
 
 .build
 
-# storj-up automatically generates these files and should not be commit
+# storxnetwork-up automatically generates these files and should not be commit
 /docker-compose.yaml
 /.history/
 dist

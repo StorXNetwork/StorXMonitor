@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Users exposes methods to manage Admin table in database.

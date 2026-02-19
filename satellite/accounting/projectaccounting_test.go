@@ -11,24 +11,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 func pauseAccountingChores(planet *testplanet.Planet) {
@@ -529,7 +529,7 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			storedBucket, err := db.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 			require.NoError(t, err)
 			require.Equal(t, buckets.VersioningEnabled, storedBucket.Versioning)
-			require.Equal(t, storj.NoRetention, storedBucket.ObjectLock.DefaultRetentionMode)
+			require.Equal(t, storxnetwork.NoRetention, storedBucket.ObjectLock.DefaultRetentionMode)
 			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionDays)
 			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionYears)
 
@@ -547,7 +547,7 @@ func TestGetSingleBucketTotal(t *testing.T) {
 				Configuration: &pb.ObjectLockConfiguration{
 					Enabled: true,
 					DefaultRetention: &pb.DefaultRetention{
-						Mode: pb.Retention_Mode(storj.GovernanceMode),
+						Mode: pb.Retention_Mode(storxnetwork.GovernanceMode),
 						Duration: &pb.DefaultRetention_Years{
 							Years: 1,
 						},
@@ -562,11 +562,11 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			storedBucket, err = db.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 			require.NoError(t, err)
 			require.True(t, storedBucket.ObjectLock.Enabled)
-			require.Equal(t, storj.GovernanceMode, storedBucket.ObjectLock.DefaultRetentionMode)
+			require.Equal(t, storxnetwork.GovernanceMode, storedBucket.ObjectLock.DefaultRetentionMode)
 			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionDays)
 			require.Equal(t, 1, storedBucket.ObjectLock.DefaultRetentionYears)
 
-			euPlacement := storj.PlacementConstraint(1)
+			euPlacement := storxnetwork.PlacementConstraint(1)
 			storedBucket.Placement = euPlacement
 			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
 			require.NoError(t, err)
@@ -598,18 +598,18 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			require.Equal(t, buckets.VersioningEnabled, usage.Versioning)
 			require.Equal(t, euPlacement, usage.DefaultPlacement) //nolint:staticcheck // using legacy placement for test
 			require.True(t, usage.ObjectLockEnabled)
-			require.Equal(t, storj.GovernanceMode, usage.DefaultRetentionMode)
+			require.Equal(t, storxnetwork.GovernanceMode, usage.DefaultRetentionMode)
 			require.Nil(t, usage.DefaultRetentionDays)
 			require.NotNil(t, usage.DefaultRetentionYears)
 			require.Equal(t, 1, *usage.DefaultRetentionYears)
 
-			storedBucket.Placement = storj.DefaultPlacement
+			storedBucket.Placement = storxnetwork.DefaultPlacement
 			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
 			require.NoError(t, err)
 
 			usage, err = db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName, before)
 			require.NoError(t, err)
-			require.Equal(t, storj.DefaultPlacement, usage.DefaultPlacement) //nolint:staticcheck // using legacy placement for test
+			require.Equal(t, storxnetwork.DefaultPlacement, usage.DefaultPlacement) //nolint:staticcheck // using legacy placement for test
 
 			bucketName1 := testrand.BucketName()
 
@@ -672,7 +672,7 @@ func TestGetProjectTotalByPlacement(t *testing.T) {
 			expectedTotals := make(map[string]expectedTotal)
 
 			partnerNames := []string{"", "partner1", "partner2"}
-			placements := []storj.PlacementConstraint{storj.DefaultPlacement, storj.PlacementConstraint(1), storj.PlacementConstraint(2)}
+			placements := []storxnetwork.PlacementConstraint{storxnetwork.DefaultPlacement, storxnetwork.PlacementConstraint(1), storxnetwork.PlacementConstraint(2)}
 
 			// Create buckets for all combinations of partner and placement
 			// Since we no longer track partners separately, usages will be aggregated by placement only
@@ -970,7 +970,7 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 		err = uplink.Upload(ctx, satellite, bucketName, "file", data)
 		require.NoError(t, err)
 
-		placement := storj.PlacementConstraint(20)
+		placement := storxnetwork.PlacementConstraint(20)
 		attributionDB := planet.Satellites[0].DB.Attribution()
 		_, err = attributionDB.Insert(ctx, &attribution.Info{
 			ProjectID:  projectID,
@@ -1082,7 +1082,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			require.NoError(t, err)
 
 			newMapping := entitlements.PlacementProductMappings{
-				storj.DefaultPlacement: 1,
+				storxnetwork.DefaultPlacement: 1,
 				1:                      2,
 			}
 			err = sat.API.Entitlements.Service.Projects().SetPlacementProductMappingsByPublicID(ctx, project.PublicID, newMapping)
@@ -1095,7 +1095,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 				ID:        testrand.UUID(),
 				Name:      bucket1Name,
 				ProjectID: project.ID,
-				Placement: storj.DefaultPlacement,
+				Placement: storxnetwork.DefaultPlacement,
 			})
 			require.NoError(t, err)
 			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
@@ -1142,7 +1142,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			}
 			require.NotNil(t, bucket1)
 			require.Equal(t, project.ID, bucket1.Location.ProjectID)
-			require.Equal(t, storj.PlacementConstraint(0), bucket1.Placement)
+			require.Equal(t, storxnetwork.PlacementConstraint(0), bucket1.Placement)
 			require.NotEmpty(t, bucket1.ProjectFeatures)
 			require.NotNil(t, bucket1.ProjectFeatures.PlacementProductMappings)
 			require.Equal(t, newMapping, bucket1.ProjectFeatures.PlacementProductMappings)
@@ -1157,7 +1157,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			}
 			require.NotNil(t, bucket2)
 			require.Equal(t, project.ID, bucket2.Location.ProjectID)
-			require.Equal(t, storj.PlacementConstraint(1), bucket2.Placement)
+			require.Equal(t, storxnetwork.PlacementConstraint(1), bucket2.Placement)
 			require.NotEmpty(t, bucket1.ProjectFeatures)
 			require.NotNil(t, bucket1.ProjectFeatures.PlacementProductMappings)
 			require.Equal(t, newMapping, bucket1.ProjectFeatures.PlacementProductMappings)
@@ -1179,7 +1179,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 				ID:        testrand.UUID(),
 				Name:      bucketName,
 				ProjectID: project.ID,
-				Placement: storj.DefaultPlacement,
+				Placement: storxnetwork.DefaultPlacement,
 			})
 			require.NoError(t, err)
 			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), map[metabase.BucketLocation]*accounting.BucketTally{
@@ -1225,7 +1225,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 				ID:        testrand.UUID(),
 				Name:      bucketName,
 				ProjectID: project.ID,
-				Placement: storj.DefaultPlacement,
+				Placement: storxnetwork.DefaultPlacement,
 			})
 			require.NoError(t, err)
 			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), map[metabase.BucketLocation]*accounting.BucketTally{
@@ -1286,14 +1286,14 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 				ID:        testrand.UUID(),
 				Name:      bucket1Name,
 				ProjectID: project1.ID,
-				Placement: storj.DefaultPlacement,
+				Placement: storxnetwork.DefaultPlacement,
 			})
 			require.NoError(t, err)
 			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
 				ID:        testrand.UUID(),
 				Name:      bucket2Name,
 				ProjectID: project2.ID,
-				Placement: storj.DefaultPlacement,
+				Placement: storxnetwork.DefaultPlacement,
 			})
 			require.NoError(t, err)
 

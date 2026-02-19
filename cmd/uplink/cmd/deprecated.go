@@ -14,8 +14,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/uplink"
-	"storj.io/uplink/edge"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/edge"
 )
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.

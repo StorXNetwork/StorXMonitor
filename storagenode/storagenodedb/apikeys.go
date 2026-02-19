@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/multinodeauth"
-	"storj.io/storj/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
 )
 
 // ensures that apiKeysDB implements apikeys.DB interface.

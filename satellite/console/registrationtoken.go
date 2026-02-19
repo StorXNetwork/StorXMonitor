@@ -12,7 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RegistrationTokens is interface for working with registration tokens.

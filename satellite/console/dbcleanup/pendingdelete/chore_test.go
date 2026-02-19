@@ -11,19 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
 )
 
 func TestPendingDeleteChore(t *testing.T) {
@@ -250,7 +250,7 @@ func TestPendingDeleteChore_PendingDeletionProjects(t *testing.T) {
 				require.NoError(t, upload.Commit())
 			}
 
-			err = entitlementsService.Projects().SetNewBucketPlacementsByPublicID(ctx, p.PublicID, []storj.PlacementConstraint{1})
+			err = entitlementsService.Projects().SetNewBucketPlacementsByPublicID(ctx, p.PublicID, []storxnetwork.PlacementConstraint{1})
 			require.NoError(t, err)
 			_, err = domainsDB.Create(ctx, console.Domain{ProjectID: p.ID, Subdomain: p.Name, CreatedBy: user.ID})
 			require.NoError(t, err)
@@ -498,12 +498,12 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 		for i := range usersCount {
 			eventType := console.TrialExpirationFreeze
 			if i == 0 {
-				usersMarkedForDeletion = append(usersMarkedForDeletion, addUserAndData(fmt.Sprintf("test%d@storj.test", i), &eventType))
+				usersMarkedForDeletion = append(usersMarkedForDeletion, addUserAndData(fmt.Sprintf("test%d@storxnetwork.test", i), &eventType))
 			} else if i == usersCount-1 {
 				eventType = console.BillingFreeze
-				usersMarkedForDeletion = append(usersMarkedForDeletion, addUserAndData(fmt.Sprintf("test%d@storj.test", i), &eventType))
+				usersMarkedForDeletion = append(usersMarkedForDeletion, addUserAndData(fmt.Sprintf("test%d@storxnetwork.test", i), &eventType))
 			} else {
-				activeUsers = append(activeUsers, addUserAndData(fmt.Sprintf("test%d@storj.test", i), nil))
+				activeUsers = append(activeUsers, addUserAndData(fmt.Sprintf("test%d@storxnetwork.test", i), nil))
 			}
 		}
 

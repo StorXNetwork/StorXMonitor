@@ -21,15 +21,15 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/common/memory"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/logging"
-	"storj.io/storj/private/migrate"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/flightrecorder"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/private/logging"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -572,12 +572,12 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 					COMMENT ON COLUMN segments.repaired_at is 'repaired_at is the last date when the segment was repaired.';
 					COMMENT ON COLUMN segments.expires_at  is 'expires_at is the date when the segment is marked for deletion.';
 
-					COMMENT ON COLUMN segments.placement is 'placement is the country or region restriction for the segment data. See storj.PlacementConstraint for the values.';
+					COMMENT ON COLUMN segments.placement is 'placement is the country or region restriction for the segment data. See storxnetwork.PlacementConstraint for the values.';
 					COMMENT ON COLUMN segments.encrypted_etag is 'encrypted_etag is etag that has been encrypted.';
 
 					-- node aliases table
 					COMMENT ON TABLE  node_aliases            is 'node_aliases table contains unique identifiers (aliases) for storagenodes that take less space than a NodeID.';
-					COMMENT ON COLUMN node_aliases.node_id    is 'node_id refers to the storj.NodeID';
+					COMMENT ON COLUMN node_aliases.node_id    is 'node_id refers to the storxnetwork.NodeID';
 					COMMENT ON COLUMN node_aliases.node_alias is 'node_alias is a unique integer value assigned for the node_id. It is used for compressing segments.remote_alias_pieces.';
 
 					-- segment copies table

@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/shared/dbutil/spannertest"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannertest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
 )
 
 var Error = errs.Class("spannerutil")

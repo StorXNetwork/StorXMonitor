@@ -23,16 +23,16 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/quic"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/quic"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var (
@@ -110,13 +110,13 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		return errs.Wrap(err)
 	}
 
-	nodeURL, err := storj.ParseNodeURL(benchmarkConfig.NodeURL)
+	nodeURL, err := storxnetwork.ParseNodeURL(benchmarkConfig.NodeURL)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
 	if benchmarkConfig.NoiseInfoKey != "" {
-		nodeURL.NoiseInfo.Proto = storj.NoiseProto(pb.NoiseProtocol_NOISE_IK_25519_CHACHAPOLY_BLAKE2B)
+		nodeURL.NoiseInfo.Proto = storxnetwork.NoiseProto(pb.NoiseProtocol_NOISE_IK_25519_CHACHAPOLY_BLAKE2B)
 		key, err := hex.DecodeString(benchmarkConfig.NoiseInfoKey)
 		if err != nil {
 			return errs.Wrap(err)
@@ -124,11 +124,11 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		nodeURL.NoiseInfo.PublicKey = string(key)
 	}
 
-	pieceIDQueue := make(chan storj.PieceID, benchmarkConfig.Workers)
+	pieceIDQueue := make(chan storxnetwork.PieceID, benchmarkConfig.Workers)
 
-	allPieceIds := make([]storj.PieceID, 0, benchmarkConfig.PiecesToUpload)
+	allPieceIds := make([]storxnetwork.PieceID, 0, benchmarkConfig.PiecesToUpload)
 	for i := 0; i < benchmarkConfig.PiecesToUpload; i++ {
-		allPieceIds = append(allPieceIds, storj.NewPieceID())
+		allPieceIds = append(allPieceIds, storxnetwork.NewPieceID())
 	}
 
 	var uwg sync.WaitGroup
@@ -155,7 +155,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		}
 
 		for i := 0; i < benchmarkConfig.Workers; i++ {
-			pieceIDQueue <- storj.PieceID{}
+			pieceIDQueue <- storxnetwork.PieceID{}
 		}
 		uwg.Wait()
 	})
@@ -169,7 +169,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		float64(benchmarkConfig.PiecesToUpload)/duration.Seconds())
 
 	var dwg sync.WaitGroup
-	pieceIDQueue = make(chan storj.PieceID, benchmarkConfig.Workers)
+	pieceIDQueue = make(chan storxnetwork.PieceID, benchmarkConfig.Workers)
 	duration = profile(benchmarkConfig.CPUProfile, "download", func() {
 		for i := 0; i < benchmarkConfig.Workers; i++ {
 			dwg.Add(1)
@@ -190,7 +190,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 			pieceIDQueue <- pieceID
 		}
 		for i := 0; i < benchmarkConfig.Workers; i++ {
-			pieceIDQueue <- storj.PieceID{}
+			pieceIDQueue <- storxnetwork.PieceID{}
 		}
 		dwg.Wait()
 	})
@@ -208,7 +208,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storj.NodeURL, pieceID storj.PieceID, hashAlgo int, data []byte) (err error) {
+func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storxnetwork.NodeURL, pieceID storxnetwork.PieceID, hashAlgo int, data []byte) (err error) {
 	client, err := piecestore.Dial(ctx, d, nodeURL, piecestore.DefaultConfig)
 	if err != nil {
 		return errs.Wrap(err)
@@ -223,7 +223,7 @@ func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keyS
 	return errs.Wrap(err)
 }
 
-func connectAndDownload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storj.NodeURL, pieceID storj.PieceID, pieceSize int64) (err error) {
+func connectAndDownload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storxnetwork.NodeURL, pieceID storxnetwork.PieceID, pieceSize int64) (err error) {
 	client, err := piecestore.Dial(ctx, d, nodeURL, piecestore.DefaultConfig)
 	if err != nil {
 		return errs.Wrap(err)
@@ -253,7 +253,7 @@ func connectAndDownload(ctx context.Context, d rpc.Dialer, orderLimitCreator *ke
 }
 
 type keySigner struct {
-	nodeID storj.NodeID
+	nodeID storxnetwork.NodeID
 	signer signing.Signer
 	action pb.PieceAction
 	ttl    time.Duration
@@ -276,8 +276,8 @@ func newKeySignerFromDir(keysDir string, action pb.PieceAction, ttl time.Duratio
 	}, nil
 }
 
-func (k *keySigner) createOrderLimit(ctx context.Context, pieceID storj.PieceID, size int64, sn storj.NodeID) (limit *pb.OrderLimit, pk storj.PiecePrivateKey, serial storj.SerialNumber, err error) {
-	pub, pk, err := storj.NewPieceKey()
+func (k *keySigner) createOrderLimit(ctx context.Context, pieceID storxnetwork.PieceID, size int64, sn storxnetwork.NodeID) (limit *pb.OrderLimit, pk storxnetwork.PiecePrivateKey, serial storxnetwork.SerialNumber, err error) {
+	pub, pk, err := storxnetwork.NewPieceKey()
 	if err != nil {
 		return
 	}
@@ -307,8 +307,8 @@ func (k *keySigner) createOrderLimit(ctx context.Context, pieceID storj.PieceID,
 	return
 }
 
-func (k *keySigner) createGetOrderLimit(ctx context.Context, pieceID storj.PieceID, size int64, sn storj.NodeID) (limit *pb.OrderLimit, pk storj.PiecePrivateKey, serial storj.SerialNumber, err error) {
-	pub, pk, err := storj.NewPieceKey()
+func (k *keySigner) createGetOrderLimit(ctx context.Context, pieceID storxnetwork.PieceID, size int64, sn storxnetwork.NodeID) (limit *pb.OrderLimit, pk storxnetwork.PiecePrivateKey, serial storxnetwork.SerialNumber, err error) {
+	pub, pk, err := storxnetwork.NewPieceKey()
 	if err != nil {
 		return
 	}

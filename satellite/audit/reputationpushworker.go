@@ -6,22 +6,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 	"github.com/go-stack/stack"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
 )
 
 type NodeReputation interface {
 	GetAll(ctx context.Context) (reputations []NodeReputationEntry, err error)
 	NodeSmartContractStatus(ctx context.Context, wallet, msgType, msg string) (err error)
-	ActivateNode(ctx context.Context, nodeID storj.NodeID) error
+	ActivateNode(ctx context.Context, nodeID storxnetwork.NodeID) error
 }
 
 type NodeReputationEntry struct {
 	// NodeID is the unique identifier of the node.
-	NodeID storj.NodeID
+	NodeID storxnetwork.NodeID
 	// && reputation.NodeID, &reputation.Wallet, &reputation.Disqualified,
 	// &reputation.ExitInitiatedAt, &reputation.ExitFinishedAt, &reputation.ExitSuccess,
 	// &reputation.UnderReview, &reputation.AuditReputationAlpha

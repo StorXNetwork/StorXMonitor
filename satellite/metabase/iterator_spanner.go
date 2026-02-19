@@ -12,8 +12,8 @@ import (
 	"cloud.google.com/go/spanner"
 	"google.golang.org/api/iterator"
 
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 type spannerRows struct {

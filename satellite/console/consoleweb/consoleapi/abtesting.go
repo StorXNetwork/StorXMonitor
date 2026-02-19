@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/abtesting"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/abtesting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // ErrABAPI - console ab testing api error type.

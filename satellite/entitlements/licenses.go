@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // LicenseScopePrefix is the prefix used for license scopes in the database.

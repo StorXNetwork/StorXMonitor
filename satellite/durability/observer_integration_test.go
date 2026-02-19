@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/durability"
-	"storj.io/storj/shared/location"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/durability"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDurabilityIntegration(t *testing.T) {
@@ -35,7 +35,7 @@ func TestDurabilityIntegration(t *testing.T) {
 				}),
 			StorageNode: func(index int, config *storagenode.Config) {
 				if index > 2 {
-					config.Operator.Email = "test@storj.io"
+					config.Operator.Email = "test@storxnetwork.io"
 				}
 			},
 		},
@@ -65,7 +65,7 @@ func TestDurabilityIntegration(t *testing.T) {
 			if observer.Class != "email" {
 				continue
 			}
-			observer.TestChangeReporter(func(n time.Time, class string, missingProvider int, ix int, p storj.PlacementConstraint, stat durability.Bucket, resolver func(id durability.ClassID) string) {
+			observer.TestChangeReporter(func(n time.Time, class string, missingProvider int, ix int, p storxnetwork.PlacementConstraint, stat durability.Bucket, resolver func(id durability.ClassID) string) {
 				result[missingProvider][ix] = stat
 			})
 		}
@@ -81,7 +81,7 @@ func TestDurabilityIntegration(t *testing.T) {
 		// normal distribution --> we have 3 pieces from each segment (10)
 		require.Equal(t, 10, result[0][3].SegmentCount)
 
-		// we used all 3 test@storj.io, and 6 pieces. Without test@storj.io, only 3 remained --> which is RS=3 + 0 pieces
+		// we used all 3 test@storxnetwork.io, and 6 pieces. Without test@storxnetwork.io, only 3 remained --> which is RS=3 + 0 pieces
 		require.Equal(t, 10, result[1][0].SegmentCount)
 
 	})

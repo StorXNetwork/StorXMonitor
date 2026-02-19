@@ -23,12 +23,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
@@ -189,13 +189,13 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type User struct {
-		ID           uuid.UUID                 `json:"id"`
-		FullName     string                    `json:"fullName"`
-		Email        string                    `json:"email"`
-		ProjectLimit int                       `json:"projectLimit"`
-		Placement    storj.PlacementConstraint `json:"placement"`
-		PaidTier     bool                      `json:"paidTier"`
-		Status       int                       `json:"status"`
+		ID           uuid.UUID                        `json:"id"`
+		FullName     string                           `json:"fullName"`
+		Email        string                           `json:"email"`
+		ProjectLimit int                              `json:"projectLimit"`
+		Placement    storxnetwork.PlacementConstraint `json:"placement"`
+		PaidTier     bool                             `json:"paidTier"`
+		Status       int                              `json:"status"`
 	}
 	type Project struct {
 		ID                    uuid.UUID `json:"id"`
@@ -1595,10 +1595,10 @@ func (server *Server) deleteGeofenceForAccount(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	server.setGeofenceForUser(w, r, storj.DefaultPlacement)
+	server.setGeofenceForUser(w, r, storxnetwork.DefaultPlacement)
 }
 
-func (server *Server) setGeofenceForUser(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
+func (server *Server) setGeofenceForUser(w http.ResponseWriter, r *http.Request, placement storxnetwork.PlacementConstraint) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -2369,11 +2369,11 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 			}
 			termsAndConditionsURL := server.console.TermsAndConditionsURL
 			if termsAndConditionsURL == "" {
-				termsAndConditionsURL = "https://www.storj.io/terms-of-service/"
+				termsAndConditionsURL = "https://www.storxnetwork.io/terms-of-service/"
 			}
 			supportURL := server.console.GeneralRequestURL
 			if supportURL == "" {
-				supportURL = "https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"
+				supportURL = "https://supportdcs.storxnetwork.io/hc/en-us/requests/new?ticket_form_id=360000379291"
 			}
 
 			server.mailService.SendRenderedAsync(
@@ -2492,7 +2492,7 @@ func (server *Server) activateUserAccount(w http.ResponseWriter, r *http.Request
 			}
 			termsAndConditionsURL := server.console.TermsAndConditionsURL
 			if termsAndConditionsURL == "" {
-				termsAndConditionsURL = "https://www.storj.io/terms-of-service/"
+				termsAndConditionsURL = "https://www.storxnetwork.io/terms-of-service/"
 			}
 
 			server.mailService.SendRenderedAsync(

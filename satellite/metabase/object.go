@@ -6,8 +6,8 @@ package metabase
 import (
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Object object metadata.
@@ -56,11 +56,11 @@ type SegmentForRepair struct {
 	RepairedAt *time.Time
 	ExpiresAt  *time.Time
 
-	RootPieceID   storj.PieceID
+	RootPieceID   storxnetwork.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
-	Redundancy    storj.RedundancyScheme
+	Redundancy    storxnetwork.RedundancyScheme
 	Pieces        Pieces
-	Placement     storj.PlacementConstraint
+	Placement     storxnetwork.PlacementConstraint
 }
 
 // Inline returns true if segment is inline.

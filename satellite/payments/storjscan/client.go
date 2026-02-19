@@ -12,8 +12,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/currency"
-	"storj.io/storj/private/blockchain"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 )
 
 var (

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
 )
 
 func TestMonthBoundary(t *testing.T) {

@@ -14,11 +14,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/httpmock"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/StorXMonitor/private/httpmock"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestValdiGetAPIKey(t *testing.T) {
@@ -28,7 +28,7 @@ func TestValdiGetAPIKey(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.CloudGpusEnabled = true
 				config.Valdi.SignRequests = false
-				config.Valdi.SatelliteEmail = "storj@storj.test"
+				config.Valdi.SatelliteEmail = "storxnetwork@storxnetwork.test"
 				config.Console.RateLimit.Burst = 10
 			},
 		},

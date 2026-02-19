@@ -32,7 +32,7 @@ if [ ! $GERRIT_USER ]; then
   exit 1
 fi
 
-CHANGE_ID=$(curl -u $GERRIT_USER:$GERRIT_TOKEN  "https://review.dev.storj.tools/a/changes/?o=ALL_REVISIONS&q=commit:$COMMIT" | tail -n -1 | jq -r '.[0].triplet_id')
-curl -u $GERRIT_USER:$GERRIT_TOKEN --basic -X POST "https://review.dev.storj.tools/a/changes/$CHANGE_ID/revisions/$COMMIT/review" \
+CHANGE_ID=$(curl -u $GERRIT_USER:$GERRIT_TOKEN  "https://review.dev.storxnetwork.tools/a/changes/?o=ALL_REVISIONS&q=commit:$COMMIT" | tail -n -1 | jq -r '.[0].triplet_id')
+curl -u $GERRIT_USER:$GERRIT_TOKEN --basic -X POST "https://review.dev.storxnetwork.tools/a/changes/$CHANGE_ID/revisions/$COMMIT/review" \
   -H "Content-Type: application/json" \
   --data @$1

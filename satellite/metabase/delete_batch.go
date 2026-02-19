@@ -12,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/pgxutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgxutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // DeleteObjectsAndSegmentsNoVerify deletes expired objects and associated segments.

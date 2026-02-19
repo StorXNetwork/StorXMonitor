@@ -17,11 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/grant"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 )
 
 // Projects is an api controller that exposes projects related functionality.

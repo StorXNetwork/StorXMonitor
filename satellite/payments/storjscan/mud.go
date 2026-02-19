@@ -4,8 +4,8 @@
 package storjscan
 
 import (
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module is a mud module definition.

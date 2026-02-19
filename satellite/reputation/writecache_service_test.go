@@ -14,14 +14,14 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestHeavyLockContention(t *testing.T) {
@@ -33,7 +33,7 @@ func TestHeavyLockContention(t *testing.T) {
 
 	// construct random test data
 	timeStart := time.Now().Add(-rounds * windowSize)
-	nodes := make([]storj.NodeID, nodeCount)
+	nodes := make([]storxnetwork.NodeID, nodeCount)
 	testData := make([][]reputation.Mutations, nodeCount)
 	for nodeNum := 0; nodeNum < nodeCount; nodeNum++ {
 		nodes[nodeNum] = testrand.NodeID()

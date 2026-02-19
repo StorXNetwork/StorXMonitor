@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -167,7 +167,7 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dateFormat := "2006-01-02"
-	fileName := "storj-report-" + idParam + "-" + since.Format(dateFormat) + "-to-" + before.Format(dateFormat) + ".csv"
+	fileName := "storxnetwork-report-" + idParam + "-" + since.Format(dateFormat) + "-to-" + before.Format(dateFormat) + ".csv"
 
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment;filename="+fileName)

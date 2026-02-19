@@ -9,7 +9,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 
-	"storj.io/storj/shared/flightrecorder"
+	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
 )
 
 // SpannerClient is a wrapper around spanner.Client that instruments every call via the flight recorder.

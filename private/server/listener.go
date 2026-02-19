@@ -10,9 +10,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/netutil"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/quic"
+	"github.com/StorXNetwork/common/netutil"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/quic"
 )
 
 // defaultUserTimeout is the value we use for the TCP_USER_TIMEOUT setting.

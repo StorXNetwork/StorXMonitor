@@ -10,7 +10,7 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 type paymentIntents struct {

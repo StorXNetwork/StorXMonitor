@@ -15,9 +15,9 @@ import (
 	"github.com/stripe/stripe-go/v81/form"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/time2"
-	stripe1 "storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/time2"
+	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 var backendError = &stripe.Error{

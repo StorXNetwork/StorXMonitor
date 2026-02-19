@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestChore(t *testing.T) {
@@ -112,7 +112,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet) (*testplanet
 		return nil, err
 	}
 
-	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
+	pieceCountMap := make(map[storxnetwork.NodeID]int, len(planet.StorageNodes))
 	for _, sn := range planet.StorageNodes {
 		pieceCountMap[sn.ID()] = 0
 	}
@@ -123,7 +123,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet) (*testplanet
 		}
 	}
 
-	var exitingNodeID storj.NodeID
+	var exitingNodeID storxnetwork.NodeID
 	maxCount := 0
 	for k, v := range pieceCountMap {
 		if exitingNodeID.IsZero() {

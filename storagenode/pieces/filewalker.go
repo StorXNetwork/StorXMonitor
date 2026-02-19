@@ -13,10 +13,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const maxPrefixUsedSpaceBatch = 5
@@ -52,7 +52,7 @@ func NewFileWalker(log *zap.Logger, blobs blobstore.Blobs, v0PieceInfoDB V0Piece
 // Note that this method includes all locally stored pieces, both V0 and higher.
 // The startPrefix parameter can be used to start the iteration at a specific prefix. If startPrefix
 // is empty, the iteration starts at the beginning of the namespace.
-func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, skipPrefixFn blobstore.SkipPrefixFn, fn func(StoredPieceAccess) error) (err error) {
+func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storxnetwork.NodeID, skipPrefixFn blobstore.SkipPrefixFn, fn func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// iterate over all in V1 storage, skipping v0 pieces
 	err = fw.blobs.WalkNamespace(ctx, satellite.Bytes(), skipPrefixFn, func(blobInfo blobstore.BlobInfo) error {
@@ -79,14 +79,14 @@ func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.N
 }
 
 // WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
-func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, satPieceCount int64, err error) {
+func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, satPieceCount int64, err error) {
 	return fw.WalkAndComputeSpaceUsedBySatelliteWithWalkFunc(ctx, satelliteID, nil)
 }
 
 // WalkAndComputeSpaceUsedBySatelliteWithWalkFunc walks over all pieces for a given satellite, adds up and returns the total space used.
 // It also calls the walkFunc for each piece.
 // This is useful for testing purposes. Call this method with a walkFunc that collects information about each piece.
-func (fw *FileWalker) WalkAndComputeSpaceUsedBySatelliteWithWalkFunc(ctx context.Context, satelliteID storj.NodeID, walkFunc func(StoredPieceAccess) error) (satPiecesTotal int64, satPiecesContentSize int64, satPieceCount int64, err error) {
+func (fw *FileWalker) WalkAndComputeSpaceUsedBySatelliteWithWalkFunc(ctx context.Context, satelliteID storxnetwork.NodeID, walkFunc func(StoredPieceAccess) error) (satPiecesTotal int64, satPiecesContentSize int64, satPieceCount int64, err error) {
 	satelliteUsedSpacePerPrefix := make(map[string]PrefixUsedSpace)
 	var skipPrefixFunc blobstore.SkipPrefixFn
 	if fw.usedSpaceDB != nil {
@@ -247,7 +247,7 @@ func (fw *FileWalker) WalkAndComputeSpaceUsedBySatelliteWithWalkFunc(ctx context
 // nontrivial amount, mtimes on existing blobs should also be adjusted (by the same interval,
 // ideally, but just running "touch" on all blobs is sufficient to avoid incorrect deletion of
 // data).
-func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (piecesCount, piecesSkipped int64, err error) {
+func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storxnetwork.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storxnetwork.PieceID) error) (piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if filter == nil {
@@ -371,13 +371,13 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 // This method returns the number of blobs deleted, the total count of bytes occupied by those
 // deleted blobs, and the number of bytes which were freed by the deletion (including filesystem
 // overhead).
-func (fw *FileWalker) WalkCleanupTrash(ctx context.Context, satelliteID storj.NodeID, dateBefore time.Time) (bytesDeleted int64, keysDeleted []storj.PieceID, err error) {
+func (fw *FileWalker) WalkCleanupTrash(ctx context.Context, satelliteID storxnetwork.NodeID, dateBefore time.Time) (bytesDeleted int64, keysDeleted []storxnetwork.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bytesDeleted, deletedKeysList, err := fw.blobs.EmptyTrash(ctx, satelliteID[:], dateBefore)
-	keysDeleted = make([]storj.PieceID, 0, len(deletedKeysList))
+	keysDeleted = make([]storxnetwork.PieceID, 0, len(deletedKeysList))
 	for _, dk := range deletedKeysList {
-		pieceID, parseErr := storj.PieceIDFromBytes(dk)
+		pieceID, parseErr := storxnetwork.PieceIDFromBytes(dk)
 		if parseErr != nil {
 			fw.log.Error("stored blob has invalid pieceID", zap.ByteString("deleted_key", dk), zap.Error(parseErr))
 			continue

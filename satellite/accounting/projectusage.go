@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 const noLimits = -1
@@ -67,7 +67,7 @@ func NewService(log *zap.Logger, projectAccountingDB ProjectAccounting, liveAcco
 // expansion factor, so that the uplinks have a raw limit.
 //
 // Among others,it can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache except the ErrKeyNotFound, wrapped
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache except the ErrKeyNotFound, wrapped
 // by ErrProjectUsage.
 func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, limits ProjectLimits) (exceeds bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -188,7 +188,7 @@ func (usage *Service) AddProjectUsageUpToLimit(ctx context.Context, projectID uu
 // GetProjectStorageTotals returns total amount of storage used by project.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.GetProjectStorageUsage except the
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.GetProjectStorageUsage except the
 // ErrKeyNotFound, wrapped by ErrProjectUsage.
 func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
@@ -291,7 +291,7 @@ func (usage *Service) GetProjectLimits(ctx context.Context, projectID uuid.UUID)
 // GetProjectBandwidthUsage get the current bandwidth usage from cache.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.GetProjectBandwidthUsage, wrapped
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.GetProjectBandwidthUsage, wrapped
 // by ErrProjectUsage.
 func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
 	return usage.liveAccounting.GetProjectBandwidthUsage(ctx, projectID, usage.nowFn())
@@ -300,7 +300,7 @@ func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uu
 // UpdateProjectBandwidthUsage increments the bandwidth cache key for a specific project.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.UpdateProjectBandwidthUsage, wrapped
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.UpdateProjectBandwidthUsage, wrapped
 // by ErrProjectUsage.
 func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, limits ProjectLimits, increment int64) (err error) {
 	if unlimitedDownloads(limits.Bandwidth) {
@@ -312,7 +312,7 @@ func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, limits Pr
 // GetProjectStorageAndSegmentUsage get the current storage and segment usage from cache.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.GetProjectStorageAndSegmentUsage.
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Cache.GetProjectStorageAndSegmentUsage.
 func (usage *Service) GetProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID) (storage, segments int64, err error) {
 	return usage.liveAccounting.GetProjectStorageAndSegmentUsage(ctx, projectID)
 }

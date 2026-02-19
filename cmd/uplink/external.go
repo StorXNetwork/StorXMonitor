@@ -27,13 +27,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/term"
 
-	"storj.io/common/experiment"
-	"storj.io/common/rpc/rpctracing"
-	"storj.io/common/sync2/mpscqueue"
-	"storj.io/common/tracing"
-	"storj.io/common/version"
-	"storj.io/eventkit"
-	jaeger "storj.io/monkit-jaeger"
+	"github.com/StorXNetwork/common/experiment"
+	"github.com/StorXNetwork/common/rpc/rpctracing"
+	"github.com/StorXNetwork/common/sync2/mpscqueue"
+	"github.com/StorXNetwork/common/tracing"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/eventkit"
+	jaeger "github.com/StorXNetwork/monkit-jaeger"
 )
 
 type external struct {
@@ -552,7 +552,7 @@ func defaultUplinkSubdir() []string {
 }
 
 // appDir returns best base directory for the currently running operating system. It
-// has a legacy bool to have it return the same values that storj.io/common/fpath.ApplicationDir
+// has a legacy bool to have it return the same values that github.com/StorXNetwork/common/fpath.ApplicationDir
 // would have returned.
 func appDir(legacy bool, subdir ...string) string {
 	var appdir string

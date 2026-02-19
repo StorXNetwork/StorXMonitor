@@ -17,50 +17,50 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/healthcheck"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/abtesting"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consoleauth/csrf"
-	"storj.io/storj/satellite/console/consoleauth/sso"
-	"storj.io/storj/satellite/console/consoleservice"
-	"storj.io/storj/satellite/console/consoleweb"
-	consoleapi "storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/console/pushnotifications"
-	"storj.io/storj/satellite/console/restapikeys"
-	"storj.io/storj/satellite/console/restkeys"
-	"storj.io/storj/satellite/console/userinfo"
-	"storj.io/storj/satellite/console/valdi"
-	"storj.io/storj/satellite/console/valdi/valdiclient"
-	"storj.io/storj/satellite/developer"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/kms"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/mailservice/hubspotmails"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/healthcheck"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/abtesting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	consoleapi "github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restkeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/userinfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/kms"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice/hubspotmails"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // ConsoleAPI is the satellite console API process.
@@ -765,16 +765,16 @@ func (peer *ConsoleAPI) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *ConsoleAPI) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *ConsoleAPI) ID() storxnetwork.NodeID { return peer.Identity.ID }
 
 // Addr returns the public address.
 func (peer *ConsoleAPI) Addr() string {
 	return peer.ExternalAddress
 }
 
-// URL returns the storj.NodeURL.
-func (peer *ConsoleAPI) URL() storj.NodeURL {
-	return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()}
+// URL returns the storxnetwork.NodeURL.
+func (peer *ConsoleAPI) URL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: peer.ID(), Address: peer.Addr()}
 }
 
 // PrivateAddr returns the private address.

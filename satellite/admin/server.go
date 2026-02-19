@@ -26,23 +26,23 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/storj/private/emptyfs"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb"
-	"storj.io/storj/satellite/console/restkeys"
-	"storj.io/storj/satellite/developer"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/emptyfs"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restkeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/errs2"
 )
 
 // Assets contains either the built admin/back-office/ui or it is nil.
@@ -173,7 +173,7 @@ func NewServer(
 	server.auth = NewAuthService(AuthConfig{
 		SecretKey:  jwtSecretKey,
 		Expiration: 24 * time.Hour, // 24 hour expiration
-		Issuer:     "storj-admin",
+		Issuer:     "storxnetwork-admin",
 	})
 
 	// Initialize cookie auth (following console pattern)

@@ -15,9 +15,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var _ DB = (*CachingDB)(nil)
@@ -35,7 +35,7 @@ func NewCachingDB(log *zap.Logger, backingStore DirectDB, reputationConfig Confi
 		errorRetryInterval: reputationConfig.ErrorRetryInterval,
 		nextSyncTimer:      time.NewTimer(reputationConfig.FlushInterval),
 		requestSyncChannel: make(chan syncRequest),
-		pending:            make(map[storj.NodeID]*cachedNodeReputationInfo),
+		pending:            make(map[storxnetwork.NodeID]*cachedNodeReputationInfo),
 	}
 }
 
@@ -64,17 +64,17 @@ type CachingDB struct {
 	// different lookup properties. It should be easy to keep them in sync,
 	// since we only insert with lock held, and (for now) we never evict
 	// from the cache.
-	pending        map[storj.NodeID]*cachedNodeReputationInfo
+	pending        map[storxnetwork.NodeID]*cachedNodeReputationInfo
 	writeOrderHeap nodeIDHeap
 }
 
 type syncRequest struct {
-	nodeID   storj.NodeID
+	nodeID   storxnetwork.NodeID
 	doneChan chan struct{}
 }
 
 type cachedNodeReputationInfo struct {
-	nodeID storj.NodeID
+	nodeID storxnetwork.NodeID
 
 	// entryLock must be held when reading or writing to the following fields
 	// in this structure (**except** syncAt. For syncAt, the CachingDB.lock
@@ -136,7 +136,7 @@ func (cdb *CachingDB) Update(ctx context.Context, request UpdateRequest, auditTi
 // If the node (as represented in the returned info) becomes newly vetted,
 // disqualified, or suspended as a result of these updates, the caller is
 // responsible for updating the records in the overlay to match.
-func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, updates Mutations, config Config, now time.Time) (info *Info, err error) {
+func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storxnetwork.NodeID, updates Mutations, config Config, now time.Time) (info *Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	logger := cdb.log.With(zap.Stringer("node_id", nodeID))
@@ -347,7 +347,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 }
 
 // UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-func (cdb *CachingDB) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (cdb *CachingDB) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = cdb.backingStore.UnsuspendNodeUnknownAudit(ctx, nodeID)
@@ -359,7 +359,7 @@ func (cdb *CachingDB) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID stor
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (cdb *CachingDB) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error) {
+func (cdb *CachingDB) DisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = cdb.backingStore.DisqualifyNode(ctx, nodeID, disqualifiedAt, reason)
@@ -371,7 +371,7 @@ func (cdb *CachingDB) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, d
 }
 
 // SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-func (cdb *CachingDB) SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+func (cdb *CachingDB) SuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = cdb.backingStore.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
@@ -386,7 +386,7 @@ func (cdb *CachingDB) SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.
 // about the specified node to the backing store. This involves applying the
 // cached mutations and resetting the info attribute to match a snapshot of what
 // is in the backing store after the mutations.
-func (cdb *CachingDB) RequestSync(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (cdb *CachingDB) RequestSync(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	req := syncRequest{
@@ -487,7 +487,7 @@ func (cdb *CachingDB) updateTimer(now time.Time, drainChannel bool) {
 // getExistingEntry looks up an entry in the pending mutations cache, locks it,
 // and calls f with the entry while holding the lock. If there is no entry in
 // the cache with the given nodeID, f is not called.
-func (cdb *CachingDB) getExistingEntry(nodeID storj.NodeID, f func(entryToSync *cachedNodeReputationInfo)) {
+func (cdb *CachingDB) getExistingEntry(nodeID storxnetwork.NodeID, f func(entryToSync *cachedNodeReputationInfo)) {
 	var entryToSync *cachedNodeReputationInfo
 	func() {
 		cdb.lock.Lock()
@@ -568,7 +568,7 @@ func (cdb *CachingDB) getEntriesToSync(now time.Time, f func(entryToSync *cached
 	}
 }
 
-func (cdb *CachingDB) nextTimeForSync(nodeID storj.NodeID, now time.Time) time.Time {
+func (cdb *CachingDB) nextTimeForSync(nodeID storxnetwork.NodeID, now time.Time) time.Time {
 	return nextTimeForSync(cdb.instanceOffset, nodeID, now, cdb.syncInterval)
 }
 
@@ -580,7 +580,7 @@ func (cdb *CachingDB) nextTimeForSync(nodeID storj.NodeID, now time.Time) time.T
 // also make an effort to offset this sync schedule by a random value unique
 // to this process so that in most cases, instances will not be trying to
 // update the same row at the same time, minimizing contention.
-func nextTimeForSync(instanceOffset uint64, nodeID storj.NodeID, now time.Time, syncInterval time.Duration) time.Time {
+func nextTimeForSync(instanceOffset uint64, nodeID storxnetwork.NodeID, now time.Time, syncInterval time.Duration) time.Time {
 	// calculate the fraction into the FlushInterval at which this node
 	// should always be synchronized.
 	initialPosition := binary.BigEndian.Uint64(nodeID[:8])
@@ -634,7 +634,7 @@ func (cdb *CachingDB) syncEntry(ctx context.Context, entry *cachedNodeReputation
 // If an error occurred syncing the entry with the backing store, it will be
 // returned. In this case, the returned value for 'info' might be nil, or it
 // might contain data cached longer than FlushInterval.
-func (cdb *CachingDB) Get(ctx context.Context, nodeID storj.NodeID) (info *Info, err error) {
+func (cdb *CachingDB) Get(ctx context.Context, nodeID storxnetwork.NodeID) (info *Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cdb.getEntry(ctx, nodeID, cdb.nowFunc(), func(entry *cachedNodeReputationInfo) {
@@ -662,7 +662,7 @@ func (cdb *CachingDB) Get(ctx context.Context, nodeID storj.NodeID) (info *Info,
 // case, entry.info may be nil, or it may have an out-of-date record. If the
 // error occurred long enough ago that it is time to try again, another attempt
 // to sync the entry will occur before the callback is made.
-func (cdb *CachingDB) getEntry(ctx context.Context, nodeID storj.NodeID, now time.Time, f func(entry *cachedNodeReputationInfo)) {
+func (cdb *CachingDB) getEntry(ctx context.Context, nodeID storxnetwork.NodeID, now time.Time, f func(entry *cachedNodeReputationInfo)) {
 	defer mon.Task()(&ctx)(nil)
 
 	var nodeEntry *cachedNodeReputationInfo
@@ -697,7 +697,7 @@ func (cdb *CachingDB) getEntry(ctx context.Context, nodeID storj.NodeID, now tim
 // on the new entry should initiate an immediate sync with the backing store.
 //
 // cdb.lock must be held when calling.
-func (cdb *CachingDB) insertNode(nodeID storj.NodeID, now time.Time) *cachedNodeReputationInfo {
+func (cdb *CachingDB) insertNode(nodeID storxnetwork.NodeID, now time.Time) *cachedNodeReputationInfo {
 	syncTime := cdb.nextTimeForSync(nodeID, now)
 	mut := &cachedNodeReputationInfo{
 		nodeID:       nodeID,

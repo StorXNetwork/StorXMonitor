@@ -16,18 +16,18 @@ package overlay_test
 // 	"go.uber.org/zap"
 // 	"go.uber.org/zap/zaptest"
 
-// 	"storj.io/common/memory"
-// 	"storj.io/common/pb"
-// 	"storj.io/common/storj"
-// 	"storj.io/common/testcontext"
-// 	"storj.io/common/testrand"
-// 	"storj.io/storj/private/testplanet"
-// 	"storj.io/storj/satellite"
-// 	"storj.io/storj/satellite/nodeevents"
-// 	"storj.io/storj/satellite/nodeselection"
-// 	"storj.io/storj/satellite/overlay"
-// 	"storj.io/storj/satellite/reputation"
-// 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+// 	"github.com/StorXNetwork/common/memory"
+// 	"github.com/StorXNetwork/common/pb"
+// 	"github.com/StorXNetwork/common/storxnetwork"
+// 	"github.com/StorXNetwork/common/testcontext"
+// 	"github.com/StorXNetwork/common/testrand"
+// 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 // )
 
 // func TestCache_Database(t *testing.T) {
@@ -142,7 +142,7 @@ package overlay_test
 // 	}
 
 // 	{ // Get
-// 		_, err := service.Get(ctx, storj.NodeID{})
+// 		_, err := service.Get(ctx, storxnetwork.NodeID{})
 // 		require.Error(t, err)
 // 		require.Equal(t, overlay.ErrEmptyNode, err)
 
@@ -186,8 +186,8 @@ package overlay_test
 // 		satellite := planet.Satellites[0]
 // 		overlaydb := satellite.Overlay.DB
 // 		uploadSelectionCache := satellite.Overlay.Service.UploadSelectionCache
-// 		allIDs := make(storj.NodeIDList, totalNodes)
-// 		nodeCounts := make(map[storj.NodeID]int)
+// 		allIDs := make(storxnetwork.NodeIDList, totalNodes)
+// 		nodeCounts := make(map[storxnetwork.NodeID]int)
 
 // 		var nodes []*overlay.NodeDossier
 // 		now := time.Now()
@@ -350,7 +350,7 @@ package overlay_test
 // 		require.NoError(t, err)
 
 // 		// Check that the results of GetParticipatingNodes match expectations.
-// 		selectedNodes, err := service.GetParticipatingNodes(ctx, []storj.NodeID{
+// 		selectedNodes, err := service.GetParticipatingNodes(ctx, []storxnetwork.NodeID{
 // 			planet.StorageNodes[0].ID(),
 // 			planet.StorageNodes[1].ID(),
 // 			planet.StorageNodes[2].ID(),
@@ -385,7 +385,7 @@ package overlay_test
 
 // func TestUpdateCheckIn(t *testing.T) {
 // 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // setup
-// 		nodeID := storj.NodeID{1, 2, 3}
+// 		nodeID := storxnetwork.NodeID{1, 2, 3}
 // 		expectedEmail := "test@email.test"
 // 		expectedAddress := "1.2.4.4:8080"
 // 		info := overlay.NodeCheckInInfo{
@@ -525,7 +525,7 @@ package overlay_test
 // 		require.True(t, updated2Node.Reputation.LastContactFailure.After(startOfUpdateTest2))
 
 // 		// check that UpdateCheckIn updates last_offline_email
-// 		require.NoError(t, db.OverlayCache().UpdateLastOfflineEmail(ctx, []storj.NodeID{updated2Node.Id}, time.Now()))
+// 		require.NoError(t, db.OverlayCache().UpdateLastOfflineEmail(ctx, []storxnetwork.NodeID{updated2Node.Id}, time.Now()))
 // 		nodeInfo, err := db.OverlayCache().Get(ctx, updated2Node.Id)
 // 		require.NoError(t, err)
 // 		require.NotNil(t, nodeInfo.LastOfflineEmail)
@@ -614,7 +614,7 @@ package overlay_test
 // 	})
 // }
 
-// func getNodeInfo(nodeID storj.NodeID) overlay.NodeCheckInInfo {
+// func getNodeInfo(nodeID storxnetwork.NodeID) overlay.NodeCheckInInfo {
 // 	return overlay.NodeCheckInInfo{
 // 		NodeID: nodeID,
 // 		IsUp:   true,
@@ -676,7 +676,7 @@ package overlay_test
 // 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 // 		service := planet.Satellites[0].Overlay.Service
 // 		node := planet.StorageNodes[0]
-// 		email := "test@storj.test"
+// 		email := "test@storxnetwork.test"
 // 		neDB := planet.Satellites[0].DB.NodeEvents()
 
 // 		now := time.Now()
@@ -696,7 +696,7 @@ package overlay_test
 
 // 		repUpdate.UnknownAuditSuspended = nil
 // 		repChanges = []nodeevents.Type{nodeevents.UnknownAuditUnsuspended}
-// 		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+// 		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storxnetwork.test", repUpdate, repChanges))
 
 // 		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.UnknownAuditUnsuspended)
 // 		require.NoError(t, err)
@@ -706,7 +706,7 @@ package overlay_test
 
 // 		repUpdate.OfflineSuspended = &now
 // 		repChanges = []nodeevents.Type{nodeevents.OfflineSuspended}
-// 		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+// 		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storxnetwork.test", repUpdate, repChanges))
 
 // 		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.OfflineSuspended)
 // 		require.NoError(t, err)
@@ -716,7 +716,7 @@ package overlay_test
 
 // 		repUpdate.OfflineSuspended = nil
 // 		repChanges = []nodeevents.Type{nodeevents.OfflineUnsuspended}
-// 		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+// 		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storxnetwork.test", repUpdate, repChanges))
 
 // 		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.OfflineUnsuspended)
 // 		require.NoError(t, err)
@@ -726,7 +726,7 @@ package overlay_test
 
 // 		repUpdate.Disqualified = &now
 // 		repChanges = []nodeevents.Type{nodeevents.Disqualified}
-// 		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+// 		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storxnetwork.test", repUpdate, repChanges))
 
 // 		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.Disqualified)
 // 		require.NoError(t, err)
@@ -1018,10 +1018,10 @@ package overlay_test
 
 // 		now := time.Now()
 
-// 		var ids storj.NodeIDList
+// 		var ids storxnetwork.NodeIDList
 // 		var expect []overlay.NodeAccountingInfo
 // 		for i := 0; i < 6; i++ {
-// 			ids = append(ids, storj.NodeID{1, byte(i)})
+// 			ids = append(ids, storxnetwork.NodeID{1, byte(i)})
 
 // 			var disqualified *time.Time
 // 			if i%2 == 1 {

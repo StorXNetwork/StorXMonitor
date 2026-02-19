@@ -11,11 +11,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrSigner is default error class for Signer.
@@ -29,17 +29,17 @@ type Signer struct {
 	Bucket metabase.BucketLocation
 
 	// TODO: use a Template pb.OrderLimit here?
-	RootPieceID        storj.PieceID
-	rootPieceIDDeriver storj.PieceIDDeriver
+	RootPieceID        storxnetwork.PieceID
+	rootPieceIDDeriver storxnetwork.PieceIDDeriver
 
 	PieceExpiration time.Time
 	OrderCreation   time.Time
 	OrderExpiration time.Time
 
-	PublicKey  storj.PiecePublicKey
-	PrivateKey storj.PiecePrivateKey
+	PublicKey  storxnetwork.PiecePublicKey
+	PrivateKey storxnetwork.PiecePrivateKey
 
-	Serial storj.SerialNumber
+	Serial storxnetwork.SerialNumber
 	Action pb.PieceAction
 	Limit  int64
 
@@ -50,20 +50,20 @@ type Signer struct {
 }
 
 // CreateSerial creates a timestamped serial number.
-func CreateSerial(orderExpiration time.Time) (_ storj.SerialNumber, err error) {
-	var serial storj.SerialNumber
+func CreateSerial(orderExpiration time.Time) (_ storxnetwork.SerialNumber, err error) {
+	var serial storxnetwork.SerialNumber
 
 	binary.BigEndian.PutUint64(serial[0:8], uint64(orderExpiration.Unix()))
 	_, err = rand.Read(serial[8:])
 	if err != nil {
-		return storj.SerialNumber{}, ErrSigner.Wrap(err)
+		return storxnetwork.SerialNumber{}, ErrSigner.Wrap(err)
 	}
 
 	return serial, nil
 }
 
 // NewSigner creates an order limit signer.
-func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, limit int64, action pb.PieceAction, bucket metabase.BucketLocation) (*Signer, error) {
+func NewSigner(service *Service, rootPieceID storxnetwork.PieceID, pieceExpiration time.Time, orderCreation time.Time, limit int64, action pb.PieceAction, bucket metabase.BucketLocation) (*Signer, error) {
 	signer := &Signer{}
 	signer.Service = service
 
@@ -77,7 +77,7 @@ func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time
 	signer.OrderExpiration = orderCreation.Add(service.orderExpiration)
 
 	var err error
-	signer.PublicKey, signer.PrivateKey, err = storj.NewPieceKey()
+	signer.PublicKey, signer.PrivateKey, err = storxnetwork.NewPieceKey()
 	if err != nil {
 		return nil, ErrSigner.Wrap(err)
 	}
@@ -94,38 +94,38 @@ func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time
 }
 
 // NewSignerGet creates a new signer for get orders.
-func NewSignerGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, limit int64, bucket metabase.BucketLocation) (*Signer, error) {
+func NewSignerGet(service *Service, rootPieceID storxnetwork.PieceID, orderCreation time.Time, limit int64, bucket metabase.BucketLocation) (*Signer, error) {
 	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, limit, pb.PieceAction_GET, bucket)
 }
 
 // NewSignerPut creates a new signer for put orders.
 func NewSignerPut(service *Service, pieceExpiration time.Time, orderCreation time.Time, limit int64, bucket metabase.BucketLocation) (*Signer, error) {
-	rootPieceID := storj.NewPieceID()
+	rootPieceID := storxnetwork.NewPieceID()
 	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, limit, pb.PieceAction_PUT, bucket)
 }
 
 // NewSignerDelete creates a new signer for delete orders.
-func NewSignerDelete(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, bucket metabase.BucketLocation) (*Signer, error) {
+func NewSignerDelete(service *Service, rootPieceID storxnetwork.PieceID, orderCreation time.Time, bucket metabase.BucketLocation) (*Signer, error) {
 	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, 0, pb.PieceAction_DELETE, bucket)
 }
 
 // NewSignerRepairGet creates a new signer for get repair orders.
-func NewSignerRepairGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
+func NewSignerRepairGet(service *Service, rootPieceID storxnetwork.PieceID, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
 	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, pieceSize, pb.PieceAction_GET_REPAIR, bucket)
 }
 
 // NewSignerRepairPut creates a new signer for put repair orders.
-func NewSignerRepairPut(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
+func NewSignerRepairPut(service *Service, rootPieceID storxnetwork.PieceID, pieceExpiration time.Time, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
 	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, pieceSize, pb.PieceAction_PUT_REPAIR, bucket)
 }
 
 // NewSignerAudit creates a new signer for audit orders.
-func NewSignerAudit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
+func NewSignerAudit(service *Service, rootPieceID storxnetwork.PieceID, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
 	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, pieceSize, pb.PieceAction_GET_AUDIT, bucket)
 }
 
 // NewSignerGracefulExit creates a new signer for graceful exit orders.
-func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, shareSize int32, bucket metabase.BucketLocation) (*Signer, error) {
+func NewSignerGracefulExit(service *Service, rootPieceID storxnetwork.PieceID, orderCreation time.Time, shareSize int32, bucket metabase.BucketLocation) (*Signer, error) {
 	// TODO: we're using zero time.Time for piece expiration for some reason.
 
 	// TODO: we're using `PUT_REPAIR` here even though we should be using `PUT`, such

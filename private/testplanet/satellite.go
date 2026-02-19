@@ -17,53 +17,53 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/macaroon"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/common/version"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/testredis"
-	versionchecker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/accounting/projectbwcleanup"
-	"storj.io/storj/satellite/accounting/rollup"
-	"storj.io/storj/satellite/accounting/rolluparchive"
-	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb"
-	"storj.io/storj/satellite/console/userinfo"
-	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc/sender"
-	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/zombiedeletion"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodestats"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/overlay/offlinenodes"
-	"storj.io/storj/satellite/overlay/straynodes"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/lrucache"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/testredis"
+	versionchecker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/projectbwcleanup"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/rollup"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/rolluparchive"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/tally"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/userinfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/contact"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/sender"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gracefulexit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/zombiedeletion"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo/expireddeletion"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodestats"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay/offlinenodes"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay/straynodes"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Satellite contains all the processes needed to run a full Satellite setup.
@@ -194,7 +194,7 @@ type Satellite struct {
 func (system *Satellite) Label() string { return system.Name }
 
 // ID returns the ID of the Satellite system.
-func (system *Satellite) ID() storj.NodeID { return system.API.Identity.ID }
+func (system *Satellite) ID() storxnetwork.NodeID { return system.API.Identity.ID }
 
 // Addr returns the public address from the Satellite system API.
 func (system *Satellite) Addr() string { return system.API.Server.Addr().String() }
@@ -211,9 +211,9 @@ func (system *Satellite) ConsoleURL() string {
 	}
 }
 
-// NodeURL returns the storj.NodeURL from the Satellite system API.
-func (system *Satellite) NodeURL() storj.NodeURL {
-	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
+// NodeURL returns the storxnetwork.NodeURL from the Satellite system API.
+func (system *Satellite) NodeURL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
 }
 
 // AddUser adds user to a satellite. Password from newUser will be always overridden by FullName to have
@@ -470,7 +470,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	encryptionKeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
-		Key: storj.Key{1},
+		Key: storxnetwork.Key{1},
 	})
 	if err != nil {
 		return nil, errs.Wrap(err)

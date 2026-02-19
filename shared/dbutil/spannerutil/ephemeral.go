@@ -13,7 +13,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/context2"
+	"github.com/StorXNetwork/common/context2"
 )
 
 // EphemeralDB manages lifecycle of a temporary database.

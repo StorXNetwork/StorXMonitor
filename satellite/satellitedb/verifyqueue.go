@@ -10,11 +10,11 @@ import (
 	"sort"
 	"time"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	VerifyRetryInterval = 4 * time.Hour
 )
 
-// verifyQueue implements storj.io/storj/satellite/audit.VerifyQueue.
+// verifyQueue implements github.com/StorXNetwork/StorXMonitor/satellite/audit.VerifyQueue.
 type verifyQueue struct {
 	db *satelliteDB
 }

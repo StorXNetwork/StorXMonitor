@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/eventing"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
 )
 
 // shouldTransmitEvent determines whether to generate change stream events for a bucket operation.

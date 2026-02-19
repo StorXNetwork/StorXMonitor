@@ -15,10 +15,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -42,7 +42,7 @@ type fileV1 struct {
 
 // OpenWritableV1 opens for writing the unsent or archived orders file at a given path.
 // If the file is new, the file header is written.
-func OpenWritableV1(path string, satelliteID storj.NodeID, creationTime time.Time) (Writable, error) {
+func OpenWritableV1(path string, satelliteID storxnetwork.NodeID, creationTime time.Time) (Writable, error) {
 	// create file if not exists or append
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -68,7 +68,7 @@ func OpenWritableV1(path string, satelliteID storj.NodeID, creationTime time.Tim
 }
 
 // writeHeader writes file header as [filemagic][satellite ID][creation hour].
-func (of *fileV1) writeHeader(satelliteID storj.NodeID, creationTime time.Time) error {
+func (of *fileV1) writeHeader(satelliteID storxnetwork.NodeID, creationTime time.Time) error {
 	toWrite := fileMagic[:]
 	toWrite = append(toWrite, satelliteID.Bytes()...)
 	creationHour := date.TruncateToHourInNano(creationTime)

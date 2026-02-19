@@ -20,26 +20,26 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	satbuckets "storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	snorders "storj.io/storj/storagenode/orders"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	satbuckets "github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	snorders "github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 func TestProjectUsageStorage(t *testing.T) {
@@ -511,8 +511,8 @@ func TestUsageRollups(t *testing.T) {
 		var rollups []orders.BucketBandwidthRollup
 
 		var buckets []string
-		placement := func(projectID uuid.UUID) *storj.PlacementConstraint {
-			p := storj.PlacementConstraint(base(projectID))
+		placement := func(projectID uuid.UUID) *storxnetwork.PlacementConstraint {
+			p := storxnetwork.PlacementConstraint(base(projectID))
 			return &p
 		}
 		userAgent := func(projectID uuid.UUID) []byte {
@@ -790,7 +790,7 @@ func TestUsageRollups(t *testing.T) {
 				Configuration: &pb.ObjectLockConfiguration{
 					Enabled: true,
 					DefaultRetention: &pb.DefaultRetention{
-						Mode: pb.Retention_Mode(storj.ComplianceMode),
+						Mode: pb.Retention_Mode(storxnetwork.ComplianceMode),
 						Duration: &pb.DefaultRetention_Days{
 							Days: 1,
 						},
@@ -806,7 +806,7 @@ func TestUsageRollups(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, totals)
 			require.Len(t, totals.BucketUsages, 1)
-			require.Equal(t, storj.ComplianceMode, totals.BucketUsages[0].DefaultRetentionMode)
+			require.Equal(t, storxnetwork.ComplianceMode, totals.BucketUsages[0].DefaultRetentionMode)
 			require.Nil(t, totals.BucketUsages[0].DefaultRetentionYears)
 			require.NotNil(t, totals.BucketUsages[0].DefaultRetentionDays)
 			require.Equal(t, 1, *totals.BucketUsages[0].DefaultRetentionDays)
@@ -825,7 +825,7 @@ func TestUsageRollups(t *testing.T) {
 				elems := strings.Split(b.Name, "-")
 				n, err := strconv.Atoi(elems[1])
 				require.NoError(t, err)
-				b.Placement = storj.PlacementConstraint(n)
+				b.Placement = storxnetwork.PlacementConstraint(n)
 				_, err = db.Buckets().UpdateBucket(ctx, b)
 				require.NoError(t, err)
 			}

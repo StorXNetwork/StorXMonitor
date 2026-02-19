@@ -18,13 +18,13 @@ import (
 	"github.com/gorilla/schema"
 	"github.com/zeebo/errs/v2"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) {
@@ -706,10 +706,10 @@ func (server *Server) createGeofenceForProject(w http.ResponseWriter, r *http.Re
 }
 
 func (server *Server) deleteGeofenceForProject(w http.ResponseWriter, r *http.Request) {
-	server.setGeofenceForProject(w, r, storj.DefaultPlacement)
+	server.setGeofenceForProject(w, r, storxnetwork.DefaultPlacement)
 }
 
-func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
+func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Request, placement storxnetwork.PlacementConstraint) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)

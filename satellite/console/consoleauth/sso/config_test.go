@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
 )
 
 func TestOidcInfoConfigValidation(t *testing.T) {

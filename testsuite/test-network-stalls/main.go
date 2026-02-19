@@ -26,7 +26,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 )
 
 var (
@@ -101,12 +101,12 @@ func (ur *uplinkRunner) doesRemoteExist(remotePath string) (bool, error) {
 
 func storeFileAndCheck(uplink *uplinkRunner, srcFile, dstFile string) error {
 	if _, err := uplink.Run(context.Background(), "cp", srcFile, dstFile); err != nil {
-		return errs.New("Could not copy file into storj-sim network: %v", err)
+		return errs.New("Could not copy file into storxnetwork-sim network: %v", err)
 	}
 	if exists, err := uplink.doesRemoteExist(dstFile); err != nil {
 		return errs.New("Could not check if file exists: %v", err)
 	} else if !exists {
-		return errs.New("Copied file not present in storj-sim network!")
+		return errs.New("Copied file not present in storxnetwork-sim network!")
 	}
 	return nil
 }
@@ -132,12 +132,12 @@ func deleteWhileStallingAndCheck(uplink *uplinkRunner, dstFile string, nodeProc 
 			// (uplink did not time out, but this test did)
 			return errs.New("uplink DID NOT time out waiting for stalled node 0 while issuing a delete")
 		}
-		return errs.New("Unexpected error trying to delete file %q from storj-sim network: %v", dstFile, err)
+		return errs.New("Unexpected error trying to delete file %q from storxnetwork-sim network: %v", dstFile, err)
 	}
 	if exists, err := uplink.doesRemoteExist(dstFile); err != nil {
 		return errs.New("Failed to check if remote file %q was deleted: %v", dstFile, err)
 	} else if exists {
-		return errs.New("Deleted file still present in storj-sim network!")
+		return errs.New("Deleted file still present in storxnetwork-sim network!")
 	}
 	if strings.Contains(string(output), "context deadline exceeded") {
 		// the uplink correctly timed out when one of the target nodes was stalled! all is well
@@ -151,7 +151,7 @@ func runTest(ctx context.Context) error {
 	// check run environment
 	configDir := os.Getenv("GATEWAY_0_DIR")
 	if configDir == "" {
-		return errs.New("This test should be run under storj-sim test ($GATEWAY_0_DIR not found).")
+		return errs.New("This test should be run under storxnetwork-sim test ($GATEWAY_0_DIR not found).")
 	}
 	nodePid, err := strconv.Atoi(os.Getenv("STORAGENODE_0_PID"))
 	if err != nil {
@@ -168,13 +168,13 @@ func runTest(ctx context.Context) error {
 		configDir: configDir,
 		logLevel:  "error",
 	}
-	tempDir, err := os.MkdirTemp("", "storj-test-network-stalls.")
+	tempDir, err := os.MkdirTemp("", "storxnetwork-test-network-stalls.")
 	if err != nil {
 		return err
 	}
 	bucket := "sj://" + *bucketName
-	srcFile := filepath.Join(tempDir, "to-storj-sim")
-	dstFile := bucket + "/in-storj-sim"
+	srcFile := filepath.Join(tempDir, "to-storxnetwork-sim")
+	dstFile := bucket + "/in-storxnetwork-sim"
 	if err := makeRandomContentsFile(srcFile, fileSize); err != nil {
 		return errs.New("could not create test file with random contents: %v", err)
 	}

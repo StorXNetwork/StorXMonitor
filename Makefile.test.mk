@@ -64,28 +64,28 @@ test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 	@echo done
 
 .PHONY: install-sim
-install-sim: ## install storj-sim
+install-sim: ## install storxnetwork-sim
 	@echo "Running ${@}"
 	go install -race -v \
-		storj.io/storj/cmd/satellite \
-		storj.io/storj/cmd/storagenode \
-		storj.io/storj/cmd/storj-sim \
-		storj.io/storj/cmd/versioncontrol \
-		storj.io/storj/cmd/uplink \
-		storj.io/storj/cmd/identity \
-		storj.io/storj/cmd/certificates \
-		storj.io/storj/cmd/multinode
+		github.com/StorXNetwork/StorXMonitor/cmd/satellite \
+		github.com/StorXNetwork/StorXMonitor/cmd/storagenode \
+		github.com/StorXNetwork/StorXMonitor/cmd/storxnetwork-sim \
+		github.com/StorXNetwork/StorXMonitor/cmd/versioncontrol \
+		github.com/StorXNetwork/StorXMonitor/cmd/uplink \
+		github.com/StorXNetwork/StorXMonitor/cmd/identity \
+		github.com/StorXNetwork/StorXMonitor/cmd/certificates \
+		github.com/StorXNetwork/StorXMonitor/cmd/multinode
 
 	## install the latest stable version of Gateway-ST
-	go install -race -v storj.io/gateway@latest
+	go install -race -v storxnetwork.io/gateway@latest
 
 .PHONY: test-sim
-test-sim: ## Test source with storj-sim (jenkins)
+test-sim: ## Test source with storxnetwork-sim (jenkins)
 	@echo "Running ${@}"
 	@./testsuite/basic/start-sim.sh
 
 .PHONY: test-sim-redis-unavailability
-test-sim-redis-unavailability: ## Test source with Redis availability with storj-sim (jenkins)
+test-sim-redis-unavailability: ## Test source with Redis availability with storxnetwork-sim (jenkins)
 	@echo "Running ${@}"
 	@./testsuite/redis/start-sim.sh
 

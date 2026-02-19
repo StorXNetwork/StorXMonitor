@@ -9,7 +9,7 @@ import (
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
 )
 
 var mon = monkit.Package()

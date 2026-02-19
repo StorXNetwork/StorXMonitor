@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 func TestFailingAudit(t *testing.T) {
@@ -124,7 +124,7 @@ func TestCreatePendingAudits(t *testing.T) {
 
 	ctx := t.Context()
 	const pieceNum = 1
-	contained := make(map[int]storj.NodeID)
+	contained := make(map[int]storxnetwork.NodeID)
 	contained[pieceNum] = testNodeID
 
 	segment := testSegment()
@@ -132,8 +132,8 @@ func TestCreatePendingAudits(t *testing.T) {
 		StreamID:    segment.StreamID,
 		Position:    segment.Position,
 		RootPieceID: testrand.PieceID(),
-		Redundancy: storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		Redundancy: storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			RequiredShares: required,
 			TotalShares:    total,
 			ShareSize:      int32(len(shares[0].Data)),

@@ -5,7 +5,7 @@
 
 package jobqueue
 
-import "storj.io/storj/satellite/jobq"
+import "github.com/StorXNetwork/StorXMonitor/satellite/jobq"
 
 func memRealloc(mem []byte, heap []jobq.RepairJob, newLenRecords int) ([]byte, []jobq.RepairJob, error) {
 	newMem, newHeap, err := memAlloc(newLenRecords)

@@ -12,8 +12,8 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/eventkit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 var (

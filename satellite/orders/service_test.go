@@ -13,14 +13,14 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestGetOrderLimits(t *testing.T) {
@@ -30,7 +30,7 @@ func TestGetOrderLimits(t *testing.T) {
 	bucket := metabase.BucketLocation{ProjectID: testrand.UUID(), BucketName: "bucket1"}
 
 	pieces := metabase.Pieces{}
-	nodes := map[storj.NodeID]*nodeselection.SelectedNode{}
+	nodes := map[storxnetwork.NodeID]*nodeselection.SelectedNode{}
 	for i := 0; i < 8; i++ {
 		nodeID := testrand.NodeID()
 		nodes[nodeID] = &nodeselection.SelectedNode{
@@ -45,11 +45,11 @@ func TestGetOrderLimits(t *testing.T) {
 			StorageNode: nodeID,
 		})
 	}
-	testIdentity, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	testIdentity, err := testidentity.PregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 	require.NoError(t, err)
 	k := signing.SignerFromFullIdentity(testIdentity)
 
-	uplinkIdentity, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	uplinkIdentity, err := testidentity.PregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 	require.NoError(t, err)
 
 	overlayService := NewMockOverlayForOrders(ctrl)
@@ -59,7 +59,7 @@ func TestGetOrderLimits(t *testing.T) {
 		Return(nodes, nil).AnyTimes()
 
 	service, err := NewService(zaptest.NewLogger(t), k, overlayService, NewNoopDB(),
-		func(constraint storj.PlacementConstraint) (nodeselection.NodeFilter, nodeselection.DownloadSelector) {
+		func(constraint storxnetwork.PlacementConstraint) (nodeselection.NodeFilter, nodeselection.DownloadSelector) {
 			return nodeselection.AnyFilter{}, nodeselection.DefaultDownloadSelector
 		},
 		Config{
@@ -75,8 +75,8 @@ func TestGetOrderLimits(t *testing.T) {
 	segment := metabase.Segment{
 		StreamID:  testrand.UUID(),
 		CreatedAt: time.Now(),
-		Redundancy: storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		Redundancy: storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			ShareSize:      256,
 			RequiredShares: 4,
 			RepairShares:   5,
@@ -118,7 +118,7 @@ func TestGetOrderLimits(t *testing.T) {
 }
 
 func TestDownloadNodes(t *testing.T) {
-	key, err := storj.NewKey([]byte("test-key"))
+	key, err := storxnetwork.NewKey([]byte("test-key"))
 	require.NoError(t, err)
 	encryptionKeys := EncryptionKeys{
 		Default: EncryptionKey{
@@ -145,7 +145,7 @@ func TestDownloadNodes(t *testing.T) {
 	} {
 		tag := fmt.Sprintf("#%d. %+v", i, tt)
 
-		rs := storj.RedundancyScheme{
+		rs := storxnetwork.RedundancyScheme{
 			RequiredShares: tt.k,
 			RepairShares:   tt.m,
 			OptimalShares:  tt.o,
@@ -176,7 +176,7 @@ func TestDownloadNodes(t *testing.T) {
 	} {
 		tag := fmt.Sprintf("#%d. %+v", i, tt)
 
-		rs := storj.RedundancyScheme{
+		rs := storxnetwork.RedundancyScheme{
 			RequiredShares: tt.k,
 			RepairShares:   tt.m,
 			OptimalShares:  tt.o,

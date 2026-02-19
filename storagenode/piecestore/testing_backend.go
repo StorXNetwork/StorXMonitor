@@ -15,8 +15,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type pieceState int
@@ -29,8 +29,8 @@ const (
 )
 
 type pieceIdentity struct {
-	satellite storj.NodeID
-	pieceID   storj.PieceID
+	satellite storxnetwork.NodeID
+	pieceID   storxnetwork.PieceID
 }
 
 type pieceContents struct {
@@ -64,19 +64,19 @@ func NewTestingBackend(pb PieceBackend) *TestingBackend {
 // the testplanet package.
 func (tb *TestingBackend) TestingEnableMethods() {
 	var buf [4096]byte
-	if !bytes.Contains(buf[:runtime.Stack(buf[:], false)], []byte("storj.io/storj/private/testplanet")) {
+	if !bytes.Contains(buf[:runtime.Stack(buf[:], false)], []byte("github.com/StorXNetwork/StorXMonitor/private/testplanet")) {
 		panic("TestingEnableMethods can only be called from testplanet")
 	}
 	tb.enabled.Store(true)
 }
 
 // StartRestore implements PieceBackend.
-func (tb *TestingBackend) StartRestore(ctx context.Context, satellite storj.NodeID) error {
+func (tb *TestingBackend) StartRestore(ctx context.Context, satellite storxnetwork.NodeID) error {
 	return tb.pb.StartRestore(ctx, satellite)
 }
 
 // Writer implements PieceBackend.
-func (tb *TestingBackend) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgorithm pb.PieceHashAlgorithm, expiration time.Time) (PieceWriter, error) {
+func (tb *TestingBackend) Writer(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, hashAlgorithm pb.PieceHashAlgorithm, expiration time.Time) (PieceWriter, error) {
 	if !tb.enabled.Load() { // fast path in production: just use the underying PieceBackend
 		return tb.pb.Writer(ctx, satellite, pieceID, hashAlgorithm, expiration)
 	}
@@ -100,7 +100,7 @@ func (tb *TestingBackend) Writer(ctx context.Context, satellite storj.NodeID, pi
 }
 
 // Reader implements PieceBackend.
-func (tb *TestingBackend) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (PieceReader, error) {
+func (tb *TestingBackend) Reader(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (PieceReader, error) {
 	if !tb.enabled.Load() { // fast path in production: just use the underying PieceBackend
 		return tb.pb.Reader(ctx, satellite, pieceID)
 	}
@@ -141,7 +141,7 @@ func (tb *TestingBackend) Reader(ctx context.Context, satellite storj.NodeID, pi
 }
 
 // TestingDeletePiece marks the piece as deleted if it exists.
-func (tb *TestingBackend) TestingDeletePiece(satellite storj.NodeID, pieceID storj.PieceID) {
+func (tb *TestingBackend) TestingDeletePiece(satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	if !tb.enabled.Load() {
 		return
 	}
@@ -156,7 +156,7 @@ func (tb *TestingBackend) TestingDeletePiece(satellite storj.NodeID, pieceID sto
 }
 
 // TestingCorruptPiece marks the piece as corrupted (returns invalid data) if it exists.
-func (tb *TestingBackend) TestingCorruptPiece(satellite storj.NodeID, pieceID storj.PieceID) {
+func (tb *TestingBackend) TestingCorruptPiece(satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	if !tb.enabled.Load() {
 		return
 	}
@@ -171,7 +171,7 @@ func (tb *TestingBackend) TestingCorruptPiece(satellite storj.NodeID, pieceID st
 }
 
 // TestingMutatePiece mutates the piece using the provided callback if it exists.
-func (tb *TestingBackend) TestingMutatePiece(satellite storj.NodeID, pieceID storj.PieceID, mutator func(contents []byte, header *pb.PieceHeader)) {
+func (tb *TestingBackend) TestingMutatePiece(satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, mutator func(contents []byte, header *pb.PieceHeader)) {
 	if !tb.enabled.Load() {
 		return
 	}
@@ -205,7 +205,7 @@ func (tb *TestingBackend) TestingMutatePiece(satellite storj.NodeID, pieceID sto
 }
 
 // TestingDeleteAllPiecesForSatellite marks every piece for the satellite as deleted.
-func (tb *TestingBackend) TestingDeleteAllPiecesForSatellite(satellite storj.NodeID) {
+func (tb *TestingBackend) TestingDeleteAllPiecesForSatellite(satellite storxnetwork.NodeID) {
 	if !tb.enabled.Load() {
 		return
 	}
@@ -259,8 +259,8 @@ func (t *testingReader) GetPieceHeader() (*pb.PieceHeader, error) { return t.hea
 type testingWriter struct {
 	PieceWriter
 	tb        *TestingBackend
-	satellite storj.NodeID
-	pieceID   storj.PieceID
+	satellite storxnetwork.NodeID
+	pieceID   storxnetwork.PieceID
 	once      sync.Once
 }
 

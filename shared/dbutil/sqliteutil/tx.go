@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // WithTx is a helper method which executes callback in transaction scope.

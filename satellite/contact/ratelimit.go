@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"storj.io/storj/shared/lrucache"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
 )
 
 // RateLimiter allows to prevent multiple events in fixed period of time.

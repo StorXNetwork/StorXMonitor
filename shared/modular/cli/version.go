@@ -6,7 +6,7 @@ package cli
 import (
 	"fmt"
 
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Version is a command that outputs the build version of the application.

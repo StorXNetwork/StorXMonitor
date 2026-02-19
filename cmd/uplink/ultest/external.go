@@ -8,9 +8,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/uplink"
 )
 
 // TestAccess is a valid access grant intended for use in tests.

@@ -2,7 +2,7 @@
 model reputation (
 	key id
 
-	// id is the storj.NodeID.
+	// id is the storxnetwork.NodeID.
 	field id              blob
 
 	// audit_success_count is the total number of audits the node has passed.

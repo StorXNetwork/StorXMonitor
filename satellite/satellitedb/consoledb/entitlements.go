@@ -12,8 +12,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // Ensures that entitlementsDB implements entitlements.DB.

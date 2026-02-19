@@ -13,16 +13,16 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	migrator "storj.io/storj/cmd/tools/migrate-public-ids"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	migrator "github.com/StorXNetwork/StorXMonitor/cmd/tools/migrate-public-ids"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
 )
 
 // Test no entries in table doesn't error.

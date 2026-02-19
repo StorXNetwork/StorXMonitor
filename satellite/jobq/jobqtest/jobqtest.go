@@ -14,15 +14,15 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testmonkit"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 // ServerOptions represents the options to be used for creating a new server.
@@ -52,7 +52,7 @@ type TestServer struct {
 	// connections).
 	TLSOpts *tlsopts.Options
 	// NodeURL is the NodeURL to be used to connect to the server.
-	NodeURL storj.NodeURL
+	NodeURL storxnetwork.NodeURL
 }
 
 // SetTimeFunc sets the time function for all queues currently initialized in
@@ -118,7 +118,7 @@ func WithServer(t *testing.T, options *ServerOptions, f func(ctx *testcontext.Co
 		JobqServer: peer,
 		Identity:   options.Identity,
 		TLSOpts:    clientOpts,
-		NodeURL: storj.NodeURL{
+		NodeURL: storxnetwork.NodeURL{
 			Address: peer.Jobq.Server.Addr().String(),
 			ID:      options.Identity.ID,
 		},

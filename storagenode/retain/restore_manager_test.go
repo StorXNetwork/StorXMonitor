@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/assert"
 
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestRestoreTimeManager(t *testing.T) {

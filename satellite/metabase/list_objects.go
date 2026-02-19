@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // ListObjectsCursor is a cursor used during iteration through objects.

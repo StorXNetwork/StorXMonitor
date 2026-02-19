@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Credits exposes all needed functionality to manage credits.
@@ -22,7 +22,7 @@ type Credits interface {
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]Credit, error)
 }
 
-// Credit is an entity that holds bonus balance of user, earned by depositing with storj coins.
+// Credit is an entity that holds bonus balance of user, earned by depositing with storxnetwork coins.
 type Credit struct {
 	UserID        uuid.UUID                  `json:"userId"`
 	Amount        int64                      `json:"credit"`

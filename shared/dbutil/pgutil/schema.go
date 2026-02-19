@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"strings"
 
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
 )
 
 // CreateRandomTestingSchemaName creates a random schema name string.

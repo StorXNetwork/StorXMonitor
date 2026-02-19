@@ -113,7 +113,7 @@ scp backuptools_public.pem storxmonitor:/path/to/keys/
 
 **Or edit config file:**
 ```yaml
-# ~/.local/share/storj/local-network/replication/config.yaml
+# ~/.local/share/storxnetwork/local-network/replication/config.yaml
 database: "postgres://user:password@localhost:5432/storx?sslmode=disable&options=--search_path%3D%22satellite%2F0%22"
 
 replication:

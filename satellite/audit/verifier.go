@@ -18,20 +18,20 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/eestream"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/eventkit"
+	"github.com/StorXNetwork/uplink/private/eestream"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var (
@@ -63,7 +63,7 @@ type Share struct {
 	Error        error
 	FailurePhase FailurePhase
 	PieceNum     int
-	NodeID       storj.NodeID
+	NodeID       storxnetwork.NodeID
 	Data         []byte
 }
 
@@ -102,7 +102,7 @@ func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, over
 }
 
 // Verify downloads shares then verifies the data correctness at a random stripe.
-func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[storj.NodeID]bool) (report Report, err error) {
+func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[storxnetwork.NodeID]bool) (report Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var segmentInfo metabase.SegmentForAudit
@@ -130,10 +130,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		return Report{}, err
 	}
 
-	var offlineNodes storj.NodeIDList
+	var offlineNodes storxnetwork.NodeIDList
 	var failedNodes metabase.Pieces
-	var unknownNodes storj.NodeIDList
-	containedNodes := make(map[int]storj.NodeID)
+	var unknownNodes storxnetwork.NodeIDList
+	containedNodes := make(map[int]storxnetwork.NodeID)
 	sharesToAudit := make(map[int]Share)
 
 	orderLimits, privateKey, cachedNodesInfo, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentInfo, skip)
@@ -145,7 +145,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		}
 		return Report{}, err
 	}
-	cachedNodesReputation := make(map[storj.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
+	cachedNodesReputation := make(map[storxnetwork.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
 	for id, info := range cachedNodesInfo {
 		cachedNodesReputation[id] = info.Reputation
 	}
@@ -330,7 +330,7 @@ func segmentInfoString(segment Segment) string {
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located.
-func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, stripeIndex int32, shareSize int32) (shares map[int]Share, err error) {
+func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storxnetwork.PiecePrivateKey, cachedNodesInfo map[storxnetwork.NodeID]overlay.NodeReputation, stripeIndex int32, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
@@ -366,7 +366,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 
 // IdentifyContainedNodes returns the set of all contained nodes out of the
 // holders of pieces in the given segment.
-func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Segment) (skipList map[storj.NodeID]bool, err error) {
+func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Segment) (skipList map[storxnetwork.NodeID]bool, err error) {
 	segmentInfo, err := verifier.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 		StreamID: segment.StreamID,
 		Position: segment.Position,
@@ -375,7 +375,7 @@ func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Se
 		return nil, err
 	}
 
-	skipList = make(map[storj.NodeID]bool)
+	skipList = make(map[storxnetwork.NodeID]bool)
 	for _, piece := range segmentInfo.Pieces {
 		_, err := verifier.containment.Get(ctx, piece.StorageNode)
 		if err != nil {
@@ -391,7 +391,7 @@ func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Se
 }
 
 // GetShare use piece store client to download shares from nodes.
-func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPAndPort string, stripeIndex, shareSize int32, pieceNum int) (share Share) {
+func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storxnetwork.PiecePrivateKey, cachedIPAndPort string, stripeIndex, shareSize int32, pieceNum int) (share Share) {
 	defer mon.Task()(&ctx)(&share.Error)
 
 	share.PieceNum = pieceNum
@@ -419,7 +419,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 
 	// if cached IP is given, try connecting there first
 	if cachedIPAndPort != "" {
-		nodeAddr := storj.NodeURL{
+		nodeAddr := storxnetwork.NodeURL{
 			ID:      targetNodeID,
 			Address: cachedIPAndPort,
 		}
@@ -431,7 +431,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 
 	// if no cached IP was given, or connecting to cached IP failed, use node address
 	if ps == nil {
-		nodeAddr := storj.NodeURL{
+		nodeAddr := storxnetwork.NodeURL{
 			ID:      targetNodeID,
 			Address: limit.GetStorageNodeAddress().Address,
 		}
@@ -555,11 +555,11 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []eestream
 // getOfflineNodes returns those storage nodes from the segment which have no
 // order limit nor are skipped.
 func getOfflineNodes(
-	segment metabase.SegmentForAudit, limits []*pb.AddressedOrderLimit, skip map[storj.NodeID]bool,
-) storj.NodeIDList {
-	var offlines storj.NodeIDList
+	segment metabase.SegmentForAudit, limits []*pb.AddressedOrderLimit, skip map[storxnetwork.NodeID]bool,
+) storxnetwork.NodeIDList {
+	var offlines storxnetwork.NodeIDList
 
-	nodesWithLimit := make(map[storj.NodeID]bool, len(limits))
+	nodesWithLimit := make(map[storxnetwork.NodeID]bool, len(limits))
 	for _, limit := range limits {
 		if limit != nil {
 			nodesWithLimit[limit.GetLimit().StorageNodeId] = true
@@ -576,9 +576,9 @@ func getOfflineNodes(
 }
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit.
-func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes metabase.Pieces, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes metabase.Pieces, offlineNodes, unknownNodes storxnetwork.NodeIDList, containedNodes map[int]storxnetwork.NodeID) (successNodes storxnetwork.NodeIDList) {
 	defer mon.Task()(&ctx)(nil)
-	fails := make(map[storj.NodeID]bool)
+	fails := make(map[storxnetwork.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail.StorageNode] = true
 	}
@@ -601,7 +601,7 @@ func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes meta
 	return successNodes
 }
 
-func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, segment Segment) (pending []*ReverificationJob, err error) {
+func createPendingAudits(ctx context.Context, containedNodes map[int]storxnetwork.NodeID, segment Segment) (pending []*ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(containedNodes) == 0 {

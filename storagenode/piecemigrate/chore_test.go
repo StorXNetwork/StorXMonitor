@@ -20,17 +20,17 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/hashstore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/satstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satstore"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestHashMismatch(t *testing.T) {
@@ -503,15 +503,15 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 // allow getting rid of that.
 
 type pieceToCheck struct {
-	sat      storj.NodeID
-	id       storj.PieceID
+	sat      storxnetwork.NodeID
+	id       storxnetwork.PieceID
 	content  []byte
 	hashAlgo pb.PieceHashAlgorithm
 	hash     []byte
 }
 
-func randomSatsPieces(n, nPieces int) map[storj.NodeID][]*pieceToCheck {
-	ret := make(map[storj.NodeID][]*pieceToCheck)
+func randomSatsPieces(n, nPieces int) map[storxnetwork.NodeID][]*pieceToCheck {
+	ret := make(map[storxnetwork.NodeID][]*pieceToCheck)
 
 	for i := 0; i < n; i++ {
 		id := testrand.NodeID()
@@ -532,7 +532,7 @@ func randomSatsPieces(n, nPieces int) map[storj.NodeID][]*pieceToCheck {
 	return ret
 }
 
-func writeSatsPiecesWithExpiration(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck, expiration time.Time) {
+func writeSatsPiecesWithExpiration(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storxnetwork.NodeID][]*pieceToCheck, expiration time.Time) {
 	for sat, pieces := range satsPieces {
 		for _, p := range pieces {
 			writeToStore(ctx, t, store, sat, p, expiration)
@@ -540,11 +540,11 @@ func writeSatsPiecesWithExpiration(ctx context.Context, t *testing.T, store *pie
 	}
 }
 
-func writeSatsPieces(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck) {
+func writeSatsPieces(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storxnetwork.NodeID][]*pieceToCheck) {
 	writeSatsPiecesWithExpiration(ctx, t, store, satsPieces, time.Time{})
 }
 
-func writeToStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storj.NodeID, piece *pieceToCheck, expiration time.Time) {
+func writeToStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storxnetwork.NodeID, piece *pieceToCheck, expiration time.Time) {
 	w, err := store.Writer(ctx, sat, piece.id, piece.hashAlgo)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, w.Cancel(ctx)) }()
@@ -565,7 +565,7 @@ func writeToStore(ctx context.Context, t *testing.T, store *pieces.Store, sat st
 	}))
 }
 
-func readFromStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storj.NodeID, piece *pieceToCheck) {
+func readFromStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storxnetwork.NodeID, piece *pieceToCheck) {
 	r, err := store.Reader(ctx, sat, piece.id)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, r.Close()) }()
@@ -586,7 +586,7 @@ func readFromStore(ctx context.Context, t *testing.T, store *pieces.Store, sat s
 	require.Equal(t, piece.content, b.Bytes())
 }
 
-func readFromBackend(ctx context.Context, t *testing.T, backend piecestore.PieceBackend, sat storj.NodeID, piece *pieceToCheck) {
+func readFromBackend(ctx context.Context, t *testing.T, backend piecestore.PieceBackend, sat storxnetwork.NodeID, piece *pieceToCheck) {
 	r, err := backend.Reader(ctx, sat, piece.id)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, r.Close()) }()
@@ -607,7 +607,7 @@ func readFromBackend(ctx context.Context, t *testing.T, backend piecestore.Piece
 	require.Equal(t, piece.content, b.Bytes())
 }
 
-func existsInStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storj.NodeID, piece storj.PieceID) bool {
+func existsInStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storxnetwork.NodeID, piece storxnetwork.PieceID) bool {
 	r, err := store.Reader(ctx, sat, piece)
 	if err != nil {
 		if errs.Is(err, fs.ErrNotExist) {
@@ -619,7 +619,7 @@ func existsInStore(ctx context.Context, t *testing.T, store *pieces.Store, sat s
 	return true
 }
 
-func existsInBackend(ctx context.Context, t *testing.T, backend piecestore.PieceBackend, sat storj.NodeID, piece storj.PieceID) bool {
+func existsInBackend(ctx context.Context, t *testing.T, backend piecestore.PieceBackend, sat storxnetwork.NodeID, piece storxnetwork.PieceID) bool {
 	r, err := backend.Reader(ctx, sat, piece)
 	if err != nil {
 		if errs.Is(err, fs.ErrNotExist) {
@@ -631,7 +631,7 @@ func existsInBackend(ctx context.Context, t *testing.T, backend piecestore.Piece
 	return true
 }
 
-func waitUntilMigrationFinished(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck) {
+func waitUntilMigrationFinished(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storxnetwork.NodeID][]*pieceToCheck) {
 	for {
 		var count int
 		for sat := range satsPieces {
@@ -650,7 +650,7 @@ func waitUntilMigrationFinished(ctx context.Context, t *testing.T, store *pieces
 	}
 }
 
-func setMigrateActive(chore *Chore, satsPieces map[storj.NodeID][]*pieceToCheck) {
+func setMigrateActive(chore *Chore, satsPieces map[storxnetwork.NodeID][]*pieceToCheck) {
 	for sat := range satsPieces {
 		chore.SetMigrate(sat, true, true)
 	}

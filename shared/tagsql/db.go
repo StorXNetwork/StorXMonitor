@@ -19,10 +19,10 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/context2"
-	"storj.io/common/leak"
-	"storj.io/common/traces"
-	"storj.io/storj/shared/flightrecorder"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/leak"
+	"github.com/StorXNetwork/common/traces"
+	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
 )
 
 var mon = monkit.Package()

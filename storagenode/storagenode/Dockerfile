@@ -23,10 +23,10 @@ ARG BUILD_VERSION
 ARG BUILD_COMMIT
 ARG BUILD_DATE
 RUN --mount=type=cache,target="/root/.cache/go-build" \
-    go install -ldflags "-X storj.io/common/version.buildRelease=true \
-    -X storj.io/common/version.buildVersion=$BUILD_VERSION \
-    -X storj.io/common/version.buildCommitHash=$BUILD_COMMIT \
-    -X storj.io/common/version.buildTimestamp=$BUILD_DATE" \
+    go install -ldflags "-X github.com/StorXNetwork/common/version.buildRelease=true \
+    -X github.com/StorXNetwork/common/version.buildVersion=$BUILD_VERSION \
+    -X github.com/StorXNetwork/common/version.buildCommitHash=$BUILD_COMMIT \
+    -X github.com/StorXNetwork/common/version.buildTimestamp=$BUILD_DATE" \
     ./storagenode/storagenode ./cmd/identity
 
 FROM base AS build

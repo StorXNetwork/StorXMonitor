@@ -17,28 +17,28 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap"
 
-	"storj.io/common/currency"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	stripe1 "storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestService_SetInvoiceStatusUncollectible(t *testing.T) {
@@ -1506,10 +1506,10 @@ func TestProjectUsagePrice(t *testing.T) {
 func TestPartnerPlacements(t *testing.T) {
 	var (
 		partner           = "partner"
-		placement10       = storj.PlacementConstraint(10)
-		placement11       = storj.PlacementConstraint(11)
-		placement12       = storj.PlacementConstraint(12)
-		placement50       = storj.PlacementConstraint(50)
+		placement10       = storxnetwork.PlacementConstraint(10)
+		placement11       = storxnetwork.PlacementConstraint(11)
+		placement12       = storxnetwork.PlacementConstraint(12)
+		placement50       = storxnetwork.PlacementConstraint(50)
 		placementDetail10 = console.PlacementDetail{
 			ID:     10,
 			IdName: "placement10",
@@ -1559,7 +1559,7 @@ func TestPartnerPlacements(t *testing.T) {
 					int(placement12): productID2,
 				})
 
-				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+				config.Console.Placement.SelfServeDetails.SetMap(map[storxnetwork.PlacementConstraint]console.PlacementDetail{
 					placement10: placementDetail10,
 					placement11: placementDetail11,
 					placement12: placementDetail12,
@@ -1640,9 +1640,9 @@ func TestPartnerPlacements(t *testing.T) {
 func TestPartnerPlacements_WithEntitlements(t *testing.T) {
 	var (
 		partner           = "partner"
-		placement10       = storj.PlacementConstraint(10)
-		placement11       = storj.PlacementConstraint(11)
-		placement12       = storj.PlacementConstraint(12)
+		placement10       = storxnetwork.PlacementConstraint(10)
+		placement11       = storxnetwork.PlacementConstraint(11)
+		placement12       = storxnetwork.PlacementConstraint(12)
 		placementDetail10 = console.PlacementDetail{
 			ID:     10,
 			IdName: "placement10",
@@ -1694,7 +1694,7 @@ func TestPartnerPlacements_WithEntitlements(t *testing.T) {
 					int(placement12): productID,
 				})
 
-				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+				config.Console.Placement.SelfServeDetails.SetMap(map[storxnetwork.PlacementConstraint]console.PlacementDetail{
 					placement10: placementDetail10,
 					placement11: placementDetail11,
 					placement12: placementDetail12,
@@ -1788,12 +1788,12 @@ func TestPartnerPlacements_WithEntitlements(t *testing.T) {
 		defaultPrice, err := sat.Config.Payments.UsagePrice.ToModel()
 		require.NoError(t, err)
 
-		_, model, err = paymentsAPI.GetPlacementPriceModel(userCtx, proj.ID, storj.PlacementConstraint(50))
+		_, model, err = paymentsAPI.GetPlacementPriceModel(userCtx, proj.ID, storxnetwork.PlacementConstraint(50))
 		require.NoError(t, err)
 		require.Equal(t, defaultPrice, model)
 
 		// set entitlements for allowed self-serve placements
-		err = entitlementsAPI.SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placement11})
+		err = entitlementsAPI.SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storxnetwork.PlacementConstraint{placement11})
 		require.NoError(t, err)
 
 		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
@@ -2240,9 +2240,9 @@ func TestService_CreateInvoice(t *testing.T) {
 		t.Run("legacy token transactions", func(t *testing.T) {
 			stripeService.TestSetMinimumChargeCfg(1_000, nil)
 
-			amount, err := currency.AmountFromString("4.0000000000000000005", currency.StorjToken)
+			amount, err := currency.AmountFromString("4.0000000000000000005", currency.StorxToken)
 			require.NoError(t, err)
-			received, err := currency.AmountFromString("5.0000000000000000003", currency.StorjToken)
+			received, err := currency.AmountFromString("5.0000000000000000003", currency.StorxToken)
 			require.NoError(t, err)
 
 			id := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))

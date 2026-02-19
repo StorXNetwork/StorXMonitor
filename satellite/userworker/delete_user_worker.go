@@ -6,12 +6,12 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	"storj.io/common/macaroon"
-	"storj.io/common/sync2"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 var mon = monkit.Package()

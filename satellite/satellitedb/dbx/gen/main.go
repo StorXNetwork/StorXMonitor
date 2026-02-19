@@ -47,10 +47,10 @@ func main() {
 		log.Fatal(err)
 	}
 	replacer := strings.NewReplacer(
-		"\"storj.io/storj/shared/dbutil/txutil\"", "\"storj.io/storj/shared/flightrecorder\"\n\t\"storj.io/storj/shared/dbutil/txutil\"",
+		"\"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil\"", "\"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder\"\n\t\"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil\"",
 		"*sql.Tx", "tagsql.Tx",
 		"*sql.Rows", "tagsql.Rows",
-		`_ "github.com/jackc/pgx/v5/stdlib"`, `"storj.io/storj/shared/tagsql"`,
+		`_ "github.com/jackc/pgx/v5/stdlib"`, `"github.com/StorXNetwork/StorXMonitor/shared/tagsql"`,
 		"type DB struct {\n\t*sql.DB", "type DB struct {\n\ttagsql.DB",
 		"func Open(driver, source string)", "func Open(driver, source string, recorder *flightrecorder.Box)",
 		"db = &DB{\n\t\tDB: sql_db", "db = &DB{\n\t\tDB: tagsql.WrapWithRecorder(sql_db, recorder)",

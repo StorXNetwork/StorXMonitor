@@ -13,16 +13,16 @@ import (
 	"google.golang.org/api/impersonate"
 	"google.golang.org/api/option"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // GetBucket returns a bucket.
@@ -360,7 +360,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	if attribution, err := endpoint.attributions.Get(ctx, keyInfo.ProjectID, req.GetName()); err == nil {
-		if attribution.Placement == nil && bucketReq.Placement != storj.DefaultPlacement {
+		if attribution.Placement == nil && bucketReq.Placement != storxnetwork.DefaultPlacement {
 			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %s already attributed to a different placement constraint", bucketReq.Name)
 		}
 		if attribution.Placement != nil && *attribution.Placement != bucketReq.Placement {
@@ -705,7 +705,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 		Enabled: true,
 	}
 
-	if settings.DefaultRetentionMode != storj.NoRetention {
+	if settings.DefaultRetentionMode != storxnetwork.NoRetention {
 		defaultRetention := pb.DefaultRetention{
 			Mode: pb.Retention_Mode(settings.DefaultRetentionMode),
 		}

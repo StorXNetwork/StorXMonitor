@@ -15,18 +15,18 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/shared/modular"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 // Repairer provides manual repair functionality for satellite segments.
@@ -117,12 +117,12 @@ func (m *Repairer) RepairSegment(ctx context.Context, segment metabase.SegmentFo
 }
 
 func (m *Repairer) reuploadSegment(ctx context.Context, segment metabase.SegmentForRepair, segmentData []byte) error {
-	excludeNodeIDs := make([]storj.NodeID, 0, len(segment.Pieces))
+	excludeNodeIDs := make([]storxnetwork.NodeID, 0, len(segment.Pieces))
 	for _, piece := range segment.Pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.StorageNode)
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+	redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func (m *Repairer) downloadSegment(ctx context.Context, segment metabase.Segment
 
 	failedDownloads := numberOfFileNotFound + numberOfOtherFailures
 
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+	redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 	if err != nil {
 		return nil, failedDownloads, errs.New("invalid redundancy strategy: %w", err)
 	}

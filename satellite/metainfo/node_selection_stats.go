@@ -10,8 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"storj.io/common/debug"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type singleNodeStats struct {
@@ -33,7 +33,7 @@ func NewNodeSelectionStats() *NodeSelectionStats {
 }
 
 // IncrementInitial increments a node's selection count for initial selection.
-func (stats *NodeSelectionStats) IncrementInitial(node storj.NodeID) {
+func (stats *NodeSelectionStats) IncrementInitial(node storxnetwork.NodeID) {
 	counters, ok := stats.nodeCounts.Load(node)
 	if !ok {
 		counters, _ = stats.nodeCounts.LoadOrStore(node, &singleNodeStats{})
@@ -42,7 +42,7 @@ func (stats *NodeSelectionStats) IncrementInitial(node storj.NodeID) {
 }
 
 // IncrementRetry increments a node's selection count for retry selection.
-func (stats *NodeSelectionStats) IncrementRetry(node storj.NodeID) {
+func (stats *NodeSelectionStats) IncrementRetry(node storxnetwork.NodeID) {
 	counters, ok := stats.nodeCounts.Load(node)
 	if !ok {
 		counters, _ = stats.nodeCounts.LoadOrStore(node, &singleNodeStats{})
@@ -68,7 +68,7 @@ func (stats *NodeSelectionStats) Handler(writer http.ResponseWriter, request *ht
 	_, _ = fmt.Fprintln(buf, "nodeid\tinitial\tretry")
 
 	stats.nodeCounts.Range(func(key, value any) bool {
-		node := key.(storj.NodeID)
+		node := key.(storxnetwork.NodeID)
 		counters := value.(*singleNodeStats)
 		_, err := fmt.Fprintf(buf, "%s\t%d\t%d\n", node, counters.initialSelection.Load(), counters.retrySelection.Load())
 		return err == nil

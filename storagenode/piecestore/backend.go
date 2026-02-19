@@ -22,21 +22,21 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/hashstore"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // PieceBackend is the minimal interface needed for the endpoints to do its job.
 type PieceBackend interface {
-	Writer(context.Context, storj.NodeID, storj.PieceID, pb.PieceHashAlgorithm, time.Time) (PieceWriter, error)
-	Reader(context.Context, storj.NodeID, storj.PieceID) (PieceReader, error)
-	StartRestore(context.Context, storj.NodeID) error
+	Writer(context.Context, storxnetwork.NodeID, storxnetwork.PieceID, pb.PieceHashAlgorithm, time.Time) (PieceWriter, error)
+	Reader(context.Context, storxnetwork.NodeID, storxnetwork.PieceID) (PieceReader, error)
+	StartRestore(context.Context, storxnetwork.NodeID) error
 }
 
 // PieceWriter is an interface for writing a piece.
@@ -72,7 +72,7 @@ type HashStoreBackend struct {
 	amnesty *contact.AmnestyClient
 
 	mu  sync.Mutex
-	dbs map[storj.NodeID]*hashstore.DB
+	dbs map[storxnetwork.NodeID]*hashstore.DB
 }
 
 // NewHashStoreBackend constructs a new HashStoreBackend with the provided values. The log and hash
@@ -101,7 +101,7 @@ func NewHashStoreBackend(
 		log:       log,
 		amnesty:   amnesty,
 
-		dbs: map[storj.NodeID]*hashstore.DB{},
+		dbs: map[storxnetwork.NodeID]*hashstore.DB{},
 	}
 
 	// open any existing databases
@@ -115,7 +115,7 @@ func NewHashStoreBackend(
 		if !entry.IsDir() {
 			continue
 		}
-		satellite, err := storj.NodeIDFromString(entry.Name())
+		satellite, err := storxnetwork.NodeIDFromString(entry.Name())
 		if err != nil {
 			continue // ignore directories that aren't node IDs
 		}
@@ -152,7 +152,7 @@ func (hsb *HashStoreBackend) Close() error {
 	return eg.Err()
 }
 
-func (hsb *HashStoreBackend) dbsCopy() map[storj.NodeID]*hashstore.DB {
+func (hsb *HashStoreBackend) dbsCopy() map[storxnetwork.NodeID]*hashstore.DB {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
 
@@ -162,7 +162,7 @@ func (hsb *HashStoreBackend) dbsCopy() map[storj.NodeID]*hashstore.DB {
 // Stats implements monkit.StatSource.
 func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
 	type IDDB struct {
-		id storj.NodeID
+		id storxnetwork.NodeID
 		db *hashstore.DB
 	}
 
@@ -199,7 +199,7 @@ func (hsb *HashStoreBackend) SpaceUsage() (subs monitor.SpaceUsage) {
 }
 
 // ForgetSatellite closes the database for the satellite and removes the directory.
-func (hsb *HashStoreBackend) ForgetSatellite(ctx context.Context, satellite storj.NodeID) (err error) {
+func (hsb *HashStoreBackend) ForgetSatellite(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	hsb.mu.Lock()
@@ -225,7 +225,7 @@ func (hsb *HashStoreBackend) ForgetSatellite(ctx context.Context, satellite stor
 	return nil
 }
 
-func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) (*hashstore.DB, error) {
+func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storxnetwork.NodeID) (*hashstore.DB, error) {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
 
@@ -243,9 +243,9 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 	}
 
 	var (
-		shouldTrash   func(ctx context.Context, pieceID storj.PieceID, created time.Time) bool
+		shouldTrash   func(ctx context.Context, pieceID storxnetwork.PieceID, created time.Time) bool
 		lastRestore   func(ctx context.Context) time.Time
-		amnestyReport func(context.Context, []storj.PieceID)
+		amnestyReport func(context.Context, []storxnetwork.PieceID)
 	)
 	if hsb.bfm != nil {
 		shouldTrash = hsb.bfm.GetBloomFilter(satellite)
@@ -256,7 +256,7 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 		}
 	}
 	if hsb.amnesty != nil {
-		amnestyReport = func(ctx context.Context, pieceIDs []storj.PieceID) {
+		amnestyReport = func(ctx context.Context, pieceIDs []storxnetwork.PieceID) {
 			for _, pieceID := range pieceIDs {
 				if err := hsb.amnesty.ReportBadPiece(ctx, satellite, pieceID); err != nil {
 					log.Error("failed to report bad piece to amnesty",
@@ -298,7 +298,7 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 }
 
 // Writer implements PieceBackend.
-func (hsb *HashStoreBackend) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgo pb.PieceHashAlgorithm, expires time.Time) (_ PieceWriter, err error) {
+func (hsb *HashStoreBackend) Writer(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, hashAlgo pb.PieceHashAlgorithm, expires time.Time) (_ PieceWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	db, err := hsb.getDB(ctx, satellite)
@@ -322,7 +322,7 @@ func (hsb *HashStoreBackend) Writer(ctx context.Context, satellite storj.NodeID,
 }
 
 // Reader implements PieceBackend.
-func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ PieceReader, err error) {
+func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (_ PieceReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	db, err := hsb.getDB(ctx, satellite)
@@ -342,7 +342,7 @@ func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storj.NodeID,
 }
 
 // StartRestore implements PieceBackend.
-func (hsb *HashStoreBackend) StartRestore(ctx context.Context, satellite storj.NodeID) (err error) {
+func (hsb *HashStoreBackend) StartRestore(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return hsb.rtm.SetRestoreTime(ctx, satellite, time.Now())
@@ -432,7 +432,7 @@ func (hr *hashStoreReader) GetPieceHeader() (_ *pb.PieceHeader, err error) {
 	return &header, nil
 }
 
-func pieceValid(pieceID storj.PieceID, contents []byte) bool {
+func pieceValid(pieceID storxnetwork.PieceID, contents []byte) bool {
 	// we need at least enough data for the footer
 	if len(contents) < 512 {
 		return false
@@ -488,7 +488,7 @@ func NewOldPieceBackend(store *pieces.Store, trashChore RestoreTrash, monitor *m
 }
 
 // Writer implements PieceBackend and returns a PieceWriter for a piece.
-func (opb *OldPieceBackend) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgorithm pb.PieceHashAlgorithm, expiration time.Time) (_ PieceWriter, err error) {
+func (opb *OldPieceBackend) Writer(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, hashAlgorithm pb.PieceHashAlgorithm, expiration time.Time) (_ PieceWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	writer, err := opb.store.Writer(ctx, satellite, pieceID, hashAlgorithm)
@@ -505,7 +505,7 @@ func (opb *OldPieceBackend) Writer(ctx context.Context, satellite storj.NodeID, 
 }
 
 // Reader implements PieceBackend and returns a PieceReader for a piece.
-func (opb *OldPieceBackend) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ PieceReader, err error) {
+func (opb *OldPieceBackend) Reader(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (_ PieceReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	reader, err := opb.store.Reader(ctx, satellite, pieceID)
@@ -547,7 +547,7 @@ func (opb *OldPieceBackend) Reader(ctx context.Context, satellite storj.NodeID, 
 }
 
 // StartRestore implements PieceBackend and starts a restore operation for a satellite.
-func (opb *OldPieceBackend) StartRestore(ctx context.Context, satellite storj.NodeID) (err error) {
+func (opb *OldPieceBackend) StartRestore(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return opb.trashChore.StartRestore(ctx, satellite)
@@ -556,8 +556,8 @@ func (opb *OldPieceBackend) StartRestore(ctx context.Context, satellite storj.No
 type oldPieceWriter struct {
 	*pieces.Writer
 	store       *pieces.Store
-	satelliteID storj.NodeID
-	pieceID     storj.PieceID
+	satelliteID storxnetwork.NodeID
+	pieceID     storxnetwork.PieceID
 	expiration  time.Time
 }
 
@@ -576,8 +576,8 @@ func (o *oldPieceWriter) Commit(ctx context.Context, header *pb.PieceHeader) (er
 type oldPieceReader struct {
 	*pieces.Reader
 	store     *pieces.Store
-	satellite storj.NodeID
-	pieceID   storj.PieceID
+	satellite storxnetwork.NodeID
+	pieceID   storxnetwork.PieceID
 	trash     bool
 }
 

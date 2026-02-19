@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
-	"storj.io/storj/private/currency"
-	"storj.io/storj/shared/strictcsv"
+	"github.com/StorXNetwork/StorXMonitor/private/currency"
+	"github.com/StorXNetwork/StorXMonitor/shared/strictcsv"
 )
 
 // Paystub contains the basic information about a payment that is to be made.

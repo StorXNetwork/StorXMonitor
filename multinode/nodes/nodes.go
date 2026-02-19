@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DB exposes needed by MND NodesDB functionality.
@@ -18,7 +18,7 @@ import (
 // architecture: Database
 type DB interface {
 	// Get return node from NodesDB by its id.
-	Get(ctx context.Context, id storj.NodeID) (Node, error)
+	Get(ctx context.Context, id storxnetwork.NodeID) (Node, error)
 	// List returns all connected nodes.
 	List(ctx context.Context) ([]Node, error)
 	// ListPaged returns paginated nodes list.
@@ -28,9 +28,9 @@ type DB interface {
 	// Add creates new node in NodesDB.
 	Add(ctx context.Context, node Node) error
 	// Remove removed node from NodesDB.
-	Remove(ctx context.Context, id storj.NodeID) error
+	Remove(ctx context.Context, id storxnetwork.NodeID) error
 	// UpdateName will update name of the specified node in database.
-	UpdateName(ctx context.Context, id storj.NodeID, name string) error
+	UpdateName(ctx context.Context, id storxnetwork.NodeID, name string) error
 }
 
 var (
@@ -40,7 +40,7 @@ var (
 
 // Node is a representation of storagenode, that SNO could add to the Multinode Dashboard.
 type Node struct {
-	ID storj.NodeID `json:"id"`
+	ID storxnetwork.NodeID `json:"id"`
 	// APISecret is a secret issued by storagenode, that will be main auth mechanism in MND <-> SNO api.
 	APISecret     multinodeauth.Secret `json:"apiSecret"`
 	PublicAddress string               `json:"publicAddress"`
@@ -65,28 +65,28 @@ const (
 
 // NodeInfo contains basic node internal state.
 type NodeInfo struct {
-	ID            storj.NodeID `json:"id"`
-	Name          string       `json:"name"`
-	Version       string       `json:"version"`
-	LastContact   time.Time    `json:"lastContact"`
-	DiskSpaceUsed int64        `json:"diskSpaceUsed"`
-	DiskSpaceLeft int64        `json:"diskSpaceLeft"`
-	BandwidthUsed int64        `json:"bandwidthUsed"`
-	TotalEarned   int64        `json:"totalEarned"`
-	Status        Status       `json:"status"`
+	ID            storxnetwork.NodeID `json:"id"`
+	Name          string              `json:"name"`
+	Version       string              `json:"version"`
+	LastContact   time.Time           `json:"lastContact"`
+	DiskSpaceUsed int64               `json:"diskSpaceUsed"`
+	DiskSpaceLeft int64               `json:"diskSpaceLeft"`
+	BandwidthUsed int64               `json:"bandwidthUsed"`
+	TotalEarned   int64               `json:"totalEarned"`
+	Status        Status              `json:"status"`
 }
 
 // NodeInfoSatellite contains satellite specific node internal state.
 type NodeInfoSatellite struct {
-	ID              storj.NodeID `json:"id"`
-	Name            string       `json:"name"`
-	Version         string       `json:"version"`
-	LastContact     time.Time    `json:"lastContact"`
-	OnlineScore     float64      `json:"onlineScore"`
-	AuditScore      float64      `json:"auditScore"`
-	SuspensionScore float64      `json:"suspensionScore"`
-	TotalEarned     int64        `json:"totalEarned"`
-	Status          Status       `json:"status"`
+	ID              storxnetwork.NodeID `json:"id"`
+	Name            string              `json:"name"`
+	Version         string              `json:"version"`
+	LastContact     time.Time           `json:"lastContact"`
+	OnlineScore     float64             `json:"onlineScore"`
+	AuditScore      float64             `json:"auditScore"`
+	SuspensionScore float64             `json:"suspensionScore"`
+	TotalEarned     int64               `json:"totalEarned"`
+	Status          Status              `json:"status"`
 }
 
 // TODO: separate common types and logic from nodes and operators and place it in private/pkg.

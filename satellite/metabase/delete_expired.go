@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // DeleteExpiredObjects contains all the information necessary to delete expired objects and segments.

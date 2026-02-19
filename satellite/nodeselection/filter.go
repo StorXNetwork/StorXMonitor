@@ -13,8 +13,8 @@ import (
 	"github.com/jtolio/mito"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeFilter can decide if a Node should be part of the selection or not.
@@ -162,7 +162,7 @@ func (n NodeFilters) WithCountryFilter(permit location.Set) NodeFilters {
 }
 
 // WithExcludedIDs is a helper to create a new filter with additional WithExcludedIDs.
-func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
+func (n NodeFilters) WithExcludedIDs(ds []storxnetwork.NodeID) NodeFilters {
 	return append(n, ExcludedIDs(ds))
 }
 
@@ -318,7 +318,7 @@ func (e ExcludedNodeNetworks) Match(node *SelectedNode) bool {
 var _ NodeFilter = ExcludedNodeNetworks{}
 
 // ExcludedIDs can blacklist NodeIDs.
-type ExcludedIDs []storj.NodeID
+type ExcludedIDs []storxnetwork.NodeID
 
 // Match implements NodeFilter interface.
 func (e ExcludedIDs) Match(node *SelectedNode) bool {
@@ -337,14 +337,14 @@ type ValueMatch func(a []byte, b []byte) bool
 
 // TagFilter matches nodes with specific tags.
 type TagFilter struct {
-	signer storj.NodeID
+	signer storxnetwork.NodeID
 	name   string
 	value  []byte
 	match  ValueMatch
 }
 
 // NewTagFilter creates a new tag filter.
-func NewTagFilter(id storj.NodeID, name string, value []byte, match ValueMatch) TagFilter {
+func NewTagFilter(id storxnetwork.NodeID, name string, value []byte, match ValueMatch) TagFilter {
 	return TagFilter{
 		signer: id,
 		name:   name,
@@ -403,7 +403,7 @@ func (a AnyFilter) Match(node *SelectedNode) bool {
 var _ NodeFilter = AnyFilter{}
 
 // AllowedNodesFilter is a special filter which enables only the selected nodes.
-type AllowedNodesFilter []storj.NodeID
+type AllowedNodesFilter []storxnetwork.NodeID
 
 // AllowedNodesFromFile loads a list of allowed NodeIDs from a text file. One ID per line.
 func AllowedNodesFromFile(file string) (AllowedNodesFilter, error) {
@@ -426,18 +426,18 @@ func AllowedNodesFromFile(file string) (AllowedNodesFilter, error) {
 	return l, nil
 }
 
-func parseHexOrBase58ID(line string) (storj.NodeID, error) {
-	id, err := storj.NodeIDFromString(line)
+func parseHexOrBase58ID(line string) (storxnetwork.NodeID, error) {
+	id, err := storxnetwork.NodeIDFromString(line)
 	if err == nil {
 		return id, nil
 	}
 	raw, err := hex.DecodeString(line)
 	if err != nil {
-		return storj.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
+		return storxnetwork.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
 	}
-	id, err = storj.NodeIDFromBytes(raw)
+	id, err = storxnetwork.NodeIDFromBytes(raw)
 	if err != nil {
-		return storj.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
+		return storxnetwork.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
 	}
 	return id, nil
 }

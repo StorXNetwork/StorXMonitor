@@ -10,7 +10,7 @@ import (
 	"github.com/jtolio/mito"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
+	"github.com/StorXNetwork/common/pb"
 )
 
 // CohortRequirements is a configured set of cohort requirements for uploads.

@@ -8,16 +8,16 @@ import (
 	"context"
 	"sync"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/useragent"
-	"storj.io/common/uuid"
-	"storj.io/drpc/drpccache"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/useragent"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/drpc/drpccache"
 )
 
 // MaxUserAgentLength is the maximum allowable length of the User Agent.
@@ -28,7 +28,7 @@ const MaxUserAgentLength = 500
 // to only ensure the attribution exists in the value attributions db.
 //
 // Assumes that the user has permissions sufficient for authenticating.
-func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte, placement storj.PlacementConstraint, validatePlacement, forceBucketUpdate bool) (err error) {
+func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte, placement storxnetwork.PlacementConstraint, validatePlacement, forceBucketUpdate bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if header == nil {
@@ -139,7 +139,7 @@ func TrimUserAgent(userAgent []byte) ([]byte, error) {
 	return userAgent, nil
 }
 
-func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, userAgent []byte, placement storj.PlacementConstraint, validatePlacement, forceBucketUpdate bool) (err error) {
+func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, userAgent []byte, placement storxnetwork.PlacementConstraint, validatePlacement, forceBucketUpdate bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if header == nil {

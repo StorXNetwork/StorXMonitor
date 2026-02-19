@@ -2,7 +2,7 @@
 model node (
 	key id
 
-	// id is the storj.NodeID of the storagenode.
+	// id is the storxnetwork.NodeID of the storagenode.
 	field id              blob
 	// address is how to contact the node, this can be a hostname or IP and it contains the port
 	field address         text  ( updatable, default "" ) // TODO: use compressed format
@@ -161,7 +161,7 @@ read all (
 model node_api_version (
 	key id
 
-	// id is the storj.NodeID of the storagenode.
+	// id is the storxnetwork.NodeID of the storagenode.
 	field id          blob
 	// api_version refers to the satellite/nodeapiversion.Version value.
 	field api_version int  ( updatable )
@@ -206,7 +206,7 @@ model node_event (
 	field email          text
 	// last_ip_port is the last known ip and port of the storage node. Set if we want to send it to operator.
 	field last_ip_port    text  ( nullable )
-	// node_id is the storagenode storj.NodeID.
+	// node_id is the storagenode storxnetwork.NodeID.
 	field node_id        blob
 	// event is the event kind, which refers to satellite/nodeevents.Type.
 	field event          int
@@ -238,7 +238,7 @@ model node_tags (
 
 	key node_id name signer
 
-	// node_id is the storagenode storj.NodeID who reported the tag
+	// node_id is the storagenode storxnetwork.NodeID who reported the tag
 	field node_id            blob
 
 	// name is the identififer of the k=v pair

@@ -5,7 +5,7 @@
 ## Background
 This testplan covers security must haves regarding session management 
 
-Here is the [Session Management Blueprint](https://github.com/storj/storj/commit/3397886) which describes a design providing the satellite greater
+Here is the [Session Management Blueprint](https://github.com/storxnetwork/storxnetwork/commit/3397886) which describes a design providing the satellite greater
 control over sessions authorized to use the web app
 
 &nbsp;

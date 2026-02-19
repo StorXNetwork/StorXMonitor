@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // DB tells how application works with notifications database.
@@ -39,7 +39,7 @@ const (
 
 // NewNotification holds notification entity info which is being received from satellite or local client.
 type NewNotification struct {
-	SenderID storj.NodeID
+	SenderID storxnetwork.NodeID
 	Type     Type
 	Title    string
 	Message  string
@@ -47,13 +47,13 @@ type NewNotification struct {
 
 // Notification holds notification entity info which is being retrieved from database.
 type Notification struct {
-	ID        uuid.UUID    `json:"id"`
-	SenderID  storj.NodeID `json:"senderId"`
-	Type      Type         `json:"type"`
-	Title     string       `json:"title"`
-	Message   string       `json:"message"`
-	ReadAt    *time.Time   `json:"readAt"`
-	CreatedAt time.Time    `json:"createdAt"`
+	ID        uuid.UUID           `json:"id"`
+	SenderID  storxnetwork.NodeID `json:"senderId"`
+	Type      Type                `json:"type"`
+	Title     string              `json:"title"`
+	Message   string              `json:"message"`
+	ReadAt    *time.Time          `json:"readAt"`
+	CreatedAt time.Time           `json:"createdAt"`
 }
 
 // Cursor holds notification cursor entity which is used to create listed page from database.

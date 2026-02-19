@@ -15,14 +15,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/process"
-	"storj.io/common/uuid"
-	"storj.io/common/version"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {

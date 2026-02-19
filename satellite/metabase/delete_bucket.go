@@ -12,8 +12,8 @@ import (
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
 )
 
 const (

@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestNodeAliasMap(t *testing.T) {
@@ -29,9 +29,9 @@ func TestNodeAliasMap(t *testing.T) {
 	}
 	{
 		emptyMap := metabase.NewNodeAliasMap(nil)
-		aliases, missing := emptyMap.Aliases([]storj.NodeID{n1, n2, n3})
+		aliases, missing := emptyMap.Aliases([]storxnetwork.NodeID{n1, n2, n3})
 		require.Empty(t, aliases)
-		require.Equal(t, []storj.NodeID{n1, n2, n3}, missing)
+		require.Equal(t, []storxnetwork.NodeID{n1, n2, n3}, missing)
 	}
 
 	{
@@ -46,13 +46,13 @@ func TestNodeAliasMap(t *testing.T) {
 		})
 		aggregate.Merge(beta)
 
-		aliases, missing := aggregate.Aliases([]storj.NodeID{n1, n2, n3})
+		aliases, missing := aggregate.Aliases([]storxnetwork.NodeID{n1, n2, n3})
 		require.Empty(t, missing)
 		require.Equal(t, []metabase.NodeAlias{1, 2, 5}, aliases)
 
 		nodes2, missing2 := aggregate.Nodes([]metabase.NodeAlias{1, 2, 5})
 		require.Empty(t, missing2)
-		require.Equal(t, []storj.NodeID{n1, n2, n3}, nodes2)
+		require.Equal(t, []storxnetwork.NodeID{n1, n2, n3}, nodes2)
 
 		nodes3, missing3 := aggregate.Nodes([]metabase.NodeAlias{3, 4})
 		require.Empty(t, nodes3)
@@ -70,7 +70,7 @@ func TestNodeAliasMap(t *testing.T) {
 
 	testNodes := []struct {
 		in      []metabase.NodeAlias
-		out     []storj.NodeID
+		out     []storxnetwork.NodeID
 		missing []metabase.NodeAlias
 	}{
 		{
@@ -78,7 +78,7 @@ func TestNodeAliasMap(t *testing.T) {
 		},
 		{
 			in:  []metabase.NodeAlias{1, 3, 2},
-			out: []storj.NodeID{n1, n3, n2},
+			out: []storxnetwork.NodeID{n1, n3, n2},
 		},
 		{
 			in:      []metabase.NodeAlias{5, 4},
@@ -100,25 +100,25 @@ func TestNodeAliasMap(t *testing.T) {
 	}
 
 	testAliases := []struct {
-		in      []storj.NodeID
+		in      []storxnetwork.NodeID
 		out     []metabase.NodeAlias
-		missing []storj.NodeID
+		missing []storxnetwork.NodeID
 	}{
 		{
 			in: nil,
 		},
 		{
-			in:  []storj.NodeID{n1, n3, n2},
+			in:  []storxnetwork.NodeID{n1, n3, n2},
 			out: []metabase.NodeAlias{1, 3, 2},
 		},
 		{
-			in:      []storj.NodeID{nx2, nx1},
-			missing: []storj.NodeID{nx2, nx1},
+			in:      []storxnetwork.NodeID{nx2, nx1},
+			missing: []storxnetwork.NodeID{nx2, nx1},
 		},
 		{
-			in:      []storj.NodeID{n1, nx2, n3, nx1, n2},
+			in:      []storxnetwork.NodeID{n1, nx2, n3, nx1, n2},
 			out:     []metabase.NodeAlias{1, 3, 2},
-			missing: []storj.NodeID{nx2, nx1},
+			missing: []storxnetwork.NodeID{nx2, nx1},
 		},
 	}
 	for _, test := range testAliases {
@@ -137,12 +137,12 @@ func TestNodeAliasMap(t *testing.T) {
 }
 
 func TestNodeAliasMap_SamePrefix(t *testing.T) {
-	n1 := storj.NodeID{0, 1, 2, 3, 1}
-	n2 := storj.NodeID{0, 1, 2, 3, 2}
-	n3 := storj.NodeID{0, 1, 2, 3, 3}
+	n1 := storxnetwork.NodeID{0, 1, 2, 3, 1}
+	n2 := storxnetwork.NodeID{0, 1, 2, 3, 2}
+	n3 := storxnetwork.NodeID{0, 1, 2, 3, 3}
 
-	nx1 := storj.NodeID{0, 1, 2, 3, 4}
-	nx2 := storj.NodeID{0, 1, 2, 3, 5}
+	nx1 := storxnetwork.NodeID{0, 1, 2, 3, 4}
+	nx2 := storxnetwork.NodeID{0, 1, 2, 3, 5}
 
 	{
 		emptyMap := metabase.NewNodeAliasMap(nil)
@@ -152,9 +152,9 @@ func TestNodeAliasMap_SamePrefix(t *testing.T) {
 	}
 	{
 		emptyMap := metabase.NewNodeAliasMap(nil)
-		aliases, missing := emptyMap.Aliases([]storj.NodeID{n1, n2, n3})
+		aliases, missing := emptyMap.Aliases([]storxnetwork.NodeID{n1, n2, n3})
 		require.Empty(t, aliases)
-		require.Equal(t, []storj.NodeID{n1, n2, n3}, missing)
+		require.Equal(t, []storxnetwork.NodeID{n1, n2, n3}, missing)
 	}
 
 	{
@@ -169,13 +169,13 @@ func TestNodeAliasMap_SamePrefix(t *testing.T) {
 		})
 		aggregate.Merge(beta)
 
-		aliases, missing := aggregate.Aliases([]storj.NodeID{n1, n2, n3})
+		aliases, missing := aggregate.Aliases([]storxnetwork.NodeID{n1, n2, n3})
 		require.Empty(t, missing)
 		require.Equal(t, []metabase.NodeAlias{1, 2, 5}, aliases)
 
 		nodes2, missing2 := aggregate.Nodes([]metabase.NodeAlias{1, 2, 5})
 		require.Empty(t, missing2)
-		require.Equal(t, []storj.NodeID{n1, n2, n3}, nodes2)
+		require.Equal(t, []storxnetwork.NodeID{n1, n2, n3}, nodes2)
 
 		nodes3, missing3 := aggregate.Nodes([]metabase.NodeAlias{3, 4})
 		require.Empty(t, nodes3)
@@ -192,7 +192,7 @@ func TestNodeAliasMap_SamePrefix(t *testing.T) {
 
 	testNodes := []struct {
 		in      []metabase.NodeAlias
-		out     []storj.NodeID
+		out     []storxnetwork.NodeID
 		missing []metabase.NodeAlias
 	}{
 		{
@@ -200,7 +200,7 @@ func TestNodeAliasMap_SamePrefix(t *testing.T) {
 		},
 		{
 			in:  []metabase.NodeAlias{1, 3, 2},
-			out: []storj.NodeID{n1, n3, n2},
+			out: []storxnetwork.NodeID{n1, n3, n2},
 		},
 		{
 			in:      []metabase.NodeAlias{5, 4},
@@ -222,25 +222,25 @@ func TestNodeAliasMap_SamePrefix(t *testing.T) {
 	}
 
 	testAliases := []struct {
-		in      []storj.NodeID
+		in      []storxnetwork.NodeID
 		out     []metabase.NodeAlias
-		missing []storj.NodeID
+		missing []storxnetwork.NodeID
 	}{
 		{
 			in: nil,
 		},
 		{
-			in:  []storj.NodeID{n1, n3, n2},
+			in:  []storxnetwork.NodeID{n1, n3, n2},
 			out: []metabase.NodeAlias{1, 3, 2},
 		},
 		{
-			in:      []storj.NodeID{nx2, nx1},
-			missing: []storj.NodeID{nx2, nx1},
+			in:      []storxnetwork.NodeID{nx2, nx1},
+			missing: []storxnetwork.NodeID{nx2, nx1},
 		},
 		{
-			in:      []storj.NodeID{n1, nx2, n3, nx1, n2},
+			in:      []storxnetwork.NodeID{n1, nx2, n3, nx1, n2},
 			out:     []metabase.NodeAlias{1, 3, 2},
-			missing: []storj.NodeID{nx2, nx1},
+			missing: []storxnetwork.NodeID{nx2, nx1},
 		},
 	}
 	for _, test := range testAliases {

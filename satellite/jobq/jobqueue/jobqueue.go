@@ -15,10 +15,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/minmaxheap"
-	"storj.io/storj/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/minmaxheap"
 )
 
 var (
@@ -806,10 +806,10 @@ func (q *Queue) Destroy() {
 
 type queueAndPlacement struct {
 	*Queue
-	placement storj.PlacementConstraint
+	placement storxnetwork.PlacementConstraint
 }
 
-func sortQueueMap(queueMap map[storj.PlacementConstraint]*Queue) []queueAndPlacement {
+func sortQueueMap(queueMap map[storxnetwork.PlacementConstraint]*Queue) []queueAndPlacement {
 	queues := make([]queueAndPlacement, 0, len(queueMap))
 	for placement, queue := range queueMap {
 		queues = append(queues, queueAndPlacement{Queue: queue, placement: placement})
@@ -830,7 +830,7 @@ func sortQueueMap(queueMap map[storj.PlacementConstraint]*Queue) []queueAndPlace
 // single queue containing all placements and all jobs whether eligible for
 // retry or not, so this function allows similar usage. Hopefully soon we can
 // teach the repair workers to ask for jobs from each placement separately.
-func PopNMultipleQueues(limit int, queueMap map[storj.PlacementConstraint]*Queue) (jobs []jobq.RepairJob) {
+func PopNMultipleQueues(limit int, queueMap map[storxnetwork.PlacementConstraint]*Queue) (jobs []jobq.RepairJob) {
 	// We must first lock _all_ of the target queues, as we need a consistent
 	// view of their heap arrays. Deadlock danger: if two goroutines are trying
 	// to do this and the queues are locked in a different order, they will
@@ -883,7 +883,7 @@ func PopNMultipleQueues(limit int, queueMap map[storj.PlacementConstraint]*Queue
 // single queue containing all placements and all jobs whether eligible for
 // retry or not, so this function allows similar usage. This is not very
 // performant, but as far as I can tell we only need this in test situations.
-func PeekNMultipleQueues(limit int, queueMap map[storj.PlacementConstraint]*Queue) (jobs []jobq.RepairJob) {
+func PeekNMultipleQueues(limit int, queueMap map[storxnetwork.PlacementConstraint]*Queue) (jobs []jobq.RepairJob) {
 	// We must first lock _all_ of the target queues, as we need a consistent
 	// view of their heap arrays. Deadlock danger: if two goroutines are trying
 	// to do this and the queues are locked in a different order, they may

@@ -22,13 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/version"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/version"
 )
 
 const (
@@ -56,7 +56,7 @@ func TestAutoUpdater(t *testing.T) {
 	}
 
 	// build real bin with old version, will be used for both storagenode and updater
-	oldBin := CompileWithVersion(ctx, "storj.io/storj/cmd/storagenode-updater", oldInfo)
+	oldBin := CompileWithVersion(ctx, "github.com/StorXNetwork/StorXMonitor/cmd/storagenode-updater", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
 	copyBin(ctx, t, oldBin, storagenodePath)
 
@@ -70,7 +70,7 @@ func TestAutoUpdater(t *testing.T) {
 		Version:    newSemVer,
 		Release:    false,
 	}
-	newBin := CompileWithVersion(ctx, "storj.io/storj/cmd/storagenode-updater", newInfo)
+	newBin := CompileWithVersion(ctx, "github.com/StorXNetwork/StorXMonitor/cmd/storagenode-updater", newInfo)
 
 	updateBins := map[string]string{
 		"storagenode":         newBin,
@@ -151,10 +151,10 @@ func TestAutoUpdater(t *testing.T) {
 // to the passed version info values and returns the executable name.
 func CompileWithVersion(ctx *testcontext.Context, pkg string, info version.Info) string {
 	ldFlagsX := map[string]string{
-		"storj.io/common/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
-		"storj.io/common/version.buildCommitHash": info.CommitHash,
-		"storj.io/common/version.buildVersion":    info.Version.String(),
-		"storj.io/common/version.buildRelease":    strconv.FormatBool(info.Release),
+		"github.com/StorXNetwork/common/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
+		"github.com/StorXNetwork/common/version.buildCommitHash": info.CommitHash,
+		"github.com/StorXNetwork/common/version.buildVersion":    info.Version.String(),
+		"github.com/StorXNetwork/common/version.buildRelease":    strconv.FormatBool(info.Release),
 	}
 	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)
 }
@@ -180,7 +180,7 @@ func copyBin(ctx *testcontext.Context, t *testing.T, src, dst string) {
 func testIdentityFiles(ctx *testcontext.Context, t *testing.T) identity.Config {
 	t.Helper()
 
-	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	ident, err := testidentity.PregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 	require.NoError(t, err)
 
 	identConfig := identity.Config{

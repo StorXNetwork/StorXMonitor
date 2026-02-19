@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/repair/repairqueuetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairqueuetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestInsertBufferNoCallback(t *testing.T) {
@@ -106,6 +106,6 @@ func createInjuredSegment() *queue.InjuredSegment {
 			Index: index,
 		},
 		SegmentHealth: 10,
-		Placement:     storj.PlacementConstraint(index % 3),
+		Placement:     storxnetwork.PlacementConstraint(index % 3),
 	}
 }

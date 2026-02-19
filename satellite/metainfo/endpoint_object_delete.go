@@ -12,16 +12,16 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // BeginDeleteObject begins object deletion process.
@@ -441,7 +441,7 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 
 func addDeleteObjectsResultToProto(pbResult *pb.DeleteObjectsResponse, metabaseResult metabase.DeleteObjectsResult, quiet bool) {
 	for _, metabaseItem := range metabaseResult.Items {
-		if metabaseItem.Status == storj.DeleteObjectsStatusOK && quiet {
+		if metabaseItem.Status == storxnetwork.DeleteObjectsStatusOK && quiet {
 			continue
 		}
 

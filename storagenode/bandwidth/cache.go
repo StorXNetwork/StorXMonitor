@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Cache stores bandwidth usage in memory and persists it to the database.
@@ -28,7 +28,7 @@ type Cache struct {
 
 // CacheKey is a key for the bandwidth cache.
 type CacheKey struct {
-	SatelliteID storj.NodeID
+	SatelliteID storxnetwork.NodeID
 	CreatedAt   time.Time
 }
 
@@ -41,7 +41,7 @@ func NewCache(bandwidthdb DB) *Cache {
 }
 
 // Add adds a bandwidth usage to the cache.
-func (c *Cache) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
+func (c *Cache) Add(ctx context.Context, satelliteID storxnetwork.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	c.mu.Lock()
@@ -199,7 +199,7 @@ func (c *Cache) IngressSummary(ctx context.Context, from, to time.Time) (*Usage,
 }
 
 // SatelliteSummary returns the aggregated bandwidth usage for a particular satellite.
-func (c *Cache) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error) {
+func (c *Cache) SatelliteSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error) {
 	var usage Usage
 
 	from = from.UTC()
@@ -226,7 +226,7 @@ func (c *Cache) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, 
 }
 
 // SatelliteEgressSummary returns the egress bandwidth usage for a particular satellite.
-func (c *Cache) SatelliteEgressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error) {
+func (c *Cache) SatelliteEgressSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error) {
 	var usage Usage
 
 	from = from.UTC()
@@ -253,7 +253,7 @@ func (c *Cache) SatelliteEgressSummary(ctx context.Context, satelliteID storj.No
 }
 
 // SatelliteIngressSummary returns the ingress bandwidth usage for a particular satellite.
-func (c *Cache) SatelliteIngressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error) {
+func (c *Cache) SatelliteIngressSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error) {
 	var usage Usage
 
 	from = from.UTC()
@@ -280,8 +280,8 @@ func (c *Cache) SatelliteIngressSummary(ctx context.Context, satelliteID storj.N
 }
 
 // SummaryBySatellite returns the summary of bandwidth usages by satellite.
-func (c *Cache) SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error) {
-	usage := make(map[storj.NodeID]*Usage)
+func (c *Cache) SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storxnetwork.NodeID]*Usage, error) {
+	usage := make(map[storxnetwork.NodeID]*Usage)
 
 	from = from.UTC()
 	to = to.UTC()
@@ -366,7 +366,7 @@ func (c *Cache) GetDailyRollups(ctx context.Context, from, to time.Time) ([]Usag
 }
 
 // GetDailySatelliteRollups returns the slice of daily bandwidth usage for the provided time range, sorted in ascending order for a particular satellite.
-func (c *Cache) GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]UsageRollup, error) {
+func (c *Cache) GetDailySatelliteRollups(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) ([]UsageRollup, error) {
 	usageByDay := make(map[time.Time]*UsageRollup)
 
 	from = from.UTC()

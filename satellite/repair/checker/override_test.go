@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestRepairOverrideConfigValidation(t *testing.T) {
@@ -98,10 +98,10 @@ func TestRepairOverrideOldFormat(t *testing.T) {
 		{29, 60, 80, 95},
 		{2, 5, 10, 30},
 	}
-	storjSchemes := []storj.RedundancyScheme{}
+	storjSchemes := []storxnetwork.RedundancyScheme{}
 	pbSchemes := []*pb.RedundancyScheme{}
 	for _, scheme := range schemes {
-		newStorj := storj.RedundancyScheme{
+		newStorj := storxnetwork.RedundancyScheme{
 			RequiredShares: scheme[0],
 			RepairShares:   scheme[1],
 			OptimalShares:  scheme[2],
@@ -144,10 +144,10 @@ func TestRepairOverride(t *testing.T) {
 		{29, 35, 80, 95},
 		{1, 2, 3, 4},
 	}
-	storjSchemes := []storj.RedundancyScheme{}
+	storjSchemes := []storxnetwork.RedundancyScheme{}
 	pbSchemes := []*pb.RedundancyScheme{}
 	for _, scheme := range schemes {
-		newStorj := storj.RedundancyScheme{
+		newStorj := storxnetwork.RedundancyScheme{
 			RequiredShares: scheme[0],
 			RepairShares:   scheme[1],
 			OptimalShares:  scheme[2],

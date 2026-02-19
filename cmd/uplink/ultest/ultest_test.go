@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ultest"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
 )
 
 func TestPromptResponder(t *testing.T) {

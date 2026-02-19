@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 func cmdPopulatePlacementFromBucketMetainfos(cmd *cobra.Command, args []string) error {

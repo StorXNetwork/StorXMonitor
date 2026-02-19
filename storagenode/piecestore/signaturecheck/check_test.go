@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/piecestore/signaturecheck"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/signaturecheck"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestFull_VerifyUplinkOrderSignature(t *testing.T) {
@@ -29,7 +29,7 @@ func TestFull_VerifyUplinkOrderSignature(t *testing.T) {
 	full := &signaturecheck.Full{}
 
 	// Create test piece keys
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	// Create a test order
@@ -64,7 +64,7 @@ func TestFull_VerifyUplinkOrderSignature(t *testing.T) {
 
 	t.Run("wrong public key", func(t *testing.T) {
 		// Create different piece keys
-		wrongPublicKey, _, err := storj.NewPieceKey()
+		wrongPublicKey, _, err := storxnetwork.NewPieceKey()
 		require.NoError(t, err)
 
 		// Sign with original key
@@ -91,7 +91,7 @@ func TestFull_VerifyOrderLimitSignature(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create order limit
-	piecePublicKey, _, err := storj.NewPieceKey()
+	piecePublicKey, _, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	orderLimit := &pb.OrderLimit{
@@ -108,7 +108,7 @@ func TestFull_VerifyOrderLimitSignature(t *testing.T) {
 	}
 
 	t.Run("valid signature", func(t *testing.T) {
-		satelliteIdentity := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
+		satelliteIdentity := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion())
 
 		// Sign the order limit
 		signature, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satelliteIdentity), orderLimit)
@@ -164,8 +164,8 @@ func TestTrusted_VerifyUplinkOrderSignature(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	trustedIdentity := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
-	untrustedIdentity := testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion())
+	trustedIdentity := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion())
+	untrustedIdentity := testidentity.MustPregeneratedIdentity(2, storxnetwork.LatestIDVersion())
 
 	config := signaturecheck.Config{
 		TrustedUplinks: []string{trustedIdentity.ID.String()},
@@ -175,7 +175,7 @@ func TestTrusted_VerifyUplinkOrderSignature(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create test data
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	order := &pb.Order{
@@ -250,7 +250,7 @@ func TestTrusted_VerifyOrderLimitSignature(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	trustedIdentity := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
+	trustedIdentity := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion())
 
 	config := signaturecheck.Config{
 		TrustedUplinks: []string{trustedIdentity.ID.String()},
@@ -260,10 +260,10 @@ func TestTrusted_VerifyOrderLimitSignature(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create satellite identity
-	satelliteIdentity := testidentity.MustPregeneratedIdentity(3, storj.LatestIDVersion())
+	satelliteIdentity := testidentity.MustPregeneratedIdentity(3, storxnetwork.LatestIDVersion())
 
 	// Create order limit
-	piecePublicKey, _, err := storj.NewPieceKey()
+	piecePublicKey, _, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	orderLimit := &pb.OrderLimit{
@@ -347,7 +347,7 @@ func TestAcceptAll_VerifyUplinkOrderSignature(t *testing.T) {
 	none := signaturecheck.AcceptAll{}
 
 	// Create test data (doesn't matter what it is)
-	piecePublicKey, _, err := storj.NewPieceKey()
+	piecePublicKey, _, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	order := &pb.Order{
@@ -368,11 +368,11 @@ func TestAcceptAll_VerifyOrderLimitSignature(t *testing.T) {
 	none := signaturecheck.AcceptAll{}
 
 	// Create test data (doesn't matter what it is)
-	piecePublicKey, _, err := storj.NewPieceKey()
+	piecePublicKey, _, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	// Create satellite identity
-	satelliteIdentity := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
+	satelliteIdentity := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion())
 
 	require.NoError(t, err)
 

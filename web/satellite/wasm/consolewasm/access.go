@@ -6,10 +6,10 @@ package consolewasm
 import (
 	"encoding/base64"
 
-	"storj.io/common/encryption"
-	"storj.io/common/grant"
-	"storj.io/common/macaroon"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // GenAccessGrant creates a new access grant with optional path encryption
@@ -28,9 +28,9 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, base64Encode
 	}
 
 	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
-	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+	encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 	if !encryptPath {
-		encAccess.SetDefaultPathCipher(storj.EncNull)
+		encAccess.SetDefaultPathCipher(storxnetwork.EncNull)
 	}
 	encAccess.LimitTo(parsedAPIKey)
 
@@ -46,7 +46,7 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, base64Encode
 }
 
 // DeriveRootKey derives the root key portion of the access grant.
-func DeriveRootKey(encryptionPassphrase, base64EncodedSalt string) (*storj.Key, error) {
+func DeriveRootKey(encryptionPassphrase, base64EncodedSalt string) (*storxnetwork.Key, error) {
 	var err error
 
 	const concurrency = 8

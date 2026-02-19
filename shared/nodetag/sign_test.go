@@ -8,16 +8,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestSigning(t *testing.T) {
-	dss := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-	nodeIdentity := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+	dss := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
+	nodeIdentity := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion())
 
 	tagSet := &pb.NodeTagSet{
 		NodeId: nodeIdentity.ID.Bytes(),
@@ -53,7 +53,7 @@ func TestSigning(t *testing.T) {
 	})
 
 	t.Run("signed by other key", func(t *testing.T) {
-		otherDss := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
+		otherDss := testidentity.MustPregeneratedSignedIdentity(2, storxnetwork.LatestIDVersion())
 		signed, err := Sign(ctx, tagSet, signing.SignerFromFullIdentity(otherDss))
 		require.NoError(t, err)
 
@@ -62,11 +62,11 @@ func TestSigning(t *testing.T) {
 	})
 
 	t.Run("signed by wrong peer", func(t *testing.T) {
-		otherDss := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+		otherDss := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion())
 		signed, err := Sign(ctx, tagSet, signing.SignerFromFullIdentity(otherDss))
 		require.NoError(t, err)
 
-		signed.SignerNodeId = testidentity.MustPregeneratedSignedIdentity(4, storj.LatestIDVersion()).ID.Bytes()
+		signed.SignerNodeId = testidentity.MustPregeneratedSignedIdentity(4, storxnetwork.LatestIDVersion()).ID.Bytes()
 
 		_, err = Verify(ctx, signed, signing.SigneeFromPeerIdentity(dss.PeerIdentity()))
 		require.Error(t, err)

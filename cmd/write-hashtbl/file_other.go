@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/storagenode/hashstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore"
 )
 
 type file struct {

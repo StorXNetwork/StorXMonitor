@@ -52,7 +52,7 @@ FROM --platform=$BUILDPLATFORM node:${NODE_VERSION} AS npm-builder
 FROM download-dependencies AS web-satellite-wasm
 WORKDIR /work
 # This command gives the list of folders that need to be copied for wasm build:
-#   GOOS=js GOARCH=wasm go list -deps ./web/satellite/wasm | grep storj.io/storj
+#   GOOS=js GOARCH=wasm go list -deps ./web/satellite/wasm | grep github.com/StorXNetwork/StorXMonitor
 COPY --parents web/satellite/wasm /work/
 RUN \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -119,7 +119,7 @@ RUN \
     CC=$CC \
     CXX=$CXX \
     CGO_ENABLED=$CGO_ENABLED \
-    go build -ldflags "${GO_LDFLAGS} -X storj.io/common/version.buildRelease=${BUILD_RELEASE}" -o /out/ ${COMPONENTS}
+    go build -ldflags "${GO_LDFLAGS} -X github.com/StorXNetwork/common/version.buildRelease=${BUILD_RELEASE}" -o /out/ ${COMPONENTS}
 
 # Compression is currently disabled to be compatible with old implementations.
 # We compress the binaries so that when bake copies out of the docker image, they are smaller.
@@ -135,10 +135,10 @@ COPY --from=linux_arm   /* /linux_arm/
 
 # Some binaries that are necessary for image building.
 
-FROM build-tools AS storj-up-build
+FROM build-tools AS storxnetwork-up-build
 
 WORKDIR /app
-RUN git clone --depth 1 https://github.com/storj/storj-up.git /app
+RUN git clone --depth 1 https://github.com/storxnetwork/storxnetwork-up.git /app
 
 RUN mkdir -p /out/linux_amd64 /out/linux_arm64
 
@@ -147,18 +147,18 @@ RUN \
     --mount=type=cache,target=/go/pkg/mod \
     GOOS=linux GOARCH=amd64 \
     CGO_ENABLED=0 \
-    go build -o /out/linux_amd64/storj-up .
+    go build -o /out/linux_amd64/storxnetwork-up .
 
 RUN \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     GOOS=linux GOARCH=arm64 \
     CGO_ENABLED=0 \
-    go build -o /out/linux_arm64/storj-up .
+    go build -o /out/linux_arm64/storxnetwork-up .
 
-FROM scratch AS storj-up-binaries
-COPY --from=storj-up-build /out/linux_amd64 /linux_amd64
-COPY --from=storj-up-build /out/linux_arm64 /linux_arm64
+FROM scratch AS storxnetwork-up-binaries
+COPY --from=storxnetwork-up-build /out/linux_amd64 /linux_amd64
+COPY --from=storxnetwork-up-build /out/linux_arm64 /linux_arm64
 
 FROM build-tools AS delve-build
 

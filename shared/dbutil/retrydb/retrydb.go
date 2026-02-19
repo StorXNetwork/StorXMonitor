@@ -15,7 +15,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
 )
 
 var (

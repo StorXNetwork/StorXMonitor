@@ -67,7 +67,7 @@ import "math"
 // mean number of days per failure, and that is the MTBF.
 //
 // For more analysis of this model, see the Jupyter Notebook
-// repair_and_durability/repairPriority/hypergeo.ipynb in the storj/datascience
+// repair_and_durability/repairPriority/hypergeo.ipynb in the storxnetwork/datascience
 // repository.
 func segmentHealthNHD(numHealthy, minPieces, totalNodes int, failureRate float64) float64 {
 	if numHealthy < minPieces {

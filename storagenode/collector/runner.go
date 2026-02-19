@@ -9,11 +9,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // RunOnce executes the collector only once.
@@ -45,7 +45,7 @@ func (r RunOnce) Run(ctx context.Context) (err error) {
 		return err
 	}
 	for _, ns := range namespaces {
-		satelliteID, err := storj.NodeIDFromBytes(ns)
+		satelliteID, err := storxnetwork.NodeIDFromBytes(ns)
 		if err != nil {
 			r.log.Error("Invalid namespace", zap.Binary("namespace", ns), zap.Error(err))
 			continue
@@ -68,7 +68,7 @@ func (r RunOnce) Run(ctx context.Context) (err error) {
 			problems := 0
 			success := 0
 
-			err = pieces.GetExpiredFromFile(ctx, next, func(id storj.PieceID, size uint64) {
+			err = pieces.GetExpiredFromFile(ctx, next, func(id storxnetwork.PieceID, size uint64) {
 				delErr := r.blobs.DeleteWithStorageFormat(ctx, blobstore.BlobRef{
 					Namespace: ns,
 					Key:       id.Bytes(),

@@ -15,11 +15,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -40,7 +40,7 @@ type Config struct {
 // Request contains all the info necessary to process a retain request.
 type Request struct {
 	Filename      string
-	SatelliteID   storj.NodeID
+	SatelliteID   storxnetwork.NodeID
 	CreatedBefore time.Time
 	Filter        *bloomfilter.Filter
 }
@@ -60,7 +60,7 @@ func (req *Request) GetFilename() string {
 // Queue manages the retain requests queue.
 type Queue interface {
 	// Add adds a request to the queue.
-	Add(satelliteID storj.NodeID, request *pb.RetainRequest) (bool, error)
+	Add(satelliteID storxnetwork.NodeID, request *pb.RetainRequest) (bool, error)
 	// Remove removes a request from the queue.
 	// Returns true if there was a request to remove.
 	Remove(request Request) bool
@@ -105,7 +105,7 @@ func (v *Status) Set(s string) error {
 }
 
 // Type implements pflag.Value.
-func (*Status) Type() string { return "storj.Status" }
+func (*Status) Type() string { return "storxnetwork.Status" }
 
 // String implements pflag.Value.
 func (v *Status) String() string {
@@ -130,7 +130,7 @@ type Service struct {
 
 	cond    sync.Cond
 	queue   Queue
-	working map[storj.NodeID]struct{}
+	working map[storxnetwork.NodeID]struct{}
 	group   errgroup.Group
 
 	closedOnce sync.Once
@@ -154,7 +154,7 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 
 		cond:    *sync.NewCond(&sync.Mutex{}),
 		queue:   &cache,
-		working: make(map[storj.NodeID]struct{}),
+		working: make(map[storxnetwork.NodeID]struct{}),
 		closed:  make(chan struct{}),
 
 		store: store,
@@ -167,7 +167,7 @@ const (
 
 // Queue adds a retain request to the queue.
 // true is returned if the request is added to the queue, false if queue is closed.
-func (s *Service) Queue(ctx context.Context, satelliteID storj.NodeID, req *pb.RetainRequest) error {
+func (s *Service) Queue(ctx context.Context, satelliteID storxnetwork.NodeID, req *pb.RetainRequest) error {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
@@ -409,7 +409,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		zap.Stringer("satellite_id", satelliteID))
 
 	piecesToDeleteCount := 0
-	piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
+	piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storxnetwork.PieceID) error {
 		s.log.Debug("About to move piece to trash",
 			zap.String("bf", req.Filename),
 			zap.Stringer("satellite_id", satelliteID),

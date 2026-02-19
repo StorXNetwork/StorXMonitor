@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
-	_ "storj.io/storj/shared/dbutil/cockroachutil" // register cockroach driver
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	_ "github.com/StorXNetwork/StorXMonitor/shared/dbutil/cockroachutil" // register cockroach driver
 )
 
 func TestSetup(t *testing.T) {

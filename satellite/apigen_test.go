@@ -17,8 +17,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/apigen"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
 )
 
 // TestGeneratedAPIs checks whether the generated APIs are up-to-date.

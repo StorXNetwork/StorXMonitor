@@ -10,11 +10,11 @@ import (
 	"cloud.google.com/go/spanner"
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ListVerifyLimit is the maximum number of items the client can request for listing.
@@ -48,8 +48,8 @@ type VerifySegment struct {
 	CreatedAt  time.Time
 	RepairedAt *time.Time
 
-	RootPieceID storj.PieceID
-	Redundancy  storj.RedundancyScheme
+	RootPieceID storxnetwork.PieceID
+	Redundancy  storxnetwork.RedundancyScheme
 
 	AliasPieces AliasPieces
 }

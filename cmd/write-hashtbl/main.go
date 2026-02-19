@@ -16,9 +16,9 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/storj/storagenode/hashstore"
-	"storj.io/storj/storagenode/hashstore/platform"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore/platform"
 )
 
 func main() {

@@ -19,17 +19,17 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var (
@@ -85,17 +85,17 @@ func main() {
 	trashed := 0
 	duration = profile("gc", func() {
 		start := time.Now()
-		trashFunc := func(pieceID storj.PieceID) error {
+		trashFunc := func(pieceID storxnetwork.PieceID) error {
 			trashed++
 			return piecesStore.Trash(ctx, satelliteID, pieceID, start)
 		}
 
 		trashHandler := lazyfilewalker.NewTrashHandler(log, trashFunc)
 		encoder := json.NewEncoder(trashHandler)
-		pieceIDs := make([]storj.PieceID, 0, 1000)
+		pieceIDs := make([]storxnetwork.PieceID, 0, 1000)
 
 		if *lazywalker {
-			trashFunc = func(pieceID storj.PieceID) error {
+			trashFunc = func(pieceID storxnetwork.PieceID) error {
 				pieceIDs = append(pieceIDs, pieceID)
 
 				if len(pieceIDs) >= 1000 {

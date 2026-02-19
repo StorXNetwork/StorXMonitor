@@ -10,15 +10,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/storj/private/server"
-	"storj.io/storj/shared/debug"
-	"storj.io/storj/shared/mudplanet"
-	"storj.io/storj/shared/mudplanet/sntest"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/shared/debug"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet/sntest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestDebugServer(t *testing.T) {
@@ -50,8 +50,8 @@ func TestUploadPiecestore(t *testing.T) {
 		srv := mudplanet.FindFirst[*server.Server](t, run, "storagenode", 0)
 		nodeID := mudplanet.FindFirst[*identity.FullIdentity](t, run, "storagenode", 0)
 
-		signer := signing.SignerFromFullIdentity(testidentity.MustPregeneratedIdentity(149, storj.LatestIDVersion()))
-		url := storj.NodeURL{
+		signer := signing.SignerFromFullIdentity(testidentity.MustPregeneratedIdentity(149, storxnetwork.LatestIDVersion()))
+		url := storxnetwork.NodeURL{
 			ID:      nodeID.ID,
 			Address: srv.Addr().String(),
 		}

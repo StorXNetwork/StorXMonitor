@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
 
-	"storj.io/storj/storagenode/hashstore/platform"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore/platform"
 )
 
 func TestRecordTailFromLog(t *testing.T) {

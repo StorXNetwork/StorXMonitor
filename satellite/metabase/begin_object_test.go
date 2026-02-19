@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestBeginObjectNextVersion(t *testing.T) {
@@ -125,7 +125,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				now := time.Now()
 
 				retention := metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: now.Add(time.Minute),
 				}
 
@@ -144,7 +144,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 			t.Run("Invalid retention configuration", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
+				check := func(mode storxnetwork.RetentionMode, retainUntil time.Time, errText string) {
 					metabasetest.BeginObjectNextVersion{
 						Opts: metabase.BeginObjectNextVersion{
 							ObjectStream: objectStream,
@@ -162,10 +162,10 @@ func TestBeginObjectNextVersion(t *testing.T) {
 
 				now := time.Now()
 
-				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
-				check(storj.GovernanceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
-				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(3), now.Add(time.Minute), "invalid retention mode 3")
+				check(storxnetwork.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storxnetwork.GovernanceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storxnetwork.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
+				check(storxnetwork.RetentionMode(3), now.Add(time.Minute), "invalid retention mode 3")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -181,7 +181,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						ObjectStream: objectStream,
 						Encryption:   metabasetest.DefaultEncryption,
 						Retention: metabase.Retention{
-							Mode:        storj.ComplianceMode,
+							Mode:        storxnetwork.ComplianceMode,
 							RetainUntil: now.Add(time.Minute),
 						},
 						ExpiresAt: &expires,
@@ -202,7 +202,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				now := time.Now()
 
 				retention := metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: now.Add(time.Minute),
 				}
 
@@ -541,7 +541,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				now := time.Now()
 
 				retention := metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: now.Add(time.Minute),
 				}
 
@@ -559,7 +559,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			t.Run("Invalid", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
+				check := func(mode storxnetwork.RetentionMode, retainUntil time.Time, errText string) {
 					metabasetest.BeginObjectExactVersion{
 						Opts: metabase.BeginObjectExactVersion{
 							ObjectStream: objectStream,
@@ -576,9 +576,9 @@ func TestBeginObjectExactVersion(t *testing.T) {
 
 				now := time.Now()
 
-				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
-				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(3), now.Add(time.Minute), "invalid retention mode 3")
+				check(storxnetwork.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storxnetwork.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
+				check(storxnetwork.RetentionMode(3), now.Add(time.Minute), "invalid retention mode 3")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -594,7 +594,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						ObjectStream: objectStream,
 						Encryption:   metabasetest.DefaultEncryption,
 						Retention: metabase.Retention{
-							Mode:        storj.ComplianceMode,
+							Mode:        storxnetwork.ComplianceMode,
 							RetainUntil: now.Add(time.Minute),
 						},
 						ExpiresAt: &expires,
@@ -614,7 +614,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				now := time.Now()
 
 				retention := metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: now.Add(time.Minute),
 				}
 

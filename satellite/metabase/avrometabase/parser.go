@@ -9,9 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Error is the base error class for avrometabase package errors.
@@ -157,7 +157,7 @@ func stringField(recMap map[string]any, field string, fn func(value string)) err
 
 // bytesAsType extracts a byte slice and converts it to a custom type using the provided function.
 // The callback function is always invoked, even for nil or empty byte slices, to allow
-// proper validation by the conversion function (e.g., uuid.FromBytes, storj.PieceIDFromBytes).
+// proper validation by the conversion function (e.g., uuid.FromBytes, storxnetwork.PieceIDFromBytes).
 func bytesAsType(recMap map[string]any, field string, fn func(value []byte) error) error {
 	var b []byte
 	if err := bytesField(recMap, field, &b); err != nil {
@@ -185,7 +185,7 @@ func SegmentFromRecord(ctx context.Context, recMap map[string]any, aliasCache *m
 		timePField(recMap, "expires_at", &entry.ExpiresAt),
 		timePField(recMap, "repaired_at", &entry.RepairedAt),
 		bytesAsType(recMap, "root_piece_id", func(value []byte) error {
-			entry.RootPieceID, err = storj.PieceIDFromBytes(value)
+			entry.RootPieceID, err = storxnetwork.PieceIDFromBytes(value)
 			return err
 		}),
 		toInt32(recMap, "encrypted_size", &entry.EncryptedSize),
@@ -198,7 +198,7 @@ func SegmentFromRecord(ctx context.Context, recMap map[string]any, aliasCache *m
 			return entry.Redundancy.Scan(value)
 		}),
 		int64AsType(recMap, "placement", func(value int64) error {
-			entry.Placement = storj.PlacementConstraint(value)
+			entry.Placement = storxnetwork.PlacementConstraint(value)
 			return nil
 		}),
 	)
@@ -272,7 +272,7 @@ func ObjectFromRecord(ctx context.Context, recMap map[string]any) (entry metabas
 func NodeAliasFromRecord(ctx context.Context, recMap map[string]any) (entry metabase.NodeAliasEntry, err error) {
 	err = errs.Combine(
 		bytesAsType(recMap, "node_id", func(value []byte) error {
-			entry.ID, err = storj.NodeIDFromBytes(value)
+			entry.ID, err = storxnetwork.NodeIDFromBytes(value)
 			return err
 		}),
 		int64AsType(recMap, "node_alias", func(value int64) error {

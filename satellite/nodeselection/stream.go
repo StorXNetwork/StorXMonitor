@@ -9,14 +9,14 @@ import (
 	"errors"
 	"fmt"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeSequence is a function that returns the next node in a sequence or nil when exhausted.
 type NodeSequence func(ctx context.Context) *SelectedNode
 
 // NodeStream creates a sequence of nodes, filtering out excluded nodes and those already selected.
-type NodeStream func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence
+type NodeStream func(ctx context.Context, requester storxnetwork.NodeID, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) NodeSequence
 
 // StreamConstraint is a function that determines if a node should be included in a stream.
 // Returns true if the node should be included, false otherwise.
@@ -45,7 +45,7 @@ var streamFilterTask = mon.Task()
 // Streaming can select unbounded number of nodes until it finds enough good (or no more nodes). Can be slow.
 func StreamFilter(filter StreamConstraint) func(stream NodeStream) NodeStream {
 	return func(stream NodeStream) NodeStream {
-		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+		return func(ctx context.Context, requester storxnetwork.NodeID, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) NodeSequence {
 			defer streamFilterTask(&ctx)(nil)
 			iterator := stream(ctx, requester, excluded, alreadySelected)
 			buffer := append(make([]*SelectedNode, 0, len(alreadySelected)), alreadySelected...)
@@ -95,7 +95,7 @@ func Stream(seed func(nodes []*SelectedNode) NodeStream, steps ...func(NodeStrea
 			stream = step(stream)
 		}
 
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			defer streamSelectionTask(&ctx)(&err)
 			iterator := stream(ctx, requester, excluded, alreadySelected)
 			for {
@@ -140,7 +140,7 @@ func Stream(seed func(nodes []*SelectedNode) NodeStream, steps ...func(NodeStrea
 	}
 }
 
-func containsID(ids []storj.NodeID, id storj.NodeID) bool {
+func containsID(ids []storxnetwork.NodeID, id storxnetwork.NodeID) bool {
 	for _, i := range ids {
 		if i == id {
 			return true
@@ -171,7 +171,7 @@ var (
 // RandomStream creates a NodeStream that returns nodes in a random order.
 // It skips nodes that are in the excluded list or already selected.
 func RandomStream(allNodes []*SelectedNode) NodeStream {
-	return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+	return func(ctx context.Context, requester storxnetwork.NodeID, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) NodeSequence {
 		defer randomStreamSeqTask(&ctx)(nil)
 		order := NewRandomOrder(len(allNodes))
 		randomStreamAllNodeCount.Observe(int64(len(allNodes)))
@@ -209,7 +209,7 @@ var (
 // The best node is determined by the highest score according to the provided ScoreNode.
 func ChoiceOfNStream(n int64, score ScoreNode) func(NodeStream) NodeStream {
 	return func(stream NodeStream) NodeStream {
-		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+		return func(ctx context.Context, requester storxnetwork.NodeID, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) NodeSequence {
 			defer choiceOfNStreamSeqTask(&ctx)(nil)
 			iterator := stream(ctx, requester, excluded, alreadySelected)
 			return func(ctx context.Context) *SelectedNode {

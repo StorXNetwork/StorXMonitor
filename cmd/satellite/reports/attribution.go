@@ -16,11 +16,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/useragent"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/useragent"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 var headers = []string{

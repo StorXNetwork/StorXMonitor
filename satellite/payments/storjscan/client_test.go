@@ -14,11 +14,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	"storj.io/storj/satellite/payments/storjscan/storjscantest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/storjscantest"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestClientMocked(t *testing.T) {
@@ -33,7 +33,7 @@ func TestClientMocked(t *testing.T) {
 			ChainID:     chainId,
 			From:        blockchaintest.NewAddress(),
 			To:          blockchaintest.NewAddress(),
-			TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorjToken),
+			TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorxToken),
 			USDValue:    currency.AmountFromBaseUnits(int64(i)*1100000, currency.USDollarsMicro),
 			BlockHash:   blockchaintest.NewHash(),
 			BlockNumber: int64(i),

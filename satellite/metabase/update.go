@@ -14,9 +14,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -50,7 +50,7 @@ type UpdateSegmentPieces struct {
 
 	OldPieces Pieces
 
-	NewRedundancy storj.RedundancyScheme
+	NewRedundancy storxnetwork.RedundancyScheme
 	NewPieces     Pieces
 
 	NewRepairedAt time.Time // sets new time of last segment repair (optional).
@@ -523,7 +523,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 	return nil
 }
 
-func (s *SpannerAdapter) setObjectExactVersionLegalHold(ctx context.Context, tx *spanner.ReadWriteTransaction, opts SetObjectExactVersionLegalHold, existingRetMode storj.RetentionMode) (err error) {
+func (s *SpannerAdapter) setObjectExactVersionLegalHold(ctx context.Context, tx *spanner.ReadWriteTransaction, opts SetObjectExactVersionLegalHold, existingRetMode storxnetwork.RetentionMode) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	affected, err := tx.UpdateWithOptions(ctx, spanner.Statement{
@@ -963,7 +963,7 @@ func (info *preUpdateRetentionInfo) verify(newRetention Retention, bypassGoverna
 		return errs.Wrap(err)
 	}
 
-	if info.Retention.Active(now) && !(info.Retention.Mode == storj.GovernanceMode && bypassGovernance) {
+	if info.Retention.Active(now) && !(info.Retention.Mode == storxnetwork.GovernanceMode && bypassGovernance) {
 		switch {
 		case !newRetention.Enabled():
 			return ErrObjectLock.New(noRemoveRetentionErrMsg)

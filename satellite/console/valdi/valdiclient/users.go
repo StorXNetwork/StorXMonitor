@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// UserPath is the path for storj users.
-const UserPath = "storj/account"
+// UserPath is the path for storxnetwork users.
+const UserPath = "storxnetwork/account"
 
-// UserCreationData contains necessary data to create a storj user in Valdi.
+// UserCreationData contains necessary data to create a storxnetwork user in Valdi.
 type UserCreationData struct {
 	Email    string `json:"email"`
 	Username string `json:"username"`

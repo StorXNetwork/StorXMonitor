@@ -15,11 +15,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/option"
 
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/recordeddb"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/flightrecorder"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/recordeddb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // SpannerConfig includes all the configuration required by using spanner.

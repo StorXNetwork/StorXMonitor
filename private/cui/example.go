@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/private/cui"
+	"github.com/StorXNetwork/StorXMonitor/private/cui"
 )
 
 func main() {

@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
 )
 
 var rolloutErrScenarios = []struct {

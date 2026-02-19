@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // ComponentList lists components based on a selector.

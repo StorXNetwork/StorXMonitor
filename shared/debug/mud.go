@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/debug"
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Wrapper combines the debug server and the listener.

@@ -15,9 +15,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -307,7 +307,7 @@ func (seg SegmentLocation) Encode() SegmentKey {
 	if seg.Position.Index != LastSegmentIndex {
 		segment = "s" + strconv.FormatUint(seg.Position.Encode(), 10)
 	}
-	return SegmentKey(storj.JoinPaths(
+	return SegmentKey(storxnetwork.JoinPaths(
 		seg.ProjectID.String(),
 		segment,
 		seg.BucketName.String(),
@@ -745,7 +745,7 @@ type Pieces []Piece
 // Piece defines information for a segment piece.
 type Piece struct {
 	Number      uint16
-	StorageNode storj.NodeID
+	StorageNode storxnetwork.NodeID
 }
 
 // Verify verifies pieces.
@@ -755,7 +755,7 @@ func (p Pieces) Verify() error {
 	}
 
 	currentPiece := p[0]
-	if currentPiece.StorageNode == (storj.NodeID{}) {
+	if currentPiece.StorageNode == (storxnetwork.NodeID{}) {
 		return ErrInvalidRequest.New("piece number %d is missing storage node id", currentPiece.Number)
 	}
 
@@ -765,7 +765,7 @@ func (p Pieces) Verify() error {
 			return ErrInvalidRequest.New("duplicated piece number %d", piece.Number)
 		case piece.Number < currentPiece.Number:
 			return ErrInvalidRequest.New("pieces should be ordered")
-		case piece.StorageNode == (storj.NodeID{}):
+		case piece.StorageNode == (storxnetwork.NodeID{}):
 			return ErrInvalidRequest.New("piece number %d is missing storage node id", piece.Number)
 		}
 		currentPiece = piece

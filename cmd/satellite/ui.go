@@ -9,9 +9,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/process/eventkitbq"
-	"storj.io/storj/satellite"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
 )
 
 func cmdUIRun(cmd *cobra.Command, args []string) (err error) {

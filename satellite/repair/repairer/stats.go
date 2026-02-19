@@ -10,7 +10,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // statsCollector holds a *stats for each redundancy scheme and placement seen by reparier. These
@@ -127,10 +127,10 @@ func (stats *stats) Stats(cb func(key monkit.SeriesKey, field string, val float6
 	stats.segmentRepairCount.Stats(cb)
 }
 
-func getRSString(rs storj.RedundancyScheme) string {
+func getRSString(rs storxnetwork.RedundancyScheme) string {
 	return fmt.Sprintf("%d/%d/%d/%d", rs.RequiredShares, rs.RepairShares, rs.OptimalShares, rs.TotalShares)
 }
 
-func getPlacementString(p storj.PlacementConstraint) string {
+func getPlacementString(p storxnetwork.PlacementConstraint) string {
 	return strconv.FormatUint(uint64(p), 10)
 }

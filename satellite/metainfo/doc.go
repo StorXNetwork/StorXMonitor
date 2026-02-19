@@ -365,7 +365,7 @@
 // # Common Workflows
 //
 // Adding a New RPC Method:
-//  1. Define method signature in protocol buffers (storj.io/common/pb)
+//  1. Define method signature in protocol buffers (github.com/StorXNetwork/common/pb)
 //  2. Implement method in appropriate endpoint file (object/segment/bucket)
 //  3. Add authentication and validation logic
 //  4. Coordinate with metabase for persistence
@@ -501,6 +501,6 @@
 //   - satellite/console: User and project management
 //   - satellite/buckets: Bucket service layer
 //   - satellite/entitlements: Limit enforcement
-//   - storj.io/common/pb: Protocol buffer definitions
-//   - storj.io/common/macaroon: API key implementation
+//   - github.com/StorXNetwork/common/pb: Protocol buffer definitions
+//   - github.com/StorXNetwork/common/macaroon: API key implementation
 package metainfo

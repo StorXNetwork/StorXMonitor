@@ -10,10 +10,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
 )
 
 var (

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"storj.io/storj/private/api"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // Users separates all users related functionality.

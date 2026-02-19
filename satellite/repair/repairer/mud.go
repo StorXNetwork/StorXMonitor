@@ -6,16 +6,16 @@ package repairer
 import (
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module is a mud module definition.

@@ -10,12 +10,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 // DBModule is a mud Module, defining how to get DB components.

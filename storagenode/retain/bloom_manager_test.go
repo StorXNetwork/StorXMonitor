@@ -9,9 +9,9 @@ import (
 
 	"github.com/zeebo/assert"
 
-	"storj.io/common/pb"
-	"storj.io/common/testrand"
-	"storj.io/storj/shared/bloomfilter"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
 )
 
 func TestBloomFilterManager(t *testing.T) {

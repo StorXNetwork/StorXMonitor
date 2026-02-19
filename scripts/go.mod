@@ -1,4 +1,4 @@
-module storj.io/storj
+module github.com/StorXNetwork/StorXMonitor
 
 go 1.25
 
@@ -12,19 +12,19 @@ tool (
 	github.com/magefile/mage
 	github.com/mfridman/tparse
 	github.com/nilslice/protolock/cmd/protolock
-	github.com/storj/ci/check-atomic-align
-	github.com/storj/ci/check-copyright
-	github.com/storj/ci/check-errs
-	github.com/storj/ci/check-imports
-	github.com/storj/ci/check-mod-tidy
-	github.com/storj/ci/check-monitoring
-	github.com/storj/ci/check-monkit
-	github.com/storj/ci/check-peer-constraints
-	github.com/storj/ci/check-tx
+	github.com/storxnetwork/ci/check-atomic-align
+	github.com/storxnetwork/ci/check-copyright
+	github.com/storxnetwork/ci/check-errs
+	github.com/storxnetwork/ci/check-imports
+	github.com/storxnetwork/ci/check-mod-tidy
+	github.com/storxnetwork/ci/check-monitoring
+	github.com/storxnetwork/ci/check-monkit
+	github.com/storxnetwork/ci/check-peer-constraints
+	github.com/storxnetwork/ci/check-tx
 	honnef.co/go/tools/cmd/staticcheck
 )
 
-require storj.io/common v0.0.0-20251208140929-8075c7c17951
+require github.com/StorXNetwork/common v0.0.3
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
@@ -212,7 +212,7 @@ require (
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.2.0 // indirect
-	github.com/storj/ci v0.0.0-20250807112944-062245ee867f // indirect
+	github.com/storxnetwork/ci v0.0.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
@@ -261,5 +261,5 @@ require (
 	k8s.io/klog/v2 v2.80.1 // indirect
 	mvdan.cc/gofumpt v0.8.0 // indirect
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
-	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 // indirect
+	github.com/StorXNetwork/drpc v0.0.36 // indirect
 )

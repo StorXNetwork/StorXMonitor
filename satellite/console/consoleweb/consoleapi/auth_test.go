@@ -23,18 +23,18 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth/sso"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func doRequestWithAuth(
@@ -1412,7 +1412,7 @@ func TestAuth_SetupAccount(t *testing.T) {
 			require.NoError(t, err)
 			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
 				FullName: "should be overwritten by setup",
-				Email:    fmt.Sprintf("test%d@storj.test", i),
+				Email:    fmt.Sprintf("test%d@storxnetwork.test", i),
 				Password: "password",
 			}, regToken.Secret, false)
 			require.NoError(t, err)

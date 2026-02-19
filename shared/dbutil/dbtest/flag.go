@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 // We need to define this in a separate package due to https://golang.org/issue/23910.
@@ -26,14 +26,14 @@ var cockroachAlt = flag.String("cockroach-test-alt-db", os.Getenv("STORJ_TEST_CO
 // spanner is the test database connection string.
 var spanner = flag.String("spanner-test-db", os.Getenv("STORJ_TEST_SPANNER"), "Spanner test database connection string (semicolon delimited for multiple), \"omit\" (or empty!) is used to omit the tests from output")
 
-// DefaultPostgres is expected to work under the storj-test docker-compose instance.
-const DefaultPostgres = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
+// DefaultPostgres is expected to work under the storxnetwork-test docker-compose instance.
+const DefaultPostgres = "postgres://storxnetwork:storxnetwork-pass@test-postgres/teststorj?sslmode=disable"
 
 // DefaultCockroach is expected to work when a local cockroachDB instance is running.
 const DefaultCockroach = "cockroach://root@localhost:26257/master?sslmode=disable"
 
 // DefaultSpanner is expected to work when a local spanner emulator is running.
-const DefaultSpanner = "spanner://projects/storj-test/instances/test-instance/databases/metainfo"
+const DefaultSpanner = "spanner://projects/storxnetwork-test/instances/test-instance/databases/metainfo"
 
 // Database defines a postgres compatible database.
 type Database struct {

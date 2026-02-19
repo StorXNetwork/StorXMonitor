@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/jobq/jobqueue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/jobqueue"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // mustUUID generates a UUID. We use this in favor of testrand.UUID() to avoid
@@ -494,7 +494,7 @@ func TestPeekNMultipleQueues(t *testing.T) {
 	}
 
 	// peek all and check
-	peekedJobs := jobqueue.PeekNMultipleQueues(1000, map[storj.PlacementConstraint]*jobqueue.Queue{42: queue})
+	peekedJobs := jobqueue.PeekNMultipleQueues(1000, map[storxnetwork.PlacementConstraint]*jobqueue.Queue{42: queue})
 	require.Len(t, peekedJobs, numStreams)
 
 	sort.Slice(jobs, func(i, j int) bool {

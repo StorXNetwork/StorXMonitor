@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
-	"storj.io/storj/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
 )
 
 var mon = monkit.Package()

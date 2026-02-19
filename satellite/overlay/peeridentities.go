@@ -6,8 +6,8 @@ package overlay
 import (
 	"context"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // PeerIdentities stores storagenode peer identities.
@@ -15,9 +15,9 @@ import (
 // architecture: Database
 type PeerIdentities interface {
 	// Set adds a peer identity entry for a node
-	Set(context.Context, storj.NodeID, *identity.PeerIdentity) error
+	Set(context.Context, storxnetwork.NodeID, *identity.PeerIdentity) error
 	// Get gets peer identity
-	Get(context.Context, storj.NodeID) (*identity.PeerIdentity, error)
+	Get(context.Context, storxnetwork.NodeID) (*identity.PeerIdentity, error)
 	// BatchGet gets all nodes peer identities in a transaction
-	BatchGet(context.Context, storj.NodeIDList) ([]*identity.PeerIdentity, error)
+	BatchGet(context.Context, storxnetwork.NodeIDList) ([]*identity.PeerIdentity, error)
 }

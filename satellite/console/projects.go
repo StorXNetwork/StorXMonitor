@@ -11,9 +11,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Projects exposes methods to manage Project table in database.
@@ -90,7 +90,7 @@ type Projects interface {
 	UpdateStatus(ctx context.Context, id uuid.UUID, status ProjectStatus) error
 
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
-	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
+	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storxnetwork.PlacementConstraint) error
 
 	// UpdateStorageUsedPercentage is a method for updating the storage used percentage for a project.
 	UpdateStorageUsedPercentage(ctx context.Context, id uuid.UUID, percentage float64) error
@@ -178,11 +178,11 @@ type Project struct {
 	StorageUsedPercentage   float64 `json:"storageUsedPercentage"`
 	PrevDaysUntilExpiration int     `json:"prevDaysUntilExpiration"`
 
-	DefaultPlacement   storj.PlacementConstraint `json:"defaultPlacement"`
-	DefaultVersioning  DefaultVersioning         `json:"defaultVersioning"`
-	PassphraseEnc      []byte                    `json:"-"`
-	PassphraseEncKeyID *int                      `json:"-"`
-	PathEncryption     *bool                     `json:"-"`
+	DefaultPlacement   storxnetwork.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning  DefaultVersioning                `json:"defaultVersioning"`
+	PassphraseEnc      []byte                           `json:"-"`
+	PassphraseEncKeyID *int                             `json:"-"`
+	PathEncryption     *bool                            `json:"-"`
 
 	IsClassic bool `json:"isClassic"`
 }
@@ -239,20 +239,20 @@ type UpdateLimitsInfo struct {
 
 // ProjectInfo holds data sent via user facing http endpoints.
 type ProjectInfo struct {
-	ID                      uuid.UUID                 `json:"id"`
-	Name                    string                    `json:"name"`
-	OwnerID                 uuid.UUID                 `json:"ownerId"`
-	Description             string                    `json:"description"`
-	MemberCount             int                       `json:"memberCount"`
-	CreatedAt               time.Time                 `json:"createdAt"`
-	EdgeURLOverrides        *EdgeURLOverrides         `json:"edgeURLOverrides,omitempty"`
-	StorageUsed             int64                     `json:"storageUsed"`
-	BandwidthUsed           int64                     `json:"bandwidthUsed"`
-	Versioning              DefaultVersioning         `json:"versioning"`
-	PrevDaysUntilExpiration int                       `json:"prevDaysUntilExpiration"`
-	Placement               storj.PlacementConstraint `json:"placement"`
-	HasManagedPassphrase    bool                      `json:"hasManagedPassphrase"`
-	IsClassic               bool                      `json:"isClassic"`
+	ID                      uuid.UUID                        `json:"id"`
+	Name                    string                           `json:"name"`
+	OwnerID                 uuid.UUID                        `json:"ownerId"`
+	Description             string                           `json:"description"`
+	MemberCount             int                              `json:"memberCount"`
+	CreatedAt               time.Time                        `json:"createdAt"`
+	EdgeURLOverrides        *EdgeURLOverrides                `json:"edgeURLOverrides,omitempty"`
+	StorageUsed             int64                            `json:"storageUsed"`
+	BandwidthUsed           int64                            `json:"bandwidthUsed"`
+	Versioning              DefaultVersioning                `json:"versioning"`
+	PrevDaysUntilExpiration int                              `json:"prevDaysUntilExpiration"`
+	Placement               storxnetwork.PlacementConstraint `json:"placement"`
+	HasManagedPassphrase    bool                             `json:"hasManagedPassphrase"`
+	IsClassic               bool                             `json:"isClassic"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.

@@ -12,9 +12,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type concurrentRetainInfo struct {
@@ -37,7 +37,7 @@ func (c *concurrentRetainInfos) IsEmpty() bool {
 }
 
 // Load implements MinimalRetainInfoMap.
-func (c *concurrentRetainInfos) Load(nodeID storj.NodeID) (info *RetainInfo, ok bool) {
+func (c *concurrentRetainInfos) Load(nodeID storxnetwork.NodeID) (info *RetainInfo, ok bool) {
 	value, ok := c.m.Load(nodeID)
 	if !ok {
 		return nil, false
@@ -46,7 +46,7 @@ func (c *concurrentRetainInfos) Load(nodeID storj.NodeID) (info *RetainInfo, ok 
 }
 
 // Range implements MinimalRetainInfoMap.
-func (c *concurrentRetainInfos) Range(f func(nodeID storj.NodeID, info *RetainInfo) bool) {
+func (c *concurrentRetainInfos) Range(f func(nodeID storxnetwork.NodeID, info *RetainInfo) bool) {
 	c.m.Range(func(key, value any) bool {
 		info := value.(*concurrentRetainInfo).info
 		if info == nil {
@@ -56,7 +56,7 @@ func (c *concurrentRetainInfos) Range(f func(nodeID storj.NodeID, info *RetainIn
 			// this case, we iterate further and ignore the nil value.
 			return true
 		}
-		return f(key.(storj.NodeID), info)
+		return f(key.(storxnetwork.NodeID), info)
 	})
 }
 
@@ -73,7 +73,7 @@ type SyncObserverV2 struct {
 
 	// The following fields are reset for each loop.
 	startTime       time.Time
-	lastPieceCounts map[storj.NodeID]int64
+	lastPieceCounts map[storxnetwork.NodeID]int64
 	seed            byte
 
 	inlineCount, remoteCount atomic.Uint64
@@ -115,7 +115,7 @@ func (observer *SyncObserverV2) Start(ctx context.Context, startTime time.Time) 
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int64)
+		lastPieceCounts = make(map[storxnetwork.NodeID]int64)
 	}
 
 	observer.startTime = startTime
@@ -203,7 +203,7 @@ func (observer *SyncObserverV2) Process(ctx context.Context, segments []rangedlo
 }
 
 // add adds a piece ID to the relevant node's RetainInfo.
-func (observer *SyncObserverV2) add(nodeID storj.NodeID, pieceID storj.PieceID) {
+func (observer *SyncObserverV2) add(nodeID storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	v, ok := observer.retainInfos.m.Load(nodeID)
 	if !ok {
 		v, _ = observer.retainInfos.m.LoadOrStore(nodeID, &concurrentRetainInfo{})

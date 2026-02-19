@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ReliabilityCache caches known nodes for the specified staleness duration
@@ -29,7 +29,7 @@ type ReliabilityCache struct {
 
 // reliabilityState.
 type reliabilityState struct {
-	nodeByID map[storj.NodeID]nodeselection.SelectedNode
+	nodeByID map[storxnetwork.NodeID]nodeselection.SelectedNode
 	created  time.Time
 }
 
@@ -74,7 +74,7 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 // for the index corresponding to that node ID.
 // Slice selectedNodes will be filled with results nodes and returned. It's length must be
 // equal to nodeIDs slice.
-func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storj.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error) {
+func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storxnetwork.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -141,7 +141,7 @@ func (cache *ReliabilityCache) refreshLocked(ctx context.Context) (_ *reliabilit
 
 	state := &reliabilityState{
 		created:  time.Now(),
-		nodeByID: make(map[storj.NodeID]nodeselection.SelectedNode, len(selectedNodes)),
+		nodeByID: make(map[storxnetwork.NodeID]nodeselection.SelectedNode, len(selectedNodes)),
 	}
 
 	var online int64

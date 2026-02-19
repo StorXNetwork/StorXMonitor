@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase/avrometabase"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/avrometabase"
 )
 
 func TestObjectsIterator(t *testing.T) {

@@ -19,9 +19,9 @@
         </p>
 
         <p>
-            <a class="link" href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">Learn more</a>
+            <a class="link" href="https://storxnetwork.dev/dcs/pricing#minimum-monthly-billing" target="_blank">Learn more</a>
             <template v-if="minimumCharge.startDate && minimumCharge.startDate > new Date()">
-                or <a class="link" href="https://storj.dev/support/account-management-billing/closing-an-account" target="_blank">close your account</a>
+                or <a class="link" href="https://storxnetwork.dev/support/account-management-billing/closing-an-account" target="_blank">close your account</a>
                 by {{ minimumCharge.longStartDateStr }} if you prefer not to continue.
             </template>
         </p>

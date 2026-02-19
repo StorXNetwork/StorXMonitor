@@ -16,12 +16,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 
-	"storj.io/common/context2"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Error is a standard error class for this package.
@@ -77,8 +77,8 @@ type Overlay interface {
 	// GetOnlineNodesForRepair returns a map of nodes for the supplied nodeIDs.
 	// The passed onlineWindow is used to determine whether each node is marked as Online.
 	GetOnlineNodesForRepair(
-		_ context.Context, _ []storj.NodeID, onlineWindow time.Duration,
-	) (map[storj.NodeID]*overlay.NodeReputation, error)
+		_ context.Context, _ []storxnetwork.NodeID, onlineWindow time.Duration,
+	) (map[storxnetwork.NodeID]*overlay.NodeReputation, error)
 	// FindStorageNodesForUpload searches the for nodes in the cache that meet the provided requirements for upload.
 	FindStorageNodesForUpload(context.Context, overlay.FindStorageNodesRequest) ([]*nodeselection.SelectedNode, error)
 	// GetParticipatingNodesForRepair returns all known participating nodes (this includes all known
@@ -89,7 +89,7 @@ type Overlay interface {
 	// If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
 	// will have a zero value.
 	GetParticipatingNodesForRepair(
-		_ context.Context, _ storj.NodeIDList, onlineWindow time.Duration,
+		_ context.Context, _ storxnetwork.NodeIDList, onlineWindow time.Duration,
 	) ([]nodeselection.SelectedNode, error)
 	// GetAllParticipatingNodesForRepair returns all known participating nodes (this includes all known
 	// nodes excluding nodes that have been disqualified or gracefully exited).
@@ -100,7 +100,7 @@ type Overlay interface {
 
 // PlacementList is a configurable, comma separated list of PlacementConstraint IDs.
 type PlacementList struct {
-	Placements []storj.PlacementConstraint
+	Placements []storxnetwork.PlacementConstraint
 }
 
 // String implements pflag.Value.
@@ -124,7 +124,7 @@ func (p *PlacementList) Set(s string) error {
 		if err != nil {
 			return errs.New("Placement list should contain numbers: %s", s)
 		}
-		p.Placements = append(p.Placements, storj.PlacementConstraint(pNum))
+		p.Placements = append(p.Placements, storxnetwork.PlacementConstraint(pNum))
 	}
 	return nil
 }

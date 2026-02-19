@@ -10,10 +10,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/multinode/multinodedb/dbx"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrNodesDB indicates about internal NodesDB error.
@@ -86,7 +86,7 @@ func (n *nodesdb) ListPaged(ctx context.Context, cursor nodes.Cursor) (page node
 }
 
 // Get return node from NodesDB by its id.
-func (n *nodesdb) Get(ctx context.Context, id storj.NodeID) (_ nodes.Node, err error) {
+func (n *nodesdb) Get(ctx context.Context, id storxnetwork.NodeID) (_ nodes.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxNode, err := n.methods.Get_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
@@ -118,7 +118,7 @@ func (n *nodesdb) Add(ctx context.Context, node nodes.Node) (err error) {
 }
 
 // Remove removed node from NodesDB.
-func (n *nodesdb) Remove(ctx context.Context, id storj.NodeID) (err error) {
+func (n *nodesdb) Remove(ctx context.Context, id storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = n.methods.Delete_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
@@ -127,7 +127,7 @@ func (n *nodesdb) Remove(ctx context.Context, id storj.NodeID) (err error) {
 }
 
 // UpdateName will update name of the specified node in database.
-func (n *nodesdb) UpdateName(ctx context.Context, id storj.NodeID, name string) (err error) {
+func (n *nodesdb) UpdateName(ctx context.Context, id storxnetwork.NodeID, name string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = n.methods.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), dbx.Node_Update_Fields{
@@ -141,7 +141,7 @@ func (n *nodesdb) UpdateName(ctx context.Context, id storj.NodeID, name string) 
 func fromDBXNode(ctx context.Context, node *dbx.Node) (_ nodes.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	id, err := storj.NodeIDFromBytes(node.Id)
+	id, err := storxnetwork.NodeIDFromBytes(node.Id)
 	if err != nil {
 		return nodes.Node{}, err
 	}

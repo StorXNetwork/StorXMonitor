@@ -10,11 +10,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // Endpoint implements the contact service Endpoints.

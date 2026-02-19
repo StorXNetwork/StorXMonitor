@@ -15,13 +15,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/currency"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const invoiceReferenceCustomFieldName = "Reference"
@@ -748,7 +748,7 @@ func (accounts *accounts) GetProjectUsagePriceModel() payments.ProjectUsagePrice
 
 // GetPlacementPriceModel returns the productID and related usage price model for a placement,
 // if there is none defined for the project ID.
-func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel) {
+func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storxnetwork.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel) {
 	if accounts.service.config.EntitlementsEnabled {
 		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
 		if err != nil {
@@ -813,8 +813,8 @@ func (accounts *accounts) ProductIdAndPriceForUsageKey(ctx context.Context, proj
 // project on the entitlements level or those allowed globally if entitlements are disabled.
 // It also returns a boolean, entitlementHasPlacement, indicating if the project's entitlement has any new buckets
 // placements defined.
-func (accounts *accounts) GetPlacements(ctx context.Context, projectPublicID uuid.UUID) (_ []storj.PlacementConstraint, entitlementsHasPlacements bool, _ error) {
-	placements := make([]storj.PlacementConstraint, 0)
+func (accounts *accounts) GetPlacements(ctx context.Context, projectPublicID uuid.UUID) (_ []storxnetwork.PlacementConstraint, entitlementsHasPlacements bool, _ error) {
+	placements := make([]storxnetwork.PlacementConstraint, 0)
 
 	if accounts.service.config.EntitlementsEnabled {
 		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
@@ -837,7 +837,7 @@ func (accounts *accounts) GetPlacements(ctx context.Context, projectPublicID uui
 	}
 
 	for placement := range accounts.service.pricingConfig.PlacementProductMap {
-		placements = append(placements, storj.PlacementConstraint(placement))
+		placements = append(placements, storxnetwork.PlacementConstraint(placement))
 	}
 	sort.SliceStable(placements, func(i, j int) bool {
 		return placements[i] < placements[j]
@@ -1007,7 +1007,7 @@ func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pa
 	return charges, nil
 }
 
-// StorjTokens exposes all storj token related functionality.
+// StorjTokens exposes all storxnetwork token related functionality.
 func (accounts *accounts) StorjTokens() payments.StorjTokens {
 	return &storjTokens{service: accounts.service}
 }

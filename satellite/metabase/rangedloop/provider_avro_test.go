@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/avrometabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/avrometabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop/rangedlooptest"
 )
 
 func TestAvro(t *testing.T) {
@@ -63,7 +63,7 @@ func TestAvro(t *testing.T) {
 		for _, segment := range segments {
 			require.NotEqual(t, uuid.UUID{}, segment.StreamID)
 			require.NotZero(t, segment.CreatedAt)
-			require.NotEqual(t, storj.RedundancyScheme{}, segment.Redundancy)
+			require.NotEqual(t, storxnetwork.RedundancyScheme{}, segment.Redundancy)
 			require.NotZero(t, segment.EncryptedSize)
 			require.NotZero(t, segment.PlainSize)
 			require.NotEmpty(t, segment.RootPieceID)

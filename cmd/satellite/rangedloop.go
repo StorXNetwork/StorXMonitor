@@ -9,13 +9,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/process/eventkitbq"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {

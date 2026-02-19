@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // CreateSelector create a custom component hierarchy selector based on environment variables.

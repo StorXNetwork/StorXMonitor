@@ -15,16 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 const oneWeek = 7 * 24 * time.Hour
@@ -40,9 +40,9 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		for _, tt := range []struct {
 			testName            string
 			useUnknownSatellite bool
-			pieceID             storj.PieceID
+			pieceID             storxnetwork.PieceID
 			action              pb.PieceAction
-			serialNumber        storj.SerialNumber
+			serialNumber        storxnetwork.SerialNumber
 			pieceExpiration     time.Duration
 			orderExpiration     time.Duration
 			limit               int64
@@ -52,9 +52,9 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			{
 				testName:            "unapproved satellite id",
 				useUnknownSatellite: true,
-				pieceID:             storj.PieceID{1},
+				pieceID:             storxnetwork.PieceID{1},
 				action:              pb.PieceAction_PUT,
-				serialNumber:        storj.SerialNumber{1},
+				serialNumber:        storxnetwork.SerialNumber{1},
 				pieceExpiration:     oneWeek,
 				orderExpiration:     oneWeek,
 				limit:               memory.KiB.Int64(),
@@ -62,18 +62,18 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			},
 			{
 				testName:        "approved satellite id",
-				pieceID:         storj.PieceID{2},
+				pieceID:         storxnetwork.PieceID{2},
 				action:          pb.PieceAction_PUT,
-				serialNumber:    storj.SerialNumber{2},
+				serialNumber:    storxnetwork.SerialNumber{2},
 				pieceExpiration: oneWeek,
 				orderExpiration: oneWeek,
 				limit:           10 * memory.KiB.Int64(),
 			},
 			{
 				testName:        "wrong action type",
-				pieceID:         storj.PieceID{3},
+				pieceID:         storxnetwork.PieceID{3},
 				action:          pb.PieceAction_GET,
-				serialNumber:    storj.SerialNumber{3},
+				serialNumber:    storxnetwork.SerialNumber{3},
 				pieceExpiration: oneWeek,
 				orderExpiration: oneWeek,
 				limit:           memory.KiB.Int64(),
@@ -81,9 +81,9 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			},
 			{
 				testName:        "piece expired",
-				pieceID:         storj.PieceID{4},
+				pieceID:         storxnetwork.PieceID{4},
 				action:          pb.PieceAction_PUT,
-				serialNumber:    storj.SerialNumber{4},
+				serialNumber:    storxnetwork.SerialNumber{4},
 				pieceExpiration: -4 * 24 * time.Hour,
 				orderExpiration: oneWeek,
 				limit:           memory.KiB.Int64(),
@@ -91,9 +91,9 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			},
 			{
 				testName:        "limit is negative",
-				pieceID:         storj.PieceID{5},
+				pieceID:         storxnetwork.PieceID{5},
 				action:          pb.PieceAction_PUT,
-				serialNumber:    storj.SerialNumber{5},
+				serialNumber:    storxnetwork.SerialNumber{5},
 				pieceExpiration: oneWeek,
 				orderExpiration: oneWeek,
 				limit:           -1,
@@ -101,9 +101,9 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			},
 			{
 				testName:        "order limit expired",
-				pieceID:         storj.PieceID{6},
+				pieceID:         storxnetwork.PieceID{6},
 				action:          pb.PieceAction_PUT,
-				serialNumber:    storj.SerialNumber{6},
+				serialNumber:    storxnetwork.SerialNumber{6},
 				pieceExpiration: oneWeek,
 				orderExpiration: -4 * 24 * time.Hour,
 				limit:           memory.KiB.Int64(),
@@ -111,9 +111,9 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			},
 			{
 				testName:        "allocated space limit",
-				pieceID:         storj.PieceID{8},
+				pieceID:         storxnetwork.PieceID{8},
 				action:          pb.PieceAction_PUT,
-				serialNumber:    storj.SerialNumber{8},
+				serialNumber:    storxnetwork.SerialNumber{8},
 				pieceExpiration: oneWeek,
 				orderExpiration: oneWeek,
 				limit:           10 * memory.KiB.Int64(),
@@ -193,9 +193,9 @@ func TestOrderLimitGetValidation(t *testing.T) {
 				t,
 				satellite.ID,
 				planet.StorageNodes[0].ID(),
-				storj.PieceID{1},
+				storxnetwork.PieceID{1},
 				pb.PieceAction_PUT,
-				storj.SerialNumber{0},
+				storxnetwork.SerialNumber{0},
 				oneWeek,
 				oneWeek,
 				defaultPieceSize.Int64(),
@@ -214,18 +214,18 @@ func TestOrderLimitGetValidation(t *testing.T) {
 
 		for _, tt := range []struct {
 			satellite       *identity.FullIdentity
-			pieceID         storj.PieceID
+			pieceID         storxnetwork.PieceID
 			action          pb.PieceAction
-			serialNumber    storj.SerialNumber
+			serialNumber    storxnetwork.SerialNumber
 			pieceExpiration time.Duration
 			orderExpiration time.Duration
 			limit           int64
 			err             string
 		}{
 			{ // incorrect action - PUT rather than GET
-				pieceID:         storj.PieceID{1},
+				pieceID:         storxnetwork.PieceID{1},
 				action:          pb.PieceAction_PUT,
-				serialNumber:    storj.SerialNumber{1},
+				serialNumber:    storxnetwork.SerialNumber{1},
 				pieceExpiration: oneWeek,
 				orderExpiration: oneWeek,
 				limit:           10 * memory.KiB.Int64(),

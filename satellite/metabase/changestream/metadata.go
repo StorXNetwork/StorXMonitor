@@ -13,8 +13,8 @@ import (
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/dbutil/recordeddb"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/recordeddb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
 )
 
 // PartitionState represents the processing state of a partition.

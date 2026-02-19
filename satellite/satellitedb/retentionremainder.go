@@ -10,11 +10,11 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
 )
 
 // retentionRemainderDB provides access to retention remainder charges.

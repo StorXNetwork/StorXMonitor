@@ -8,15 +8,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestAdjustRedundancy(t *testing.T) {
 	tests := []struct {
 		name                     string
-		redundancy               storj.RedundancyScheme
+		redundancy               storxnetwork.RedundancyScheme
 		repairThresholdOverrides checker.RepairThresholdOverrides
 		repairTargetOverrides    checker.RepairTargetOverrides
 		placement                nodeselection.Placement
@@ -26,7 +26,7 @@ func TestAdjustRedundancy(t *testing.T) {
 	}{
 		{
 			name: "no overrides",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -41,7 +41,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "repair threshold override",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -56,7 +56,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "repair target override",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -71,7 +71,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "both overrides",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -86,7 +86,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "placement EC repair override",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -107,7 +107,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "placement EC repair returns zero (no override)",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -128,7 +128,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "placement EC repair returns negative (no override)",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -149,7 +149,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "placement EC repair override takes precedence over repair threshold override",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -170,7 +170,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "optimal equals repair adjustment",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   5,
 				OptimalShares:  5, // same as repair
@@ -185,7 +185,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "optimal less than repair adjustment",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   5,
 				OptimalShares:  3, // less than repair
@@ -200,7 +200,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "total less than optimal adjustment",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  8,
@@ -215,7 +215,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "nil placement EC repair function",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 2,
 				RepairShares:   3,
 				OptimalShares:  4,
@@ -234,7 +234,7 @@ func TestAdjustRedundancy(t *testing.T) {
 		},
 		{
 			name: "no override for this required shares value",
-			redundancy: storj.RedundancyScheme{
+			redundancy: storxnetwork.RedundancyScheme{
 				RequiredShares: 3, // different from override key
 				RepairShares:   4,
 				OptimalShares:  5,

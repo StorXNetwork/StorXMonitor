@@ -40,7 +40,7 @@ func NewSource(config string) (Source, error) {
 		switch schema {
 		case "http", "https":
 			return NewHTTPSource(config)
-		case "storj":
+		case "storxnetwork":
 			return NewStaticURLSource(config)
 		default:
 			return nil, errs.New("unsupported schema %q", schema)

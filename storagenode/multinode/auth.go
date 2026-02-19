@@ -6,9 +6,9 @@ package multinode
 import (
 	"context"
 
-	"storj.io/storj/private/multinodeauth"
-	"storj.io/storj/private/multinodepb"
-	"storj.io/storj/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
 )
 
 // authenticate checks if request header contains valid api key.

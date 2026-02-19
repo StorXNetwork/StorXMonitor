@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // DB defines a set of operations that ca be performed against REST API keys db.

@@ -11,17 +11,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/shared/mudplanet"
-	"storj.io/storj/shared/mudplanet/satellitetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet/satellitetest"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestReportPendingAudits(t *testing.T) {
@@ -34,7 +34,7 @@ func TestReportPendingAudits(t *testing.T) {
 		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
 		containment := mudplanet.FindFirst[audit.Containment](t, run, "satellite", 0)
 
-		nodeID := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion()).ID
+		nodeID := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion()).ID
 
 		pending := audit.ReverificationJob{
 			Locator: audit.PieceLocator{
@@ -69,7 +69,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 
 		nodeID := createNode(t, ctx, overlayDB, 0)
 
-		report := audit.Report{Successes: []storj.NodeID{nodeID}}
+		report := audit.Report{Successes: []storxnetwork.NodeID{nodeID}}
 
 		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
 		reporter.RecordAudits(ctx, report)
@@ -105,16 +105,16 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 		offlineNode := createNode(t, ctx, overlayDB, 4)
 
 		report := audit.Report{
-			Successes: []storj.NodeID{goodNode},
+			Successes: []storxnetwork.NodeID{goodNode},
 			Fails:     metabase.Pieces{{StorageNode: dqNode}},
-			Unknown:   []storj.NodeID{suspendedNode},
+			Unknown:   []storxnetwork.NodeID{suspendedNode},
 			PendingAudits: []*audit.ReverificationJob{
 				{
 					Locator:       audit.PieceLocator{NodeID: pendingNode},
 					ReverifyCount: 0,
 				},
 			},
-			Offlines: []storj.NodeID{offlineNode},
+			Offlines: []storxnetwork.NodeID{offlineNode},
 		}
 
 		reporter.RecordAudits(ctx, report)
@@ -158,7 +158,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 
 		suspendedNode := createNode(t, ctx, overlayDB, 4)
 
-		reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
+		reporter.RecordAudits(ctx, audit.Report{Unknown: []storxnetwork.NodeID{suspendedNode}})
 
 		node, err := overlayDB.Get(ctx, suspendedNode)
 		require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 
 		suspendedAt := node.UnknownAuditSuspended
 
-		reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
+		reporter.RecordAudits(ctx, audit.Report{Unknown: []storxnetwork.NodeID{suspendedNode}})
 
 		node, err = overlayDB.Get(ctx, suspendedNode)
 		require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 		unknownNode := createNode(t, ctx, overlayDB, 7)
 		offlineNode := createNode(t, ctx, overlayDB, 8)
 
-		nodeIDs := storj.NodeIDList{successNode, failedNode, containedNode, unknownNode, offlineNode}
+		nodeIDs := storxnetwork.NodeIDList{successNode, failedNode, containedNode, unknownNode, offlineNode}
 
 		report := audit.Report{
 			Successes: nodeIDs,
@@ -220,11 +220,11 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			},
 		}
 		report = audit.Report{
-			Successes:     storj.NodeIDList{successNode},
+			Successes:     storxnetwork.NodeIDList{successNode},
 			Fails:         metabase.Pieces{{StorageNode: failedNode}},
-			Offlines:      storj.NodeIDList{offlineNode},
+			Offlines:      storxnetwork.NodeIDList{offlineNode},
 			PendingAudits: []*audit.ReverificationJob{&pending},
-			Unknown:       storj.NodeIDList{unknownNode},
+			Unknown:       storxnetwork.NodeIDList{unknownNode},
 		}
 		reporter.RecordAudits(ctx, report)
 
@@ -251,7 +251,7 @@ func TestReportOfflineAudits(t *testing.T) {
 		overlayDB := mudplanet.FindFirst[overlay.DB](t, run, "satellite", 0)
 		node := createNode(t, ctx, overlayDB, 1)
 
-		reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node}})
+		reporter.RecordAudits(ctx, audit.Report{Offlines: storxnetwork.NodeIDList{node}})
 
 		reputationService := mudplanet.FindFirst[*reputation.Service](t, run, "satellite", 0)
 		info, err := reputationService.Get(ctx, node)
@@ -287,8 +287,8 @@ func TestReportingAuditFailureResultsInRemovalOfPiece(t *testing.T) {
 		segment := metabase.SegmentForAudit{
 			StreamID: testrand.UUID(),
 			Pieces:   pieces,
-			Redundancy: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
+			Redundancy: storxnetwork.RedundancyScheme{
+				Algorithm:      storxnetwork.ReedSolomon,
 				ShareSize:      128,
 				RequiredShares: 10,
 				RepairShares:   12,
@@ -341,8 +341,8 @@ func TestReportingAuditFailureResultsInRemovalOfPiece(t *testing.T) {
 }
 
 //revive:disable:context-as-argument
-func createNode(t *testing.T, ctx context.Context, db overlay.DB, idx int) storj.NodeID {
-	id := testidentity.MustPregeneratedIdentity(idx, storj.LatestIDVersion()).ID
+func createNode(t *testing.T, ctx context.Context, db overlay.DB, idx int) storxnetwork.NodeID {
+	id := testidentity.MustPregeneratedIdentity(idx, storxnetwork.LatestIDVersion()).ID
 	err := db.TestAddNodes(ctx, []*overlay.NodeDossier{
 		{
 			Node: pb.Node{

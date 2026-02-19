@@ -12,12 +12,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/eventing/eventingconfig"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/changestream"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/eventkit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing/eventingconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/changestream"
 )
 
 var ek = eventkit.Package()

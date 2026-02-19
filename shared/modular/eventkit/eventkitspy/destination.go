@@ -11,7 +11,7 @@ import (
 	"context"
 	"sync"
 
-	"storj.io/eventkit"
+	"github.com/StorXNetwork/eventkit"
 )
 
 var defaultDestination = NewDestination(100)

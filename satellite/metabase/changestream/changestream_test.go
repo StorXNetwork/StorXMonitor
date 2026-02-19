@@ -13,12 +13,12 @@ import (
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/common/errs2"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/changestream"
-	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/changestream"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
 )
 
 func TestChangeStream(t *testing.T) {

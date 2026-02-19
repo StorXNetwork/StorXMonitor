@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestObserverForkProcess(t *testing.T) {
@@ -27,7 +27,7 @@ func TestObserverForkProcess(t *testing.T) {
 	nodes := func() (res []nodeselection.SelectedNode) {
 		for i := 0; i < 10; i++ {
 			res = append(res, nodeselection.SelectedNode{
-				ID:          testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+				ID:          testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 				Online:      true,
 				CountryCode: location.Germany,
 				LastNet:     "127.0.0.0",
@@ -36,8 +36,8 @@ func TestObserverForkProcess(t *testing.T) {
 		return res
 	}()
 
-	mapNodes := func(nodes []nodeselection.SelectedNode, include func(node nodeselection.SelectedNode) bool) map[storj.NodeID]nodeselection.SelectedNode {
-		res := map[storj.NodeID]nodeselection.SelectedNode{}
+	mapNodes := func(nodes []nodeselection.SelectedNode, include func(node nodeselection.SelectedNode) bool) map[storxnetwork.NodeID]nodeselection.SelectedNode {
+		res := map[storxnetwork.NodeID]nodeselection.SelectedNode{}
 		for _, node := range nodes {
 			if include(node) {
 				res[node.ID] = node
@@ -99,8 +99,8 @@ func TestObserverForkProcess(t *testing.T) {
 		fork := createFork(o, &q)
 		err := fork.process(ctx, &rangedloop.Segment{
 			Pieces: createPieces(nodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
-			Redundancy: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
+			Redundancy: storxnetwork.RedundancyScheme{
+				Algorithm:      storxnetwork.ReedSolomon,
 				ShareSize:      256,
 				RepairShares:   4,
 				RequiredShares: 6,
@@ -124,8 +124,8 @@ func TestObserverForkProcess(t *testing.T) {
 		fork := createFork(o, &q)
 		err := fork.process(ctx, &rangedloop.Segment{
 			Pieces: createPieces(nodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
-			Redundancy: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
+			Redundancy: storxnetwork.RedundancyScheme{
+				Algorithm:      storxnetwork.ReedSolomon,
 				ShareSize:      256,
 				RepairShares:   4,
 				RequiredShares: 6,
@@ -158,8 +158,8 @@ func TestObserverForkProcess(t *testing.T) {
 		err = fork.process(ctx, &rangedloop.Segment{
 			Placement: 10,
 			Pieces:    createPieces(nodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
-			Redundancy: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
+			Redundancy: storxnetwork.RedundancyScheme{
+				Algorithm:      storxnetwork.ReedSolomon,
 				ShareSize:      256,
 				RepairShares:   4,
 				RequiredShares: 6,

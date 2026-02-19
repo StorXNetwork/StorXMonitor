@@ -13,7 +13,7 @@ If there is a duplicate, please close your issue and add a comment to the
 existing issue instead.
 
 For more information about reporting issues, see
-https://github.com/storj/storj/blob/main/docs/storagenode/CONTRIBUTING.md
+https://github.com/storxnetwork/storxnetwork/blob/main/docs/storagenode/CONTRIBUTING.md
 
 ---------------------------------------------------
 GENERAL SUPPORT INFORMATION
@@ -22,8 +22,8 @@ GENERAL SUPPORT INFORMATION
 The GitHub issue tracker is for bug reports and feature requests.
 General support can be found at the following locations:
 
-- Storj Community Forum - https://forum.storj.io
-- File a ticket at https://support.storj.io/
+- Storj Community Forum - https://forum.storxnetwork.io
+- File a ticket at https://support.storxnetwork.io/
 
 ---------------------------------------------------
 BUG REPORT INFORMATION

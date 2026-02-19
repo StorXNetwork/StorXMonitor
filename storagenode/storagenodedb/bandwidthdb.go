@@ -12,13 +12,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/sqliteutil"
-	"storj.io/storj/shared/tagsql"
-	"storj.io/storj/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrBandwidth represents errors from the bandwidthdb database.
@@ -40,7 +40,7 @@ type BandwidthDB struct {
 var monAdd = mon.Task()
 
 // Add adds bandwidth usage to the table.
-func (db *BandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
+func (db *BandwidthDB) Add(ctx context.Context, satelliteID storxnetwork.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
 	defer monAdd(&ctx)(&err)
 
 	var usage bandwidth.Usage
@@ -178,7 +178,7 @@ func (db *BandwidthDB) IngressSummary(ctx context.Context, from, to time.Time) (
 }
 
 // SatelliteSummary returns summary of bandwidth usages for a particular satellite.
-func (db *BandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+func (db *BandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
 	var usage bandwidth.Usage
@@ -207,7 +207,7 @@ func (db *BandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.N
 }
 
 // SatelliteEgressSummary returns summary of egress usage for a particular satellite.
-func (db *BandwidthDB) SatelliteEgressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+func (db *BandwidthDB) SatelliteEgressSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
 	var usage bandwidth.Usage
@@ -236,7 +236,7 @@ func (db *BandwidthDB) SatelliteEgressSummary(ctx context.Context, satelliteID s
 }
 
 // SatelliteIngressSummary returns summary of ingress usage for a particular satellite.
-func (db *BandwidthDB) SatelliteIngressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+func (db *BandwidthDB) SatelliteIngressSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
 	var usage bandwidth.Usage
@@ -264,10 +264,10 @@ func (db *BandwidthDB) SatelliteIngressSummary(ctx context.Context, satelliteID 
 }
 
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
-func (db *BandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*bandwidth.Usage, err error) {
+func (db *BandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storxnetwork.NodeID]*bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	entries := map[storj.NodeID]*bandwidth.Usage{}
+	entries := map[storxnetwork.NodeID]*bandwidth.Usage{}
 
 	from, to = from.UTC(), to.UTC()
 
@@ -287,7 +287,7 @@ func (db *BandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var satelliteID storj.NodeID
+		var satelliteID storxnetwork.NodeID
 		err := rows.Scan(&satelliteID)
 		if err != nil {
 			return nil, ErrBandwidth.Wrap(err)
@@ -353,7 +353,7 @@ func (db *BandwidthDB) GetDailyRollups(ctx context.Context, from, to time.Time) 
 
 // GetDailySatelliteRollups returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order for a particular satellite.
-func (db *BandwidthDB) GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []bandwidth.UsageRollup, err error) {
+func (db *BandwidthDB) GetDailySatelliteRollups(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_ []bandwidth.UsageRollup, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
 	since, _ := date.DayBoundary(from.UTC())

@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/storj/satellite/kms"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/StorXMonitor/satellite/kms"
 )
 
 var mon = monkit.Package()

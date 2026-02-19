@@ -6,7 +6,7 @@ package consolewasm
 import (
 	"strings"
 
-	"storj.io/common/grant"
+	"github.com/StorXNetwork/common/grant"
 )
 
 // RestrictGrant restricts an access grant with the permissions and paths and returns a new access grant.

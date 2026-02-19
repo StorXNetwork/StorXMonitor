@@ -7,7 +7,7 @@ import (
 	"context"
 	"sync"
 
-	"storj.io/drpc/drpcsignal"
+	"github.com/StorXNetwork/drpc/drpcsignal"
 )
 
 //

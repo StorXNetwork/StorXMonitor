@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestNormalized(t *testing.T) {

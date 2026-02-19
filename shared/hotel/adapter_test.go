@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"golang.org/x/exp/slices"
 
-	"storj.io/storj/shared/motel"
+	"github.com/StorXNetwork/StorXMonitor/shared/motel"
 )
 
 func TestFloatVal(t *testing.T) {

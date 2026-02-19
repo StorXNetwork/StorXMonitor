@@ -12,16 +12,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 // ErrNodeOffline is returned when it was not possible to contact a node or the node was not responding.
@@ -78,7 +78,7 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 }
 
 // Verify a collection of segments by attempting to download a byte from each segment from the target node.
-func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error) {
+func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storxnetwork.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error) {
 	service.log.Debug("verify segments by downloading pieces")
 
 	var client *piecestore.Client
@@ -142,7 +142,7 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 
 // verifySegment tries to verify the segment by downloading a single byte from the piece of the segment
 // on the specified target node.
-func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecestore.Client, alias metabase.NodeAlias, target storj.NodeURL, segment *Segment) (outcome audit.Outcome, err error) {
+func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecestore.Client, alias metabase.NodeAlias, target storxnetwork.NodeURL, segment *Segment) (outcome audit.Outcome, err error) {
 	pieceNum := findPieceNum(segment, alias)
 
 	logger := service.log.With(

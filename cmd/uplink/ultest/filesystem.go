@@ -15,8 +15,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 //

@@ -12,10 +12,10 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/context2"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/dbschema"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 
 // OpenUnique opens a postgres database with a temporary unique schema, which will be cleaned up
 // when closed. It is expected that this should normally be used by way of
-// "storj.io/storj/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
+// "github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
 func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbutil.TempDatabase, error) {
 	// sanity check, because you get an unhelpful error message when this happens
 	if strings.HasPrefix(connstr, "cockroach://") {

@@ -26,7 +26,7 @@ jobs:
       env:
         WEB3_AUTH_PRIVATE_KEY: ${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
       run: |
-        go build -ldflags "-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'" -o "$env:TEMP_PATH\satellite.exe" ./cmd/satellite
+        go build -ldflags "-s -w -X 'github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'" -o "$env:TEMP_PATH\satellite.exe" ./cmd/satellite
         
     - name: Quick service stop
       run: |

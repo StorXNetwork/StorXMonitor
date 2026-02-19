@@ -16,10 +16,10 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/context2"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 var mon = monkit.Package()
@@ -33,7 +33,7 @@ func CreateRandomTestingSchemaName(n int) string {
 
 // OpenUnique opens a temporary unique CockroachDB database that will be cleaned up when closed.
 // It is expected that this should normally be used by way of
-// "storj.io/storj/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
+// "github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
 func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *dbutil.TempDatabase, err error) {
 	if !strings.HasPrefix(connStr, "cockroach://") {
 		return nil, errs.New("expected a cockroachDB URI, but got %q", connStr)

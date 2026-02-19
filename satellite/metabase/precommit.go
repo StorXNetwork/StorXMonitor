@@ -11,9 +11,9 @@ import (
 
 	"cloud.google.com/go/spanner"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 type precommitTransactionAdapter interface {
@@ -134,15 +134,15 @@ func PrecommitUnversionedObjectFromObject(obj *RawObject) *PrecommitUnversionedO
 
 // PrecommitPendingObject is information about the object to be committed.
 type PrecommitPendingObject struct {
-	CreatedAt                     time.Time                  `spanner:"created_at"`
-	ExpiresAt                     *time.Time                 `spanner:"expires_at"`
-	EncryptedMetadata             []byte                     `spanner:"encrypted_metadata"`
-	EncryptedMetadataNonce        []byte                     `spanner:"encrypted_metadata_nonce"`
-	EncryptedMetadataEncryptedKey []byte                     `spanner:"encrypted_metadata_encrypted_key"`
-	EncryptedETag                 []byte                     `spanner:"encrypted_etag"`
-	Encryption                    storj.EncryptionParameters `spanner:"encryption"`
-	RetentionMode                 RetentionMode              `spanner:"retention_mode"`
-	RetainUntil                   spanner.NullTime           `spanner:"retain_until"`
+	CreatedAt                     time.Time                         `spanner:"created_at"`
+	ExpiresAt                     *time.Time                        `spanner:"expires_at"`
+	EncryptedMetadata             []byte                            `spanner:"encrypted_metadata"`
+	EncryptedMetadataNonce        []byte                            `spanner:"encrypted_metadata_nonce"`
+	EncryptedMetadataEncryptedKey []byte                            `spanner:"encrypted_metadata_encrypted_key"`
+	EncryptedETag                 []byte                            `spanner:"encrypted_etag"`
+	Encryption                    storxnetwork.EncryptionParameters `spanner:"encryption"`
+	RetentionMode                 RetentionMode                     `spanner:"retention_mode"`
+	RetainUntil                   spanner.NullTime                  `spanner:"retain_until"`
 }
 
 // PrecommitQuery queries all information about the object so it can be committed.
@@ -538,8 +538,8 @@ type precommitUnversionedObjectFull struct {
 	TotalEncryptedSize int64 `spanner:"total_encrypted_size"`
 	FixedSegmentSize   int64 `spanner:"fixed_segment_size"`
 
-	Encryption             storj.EncryptionParameters `spanner:"encryption"`
-	ZombieDeletionDeadline spanner.NullTime           `spanner:"zombie_deletion_deadline"`
+	Encryption             storxnetwork.EncryptionParameters `spanner:"encryption"`
+	ZombieDeletionDeadline spanner.NullTime                  `spanner:"zombie_deletion_deadline"`
 
 	RetentionMode RetentionMode    `spanner:"retention_mode"`
 	RetainUntil   spanner.NullTime `spanner:"retain_until"`

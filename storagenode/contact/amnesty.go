@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const (
@@ -34,14 +34,14 @@ type AmnestyClient struct {
 
 	// Per-satellite batching state
 	mu       sync.Mutex
-	batches  map[storj.NodeID]*satelliteBatch
+	batches  map[storxnetwork.NodeID]*satelliteBatch
 	shutdown bool
 	wg       sync.WaitGroup
 }
 
 // satelliteBatch holds pending reports for a specific satellite
 type satelliteBatch struct {
-	satellite storj.NodeID
+	satellite storxnetwork.NodeID
 	pieces    []*pb.LostPiece
 	timer     *time.Timer
 }
@@ -56,7 +56,7 @@ func NewAmnestyClient(log *zap.Logger, dialer rpc.Dialer, trust trust.TrustedSat
 		batchSize:     defaultAmnestyBatchSize,
 		flushInterval: defaultAmnestyFlushInterval,
 
-		batches: make(map[storj.NodeID]*satelliteBatch),
+		batches: make(map[storxnetwork.NodeID]*satelliteBatch),
 	}
 }
 
@@ -91,7 +91,7 @@ func (ac *AmnestyClient) Close() error {
 
 // ReportBadPiece adds a bad piece report to the batch for the given satellite.
 // Reports are sent in batches to improve efficiency.
-func (ac *AmnestyClient) ReportBadPiece(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) error {
+func (ac *AmnestyClient) ReportBadPiece(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) error {
 	ac.log.Debug("adding bad piece to batch",
 		zap.Stringer("satellite", satellite),
 		zap.Stringer("piece_id", pieceID),
@@ -169,7 +169,7 @@ func (ac *AmnestyClient) flushBatch(batch *satelliteBatch) {
 }
 
 // sendBatch sends a batch of reports to the satellite
-func (ac *AmnestyClient) sendBatch(ctx context.Context, satellite storj.NodeID, pieces []*pb.LostPiece) {
+func (ac *AmnestyClient) sendBatch(ctx context.Context, satellite storxnetwork.NodeID, pieces []*pb.LostPiece) {
 	if len(pieces) == 0 {
 		return
 	}

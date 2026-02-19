@@ -14,16 +14,16 @@ import (
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/private/slices2"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/retrydb"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/private/slices2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/retrydb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface.
@@ -32,7 +32,7 @@ type StoragenodeAccounting struct {
 }
 
 // SaveTallies records raw tallies of at rest data to the database.
-func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeIDs []storj.NodeID, totals []float64) (err error) {
+func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeIDs []storxnetwork.NodeID, totals []float64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
@@ -225,7 +225,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 		return db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 			defer mon.Task()(&ctx)(&err)
 
-			nodeID := make([]storj.NodeID, n)
+			nodeID := make([]storxnetwork.NodeID, n)
 			startTime := make([]time.Time, n)
 			putTotal := make([]int64, n)
 			getTotal := make([]int64, n)
@@ -468,7 +468,7 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 			return nil, Error.Wrap(err)
 		}
 
-		usage.NodeID, err = storj.NodeIDFromBytes(nodeID)
+		usage.NodeID, err = storxnetwork.NodeIDFromBytes(nodeID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -478,7 +478,7 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 }
 
 // QueryStorageNodeUsage returns slice of StorageNodeUsage for given period.
-func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
+func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storxnetwork.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	lastRollup, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup))
@@ -837,7 +837,7 @@ func (db *StoragenodeAccounting) GetArchivedRollupsSince(ctx context.Context, si
 }
 
 func fromDBXStoragenodeStorageTally(r *dbx.StoragenodeStorageTally) (*accounting.StoragenodeStorageTally, error) {
-	nodeID, err := storj.NodeIDFromBytes(r.NodeId)
+	nodeID, err := storxnetwork.NodeIDFromBytes(r.NodeId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -849,7 +849,7 @@ func fromDBXStoragenodeStorageTally(r *dbx.StoragenodeStorageTally) (*accounting
 }
 
 func fromDBXStoragenodeBandwidthRollup(v *dbx.StoragenodeBandwidthRollup) (r accounting.StoragenodeBandwidthRollup, _ error) {
-	id, err := storj.NodeIDFromBytes(v.StoragenodeId)
+	id, err := storxnetwork.NodeIDFromBytes(v.StoragenodeId)
 	if err != nil {
 		return r, Error.Wrap(err)
 	}
@@ -862,7 +862,7 @@ func fromDBXStoragenodeBandwidthRollup(v *dbx.StoragenodeBandwidthRollup) (r acc
 }
 
 func fromDBXStoragenodeBandwidthRollupArchive(v *dbx.StoragenodeBandwidthRollupArchive) (r accounting.StoragenodeBandwidthRollup, _ error) {
-	id, err := storj.NodeIDFromBytes(v.StoragenodeId)
+	id, err := storxnetwork.NodeIDFromBytes(v.StoragenodeId)
 	if err != nil {
 		return r, Error.Wrap(err)
 	}

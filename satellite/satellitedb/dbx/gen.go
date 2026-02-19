@@ -14,10 +14,10 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/retrydb"
-	"storj.io/storj/shared/dbutil/txutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/retrydb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 //go:generate go run ./gen

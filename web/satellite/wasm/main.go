@@ -13,8 +13,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/base58"
-	console "storj.io/storj/web/satellite/wasm/consolewasm"
+	"github.com/StorXNetwork/common/base58"
+	console "github.com/StorXNetwork/StorXMonitor/web/satellite/wasm/consolewasm"
 )
 
 func main() {

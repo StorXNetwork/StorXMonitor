@@ -7,9 +7,9 @@ import (
 	"context"
 	"sync"
 
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // IdentityCache implements caching of *identity.PeerIdentity.
@@ -17,19 +17,19 @@ type IdentityCache struct {
 	db overlay.PeerIdentities
 
 	mu     sync.RWMutex
-	cached map[storj.NodeID]signing.Signee
+	cached map[storxnetwork.NodeID]signing.Signee
 }
 
 // NewIdentityCache returns an IdentityCache.
 func NewIdentityCache(db overlay.PeerIdentities) *IdentityCache {
 	return &IdentityCache{
 		db:     db,
-		cached: map[storj.NodeID]signing.Signee{},
+		cached: map[storxnetwork.NodeID]signing.Signee{},
 	}
 }
 
 // GetCached returns the peer identity in the cache.
-func (cache *IdentityCache) GetCached(ctx context.Context, id storj.NodeID) signing.Signee {
+func (cache *IdentityCache) GetCached(ctx context.Context, id storxnetwork.NodeID) signing.Signee {
 	defer mon.Task()(&ctx)(nil)
 
 	cache.mu.RLock()
@@ -39,7 +39,7 @@ func (cache *IdentityCache) GetCached(ctx context.Context, id storj.NodeID) sign
 }
 
 // GetUpdated returns the identity from database and updates the cache.
-func (cache *IdentityCache) GetUpdated(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {
+func (cache *IdentityCache) GetUpdated(ctx context.Context, id storxnetwork.NodeID) (_ signing.Signee, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	identity, err := cache.db.Get(ctx, id)
@@ -56,10 +56,10 @@ func (cache *IdentityCache) GetUpdated(ctx context.Context, id storj.NodeID) (_ 
 }
 
 // EnsureCached loads any missing identity into cache.
-func (cache *IdentityCache) EnsureCached(ctx context.Context, nodes []storj.NodeID) (err error) {
+func (cache *IdentityCache) EnsureCached(ctx context.Context, nodes []storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	missing := []storj.NodeID{}
+	missing := []storxnetwork.NodeID{}
 
 	cache.mu.RLock()
 	for _, node := range nodes {

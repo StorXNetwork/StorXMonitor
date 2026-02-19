@@ -11,16 +11,16 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/currency"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/slices2"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/slices2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/currency"
 )
 
 var _ storjscan.PaymentsDB = (*storjscanPayments)(nil)
@@ -302,7 +302,7 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 	payment := storjscan.CachedPayment{
 		ChainID:     dbxPmnt.ChainId,
-		TokenValue:  currency.AmountFromBaseUnits(dbxPmnt.TokenValue, currency.StorjToken),
+		TokenValue:  currency.AmountFromBaseUnits(dbxPmnt.TokenValue, currency.StorxToken),
 		USDValue:    currency.AmountFromBaseUnits(dbxPmnt.UsdValue, currency.USDollarsMicro),
 		Status:      payments.PaymentStatus(dbxPmnt.Status),
 		BlockNumber: dbxPmnt.BlockNumber,

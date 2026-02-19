@@ -51,7 +51,7 @@
                     </v-card-item>
                 </v-card>
                 <v-card v-else class="pa-4 pa-sm-8 mx-auto" max-width="800">
-                    <img src="@/assets/storj-plus-cuno.webp" alt="Storj + cunoFS" class="w-100 rounded-lg mb-3">
+                    <img src="@/assets/storxnetwork-plus-cuno.webp" alt="Storj + cunoFS" class="w-100 rounded-lg mb-3">
 
                     <h1 class="mb-2">
                         Join the Insider Beta for cunoFS

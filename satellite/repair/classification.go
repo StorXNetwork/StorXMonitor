@@ -6,10 +6,10 @@ package repair
 import (
 	"go.uber.org/zap/zapcore"
 
-	"storj.io/storj/private/intset"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/private/intset"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
 )
 
 // PiecesCheckResult contains all necessary aggregate information about the state of pieces in a

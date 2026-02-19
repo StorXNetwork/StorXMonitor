@@ -12,8 +12,8 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -32,7 +32,7 @@ const (
 	// PartialSize is the size of a partial serial number.
 	PartialSize = memory.Size(len(Partial{}))
 	// FullSize is the size of a full serial number.
-	FullSize = memory.Size(len(storj.SerialNumber{}))
+	FullSize = memory.Size(len(storxnetwork.SerialNumber{}))
 )
 
 // Partial represents the last 8 bytes of a serial number. It is used when the first 8 are based on the expiration date.
@@ -44,7 +44,7 @@ func (a Partial) Less(b Partial) bool {
 }
 
 // Full is a copy of the SerialNumber type. It is necessary so we can define a Less function on it.
-type Full storj.SerialNumber
+type Full storxnetwork.SerialNumber
 
 // Less returns true if partial serial a is less than partial serial b and false otherwise.
 func (a Full) Less(b Full) bool {
@@ -57,7 +57,7 @@ func (a Full) Less(b Full) bool {
 // It uses fullSerials otherwise.
 type serialsList struct {
 	partialSerials map[Partial]struct{}
-	fullSerials    map[storj.SerialNumber]struct{}
+	fullSerials    map[storxnetwork.SerialNumber]struct{}
 }
 
 // Table is an in-memory store for serial numbers.
@@ -65,7 +65,7 @@ type Table struct {
 	mu sync.Mutex
 
 	// key 1: satellite ID, key 2: expiration hour (in unix time), value: a list of serial numbers
-	serials map[storj.NodeID]map[int64]serialsList
+	serials map[storxnetwork.NodeID]map[int64]serialsList
 
 	maxMemory  memory.Size
 	memoryUsed memory.Size
@@ -77,14 +77,14 @@ func NewTable(maxMemory memory.Size) *Table {
 		panic("max memory for usedserials store is 0")
 	}
 	return &Table{
-		serials:   make(map[storj.NodeID]map[int64]serialsList),
+		serials:   make(map[storxnetwork.NodeID]map[int64]serialsList),
 		maxMemory: maxMemory,
 	}
 }
 
 // Add adds a serial to the store, or returns an error if the serial number was already added.
 // It randomly deletes items from the store if the set maxMemory is exceeded.
-func (table *Table) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) (err error) {
+func (table *Table) Add(ctx context.Context, satelliteID storxnetwork.NodeID, serialNumber storxnetwork.SerialNumber, expiration time.Time) (err error) {
 	defer monAdd(&ctx)(&err)
 
 	table.mu.Lock()
@@ -120,7 +120,7 @@ func (table *Table) Add(ctx context.Context, satelliteID storj.NodeID, serialNum
 		table.memoryUsed += PartialSize
 	} else {
 		if list.fullSerials == nil {
-			list.fullSerials = map[storj.SerialNumber]struct{}{}
+			list.fullSerials = map[storxnetwork.SerialNumber]struct{}{}
 		}
 		err = insertSerial(list.fullSerials, serialNumber)
 		if err != nil {
@@ -168,7 +168,7 @@ func (table *Table) DeleteExpired(ctx context.Context, now time.Time) {
 }
 
 // Exists determines whether a serial number exists in the table.
-func (table *Table) Exists(satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) bool {
+func (table *Table) Exists(satelliteID storxnetwork.NodeID, serialNumber storxnetwork.SerialNumber, expiration time.Time) bool {
 	table.mu.Lock()
 	defer table.mu.Unlock()
 
@@ -244,7 +244,7 @@ func insertPartial(list map[Partial]struct{}, serial Partial) error {
 
 // insertSerial inserts a serial in the correct position in a sorted list,
 // or returns an error if it is already in the list.
-func insertSerial(list map[storj.SerialNumber]struct{}, serial storj.SerialNumber) error {
+func insertSerial(list map[storxnetwork.SerialNumber]struct{}, serial storxnetwork.SerialNumber) error {
 	_, ok := list[serial]
 	if ok {
 		return ErrSerialAlreadyExists.New("")
@@ -253,7 +253,7 @@ func insertSerial(list map[storj.SerialNumber]struct{}, serial storj.SerialNumbe
 	return nil
 }
 
-func tryTruncate(serial storj.SerialNumber, expiration time.Time) (partial Partial, succeeded bool) {
+func tryTruncate(serial storxnetwork.SerialNumber, expiration time.Time) (partial Partial, succeeded bool) {
 	// If the first 8 bytes of the serial number are based on the expiration date
 	// then we can use a partial serial number with the last 8 bytes.
 	// Otherwise, we need to use the full serial number.

@@ -16,22 +16,22 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
@@ -53,7 +53,7 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := planet.Satellites[0].Repair.Queue
 
-		rs := storj.RedundancyScheme{
+		rs := storxnetwork.RedundancyScheme{
 			RequiredShares: 2,
 			RepairShares:   3,
 			OptimalShares:  4,
@@ -142,12 +142,12 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 		for i := len(pieces); i < numberOfNodes; i++ {
 			pieces = append(pieces, metabase.Piece{
 				Number:      uint16(i),
-				StorageNode: storj.NodeID{byte(i)},
+				StorageNode: storxnetwork.NodeID{byte(i)},
 			})
 			expectedLostPieces[int32(i)] = true
 		}
 
-		rs := storj.RedundancyScheme{
+		rs := storxnetwork.RedundancyScheme{
 			ShareSize:      256,
 			RequiredShares: 4,
 			RepairShares:   8,
@@ -335,7 +335,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		observer := planet.Satellites[0].RangedLoop.Repair.Observer
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 
-		rs := storj.RedundancyScheme{
+		rs := storxnetwork.RedundancyScheme{
 			RequiredShares: 2,
 			RepairShares:   3,
 			OptimalShares:  4,
@@ -438,7 +438,7 @@ func TestRepairObserver(t *testing.T) {
 		},
 		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		rs := storj.RedundancyScheme{
+		rs := storxnetwork.RedundancyScheme{
 			RequiredShares: 2,
 			RepairShares:   3,
 			OptimalShares:  4,
@@ -544,7 +544,7 @@ func TestRepairObserver(t *testing.T) {
 	})
 }
 
-func createPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
+func createPieces(planet *testplanet.Planet, rs storxnetwork.RedundancyScheme) metabase.Pieces {
 	pieces := make(metabase.Pieces, rs.OptimalShares)
 	for i := range pieces {
 		pieces[i] = metabase.Piece{
@@ -555,7 +555,7 @@ func createPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase
 	return pieces
 }
 
-func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
+func createLostPieces(planet *testplanet.Planet, rs storxnetwork.RedundancyScheme) metabase.Pieces {
 	pieces := make(metabase.Pieces, rs.OptimalShares)
 	for i := range pieces[:rs.RequiredShares] {
 		pieces[i] = metabase.Piece{
@@ -566,13 +566,13 @@ func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) meta
 	for i := rs.RequiredShares; i < rs.OptimalShares; i++ {
 		pieces[i] = metabase.Piece{
 			Number:      uint16(i),
-			StorageNode: storj.NodeID{byte(0xFF)},
+			StorageNode: storxnetwork.NodeID{byte(0xFF)},
 		}
 	}
 	return pieces
 }
 
-func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expiresAt *time.Time) uuid.UUID {
+func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storxnetwork.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expiresAt *time.Time) uuid.UUID {
 	metabaseDB := planet.Satellites[0].Metabase.DB
 
 	obj := metabase.ObjectStream{
@@ -585,8 +585,8 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 
 	_, err := metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 		ObjectStream: obj,
-		Encryption: storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
+		Encryption: storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.EncAESGCM,
 			BlockSize:   256,
 		},
 		ExpiresAt: expiresAt,
@@ -689,7 +689,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "testbucket",
-			Placement: storj.PlacementConstraint(1),
+			Placement: storxnetwork.PlacementConstraint(1),
 		})
 		require.NoError(t, err)
 
@@ -758,7 +758,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 
 				require.Equal(t, segments[0].StreamID, injuredSegments[0].StreamID)
 				require.Equal(t, segments[0].Placement, injuredSegments[0].Placement)
-				require.Equal(t, storj.PlacementConstraint(1), injuredSegments[0].Placement)
+				require.Equal(t, storxnetwork.PlacementConstraint(1), injuredSegments[0].Placement)
 
 				count, err := repairQueue.Count(ctx)
 				require.Zero(t, err)

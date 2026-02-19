@@ -8,8 +8,8 @@ import (
 	"database/sql"
 	"time"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 type clientsDBX struct {

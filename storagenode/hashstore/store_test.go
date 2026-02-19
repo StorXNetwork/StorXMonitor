@@ -21,7 +21,7 @@ import (
 	"github.com/zeebo/mwc"
 	"golang.org/x/exp/maps"
 
-	"storj.io/storj/storagenode/hashstore/platform"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore/platform"
 )
 
 func TestStore_BasicOperation(t *testing.T) {

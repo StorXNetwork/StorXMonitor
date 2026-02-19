@@ -13,8 +13,8 @@ import (
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"golang.org/x/exp/slices"
 
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // BucketTally contains information about aggregate data stored in a bucket.

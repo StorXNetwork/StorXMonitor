@@ -14,13 +14,13 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/dbutil/txutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ValidatePlainSize determines whether we disable PlainSize validation for old uplinks.
@@ -64,7 +64,7 @@ type commitObjectTransactionAdapter interface {
 type CommitObject struct {
 	ObjectStream
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 	ExpiresAt  *time.Time
 
 	// OverrideEncryptedMedata flag controls if we want to set metadata fields with CommitObject
@@ -106,7 +106,7 @@ func (c *CommitObject) Verify() error {
 		return err
 	}
 
-	if c.Encryption.CipherSuite != storj.EncUnspecified && c.Encryption.BlockSize <= 0 {
+	if c.Encryption.CipherSuite != storxnetwork.EncUnspecified && c.Encryption.BlockSize <= 0 {
 		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 
@@ -609,7 +609,7 @@ type CommitInlineObject struct {
 	ExpiresAt *time.Time
 
 	EncryptedUserData
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 
 	Retention Retention // optional
 	LegalHold bool
@@ -636,7 +636,7 @@ func (c *CommitInlineObject) Verify() error {
 		return err
 	}
 
-	if c.Encryption.CipherSuite != storj.EncUnspecified && c.Encryption.BlockSize <= 0 {
+	if c.Encryption.CipherSuite != storxnetwork.EncUnspecified && c.Encryption.BlockSize <= 0 {
 		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 

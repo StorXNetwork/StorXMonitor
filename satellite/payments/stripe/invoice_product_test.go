@@ -15,24 +15,24 @@ import (
 	stripeSDK "github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestInvoiceByProduct(t *testing.T) {
@@ -128,8 +128,8 @@ func TestInvoiceByProduct(t *testing.T) {
 		lastDayOfMonth := time.Date(
 			period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
 
-		defaultPlacement := storj.DefaultPlacement
-		nonDefaultPlacement := storj.PlacementConstraint(12)
+		defaultPlacement := storxnetwork.DefaultPlacement
+		nonDefaultPlacement := storxnetwork.PlacementConstraint(12)
 
 		testCases := []struct {
 			name                string
@@ -409,10 +409,10 @@ func TestInvoiceByProduct_withFees(t *testing.T) {
 		lastDayOfMonth := time.Date(
 			period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
 
-		placement0 := storj.DefaultPlacement         // Both fees
-		placement10 := storj.PlacementConstraint(10) // No fees
-		placement20 := storj.PlacementConstraint(20) // Small object fee only
-		placement30 := storj.PlacementConstraint(30) // Retention fee only
+		placement0 := storxnetwork.DefaultPlacement         // Both fees
+		placement10 := storxnetwork.PlacementConstraint(10) // No fees
+		placement20 := storxnetwork.PlacementConstraint(20) // Small object fee only
+		placement30 := storxnetwork.PlacementConstraint(30) // Retention fee only
 
 		expectedInvoiceItemsPerProduct := map[int32]int{
 			1: 5, // storage, egress, segment, small object fee, minimum retention fee
@@ -655,8 +655,8 @@ func TestInvoiceByProduct_WithAndWithoutSegmentFee(t *testing.T) {
 		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
 		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
 
-		withSegmentsPlacement := storj.PlacementConstraint(25)
-		withoutSegmentsPlacement := storj.PlacementConstraint(26)
+		withSegmentsPlacement := storxnetwork.PlacementConstraint(25)
+		withoutSegmentsPlacement := storxnetwork.PlacementConstraint(26)
 
 		project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: "segment fee test project"})
 		require.NoError(t, err)
@@ -752,7 +752,7 @@ func TestInvoiceByProduct_WithAndWithoutSegmentFee(t *testing.T) {
 }
 
 func TestEgressOverageFunctionality(t *testing.T) {
-	defaultPlacement := storj.DefaultPlacement
+	defaultPlacement := storxnetwork.DefaultPlacement
 	includedEgressDesc := "Included Egress"
 	additionalEgressDesc := "Additional Egress"
 	standardEgressDesc := "Egress Bandwidth"
@@ -869,7 +869,7 @@ func TestEgressOverageFunctionality(t *testing.T) {
 				// Create test data.
 				project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: "test project"})
 				require.NoError(t, err)
-				bucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{ID: testrand.UUID(), Name: "test-bucket", ProjectID: project.ID, Placement: storj.DefaultPlacement})
+				bucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{ID: testrand.UUID(), Name: "test-bucket", ProjectID: project.ID, Placement: storxnetwork.DefaultPlacement})
 				require.NoError(t, err)
 
 				_, err = db.Attribution().Insert(ctx, &attribution.Info{
@@ -1017,8 +1017,8 @@ func TestUnitsAdjustment_WithRoundingUp(t *testing.T) {
 		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
 		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
 
-		legacyPlacement := storj.DefaultPlacement
-		newPlacement := storj.PlacementConstraint(10)
+		legacyPlacement := storxnetwork.DefaultPlacement
+		newPlacement := storxnetwork.PlacementConstraint(10)
 
 		testCases := []struct {
 			name                    string
@@ -1257,8 +1257,8 @@ func TestUnitsAdjustment_WithoutRoundingUp(t *testing.T) {
 		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
 		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
 
-		legacyPlacement := storj.DefaultPlacement
-		newPlacement := storj.PlacementConstraint(10)
+		legacyPlacement := storxnetwork.DefaultPlacement
+		newPlacement := storxnetwork.PlacementConstraint(10)
 
 		testCases := []struct {
 			name                    string
@@ -1451,7 +1451,7 @@ func TestUnitsAdjustment_WithEgressOverageMode(t *testing.T) {
 		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
 		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
 
-		overagePlacement := storj.PlacementConstraint(20)
+		overagePlacement := storxnetwork.PlacementConstraint(20)
 
 		project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: "overage test project"})
 		require.NoError(t, err)

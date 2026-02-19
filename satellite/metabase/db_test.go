@@ -12,15 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/dbtest"
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
 )
 
 func TestNow(t *testing.T) {

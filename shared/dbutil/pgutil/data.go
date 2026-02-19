@@ -6,7 +6,7 @@ package pgutil
 import (
 	"context"
 
-	"storj.io/storj/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
 )
 
 // QueryData loads all data from tables.

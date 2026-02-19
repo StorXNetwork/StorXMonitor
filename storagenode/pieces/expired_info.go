@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"unsafe"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type expirationRecord struct {
-	PieceID   storj.PieceID
+	PieceID   storxnetwork.PieceID
 	PieceSize int64
 }
 
@@ -23,7 +23,7 @@ const expirationRecordSize = unsafe.Sizeof(expirationRecord{})
 type ExpiredInfoRecords struct {
 	// SatelliteID is the satellite to which all of these piece expiration
 	// records belong.
-	SatelliteID storj.NodeID
+	SatelliteID storxnetwork.NodeID
 
 	// InPieceInfo indicates whether these records were taken from the
 	// v0 pieceinfo database or not.
@@ -35,7 +35,7 @@ type ExpiredInfoRecords struct {
 }
 
 // NewExpiredInfoRecords creates a new ExpiredInfoRecords.
-func NewExpiredInfoRecords(satelliteID storj.NodeID, isInPieceInfoDB bool, predictedLen int) *ExpiredInfoRecords {
+func NewExpiredInfoRecords(satelliteID storxnetwork.NodeID, isInPieceInfoDB bool, predictedLen int) *ExpiredInfoRecords {
 	return &ExpiredInfoRecords{
 		SatelliteID: satelliteID,
 		InPieceInfo: isInPieceInfoDB,
@@ -62,13 +62,13 @@ func (e *ExpiredInfoRecords) Index(i int) ExpiredInfo {
 // PieceIDAtIndex works like Index, but only returns the PieceID and PieceSize,
 // for cases when only they are needed. This avoids copying the satelliteID
 // potentially millions of times.
-func (e *ExpiredInfoRecords) PieceIDAtIndex(i int) (pieceID storj.PieceID, size int64) {
+func (e *ExpiredInfoRecords) PieceIDAtIndex(i int) (pieceID storxnetwork.PieceID, size int64) {
 	return e.records[i].PieceID, e.records[i].PieceSize
 }
 
 // Append adds a piece expiration record to the list. If not enough memory was
 // allocated initially, this will cause a reallocation.
-func (e *ExpiredInfoRecords) Append(pieceID storj.PieceID, pieceSize int64) {
+func (e *ExpiredInfoRecords) Append(pieceID storxnetwork.PieceID, pieceSize int64) {
 	e.records = append(e.records, expirationRecord{
 		PieceID:   pieceID,
 		PieceSize: pieceSize,

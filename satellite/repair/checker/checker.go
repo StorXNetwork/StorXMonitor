@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 // Overlay is used to fetch information about nodes to check for repairs.

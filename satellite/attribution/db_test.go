@@ -11,16 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -35,7 +35,7 @@ type AttributionTestData struct {
 	projectID  uuid.UUID
 	bucketName []byte
 	bucketID   []byte
-	placement  *storj.PlacementConstraint
+	placement  *storxnetwork.PlacementConstraint
 
 	start        time.Time
 	end          time.Time
@@ -67,8 +67,8 @@ func (testData *AttributionTestData) init() {
 	testData.bwStart = time.Date(testData.start.Year(), testData.start.Month(), testData.start.Day(), -testData.padding, 0, 0, 0, testData.start.Location())
 }
 
-var p0 = storj.DefaultPlacement
-var p1 = storj.PlacementConstraint(1)
+var p0 = storxnetwork.DefaultPlacement
+var p1 = storxnetwork.PlacementConstraint(1)
 
 func TestDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {

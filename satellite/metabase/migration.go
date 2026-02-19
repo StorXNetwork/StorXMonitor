@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite/migration"
+	"github.com/StorXNetwork/StorXMonitor/satellite/migration"
 )
 
 // MigrateMetainfoDB migrates metabase database.

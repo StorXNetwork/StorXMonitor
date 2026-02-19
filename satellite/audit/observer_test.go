@@ -13,16 +13,16 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 // TestAuditCollector does the following:
@@ -114,8 +114,8 @@ func BenchmarkRemoteSegment(b *testing.B) {
 	for i := range loopSegments {
 		loopSegments[i] = rangedloop.Segment{
 			StreamID: testrand.UUID(),
-			Redundancy: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
+			Redundancy: storxnetwork.RedundancyScheme{
+				Algorithm:      storxnetwork.ReedSolomon,
 				RequiredShares: 1,
 				TotalShares:    1,
 			},

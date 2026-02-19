@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/mwc"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var topologySelectorTask = mon.Task()
@@ -56,7 +56,7 @@ func TopologySelector(weightFunc NodeValue, groups string, selections string, in
 			root.Add(node, attributes, weightFunc(*node))
 		}
 
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
 			defer topologySelectorSelectionTask(&ctx)(&err)
 			selection := root.Select(selectionPattern, n, excluded)
 			if len(selection) > n {
@@ -115,7 +115,7 @@ func (n *Nodes) Add(node *SelectedNode, attributes []NodeAttribute, weight float
 
 // Select selects nodes based on the selection pattern. parameter defines the desired number of groups from each level.
 // Number of selected nodes will be the multiplication of all the nodes.
-func (n *Nodes) Select(splits []int, m int, excluded []storj.NodeID) (selection []*SelectedNode) {
+func (n *Nodes) Select(splits []int, m int, excluded []storxnetwork.NodeID) (selection []*SelectedNode) {
 	// in case of leaf nodes, we have the instances, and we select based on the weights. No more sub-groups here.
 	if len(n.Groups) == 0 {
 		selectedIx := n.Random.Random(m, collectIndexes(n.Nodes, excluded))
@@ -141,7 +141,7 @@ func (n *Nodes) Select(splits []int, m int, excluded []storj.NodeID) (selection 
 	return selection
 }
 
-func collectIndexes(nodes []*SelectedNode, ids []storj.NodeID) []int {
+func collectIndexes(nodes []*SelectedNode, ids []storxnetwork.NodeID) []int {
 	var indexes []int
 	for ix, node := range nodes {
 		for i := range ids {

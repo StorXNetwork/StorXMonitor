@@ -16,14 +16,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const (
@@ -43,8 +43,8 @@ type processingArgs struct {
 	log               *zap.Logger
 	satDB             satellite.DB
 	entService        *entitlements.Service
-	newPlacements     []storj.PlacementConstraint
-	allowedPlacements []storj.PlacementConstraint
+	newPlacements     []storxnetwork.PlacementConstraint
+	allowedPlacements []storxnetwork.PlacementConstraint
 	skipConfirm       bool
 	verbose           bool
 
@@ -63,7 +63,7 @@ func cmdSetNewBucketPlacements(cmd *cobra.Command, _ []string) error {
 		return errs.New("cannot specify both --email and --csv flags, please use only one")
 	}
 
-	var newPlacements []storj.PlacementConstraint
+	var newPlacements []storxnetwork.PlacementConstraint
 	if entitlementJSON != "" {
 		if err := json.Unmarshal([]byte(entitlementJSON), &newPlacements); err != nil {
 			return errs.New("invalid JSON format for placements: %+v", err)
@@ -272,7 +272,7 @@ func processProject(ctx context.Context, project console.Project, args processin
 		if placementProductMap == nil {
 			placementProductMap = entitlements.PlacementProductMappings{}
 			for placement, productID := range args.defaultPlacementProductMap {
-				placementProductMap[storj.PlacementConstraint(placement)] = productID
+				placementProductMap[storxnetwork.PlacementConstraint(placement)] = productID
 			}
 		}
 
@@ -295,13 +295,13 @@ func processProject(ctx context.Context, project console.Project, args processin
 	}
 
 	newPlacements := args.allowedPlacements
-	if project.DefaultPlacement == storj.DefaultPlacement {
+	if project.DefaultPlacement == storxnetwork.DefaultPlacement {
 		if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, args.allowedPlacements); err != nil {
 			return errs.New("error setting new bucket placements for project %s: %+v", project.PublicID, err)
 		}
 	} else {
-		newPlacements = []storj.PlacementConstraint{project.DefaultPlacement}
-		if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, []storj.PlacementConstraint{project.DefaultPlacement}); err != nil {
+		newPlacements = []storxnetwork.PlacementConstraint{project.DefaultPlacement}
+		if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, []storxnetwork.PlacementConstraint{project.DefaultPlacement}); err != nil {
 			return errs.New("error setting new bucket placements for project %s: %+v", project.PublicID, err)
 		}
 	}

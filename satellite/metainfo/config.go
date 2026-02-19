@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 const (

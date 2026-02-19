@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrBucketNotAttributed is returned if a requested bucket not attributed(entry not found).
@@ -22,7 +22,7 @@ type Info struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
 	UserAgent  []byte
-	Placement  *storj.PlacementConstraint
+	Placement  *storxnetwork.PlacementConstraint
 	CreatedAt  time.Time
 }
 
@@ -49,7 +49,7 @@ type DB interface {
 	// UpdateUserAgent updates bucket attribution data.
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
 	// UpdatePlacement updates bucket placement.
-	UpdatePlacement(ctx context.Context, projectID uuid.UUID, bucketName string, placement *storj.PlacementConstraint) error
+	UpdatePlacement(ctx context.Context, projectID uuid.UUID, bucketName string, placement *storxnetwork.PlacementConstraint) error
 	// QueryAttribution queries partner bucket attribution data.
 	QueryAttribution(ctx context.Context, userAgent []byte, start time.Time, end time.Time) ([]*BucketUsage, error)
 	// QueryAllAttribution queries all partner bucket usage data.

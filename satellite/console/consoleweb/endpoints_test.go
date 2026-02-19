@@ -19,21 +19,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/apigen"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/restapikeys"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestAuth(t *testing.T) {
@@ -304,7 +304,7 @@ func TestAnalytics(t *testing.T) {
 		{ // Analytics_Pageview
 			resp, _ := test.request(
 				http.MethodPost, "/analytics/pageview",
-				strings.NewReader(`{"url":"https://url.com/page","name":"pageview", "props": {"test": "test"}, "referrer": "storj.io"}`))
+				strings.NewReader(`{"url":"https://url.com/page","name":"pageview", "props": {"test": "test"}, "referrer": "storxnetwork.io"}`))
 			require.Equal(t, http.StatusAccepted, resp.StatusCode)
 		}
 
@@ -315,7 +315,7 @@ func TestAnalytics(t *testing.T) {
 		{ // Analytics_Pageview
 			resp, _ := test.request(
 				http.MethodPost, "/analytics/pageview",
-				strings.NewReader(`{"url":"https://url.com/page","name":"pageview", "props": {"test": "test"}, "referrer": "storj.io"}`))
+				strings.NewReader(`{"url":"https://url.com/page","name":"pageview", "props": {"test": "test"}, "referrer": "storxnetwork.io"}`))
 			require.Equal(t, http.StatusAccepted, resp.StatusCode)
 		}
 	})
@@ -323,7 +323,7 @@ func TestAnalytics(t *testing.T) {
 
 func TestPayments(t *testing.T) {
 	var (
-		placement       = storj.PlacementConstraint(10)
+		placement       = storxnetwork.PlacementConstraint(10)
 		placementDetail = console.PlacementDetail{
 			ID:          10,
 			IdName:      "placement10",
@@ -355,7 +355,7 @@ func TestPayments(t *testing.T) {
 					productID: productPrice,
 				})
 				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(placement): productID})
-				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+				config.Console.Placement.SelfServeDetails.SetMap(map[storxnetwork.PlacementConstraint]console.PlacementDetail{
 					0:         {ID: 0},
 					placement: placementDetail,
 				})

@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestPaymentsDBInsertBatch(t *testing.T) {
@@ -33,7 +33,7 @@ func TestPaymentsDBInsertBatch(t *testing.T) {
 				ChainID:     1337,
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
-				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(testrand.Int63n(1000), currency.USDollarsMicro),
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: int64(i),
@@ -172,7 +172,7 @@ func TestPaymentsDBLastBlock(t *testing.T) {
 				ChainID:     chainId,
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
-				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(1000, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
@@ -186,7 +186,7 @@ func TestPaymentsDBLastBlock(t *testing.T) {
 			ChainID:     chainId,
 			From:        blockchaintest.NewAddress(),
 			To:          blockchaintest.NewAddress(),
-			TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
+			TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorxToken),
 			USDValue:    currency.AmountFromBaseUnits(1000, currency.USDollarsMicro),
 			Status:      payments.PaymentStatusPending,
 			BlockHash:   blockchaintest.NewHash(),
@@ -306,7 +306,7 @@ func (block blockHeader) NewPayment(log paymentLog, usdValue currency.Amount, st
 		ChainID:     1337,
 		From:        log.From,
 		To:          log.To,
-		TokenValue:  currency.AmountFromBaseUnits(log.TokenValue.Int64(), currency.StorjToken),
+		TokenValue:  currency.AmountFromBaseUnits(log.TokenValue.Int64(), currency.StorxToken),
 		USDValue:    usdValue,
 		Status:      status,
 		BlockHash:   block.Hash,

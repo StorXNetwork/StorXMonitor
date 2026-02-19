@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"storj.io/eventkit"
+	"github.com/StorXNetwork/eventkit"
 )
 
 func TestDestination(t *testing.T) {

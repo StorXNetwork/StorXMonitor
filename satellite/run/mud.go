@@ -4,14 +4,14 @@
 package root
 
 import (
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
-	trustmud "storj.io/storj/satellite/trust/mud"
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/modular/cli"
-	"storj.io/storj/shared/modular/logger"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	trustmud "github.com/StorXNetwork/StorXMonitor/satellite/trust/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/cli"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/logger"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module registers all the possible components for the satellite instance.

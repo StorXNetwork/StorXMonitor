@@ -11,15 +11,15 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgtype"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 type bucketsDB struct {
@@ -44,7 +44,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 		optionalFields.CreatedBy = dbx.BucketMetainfo_CreatedBy(bucket.CreatedBy[:])
 	}
 
-	if bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention {
+	if bucket.ObjectLock.DefaultRetentionMode != storxnetwork.NoRetention {
 		if !bucket.ObjectLock.Enabled {
 			return buckets.Bucket{}, buckets.ErrBucket.New("default retention mode must not be set if Object Lock is not enabled")
 		}
@@ -160,7 +160,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 }
 
 // GetBucketPlacement returns with the placement constraint identifier.
-func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storj.PlacementConstraint, err error) {
+func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storxnetwork.PlacementConstraint, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxPlacement, err := db.db.Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
@@ -168,13 +168,13 @@ func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, 
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return storj.DefaultPlacement, buckets.ErrBucketNotFound.New("%s", bucketName)
+			return storxnetwork.DefaultPlacement, buckets.ErrBucketNotFound.New("%s", bucketName)
 		}
-		return storj.DefaultPlacement, buckets.ErrBucket.Wrap(err)
+		return storxnetwork.DefaultPlacement, buckets.ErrBucket.Wrap(err)
 	}
-	placement = storj.DefaultPlacement
+	placement = storxnetwork.DefaultPlacement
 	if dbxPlacement.Placement != nil {
-		placement = storj.PlacementConstraint(*dbxPlacement.Placement)
+		placement = storxnetwork.PlacementConstraint(*dbxPlacement.Placement)
 	}
 
 	return placement, nil
@@ -298,9 +298,9 @@ func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, pr
 		}
 	}
 
-	var placement storj.PlacementConstraint
+	var placement storxnetwork.PlacementConstraint
 	if row.Placement != nil {
-		placement = storj.PlacementConstraint(*row.Placement)
+		placement = storxnetwork.PlacementConstraint(*row.Placement)
 	}
 
 	return buckets.MinimalBucket{
@@ -353,7 +353,7 @@ func (db *bucketsDB) UpdateBucketObjectLockSettings(ctx context.Context, params 
 		return buckets.Bucket{}, buckets.ErrBucket.New("object lock cannot be disabled")
 	}
 	if params.DefaultRetentionMode != nil {
-		if *params.DefaultRetentionMode == nil || **params.DefaultRetentionMode == storj.NoRetention {
+		if *params.DefaultRetentionMode == nil || **params.DefaultRetentionMode == storxnetwork.NoRetention {
 			updateFields.DefaultRetentionMode = dbx.BucketMetainfo_DefaultRetentionMode_Null()
 		} else {
 			updateFields.DefaultRetentionMode = dbx.BucketMetainfo_DefaultRetentionMode(int(**params.DefaultRetentionMode))
@@ -434,7 +434,7 @@ func (db *bucketsDB) GetBucketObjectLockSettings(ctx context.Context, bucketName
 	}
 
 	if dbxSettings.DefaultRetentionMode != nil {
-		settings.DefaultRetentionMode = storj.RetentionMode(*dbxSettings.DefaultRetentionMode)
+		settings.DefaultRetentionMode = storxnetwork.RetentionMode(*dbxSettings.DefaultRetentionMode)
 	}
 	if dbxSettings.DefaultRetentionDays != nil {
 		settings.DefaultRetentionDays = *dbxSettings.DefaultRetentionDays
@@ -624,7 +624,7 @@ func convertFullDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucke
 	}
 
 	if dbxBucket.Placement != nil {
-		bucket.Placement = storj.PlacementConstraint(*dbxBucket.Placement)
+		bucket.Placement = storxnetwork.PlacementConstraint(*dbxBucket.Placement)
 	}
 
 	if dbxBucket.UserAgent != nil {
@@ -632,7 +632,7 @@ func convertFullDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucke
 	}
 
 	if dbxBucket.DefaultRetentionMode != nil {
-		bucket.ObjectLock.DefaultRetentionMode = storj.RetentionMode(*dbxBucket.DefaultRetentionMode)
+		bucket.ObjectLock.DefaultRetentionMode = storxnetwork.RetentionMode(*dbxBucket.DefaultRetentionMode)
 	}
 	if dbxBucket.DefaultRetentionDays != nil {
 		bucket.ObjectLock.DefaultRetentionDays = *dbxBucket.DefaultRetentionDays
@@ -671,7 +671,7 @@ func convertDBXtoBucket(projectID uuid.UUID, name string, dbxBucket *dbx.Id_Crea
 	}
 
 	if dbxBucket.Placement != nil {
-		bucket.Placement = storj.PlacementConstraint(*dbxBucket.Placement)
+		bucket.Placement = storxnetwork.PlacementConstraint(*dbxBucket.Placement)
 	}
 
 	if dbxBucket.UserAgent != nil {
@@ -679,7 +679,7 @@ func convertDBXtoBucket(projectID uuid.UUID, name string, dbxBucket *dbx.Id_Crea
 	}
 
 	if dbxBucket.DefaultRetentionMode != nil {
-		bucket.ObjectLock.DefaultRetentionMode = storj.RetentionMode(*dbxBucket.DefaultRetentionMode)
+		bucket.ObjectLock.DefaultRetentionMode = storxnetwork.RetentionMode(*dbxBucket.DefaultRetentionMode)
 	}
 	if dbxBucket.DefaultRetentionDays != nil {
 		bucket.ObjectLock.DefaultRetentionDays = *dbxBucket.DefaultRetentionDays

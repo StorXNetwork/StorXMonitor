@@ -8,15 +8,15 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/storj/multinode"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/multinode"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Reconfigure allows to change node configurations.
@@ -34,7 +34,7 @@ type Reconfigure struct {
 
 	VersionControl func(config *versioncontrol.Config)
 
-	Identities func(log *zap.Logger, version storj.IDVersion) *testidentity.Identities
+	Identities func(log *zap.Logger, version storxnetwork.IDVersion) *testidentity.Identities
 
 	MultinodeDB func(index int, db multinode.DB, log *zap.Logger) (multinode.DB, error)
 	Multinode   func(index int, config *multinode.Config)

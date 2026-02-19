@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestUpdateBucketObjectLockSettings(t *testing.T) {
@@ -39,7 +39,7 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 		settings, err := bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
 		require.NoError(t, err)
 		require.False(t, settings.Enabled)
-		require.Equal(t, storj.NoRetention, settings.DefaultRetentionMode)
+		require.Equal(t, storxnetwork.NoRetention, settings.DefaultRetentionMode)
 		require.Zero(t, settings.DefaultRetentionDays)
 		require.Zero(t, settings.DefaultRetentionYears)
 
@@ -62,24 +62,24 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 		_, err = bucketsDB.UpdateBucketObjectLockSettings(ctx, updateParams)
 		require.Error(t, err)
 
-		mode := storj.ComplianceMode
+		mode := storxnetwork.ComplianceMode
 		modePtr := &mode
 		updateParams.DefaultRetentionMode = &modePtr
 		updateParams.ObjectLockEnabled = true
 
 		bucket, err = bucketsDB.UpdateBucketObjectLockSettings(ctx, updateParams)
 		require.NoError(t, err)
-		require.Equal(t, storj.ComplianceMode, bucket.ObjectLock.DefaultRetentionMode)
+		require.Equal(t, storxnetwork.ComplianceMode, bucket.ObjectLock.DefaultRetentionMode)
 
 		settings, err = bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
 		require.NoError(t, err)
 		require.Equal(t, mode, settings.DefaultRetentionMode)
 
-		mode = storj.NoRetention
+		mode = storxnetwork.NoRetention
 
 		bucket, err = bucketsDB.UpdateBucketObjectLockSettings(ctx, updateParams)
 		require.NoError(t, err)
-		require.Equal(t, storj.NoRetention, bucket.ObjectLock.DefaultRetentionMode)
+		require.Equal(t, storxnetwork.NoRetention, bucket.ObjectLock.DefaultRetentionMode)
 
 		settings, err = bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
 		require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 		bucket, err = bucketsDB.UpdateBucketObjectLockSettings(ctx, updateParams)
 		require.NoError(t, err)
 		require.Equal(t, years, bucket.ObjectLock.DefaultRetentionYears)
-		require.Equal(t, storj.NoRetention, bucket.ObjectLock.DefaultRetentionMode)
+		require.Equal(t, storxnetwork.NoRetention, bucket.ObjectLock.DefaultRetentionMode)
 
 		updateParams.DefaultRetentionYears = &yearsPtr
 		yearsPtr = nil
@@ -189,7 +189,7 @@ func TestCreateBucketWithObjectLock(t *testing.T) {
 			// Ensure that there are no issues expressing the default retention duration in days
 			// or specifying the default retention mode as Compliance.
 			createReq.Name = testrand.BucketName()
-			createReq.ObjectLock.DefaultRetentionMode = storj.ComplianceMode
+			createReq.ObjectLock.DefaultRetentionMode = storxnetwork.ComplianceMode
 			createReq.ObjectLock.DefaultRetentionDays = 3
 
 			bucket, err = bucketsDB.CreateBucket(ctx, createReq)
@@ -201,7 +201,7 @@ func TestCreateBucketWithObjectLock(t *testing.T) {
 			// Ensure that there are no issues expressing the default retention duration in years
 			// or specifying the default retention mode as Governance.
 			createReq.Name = testrand.BucketName()
-			createReq.ObjectLock.DefaultRetentionMode = storj.GovernanceMode
+			createReq.ObjectLock.DefaultRetentionMode = storxnetwork.GovernanceMode
 			createReq.ObjectLock.DefaultRetentionDays = 5
 
 			bucket, err = bucketsDB.CreateBucket(ctx, createReq)
@@ -219,7 +219,7 @@ func TestCreateBucketWithObjectLock(t *testing.T) {
 				ProjectID: projectID,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled:              false,
-					DefaultRetentionMode: storj.ComplianceMode,
+					DefaultRetentionMode: storxnetwork.ComplianceMode,
 					DefaultRetentionDays: 3,
 				},
 			})
@@ -278,7 +278,7 @@ func TestCreateBucketWithObjectLock(t *testing.T) {
 					ProjectID: projectID,
 					ObjectLock: buckets.ObjectLockSettings{
 						Enabled:               true,
-						DefaultRetentionMode:  storj.ComplianceMode,
+						DefaultRetentionMode:  storxnetwork.ComplianceMode,
 						DefaultRetentionDays:  tt.days,
 						DefaultRetentionYears: tt.years,
 					},

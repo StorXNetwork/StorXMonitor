@@ -207,7 +207,7 @@ To add a new dashboard:
 
 - [Grafana Documentation](https://grafana.com/docs/)
 - [Prometheus Documentation](https://prometheus.io/docs/)
-- [StorX Documentation](https://docs.storj.io/)
+- [StorX Documentation](https://docs.storxnetwork.io/)
 - [Docker Compose Reference](https://docs.docker.com/compose/)
 
 ## 🤝 Contributing

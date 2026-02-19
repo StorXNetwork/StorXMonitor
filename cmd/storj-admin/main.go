@@ -11,15 +11,15 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/process"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "storj-admin",
+		Use:   "storxnetwork-admin",
 		Short: "A tool for managing operations against a satellite",
 	}
 	setupCmd = &cobra.Command{
@@ -30,7 +30,7 @@ var (
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the storj-admin",
+		Short: "Run the storxnetwork-admin",
 	}
 	confDir string
 
@@ -38,7 +38,7 @@ var (
 	setupCfg AdminConf
 )
 
-// AdminConf defines necessary configuration to run the storj-admin UI.
+// AdminConf defines necessary configuration to run the storxnetwork-admin UI.
 type AdminConf struct {
 	AuthKey     string `help:"API authorization key" default:""`
 	Address     string `help:"address to start the web server on" default:":8080" testDefault:"$HOST:0"`
@@ -65,7 +65,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "storj-admin")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "storxnetwork-admin")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
@@ -75,7 +75,7 @@ func init() {
 }
 
 func main() {
-	logger, _, _ := process.NewLogger("storj-admin")
+	logger, _, _ := process.NewLogger("storxnetwork-admin")
 	zap.ReplaceGlobals(logger)
 
 	process.Exec(rootCmd)

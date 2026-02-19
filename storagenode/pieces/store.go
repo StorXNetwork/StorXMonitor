@@ -14,14 +14,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -33,9 +33,9 @@ var (
 
 // Info contains all the information we need to know about a Piece to manage them.
 type Info struct {
-	SatelliteID storj.NodeID
+	SatelliteID storxnetwork.NodeID
 
-	PieceID         storj.PieceID
+	PieceID         storxnetwork.PieceID
 	PieceSize       int64
 	PieceCreation   time.Time
 	PieceExpiration time.Time
@@ -46,8 +46,8 @@ type Info struct {
 
 // ExpiredInfo is a fully namespaced piece id.
 type ExpiredInfo struct {
-	SatelliteID storj.NodeID
-	PieceID     storj.PieceID
+	SatelliteID storxnetwork.NodeID
+	PieceID     storxnetwork.PieceID
 
 	// PieceSize is the size of the piece that was stored with the piece ID; if not zero, this
 	// can be used to decrement the used space counters instead of calling os.Stat on the piece.
@@ -97,7 +97,7 @@ type PieceExpirationDB interface {
 	// SetExpiration sets an expiration time for the given piece ID on the given satellite. If pieceSize
 	// is non-zero, it may be used later to decrement the used space counters without needing to call
 	// os.Stat on the piece.
-	SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) error
+	SetExpiration(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, expiresAt time.Time, pieceSize int64) error
 	// GetExpired gets piece IDs that expire or have expired before the given time
 	GetExpired(ctx context.Context, expiresBefore time.Time, opts ExpirationOptions) ([]*ExpiredInfoRecords, error)
 	// DeleteExpirations deletes approximately all the expirations that happen before the given time
@@ -113,9 +113,9 @@ type PieceExpirationDB interface {
 // architecture: Database
 type V0PieceInfoDB interface {
 	// Get returns Info about a piece.
-	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
+	Get(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) (*Info, error)
 	// Delete deletes Info about a piece.
-	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
+	Delete(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) error
 	// GetExpired gets piece IDs stored with storage format V0 that expire or have expired
 	// before the given time
 	GetExpired(ctx context.Context, expiredAt time.Time) ([]*ExpiredInfoRecords, error)
@@ -126,7 +126,7 @@ type V0PieceInfoDB interface {
 	// non-nil error, WalkSatelliteV0Pieces will stop iterating and return the error
 	// immediately. The ctx parameter is intended specifically to allow canceling iteration
 	// early.
-	WalkSatelliteV0Pieces(ctx context.Context, blobStore blobstore.Blobs, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) error
+	WalkSatelliteV0Pieces(ctx context.Context, blobStore blobstore.Blobs, satellite storxnetwork.NodeID, walkFunc func(StoredPieceAccess) error) error
 }
 
 // V0PieceInfoDBForTest is like V0PieceInfoDB, but adds on the Add() method so
@@ -149,12 +149,12 @@ type PieceSpaceUsedDB interface {
 	// GetPieceTotals returns the space used (total and contentSize) by all pieces stored
 	GetPieceTotals(ctx context.Context) (piecesTotal int64, piecesContentSize int64, err error)
 	// GetPieceTotalsForAllSatellites returns how much total space used by pieces stored for each satelliteID
-	GetPieceTotalsForAllSatellites(ctx context.Context) (map[storj.NodeID]SatelliteUsage, error)
+	GetPieceTotalsForAllSatellites(ctx context.Context) (map[storxnetwork.NodeID]SatelliteUsage, error)
 	// UpdatePieceTotalsForAllSatellites updates each record for total spaced used with a new value for each satelliteID
-	UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]SatelliteUsage) error
+	UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storxnetwork.NodeID]SatelliteUsage) error
 	// UpdatePieceTotalsForSatellite updates record with new values for a specific satelliteID.
 	// If the usage values are set to zero, the record is deleted.
-	UpdatePieceTotalsForSatellite(ctx context.Context, satelliteID storj.NodeID, usage SatelliteUsage) error
+	UpdatePieceTotalsForSatellite(ctx context.Context, satelliteID storxnetwork.NodeID, usage SatelliteUsage) error
 	// GetTrashTotal returns the total space used by trash
 	GetTrashTotal(ctx context.Context) (int64, error)
 	// UpdateTrashTotal updates the record for total spaced used for trash with a new value
@@ -168,9 +168,9 @@ type StoredPieceAccess interface {
 	blobstore.BlobInfo
 
 	// PieceID gives the pieceID of the piece
-	PieceID() storj.PieceID
+	PieceID() storxnetwork.PieceID
 	// Satellite gives the nodeID of the satellite which owns the piece
-	Satellite() (storj.NodeID, error)
+	Satellite() (storxnetwork.NodeID, error)
 	// Size gives the size of the piece on disk, and the size of the piece
 	// content (not including the piece header, if applicable)
 	Size(ctx context.Context) (int64, int64, error)
@@ -249,19 +249,19 @@ func NewStore(log *zap.Logger, fw *FileWalker, lazyFilewalker *lazyfilewalker.Su
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (store *Store) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
+func (store *Store) CreateVerificationFile(ctx context.Context, id storxnetwork.NodeID) error {
 	return store.blobs.CreateVerificationFile(ctx, id)
 }
 
 // VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (store *Store) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
+func (store *Store) VerifyStorageDir(ctx context.Context, id storxnetwork.NodeID) error {
 	return store.blobs.VerifyStorageDir(ctx, id)
 }
 
 // VerifyStorageDirWithTimeout verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file. It uses the provided timeout for the operation.
-func (store *Store) VerifyStorageDirWithTimeout(ctx context.Context, id storj.NodeID, timeout time.Duration) error {
+func (store *Store) VerifyStorageDirWithTimeout(ctx context.Context, id storxnetwork.NodeID, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -279,7 +279,7 @@ func (store *Store) VerifyStorageDirWithTimeout(ctx context.Context, id storj.No
 }
 
 // Writer returns a new piece writer.
-func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
+func (store *Store) Writer(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
 	blobWriter, err := store.blobs.Create(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
@@ -296,8 +296,8 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 // WriterForFormatVersion allows opening a piece writer with a specified storage format version.
 // This is meant to be used externally only in test situations (thus the StoreForTest receiver
 // type).
-func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite storj.NodeID,
-	pieceID storj.PieceID, formatVersion blobstore.FormatVersion, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
+func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite storxnetwork.NodeID,
+	pieceID storxnetwork.PieceID, formatVersion blobstore.FormatVersion, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
 
 	defer mon.Task()(&ctx)(&err)
 
@@ -329,8 +329,8 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 
 // ReaderWithStorageFormat returns a new piece reader for a located piece, which avoids the
 // potential need to check multiple storage formats to find the right blob.
-func (store *StoreForTest) ReaderWithStorageFormat(ctx context.Context, satellite storj.NodeID,
-	pieceID storj.PieceID, formatVersion blobstore.FormatVersion) (_ *Reader, err error) {
+func (store *StoreForTest) ReaderWithStorageFormat(ctx context.Context, satellite storxnetwork.NodeID,
+	pieceID storxnetwork.PieceID, formatVersion blobstore.FormatVersion) (_ *Reader, err error) {
 
 	defer mon.Task()(&ctx)(&err)
 	ref := blobstore.BlobRef{Namespace: satellite.Bytes(), Key: pieceID.Bytes()}
@@ -349,7 +349,7 @@ func (store *StoreForTest) ReaderWithStorageFormat(ctx context.Context, satellit
 var monReader = mon.Task()
 
 // Reader returns a new piece reader.
-func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Reader, err error) {
+func (store *Store) Reader(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (_ *Reader, err error) {
 	defer monReader(&ctx)(&err)
 
 	blob, err := store.blobs.Open(ctx, blobstore.BlobRef{
@@ -369,7 +369,7 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 
 // TryRestoreTrashPiece attempts to restore a piece from the trash.
 // It returns nil if the piece was restored, or an error if the piece was not in the trash.
-func (store *Store) TryRestoreTrashPiece(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+func (store *Store) TryRestoreTrashPiece(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.blobs.TryRestoreTrashBlob(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
@@ -382,7 +382,7 @@ func (store *Store) TryRestoreTrashPiece(ctx context.Context, satellite storj.No
 }
 
 // Delete deletes the specified piece.
-func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+func (store *Store) Delete(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.blobs.Delete(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
@@ -403,7 +403,7 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 var monDeleteSkipV0 = mon.Task()
 
 // DeleteSkipV0 deletes the specified piece skipping V0 format and pieceinfo database.
-func (store *Store) DeleteSkipV0(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, pieceSize int64) (err error) {
+func (store *Store) DeleteSkipV0(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, pieceSize int64) (err error) {
 	defer monDeleteSkipV0(&ctx)(&err)
 
 	err = store.blobs.DeleteWithStorageFormat(ctx, blobstore.BlobRef{
@@ -432,7 +432,7 @@ func (store *Store) DeleteExpiredBatchSkipV0(ctx context.Context, expireAt time.
 }
 
 // DeleteSatelliteBlobs deletes blobs folder of specific satellite after successful GE.
-func (store *Store) DeleteSatelliteBlobs(ctx context.Context, satellite storj.NodeID) (err error) {
+func (store *Store) DeleteSatelliteBlobs(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = store.blobs.DeleteNamespace(ctx, satellite.Bytes()); err != nil {
@@ -447,7 +447,7 @@ var monTrash = mon.Task()
 // Trash moves the specified piece to the blob trash. If necessary, it converts
 // the v0 piece to a v1 piece. It also marks the item as "trashed" in the
 // pieceExpirationDB.
-func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, timestamp time.Time) (err error) {
+func (store *Store) Trash(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, timestamp time.Time) (err error) {
 	defer monTrash(&ctx)(&err)
 
 	// Check if the MaxFormatVersionSupported piece exists. If not, we assume
@@ -479,7 +479,7 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 }
 
 // EmptyTrash deletes pieces in the trash that have been in there longer than trashExpiryInterval.
-func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (err error) {
+func (store *Store) EmptyTrash(ctx context.Context, satelliteID storxnetwork.NodeID, trashedBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if store.lazyFilewalkerEnabled() {
@@ -495,7 +495,7 @@ func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, tr
 }
 
 // RestoreTrash restores all pieces in the trash.
-func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (store *Store) RestoreTrash(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = store.blobs.RestoreTrash(ctx, satelliteID.Bytes())
@@ -510,7 +510,7 @@ func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) 
 //   - Fail to Write or Commit v1 piece. In this case no artifacts remain.
 //   - Fail to Delete v0 piece. In this case v0 piece may remain,
 //     but v1 piece will exist and be preferred in future calls.
-func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	info, err := store.v0PieceInfo.Get(ctx, satelliteID, pieceID)
@@ -575,7 +575,7 @@ func (store StoreForTest) GetV0PieceInfoDBForTest() V0PieceInfoDBForTest {
 //
 // Once we have migrated everything off of V0 storage and no longer need to support it, this can
 // cleanly become a method directly on *Reader and will need only the 'pieceID' parameter.
-func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, reader *Reader) (pb.PieceHash, pb.OrderLimit, error) {
+func (store *Store) GetHashAndLimit(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, reader *Reader) (pb.PieceHash, pb.OrderLimit, error) {
 	if reader.StorageFormatVersion() == filestore.FormatV0 {
 		info, err := store.GetV0PieceInfo(ctx, satellite, pieceID)
 		if err != nil {
@@ -599,14 +599,14 @@ func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID,
 }
 
 // WalkSatellitePieces wraps FileWalker.WalkSatellitePieces.
-func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
+func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storxnetwork.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return store.WalkSatellitePiecesWithSkipPrefix(ctx, satellite, nil, walkFunc)
 }
 
 // WalkSatellitePiecesWithSkipPrefix is like WalkSatellitePieces, but accepts a skipPrefixFn.
-func (store *Store) WalkSatellitePiecesWithSkipPrefix(ctx context.Context, satellite storj.NodeID, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(StoredPieceAccess) error) (err error) {
+func (store *Store) WalkSatellitePiecesWithSkipPrefix(ctx context.Context, satellite storxnetwork.NodeID, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return store.Filewalker.WalkSatellitePieces(ctx, satellite, skipPrefixFn, walkFunc)
@@ -618,7 +618,7 @@ func (store *Store) WalkSatellitePiecesWithSkipPrefix(ctx context.Context, satel
 // If the lazy filewalker is enabled, it will be used to find the pieces to trash, otherwise
 // the regular filewalker will be used. If the lazy filewalker fails, the regular filewalker
 // will be used as a fallback.
-func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (piecesCount, piecesSkipped int64, err error) {
+func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storxnetwork.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storxnetwork.PieceID) error) (piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx, satelliteID, createdBefore)(&err)
 
 	if store.lazyFilewalkerEnabled() {
@@ -668,7 +668,7 @@ func (store *Store) GetExpiredBatchSkipV0(ctx context.Context, expiredAt time.Ti
 }
 
 // SetExpiration records an expiration time for the specified piece ID owned by the specified satellite.
-func (store *Store) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) (err error) {
+func (store *Store) SetExpiration(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, expiresAt time.Time, pieceSize int64) (err error) {
 	return store.expirationInfo.SetExpiration(ctx, satellite, pieceID, expiresAt, pieceSize)
 }
 
@@ -726,14 +726,14 @@ func (store *Store) SpaceUsedForPiecesAndTrash(ctx context.Context) (int64, erro
 
 // getAllStoringSatellites returns all the satellite IDs that have pieces stored in the blob store.
 // This does not exclude untrusted satellites.
-func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
+func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storxnetwork.NodeID, error) {
 	namespaces, err := store.blobs.ListNamespaces(ctx)
 	if err != nil {
 		return nil, err
 	}
-	satellites := make([]storj.NodeID, len(namespaces))
+	satellites := make([]storxnetwork.NodeID, len(namespaces))
 	for i, namespace := range namespaces {
-		satellites[i], err = storj.NodeIDFromBytes(namespace)
+		satellites[i], err = storxnetwork.NodeIDFromBytes(namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -747,7 +747,7 @@ func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID
 // that various errors in directory traversal could cause this count to be undersized.
 //
 // This returns both the total size of pieces plus the contentSize of pieces.
-func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (piecesTotal, piecesContentSize int64, err error) {
+func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (piecesTotal, piecesContentSize int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
 		return cache.SpaceUsedBySatellite(ctx, satelliteID)
@@ -757,7 +757,7 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 }
 
 // WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
-func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID, lowerIOPriority bool) (piecesTotal, piecesContentSize int64, err error) {
+func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storxnetwork.NodeID, lowerIOPriority bool) (piecesTotal, piecesContentSize int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	start := time.Now()
 
@@ -806,7 +806,7 @@ func (store *Store) lazyFilewalkerEnabled() bool {
 }
 
 // SpaceUsedTotalAndBySatellite adds up the space used by and for all satellites for blob storage.
-func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTotal, piecesContentSize int64, totalBySatellite map[storj.NodeID]SatelliteUsage, err error) {
+func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTotal, piecesContentSize int64, totalBySatellite map[storxnetwork.NodeID]SatelliteUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satelliteIDs, err := store.getAllStoringSatellites(ctx)
@@ -814,7 +814,7 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 		return 0, 0, nil, Error.New("failed to enumerate satellites: %w", err)
 	}
 
-	totalBySatellite = map[storj.NodeID]SatelliteUsage{}
+	totalBySatellite = map[storxnetwork.NodeID]SatelliteUsage{}
 
 	var group errs.Group
 	for _, satelliteID := range satelliteIDs {
@@ -842,7 +842,7 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 
 // GetV0PieceInfo fetches the Info record from the V0 piece info database. Obviously,
 // of no use when a piece does not have filestore.FormatV0 storage.
-func (store *Store) GetV0PieceInfo(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (*Info, error) {
+func (store *Store) GetV0PieceInfo(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (*Info, error) {
 	return store.v0PieceInfo.Get(ctx, satellite, pieceID)
 }
 
@@ -893,7 +893,7 @@ func (store *Store) CheckWritabilityWithTimeout(ctx context.Context, timeout tim
 }
 
 // Stat looks up disk metadata on the blob file.
-func (store *Store) Stat(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (blobstore.BlobInfo, error) {
+func (store *Store) Stat(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID) (blobstore.BlobInfo, error) {
 	return store.blobs.Stat(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
@@ -902,13 +902,13 @@ func (store *Store) Stat(ctx context.Context, satellite storj.NodeID, pieceID st
 
 type storedPieceAccess struct {
 	blobstore.BlobInfo
-	pieceID storj.PieceID
+	pieceID storxnetwork.PieceID
 	blobs   blobstore.Blobs
 }
 
 func newStoredPieceAccess(blobs blobstore.Blobs, blobInfo blobstore.BlobInfo) (storedPieceAccess, error) {
 	ref := blobInfo.BlobRef()
-	pieceID, err := storj.PieceIDFromBytes(ref.Key)
+	pieceID, err := storxnetwork.PieceIDFromBytes(ref.Key)
 	if err != nil {
 		return storedPieceAccess{}, err
 	}
@@ -921,13 +921,13 @@ func newStoredPieceAccess(blobs blobstore.Blobs, blobInfo blobstore.BlobInfo) (s
 }
 
 // PieceID returns the piece ID of the piece.
-func (access storedPieceAccess) PieceID() storj.PieceID {
+func (access storedPieceAccess) PieceID() storxnetwork.PieceID {
 	return access.pieceID
 }
 
 // Satellite returns the satellite ID that owns the piece.
-func (access storedPieceAccess) Satellite() (storj.NodeID, error) {
-	return storj.NodeIDFromBytes(access.BlobRef().Namespace)
+func (access storedPieceAccess) Satellite() (storxnetwork.NodeID, error) {
+	return storxnetwork.NodeIDFromBytes(access.BlobRef().Namespace)
 }
 
 // Size gives the size of the piece on disk, and the size of the content (not including the piece header, if applicable).

@@ -8,9 +8,9 @@ import (
 	"database/sql"
 	"errors"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/bucketmigrations"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/bucketmigrations"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 type bucketMigrationsDB struct {

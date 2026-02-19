@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Metrics tracks backup service metrics

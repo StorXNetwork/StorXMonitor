@@ -21,31 +21,31 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	_ "storj.io/common/process/googleprofiler" // This attaches google cloud profiler.
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
-	"storj.io/storj/cmd/satellite/reports"
-	"storj.io/storj/private/revocation"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/shared/lrucache"
+	"github.com/StorXNetwork/StorXMonitor/cmd/satellite/reports"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	_ "github.com/StorXNetwork/common/process/googleprofiler" // This attaches google cloud profiler.
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Satellite defines satellite configuration.
@@ -527,8 +527,8 @@ var (
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "satellite")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "satellite")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "satellite")
+	defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "satellite")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
@@ -866,7 +866,7 @@ func reportsVerifyGEReceipt(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Check the node ID is valid
-	nodeID, err := storj.NodeIDFromString(args[0])
+	nodeID, err := storxnetwork.NodeIDFromString(args[0])
 	if err != nil {
 		return errs.Combine(err, errs.New("Invalid node ID."))
 	}
@@ -1206,7 +1206,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 
-		conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
+		conn, err := dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 			ID:      node.ID,
 			Address: node.Address.Address,
 		})
@@ -1245,7 +1245,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		for _, nodeid := range args {
-			parsedNodeID, err := storj.NodeIDFromString(nodeid)
+			parsedNodeID, err := storxnetwork.NodeIDFromString(nodeid)
 			if err != nil {
 				log.Error("unable to parse node id", zap.String("node_id", nodeid), zap.Error(err))
 				atomic.AddInt64(nonexistent, 1)

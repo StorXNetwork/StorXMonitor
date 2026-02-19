@@ -3,7 +3,7 @@
 # This file is the entrypoint for the rolling upgrade test.
 # Description of test:
 # Stage 1:
-#  * Set up a storj-sim network on the latest point release (all storagenodes and satellite on latest point release).
+#  * Set up a storxnetwork-sim network on the latest point release (all storagenodes and satellite on latest point release).
 #  * If the current commit is a release tag use the previous release instead. Exclude -rc release tags.
 #  * Check out the latest point release of the uplink.
 #  * (uplink-versions/steps.sh upload) - Upload an inline, remote, and multisegment file to the network with the selected uplink.
@@ -105,25 +105,25 @@ install_sim(){
     local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go build -race -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
-    go build -race -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
-    go build -race -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
-    go build -race -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol 2>&1
+    go build -race -o ${bin_dir}/storagenode github.com/StorXNetwork/StorXMonitor/cmd/storagenode 2>&1
+    go build -race -o ${bin_dir}/satellite github.com/StorXNetwork/StorXMonitor/cmd/satellite 2>&1
+    go build -race -o ${bin_dir}/storxnetwork-sim github.com/StorXNetwork/StorXMonitor/cmd/storxnetwork-sim 2>&1
+    go build -race -o ${bin_dir}/versioncontrol github.com/StorXNetwork/StorXMonitor/cmd/versioncontrol 2>&1
 
-    go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
-    go build -race -o ${bin_dir}/identity storj.io/storj/cmd/identity 2>&1
-    go build -race -o ${bin_dir}/certificates storj.io/storj/cmd/certificates 2>&1
+    go build -race -o ${bin_dir}/uplink github.com/StorXNetwork/StorXMonitor/cmd/uplink 2>&1
+    go build -race -o ${bin_dir}/identity github.com/StorXNetwork/StorXMonitor/cmd/identity 2>&1
+    go build -race -o ${bin_dir}/certificates github.com/StorXNetwork/StorXMonitor/cmd/certificates 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
         pushd ${work_dir}/cmd/gateway
-            go build -race -o ${bin_dir}/gateway storj.io/storj/cmd/gateway 2>&1
+            go build -race -o ${bin_dir}/gateway github.com/StorXNetwork/StorXMonitor/cmd/gateway 2>&1
         popd
     else
-        GOBIN=${bin_dir} go install -race storj.io/gateway@latest
+        GOBIN=${bin_dir} go install -race storxnetwork.io/gateway@latest
     fi
 
     if [ -d "${work_dir}/cmd/multinode" ]; then
-        go build -race -o ${bin_dir}/multinode storj.io/storj/cmd/multinode 2>&1
+        go build -race -o ${bin_dir}/multinode github.com/StorXNetwork/StorXMonitor/cmd/multinode 2>&1
     fi
 }
 
@@ -139,10 +139,10 @@ setup_stage(){
 
     local src_sat_version_dir=$(version_dir ${sat_version})
 
-    PATH=$src_sat_version_dir/bin:$PATH src_sat_cfg_dir=$(storj-sim network env --config-dir=${src_sat_version_dir}/local-network/ SATELLITE_0_DIR)
-    PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR)
-    PATH=$src_sat_version_dir/bin:$PATH src_mnd_cfg_dir=$(storj-sim network env --config-dir=${src_sat_version_dir}/local-network/ MULTINODE_0_DIR)
-    PATH=$src_sat_version_dir/bin:$PATH dst_mnd_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ MULTINODE_0_DIR)
+    PATH=$src_sat_version_dir/bin:$PATH src_sat_cfg_dir=$(storxnetwork-sim network env --config-dir=${src_sat_version_dir}/local-network/ SATELLITE_0_DIR)
+    PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storxnetwork-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR)
+    PATH=$src_sat_version_dir/bin:$PATH src_mnd_cfg_dir=$(storxnetwork-sim network env --config-dir=${src_sat_version_dir}/local-network/ MULTINODE_0_DIR)
+    PATH=$src_sat_version_dir/bin:$PATH dst_mnd_cfg_dir=$(storxnetwork-sim network env --config-dir=${test_dir}/local-network/ MULTINODE_0_DIR)
 
     # if stage 2, move old satellite binary to old_satellite
     if [[ $stage == "2" ]]
@@ -158,7 +158,7 @@ setup_stage(){
     fi
 
     # ln binary and copy config.yaml for desired version
-    ln -f $src_sat_version_dir/bin/storj-sim $test_dir/bin/storj-sim
+    ln -f $src_sat_version_dir/bin/storxnetwork-sim $test_dir/bin/storxnetwork-sim
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
@@ -167,8 +167,8 @@ setup_stage(){
     for sn_version in ${stage_sn_versions}; do
         local src_sn_version_dir=$(version_dir ${sn_version})
 
-        PATH=$src_sn_version_dir/bin:$PATH src_sn_cfg_dir=$(storj-sim network env --config-dir=${src_sn_version_dir}/local-network/ STORAGENODE_${counter}_DIR)
-        PATH=$test_dir/bin:$PATH dest_sn_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ STORAGENODE_${counter}_DIR)
+        PATH=$src_sn_version_dir/bin:$PATH src_sn_cfg_dir=$(storxnetwork-sim network env --config-dir=${src_sn_version_dir}/local-network/ STORAGENODE_${counter}_DIR)
+        PATH=$test_dir/bin:$PATH dest_sn_cfg_dir=$(storxnetwork-sim network env --config-dir=${test_dir}/local-network/ STORAGENODE_${counter}_DIR)
 
         dest_sat_nodeid=$(grep "storage2.trust.source" ${dest_sn_cfg_dir}/config.yaml || grep "storage.whitelisted-satellites" ${dest_sn_cfg_dir}/config.yaml)
         dest_sat_nodeid=$(echo $dest_sat_nodeid | grep -o ": .*@")
@@ -230,18 +230,18 @@ for version in ${unique_versions}; do
 
     if [[ $version = $stage1_release_version || $version = $current_commit ]]
     then
-        echo "Installing storj-sim for ${version} in ${dir}."
+        echo "Installing storxnetwork-sim for ${version} in ${dir}."
         pushd ${dir}
 
         install_sim ${dir} ${bin_dir}
 
         echo "finished installing"
         popd
-        echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
-        PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
+        echo "Setting up storxnetwork-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
+        PATH=${bin_dir}:$PATH storxnetwork-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
         echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
         echo "Binary shasums:"
-        shasum ${bin_dir}/storj-sim
+        shasum ${bin_dir}/storxnetwork-sim
         shasum ${bin_dir}/satellite
         shasum ${bin_dir}/storagenode
         shasum ${bin_dir}/uplink
@@ -251,7 +251,7 @@ for version in ${unique_versions}; do
         pushd ${dir}
         mkdir -p ${bin_dir}
 
-        go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
+        go build -race -o ${bin_dir}/uplink github.com/StorXNetwork/StorXMonitor/cmd/uplink 2>&1
 
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
@@ -278,7 +278,7 @@ echo "Stage 1 uplink version: ${stage1_uplink_version}"
 src_ul_version_dir=$(version_dir ${stage1_uplink_version})
 ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
 # use uplink-versions/steps.sh instead of ./step-1.sh for upload step, since the setup for the two tests should be identical
-PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "upload" "${stage1_uplink_version}" "$update_access_script_path"
+PATH=$test_dir/bin:$PATH storxnetwork-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "upload" "${stage1_uplink_version}" "$update_access_script_path"
 
 echo -e "\nSetting up stage 2 in ${test_dir}"
 setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "2"
@@ -309,7 +309,7 @@ nohup $old_api_cmd &
 # Storing the background process' PID.
 old_api_pid=$!
 # Wait until old satellite api is responding to requests to ensure it happens before migration.
-storj-sim tool wait-for --retry 50 --interval 100ms  "127.0.0.1:30000"
+storxnetwork-sim tool wait-for --retry 50 --interval 100ms  "127.0.0.1:30000"
 
 # Prime the old satellite api. We do this to help catch any issues with DB migrations in regards to statement caches.
 echo "Priming old satellite API by uploading, downloading, and deleting objects"
@@ -327,11 +327,11 @@ for ul_version in ${stage2_uplink_versions}; do
     echo "Stage 2 uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
-    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${SCRIPTDIR}/step-1.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
+    PATH=$test_dir/bin:$PATH storxnetwork-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${SCRIPTDIR}/step-1.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
 
     if [[ $ul_version == $current_commit ]];then
         echo "Running final upload/download test on $current_commit"
-        PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${SCRIPTDIR}/step-2.sh" "${test_dir}/local-network"
+        PATH=$test_dir/bin:$PATH storxnetwork-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${SCRIPTDIR}/step-2.sh" "${test_dir}/local-network"
     fi
 done
 
@@ -340,4 +340,4 @@ echo "Checking old satellite API by uploading, downloading, and deleting objects
 ${SCRIPTDIR}/test-previous-satellite.sh "${test_dir}" "$update_access_script_path"
 
 echo -e "\nCleaning up."
-PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "cleanup" "${stage1_uplink_version}" ""
+PATH=$test_dir/bin:$PATH storxnetwork-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "cleanup" "${stage1_uplink_version}" ""

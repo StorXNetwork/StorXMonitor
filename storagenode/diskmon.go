@@ -13,7 +13,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/storj/storagenode/load"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/load"
 )
 
 var (

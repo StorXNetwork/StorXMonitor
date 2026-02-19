@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/post/oauth2"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/post/oauth2"
 )
 
 // TenantSMTPConfig contains tenant-specific SMTP and branding configuration.

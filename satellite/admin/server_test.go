@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/admin"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/admin"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 // TestBasic tests authorization behaviour without oauth.
@@ -80,7 +80,7 @@ func TestBasic(t *testing.T) {
 		})
 
 		t.Run("WrongAccess", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/users/alice@storj.test", nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/users/alice@storxnetwork.test", nil)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", "wrong-key")
 

@@ -14,15 +14,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func BenchmarkOverlay(b *testing.B) {
@@ -35,8 +35,8 @@ func BenchmarkOverlay(b *testing.B) {
 
 		overlaydb := db.OverlayCache()
 
-		var all []storj.NodeID
-		var check []storj.NodeID
+		var all []storxnetwork.NodeID
+		var check []storxnetwork.NodeID
 		for i := 0; i < TotalNodeCount; i++ {
 			id := testrand.NodeID()
 			all = append(all, id)
@@ -237,7 +237,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 			},
 		}
 
-		var excludedIDs []storj.NodeID
+		var excludedIDs []storxnetwork.NodeID
 
 		for i := 0; i < Total/NodesPerNet; i++ {
 			for k := 0; k < NodesPerNet; k++ {

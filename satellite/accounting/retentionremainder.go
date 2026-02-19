@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // RetentionRemainderContinuationToken is used for paginating through retention remainder charges.

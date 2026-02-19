@@ -17,25 +17,25 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/errs2"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/rpc/rpctest"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpctest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestEndpoint_DeleteCommittedObject(t *testing.T) {
@@ -508,7 +508,7 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 			t.Run("Unauthorized API key - Governance bypass", func(t *testing.T) {
 				objStream := randObjectStream(project.ID, bucketName)
 				object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 0, metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: time.Now().Add(time.Hour),
 				})
 
@@ -1761,7 +1761,7 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 					obj := createCommittedObject(t, versionedBucketName)
 
 					lockedObj := createLockedCommittedObject(t, versionedBucketName, metabase.Retention{
-						Mode:        storj.GovernanceMode,
+						Mode:        storxnetwork.GovernanceMode,
 						RetainUntil: time.Now().Add(time.Hour),
 					}, false)
 
@@ -1955,7 +1955,7 @@ func TestEndpoint_DeleteObject_MinimumRetentionCharges(t *testing.T) {
 						minRetentionProduct.ID: minRetentionProduct,
 					})
 					config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
-						int(storj.DefaultPlacement): minRetentionProduct.ID,
+						int(storxnetwork.DefaultPlacement): minRetentionProduct.ID,
 					})
 				},
 			),

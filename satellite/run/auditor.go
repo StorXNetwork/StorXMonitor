@@ -4,8 +4,8 @@
 package root
 
 import (
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Auditor is a subcommand to start only Auditor services.

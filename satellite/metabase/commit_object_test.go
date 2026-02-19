@@ -14,13 +14,13 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestCommitObject_TimestampVersioning(t *testing.T) {
@@ -544,7 +544,7 @@ func TestCommitObject(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption:   storj.EncryptionParameters{},
+					Encryption:   storxnetwork.EncryptionParameters{},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "Encryption is missing",
@@ -553,8 +553,8 @@ func TestCommitObject(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncAESGCM,
 					},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -564,8 +564,8 @@ func TestCommitObject(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncAESGCM,
 						BlockSize:   -1,
 					},
 				},
@@ -576,8 +576,8 @@ func TestCommitObject(t *testing.T) {
 			object := metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncAESGCM,
 						BlockSize:   512,
 					},
 				},
@@ -600,8 +600,8 @@ func TestCommitObject(t *testing.T) {
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
 					// set different encryption than with BeginObjectExactVersion
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncNull,
+					Encryption: storxnetwork.EncryptionParameters{
+						CipherSuite: storxnetwork.EncNull,
 						BlockSize:   512,
 					},
 				},
@@ -689,7 +689,7 @@ func TestCommitObject(t *testing.T) {
 			now := time.Now()
 
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: now.Add(time.Minute),
 			}
 
@@ -742,7 +742,7 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
+						Mode:        storxnetwork.ComplianceMode,
 						RetainUntil: future,
 					},
 					TestingBypassVerify: true,
@@ -986,7 +986,7 @@ func TestCommitObjectWithSkipPendingObject(t *testing.T) {
 
 			now := time.Now()
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: now.Add(time.Minute),
 			}
 
@@ -1088,7 +1088,7 @@ func TestCommitObjectWithSkipPendingObject(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			now := time.Now()
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: now.Add(time.Minute),
 			}
 
@@ -2749,7 +2749,7 @@ func TestCommitInlineObject(t *testing.T) {
 						StreamID:  obj.StreamID,
 						CreatedAt: now1,
 
-						RootPieceID:       storj.PieceID{},
+						RootPieceID:       storxnetwork.PieceID{},
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
 
@@ -2802,7 +2802,7 @@ func TestCommitInlineObject(t *testing.T) {
 						StreamID:  objB.StreamID,
 						CreatedAt: now1,
 
-						RootPieceID:       storj.PieceID{},
+						RootPieceID:       storxnetwork.PieceID{},
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
 
@@ -2849,7 +2849,7 @@ func TestCommitInlineObject(t *testing.T) {
 					StreamID:  obj.StreamID,
 					CreatedAt: now1,
 
-					RootPieceID:       storj.PieceID{},
+					RootPieceID:       storxnetwork.PieceID{},
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
@@ -2878,7 +2878,7 @@ func TestCommitInlineObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				retention := metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Now().Add(time.Minute),
 				}
 
@@ -2909,7 +2909,7 @@ func TestCommitInlineObject(t *testing.T) {
 			t.Run("invalid retention configuration", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
+				check := func(mode storxnetwork.RetentionMode, retainUntil time.Time, errText string) {
 					metabasetest.CommitInlineObject{
 						Opts: metabase.CommitInlineObject{
 							ObjectStream:        obj,
@@ -2925,9 +2925,9 @@ func TestCommitInlineObject(t *testing.T) {
 					}.Check(ctx, t, db)
 				}
 
-				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
-				check(storj.NoRetention, time.Now().Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.GovernanceMode+1, time.Now().Add(time.Minute), "invalid retention mode 3")
+				check(storxnetwork.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storxnetwork.NoRetention, time.Now().Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
+				check(storxnetwork.GovernanceMode+1, time.Now().Add(time.Minute), "invalid retention mode 3")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -2943,7 +2943,7 @@ func TestCommitInlineObject(t *testing.T) {
 						Encryption:          metabasetest.DefaultEncryption,
 						CommitInlineSegment: commitInlineSeg,
 						Retention: metabase.Retention{
-							Mode:        storj.ComplianceMode,
+							Mode:        storxnetwork.ComplianceMode,
 							RetainUntil: time.Now().Add(time.Minute),
 						},
 						ExpiresAt: &expires,
@@ -2961,7 +2961,7 @@ func TestCommitInlineObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				retention := metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Now().Add(time.Minute),
 				}
 
@@ -3030,7 +3030,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Now().Add(time.Hour),
 				})
 
@@ -3061,7 +3061,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				lockedObj, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Now().Add(-time.Minute),
 				})
 
@@ -3111,7 +3111,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Now().Add(time.Hour),
 				})
 
@@ -3135,7 +3135,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				objStream := metabasetest.RandObjectStream()
 				lockedObj, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Now().Add(-time.Minute),
 				})
 

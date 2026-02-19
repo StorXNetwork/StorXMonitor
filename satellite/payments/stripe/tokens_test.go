@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stripe/stripe-go/v81"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/coinpayments"
-	stripe1 "storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func TestTokens_ListDepositBonuses(t *testing.T) {

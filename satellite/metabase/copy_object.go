@@ -11,11 +11,11 @@ import (
 
 	"cloud.google.com/go/spanner"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 type copyObjectAdapter interface {
@@ -172,7 +172,7 @@ type transposedSegmentList struct {
 	InlineDatas [][]byte
 	PiecesLists [][]byte
 
-	Placements []storj.PlacementConstraint
+	Placements []storxnetwork.PlacementConstraint
 }
 
 func transposeSegments(segments []*Segment, convertPieces func(Pieces) ([]byte, error)) (transposedSegmentList, error) {
@@ -196,7 +196,7 @@ func transposeSegments(segments []*Segment, convertPieces func(Pieces) ([]byte, 
 	t.RedundancySchemes = make([]int64, len(segments))
 	t.InlineDatas = make([][]byte, len(segments))
 	t.PiecesLists = make([][]byte, len(segments))
-	t.Placements = make([]storj.PlacementConstraint, len(segments))
+	t.Placements = make([]storxnetwork.PlacementConstraint, len(segments))
 
 	for i, segment := range segments {
 		if t.StreamID != segment.StreamID {
@@ -390,7 +390,7 @@ func (p *PostgresAdapter) getSegmentsForCopy(ctx context.Context, sourceObject O
 	segments.PlainSizes = make([]int32, sourceObject.SegmentCount)
 	segments.PlainOffsets = make([]int64, sourceObject.SegmentCount)
 	segments.InlineDatas = make([][]byte, sourceObject.SegmentCount)
-	segments.Placements = make([]storj.PlacementConstraint, sourceObject.SegmentCount)
+	segments.Placements = make([]storxnetwork.PlacementConstraint, sourceObject.SegmentCount)
 	segments.PiecesLists = make([][]byte, sourceObject.SegmentCount)
 
 	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
@@ -451,7 +451,7 @@ func (s *SpannerAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Ob
 	segments.PlainSizes = make([]int32, sourceObject.SegmentCount)
 	segments.PlainOffsets = make([]int64, sourceObject.SegmentCount)
 	segments.InlineDatas = make([][]byte, sourceObject.SegmentCount)
-	segments.Placements = make([]storj.PlacementConstraint, sourceObject.SegmentCount)
+	segments.Placements = make([]storxnetwork.PlacementConstraint, sourceObject.SegmentCount)
 	segments.PiecesLists = make([][]byte, sourceObject.SegmentCount)
 
 	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)

@@ -11,11 +11,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode/retain"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
 )
 
 func TestNewRequestStore(t *testing.T) {

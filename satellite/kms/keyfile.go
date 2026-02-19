@@ -9,7 +9,7 @@ import (
 	"hash/crc32"
 	"os"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // localFileService gets encryption keys from local files.
@@ -24,10 +24,10 @@ func newLocalFileService(config Config) *localFileService {
 }
 
 // GetKeys gets keys from source.
-func (s *localFileService) GetKeys(ctx context.Context) (keys map[int]*storj.Key, err error) {
+func (s *localFileService) GetKeys(ctx context.Context) (keys map[int]*storxnetwork.Key, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keys = make(map[int]*storj.Key)
+	keys = make(map[int]*storxnetwork.Key)
 
 	crc32c := crc32.MakeTable(crc32.Castagnoli)
 
@@ -46,9 +46,9 @@ func (s *localFileService) GetKeys(ctx context.Context) (keys map[int]*storj.Key
 			return nil, Error.New("checksum mismatch")
 		}
 
-		keys[id], err = storj.NewKey(data)
+		keys[id], err = storxnetwork.NewKey(data)
 		if err != nil {
-			return nil, Error.New("could not convert local file key to storj.Key: %w", err)
+			return nil, Error.New("could not convert local file key to storxnetwork.Key: %w", err)
 		}
 	}
 

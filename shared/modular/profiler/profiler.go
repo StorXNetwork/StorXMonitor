@@ -7,7 +7,7 @@ import (
 	"cloud.google.com/go/profiler"
 	"go.uber.org/zap"
 
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Config contains configuration for Profiler.

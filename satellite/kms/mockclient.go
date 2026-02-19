@@ -8,7 +8,7 @@ import (
 
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -27,7 +27,7 @@ type mockGsmClient struct {
 }
 
 func (c *mockGsmClient) AccessSecretVersion(ctx context.Context, req *secretmanagerpb.AccessSecretVersionRequest) (_ *secretmanagerpb.AccessSecretVersionResponse, err error) {
-	key, err := storj.NewKey([]byte(req.Name))
+	key, err := storxnetwork.NewKey([]byte(req.Name))
 	if err != nil {
 		return nil, err
 	}

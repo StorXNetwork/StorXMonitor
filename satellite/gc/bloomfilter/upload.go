@@ -16,11 +16,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/uplink"
 )
 
 // LATEST is the name of the file that contains the most recently completed bloomfilter generation prefix.
@@ -119,7 +119,7 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Tim
 
 	infos := batches.Get().(*[]internalpb.RetainInfo)
 	batchNumber := 0
-	retainInfos.Range(func(nodeID storj.NodeID, info *RetainInfo) bool {
+	retainInfos.Range(func(nodeID storxnetwork.NodeID, info *RetainInfo) bool {
 		if rerr := rangeCtx.Err(); rerr != nil {
 			err = rerr
 			return false
@@ -255,7 +255,7 @@ func (bfu *Upload) cleanup(ctx context.Context, project *uplink.Project, prefix 
 }
 
 // UploadPieceIDs uploads piece IDs to the bucket.
-func (bfu *Upload) UploadPieceIDs(ctx context.Context, nodeID storj.NodeID, pieceIDs []storj.PieceID,
+func (bfu *Upload) UploadPieceIDs(ctx context.Context, nodeID storxnetwork.NodeID, pieceIDs []storxnetwork.PieceID,
 	startTime time.Time, index int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

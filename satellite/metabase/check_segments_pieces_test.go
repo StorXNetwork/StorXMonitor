@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestCheckSegmentPiecesAlteration(t *testing.T) {
@@ -39,7 +39,7 @@ func TestCheckSegmentPiecesAlteration(t *testing.T) {
 			Opts: metabase.BeginSegment{
 				ObjectStream: obj,
 				Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-				RootPieceID:  storj.PieceID{1},
+				RootPieceID:  storxnetwork.PieceID{1},
 				Pieces:       originalPieces,
 			},
 		}.Check(ctx, t, db)
@@ -48,7 +48,7 @@ func TestCheckSegmentPiecesAlteration(t *testing.T) {
 			Opts: metabase.CommitSegment{
 				ObjectStream: obj,
 				Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-				RootPieceID:  storj.PieceID{1},
+				RootPieceID:  storxnetwork.PieceID{1},
 				Pieces:       originalPieces,
 
 				EncryptedKey:      []byte{3},

@@ -9,7 +9,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
 )
 
 // DedicatedDisk is a simplified disk checker for the case when disk is dedicated to the storagenode.

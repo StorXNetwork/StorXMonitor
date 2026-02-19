@@ -8,9 +8,9 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/zeebo/errs"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 type EmailWebhook struct {

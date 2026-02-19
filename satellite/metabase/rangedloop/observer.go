@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Segment contains information about segment metadata which will be received by observers.

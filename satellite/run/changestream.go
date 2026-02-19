@@ -4,8 +4,8 @@
 package root
 
 import (
-	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // ChangeStream is a subcommand to start only Repairer (worker) service.

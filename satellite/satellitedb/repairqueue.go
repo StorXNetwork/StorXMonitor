@@ -11,20 +11,20 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RepairQueueSelectLimit defines how many items can be selected at the same time.
 const RepairQueueSelectLimit = 1000
 
-// repairQueue implements storj.io/storj/satellite/repair/queue.RepairQueue.
+// repairQueue implements github.com/StorXNetwork/StorXMonitor/satellite/repair/queue.RepairQueue.
 type repairQueue struct {
 	db *satelliteDB
 }
@@ -300,11 +300,11 @@ func (r *repairQueue) InsertBatch(
 
 }
 
-func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) (segments []queue.InjuredSegment, err error) {
+func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []storxnetwork.PlacementConstraint, excludedPlacements []storxnetwork.PlacementConstraint) (segments []queue.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	restriction := ""
 
-	placementsToString := func(placements []storj.PlacementConstraint) string {
+	placementsToString := func(placements []storxnetwork.PlacementConstraint) string {
 		var ps []string
 		for _, p := range placements {
 			ps = append(ps, fmt.Sprintf("%d", p))
@@ -454,7 +454,7 @@ func (r *repairQueue) Count(ctx context.Context) (count int, err error) {
 }
 
 // TestingSetAttemptedTime sets attempted time for a segment.
-func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, _ storj.PlacementConstraint, streamID uuid.UUID,
+func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, _ storxnetwork.PlacementConstraint, streamID uuid.UUID,
 	position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 
 	defer mon.Task()(&ctx)(&err)
@@ -470,7 +470,7 @@ func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, _ storj.Place
 }
 
 // TestingSetUpdatedTime sets updated time for a segment.
-func (r *repairQueue) TestingSetUpdatedTime(ctx context.Context, _ storj.PlacementConstraint, streamID uuid.UUID,
+func (r *repairQueue) TestingSetUpdatedTime(ctx context.Context, _ storxnetwork.PlacementConstraint, streamID uuid.UUID,
 	position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 
 	defer mon.Task()(&ctx)(&err)

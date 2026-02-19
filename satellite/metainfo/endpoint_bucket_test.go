@@ -14,26 +14,26 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/rpc/rpctest"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/eventing/eventingconfig"
-	"storj.io/storj/satellite/kms"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing/eventingconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/kms"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpctest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 func TestBucketExistenceCheck(t *testing.T) {
@@ -108,8 +108,8 @@ func TestBucketNameValidation(t *testing.T) {
 				Bucket:             []byte(name),
 				EncryptedObjectKey: []byte("123"),
 				ExpiresAt:          time.Now().Add(16 * 24 * time.Hour),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -472,7 +472,7 @@ func TestListBucketsWithAttribution(t *testing.T) {
 				Bucket: "bucket-without-user-agent",
 			},
 			{
-				UserAgent: "storj",
+				UserAgent: "storxnetwork",
 				Bucket:    "bucket-with-user-agent",
 			},
 		}
@@ -517,7 +517,7 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
-		euPlacement := storj.PlacementConstraint(1)
+		euPlacement := storxnetwork.PlacementConstraint(1)
 
 		// change the default_placement of the project
 		project, err := planet.Satellites[0].API.DB.Console().Projects().Get(ctx, projectID)
@@ -543,7 +543,7 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 
 func TestBucketCreationSelfServePlacement(t *testing.T) {
 	var (
-		placement       = storj.PlacementConstraint(40)
+		placement       = storxnetwork.PlacementConstraint(40)
 		placementDetail = console.PlacementDetail{
 			ID:     40,
 			IdName: "Poland",
@@ -557,7 +557,7 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 					PlacementRules: `40:annotation("location", "Poland");50:annotation("location", "US");60:annotation("location", "AP")`,
 				}
 				config.Console.Placement.SelfServeEnabled = true
-				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+				config.Console.Placement.SelfServeDetails.SetMap(map[storxnetwork.PlacementConstraint]console.PlacementDetail{
 					placement: placementDetail,
 					60: {
 						ID:          60,
@@ -573,7 +573,7 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		bucket1 := "bucket1"
 
-		euPlacement := storj.PlacementConstraint(1)
+		euPlacement := storxnetwork.PlacementConstraint(1)
 
 		// change the default_placement of the project
 		err := planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, euPlacement)
@@ -608,7 +608,7 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		require.NoError(t, err)
 
 		// change the default_placement of the project
-		err = planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, storj.DefaultPlacement)
+		err = planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, storxnetwork.DefaultPlacement)
 		require.NoError(t, err)
 
 		// recreate bucket with different placement fails because attribution already exists with original placement
@@ -635,7 +635,7 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 
 		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucket2), projectID)
 		require.NoError(t, err)
-		require.Equal(t, storj.PlacementConstraint(40), placement)
+		require.Equal(t, storxnetwork.PlacementConstraint(40), placement)
 
 		// new bucket with invalid placement returns error
 		bucket3 := []byte("bucket3")
@@ -690,19 +690,19 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		// because self-serve placement is disabled.
 		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, bucket3, projectID)
 		require.NoError(t, err)
-		require.Equal(t, storj.DefaultPlacement, placement)
+		require.Equal(t, storxnetwork.DefaultPlacement, placement)
 	})
 }
 
 func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 	var (
-		plPoland         = storj.PlacementConstraint(40)
-		plUkraine        = storj.PlacementConstraint(60)
-		selfServeDetails = map[storj.PlacementConstraint]console.PlacementDetail{
+		plPoland         = storxnetwork.PlacementConstraint(40)
+		plUkraine        = storxnetwork.PlacementConstraint(60)
+		selfServeDetails = map[storxnetwork.PlacementConstraint]console.PlacementDetail{
 			plPoland:  {ID: 40, IdName: "poland"},
 			plUkraine: {ID: 60, IdName: "ukraine", WaitlistURL: "waitlist"},
 		}
-		allowedPlacements = []storj.PlacementConstraint{plPoland, plUkraine}
+		allowedPlacements = []storxnetwork.PlacementConstraint{plPoland, plUkraine}
 	)
 
 	testplanet.Run(t, testplanet.Config{
@@ -754,7 +754,7 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 			feats                 *entitlements.ProjectFeatures // nil => delete row (NotFound)
 			placementName         string
 			want                  rpcstatus.StatusCode
-			expectBucketPlacement *storj.PlacementConstraint
+			expectBucketPlacement *storxnetwork.PlacementConstraint
 		}{
 			{
 				name: "no placement (default) → allowed",
@@ -768,7 +768,7 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 			{
 				name: "explicit allowlist includes placement → allowed",
 				feats: &entitlements.ProjectFeatures{
-					NewBucketPlacements: []storj.PlacementConstraint{plPoland},
+					NewBucketPlacements: []storxnetwork.PlacementConstraint{plPoland},
 				},
 				placementName:         "poland",
 				want:                  rpcstatus.OK,
@@ -778,7 +778,7 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 				name: "explicit allowlist excludes placement (non-empty) → denied",
 				feats: &entitlements.ProjectFeatures{
 					// Non-empty list that does NOT include poland (40).
-					NewBucketPlacements: []storj.PlacementConstraint{storj.PlacementConstraint(999)},
+					NewBucketPlacements: []storxnetwork.PlacementConstraint{storxnetwork.PlacementConstraint(999)},
 				},
 				placementName: "poland",
 				want:          rpcstatus.PlacementInvalidValue,
@@ -786,7 +786,7 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 			{
 				name: "explicit allowlist includes waitlisted placement → denied by self-serve",
 				feats: &entitlements.ProjectFeatures{
-					NewBucketPlacements: []storj.PlacementConstraint{plUkraine},
+					NewBucketPlacements: []storxnetwork.PlacementConstraint{plUkraine},
 				},
 				placementName: "ukraine",
 				want:          rpcstatus.PlacementInvalidValue,
@@ -932,7 +932,7 @@ func TestGetBucketLocation(t *testing.T) {
 		_, err = satellite.DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "test-bucket",
-			Placement: storj.PlacementConstraint(40),
+			Placement: storxnetwork.PlacementConstraint(40),
 		})
 		require.NoError(t, err)
 
@@ -2035,7 +2035,7 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, buckets.ObjectLockSettings{
 				Enabled:               true,
-				DefaultRetentionMode:  storj.ComplianceMode,
+				DefaultRetentionMode:  storxnetwork.ComplianceMode,
 				DefaultRetentionDays:  0,
 				DefaultRetentionYears: 1,
 			}, bucket.ObjectLock)

@@ -18,9 +18,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/lrucache"
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // PathEncoding is used to encode satellite IDs for the piece expiration store.
@@ -31,11 +31,11 @@ var PathEncoding = filestore.PathEncoding
 const PieceExpirationFileNameFormat = "2006-01-02_15.dat"
 
 type hourKey struct {
-	satelliteID storj.NodeID
+	satelliteID storxnetwork.NodeID
 	hour        time.Time
 }
 
-func makeHourKey(satelliteID storj.NodeID, hour time.Time) hourKey {
+func makeHourKey(satelliteID storxnetwork.NodeID, hour time.Time) hourKey {
 	// UTC() should ensure that all time values have the same location information,
 	// and Truncate() should remove any monotonic clock reading, making the time
 	// object suitable for use as a map key.
@@ -184,7 +184,7 @@ func (peStore *PieceExpirationStore) deleteExpirationsFromAllSatellites(ctx cont
 
 var monGetSatellitesWithExpirations = mon.Task()
 
-func (peStore *PieceExpirationStore) getSatellitesWithExpirations(ctx context.Context) (satellites []storj.NodeID, err error) {
+func (peStore *PieceExpirationStore) getSatellitesWithExpirations(ctx context.Context) (satellites []storxnetwork.NodeID, err error) {
 	defer monGetSatellitesWithExpirations(&ctx)(&err)
 
 	dirfd, err := os.Open(peStore.dataDir)
@@ -204,7 +204,7 @@ func (peStore *PieceExpirationStore) getSatellitesWithExpirations(ctx context.Co
 			// not a satellite directory
 			continue
 		}
-		satelliteID, err := storj.NodeIDFromBytes(satelliteIDBytes)
+		satelliteID, err := storxnetwork.NodeIDFromBytes(satelliteIDBytes)
 		if err != nil {
 			// not a satellite directory either
 			continue
@@ -217,7 +217,7 @@ func (peStore *PieceExpirationStore) getSatellitesWithExpirations(ctx context.Co
 var monGetExpiredForSatellite = mon.Task()
 
 // GetExpiredFiles returns the expired files which can be deleted.
-func (peStore *PieceExpirationStore) GetExpiredFiles(ctx context.Context, satellite storj.NodeID, before time.Time) ([]string, error) {
+func (peStore *PieceExpirationStore) GetExpiredFiles(ctx context.Context, satellite storxnetwork.NodeID, before time.Time) ([]string, error) {
 	before = before.UTC().Truncate(time.Hour)
 	satelliteDir := PathEncoding.EncodeToString(satellite[:])
 	peDir := filepath.Join(peStore.dataDir, satelliteDir)
@@ -254,14 +254,14 @@ func (peStore *PieceExpirationStore) GetExpiredFiles(ctx context.Context, satell
 }
 
 // GetExpiredFromFile read one piece expiration file and calls callback for each piece.
-func GetExpiredFromFile(ctx context.Context, filename string, callback func(id storj.PieceID, size uint64)) error {
+func GetExpiredFromFile(ctx context.Context, filename string, callback func(id storxnetwork.PieceID, size uint64)) error {
 	readF, err := os.Open(filename)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = readF.Close() }()
 
-	var pieceID storj.PieceID
+	var pieceID storxnetwork.PieceID
 	var sizeBuf [8]byte
 	buf := bufio.NewReader(readF)
 	for {
@@ -295,7 +295,7 @@ func DeleteExpiredFile(ctx context.Context, file string) error {
 
 // GetExpiredForSatellite gets piece IDs that expire or have expired before the
 // given time for a specific satellite.
-func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time, opts ExpirationOptions) (infos *ExpiredInfoRecords, err error) {
+func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context, satellite storxnetwork.NodeID, now time.Time, opts ExpirationOptions) (infos *ExpiredInfoRecords, err error) {
 	defer monGetExpiredForSatellite(&ctx)(&err)
 
 	elapsed, err := peStore.getElapsedHoursWithExpirations(ctx, satellite, now, opts)
@@ -366,7 +366,7 @@ func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context,
 		}
 		func() {
 			defer func() { _ = readF.Close() }()
-			var pieceID storj.PieceID
+			var pieceID storxnetwork.PieceID
 			var timeBuf [8]byte
 			buf := bufio.NewReader(readF)
 			for {
@@ -404,7 +404,7 @@ var monDeleteExpirationsForSatellite = mon.Task()
 
 // DeleteExpirationsForSatellite deletes information about piece expirations
 // before the given time for a specific satellite.
-func (peStore *PieceExpirationStore) DeleteExpirationsForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time, opts ExpirationOptions) (err error) {
+func (peStore *PieceExpirationStore) DeleteExpirationsForSatellite(ctx context.Context, satellite storxnetwork.NodeID, now time.Time, opts ExpirationOptions) (err error) {
 	defer monDeleteExpirationsForSatellite(&ctx)(&err)
 
 	elapsed, err := peStore.getElapsedHoursWithExpirations(ctx, satellite, now, opts)
@@ -442,7 +442,7 @@ func (peStore *PieceExpirationStore) DeleteExpirationsBatch(ctx context.Context,
 
 var monGetElapsedHoursWithExpirations = mon.Task()
 
-func (peStore *PieceExpirationStore) getElapsedHoursWithExpirations(ctx context.Context, satellite storj.NodeID, now time.Time, opts ExpirationOptions) (elapsed []time.Time, err error) {
+func (peStore *PieceExpirationStore) getElapsedHoursWithExpirations(ctx context.Context, satellite storxnetwork.NodeID, now time.Time, opts ExpirationOptions) (elapsed []time.Time, err error) {
 	defer monGetElapsedHoursWithExpirations(&ctx)(&err)
 
 	satelliteDir := PathEncoding.EncodeToString(satellite[:])
@@ -485,7 +485,7 @@ func (peStore *PieceExpirationStore) getElapsedHoursWithExpirations(ctx context.
 var monSetExpiration = mon.Task()
 
 // SetExpiration sets an expiration time for the given piece ID on the given satellite.
-func (peStore *PieceExpirationStore) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) (err error) {
+func (peStore *PieceExpirationStore) SetExpiration(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, expiresAt time.Time, pieceSize int64) (err error) {
 	defer monSetExpiration(&ctx)(&err)
 
 	expirationHour := expiresAt.Truncate(time.Hour)
@@ -536,7 +536,7 @@ func (peStore *PieceExpirationStore) openHour(key hourKey) *hourFile {
 		_ = w.Close()
 		return hourFile
 	}
-	const recordSize = int64(len(storj.PieceID{})) + 8
+	const recordSize = int64(len(storxnetwork.PieceID{})) + 8
 	if pos%recordSize != 0 {
 		peStore.log.Warn("truncating piece expiration file to a multiple of record size",
 			zap.Int64("opened_at_size", pos),
@@ -620,7 +620,7 @@ func (hourFile *hourFile) flush() error {
 
 var monAppendEntry = mon.Task()
 
-func (hourFile *hourFile) appendEntry(ctx context.Context, pieceID storj.PieceID, pieceSize int64) (err error) {
+func (hourFile *hourFile) appendEntry(ctx context.Context, pieceID storxnetwork.PieceID, pieceSize int64) (err error) {
 	defer monAppendEntry(&ctx)(&err)
 
 	var timeBuf [8]byte

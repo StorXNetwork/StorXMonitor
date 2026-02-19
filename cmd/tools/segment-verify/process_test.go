@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	segmentverify "storj.io/storj/cmd/tools/segment-verify"
-	"storj.io/storj/private/testplanet"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	segmentverify "github.com/StorXNetwork/StorXMonitor/cmd/tools/segment-verify"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
 )
 
 func TestProcess(t *testing.T) {

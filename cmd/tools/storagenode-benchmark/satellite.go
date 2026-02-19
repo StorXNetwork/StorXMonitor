@@ -16,14 +16,14 @@ import (
 	flag "github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/drpc/drpcmigrate"
-	"storj.io/drpc/drpcmux"
-	"storj.io/drpc/drpcserver"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/drpc/drpcmigrate"
+	"github.com/StorXNetwork/drpc/drpcmux"
+	"github.com/StorXNetwork/drpc/drpcserver"
 )
 
 var (

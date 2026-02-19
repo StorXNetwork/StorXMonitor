@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // UsageCSVRow represents data from NodePaymentInfo without exposing dbx.
@@ -42,7 +42,7 @@ func generateNodeUsageCSV(ctx context.Context, start time.Time, end time.Time, o
 		return err
 	}
 
-	var nodeIDs storj.NodeIDList
+	var nodeIDs storxnetwork.NodeIDList
 	for _, paymentInfo := range paymentInfos {
 		nodeIDs = append(nodeIDs, paymentInfo.NodeID)
 	}

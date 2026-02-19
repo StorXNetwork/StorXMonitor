@@ -11,19 +11,19 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accountfreeze"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	stripe1 "storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accountfreeze"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestBillingFreezeChore(t *testing.T) {
@@ -805,7 +805,7 @@ func TestBillingFreezeChore_StorjscanExclusion(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          address,
-				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
+				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorxToken),
 				USDValue:    currency.AmountFromBaseUnits(testrand.Int63n(1000), currency.USDollarsMicro),
 				BlockHash:   blockchaintest.NewHash(),
 				Transaction: blockchaintest.NewHash(),

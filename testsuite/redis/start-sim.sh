@@ -35,7 +35,7 @@ echo "install sim"
 make -C "$SCRIPTDIR"/../.. install-sim
 
 echo "overriding default max segment size to 6MiB"
-GOBIN="${TMP_DIR}" go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
+GOBIN="${TMP_DIR}" go install -v -ldflags "-X 'github.com/StorXNetwork/uplink.maxSegmentSize=6MiB'" github.com/StorXNetwork/StorXMonitor/cmd/uplink
 
 # use modified version of uplink
 export PATH="${TMP_DIR}:${PATH}"
@@ -51,14 +51,14 @@ export STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED=false
 
 # setup the network
 "${SCRIPTDIR}/redis-server.sh" start
-storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
+storxnetwork-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 	--postgres="${STORJ_SIM_POSTGRES}" --redis="${STORJ_REDIS_HOST}:${STORJ_REDIS_PORT}" setup
 
 # run test that checks that the satellite runs when Redis is up and down
-storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
+storxnetwork-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 	--redis="127.0.0.1:6379" test bash "${SCRIPTDIR}/step.sh" "${REDIS_CONTAINER_NAME}"
 
 # run test that checks that the satellite runs despite of not being able to connect to Redis
 "${SCRIPTDIR}/redis-server.sh" stop
-storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
+storxnetwork-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 	--redis="127.0.0.1:6379" test bash "${SCRIPTDIR}/../basic/step-uplink.sh"

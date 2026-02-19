@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -55,7 +55,7 @@ func (controller *Nodes) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := storj.NodeIDFromString(payload.ID)
+	id, err := storxnetwork.NodeIDFromString(payload.ID)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrNodes.Wrap(err))
 		return
@@ -97,7 +97,7 @@ func (controller *Nodes) UpdateName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := storj.NodeIDFromString(idString)
+	id, err := storxnetwork.NodeIDFromString(idString)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrNodes.Wrap(err))
 		return
@@ -131,7 +131,7 @@ func (controller *Nodes) Get(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 
-	nodeID, err := storj.NodeIDFromString(vars["id"])
+	nodeID, err := storxnetwork.NodeIDFromString(vars["id"])
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrNodes.Wrap(err))
 		return
@@ -170,7 +170,7 @@ func (controller *Nodes) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := storj.NodeIDFromString(idString)
+	id, err := storxnetwork.NodeIDFromString(idString)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrNodes.Wrap(err))
 		return
@@ -215,7 +215,7 @@ func (controller *Nodes) ListInfosSatellite(w http.ResponseWriter, r *http.Reque
 
 	vars := mux.Vars(r)
 
-	satelliteID, err := storj.NodeIDFromString(vars["satelliteID"])
+	satelliteID, err := storxnetwork.NodeIDFromString(vars["satelliteID"])
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrNodes.Wrap(err))
 		return

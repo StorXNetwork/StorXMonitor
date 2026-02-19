@@ -16,8 +16,8 @@ import (
 	"github.com/zeebo/mwc"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // SuccessTracker describes a type that is told about successes of nodes and
@@ -26,7 +26,7 @@ import (
 type SuccessTracker interface {
 	// Increment tells the SuccessTracker if a node was recently successful or
 	// not.
-	Increment(node storj.NodeID, success bool)
+	Increment(node storxnetwork.NodeID, success bool)
 
 	// Get returns a value that represents how successful a node is expected to
 	// be. It can return NaN to indicate that it has no information about the
@@ -34,7 +34,7 @@ type SuccessTracker interface {
 	Get(node *nodeselection.SelectedNode) float64
 
 	// Range iterates over all nodes and calls the function with the actual value.
-	Range(fn func(storj.NodeID, float64))
+	Range(fn func(storxnetwork.NodeID, float64))
 
 	// BumpGeneration should be called periodically to clear out stale
 	// information.
@@ -84,14 +84,14 @@ func GetNewSuccessTracker(kind string) (func() SuccessTracker, bool) {
 
 // SuccessTrackers manages global and uplink level trackers.
 type SuccessTrackers struct {
-	trackers map[storj.NodeID]SuccessTracker
+	trackers map[storxnetwork.NodeID]SuccessTracker
 	global   SuccessTracker
 }
 
 // NewSuccessTrackers creates a new success tracker.
-func NewSuccessTrackers(approvedUplinks []storj.NodeID, newTracker func(id storj.NodeID) SuccessTracker) *SuccessTrackers {
-	global := newTracker(storj.NodeID{})
-	trackers := make(map[storj.NodeID]SuccessTracker, len(approvedUplinks))
+func NewSuccessTrackers(approvedUplinks []storxnetwork.NodeID, newTracker func(id storxnetwork.NodeID) SuccessTracker) *SuccessTrackers {
+	global := newTracker(storxnetwork.NodeID{})
+	trackers := make(map[storxnetwork.NodeID]SuccessTracker, len(approvedUplinks))
 	for _, uplink := range approvedUplinks {
 		trackers[uplink] = newTracker(uplink)
 	}
@@ -112,7 +112,7 @@ func (t *SuccessTrackers) BumpGeneration() {
 
 // GetTracker returns the tracker for the specific uplink. Returns with the
 // global tracker, if uplink is not whitelisted.
-func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) SuccessTracker {
+func (t *SuccessTrackers) GetTracker(uplink storxnetwork.NodeID) SuccessTracker {
 	if tracker, ok := t.trackers[uplink]; ok {
 		return tracker
 	}
@@ -121,7 +121,7 @@ func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) SuccessTracker {
 
 // GetDedicatedTracker returns the tracker for the specific uplink. Returns nil
 // if the uplink is not whitelisted.
-func (t *SuccessTrackers) GetDedicatedTracker(uplink storj.NodeID) SuccessTracker {
+func (t *SuccessTrackers) GetDedicatedTracker(uplink storxnetwork.NodeID) SuccessTracker {
 	if tracker, ok := t.trackers[uplink]; ok {
 		return tracker
 	}
@@ -135,7 +135,7 @@ func (t *SuccessTrackers) GetGlobalTracker() SuccessTracker {
 
 // Get returns a function that can be used to get an estimate of how good a node
 // is for a given uplink.
-func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
+func (t *SuccessTrackers) Get(uplink storxnetwork.NodeID) func(node *nodeselection.SelectedNode) float64 {
 	return t.GetTracker(uplink).Get
 }
 
@@ -165,7 +165,7 @@ type nodeCounterArray [nodeSuccessGenerations]atomic.Uint64
 type percentSuccessTracker struct {
 	mu           sync.Mutex
 	gen          atomic.Uint64
-	data         sync.Map // storj.NodeID -> *nodeCounterArray
+	data         sync.Map // storxnetwork.NodeID -> *nodeCounterArray
 	chanceToSkip float32
 }
 
@@ -180,9 +180,9 @@ func NewStochasticPercentSuccessTracker(chanceToSkip float32) SuccessTracker {
 }
 
 // Range implements SuccessTracker.
-func (t *percentSuccessTracker) Range(fn func(storj.NodeID, float64)) {
+func (t *percentSuccessTracker) Range(fn func(storxnetwork.NodeID, float64)) {
 	t.data.Range(func(k, v interface{}) bool {
-		nodeID, ok := k.(storj.NodeID)
+		nodeID, ok := k.(storxnetwork.NodeID)
 		value, ok2 := v.(*nodeCounterArray)
 		if ok && ok2 {
 			fn(nodeID, readCounters(value))
@@ -191,7 +191,7 @@ func (t *percentSuccessTracker) Range(fn func(storj.NodeID, float64)) {
 	})
 }
 
-func (t *percentSuccessTracker) Increment(node storj.NodeID, success bool) {
+func (t *percentSuccessTracker) Increment(node storxnetwork.NodeID, success bool) {
 	ctrsI, ok := t.data.Load(node)
 	if !ok {
 		ctrsI, _ = t.data.LoadOrStore(node, new(nodeCounterArray))
@@ -353,14 +353,14 @@ func newLagSuccessTracker() *parameterizedSuccessTracker {
 
 type parameterizedSuccessTracker struct {
 	mu         sync.Mutex
-	data       sync.Map // storj.NodeID -> *atomic.Uint64
+	data       sync.Map // storxnetwork.NodeID -> *atomic.Uint64
 	name       string
 	increment  func(ctr *atomic.Uint64, success bool)
 	defaultVal uint64
 	score      func(uint64) float64
 }
 
-func (t *parameterizedSuccessTracker) Increment(node storj.NodeID, success bool) {
+func (t *parameterizedSuccessTracker) Increment(node storxnetwork.NodeID, success bool) {
 	crtI, ok := t.data.Load(node)
 	if !ok {
 		v := new(atomic.Uint64)
@@ -381,9 +381,9 @@ func (t *parameterizedSuccessTracker) Get(node *nodeselection.SelectedNode) floa
 }
 
 // Range implements SuccessTracker.
-func (t *parameterizedSuccessTracker) Range(fn func(storj.NodeID, float64)) {
+func (t *parameterizedSuccessTracker) Range(fn func(storxnetwork.NodeID, float64)) {
 	t.data.Range(func(k, v interface{}) bool {
-		nodeID, ok := k.(storj.NodeID)
+		nodeID, ok := k.(storxnetwork.NodeID)
 		ctr, ok2 := v.(*atomic.Uint64)
 		if ok && ok2 {
 			fn(nodeID, t.score(ctr.Load()))
@@ -456,7 +456,7 @@ func (l *bigBitList) get() float64 {
 }
 
 type bigBitshiftSuccessTracker struct {
-	data   sync.Map // storj.NodeID -> bigBitList
+	data   sync.Map // storxnetwork.NodeID -> bigBitList
 	length int
 }
 
@@ -468,7 +468,7 @@ func NewBigBitshiftSuccessTracker(length int) SuccessTracker {
 }
 
 // Increment implements SuccessTracker.
-func (t *bigBitshiftSuccessTracker) Increment(node storj.NodeID, success bool) {
+func (t *bigBitshiftSuccessTracker) Increment(node storxnetwork.NodeID, success bool) {
 	crtI, ok := t.data.Load(node)
 	if !ok {
 		v := &bigBitList{
@@ -492,9 +492,9 @@ func (t *bigBitshiftSuccessTracker) Get(node *nodeselection.SelectedNode) float6
 }
 
 // Range implements SuccessTracker.
-func (t *bigBitshiftSuccessTracker) Range(fn func(storj.NodeID, float64)) {
+func (t *bigBitshiftSuccessTracker) Range(fn func(storxnetwork.NodeID, float64)) {
 	t.data.Range(func(k, v interface{}) bool {
-		nodeID, ok := k.(storj.NodeID)
+		nodeID, ok := k.(storxnetwork.NodeID)
 		ctr, ok2 := v.(*bigBitList)
 		if ok && ok2 {
 			fn(nodeID, ctr.get())

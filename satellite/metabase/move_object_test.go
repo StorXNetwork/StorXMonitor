@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestBeginMoveObject(t *testing.T) {
@@ -190,7 +190,7 @@ func TestFinishMoveObject(t *testing.T) {
 					ObjectStream:                     obj,
 					NewSegmentKeys:                   newEncryptedKeysNonces,
 					NewEncryptedObjectKey:            newObjectKey,
-					NewEncryptedMetadataNonce:        storj.Nonce{},
+					NewEncryptedMetadataNonce:        storxnetwork.Nonce{},
 					NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -889,7 +889,7 @@ func TestFinishMoveObject(t *testing.T) {
 				NewVersioned: true,
 
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: now,
 				},
 			}
@@ -932,7 +932,7 @@ func TestFinishMoveObject(t *testing.T) {
 				NewVersioned: false,
 
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 				},
 			}
@@ -987,7 +987,7 @@ func TestFinishMoveObject(t *testing.T) {
 				NewVersioned: false,
 
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 				},
 			}
@@ -1029,7 +1029,7 @@ func TestFinishMoveObject(t *testing.T) {
 			unversionedObject := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
 
 			expectedRetention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}
 			const expectedLegalHold = true
@@ -1076,7 +1076,7 @@ func TestFinishMoveObject(t *testing.T) {
 			obj3 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
 
 			expectedRetention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}
 			const expectedLegalHold = true
@@ -1116,11 +1116,11 @@ func TestFinishMoveObject(t *testing.T) {
 			nowPlusHour := time.Now().Add(time.Hour)
 
 			withCurrentLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: nowPlusHour,
 			})
 			withExpiredLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, metabase.Retention{
-				Mode:        storj.GovernanceMode,
+				Mode:        storxnetwork.GovernanceMode,
 				RetainUntil: now,
 			})
 			withLegalHold := metabasetest.CreateObjectWithRetentionAndLegalHold(ctx, t, db, metabasetest.RandObjectStream(), metabase.Retention{}, true)
@@ -1152,7 +1152,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewVersioned: true,
 
 					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
+						Mode:        storxnetwork.ComplianceMode,
 						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 					},
 				},
@@ -1171,7 +1171,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewVersioned: true,
 
 					Retention: metabase.Retention{
-						Mode:        storj.GovernanceMode,
+						Mode:        storxnetwork.GovernanceMode,
 						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 					},
 					LegalHold: false,

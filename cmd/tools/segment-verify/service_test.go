@@ -17,15 +17,15 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	segmentverify "storj.io/storj/cmd/tools/segment-verify"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	segmentverify "github.com/StorXNetwork/StorXMonitor/cmd/tools/segment-verify"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestService_EmptyRange(t *testing.T) {
@@ -39,7 +39,7 @@ func TestService_EmptyRange(t *testing.T) {
 		MaxOffline:        2,
 	}
 
-	metabase := newMetabaseMock(map[metabase.NodeAlias]storj.NodeID{})
+	metabase := newMetabaseMock(map[metabase.NodeAlias]storxnetwork.NodeID{})
 	verifier := &verifierMock{allSuccess: true}
 
 	service, err := segmentverify.NewService(log.Named("segment-verify"), metabase, verifier, metabase, config)
@@ -69,13 +69,13 @@ func TestService_Success(t *testing.T) {
 	}
 
 	// the node 1 is going to be priority
-	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	err := os.WriteFile(config.PriorityNodesPath, []byte((storxnetwork.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
 	func() {
-		nodes := map[metabase.NodeAlias]storj.NodeID{}
+		nodes := map[metabase.NodeAlias]storxnetwork.NodeID{}
 		for i := 1; i <= 0xFF; i++ {
-			nodes[metabase.NodeAlias(i)] = storj.NodeID{byte(i)}
+			nodes[metabase.NodeAlias(i)] = storxnetwork.NodeID{byte(i)}
 		}
 
 		segments := []metabase.VerifySegment{
@@ -147,7 +147,7 @@ func TestService_Buckets_Success(t *testing.T) {
 	}
 
 	// the node 1 is going to be priority
-	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	err := os.WriteFile(config.PriorityNodesPath, []byte((storxnetwork.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
 	projectA := uuid.UUID{1}
@@ -161,9 +161,9 @@ func TestService_Buckets_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	func() {
-		nodes := map[metabase.NodeAlias]storj.NodeID{}
+		nodes := map[metabase.NodeAlias]storxnetwork.NodeID{}
 		for i := 1; i <= 0xFF; i++ {
-			nodes[metabase.NodeAlias(i)] = storj.NodeID{byte(i)}
+			nodes[metabase.NodeAlias(i)] = storxnetwork.NodeID{byte(i)}
 		}
 
 		segments := []metabase.VerifySegment{
@@ -243,33 +243,33 @@ func TestService_Failures(t *testing.T) {
 	}
 
 	// the node 1 is going to be priority
-	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	err := os.WriteFile(config.PriorityNodesPath, []byte((storxnetwork.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
 	func() {
-		nodes := map[metabase.NodeAlias]storj.NodeID{}
+		nodes := map[metabase.NodeAlias]storxnetwork.NodeID{}
 		for i := 1; i <= 0xFF; i++ {
-			nodes[metabase.NodeAlias(i)] = storj.NodeID{byte(i)}
+			nodes[metabase.NodeAlias(i)] = storxnetwork.NodeID{byte(i)}
 		}
 
 		segments := []metabase.VerifySegment{
 			{
 				StreamID: uuid.UUID{0x10, 0x10},
-				Redundancy: storj.RedundancyScheme{
+				Redundancy: storxnetwork.RedundancyScheme{
 					RequiredShares: 3,
 				},
 				AliasPieces: metabase.AliasPieces{{Number: 1, Alias: 8}, {Number: 3, Alias: 9}, {Number: 5, Alias: 10}, {Number: 0, Alias: 1}},
 			},
 			{
 				StreamID: uuid.UUID{0x20, 0x20},
-				Redundancy: storj.RedundancyScheme{
+				Redundancy: storxnetwork.RedundancyScheme{
 					RequiredShares: 2,
 				},
 				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
 			},
 			{
 				StreamID: uuid.UUID{0x30, 0x30},
-				Redundancy: storj.RedundancyScheme{
+				Redundancy: storxnetwork.RedundancyScheme{
 					RequiredShares: 2,
 				},
 				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
@@ -278,7 +278,7 @@ func TestService_Failures(t *testing.T) {
 
 		metabase := newMetabaseMock(nodes, segments...)
 		verifier := &verifierMock{
-			offline:  []storj.NodeID{{0x02}, {0x08}, {0x09}, {0x0A}},
+			offline:  []storxnetwork.NodeID{{0x02}, {0x08}, {0x09}, {0x0A}},
 			success:  []uuid.UUID{segments[0].StreamID, segments[2].StreamID},
 			notFound: []uuid.UUID{segments[1].StreamID},
 		}
@@ -329,15 +329,15 @@ func isUnique(segments []*segmentverify.Segment) bool {
 }
 
 type metabaseMock struct {
-	nodeIDToAlias      map[storj.NodeID]metabase.NodeAlias
-	aliasToNodeID      map[metabase.NodeAlias]storj.NodeID
+	nodeIDToAlias      map[storxnetwork.NodeID]metabase.NodeAlias
+	aliasToNodeID      map[metabase.NodeAlias]storxnetwork.NodeID
 	streamIDsPerBucket map[metabase.BucketLocation][]uuid.UUID
 	segments           []metabase.VerifySegment
 }
 
-func newMetabaseMock(nodes map[metabase.NodeAlias]storj.NodeID, segments ...metabase.VerifySegment) *metabaseMock {
+func newMetabaseMock(nodes map[metabase.NodeAlias]storxnetwork.NodeID, segments ...metabase.VerifySegment) *metabaseMock {
 	mock := &metabaseMock{
-		nodeIDToAlias:      map[storj.NodeID]metabase.NodeAlias{},
+		nodeIDToAlias:      map[storxnetwork.NodeID]metabase.NodeAlias{},
 		aliasToNodeID:      nodes,
 		segments:           segments,
 		streamIDsPerBucket: make(map[metabase.BucketLocation][]uuid.UUID),
@@ -353,7 +353,7 @@ func (db *metabaseMock) AddStreamIDToBucket(projectID uuid.UUID, bucketName meta
 	db.streamIDsPerBucket[bucket] = append(db.streamIDsPerBucket[bucket], streamIDs...)
 }
 
-func (db *metabaseMock) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
+func (db *metabaseMock) Get(ctx context.Context, nodeID storxnetwork.NodeID) (*overlay.NodeDossier, error) {
 	return &overlay.NodeDossier{
 		Node: pb.Node{
 			Id: nodeID,
@@ -488,18 +488,18 @@ func (db *metabaseMock) ListVerifySegments(ctx context.Context, opts metabase.Li
 type verifierMock struct {
 	allSuccess bool
 	fail       error
-	offline    []storj.NodeID
+	offline    []storxnetwork.NodeID
 	success    []uuid.UUID
 	notFound   []uuid.UUID
 
 	mu        sync.Mutex
-	processed map[storj.NodeID][]*segmentverify.Segment
+	processed map[storxnetwork.NodeID][]*segmentverify.Segment
 }
 
-func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*segmentverify.Segment, _ bool) (int, error) {
+func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storxnetwork.NodeURL, segments []*segmentverify.Segment, _ bool) (int, error) {
 	v.mu.Lock()
 	if v.processed == nil {
-		v.processed = map[storj.NodeID][]*segmentverify.Segment{}
+		v.processed = map[storxnetwork.NodeID][]*segmentverify.Segment{}
 	}
 	v.processed[target.ID] = append(v.processed[target.ID], segments...)
 	v.mu.Unlock()

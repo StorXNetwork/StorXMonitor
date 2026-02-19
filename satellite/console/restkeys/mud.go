@@ -4,9 +4,9 @@
 package restkeys
 
 import (
-	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module is a mud module.

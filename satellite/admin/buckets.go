@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/gorilla/mux"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
 )
 
 func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID, bucket []byte, err error) {
@@ -39,30 +39,30 @@ func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID
 	return
 }
 
-func parsePlacementConstraint(regionCode string) (storj.PlacementConstraint, error) {
+func parsePlacementConstraint(regionCode string) (storxnetwork.PlacementConstraint, error) {
 	ctx := context.Background()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	switch regionCode {
 	case "EU":
-		return storj.EU, nil
+		return storxnetwork.EU, nil
 	case "EEA":
-		return storj.EEA, nil
+		return storxnetwork.EEA, nil
 	case "US":
-		return storj.US, nil
+		return storxnetwork.US, nil
 	case "DE":
-		return storj.DE, nil
+		return storxnetwork.DE, nil
 	case "NR":
-		return storj.NR, nil
+		return storxnetwork.NR, nil
 	case "":
-		return storj.DefaultPlacement, fmt.Errorf("missing region parameter")
+		return storxnetwork.DefaultPlacement, fmt.Errorf("missing region parameter")
 	default:
-		return storj.DefaultPlacement, fmt.Errorf("unrecognized region parameter: %s", regionCode)
+		return storxnetwork.DefaultPlacement, fmt.Errorf("unrecognized region parameter: %s", regionCode)
 	}
 }
 
-func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
+func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, placement storxnetwork.PlacementConstraint) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -116,7 +116,7 @@ func (server *Server) createGeofenceForBucket(w http.ResponseWriter, r *http.Req
 }
 
 func (server *Server) deleteGeofenceForBucket(w http.ResponseWriter, r *http.Request) {
-	server.updateBucket(w, r, storj.DefaultPlacement)
+	server.updateBucket(w, r, storxnetwork.DefaultPlacement)
 }
 
 func (server *Server) getBucketInfo(w http.ResponseWriter, r *http.Request) {

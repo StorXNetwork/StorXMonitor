@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestDQStrayNodes(t *testing.T) {
@@ -35,7 +35,7 @@ func TestDQStrayNodes(t *testing.T) {
 		sat.Overlay.DQStrayNodes.Loop.Pause()
 
 		cache := planet.Satellites[0].Overlay.DB
-		email := "test@storj.test"
+		email := "test@storxnetwork.test"
 		strayInfo, err := cache.Get(ctx, strayNode.ID())
 		require.NoError(t, err)
 		require.Nil(t, strayInfo.Disqualified)

@@ -15,23 +15,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/storj/shared/mudplanet"
-	"storj.io/storj/storagenode"
-	piecestore2 "storj.io/storj/storagenode/piecestore"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	piecestore2 "github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 // UploadPiece uploads a piece of data to a storage node.
 // It creates an order limit, signs it, and uploads the data to the specified node URL.
 // Returns the generated piece ID.
-func UploadPiece(ctx context.Context, t *testing.T, signer signing.Signer, nodeURL storj.NodeURL, data []byte) (id storj.PieceID) {
+func UploadPiece(ctx context.Context, t *testing.T, signer signing.Signer, nodeURL storxnetwork.NodeURL, data []byte) (id storxnetwork.PieceID) {
 	dialer, err := CreateRPCDialer()
 	require.NoError(t, err)
 
@@ -42,7 +42,7 @@ func UploadPiece(ctx context.Context, t *testing.T, signer signing.Signer, nodeU
 		_ = store.Close()
 	}()
 
-	pub, pk, err := storj.NewPieceKey()
+	pub, pk, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	pieceID := testrand.PieceID()
@@ -71,7 +71,7 @@ func UploadPiece(ctx context.Context, t *testing.T, signer signing.Signer, nodeU
 // DownloadPiece downloads a piece from a storage node.
 // It creates an order limit for downloading, signs it, and retrieves the data.
 // Returns the downloaded data as a byte slice.
-func DownloadPiece(ctx context.Context, t *testing.T, signer signing.Signer, nodeURL storj.NodeURL, pieceID storj.PieceID, size int64) (data []byte) {
+func DownloadPiece(ctx context.Context, t *testing.T, signer signing.Signer, nodeURL storxnetwork.NodeURL, pieceID storxnetwork.PieceID, size int64) (data []byte) {
 	dialer, err := CreateRPCDialer()
 	require.NoError(t, err)
 
@@ -82,7 +82,7 @@ func DownloadPiece(ctx context.Context, t *testing.T, signer signing.Signer, nod
 		_ = store.Close()
 	}()
 
-	pub, pk, err := storj.NewPieceKey()
+	pub, pk, err := storxnetwork.NewPieceKey()
 	require.NoError(t, err)
 
 	limit := &pb.OrderLimit{
@@ -141,7 +141,7 @@ func CreateRPCDialer() (rpc.Dialer, error) {
 
 // InitStoragenodeDirs initializes the directory structure required for a storage node.
 // It creates the necessary directories and writes a verification file with the node ID.
-func InitStoragenodeDirs(t *testing.T, id storj.NodeID, config *piecestore2.OldConfig) {
+func InitStoragenodeDirs(t *testing.T, id storxnetwork.NodeID, config *piecestore2.OldConfig) {
 	for _, directory := range []string{"blobs", "temp", "trash"} {
 		d := filepath.Join(config.Path, directory)
 		err := os.MkdirAll(d, 0755)

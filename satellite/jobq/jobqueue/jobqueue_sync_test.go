@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/jobq/jobqueue"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/jobqueue"
 )
 
 func TestJobqueueRetry(t *testing.T) {

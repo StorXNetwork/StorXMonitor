@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 // TestAuditSuspendBasic ensures that we can suspend a node using overlayService.SuspendNode and that we can unsuspend a node using overlayservice.UnsuspendNode.
@@ -161,14 +161,14 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 
 		// suspend each node two hours ago (more than grace period)
 		repService := planet.Satellites[0].Reputation.Service
-		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
+		for _, node := range (storxnetwork.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
 			err := repService.TestSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
 
-		nodesStatus := make(map[storj.NodeID]overlay.ReputationStatus)
+		nodesStatus := make(map[storxnetwork.NodeID]overlay.ReputationStatus)
 		// no nodes should be disqualified
-		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
+		for _, node := range (storxnetwork.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
 			n, err := repService.Get(ctx, node)
 			require.NoError(t, err)
 			require.Nil(t, n.Disqualified)
@@ -182,10 +182,10 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 
 		// give one node a successful audit, one a failed audit, one an offline audit, and one an unknown audit
 		report := audit.Report{
-			Successes:       storj.NodeIDList{successNodeID},
+			Successes:       storxnetwork.NodeIDList{successNodeID},
 			Fails:           metabase.Pieces{{StorageNode: failNodeID}},
-			Offlines:        storj.NodeIDList{offlineNodeID},
-			Unknown:         storj.NodeIDList{unknownNodeID},
+			Offlines:        storxnetwork.NodeIDList{offlineNodeID},
+			Unknown:         storxnetwork.NodeIDList{unknownNodeID},
 			NodesReputation: nodesStatus,
 		}
 		auditService := planet.Satellites[0].Audit
@@ -193,12 +193,12 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 
 		// success and offline nodes should not be disqualified
 		// fail and unknown nodes should be disqualified
-		for _, node := range (storj.NodeIDList{successNodeID, offlineNodeID}) {
+		for _, node := range (storxnetwork.NodeIDList{successNodeID, offlineNodeID}) {
 			n, err := repService.Get(ctx, node)
 			require.NoError(t, err)
 			require.Nil(t, n.Disqualified)
 		}
-		for _, node := range (storj.NodeIDList{failNodeID, unknownNodeID}) {
+		for _, node := range (storxnetwork.NodeIDList{failNodeID, unknownNodeID}) {
 			n, err := repService.Get(ctx, node)
 			require.NoError(t, err)
 			require.NotNil(t, n.Disqualified)
@@ -226,14 +226,14 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 		// suspend each node two hours ago (more than grace period)
 		oc := planet.Satellites[0].DB.OverlayCache()
 		repService := planet.Satellites[0].Reputation.Service
-		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
+		for _, node := range (storxnetwork.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
 			err := repService.TestSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
-		nodesStatus := make(map[storj.NodeID]overlay.ReputationStatus)
+		nodesStatus := make(map[storxnetwork.NodeID]overlay.ReputationStatus)
 
 		// no nodes should be disqualified
-		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
+		for _, node := range (storxnetwork.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
 			n, err := oc.Get(ctx, node)
 			require.NoError(t, err)
 			require.Nil(t, n.Disqualified)
@@ -248,10 +248,10 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 
 		// give one node a successful audit, one a failed audit, one an offline audit, and one an unknown audit
 		report := audit.Report{
-			Successes:       storj.NodeIDList{successNodeID},
+			Successes:       storxnetwork.NodeIDList{successNodeID},
 			Fails:           metabase.Pieces{{StorageNode: failNodeID}},
-			Offlines:        storj.NodeIDList{offlineNodeID},
-			Unknown:         storj.NodeIDList{unknownNodeID},
+			Offlines:        storxnetwork.NodeIDList{offlineNodeID},
+			Unknown:         storxnetwork.NodeIDList{unknownNodeID},
 			NodesReputation: nodesStatus,
 		}
 		auditService := planet.Satellites[0].Audit

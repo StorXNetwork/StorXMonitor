@@ -11,13 +11,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode/iopriority"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/iopriority"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const piecesBatchSize = 1000
@@ -105,7 +105,7 @@ func gcCmdRun(g *RunOptions) (err error) {
 
 	encoder := json.NewEncoder(g.stdout)
 	numTrashed := 0
-	pieceIDs := make([]storj.PieceID, 0, piecesBatchSize)
+	pieceIDs := make([]storxnetwork.PieceID, 0, piecesBatchSize)
 
 	flushPiecesToTrash := func() error {
 		if len(pieceIDs) == 0 {
@@ -126,7 +126,7 @@ func gcCmdRun(g *RunOptions) (err error) {
 	}
 
 	trashPiecesCount := 0
-	piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storj.PieceID) error {
+	piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storxnetwork.PieceID) error {
 		log.Debug("found a trash piece", zap.Stringer("piece_id", pieceID))
 		// we found a piece that needs to be trashed, so we notify the main process.
 		// do it in batches to avoid sending too many messages.

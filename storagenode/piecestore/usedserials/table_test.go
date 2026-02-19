@@ -11,17 +11,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/piecestore/usedserials"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 type Serial struct {
-	SatelliteID         storj.NodeID
-	SerialNumber        storj.SerialNumber
+	SatelliteID         storxnetwork.NodeID
+	SerialNumber        storxnetwork.SerialNumber
 	PartialSerialNumber usedserials.Partial
 	Expiration          time.Time
 }
@@ -31,8 +31,8 @@ func TestUsedSerials(t *testing.T) {
 
 	usedSerials := usedserials.NewTable(memory.MiB)
 
-	node0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
-	node1 := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
+	node0 := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion())
+	node1 := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion())
 
 	serial1 := testrand.SerialNumber()
 	serial2 := testrand.SerialNumber()
@@ -165,8 +165,8 @@ func TestUsedSerialsMemory(t *testing.T) {
 	}
 }
 
-func createExpirationSerial(originalSerial storj.SerialNumber, expiration time.Time) storj.SerialNumber {
-	serialWithExp := storj.SerialNumber{}
+func createExpirationSerial(originalSerial storxnetwork.SerialNumber, expiration time.Time) storxnetwork.SerialNumber {
+	serialWithExp := storxnetwork.SerialNumber{}
 	copy(serialWithExp[:], originalSerial[:])
 	// make first 8 bytes of serial expiration so that it is stored as a partial serial
 	binary.BigEndian.PutUint64(serialWithExp[0:8], uint64(expiration.Unix()))
@@ -183,7 +183,7 @@ func Benchmark(b *testing.B) {
 	r := rand.NewSource(0)
 	now := time.Now().Add(10 * 24 * time.Hour)
 	insertRandom := func() {
-		var serial storj.SerialNumber
+		var serial storxnetwork.SerialNumber
 		v := r.Int63()
 		binary.LittleEndian.PutUint64(serial[:8], uint64(v))
 		binary.LittleEndian.PutUint64(serial[8:], uint64(v))

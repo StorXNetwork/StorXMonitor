@@ -10,14 +10,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/tenancy"
+	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestFromHostname(t *testing.T) {
 	lookupMap := map[string]string{
-		"customer-a.example.com": "customer-a",
-		"customer-b.storj.io":    "customer-b",
+		"customer-a.example.com":     "customer-a",
+		"customer-b.storxnetwork.io": "customer-b",
 	}
 
 	tests := []struct {
@@ -34,7 +34,7 @@ func TestFromHostname(t *testing.T) {
 		},
 		{
 			name:      "exact match customer-b",
-			hostname:  "customer-b.storj.io",
+			hostname:  "customer-b.storxnetwork.io",
 			lookupMap: lookupMap,
 			want:      "customer-b",
 		},
@@ -46,7 +46,7 @@ func TestFromHostname(t *testing.T) {
 		},
 		{
 			name:      "hostname with standard port",
-			hostname:  "customer-b.storj.io:443",
+			hostname:  "customer-b.storxnetwork.io:443",
 			lookupMap: lookupMap,
 			want:      "customer-b",
 		},

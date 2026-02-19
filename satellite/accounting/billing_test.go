@@ -10,18 +10,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
-	t.Skip("disable until the bug https://github.com/storj/storj/issues/7373 is fixed")
+	t.Skip("disable until the bug https://github.com/storxnetwork/storxnetwork/issues/7373 is fixed")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -54,7 +54,7 @@ func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
 
 		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
 
-		// TODO: this assertion fails due to the bug https://github.com/storj/storj/issues/7373
+		// TODO: this assertion fails due to the bug https://github.com/storxnetwork/storxnetwork/issues/7373
 		require.Equal(t, len(data), int(usage.Egress), "Egress should be equal to the downloaded file size")
 	})
 }

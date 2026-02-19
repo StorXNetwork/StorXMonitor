@@ -16,16 +16,16 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
-	storjstripe "storj.io/storj/satellite/payments/stripe"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	storjstripe "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
 )
 
 func TestDeleteObjects(t *testing.T) {
@@ -498,7 +498,7 @@ func TestDeleteAccounts(t *testing.T) {
 			require.Equal(t, console.Deleted, user.Status)
 			require.Empty(t, user.FullName)
 			require.Empty(t, user.ShortName)
-			require.Equal(t, user.Email, fmt.Sprintf("deactivated+%s@storj.io", user.ID))
+			require.Equal(t, user.Email, fmt.Sprintf("deactivated+%s@storxnetwork.io", user.ID))
 		}
 
 		// Verify extra project API keys are deleted.
@@ -544,7 +544,7 @@ func TestDeleteAccounts(t *testing.T) {
 			require.NoError(t, err, uplinkIdx)
 			require.Equal(t, expectedStatus, user.Status, uplinkIdx)
 			require.NotEmpty(t, user.FullName, uplinkIdx)
-			require.NotEqual(t, user.Email, fmt.Sprintf("deactivated+%s@storj.io", userID), uplinkIdx)
+			require.NotEqual(t, user.Email, fmt.Sprintf("deactivated+%s@storxnetwork.io", userID), uplinkIdx)
 		}
 
 		// Verify that users and projects of the uplinks 7th to 10th are not marked as deleted.

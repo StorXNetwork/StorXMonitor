@@ -2,7 +2,7 @@
 model peer_identity (
 	key node_id
 
-	// node_id refers to storj.NodeID.
+	// node_id refers to storxnetwork.NodeID.
 	field node_id            blob
 	// leaf_serial_number is the certificate serial number.
 	field leaf_serial_number blob (updatable)

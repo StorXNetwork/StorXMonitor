@@ -14,12 +14,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/orders/ordersfile"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var (
@@ -52,8 +52,8 @@ const (
 
 // ArchiveRequest defines arguments for archiving a single order.
 type ArchiveRequest struct {
-	Satellite storj.NodeID
-	Serial    storj.SerialNumber
+	Satellite storxnetwork.NodeID
+	Serial    storxnetwork.SerialNumber
 	Status    Status
 }
 
@@ -66,7 +66,7 @@ type DB interface {
 	// ListUnsent returns orders that haven't been sent yet.
 	ListUnsent(ctx context.Context, limit int) ([]*ordersfile.Info, error)
 	// ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
-	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*ordersfile.Info, error)
+	ListUnsentBySatellite(ctx context.Context) (map[storxnetwork.NodeID][]*ordersfile.Info, error)
 
 	// Archive marks order as being handled.
 	Archive(ctx context.Context, archivedAt time.Time, requests ...ArchiveRequest) error
@@ -171,10 +171,10 @@ func (service *Service) CleanArchive(ctx context.Context, deleteBefore time.Time
 func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 	defer mon.Task()(&ctx)(nil)
 
-	errorSatellites := make(map[storj.NodeID]struct{})
+	errorSatellites := make(map[storxnetwork.NodeID]struct{})
 	var errorSatellitesMu sync.Mutex
 
-	addErrorSatellite := func(satelliteID storj.NodeID) {
+	addErrorSatellite := func(satelliteID storxnetwork.NodeID) {
 		errorSatellitesMu.Lock()
 		defer errorSatellitesMu.Unlock()
 		errorSatellites[satelliteID] = struct{}{}
@@ -249,7 +249,7 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 	}
 }
 
-func (service *Service) settleWindow(ctx context.Context, log *zap.Logger, nodeURL storj.NodeURL, orders []*ordersfile.Info) (status pb.SettlementWithWindowResponse_Status, err error) {
+func (service *Service) settleWindow(ctx context.Context, log *zap.Logger, nodeURL storxnetwork.NodeURL, orders []*ordersfile.Info) (status pb.SettlementWithWindowResponse_Status, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	conn, err := service.dialer.DialNodeURL(ctx, nodeURL)

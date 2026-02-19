@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrProjectRecordExists is error class defining that such project record already exists.

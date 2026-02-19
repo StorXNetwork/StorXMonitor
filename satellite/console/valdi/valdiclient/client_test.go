@@ -17,9 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/httpmock"
-	"storj.io/storj/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/StorXMonitor/private/httpmock"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func generateKey(t *testing.T, ctx *testcontext.Context) (f *os.File, path string) {
@@ -136,7 +136,7 @@ func TestCreateUser(t *testing.T) {
 	mockClient, transport := httpmock.NewClient()
 
 	createUser := valdiclient.UserCreationData{
-		Email:    "test@storj.test",
+		Email:    "test@storxnetwork.test",
 		Username: "teststorj",
 		Country:  "USA",
 	}
@@ -251,7 +251,7 @@ func TestCreateAPIKey(t *testing.T) {
 				Body:       string(keyJSONData),
 			})
 
-			apiKey, status, err := vClient.CreateAPIKey(ctx, "test@storj.test")
+			apiKey, status, err := vClient.CreateAPIKey(ctx, "test@storxnetwork.test")
 			require.NoError(t, err)
 			require.Equal(t, expectStatus, status)
 			require.NotNil(t, apiKey)
@@ -264,7 +264,7 @@ func TestCreateAPIKey(t *testing.T) {
 				Body:       string(errJSONData),
 			})
 
-			apiKey, status, err := vClient.CreateAPIKey(ctx, "test@storj.test")
+			apiKey, status, err := vClient.CreateAPIKey(ctx, "test@storxnetwork.test")
 			require.Error(t, err)
 			require.Contains(t, err.Error(), valdiErr.Detail)
 			require.Equal(t, expectStatus, status)

@@ -7,7 +7,7 @@ import (
 	"context"
 	"math"
 
-	"storj.io/storj/satellite/repair"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair"
 )
 
 // Health defines an interface for calculating segment health.

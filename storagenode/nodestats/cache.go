@@ -14,13 +14,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Config defines nodestats cache configuration.
@@ -77,7 +77,7 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
-	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
+	err := cache.satelliteLoop(ctx, func(satelliteID storxnetwork.NodeID) error {
 		stubHistory, err := cache.payoutEndpoint.GetAllPaystubs(ctx, satelliteID)
 		if err != nil {
 			return err
@@ -136,13 +136,13 @@ func (cache *Cache) Run(ctx context.Context) error {
 // UsageStat caches last space usage value for each satellite, to make it available for monkit.
 type UsageStat struct {
 	mu        sync.Mutex
-	usedBytes map[storj.NodeID]float64
+	usedBytes map[storxnetwork.NodeID]float64
 }
 
 // NewUsageStat initializes a UsageState.
 func NewUsageStat() *UsageStat {
 	return &UsageStat{
-		usedBytes: make(map[storj.NodeID]float64),
+		usedBytes: make(map[storxnetwork.NodeID]float64),
 	}
 }
 
@@ -156,7 +156,7 @@ func (u *UsageStat) Stats(cb func(key monkit.SeriesKey, field string, val float6
 }
 
 // Update updates the cached value.
-func (u *UsageStat) Update(satellite storj.NodeID, usedSpace float64) {
+func (u *UsageStat) Update(satellite storxnetwork.NodeID, usedSpace float64) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.usedBytes[satellite] = usedSpace
@@ -174,7 +174,7 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 	// start from last day of previous month
 	startDate = startDate.AddDate(0, 0, -1)
 
-	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
+	return cache.satelliteLoop(ctx, func(satellite storxnetwork.NodeID) error {
 		spaceUsages, err := cache.service.GetDailyStorageUsage(ctx, satellite, startDate, endDate)
 		if err != nil {
 			return err
@@ -200,7 +200,7 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
+	return cache.satelliteLoop(ctx, func(satellite storxnetwork.NodeID) error {
 		now := time.Now().String()
 		yearAndMonth, err := date.PeriodToTime(now)
 		if err != nil {
@@ -256,7 +256,7 @@ func (cache *Cache) sleep(ctx context.Context) error {
 
 // satelliteLoop loops over all satellites from trust pool executing provided fn, caching errors if occurred,
 // on each step checks if context has been cancelled.
-func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) error) error {
+func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storxnetwork.NodeID) error) error {
 	var groupErr errs.Group
 	for _, satellite := range cache.trust.GetSatellites(ctx) {
 		select {

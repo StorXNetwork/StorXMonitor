@@ -18,19 +18,19 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/encryption"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/eventkit"
 )
 
 const (
@@ -179,7 +179,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 
-	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storxnetwork.NoRetention && !retention.Enabled() {
 		err = validateObjectRetentionWithTTL(maxObjectTTL, req.ExpiresAt)
 		if err != nil {
 			return nil, err
@@ -199,8 +199,8 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	// TODO this will work only with newest uplink
 	// figure out what to do with this
-	encryptionParameters := storj.EncryptionParameters{
-		CipherSuite: storj.CipherSuite(req.EncryptionParameters.CipherSuite),
+	encryptionParameters := storxnetwork.EncryptionParameters{
+		CipherSuite: storxnetwork.CipherSuite(req.EncryptionParameters.CipherSuite),
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
@@ -400,17 +400,17 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 	// for old uplinks get Encryption from StreamMeta
 	streamMeta := &pb.StreamMeta{}
-	encryption := storj.EncryptionParameters{}
+	encryption := storxnetwork.EncryptionParameters{}
 	err = pb.Unmarshal(req.EncryptedMetadata, streamMeta)
 	if err != nil {
 		// TODO: what if this is an error we don't expect?
 	} else {
-		encryption.CipherSuite = storj.CipherSuite(streamMeta.EncryptionType)
+		encryption.CipherSuite = storxnetwork.CipherSuite(streamMeta.EncryptionType)
 		encryption.BlockSize = streamMeta.EncryptionBlockSize
 	}
 	if encryption.IsZero() {
-		encryption = storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(streamID.EncryptionParameters.CipherSuite),
+		encryption = storxnetwork.EncryptionParameters{
+			CipherSuite: storxnetwork.CipherSuite(streamID.EncryptionParameters.CipherSuite),
 			BlockSize:   int32(streamID.EncryptionParameters.BlockSize), // TODO unsafe conversion
 		}
 	}
@@ -650,7 +650,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, err
 	}
 
-	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storxnetwork.NoRetention && !retention.Enabled() {
 		err = validateObjectRetentionWithTTL(maxObjectTTL, beginObjectReq.ExpiresAt)
 		if err != nil {
 			return nil, nil, nil, err
@@ -691,8 +691,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create stream id")
 	}
 
-	encryptionParameters := storj.EncryptionParameters{
-		CipherSuite: storj.CipherSuite(beginObjectReq.EncryptionParameters.CipherSuite),
+	encryptionParameters := storxnetwork.EncryptionParameters{
+		CipherSuite: storxnetwork.CipherSuite(beginObjectReq.EncryptionParameters.CipherSuite),
 		BlockSize:   int32(beginObjectReq.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
@@ -770,7 +770,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	mon.Meter("req_put_inline_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
-			StreamId: storj.StreamID{1}, // return dummy stream id as it won't be really used later
+			StreamId: storxnetwork.StreamID{1}, // return dummy stream id as it won't be really used later
 		}, &pb.SegmentMakeInlineResponse{}, &pb.ObjectCommitResponse{
 			Object: pbObject,
 		}, nil
@@ -1104,7 +1104,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			)
 		}
 
-		encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
+		encryptedKeyNonce, err := storxnetwork.NonceFromBytes(segment.EncryptedKeyNonce)
 		if err != nil {
 			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get encryption key nonce from metadata")
 		}
@@ -1158,7 +1158,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			bucketLocation = metabase.BucketLocation{}
 		}
 
-		var privateKey storj.PiecePrivateKey
+		var privateKey storxnetwork.PiecePrivateKey
 		if req.LiteRequest {
 			// Lite responses don't have signed orders limits and the piece ID because the lite request are
 			// only accepted by trusted clients. Clients will add the signature and reconstruct the piece ID,
@@ -1279,7 +1279,7 @@ func convertSegmentListResults(segments metabase.ListSegmentsResult) (*pb.Segmen
 			EncryptedKey:  item.EncryptedKey,
 		}
 		var err error
-		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
+		items[i].EncryptedKeyNonce, err = storxnetwork.NonceFromBytes(item.EncryptedKeyNonce)
 		if err != nil {
 			return nil, err
 		}
@@ -1299,7 +1299,7 @@ type downloadSizes struct {
 	orderLimit int64
 }
 
-func (endpoint *Endpoint) calculateDownloadSizes(streamRange *metabase.StreamRange, segment metabase.Segment, encryptionParams storj.EncryptionParameters) downloadSizes {
+func (endpoint *Endpoint) calculateDownloadSizes(streamRange *metabase.StreamRange, segment metabase.Segment, encryptionParams storxnetwork.EncryptionParameters) downloadSizes {
 	if segment.Inline() {
 		return downloadSizes{
 			plainSize:     int64(len(segment.InlineData)),
@@ -1324,7 +1324,7 @@ func (endpoint *Endpoint) calculateDownloadSizes(streamRange *metabase.StreamRan
 	readLimit -= segment.PlainOffset
 
 	// align to encryption block size
-	enc, err := encryption.NewEncrypter(encryptionParams.CipherSuite, &storj.Key{1}, &storj.Nonce{1}, int(encryptionParams.BlockSize))
+	enc, err := encryption.NewEncrypter(encryptionParams.CipherSuite, &storxnetwork.Key{1}, &storxnetwork.Nonce{1}, int(encryptionParams.BlockSize))
 	if err != nil {
 		// We ignore the error and fallback to the max amount to download.
 		// It's unlikely that we fail here, but if we do, we don't want to block downloading.
@@ -1901,8 +1901,8 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
-	var pieceCountByNodeID map[storj.NodeID]int64
-	var placement storj.PlacementConstraint
+	var pieceCountByNodeID map[storxnetwork.NodeID]int64
+	var placement storxnetwork.PlacementConstraint
 
 	// TODO this is short term fix to easily filter out IPs out of bucket/object placement
 	// this request is not heavily used so it should be fine to add additional request to DB for now.
@@ -1924,7 +1924,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
-	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
+	nodeIDs := make([]storxnetwork.NodeID, 0, len(pieceCountByNodeID))
 	for nodeID := range pieceCountByNodeID {
 		nodeIDs = append(nodeIDs, nodeID)
 	}
@@ -2361,9 +2361,9 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		return nil, err
 	}
 
-	var nonce storj.Nonce
+	var nonce storxnetwork.Nonce
 	if len(object.EncryptedMetadataNonce) > 0 {
-		nonce, err = storj.NonceFromBytes(object.EncryptedMetadataNonce)
+		nonce, err = storxnetwork.NonceFromBytes(object.EncryptedMetadataNonce)
 		if err != nil {
 			return nil, err
 		}
@@ -2474,7 +2474,7 @@ func (include *includeForObjectEntry) etag(entry *metabase.ObjectEntry) bool {
 
 func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte,
 	entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey,
-	include includeForObjectEntry, placement storj.PlacementConstraint, versioned bool) (item *pb.ObjectListItem, err error) {
+	include includeForObjectEntry, placement storxnetwork.PlacementConstraint, versioned bool) (item *pb.ObjectListItem, err error) {
 
 	item = &pb.ObjectListItem{
 		EncryptedObjectKey: []byte(entry.ObjectKey),
@@ -2495,9 +2495,9 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	}
 
 	if include.keyAndNonce(&entry) {
-		var nonce storj.Nonce
+		var nonce storxnetwork.Nonce
 		if len(entry.EncryptedMetadataNonce) > 0 {
-			nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+			nonce, err = storxnetwork.NonceFromBytes(entry.EncryptedMetadataNonce)
 			if err != nil {
 				return nil, err
 			}
@@ -2514,7 +2514,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			}
 		}
 
-		if entry.Encryption != (storj.EncryptionParameters{}) {
+		if entry.Encryption != (storxnetwork.EncryptionParameters{}) {
 			streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
 			streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
 		}
@@ -2676,10 +2676,10 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.ObjectBeginMoveResponse, error) {
 	keys := make([]*pb.EncryptedKeyAndNonce, len(result.EncryptedKeysNonces))
 	for i, key := range result.EncryptedKeysNonces {
-		var nonce storj.Nonce
+		var nonce storxnetwork.Nonce
 		var err error
 		if len(key.EncryptedKeyNonce) != 0 {
-			nonce, err = storj.NonceFromBytes(key.EncryptedKeyNonce)
+			nonce, err = storxnetwork.NonceFromBytes(key.EncryptedKeyNonce)
 			if err != nil {
 				return nil, err
 			}
@@ -2708,10 +2708,10 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 		}
 	}
 
-	var metadataNonce storj.Nonce
+	var metadataNonce storxnetwork.Nonce
 	var err error
 	if len(result.EncryptedMetadataNonce) != 0 {
-		metadataNonce, err = storj.NonceFromBytes(result.EncryptedMetadataNonce)
+		metadataNonce, err = storxnetwork.NonceFromBytes(result.EncryptedMetadataNonce)
 		if err != nil {
 			return nil, err
 		}
@@ -2811,7 +2811,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		return nil, err
 	}
 
-	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storxnetwork.NoRetention && !retention.Enabled() {
 		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
 	}
 
@@ -3095,7 +3095,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, err
 	}
 
-	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storxnetwork.NoRetention && !retention.Enabled() {
 		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
 	}
 
@@ -3164,7 +3164,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}, nil
 }
 
-func nonceBytes(nonce storj.Nonce) []byte {
+func nonceBytes(nonce storxnetwork.Nonce) []byte {
 	if nonce.IsZero() {
 		return nil
 	}

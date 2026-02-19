@@ -11,11 +11,11 @@ import (
 
 	"cloud.google.com/go/spanner"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const noLockOnUnversionedErrMsg = "Object Lock settings must not be placed on unversioned objects"
@@ -56,7 +56,7 @@ type BeginMoveCopyResults struct {
 	Version  Version
 	EncryptedUserData
 	EncryptedKeysNonces  []EncryptedKeyAndNonce
-	EncryptionParameters storj.EncryptionParameters
+	EncryptionParameters storxnetwork.EncryptionParameters
 }
 
 // BeginMoveObject collects all data needed to begin object move procedure.
@@ -187,7 +187,7 @@ type FinishMoveObject struct {
 	NewSegmentKeys        []EncryptedKeyAndNonce
 	NewEncryptedObjectKey ObjectKey
 	// Optional. Required if object has metadata.
-	NewEncryptedMetadataNonce        storj.Nonce
+	NewEncryptedMetadataNonce        storxnetwork.Nonce
 	NewEncryptedMetadataEncryptedKey []byte
 
 	// NewDisallowDelete indicates whether the user is allowed to delete an existing unversioned object.
@@ -449,7 +449,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		totalPlainSize                int64
 		totalEncryptedSize            int64
 		fixedSegmentSize              int64
-		encryption                    storj.EncryptionParameters
+		encryption                    storxnetwork.EncryptionParameters
 		zombieDeletionDeadline        *time.Time
 	)
 

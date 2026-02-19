@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 // TestSyncObserverV2RangeDoesNotPanic ensures that incomplete last
@@ -30,7 +30,7 @@ func TestSyncObserverV2RangeDoesNotPanic(t *testing.T) {
 	node2 := testrand.NodeID()
 	node3 := testrand.NodeID()
 
-	observer.lastPieceCounts = map[storj.NodeID]int64{
+	observer.lastPieceCounts = map[storxnetwork.NodeID]int64{
 		node1: 1,
 		node2: 2,
 		node3: 3,
@@ -46,7 +46,7 @@ func TestSyncObserverV2RangeDoesNotPanic(t *testing.T) {
 	observer.add(testrand.NodeID(), testrand.PieceID())
 
 	var count int
-	observer.retainInfos.Range(func(_ storj.NodeID, info *RetainInfo) bool {
+	observer.retainInfos.Range(func(_ storxnetwork.NodeID, info *RetainInfo) bool {
 		require.NotPanics(t, func() { count += info.Count })
 		return true
 	})

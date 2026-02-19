@@ -8,14 +8,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestUpdateValueAttributionPlacement(t *testing.T) {
@@ -34,7 +34,7 @@ func TestUpdateValueAttributionPlacement(t *testing.T) {
 		require.NotNil(t, info)
 		require.Nil(t, info.Placement)
 
-		newPlacement := storj.PlacementConstraint(1)
+		newPlacement := storxnetwork.PlacementConstraint(1)
 
 		err = vaDB.UpdatePlacement(ctx, projectID, bucketName, &newPlacement)
 		require.NoError(t, err)
@@ -70,14 +70,14 @@ func TestBackfillPlacementBatch(t *testing.T) {
 			testrand.BucketName(),
 			testrand.BucketName(), // this one gets initial non-null placement.
 		}
-		bmPlacements := []storj.PlacementConstraint{
-			storj.PlacementConstraint(1),
-			storj.PlacementConstraint(2),
-			storj.PlacementConstraint(3),
-			storj.PlacementConstraint(42),
+		bmPlacements := []storxnetwork.PlacementConstraint{
+			storxnetwork.PlacementConstraint(1),
+			storxnetwork.PlacementConstraint(2),
+			storxnetwork.PlacementConstraint(3),
+			storxnetwork.PlacementConstraint(42),
 		}
 		// Value attribution initial placements: nil for first three, non-nil for the fourth.
-		vaInitial := map[string]*storj.PlacementConstraint{
+		vaInitial := map[string]*storxnetwork.PlacementConstraint{
 			bucketNames[0]: nil,
 			bucketNames[1]: nil,
 			bucketNames[2]: nil,
@@ -108,7 +108,7 @@ func TestBackfillPlacementBatch(t *testing.T) {
 		require.True(t, hasNext)
 
 		// Fetch all attributions and count updated ones (non-nil).
-		updated := make(map[string]storj.PlacementConstraint)
+		updated := make(map[string]storxnetwork.PlacementConstraint)
 		for _, name := range bucketNames {
 			info, err := vaDB.Get(ctx, project.ID, []byte(name))
 			require.NoError(t, err)

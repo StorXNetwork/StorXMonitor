@@ -7,8 +7,8 @@ import (
 	"context"
 	"sync"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // CachedPublicProjectIDs wraps the database layer to provide caching.

@@ -11,11 +11,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RandObjectStream returns a random object stream.
@@ -120,7 +120,7 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 			Opts: metabase.BeginSegment{
 				ObjectStream: obj,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{i + 1},
+				RootPieceID:  storxnetwork.PieceID{i + 1},
 				Pieces: []metabase.Piece{{
 					Number:      1,
 					StorageNode: testrand.NodeID(),
@@ -132,11 +132,11 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 		commitSegmentOpts := metabase.CommitSegment{
 			ObjectStream: obj,
 			Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-			RootPieceID:  storj.PieceID{1},
+			RootPieceID:  storxnetwork.PieceID{1},
 
 			ExpiresAt: expiresAt,
 
-			Pieces: metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+			Pieces: metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 			EncryptedKey:      []byte{3},
 			EncryptedKeyNonce: []byte{4},
@@ -205,12 +205,12 @@ func MakeSegments(obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegme
 		segments = append(segments, metabase.RawSegment{
 			StreamID:    obj.StreamID,
 			Position:    metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-			RootPieceID: storj.PieceID{1},
+			RootPieceID: storxnetwork.PieceID{1},
 
 			CreatedAt: time.Now(),
 			ExpiresAt: expiresAt,
 
-			Pieces: metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+			Pieces: metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 			EncryptedKey:      []byte{3},
 			EncryptedKeyNonce: []byte{4},
@@ -367,7 +367,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-					RootPieceID:  storj.PieceID{i + 1},
+					RootPieceID:  storxnetwork.PieceID{i + 1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
@@ -380,8 +380,8 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				ObjectStream: obj,
 				ExpiresAt:    boeOpts.ExpiresAt,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{1},
-				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				RootPieceID:  storxnetwork.PieceID{1},
+				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},

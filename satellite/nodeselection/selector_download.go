@@ -11,7 +11,7 @@ import (
 	"github.com/jtolio/mito"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DownloadSelector will take a map of possible nodes to choose for a download.
@@ -20,7 +20,7 @@ import (
 // element in result will have come from possibleNodes. 'needed' is a hint to
 // the selector of how many nodes are needed for return ideally, so many
 // selectors will try to return at least 'needed' nodes.
-type DownloadSelector func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (map[storj.NodeID]*SelectedNode, error)
+type DownloadSelector func(ctx context.Context, requester storxnetwork.NodeID, possibleNodes map[storxnetwork.NodeID]*SelectedNode, needed int) (map[storxnetwork.NodeID]*SelectedNode, error)
 
 // DownloadSelectorFromString parses complex node download selection expressions
 // from config lines.
@@ -55,10 +55,10 @@ var ExcludeAllDownloadSelector DownloadSelector = excludeAllDownloadSelector
 
 var excludeAllDownloadSelectorTask = mon.Task()
 
-func excludeAllDownloadSelector(ctx context.Context, _ storj.NodeID, _ map[storj.NodeID]*SelectedNode, _ int) (_ map[storj.NodeID]*SelectedNode, err error) {
+func excludeAllDownloadSelector(ctx context.Context, _ storxnetwork.NodeID, _ map[storxnetwork.NodeID]*SelectedNode, _ int) (_ map[storxnetwork.NodeID]*SelectedNode, err error) {
 	defer excludeAllDownloadSelectorTask(&ctx)(&err)
 
-	return map[storj.NodeID]*SelectedNode{}, nil
+	return map[storxnetwork.NodeID]*SelectedNode{}, nil
 }
 
 // DefaultDownloadSelector is a DownloadSelector that returns the set of
@@ -67,7 +67,7 @@ var DefaultDownloadSelector DownloadSelector = defaultDownloadSelector
 
 var defaultDownloadSelectorTask = mon.Task()
 
-func defaultDownloadSelector(ctx context.Context, _ storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, _ int) (_ map[storj.NodeID]*SelectedNode, err error) {
+func defaultDownloadSelector(ctx context.Context, _ storxnetwork.NodeID, possibleNodes map[storxnetwork.NodeID]*SelectedNode, _ int) (_ map[storxnetwork.NodeID]*SelectedNode, err error) {
 	defer defaultDownloadSelectorTask(&ctx)(&err)
 	return possibleNodes, nil
 }
@@ -78,7 +78,7 @@ var downloadChoiceOfNTask = mon.Task()
 // of n. n is an int64 type due to a mito scripting shortcoming but really an
 // int16 should be fine.
 func DownloadChoiceOfN(comparison CompareNodes, n int64) DownloadSelector {
-	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
+	return func(ctx context.Context, requester storxnetwork.NodeID, possibleNodes map[storxnetwork.NodeID]*SelectedNode, needed int) (_ map[storxnetwork.NodeID]*SelectedNode, err error) {
 		defer downloadChoiceOfNTask(&ctx)(&err)
 		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
 		for _, node := range possibleNodes {
@@ -87,7 +87,7 @@ func DownloadChoiceOfN(comparison CompareNodes, n int64) DownloadSelector {
 
 		nodeSlice = choiceOfNReduction(ctx, comparison(requester), int(n), nodeSlice, needed)
 
-		result := make(map[storj.NodeID]*SelectedNode, needed)
+		result := make(map[storxnetwork.NodeID]*SelectedNode, needed)
 		for _, node := range nodeSlice {
 			result[node.ID] = node
 		}
@@ -99,7 +99,7 @@ var downloadBestTask = mon.Task()
 
 // DownloadBest will take a set of nodes and will return just the best nodes.
 func DownloadBest(tracker UploadSuccessTracker) DownloadSelector {
-	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
+	return func(ctx context.Context, requester storxnetwork.NodeID, possibleNodes map[storxnetwork.NodeID]*SelectedNode, needed int) (_ map[storxnetwork.NodeID]*SelectedNode, err error) {
 		defer downloadBestTask(&ctx)(&err)
 		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
 		for _, node := range possibleNodes {
@@ -122,7 +122,7 @@ func DownloadBest(tracker UploadSuccessTracker) DownloadSelector {
 			nodeSlice = nodeSlice[:needed]
 		}
 
-		result := make(map[storj.NodeID]*SelectedNode, needed)
+		result := make(map[storxnetwork.NodeID]*SelectedNode, needed)
 		for _, node := range nodeSlice {
 			result[node.ID] = node
 		}
@@ -134,15 +134,15 @@ var downloadSwitchTask = mon.Task()
 
 // DownloadSwitch creates a DownloadSelector that tries cases in order, then falls back to default.
 func DownloadSwitch(dflt DownloadSelector, cases ...DownloadCase) DownloadSelector {
-	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
+	return func(ctx context.Context, requester storxnetwork.NodeID, possibleNodes map[storxnetwork.NodeID]*SelectedNode, needed int) (_ map[storxnetwork.NodeID]*SelectedNode, err error) {
 		defer downloadSwitchTask(&ctx)(&err)
 
-		remainingNodes := make(map[storj.NodeID]*SelectedNode)
+		remainingNodes := make(map[storxnetwork.NodeID]*SelectedNode)
 		for id, node := range possibleNodes {
 			remainingNodes[id] = node
 		}
 
-		result := make(map[storj.NodeID]*SelectedNode)
+		result := make(map[storxnetwork.NodeID]*SelectedNode)
 		remainingNeeded := needed
 
 		// Try each case in order
@@ -201,19 +201,19 @@ func NewDownloadCase(condition DownloadCondition, selector DownloadSelector) Dow
 }
 
 // DownloadCondition is a function that determines if a condition is met for a requester.
-type DownloadCondition func(ctx context.Context, requestor storj.NodeID) bool
+type DownloadCondition func(ctx context.Context, requestor storxnetwork.NodeID) bool
 
 // RequesterIs creates a DownloadCondition that matches if the requester is one of the target nodes.
 func RequesterIs(targets ...string) DownloadCondition {
-	var nodeIDs []storj.NodeID
+	var nodeIDs []storxnetwork.NodeID
 	for _, id := range targets {
-		nodeID, err := storj.NodeIDFromString(id)
+		nodeID, err := storxnetwork.NodeIDFromString(id)
 		if err != nil {
 			panic("Invalid NodeID: " + id)
 		}
 		nodeIDs = append(nodeIDs, nodeID)
 	}
-	return func(ctx context.Context, requester storj.NodeID) bool {
+	return func(ctx context.Context, requester storxnetwork.NodeID) bool {
 		for _, target := range nodeIDs {
 			if target == requester {
 				return true
@@ -227,11 +227,11 @@ var downloadFilterTask = mon.Task()
 
 // DownloadFilter creates a DownloadSelector that applies a filter before using another selector.
 func DownloadFilter(filter NodeFilter, selector DownloadSelector) DownloadSelector {
-	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
+	return func(ctx context.Context, requester storxnetwork.NodeID, possibleNodes map[storxnetwork.NodeID]*SelectedNode, needed int) (_ map[storxnetwork.NodeID]*SelectedNode, err error) {
 		defer downloadFilterTask(&ctx)(&err)
 
 		// Filter nodes based on the provided filter
-		filteredNodes := make(map[storj.NodeID]*SelectedNode)
+		filteredNodes := make(map[storxnetwork.NodeID]*SelectedNode)
 		for id, node := range possibleNodes {
 			if filter.Match(node) {
 				filteredNodes[id] = node

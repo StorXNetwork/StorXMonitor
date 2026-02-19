@@ -4,8 +4,8 @@
 package trust_test
 
 import (
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 func makeSatelliteURL(host string) trust.SatelliteURL {

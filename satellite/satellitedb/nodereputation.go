@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 // VerifyRetryInterval = 4 * time.Hour
 )
 
-// nodeReputation implements storj.io/storj/satellite/audit.NodeReputation.
+// nodeReputation implements github.com/StorXNetwork/StorXMonitor/satellite/audit.NodeReputation.
 type nodeReputation struct {
 	db *satelliteDB
 }
@@ -77,7 +77,7 @@ func (nr *nodeReputation) NodeSmartContractStatus(ctx context.Context, wallet, m
 }
 
 // ActivateNode activates a node in the database.
-func (nr *nodeReputation) ActivateNode(ctx context.Context, nodeID storj.NodeID) error {
+func (nr *nodeReputation) ActivateNode(ctx context.Context, nodeID storxnetwork.NodeID) error {
 	_, err := nr.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID[:]), dbx.Node_Update_Fields{
 		Inactive: dbx.Node_Inactive(false),
 	})

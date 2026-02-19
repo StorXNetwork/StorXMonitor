@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 const noLockOnDeleteMarkerErrMsg = "Object Lock settings must not be placed on delete markers"
@@ -59,7 +59,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					StreamID: obj.StreamID,
 					OldPieces: []metabase.Piece{{
 						Number:      1,
-						StorageNode: storj.NodeID{},
+						StorageNode: storxnetwork.NodeID{},
 					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -157,7 +157,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					NewRedundancy: metabasetest.DefaultRedundancy,
 					NewPieces: []metabase.Piece{{
 						Number:      1,
-						StorageNode: storj.NodeID{},
+						StorageNode: storxnetwork.NodeID{},
 					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -239,7 +239,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 			obj := metabasetest.CreateObject(ctx, t, db, obj, 1)
 
-			newRedundancy := storj.RedundancyScheme{
+			newRedundancy := storxnetwork.RedundancyScheme{
 				RequiredShares: 1,
 				RepairShares:   1,
 				OptimalShares:  1,
@@ -271,7 +271,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID:          obj.StreamID,
-						RootPieceID:       storj.PieceID{1},
+						RootPieceID:       storxnetwork.PieceID{1},
 						CreatedAt:         now,
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
@@ -281,7 +281,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						PlainSize:         512,
 
 						Redundancy: metabasetest.DefaultRedundancy,
-						Pieces:     metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						Pieces:     metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 					},
 				},
 			}.Check(ctx, t, db)
@@ -431,7 +431,7 @@ func TestSetObjectExactVersionLegalHold(t *testing.T) {
 		loc := objStream.Location()
 
 		activeRetention := metabase.Retention{
-			Mode:        storj.ComplianceMode,
+			Mode:        storxnetwork.ComplianceMode,
 			RetainUntil: time.Now().Add(time.Hour),
 		}
 
@@ -672,7 +672,7 @@ func TestSetObjectLastCommittedLegalHold(t *testing.T) {
 			objStream := objStream
 
 			obj1 := createObject(t, objStream, metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Now().Add(time.Hour),
 			}, false)
 			objStream.Version++
@@ -701,7 +701,7 @@ func TestSetObjectLastCommittedLegalHold(t *testing.T) {
 
 			objStream := objStream
 			createObject(t, objStream, metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Now().Add(time.Hour),
 			}, true)
 
@@ -864,10 +864,10 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 		testCases := []struct {
 			name string
-			mode storj.RetentionMode
+			mode storxnetwork.RetentionMode
 		}{
-			{name: "Compliance mode", mode: storj.ComplianceMode},
-			{name: "Governance mode", mode: storj.GovernanceMode},
+			{name: "Compliance mode", mode: storxnetwork.ComplianceMode},
+			{name: "Governance mode", mode: storxnetwork.GovernanceMode},
 		}
 
 		t.Run("Set retention", func(t *testing.T) {
@@ -985,7 +985,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 						errClass *errs.Class
 						errText  string
 					)
-					if tt.mode == storj.GovernanceMode {
+					if tt.mode == storxnetwork.GovernanceMode {
 						activeRetentionObj.Retention = metabase.Retention{}
 					} else {
 						errClass = &metabase.ErrObjectLock
@@ -1049,7 +1049,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 						errClass *errs.Class
 						errText  string
 					)
-					if tt.mode == storj.GovernanceMode {
+					if tt.mode == storxnetwork.GovernanceMode {
 						obj.Retention = opts.Retention
 					} else {
 						errClass = &metabase.ErrObjectLock
@@ -1076,7 +1076,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			future := time.Now().Add(time.Hour)
 
 			obj := createObject(t, objStream, metabase.Retention{
-				Mode:        storj.GovernanceMode,
+				Mode:        storxnetwork.GovernanceMode,
 				RetainUntil: future,
 			})
 
@@ -1084,7 +1084,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 				ObjectLocation: loc,
 				Version:        obj.Version,
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: future,
 				},
 			}
@@ -1113,7 +1113,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// Compliance mode shouldn't be able to be switched to governance mode regardless of BypassGovernance.
-			opts.Retention.Mode = storj.GovernanceMode
+			opts.Retention.Mode = storxnetwork.GovernanceMode
 			opts.BypassGovernance = false
 
 			metabasetest.SetObjectExactVersionRetention{
@@ -1144,7 +1144,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1163,7 +1163,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			}
 
 			check(metabase.Retention{
-				Mode: storj.ComplianceMode,
+				Mode: storxnetwork.ComplianceMode,
 			}, "retention period expiration must be set if retention mode is set")
 
 			check(metabase.Retention{
@@ -1171,7 +1171,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			}, "retention period expiration must not be set if retention mode is not set")
 
 			check(metabase.Retention{
-				Mode:        storj.RetentionMode(3),
+				Mode:        storxnetwork.RetentionMode(3),
 				RetainUntil: future,
 			}, "invalid retention mode 3")
 
@@ -1185,7 +1185,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1219,7 +1219,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1250,7 +1250,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1283,7 +1283,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1341,10 +1341,10 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 		testCases := []struct {
 			name string
-			mode storj.RetentionMode
+			mode storxnetwork.RetentionMode
 		}{
-			{name: "Compliance mode", mode: storj.ComplianceMode},
-			{name: "Governance mode", mode: storj.GovernanceMode},
+			{name: "Compliance mode", mode: storxnetwork.ComplianceMode},
+			{name: "Governance mode", mode: storxnetwork.GovernanceMode},
 		}
 
 		t.Run("Set retention", func(t *testing.T) {
@@ -1448,7 +1448,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 						errClass *errs.Class
 						errText  string
 					)
-					if tt.mode == storj.GovernanceMode {
+					if tt.mode == storxnetwork.GovernanceMode {
 						activeRetentionObj.Retention = metabase.Retention{}
 					} else {
 						errClass = &metabase.ErrObjectLock
@@ -1510,7 +1510,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 						errClass *errs.Class
 						errText  string
 					)
-					if tt.mode == storj.GovernanceMode {
+					if tt.mode == storxnetwork.GovernanceMode {
 						obj.Retention = opts.Retention
 					} else {
 						errClass = &metabase.ErrObjectLock
@@ -1537,14 +1537,14 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			future := time.Now().Add(time.Hour)
 
 			obj := createObject(t, objStream, metabase.Retention{
-				Mode:        storj.GovernanceMode,
+				Mode:        storxnetwork.GovernanceMode,
 				RetainUntil: future,
 			})
 
 			opts := metabase.SetObjectLastCommittedRetention{
 				ObjectLocation: loc,
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: future,
 				},
 			}
@@ -1573,7 +1573,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// Compliance mode shouldn't be able to be switched to governance mode regardless of BypassGovernance.
-			opts.Retention.Mode = storj.GovernanceMode
+			opts.Retention.Mode = storxnetwork.GovernanceMode
 			opts.BypassGovernance = false
 
 			metabasetest.SetObjectLastCommittedRetention{
@@ -1604,7 +1604,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1622,7 +1622,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			}
 
 			check(metabase.Retention{
-				Mode: storj.ComplianceMode,
+				Mode: storxnetwork.ComplianceMode,
 			}, "retention period expiration must be set if retention mode is set")
 
 			check(metabase.Retention{
@@ -1630,7 +1630,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			}, "retention period expiration must not be set if retention mode is not set")
 
 			check(metabase.Retention{
-				Mode:        storj.RetentionMode(3),
+				Mode:        storxnetwork.RetentionMode(3),
 				RetainUntil: future,
 			}, "invalid retention mode 3")
 
@@ -1644,7 +1644,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1664,7 +1664,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1717,7 +1717,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 
@@ -1749,7 +1749,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 			future := time.Now().Add(time.Hour)
 			retention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: future,
 			}
 

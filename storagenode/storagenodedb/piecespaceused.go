@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.
@@ -103,7 +103,7 @@ func (db *pieceSpaceUsedDB) GetTrashTotal(ctx context.Context) (total int64, err
 }
 
 // GetPieceTotalsForAllSatellites returns how much space used by pieces stored for each satelliteID.
-func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) (_ map[storj.NodeID]pieces.SatelliteUsage, err error) {
+func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) (_ map[storxnetwork.NodeID]pieces.SatelliteUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `
@@ -120,10 +120,10 @@ func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) 
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	totalBySatellite := map[storj.NodeID]pieces.SatelliteUsage{}
+	totalBySatellite := map[storxnetwork.NodeID]pieces.SatelliteUsage{}
 	for rows.Next() {
 		var total, contentSize int64
-		var satelliteID storj.NodeID
+		var satelliteID storxnetwork.NodeID
 
 		err = rows.Scan(&total, &contentSize, &satelliteID)
 		if err != nil {
@@ -152,7 +152,7 @@ func (db *pieceSpaceUsedDB) UpdateTrashTotal(ctx context.Context, newTotal int64
 
 // UpdatePieceTotalsForAllSatellites updates each record with new values for each satelliteID.
 // If the usage values are set to zero for a satellite, the record is deleted.
-func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]pieces.SatelliteUsage) (err error) {
+func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storxnetwork.NodeID]pieces.SatelliteUsage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for satelliteID, vals := range newTotalsBySatellites {
@@ -166,7 +166,7 @@ func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Contex
 
 // UpdatePieceTotalsForSatellite updates record with new values for a specific satelliteID.
 // If the usage values are set to zero, the record is deleted.
-func (db *pieceSpaceUsedDB) UpdatePieceTotalsForSatellite(ctx context.Context, satelliteID storj.NodeID, usage pieces.SatelliteUsage) (err error) {
+func (db *pieceSpaceUsedDB) UpdatePieceTotalsForSatellite(ctx context.Context, satelliteID storxnetwork.NodeID, usage pieces.SatelliteUsage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if usage.ContentSize == 0 && usage.Total == 0 {
@@ -191,7 +191,7 @@ func (db *pieceSpaceUsedDB) UpdatePieceTotalsForSatellite(ctx context.Context, s
 	return nil
 }
 
-func (db *pieceSpaceUsedDB) deleteTotalBySatellite(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *pieceSpaceUsedDB) deleteTotalBySatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `

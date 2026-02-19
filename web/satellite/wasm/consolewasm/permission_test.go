@@ -13,10 +13,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/web/satellite/wasm/consolewasm"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/web/satellite/wasm/consolewasm"
+	"github.com/StorXNetwork/uplink"
 )
 
 func TestSetPermissionWithBuckets(t *testing.T) {

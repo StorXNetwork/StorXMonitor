@@ -27,29 +27,29 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/drpc"
-	satorders "storj.io/storj/satellite/orders"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/collector"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/hashstore"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/piecestore/usedserials"
-	"storj.io/storj/storagenode/retain"
-	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/trust"
+	satorders "github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/collector"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/drpc"
 )
 
 const orderExpiration = 24 * time.Hour
@@ -104,7 +104,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	cfg.Filestore.ForceSync = *forceSync
 	cfg.Storage2.OrderLimitGracePeriod = orderExpiration
 
-	resolver := trust.IdentityResolverFunc(func(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error) {
+	resolver := trust.IdentityResolverFunc(func(ctx context.Context, url storxnetwork.NodeURL) (*identity.PeerIdentity, error) {
 		if url.ID == satIdent.ID {
 			return satIdent.PeerIdentity(), nil
 		}
@@ -196,18 +196,18 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	return endpoint, collectorService
 }
 
-func createPieceID(n int) storj.PieceID {
+func createPieceID(n int) storxnetwork.PieceID {
 	// Convert the n to a byte slice
 	bytes := make([]byte, 8) // int64 is 8 bytes
 	binary.BigEndian.PutUint64(bytes, uint64(n))
 
 	// Create the piece id from the sha256 hash of the byte slice
-	return storj.PieceID(sha256.Sum256(bytes))
+	return storxnetwork.PieceID(sha256.Sum256(bytes))
 }
 
-func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity, pieceID storj.PieceID) *stream {
+func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity, pieceID storxnetwork.PieceID) *stream {
 	defer mon.Task()(&ctx)(nil)
-	piecePubKey, piecePrivKey := try.E2(storj.NewPieceKey())
+	piecePubKey, piecePrivKey := try.E2(storxnetwork.NewPieceKey())
 
 	var expiration time.Time
 	if *ttl > 0 {
@@ -260,9 +260,9 @@ func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity,
 		}}
 }
 
-func createDownload(ctx context.Context, satIdent, snIdent *identity.FullIdentity, pieceID storj.PieceID) *downloadStream {
+func createDownload(ctx context.Context, satIdent, snIdent *identity.FullIdentity, pieceID storxnetwork.PieceID) *downloadStream {
 	defer mon.Task()(&ctx)(nil)
-	piecePubKey, piecePrivKey := try.E2(storj.NewPieceKey())
+	piecePubKey, piecePrivKey := try.E2(storxnetwork.NewPieceKey())
 
 	limit := try.E1(signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satIdent), &pb.OrderLimit{
 		SerialNumber:    try.E1(satorders.CreateSerial(time.Now().Add(orderExpiration))),
@@ -359,7 +359,7 @@ func main() {
 
 	endpoint, collector := createEndpoint(ctx, satIdent, snIdent)
 
-	allPieceIDs := make([]storj.PieceID, 0, *piecesToUpload)
+	allPieceIDs := make([]storxnetwork.PieceID, 0, *piecesToUpload)
 	for i := 0; i < *piecesToUpload; i++ {
 		pieceID := createPieceID(i)
 		allPieceIDs = append(allPieceIDs, pieceID)

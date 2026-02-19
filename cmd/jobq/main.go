@@ -11,14 +11,14 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/process"
-	"storj.io/common/process/eventkitbq"
-	_ "storj.io/common/process/googleprofiler" // This attaches google cloud profiler.
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/satellite"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	_ "github.com/StorXNetwork/common/process/googleprofiler" // This attaches google cloud profiler.
 )
 
 // Config is the configuration for the job queue server.
@@ -42,8 +42,8 @@ var (
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "jobq")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "jobq")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "jobq")
+	defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "jobq")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for jobq configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for jobq identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)

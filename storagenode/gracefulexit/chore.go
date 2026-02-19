@@ -10,8 +10,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Chore checks for satellites that the node is exiting and creates a worker per satellite to complete the process.

@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const (
@@ -25,7 +25,7 @@ const (
 // Constants for encoding an object's retention mode and legal hold status
 // as a single value in the retention_mode column of the objects table.
 const (
-	// retentionModeMask is a bit mask used to identify bits related to storj.RetentionMode.
+	// retentionModeMask is a bit mask used to identify bits related to storxnetwork.RetentionMode.
 	retentionModeMask = 0b11
 
 	// legalHoldFlag is a bit flag signifying that an object version is locked in legal hold
@@ -61,19 +61,19 @@ func checkExpiresAtWithObjectLock(object Object, segments transposedSegmentList,
 
 // Retention represents an object version's Object Lock retention configuration.
 type Retention struct {
-	Mode        storj.RetentionMode
+	Mode        storxnetwork.RetentionMode
 	RetainUntil time.Time
 }
 
 // RetentionMode implements scanning for retention_mode column.
 type RetentionMode struct {
-	Mode      storj.RetentionMode
+	Mode      storxnetwork.RetentionMode
 	LegalHold bool
 }
 
 // Enabled returns whether the retention configuration is enabled.
 func (r *Retention) Enabled() bool {
-	return r.Mode != storj.NoRetention
+	return r.Mode != storxnetwork.NoRetention
 }
 
 // Active returns whether the retention configuration is enabled and active as of the given time.
@@ -88,7 +88,7 @@ func (r *Retention) ActiveNow() bool {
 
 // Verify verifies the retention configuration.
 func (r *Retention) Verify() error {
-	if r.Mode == storj.GovernanceMode {
+	if r.Mode == storxnetwork.GovernanceMode {
 		if r.RetainUntil.IsZero() {
 			return errs.New("retention period expiration must be set if retention mode is set")
 		}
@@ -98,18 +98,18 @@ func (r *Retention) Verify() error {
 }
 
 func (r *Retention) isProtected(bypassGovernance bool, now time.Time) bool {
-	return r.Active(now) && !(bypassGovernance && r.Mode == storj.GovernanceMode)
+	return r.Active(now) && !(bypassGovernance && r.Mode == storxnetwork.GovernanceMode)
 }
 
 // verifyWithoutGovernance verifies the retention configuration. It's used by metabase DB methods that haven't
 // yet been adjusted to support governance mode, so it treats governance mode as invalid.
 func (r *Retention) verifyWithoutGovernance() error {
 	switch r.Mode {
-	case storj.ComplianceMode:
+	case storxnetwork.ComplianceMode:
 		if r.RetainUntil.IsZero() {
 			return errs.New("retention period expiration must be set if retention mode is set")
 		}
-	case storj.NoRetention:
+	case storxnetwork.NoRetention:
 		if !r.RetainUntil.IsZero() {
 			return errs.New("retention period expiration must not be set if retention mode is not set")
 		}
@@ -134,7 +134,7 @@ func (r RetentionMode) Value() (driver.Value, error) {
 }
 
 func (r *RetentionMode) set(v int64) {
-	r.Mode = storj.RetentionMode(v & retentionModeMask)
+	r.Mode = storxnetwork.RetentionMode(v & retentionModeMask)
 	r.LegalHold = v&legalHoldFlag != 0
 }
 
@@ -186,7 +186,7 @@ func (r *RetentionMode) DecodeSpanner(val interface{}) error {
 }
 
 type lockModeWrapper struct {
-	retentionMode *storj.RetentionMode
+	retentionMode *storxnetwork.RetentionMode
 	legalHold     *bool
 }
 
@@ -208,7 +208,7 @@ func (r lockModeWrapper) Value() (driver.Value, error) {
 // Clear resets to the default values.
 func (r lockModeWrapper) Clear() {
 	if r.retentionMode != nil {
-		*r.retentionMode = storj.NoRetention
+		*r.retentionMode = storxnetwork.NoRetention
 	}
 	if r.legalHold != nil {
 		*r.legalHold = false
@@ -218,7 +218,7 @@ func (r lockModeWrapper) Clear() {
 // Set from am encoded value.
 func (r lockModeWrapper) Set(val int64) {
 	if r.retentionMode != nil {
-		*r.retentionMode = storj.RetentionMode(val & retentionModeMask)
+		*r.retentionMode = storxnetwork.RetentionMode(val & retentionModeMask)
 	}
 	if r.legalHold != nil {
 		*r.legalHold = val&legalHoldFlag != 0

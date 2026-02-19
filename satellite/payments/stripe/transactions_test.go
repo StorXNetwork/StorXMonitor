@@ -12,24 +12,24 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/currency"
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestTransactionsDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
-		amount, err := currency.AmountFromString("2.0000000000000000005", currency.StorjToken)
+		amount, err := currency.AmountFromString("2.0000000000000000005", currency.StorxToken)
 		require.NoError(t, err)
-		received, err := currency.AmountFromString("1.0000000000000000003", currency.StorjToken)
+		received, err := currency.AmountFromString("1.0000000000000000003", currency.StorxToken)
 		require.NoError(t, err)
 		userID := testrand.UUID()
 
@@ -71,9 +71,9 @@ func TestTransactionsDBList(t *testing.T) {
 	)
 
 	// create transactions
-	amount, err := currency.AmountFromString("4.0000000000000000005", currency.StorjToken)
+	amount, err := currency.AmountFromString("4.0000000000000000005", currency.StorxToken)
 	require.NoError(t, err)
-	received, err := currency.AmountFromString("5.0000000000000000003", currency.StorjToken)
+	received, err := currency.AmountFromString("5.0000000000000000003", currency.StorxToken)
 	require.NoError(t, err)
 
 	var txs []stripe.Transaction

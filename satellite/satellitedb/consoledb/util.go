@@ -4,7 +4,7 @@
 package consoledb
 
 import (
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // uuidsToBytesArray converts []uuid.UUID into [][]byte.

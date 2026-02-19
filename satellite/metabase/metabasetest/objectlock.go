@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // ObjectLockDeletionTestRunner runs object deletion tests with different Object Lock test cases.
@@ -45,7 +45,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Compliance (active)",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: future,
 				},
 			},
@@ -53,7 +53,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Compliance (active) - Governance bypass",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: future,
 				},
 				BypassGovernance: true,
@@ -62,7 +62,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Governance (active)",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: future,
 				},
 			},
@@ -75,7 +75,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Legal hold and compliance (active)",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: future,
 				},
 				LegalHold: true,
@@ -84,7 +84,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Legal hold and compliance (expired)",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: past,
 				},
 				LegalHold: true,
@@ -93,7 +93,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Legal hold and governance (active)",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: future,
 				},
 				LegalHold: true,
@@ -102,7 +102,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Legal hold and governance (active) - Governance bypass",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: future,
 				},
 				BypassGovernance: true,
@@ -112,7 +112,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Legal hold and governance (expired)",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: past,
 				},
 				LegalHold: true,
@@ -129,7 +129,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Compliance (expired)",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: past,
 				},
 			},
@@ -137,7 +137,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Governance (expired)",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: past,
 				},
 			},
@@ -145,7 +145,7 @@ func (opts ObjectLockDeletionTestRunner) Run(t *testing.T) {
 			name: "Governance (active) - Governance bypass",
 			testCase: ObjectLockDeletionTestCase{
 				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: future,
 				},
 				BypassGovernance: true,

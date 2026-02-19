@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 const (

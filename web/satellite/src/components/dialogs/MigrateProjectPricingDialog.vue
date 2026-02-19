@@ -68,7 +68,7 @@
                 <v-card-text class="pa-0 mt-4">
                     This change is permanent and cannot be undone.
                     Pricing will follow the new tiers.
-                    <a href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">Pricing and tiers.</a>
+                    <a href="https://storxnetwork.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">Pricing and tiers.</a>
                 </v-card-text>
             </v-card-item>
 

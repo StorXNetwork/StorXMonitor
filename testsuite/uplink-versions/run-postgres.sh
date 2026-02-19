@@ -13,7 +13,7 @@ trap 'docker compose -f ./testsuite/uplink-versions/docker-compose-postgres.yaml
 # We need to fetch all tags and the main branch to ensure we have the latest changes.
 # This is done before docker compose so the image copy includes all refs needed by start-sim.sh.
 # The script uses git worktree to checkout release tags, so we need all tag objects locally.
-git fetch --tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main
+git fetch --tags --progress -- https://github.com/storxnetwork/storxnetwork.git +refs/heads/main:refs/remotes/origin/main
 
 # Run the tests inside a docker compose environment.
 docker compose -f testsuite/uplink-versions/docker-compose-postgres.yaml up \

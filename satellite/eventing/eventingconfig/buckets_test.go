@@ -7,10 +7,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/eventing/eventingconfig"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing/eventingconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 func TestBucketLocationTopicIDMap(t *testing.T) {

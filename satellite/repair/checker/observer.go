@@ -18,14 +18,14 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -59,8 +59,8 @@ type Observer struct {
 }
 
 type redundancyStyle struct {
-	Scheme    storj.RedundancyScheme
-	Placement storj.PlacementConstraint
+	Scheme    storxnetwork.RedundancyScheme
+	Placement storxnetwork.PlacementConstraint
 }
 
 // NewObserver creates new checker observer instance.
@@ -285,7 +285,7 @@ type observerFork struct {
 	totalStats               aggregateStatsPlacements
 
 	// reuse those slices to optimize memory usage
-	nodeIDs []storj.NodeID
+	nodeIDs []storxnetwork.NodeID
 	nodes   []nodeselection.SelectedNode
 
 	// define from which countries nodes should be marked as offline
@@ -410,7 +410,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 
 	// reuse fork.nodeIDs and fork.nodes slices if large enough
 	if cap(fork.nodeIDs) < len(pieces) {
-		fork.nodeIDs = make([]storj.NodeID, len(pieces))
+		fork.nodeIDs = make([]storxnetwork.NodeID, len(pieces))
 		fork.nodes = make([]nodeselection.SelectedNode, len(pieces))
 	} else {
 		fork.nodeIDs = fork.nodeIDs[:len(pieces)]

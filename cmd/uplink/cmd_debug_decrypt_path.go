@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/encryption"
-	"storj.io/common/grant"
-	"storj.io/common/paths"
-	"storj.io/storj/cmd/uplink/ulext"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/paths"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 )
 
 type cmdDebugDecrypPath struct {

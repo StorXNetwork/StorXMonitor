@@ -28,13 +28,13 @@ go build -o replication-service ./cmd/replication
 ### 3. Create Config
 ```bash
 # Create config directory
-sudo mkdir -p /etc/storj/replication
+sudo mkdir -p /etc/storxnetwork/replication
 
 # Generate config template
-./replication-service setup --config-dir /etc/storj/replication
+./replication-service setup --config-dir /etc/storxnetwork/replication
 
 # Edit config
-sudo nano /etc/storj/replication/config.yaml
+sudo nano /etc/storxnetwork/replication/config.yaml
 ```
 
 ### 4. Configure PostgreSQL
@@ -56,7 +56,7 @@ sudo -u postgres psql -c "ALTER USER your_user REPLICATION;"
 ### 5. Run Service
 ```bash
 # Test run
-./replication-service run --config-dir /etc/storj/replication
+./replication-service run --config-dir /etc/storxnetwork/replication
 
 # Or with command-line flags
 ./replication-service run \
@@ -76,12 +76,12 @@ go build -o replication-service ./cmd/replication
 
 ### Setup Config
 ```bash
-./replication-service setup --config-dir /etc/storj/replication
+./replication-service setup --config-dir /etc/storxnetwork/replication
 ```
 
 ### Run (Config File)
 ```bash
-./replication-service run --config-dir /etc/storj/replication
+./replication-service run --config-dir /etc/storxnetwork/replication
 ```
 
 ### Run (Command Line)
@@ -152,7 +152,7 @@ DROP PUBLICATION backuptools_pub;
 
 ### Create Service File
 ```bash
-sudo nano /etc/systemd/system/storj-replication.service
+sudo nano /etc/systemd/system/storxnetwork-replication.service
 ```
 
 ### Service File Content
@@ -164,10 +164,10 @@ Requires=postgresql.service
 
 [Service]
 Type=simple
-User=storj-replication
-Group=storj-replication
-WorkingDirectory=/opt/storj/replication
-ExecStart=/opt/storj/replication/replication-service run --config-dir /etc/storj/replication
+User=storxnetwork-replication
+Group=storxnetwork-replication
+WorkingDirectory=/opt/storxnetwork/replication
+ExecStart=/opt/storxnetwork/replication/replication-service run --config-dir /etc/storxnetwork/replication
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -180,38 +180,38 @@ WantedBy=multi-user.target
 ### Enable & Start
 ```bash
 # Create service user
-sudo useradd -r -s /bin/false storj-replication
+sudo useradd -r -s /bin/false storxnetwork-replication
 
 # Copy binary
-sudo mkdir -p /opt/storj/replication
-sudo cp replication-service /opt/storj/replication/
-sudo chown -R storj-replication:storj-replication /opt/storj/replication
+sudo mkdir -p /opt/storxnetwork/replication
+sudo cp replication-service /opt/storxnetwork/replication/
+sudo chown -R storxnetwork-replication:storxnetwork-replication /opt/storxnetwork/replication
 
 # Set permissions
-sudo chmod 600 /etc/storj/replication/config.yaml
+sudo chmod 600 /etc/storxnetwork/replication/config.yaml
 
 # Enable and start
 sudo systemctl daemon-reload
-sudo systemctl enable storj-replication
-sudo systemctl start storj-replication
+sudo systemctl enable storxnetwork-replication
+sudo systemctl start storxnetwork-replication
 ```
 
 ### Service Management
 ```bash
 # Start
-sudo systemctl start storj-replication
+sudo systemctl start storxnetwork-replication
 
 # Stop
-sudo systemctl stop storj-replication
+sudo systemctl stop storxnetwork-replication
 
 # Restart
-sudo systemctl restart storj-replication
+sudo systemctl restart storxnetwork-replication
 
 # Status
-sudo systemctl status storj-replication
+sudo systemctl status storxnetwork-replication
 
 # Logs
-sudo journalctl -u storj-replication -f
+sudo journalctl -u storxnetwork-replication -f
 ```
 
 ---
@@ -227,7 +227,7 @@ replication:
   publication-name: "backuptools_pub"
   
   webhook-url: "https://backup-tools.example.com/api/webhook"
-  webhook-public-key: "/etc/storj/replication/webhook_public_key.pem"
+  webhook-public-key: "/etc/storxnetwork/replication/webhook_public_key.pem"
   
   max-retries: 3
   retry-delay: 5s
@@ -263,13 +263,13 @@ curl -X POST https://backup-tools.example.com/api/webhook \
 ### Check Service Logs
 ```bash
 # Real-time
-sudo journalctl -u storj-replication -f
+sudo journalctl -u storxnetwork-replication -f
 
 # Last 100 lines
-sudo journalctl -u storj-replication -n 100
+sudo journalctl -u storxnetwork-replication -n 100
 
 # Errors only
-sudo journalctl -u storj-replication | grep -i error
+sudo journalctl -u storxnetwork-replication | grep -i error
 ```
 
 ### Monitor Replication Slot
@@ -314,7 +314,7 @@ netstat -tulpn | grep 5432  # PostgreSQL
 
 ### Test Config
 ```bash
-./replication-service run --config-dir /etc/storj/replication --help
+./replication-service run --config-dir /etc/storxnetwork/replication --help
 ```
 
 ---
@@ -323,10 +323,10 @@ netstat -tulpn | grep 5432  # PostgreSQL
 
 | File | Default Location |
 |------|----------------|
-| Binary | `/opt/storj/replication/replication-service` |
-| Config | `/etc/storj/replication/config.yaml` |
-| Public Key | `/etc/storj/replication/webhook_public_key.pem` |
-| Logs | `journalctl -u storj-replication` |
+| Binary | `/opt/storxnetwork/replication/replication-service` |
+| Config | `/etc/storxnetwork/replication/config.yaml` |
+| Public Key | `/etc/storxnetwork/replication/webhook_public_key.pem` |
+| Logs | `journalctl -u storxnetwork-replication` |
 
 ---
 
@@ -337,10 +337,10 @@ netstat -tulpn | grep 5432  # PostgreSQL
 go build -o replication-service ./cmd/replication
 
 # 2. Config exists
-ls -la /etc/storj/replication/config.yaml
+ls -la /etc/storxnetwork/replication/config.yaml
 
 # 3. Public key exists
-ls -la /etc/storj/replication/webhook_public_key.pem
+ls -la /etc/storxnetwork/replication/webhook_public_key.pem
 
 # 4. PostgreSQL logical replication enabled
 sudo -u postgres psql -c "SHOW wal_level;"  # Should be "logical"
@@ -349,7 +349,7 @@ sudo -u postgres psql -c "SHOW wal_level;"  # Should be "logical"
 sudo -u postgres psql -c "\du" | grep REPLICATION
 
 # 6. Service runs
-./replication-service run --config-dir /etc/storj/replication
+./replication-service run --config-dir /etc/storxnetwork/replication
 
 # 7. Replication slot created (after first run)
 sudo -u postgres psql -c "SELECT * FROM pg_replication_slots;"

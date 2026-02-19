@@ -11,8 +11,8 @@ import (
 	"cloud.google.com/go/spanner"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
 )
 
 // CheckSegmentPiecesAlteration checks if the segment with streamID, and position is present in the

@@ -12,19 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSuccess(t *testing.T) {
@@ -195,7 +195,7 @@ func TestIneligibleNodeAgeOld(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
+		nodeFullIDs := make(map[storxnetwork.NodeID]*identity.FullIdentity)
 		for _, node := range planet.StorageNodes {
 			nodeFullIDs[node.ID()] = node.Identity
 		}
@@ -239,7 +239,7 @@ func TestIneligibleNodeAgeOld(t *testing.T) {
 func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
 
-	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
+	pieceCountMap := make(map[storxnetwork.NodeID]int, len(planet.StorageNodes))
 	for _, node := range planet.StorageNodes {
 		pieceCountMap[node.ID()] = 0
 	}
@@ -254,7 +254,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 		}
 	}
 
-	var exitingNodeID storj.NodeID
+	var exitingNodeID storxnetwork.NodeID
 	maxCount := 0
 	for k, v := range pieceCountMap {
 		if exitingNodeID.IsZero() {

@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrUsedSpacePerPrefix represents errors from the used space per prefix database.
@@ -63,7 +63,7 @@ func (db *usedSpacePerPrefixDB) StoreBatch(ctx context.Context, usedSpaces []pie
 }
 
 // Get returns the used space per prefix for the satellite, for prefixes that were updated after lastUpdated.
-func (db *usedSpacePerPrefixDB) Get(ctx context.Context, satelliteID storj.NodeID, lastUpdated *time.Time) (usedSpaces []pieces.PrefixUsedSpace, err error) {
+func (db *usedSpacePerPrefixDB) Get(ctx context.Context, satelliteID storxnetwork.NodeID, lastUpdated *time.Time) (usedSpaces []pieces.PrefixUsedSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT piece_prefix, total_bytes, total_content_size, piece_counts, last_updated
@@ -99,7 +99,7 @@ func (db *usedSpacePerPrefixDB) Get(ctx context.Context, satelliteID storj.NodeI
 }
 
 // GetSatelliteUsedSpace returns the total used space for the satellite.
-func (db *usedSpacePerPrefixDB) GetSatelliteUsedSpace(ctx context.Context, satelliteID storj.NodeID) (piecesTotal, piecesContentSize, piecesCount int64, err error) {
+func (db *usedSpacePerPrefixDB) GetSatelliteUsedSpace(ctx context.Context, satelliteID storxnetwork.NodeID) (piecesTotal, piecesContentSize, piecesCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.QueryRowContext(ctx, `
@@ -112,7 +112,7 @@ func (db *usedSpacePerPrefixDB) GetSatelliteUsedSpace(ctx context.Context, satel
 }
 
 // Delete deletes the used space for the satellite.
-func (db *usedSpacePerPrefixDB) Delete(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *usedSpacePerPrefixDB) Delete(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `DELETE FROM used_space_per_prefix WHERE satellite_id = ?`, satelliteID)

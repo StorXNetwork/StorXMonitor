@@ -11,8 +11,8 @@ import (
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // BeginObjectNextVersion contains arguments necessary for starting an object upload.
@@ -23,7 +23,7 @@ type BeginObjectNextVersion struct {
 	ZombieDeletionDeadline *time.Time
 
 	EncryptedUserData
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 
 	Retention Retention // optional
 	LegalHold bool
@@ -188,7 +188,7 @@ type BeginObjectExactVersion struct {
 	ZombieDeletionDeadline *time.Time
 
 	EncryptedUserData
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 
 	Retention Retention // optional
 	LegalHold bool

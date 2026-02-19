@@ -8,13 +8,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/process"
-	"storj.io/storj/certificate"
-	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/private/revocation"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/StorXMonitor/certificate"
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (
@@ -94,8 +94,8 @@ func main() {
 	logger, _, _ := process.NewLogger("certificates")
 	zap.ReplaceGlobals(logger)
 
-	defaultConfDir := fpath.ApplicationDir("storj", "cert-signing")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "certificates")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "cert-signing")
+	defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "certificates")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)

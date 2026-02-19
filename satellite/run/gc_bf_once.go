@@ -6,11 +6,11 @@ package root
 import (
 	"context"
 
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/shared/debug"
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/shared/debug"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // GcBfOnce is a subcommand to start only a ranged loop with BF generation.

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/multinode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/multinode/bandwidth"
 )
 
 func TestUsageRolloutDailyCache(t *testing.T) {

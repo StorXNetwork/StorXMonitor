@@ -15,23 +15,23 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // RequestStore is a cache of requests to retain pieces.
 type RequestStore struct {
 	path string
-	data map[storj.NodeID]Request
+	data map[storxnetwork.NodeID]Request
 }
 
 // NewRequestStore loads the request caches from disk.
 func NewRequestStore(path string) (RequestStore, error) {
 	store := RequestStore{
 		path: path,
-		data: make(map[storj.NodeID]Request),
+		data: make(map[storxnetwork.NodeID]Request),
 	}
 
 	err := os.MkdirAll(path, 0777)
@@ -66,7 +66,7 @@ func NewRequestStore(path string) (RequestStore, error) {
 			continue
 		}
 
-		satelliteID, err := storj.NodeIDFromBytes(id)
+		satelliteID, err := storxnetwork.NodeIDFromBytes(id)
 		if err != nil {
 			errsEncountered.Add(errs.New("invalid filename: %s; %w", filename, err))
 			continue
@@ -156,13 +156,13 @@ func NewRequestStore(path string) (RequestStore, error) {
 }
 
 // Data returns the data in the store.
-func (store *RequestStore) Data() map[storj.NodeID]Request {
+func (store *RequestStore) Data() map[storxnetwork.NodeID]Request {
 	return store.data
 }
 
 // Add adds a request to the store. It returns true if the request was added, and an
 // error if the file could not be saved.
-func (store *RequestStore) Add(satelliteID storj.NodeID, pbReq *pb.RetainRequest) (bool, error) {
+func (store *RequestStore) Add(satelliteID storxnetwork.NodeID, pbReq *pb.RetainRequest) (bool, error) {
 	// if there is already a request for this satellite, remove it
 	if prevReq, ok := store.data[satelliteID]; ok {
 		err := DeleteFile(store.path, prevReq.GetFilename())

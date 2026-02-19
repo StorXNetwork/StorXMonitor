@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/eventing/eventingconfig"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing/eventingconfig"
 )
 
 func TestProjectSet(t *testing.T) {

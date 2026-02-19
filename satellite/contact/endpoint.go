@@ -12,16 +12,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/noise"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/drpc/drpcctx"
-	"storj.io/eventkit"
-	"storj.io/storj/private/nodeoperator"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/nodeoperator"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/noise"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/drpc/drpcctx"
+	"github.com/StorXNetwork/eventkit"
 )
 
 var (
@@ -84,7 +84,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
-	nodeurl := storj.NodeURL{
+	nodeurl := storxnetwork.NodeURL{
 		ID:      nodeID,
 		Address: req.Address,
 	}
@@ -225,7 +225,7 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 	}
 	nodeID := peerID.ID
 
-	nodeURL := storj.NodeURL{
+	nodeURL := storxnetwork.NodeURL{
 		ID:      nodeID,
 		Address: req.Address,
 	}
@@ -305,7 +305,7 @@ func (endpoint *Endpoint) AmnestyReport(ctx context.Context, req *pb.AmnestyRepo
 	return &pb.AmnestyReportResponse{}, nil
 }
 
-func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storj.NodeURL) error {
+func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storxnetwork.NodeURL) error {
 	endpoint.log.Info("failed to ping back address", zap.String("node_address", nodeURL.Address), zap.Stringer("node_id", nodeURL.ID), zap.Error(err))
 	if errPingBackDial.Has(err) {
 		err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeURL.ID, nodeURL.Address, err)

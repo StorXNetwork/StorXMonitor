@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/mwc"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/drpc/drpcsignal"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/drpc/drpcsignal"
 )
 
 var (

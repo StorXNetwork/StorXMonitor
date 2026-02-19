@@ -13,8 +13,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 // ErrGetProjectLimitCache error for getting project limits from cache.

@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // APIKeys is interface for working with api keys store.

@@ -13,9 +13,9 @@ import (
 
 	"github.com/zeebo/clingy"
 
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Run is a generic helper to run a modular application.

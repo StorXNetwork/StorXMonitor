@@ -6,7 +6,7 @@ package myapi
 import (
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Document is a retrieved document.

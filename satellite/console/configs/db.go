@@ -6,7 +6,7 @@ package configs
 import (
 	"context"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // DB defines database operations for configurations.

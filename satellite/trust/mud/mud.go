@@ -9,18 +9,18 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/trust"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/trust"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Module is a mud Module definition.
 func Module(ball *mud.Ball) {
 	mud.Provide[*trust.TrustedPeersList](ball, func(logger *zap.Logger, config metainfo.Config) (*trust.TrustedPeersList, error) {
-		var uplinks []storj.NodeID
+		var uplinks []storxnetwork.NodeID
 		for _, u := range config.SuccessTrackerTrustedUplinks {
-			nodeID, err := storj.NodeIDFromString(u)
+			nodeID, err := storxnetwork.NodeIDFromString(u)
 			if err != nil {
 				return nil, errs.Wrap(err)
 			}

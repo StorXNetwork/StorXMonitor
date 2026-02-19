@@ -7,21 +7,21 @@ import (
 	"context"
 	"encoding/json"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ProjectScopePrefix is the prefix used for project scopes in the database.
 const ProjectScopePrefix = "proj_id:"
 
 // PlacementProductMappings maps placements to their corresponding product IDs.
-type PlacementProductMappings map[storj.PlacementConstraint]int32
+type PlacementProductMappings map[storxnetwork.PlacementConstraint]int32
 
 // ProjectFeatures defines the features available for a project.
 type ProjectFeatures struct {
-	NewBucketPlacements      []storj.PlacementConstraint `json:"new_bucket_placements,omitempty"`
-	PlacementProductMappings PlacementProductMappings    `json:"placement_product_mappings,omitempty"`
-	ComputeAccessToken       []byte                      `json:"compute_access_token,omitempty"`
+	NewBucketPlacements      []storxnetwork.PlacementConstraint `json:"new_bucket_placements,omitempty"`
+	PlacementProductMappings PlacementProductMappings           `json:"placement_product_mappings,omitempty"`
+	ComputeAccessToken       []byte                             `json:"compute_access_token,omitempty"`
 }
 
 // Projects separates project-related entitlements functionality.
@@ -43,7 +43,7 @@ func (p *Projects) GetByPublicID(ctx context.Context, publicID uuid.UUID) (feats
 }
 
 // SetNewBucketPlacementsByPublicID sets the new bucket placement constraints for a project by its public ID.
-func (p *Projects) SetNewBucketPlacementsByPublicID(ctx context.Context, publicID uuid.UUID, newBucketPlacements []storj.PlacementConstraint) (err error) {
+func (p *Projects) SetNewBucketPlacementsByPublicID(ctx context.Context, publicID uuid.UUID, newBucketPlacements []storxnetwork.PlacementConstraint) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(newBucketPlacements) == 0 {

@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestPostgresNodeIDsArray(t *testing.T) {
-	ids := make(storj.NodeIDList, 10)
+	ids := make(storxnetwork.NodeIDList, 10)
 	for i := range ids {
 		ids[i] = testrand.NodeID()
 	}

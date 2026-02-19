@@ -8,10 +8,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Module is a mud module.
@@ -28,9 +28,9 @@ func Module(ball *mud.Ball) {
 
 	mud.Provide[*SuccessTrackerMonitor](ball, NewSuccessTrackerMonitor)
 	mud.Provide[*SuccessTrackers](ball, func(log *zap.Logger, monitor *SuccessTrackerMonitor, cfg Config) (*SuccessTrackers, error) {
-		var trustedUplinks []storj.NodeID
+		var trustedUplinks []storxnetwork.NodeID
 		for _, uplinkIDString := range cfg.SuccessTrackerTrustedUplinks {
-			uplinkID, err := storj.NodeIDFromString(uplinkIDString)
+			uplinkID, err := storxnetwork.NodeIDFromString(uplinkIDString)
 			if err != nil {
 				log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.String("uplink", uplinkIDString), zap.Error(err))
 			}
@@ -41,7 +41,7 @@ func Module(ball *mud.Ball) {
 			return nil, errs.New("Unknown success tracker kind %q", cfg.SuccessTrackerKind)
 		}
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(newTracker())
-		return NewSuccessTrackers(trustedUplinks, func(uplink storj.NodeID) SuccessTracker {
+		return NewSuccessTrackers(trustedUplinks, func(uplink storxnetwork.NodeID) SuccessTracker {
 			tracker := newTracker()
 			monitor.RegisterTracker(monkit.NewSeriesKey("success_tracker").WithTag("uplink", uplink.String()), tracker)
 			return tracker

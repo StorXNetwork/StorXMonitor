@@ -10,8 +10,8 @@ import (
 	"github.com/linkedin/goavro/v2"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/avrometabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/avrometabase"
 )
 
 var _ (RangeSplitter) = (*AvroSegmentsSplitter)(nil)

@@ -14,11 +14,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	console "storj.io/storj/web/satellite/wasm/consolewasm"
-	"storj.io/uplink"
-	"storj.io/uplink/private/access"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	console "github.com/StorXNetwork/StorXMonitor/web/satellite/wasm/consolewasm"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/access"
 )
 
 // TestGenerateAccessGrant confirms that the access grant produced by the wasm access code

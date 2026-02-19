@@ -8,11 +8,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/shared/nodetag"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestGetTags(t *testing.T) {
@@ -23,7 +23,7 @@ func TestGetTags(t *testing.T) {
 			"foo=bar",
 		},
 	}
-	id := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+	id := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 	tags, err := GetTags(ctx, cfg, id)
 	require.NoError(t, err)
 	require.Len(t, tags.Tags, 1)

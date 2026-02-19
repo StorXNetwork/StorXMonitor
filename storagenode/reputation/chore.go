@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var (
@@ -87,7 +87,7 @@ func (chore *Chore) RunOnce(ctx context.Context) (err error) {
 }
 
 // GetAndCacheStats retrieves reputation stats from particular satellite and stores it in cache.
-func (chore *Chore) GetAndCacheStats(ctx context.Context, satellite storj.NodeID) (err error) {
+func (chore *Chore) GetAndCacheStats(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stats, err := chore.service.GetStats(ctx, satellite)

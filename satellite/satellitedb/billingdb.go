@@ -14,12 +14,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/currency"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/slices2"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/slices2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
 )
 
 // ensures that *billingDB implements billing.TransactionsDB.

@@ -3,7 +3,7 @@
 &nbsp;
 
 ## Background
-This testplan is going to cover the changes to allow for scaling audit workers. It will go over the design doc seen here - [Scaling Audit Worker Design Doc]([https://review.dev.storj.tools/c/storj/storj/+/8041](https://github.com/storj/storj/blob/main/docs/blueprints/audit-scaling.md))
+This testplan is going to cover the changes to allow for scaling audit workers. It will go over the design doc seen here - [Scaling Audit Worker Design Doc]([https://review.dev.storxnetwork.tools/c/storxnetwork/storxnetwork/+/8041](https://github.com/storxnetwork/storxnetwork/blob/main/docs/blueprints/audit-scaling.md))
 
 &nbsp;
 

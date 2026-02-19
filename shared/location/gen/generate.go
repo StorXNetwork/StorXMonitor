@@ -17,7 +17,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
 )
 
 const header = `// Copyright (C) 2021 Storj Labs, Inc.

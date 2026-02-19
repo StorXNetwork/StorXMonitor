@@ -6,7 +6,7 @@ package payments
 import (
 	"context"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // PaymentIntents exposes all needed functionality to manage credit cards charging.

@@ -15,9 +15,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/drpc/drpcsignal"
-	"storj.io/storj/storagenode/hashstore/platform"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/drpc/drpcsignal"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore/platform"
 )
 
 type memtblIdx uint32 // index of a record in the memtbl (^0 means promoted)

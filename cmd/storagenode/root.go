@@ -7,10 +7,10 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/storj/cmd/storagenode/internalcmd"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
 )
 
 // StorageNodeFlags defines storage node configuration.
@@ -40,8 +40,8 @@ func newRootCmd(setDefaults bool) (*cobra.Command, *Factory) {
 	factory := &Factory{}
 
 	if setDefaults {
-		defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
-		defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
+		defaultConfDir := fpath.ApplicationDir("storxnetwork", "storagenode")
+		defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "storagenode")
 		cfgstruct.SetupFlag(zap.L(), cmd, &factory.ConfDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 		cfgstruct.SetupFlag(zap.L(), cmd, &factory.IdentityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
 		cmd.PersistentFlags().BoolVar(&factory.UseColor, "color", false, "use color in user interface")

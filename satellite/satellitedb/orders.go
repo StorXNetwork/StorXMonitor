@@ -18,15 +18,15 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/pgxutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgxutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const defaultIntervalSeconds = int(time.Hour / time.Second)
@@ -416,7 +416,7 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 }
 
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time.
-func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
+func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storxnetwork.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	switch db.db.impl {
@@ -515,7 +515,7 @@ func (db *ordersDB) TestGetBucketBandwidth(ctx context.Context, projectID uuid.U
 }
 
 // GetStorageNodeBandwidth gets total storage node bandwidth from period of time.
-func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ int64, err error) {
+func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storxnetwork.NodeID, from, to time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var sum int64
@@ -873,7 +873,7 @@ func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []o
 // UpdateStoragenodeBandwidthSettleWithWindow adds a record to for each action and settled amount.
 // If any of these orders already exist in the database, then all of these orders have already been processed.
 // Orders within a single window may only be processed once to prevent double spending.
-func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
+func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storxnetwork.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var batchStatus pb.SettlementWithWindowResponse_Status

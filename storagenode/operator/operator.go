@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/nodeoperator"
+	"github.com/StorXNetwork/StorXMonitor/private/nodeoperator"
 )
 
 // Config defines properties related to storage node operator metadata.

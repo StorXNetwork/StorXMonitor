@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 )
 
 // ContentLengthLimit describes 4KB limit.

@@ -17,10 +17,10 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/uplink"
-	"storj.io/uplink/edge"
-	privateEdge "storj.io/uplink/private/edge"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/edge"
+	privateEdge "github.com/StorXNetwork/uplink/private/edge"
 )
 
 type cmdShare struct {

@@ -6,9 +6,9 @@ package contact
 import (
 	"context"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type client struct {
@@ -17,7 +17,7 @@ type client struct {
 }
 
 // dialNodeURL dials the target contact endpoint.
-func dialNodeURL(ctx context.Context, dialer rpc.Dialer, nodeurl storj.NodeURL) (*client, error) {
+func dialNodeURL(ctx context.Context, dialer rpc.Dialer, nodeurl storxnetwork.NodeURL) (*client, error) {
 	conn, err := dialer.DialNodeURL(ctx, nodeurl)
 	if err != nil {
 		return nil, err

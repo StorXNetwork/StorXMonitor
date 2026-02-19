@@ -9,9 +9,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // DownloadSelectionDB implements the database for download selection cache.
@@ -79,7 +79,7 @@ func (cache *DownloadSelectionCache) read(ctx context.Context) (_ *DownloadSelec
 }
 
 // GetNodeIPsFromPlacement gets the last node ip:port from the cache, refreshing when needed. Results are filtered out by placement.
-func (cache *DownloadSelectionCache) GetNodeIPsFromPlacement(ctx context.Context, nodes []storj.NodeID, placement storj.PlacementConstraint) (_ map[storj.NodeID]string, err error) {
+func (cache *DownloadSelectionCache) GetNodeIPsFromPlacement(ctx context.Context, nodes []storxnetwork.NodeID, placement storxnetwork.PlacementConstraint) (_ map[storxnetwork.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.cache.Get(ctx, time.Now())
@@ -93,7 +93,7 @@ func (cache *DownloadSelectionCache) GetNodeIPsFromPlacement(ctx context.Context
 }
 
 // GetNodes gets nodes by ID from the cache, and refreshes the cache if it is stale.
-func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*nodeselection.SelectedNode, err error) {
+func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storxnetwork.NodeID) (_ map[storxnetwork.NodeID]*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.cache.Get(ctx, time.Now())
@@ -104,7 +104,7 @@ func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj
 }
 
 // GetNode gets a node by ID from the cache, and refreshes the cache if it is stale.
-func (cache *DownloadSelectionCache) GetNode(ctx context.Context, nodeID storj.NodeID) (_ *nodeselection.SelectedNode, err error) {
+func (cache *DownloadSelectionCache) GetNode(ctx context.Context, nodeID storxnetwork.NodeID) (_ *nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.cache.Get(ctx, time.Now())
@@ -129,13 +129,13 @@ func (cache *DownloadSelectionCache) Size(ctx context.Context) (int, error) {
 
 // DownloadSelectionCacheState contains state of download selection cache.
 type DownloadSelectionCacheState struct {
-	// byID returns IP based on storj.NodeID
-	byID map[storj.NodeID]*nodeselection.SelectedNode // TODO: optimize, avoid pointery structures for performance
+	// byID returns IP based on storxnetwork.NodeID
+	byID map[storxnetwork.NodeID]*nodeselection.SelectedNode // TODO: optimize, avoid pointery structures for performance
 }
 
 // NewDownloadSelectionCacheState creates a new state from the nodes.
 func NewDownloadSelectionCacheState(nodes []*nodeselection.SelectedNode) *DownloadSelectionCacheState {
-	byID := map[storj.NodeID]*nodeselection.SelectedNode{}
+	byID := map[storxnetwork.NodeID]*nodeselection.SelectedNode{}
 	for _, n := range nodes {
 		byID[n.ID] = n
 	}
@@ -150,8 +150,8 @@ func (state *DownloadSelectionCacheState) Size() int {
 }
 
 // IPs returns node ip:port for nodes that are in state.
-func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.NodeID]string {
-	xs := make(map[storj.NodeID]string, len(nodes))
+func (state *DownloadSelectionCacheState) IPs(nodes []storxnetwork.NodeID) map[storxnetwork.NodeID]string {
+	xs := make(map[storxnetwork.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
 		if n, exists := state.byID[nodeID]; exists {
 			xs[nodeID] = n.LastIPPort
@@ -161,8 +161,8 @@ func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.No
 }
 
 // FilteredIPs returns node ip:port for nodes that are in state. Results are filtered out..
-func (state *DownloadSelectionCacheState) FilteredIPs(nodes []storj.NodeID, filter nodeselection.NodeFilter) map[storj.NodeID]string {
-	xs := make(map[storj.NodeID]string, len(nodes))
+func (state *DownloadSelectionCacheState) FilteredIPs(nodes []storxnetwork.NodeID, filter nodeselection.NodeFilter) map[storxnetwork.NodeID]string {
+	xs := make(map[storxnetwork.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
 		if n, exists := state.byID[nodeID]; exists && filter.Match(n) {
 			xs[nodeID] = n.LastIPPort
@@ -172,8 +172,8 @@ func (state *DownloadSelectionCacheState) FilteredIPs(nodes []storj.NodeID, filt
 }
 
 // Nodes returns node ip:port for nodes that are in state.
-func (state *DownloadSelectionCacheState) Nodes(nodes []storj.NodeID) map[storj.NodeID]*nodeselection.SelectedNode {
-	xs := make(map[storj.NodeID]*nodeselection.SelectedNode, len(nodes))
+func (state *DownloadSelectionCacheState) Nodes(nodes []storxnetwork.NodeID) map[storxnetwork.NodeID]*nodeselection.SelectedNode {
+	xs := make(map[storxnetwork.NodeID]*nodeselection.SelectedNode, len(nodes))
 	for _, nodeID := range nodes {
 		if n, exists := state.byID[nodeID]; exists {
 			xs[nodeID] = n.Clone() // TODO: optimize the clones

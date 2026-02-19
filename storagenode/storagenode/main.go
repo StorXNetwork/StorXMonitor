@@ -3,7 +3,7 @@
 
 package main
 
-import root "storj.io/storj/storagenode/run"
+import root "github.com/StorXNetwork/StorXMonitor/storagenode/run"
 
 // main is an EXPERIMENTAL entrypoint which doesn't depend on process.
 // You should use ./cmd/storagenode for now, except you know what will happen.

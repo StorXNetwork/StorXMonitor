@@ -10,30 +10,30 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/jobq/jobqueue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/jobqueue"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // QueueMap is a thread-safe mapping of placement constraints to queues.
 type QueueMap struct {
 	log          *zap.Logger
-	queues       map[storj.PlacementConstraint]*jobqueue.Queue
+	queues       map[storxnetwork.PlacementConstraint]*jobqueue.Queue
 	lock         sync.Mutex
-	queueFactory func(storj.PlacementConstraint) (*jobqueue.Queue, error)
+	queueFactory func(storxnetwork.PlacementConstraint) (*jobqueue.Queue, error)
 }
 
 // NewQueueMap creates a new QueueMap.
-func NewQueueMap(log *zap.Logger, queueFactory func(storj.PlacementConstraint) (*jobqueue.Queue, error)) *QueueMap {
+func NewQueueMap(log *zap.Logger, queueFactory func(storxnetwork.PlacementConstraint) (*jobqueue.Queue, error)) *QueueMap {
 	return &QueueMap{
 		log:          log,
-		queues:       make(map[storj.PlacementConstraint]*jobqueue.Queue),
+		queues:       make(map[storxnetwork.PlacementConstraint]*jobqueue.Queue),
 		queueFactory: queueFactory,
 	}
 }
 
 // GetQueue gets the queue for the given placement. If no queue exists for the
 // given placement, nil is returned.
-func (qm *QueueMap) GetQueue(placement storj.PlacementConstraint) (q *jobqueue.Queue, err error) {
+func (qm *QueueMap) GetQueue(placement storxnetwork.PlacementConstraint) (q *jobqueue.Queue, err error) {
 	qm.lock.Lock()
 	defer qm.lock.Unlock()
 
@@ -56,7 +56,7 @@ func (qm *QueueMap) GetQueue(placement storj.PlacementConstraint) (q *jobqueue.Q
 // caller to have destroyed one or more queues between this call and the time
 // when the caller uses the returned map. If this happens, the affected queues
 // will simply appear empty.
-func (qm *QueueMap) GetAllQueues() map[storj.PlacementConstraint]*jobqueue.Queue {
+func (qm *QueueMap) GetAllQueues() map[storxnetwork.PlacementConstraint]*jobqueue.Queue {
 	qm.lock.Lock()
 	defer qm.lock.Unlock()
 
@@ -67,13 +67,13 @@ func (qm *QueueMap) GetAllQueues() map[storj.PlacementConstraint]*jobqueue.Queue
 // constraints. If includedPlacements is non-empty, only queues for the given
 // placements are returned. If excludedPlacements is non-empty, queues for the
 // given placements are excluded.
-func (qm *QueueMap) ChooseQueues(includedPlacements, excludedPlacements []storj.PlacementConstraint) map[storj.PlacementConstraint]*jobqueue.Queue {
+func (qm *QueueMap) ChooseQueues(includedPlacements, excludedPlacements []storxnetwork.PlacementConstraint) map[storxnetwork.PlacementConstraint]*jobqueue.Queue {
 	qm.lock.Lock()
 	defer qm.lock.Unlock()
 
 	queues := maps.Clone(qm.queues)
 	if len(includedPlacements) > 0 {
-		newQueues := make(map[storj.PlacementConstraint]*jobqueue.Queue)
+		newQueues := make(map[storxnetwork.PlacementConstraint]*jobqueue.Queue)
 		for _, placement := range includedPlacements {
 			if q, ok := queues[placement]; ok {
 				newQueues[placement] = q

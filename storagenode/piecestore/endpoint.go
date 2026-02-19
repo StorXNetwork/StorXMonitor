@@ -25,29 +25,29 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/context2"
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/drpc"
-	"storj.io/drpc/drpcctx"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/orders/ordersfile"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore/signaturecheck"
-	"storj.io/storj/storagenode/piecestore/usedserials"
-	"storj.io/storj/storagenode/retain"
-	"storj.io/storj/storagenode/trust"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/signaturecheck"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/drpc"
+	"github.com/StorXNetwork/drpc/drpcctx"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var (
@@ -81,9 +81,9 @@ type OldConfig struct {
 	AllocatedDiskSpace memory.Size `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
 
 	// deprecated flags
-	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:"" hidden:"true" deprecated:"true"`
-	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes (deprecated)" default:"0B" hidden:"true" deprecated:"true"`
-	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats (deprecated)" default:"1h0m0s" hidden:"true" deprecated:"true"`
+	WhitelistedSatellites  storxnetwork.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:"" hidden:"true" deprecated:"true"`
+	AllocatedBandwidth     memory.Size           `user:"true" help:"total allocated bandwidth in bytes (deprecated)" default:"0B" hidden:"true" deprecated:"true"`
+	KBucketRefreshInterval time.Duration         `help:"how frequently Kademlia bucket should be refreshed with node stats (deprecated)" default:"1h0m0s" hidden:"true" deprecated:"true"`
 }
 
 // Config defines parameters for piecestore endpoint.
@@ -147,13 +147,13 @@ type Endpoint struct {
 // QueueRetain is an interface for retaining pieces in the queue and checking status.
 // A restricted view of retain.Service.
 type QueueRetain interface {
-	Queue(ctx context.Context, satelliteID storj.NodeID, req *pb.RetainRequest) error
+	Queue(ctx context.Context, satelliteID storxnetwork.NodeID, req *pb.RetainRequest) error
 	Status() retain.Status
 }
 
 // RestoreTrash is an interface for restoring trash.
 type RestoreTrash interface {
-	StartRestore(ctx context.Context, satellite storj.NodeID) error
+	StartRestore(ctx context.Context, satellite storxnetwork.NodeID) error
 }
 
 // NewEndpoint creates a new piecestore endpoint.
@@ -1069,7 +1069,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	return endpoint.processRetainReq(ctx, peer.ID, retainReq)
 }
 
-func (endpoint *Endpoint) processRetainReq(ctx context.Context, peerID storj.NodeID, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+func (endpoint *Endpoint) processRetainReq(ctx context.Context, peerID storxnetwork.NodeID, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
 		return nil, rpcstatus.NamedWrap("invalid-bf", rpcstatus.InvalidArgument, err)

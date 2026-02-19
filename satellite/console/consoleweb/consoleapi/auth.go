@@ -22,20 +22,20 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
 	"golang.org/x/oauth2"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consoleauth/csrf"
-	"storj.io/storj/satellite/console/consoleauth/sso"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
-	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/tenancy"
 )
 
 var (
@@ -3662,7 +3662,7 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	}
 }
 
-// RegisterPipedriveForApp registers user in storj.io who came from Pipedrive OAuth mobile app.
+// RegisterPipedriveForApp registers user in storxnetwork.io who came from Pipedrive OAuth mobile app.
 func (a *Auth) RegisterPipedriveForApp(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

@@ -34,44 +34,44 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slices"
 
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing/eventingconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/kms"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice/hubspotmails"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
+	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/http/requestid"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/useragent"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/golang-jwt/jwt/v5"
-	"storj.io/common/cfgstruct"
-	"storj.io/common/currency"
-	"storj.io/common/encryption"
-	"storj.io/common/grant"
-	"storj.io/common/http/requestid"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/useragent"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console/configs"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consoleauth/sso"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
-	"storj.io/storj/satellite/console/pushnotifications"
-	"storj.io/storj/satellite/console/restapikeys"
-	"storj.io/storj/satellite/console/valdi"
-	"storj.io/storj/satellite/console/valdi/valdiclient"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/eventing/eventingconfig"
-	"storj.io/storj/satellite/kms"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/mailservice/hubspotmails"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/smartcontract"
-	"storj.io/storj/satellite/tenancy"
 )
 
 var mon = monkit.Package()
@@ -260,7 +260,7 @@ type Service struct {
 	buckets                    buckets.DB
 	attributions               attribution.DB
 	placements                 nodeselection.PlacementDefinitions
-	placementNameLookup        map[string]storj.PlacementConstraint
+	placementNameLookup        map[string]storxnetwork.PlacementConstraint
 	placementProductMap        map[int]int32
 	productConfigs             map[int32]payments.ProductUsagePriceModel
 	accounts                   payments.Accounts
@@ -293,7 +293,7 @@ type Service struct {
 
 	packagePlans map[string]payments.PackagePlan
 
-	legacyPlacements []storj.PlacementConstraint
+	legacyPlacements []storxnetwork.PlacementConstraint
 
 	config            Config
 	maxProjectBuckets int
@@ -621,9 +621,9 @@ func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uui
 	}
 
 	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
-	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+	encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 	// if config.disableObjectKeyEncryption {
-	// 	encAccess.SetDefaultPathCipher(storj.EncNull)
+	// 	encAccess.SetDefaultPathCipher(storxnetwork.EncNull)
 	// }
 	encAccess.LimitTo(apiKey)
 
@@ -722,7 +722,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		}
 	}
 
-	placementNameLookup := make(map[string]storj.PlacementConstraint, len(placements))
+	placementNameLookup := make(map[string]storxnetwork.PlacementConstraint, len(placements))
 	for _, placement := range placements {
 		placementNameLookup[placement.Name] = placement.ID
 	}
@@ -732,14 +732,14 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		auditableAPIKeyProjects[projectID] = struct{}{}
 	}
 
-	var legacyPlacements []storj.PlacementConstraint
+	var legacyPlacements []storxnetwork.PlacementConstraint
 	for _, id := range config.LegacyPlacements {
 		parsed, err := strconv.ParseUint(id, 0, 16)
 		if err != nil {
 			return nil, errs.New("invalid legacy placement ID: %s", id)
 		}
 
-		legacyPlacements = append(legacyPlacements, storj.PlacementConstraint(parsed))
+		legacyPlacements = append(legacyPlacements, storxnetwork.PlacementConstraint(parsed))
 	}
 
 	// Initialize push notification service
@@ -3853,7 +3853,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		return Error.Wrap(err)
 	}
 
-	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
+	deactivatedEmail := fmt.Sprintf("deactivated+%s@storxnetwork.io", user.ID.String())
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		FullName:  new(string),
 		ShortName: new(*string),
@@ -4739,7 +4739,7 @@ func (s *Service) JoinPlacementWaitlist(ctx context.Context, data analytics.Trac
 	data.WaitlistURL = placement.WaitlistURL
 	s.analytics.JoinPlacementWaitlist(data)
 
-	noticeDismissal.PlacementWaitlistsJoined = append(noticeDismissal.PlacementWaitlistsJoined, storj.PlacementConstraint(placement.ID))
+	noticeDismissal.PlacementWaitlistsJoined = append(noticeDismissal.PlacementWaitlistsJoined, storxnetwork.PlacementConstraint(placement.ID))
 	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
 		NoticeDismissal: &noticeDismissal,
 	})
@@ -5387,7 +5387,7 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 
 	mapping := entitlements.PlacementProductMappings{}
 	for placement, productID := range placementMap {
-		mapping[storj.PlacementConstraint(placement)] = productID
+		mapping[storxnetwork.PlacementConstraint(placement)] = productID
 	}
 	for placement, productID := range s.config.LegacyPlacementProductMappingForMigration.mappings {
 		mapping[placement] = productID
@@ -6278,7 +6278,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 }
 
 // getLocationName returns the product short name if available, otherwise the placement name.
-func (s *Service) getLocationName(ctx context.Context, projectPublicID uuid.UUID, placementID storj.PlacementConstraint) string {
+func (s *Service) getLocationName(ctx context.Context, projectPublicID uuid.UUID, placementID storxnetwork.PlacementConstraint) string {
 	// Check if showNewPricingTiers is enabled and we have product configs
 	if s.config.ShowNewPricingTiers && s.productConfigs != nil {
 		var productID int32
@@ -6530,7 +6530,7 @@ func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]
 		return nil, err
 	}
 
-	if project.DefaultPlacement != storj.DefaultPlacement {
+	if project.DefaultPlacement != storxnetwork.DefaultPlacement {
 		if !s.entitlementsConfig.Enabled {
 			// if entitlements are disabled, projects can only use self serve placements
 			// if they have a zero default placement.
@@ -6654,7 +6654,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 
 				_, priceModel := s.accounts.ProductIdAndPriceForUsageKey(ctx, p.PublicID, key)
 
-				placement := int(storj.DefaultPlacement)
+				placement := int(storxnetwork.DefaultPlacement)
 
 				// The key format is now just "placement" (e.g., "11").
 				// Parse the placement directly from the key.
@@ -6662,7 +6662,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 				if err == nil {
 					placement = int(placement64)
 				}
-				item.Placement = storj.PlacementConstraint(placement)
+				item.Placement = storxnetwork.PlacementConstraint(placement)
 
 				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, priceModel)
 				if err != nil {
@@ -6904,7 +6904,7 @@ func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID,
 // GetProjectUsageLimits returns project limits and current usage.
 //
 // Among others,it can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Service, wrapped Error.
+// github.com/StorXNetwork/StorXMonitor/satellite/accounting.Service, wrapped Error.
 func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -7302,11 +7302,11 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 }
 
 // GetPlacementByName returns the placement constraint by name.
-func (s *Service) GetPlacementByName(name string) (storj.PlacementConstraint, error) {
+func (s *Service) GetPlacementByName(name string) (storxnetwork.PlacementConstraint, error) {
 	if placement, ok := s.placementNameLookup[name]; ok {
 		return placement, nil
 	}
-	return storj.DefaultPlacement, ErrPlacementNotFound.New("")
+	return storxnetwork.DefaultPlacement, ErrPlacementNotFound.New("")
 }
 
 // WalletInfo contains all the information about a destination wallet assigned to a user.
@@ -7774,7 +7774,7 @@ func (payment Payments) GetProjectUsagePriceModel() (_ payments.ProjectUsagePric
 }
 
 // GetPlacementPriceModel returns the product ID and related project usage price model for the project's placement.
-func (payment Payments) GetPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ payments.ProjectUsagePriceModel, _ error) {
+func (payment Payments) GetPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storxnetwork.PlacementConstraint) (productID int32, _ payments.ProjectUsagePriceModel, _ error) {
 	user, err := GetUser(ctx)
 	if err != nil {
 		return 0, payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)

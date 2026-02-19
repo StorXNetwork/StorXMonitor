@@ -9,8 +9,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/eventkit"
-	"storj.io/eventkit/bigquery"
+	"github.com/StorXNetwork/eventkit"
+	"github.com/StorXNetwork/eventkit/bigquery"
 )
 
 // Config holds configuration for eventkit.

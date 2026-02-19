@@ -11,8 +11,8 @@ import (
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/migrate"
-	"storj.io/storj/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
 )
 
 // TestMigrateToLatest creates a database and applies all the migration for test purposes.
@@ -153,7 +153,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 					COMMENT ON COLUMN segments.repaired_at is 'repaired_at is the last date when the segment was repaired.';
 					COMMENT ON COLUMN segments.expires_at  is 'expires_at is the date when the segment is marked for deletion.';
 
-					COMMENT ON COLUMN segments.placement is 'placement is the country or region restriction for the segment data. See storj.PlacementConstraint for the values.';
+					COMMENT ON COLUMN segments.placement is 'placement is the country or region restriction for the segment data. See storxnetwork.PlacementConstraint for the values.';
 					COMMENT ON COLUMN segments.encrypted_etag is 'encrypted_etag is etag that has been encrypted.';
 
 					CREATE SEQUENCE node_alias_seq
@@ -166,7 +166,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 					);
 
 					COMMENT ON TABLE  node_aliases            is 'node_aliases table contains unique identifiers (aliases) for storagenodes that take less space than a NodeID.';
-					COMMENT ON COLUMN node_aliases.node_id    is 'node_id refers to the storj.NodeID';
+					COMMENT ON COLUMN node_aliases.node_id    is 'node_id refers to the storxnetwork.NodeID';
 					COMMENT ON COLUMN node_aliases.node_alias is 'node_alias is a unique integer value assigned for the node_id. It is used for compressing segments.remote_alias_pieces.';`,
 				},
 			},

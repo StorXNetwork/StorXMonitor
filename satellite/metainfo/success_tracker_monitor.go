@@ -13,10 +13,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // SuccessTrackerMonitor is a monkit source, which publishes success scores.
@@ -24,7 +24,7 @@ type SuccessTrackerMonitor struct {
 	log       *zap.Logger
 	overlayDB overlay.DB
 	filter    nodeselection.NodeFilter
-	cache     *sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
+	cache     *sync2.ReadCacheOf[map[storxnetwork.NodeID]*nodeselection.SelectedNode]
 	mu        sync.Mutex
 	trackers  map[monkit.SeriesKey]SuccessTracker
 	enabled   bool
@@ -75,7 +75,7 @@ func (s *SuccessTrackerMonitor) Stats(cb func(key monkit.SeriesKey, field string
 		return
 	}
 	for key, tracker := range s.trackers {
-		tracker.Range(func(id storj.NodeID, f float64) {
+		tracker.Range(func(id storxnetwork.NodeID, f float64) {
 			node, found := nodes[id]
 			if !found {
 				return
@@ -98,12 +98,12 @@ func (s *SuccessTrackerMonitor) RegisterTracker(key monkit.SeriesKey, tracker Su
 	s.trackers[key] = tracker
 }
 
-func (s *SuccessTrackerMonitor) refreshNodes(ctx context.Context) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
+func (s *SuccessTrackerMonitor) refreshNodes(ctx context.Context) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
 	nodes, err := s.overlayDB.GetAllParticipatingNodes(ctx, 24*time.Hour, -10*time.Second)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	result := make(map[storj.NodeID]*nodeselection.SelectedNode, len(nodes))
+	result := make(map[storxnetwork.NodeID]*nodeselection.SelectedNode, len(nodes))
 	for _, node := range nodes {
 		result[node.ID] = &node
 	}

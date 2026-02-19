@@ -14,10 +14,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var nameBatchSize = 1024
@@ -25,7 +25,7 @@ var nameBatchSize = 1024
 // activeWindow represents a window with active operations waiting to finish to enqueue
 // their orders.
 type activeWindow struct {
-	satelliteID storj.NodeID
+	satelliteID storxnetwork.NodeID
 	timestamp   int64
 }
 
@@ -95,7 +95,7 @@ func (store *FileStore) Close() (err error) {
 
 // BeginEnqueue returns a function that can be called to enqueue the passed in Info. If the Info
 // is too old to be enqueued, then an error is returned.
-func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Time) (commit func(*ordersfile.Info) error, err error) {
+func (store *FileStore) BeginEnqueue(satelliteID storxnetwork.NodeID, createdAt time.Time) (commit func(*ordersfile.Info) error, err error) {
 	store.unsentMu.Lock()
 	defer store.unsentMu.Unlock()
 	store.activeMu.Lock()
@@ -148,7 +148,7 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 
 // getWritableUnsent retrieves an already open "unsent orders" file, or otherwise opens a new one.
 // Caller must guarantee to obtain the unsent lock before calling this method.
-func (store *FileStore) getWritableUnsent(unsentDir string, satelliteID storj.NodeID, creationTime time.Time) (of ordersfile.Writable, err error) {
+func (store *FileStore) getWritableUnsent(unsentDir string, satelliteID storxnetwork.NodeID, creationTime time.Time) (of ordersfile.Writable, err error) {
 	fileName := ordersfile.UnsentFileName(satelliteID, creationTime, ordersfile.V1)
 	file, ok := store.unsentOrdersFiles[fileName]
 	if !ok {
@@ -164,7 +164,7 @@ func (store *FileStore) getWritableUnsent(unsentDir string, satelliteID storj.No
 }
 
 // enqueueStartedLocked records that there is an order pending to be written to the window.
-func (store *FileStore) enqueueStartedLocked(satelliteID storj.NodeID, createdAt time.Time) {
+func (store *FileStore) enqueueStartedLocked(satelliteID storxnetwork.NodeID, createdAt time.Time) {
 	store.active[activeWindow{
 		satelliteID: satelliteID,
 		timestamp:   date.TruncateToHourInNano(createdAt),
@@ -173,7 +173,7 @@ func (store *FileStore) enqueueStartedLocked(satelliteID storj.NodeID, createdAt
 
 // enqueueFinishedLocked informs that there is no longer an order pending to be written to the
 // window.
-func (store *FileStore) enqueueFinishedLocked(satelliteID storj.NodeID, createdAt time.Time) {
+func (store *FileStore) enqueueFinishedLocked(satelliteID storxnetwork.NodeID, createdAt time.Time) {
 	window := activeWindow{
 		satelliteID: satelliteID,
 		timestamp:   date.TruncateToHourInNano(createdAt),
@@ -186,7 +186,7 @@ func (store *FileStore) enqueueFinishedLocked(satelliteID storj.NodeID, createdA
 }
 
 // hasActiveEnqueue returns true if there are active orders enqueued for the requested window.
-func (store *FileStore) hasActiveEnqueue(satelliteID storj.NodeID, createdAt time.Time) bool {
+func (store *FileStore) hasActiveEnqueue(satelliteID storxnetwork.NodeID, createdAt time.Time) bool {
 	store.activeMu.Lock()
 	defer store.activeMu.Unlock()
 
@@ -217,7 +217,7 @@ type UnsentInfo struct {
 // It only reads files where the order limit grace period has passed, meaning no new orders will be appended.
 // There is a separate window for each created at hour, so if a satellite has 2 windows, `ListUnsentBySatellite`
 // needs to be called twice, with calls to `Archive` in between each call, to see all unsent orders.
-func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time) (infoMap map[storj.NodeID]UnsentInfo, err error) {
+func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time) (infoMap map[storxnetwork.NodeID]UnsentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// ensure no one modifies the archive directory while listing. this implicitly protects the
@@ -228,7 +228,7 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 	defer store.archiveMu.Unlock()
 
 	var errList errs.Group
-	infoMap = make(map[storj.NodeID]UnsentInfo)
+	infoMap = make(map[storxnetwork.NodeID]UnsentInfo)
 
 	errList.Add(walkFilenamesInPath(store.unsentDir, func(name string) error {
 		fileInfo, err := ordersfile.GetUnsentInfo(name)
@@ -326,7 +326,7 @@ func (store *FileStore) getUnsentInfoFromUnsentFile(dir, fileName string, fileIn
 }
 
 // Archive moves a file from "unsent" to "archive".
-func (store *FileStore) Archive(satelliteID storj.NodeID, unsentInfo UnsentInfo, archivedAt time.Time, status pb.SettlementWithWindowResponse_Status) error {
+func (store *FileStore) Archive(satelliteID storxnetwork.NodeID, unsentInfo UnsentInfo, archivedAt time.Time, status pb.SettlementWithWindowResponse_Status) error {
 	store.archiveMu.Lock()
 	defer store.archiveMu.Unlock()
 	store.unsentMu.Lock()

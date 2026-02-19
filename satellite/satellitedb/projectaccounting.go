@@ -19,21 +19,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
-	satbuckets "storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
-	"storj.io/storj/shared/dbutil/pgxutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	satbuckets "github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgxutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensure that ProjectAccounting implements accounting.ProjectAccounting.
@@ -346,7 +346,7 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 
 // GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange returns a map of bucket locations to their placement
 // for buckets within the given range whose most recent tally does not represent empty usage.
-func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result map[metabase.BucketLocation]storj.PlacementConstraint, err error) {
+func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result map[metabase.BucketLocation]storxnetwork.PlacementConstraint, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
@@ -404,11 +404,11 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRa
 		return nil, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
 
-	result = make(map[metabase.BucketLocation]storj.PlacementConstraint)
+	result = make(map[metabase.BucketLocation]storxnetwork.PlacementConstraint)
 	err = withRows(rows, err)(func(r tagsql.Rows) error {
 		for r.Next() {
 			loc := metabase.BucketLocation{}
-			var placement storj.PlacementConstraint
+			var placement storxnetwork.PlacementConstraint
 			if err := r.Scan(&loc.ProjectID, &loc.BucketName, &placement); err != nil {
 				return err
 			}
@@ -1473,9 +1473,9 @@ func (db *ProjectAccounting) GetSingleBucketTotals(ctx context.Context, projectI
 	var bucketData struct {
 		versioning            satbuckets.Versioning
 		objectLockEnabled     bool
-		placement             storj.PlacementConstraint
+		placement             storxnetwork.PlacementConstraint
 		createdAt             time.Time
-		defaultRetentionMode  *storj.RetentionMode
+		defaultRetentionMode  *storxnetwork.RetentionMode
 		defaultRetentionDays  *int
 		defaultRetentionYears *int
 	}
@@ -1671,8 +1671,8 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			userAgent             []byte
 			versioning            satbuckets.Versioning
 			objectLockEnabled     bool
-			placement             storj.PlacementConstraint
-			defaultRetentionMode  *storj.RetentionMode
+			placement             storxnetwork.PlacementConstraint
+			defaultRetentionMode  *storxnetwork.RetentionMode
 			defaultRetentionDays  *int
 			defaultRetentionYears *int
 			createdAt             time.Time
@@ -1798,7 +1798,7 @@ func (db *ProjectAccounting) GetBucketTotalsForReservedBuckets(ctx context.Conte
 	type bucketWithCreationDate struct {
 		name       string
 		versioning satbuckets.Versioning
-		placement  storj.PlacementConstraint
+		placement  storxnetwork.PlacementConstraint
 		createdAt  time.Time
 	}
 
@@ -1807,7 +1807,7 @@ func (db *ProjectAccounting) GetBucketTotalsForReservedBuckets(ctx context.Conte
 		var (
 			bucket     string
 			versioning satbuckets.Versioning
-			placement  storj.PlacementConstraint
+			placement  storxnetwork.PlacementConstraint
 			createdAt  time.Time
 		)
 		err = bucketRows.Scan(&bucket, &versioning, &placement, &createdAt)
@@ -2104,7 +2104,7 @@ func (db *ProjectAccounting) GetBucketsSinceAndBefore(ctx context.Context, proje
 	for rows.Next() {
 		var bucket string
 		if withInfo {
-			var placement *storj.PlacementConstraint
+			var placement *storxnetwork.PlacementConstraint
 			var userAgent []byte
 			err = rows.Scan(&bucket, &placement, &userAgent)
 			if err != nil {

@@ -7,9 +7,9 @@ package satellitedb
 // 	"context"
 // 	"encoding/json"
 
-// 	"storj.io/common/uuid"
-// 	"storj.io/storj/satellite/admin/changehistory"
-// 	"storj.io/storj/satellite/satellitedb/dbx"
+// 	"github.com/StorXNetwork/common/uuid"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/admin/changehistory"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 // )
 
 // // ChangeHistories implements changehistory.DB.

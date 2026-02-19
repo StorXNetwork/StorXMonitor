@@ -9,13 +9,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/process"
-	"storj.io/common/process/eventkitbq"
-	"storj.io/storj/satellite/backup"
-	"storj.io/storj/satellite/console/secretconstants"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/smartcontract"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/backup"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
 )
 
 var mon = monkit.Package()

@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/encoding/unicode"
 
-	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestUnmarshalJSONNodes(t *testing.T) {
-	nodeID, err := storj.NodeIDFromString("1MJ7R1cqGrFnELPY3YKd62TBJ6vE8x9yPKPwUFHUx6G8oypezR")
+	nodeID, err := storxnetwork.NodeIDFromString("1MJ7R1cqGrFnELPY3YKd62TBJ6vE8x9yPKPwUFHUx6G8oypezR")
 	require.NoError(t, err)
 
 	apiSecret, err := multinodeauth.SecretFromBase64("b_yeI0OBKBusBVN4_dHxpxlwdTyoFPwtEuHv9ACl9jI=")

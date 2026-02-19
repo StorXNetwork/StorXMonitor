@@ -8,11 +8,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/private/testredis"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/private/testredis"
 )
 
 // RunDBs runs the passed test function with each type of revocation database.

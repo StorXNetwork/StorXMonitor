@@ -9,13 +9,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var (
@@ -63,7 +63,7 @@ func TestBandwidthDB(t *testing.T) {
 		now := time.Now()
 		past := now.Add(-48 * time.Hour)
 
-		expectedUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+		expectedUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 			satellite0: {},
 			satellite1: {},
 		}
@@ -131,7 +131,7 @@ func TestEgressSummary(t *testing.T) {
 		now := time.Now()
 		past := now.Add(-48 * time.Hour)
 
-		expectedEgressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+		expectedEgressUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 			satellite0: {},
 			satellite1: {},
 		}
@@ -187,7 +187,7 @@ func TestIngressSummary(t *testing.T) {
 		now := time.Now()
 		past := now.Add(-48 * time.Hour)
 
-		expectedIngressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+		expectedIngressUsageBySatellite := map[storxnetwork.NodeID]*bandwidth.Usage{
 			satellite0: {},
 			satellite1: {},
 		}
@@ -248,11 +248,11 @@ func TestEmptyBandwidthDB(t *testing.T) {
 		{
 			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now, now)
 			require.NoError(t, err)
-			require.Equal(t, map[storj.NodeID]*bandwidth.Usage{}, usageBySatellite)
+			require.Equal(t, map[storxnetwork.NodeID]*bandwidth.Usage{}, usageBySatellite)
 		}
 
 		{
-			usage, err := bandwidthdb.SatelliteSummary(ctx, storj.NodeID{}, now, now)
+			usage, err := bandwidthdb.SatelliteSummary(ctx, storxnetwork.NodeID{}, now, now)
 			require.NoError(t, err)
 			require.Equal(t, &bandwidth.Usage{}, usage)
 		}
@@ -264,7 +264,7 @@ func TestEmptyBandwidthDB(t *testing.T) {
 		}
 
 		{
-			rollups, err := bandwidthdb.GetDailySatelliteRollups(ctx, storj.NodeID{}, now, now)
+			rollups, err := bandwidthdb.GetDailySatelliteRollups(ctx, storxnetwork.NodeID{}, now, now)
 			require.NoError(t, err)
 			require.Equal(t, []bandwidth.UsageRollup(nil), rollups)
 		}

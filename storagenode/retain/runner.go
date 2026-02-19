@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 // RunOnce is a helper to run the retain cleaner only once.

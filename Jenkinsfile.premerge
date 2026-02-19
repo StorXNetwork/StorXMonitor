@@ -78,21 +78,21 @@ pipeline {
             parallel {
                 stage('go -race') {
                     steps {
-                        // install storj-sim
-                        sh 'go install -race -v storj.io/storj/cmd/satellite '+
-                                'storj.io/storj/cmd/storagenode ' +
-                                'storj.io/storj/cmd/storj-sim ' +
-                                'storj.io/storj/cmd/versioncontrol ' +
-                                'storj.io/storj/cmd/uplink ' +
-                                'storj.io/storj/cmd/identity ' +
-                                'storj.io/storj/cmd/certificates ' +
-                                'storj.io/storj/cmd/multinode'
+                        // install storxnetwork-sim
+                        sh 'go install -race -v github.com/StorXNetwork/StorXMonitor/cmd/satellite '+
+                                'github.com/StorXNetwork/StorXMonitor/cmd/storagenode ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/storxnetwork-sim ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/versioncontrol ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/uplink ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/identity ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/certificates ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/multinode'
                     }
                 }
                 stage('go -race gateway') {
                     steps {
-                        // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@latest'
+                        // install gateway for storxnetwork-sim
+                        sh 'go install -race -v storxnetwork.io/gateway@latest'
                     }
                 }
 
@@ -108,16 +108,16 @@ pipeline {
                 stage('Cross Compile') {
                     steps {
                         // verify most of the commands, we cannot check everything since some of them
-                        // have a C dependency and we don't have cross-compilation in storj/ci image
-                        sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
+                        // have a C dependency and we don't have cross-compilation in storxnetwork/ci image
+                        sh 'check-cross-compile github.com/StorXNetwork/StorXMonitor/cmd/uplink github.com/StorXNetwork/StorXMonitor/cmd/satellite github.com/StorXNetwork/StorXMonitor/cmd/storagenode-updater github.com/StorXNetwork/StorXMonitor/cmd/storxnetwork-sim'
                     }
                 }
 
                 stage('Lint') {
                     steps {
-                        // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
-                        // note: json-iterator is replaced by our stub, it should be ignored as storj.io/storj.
-                        sh 'go-licenses check --ignore "storj.io/storj" --ignore "github.com/json-iterator/go" ./...'
+                        // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `github.com/StorXNetwork/StorXMonitor`.
+                        // note: json-iterator is replaced by our stub, it should be ignored as github.com/StorXNetwork/StorXMonitor.
+                        sh 'go-licenses check --ignore "github.com/StorXNetwork/StorXMonitor" --ignore "github.com/json-iterator/go" ./...'
                     }
                 }
             }

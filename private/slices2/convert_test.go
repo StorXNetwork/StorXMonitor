@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/slices2"
+	"github.com/StorXNetwork/StorXMonitor/private/slices2"
 )
 
 func TestConvert(t *testing.T) {

@@ -54,6 +54,6 @@ const (
 	Charge BillingHistoryItemType = 2
 	// Coupon is an entity that adds some funds to Accounts balance for some fixed period.
 	Coupon BillingHistoryItemType = 3
-	// DepositBonus is an entity that adds some funds to Accounts balance after deposit with storj coins.
+	// DepositBonus is an entity that adds some funds to Accounts balance after deposit with storxnetwork coins.
 	DepositBonus BillingHistoryItemType = 4
 )

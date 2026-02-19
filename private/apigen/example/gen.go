@@ -14,16 +14,16 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
-	"storj.io/storj/private/apigen"
-	"storj.io/storj/private/apigen/example"
-	"storj.io/storj/private/apigen/example/myapi"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen/example"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen/example/myapi"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func main() {
 	a := &apigen.API{
-		PackagePath: "storj.io/storj/private/apigen/example",
+		PackagePath: "github.com/StorXNetwork/StorXMonitor/private/apigen/example",
 		Version:     "v0",
 		BasePath:    "/api",
 	}
@@ -138,7 +138,7 @@ func main() {
 			{
 				Name:         "Storj",
 				Surname:      "Labs",
-				Email:        "storj@storj.test",
+				Email:        "storxnetwork@storxnetwork.test",
 				Professional: myapi.Professional{Company: "Test 1", Position: "Tester"},
 			},
 			{

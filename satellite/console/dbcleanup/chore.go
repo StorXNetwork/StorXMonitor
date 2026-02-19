@@ -10,8 +10,8 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 var mon = monkit.Package()

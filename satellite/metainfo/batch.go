@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // CompressedBatch handles requests sent in batch that are compressed.
@@ -96,8 +96,8 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		}
 	}()
 
-	var lastStreamID storj.StreamID
-	var lastSegmentID storj.SegmentID
+	var lastStreamID storxnetwork.StreamID
+	var lastSegmentID storxnetwork.SegmentID
 	var prevSegmentReq *pb.BatchRequestItem
 
 	for i := 0; i < len(req.Requests); i++ {

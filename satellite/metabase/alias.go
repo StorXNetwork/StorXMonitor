@@ -12,9 +12,9 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeAlias is a metabase local alias for NodeID-s to reduce segment table size.
@@ -22,13 +22,13 @@ type NodeAlias int32
 
 // NodeAliasEntry is a mapping between NodeID and NodeAlias.
 type NodeAliasEntry struct {
-	ID    storj.NodeID
+	ID    storxnetwork.NodeID
 	Alias NodeAlias
 }
 
 // EnsureNodeAliases contains arguments necessary for creating NodeAlias-es.
 type EnsureNodeAliases struct {
-	Nodes []storj.NodeID
+	Nodes []storxnetwork.NodeID
 }
 
 // EnsureNodeAliases ensures that the supplied node ID-s have a alias.
@@ -104,9 +104,9 @@ func (s *SpannerAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeA
 
 }
 
-func ensureNodesUniqueness(nodes []storj.NodeID) ([]storj.NodeID, error) {
-	unique := make([]storj.NodeID, 0, len(nodes))
-	seen := make(map[storj.NodeID]bool, len(nodes))
+func ensureNodesUniqueness(nodes []storxnetwork.NodeID) ([]storxnetwork.NodeID, error) {
+	unique := make([]storxnetwork.NodeID, 0, len(nodes))
+	seen := make(map[storxnetwork.NodeID]bool, len(nodes))
 
 	for _, node := range nodes {
 		if node.IsZero() {
@@ -118,7 +118,7 @@ func ensureNodesUniqueness(nodes []storj.NodeID) ([]storj.NodeID, error) {
 		}
 	}
 
-	sort.Sort(storj.NodeIDList(unique))
+	sort.Sort(storxnetwork.NodeIDList(unique))
 	return unique, nil
 }
 
@@ -179,7 +179,7 @@ func (s *SpannerAdapter) ListNodeAliases(ctx context.Context) (aliases []NodeAli
 
 // GetNodeAliasEntries contains arguments necessary for fetching node alias entries.
 type GetNodeAliasEntries struct {
-	Nodes   []storj.NodeID
+	Nodes   []storxnetwork.NodeID
 	Aliases []NodeAlias
 }
 
@@ -254,7 +254,7 @@ func (s *SpannerAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeAl
 		})
 }
 
-// LatestNodesAliasMap returns the latest mapping between storj.NodeID and NodeAlias.
+// LatestNodesAliasMap returns the latest mapping between storxnetwork.NodeID and NodeAlias.
 func (db *DB) LatestNodesAliasMap(ctx context.Context) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return db.aliasCache.Latest(ctx)

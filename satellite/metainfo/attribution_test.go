@@ -15,17 +15,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
 )
 
 func TestTrimUserAgent(t *testing.T) {
@@ -161,17 +161,17 @@ func TestBucketPlacementAttribution(t *testing.T) {
 
 		bucketInfo, err := sat.API.Buckets.Service.GetBucket(ctx, []byte(bucketName), satProject.ID)
 		require.NoError(t, err)
-		assert.Equal(t, storj.DefaultPlacement, bucketInfo.Placement)
+		assert.Equal(t, storxnetwork.DefaultPlacement, bucketInfo.Placement)
 
 		attributionInfo, err := planet.Satellites[0].DB.Attribution().Get(ctx, satProject.ID, []byte(bucketName))
 		require.NoError(t, err)
 		require.NotNil(t, attributionInfo.Placement)
-		assert.Equal(t, storj.DefaultPlacement, *attributionInfo.Placement)
+		assert.Equal(t, storxnetwork.DefaultPlacement, *attributionInfo.Placement)
 
 		require.NoError(t, planet.Satellites[0].DB.Buckets().DeleteBucket(ctx, []byte(bucketName), satProject.ID))
 
 		// Change the project default placement and confirm that recreating bucket fails due to preexisting attribution with different placement.
-		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.PlacementConstraint(1)))
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storxnetwork.PlacementConstraint(1)))
 
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.Error(t, err)
@@ -179,7 +179,7 @@ func TestBucketPlacementAttribution(t *testing.T) {
 
 		// test case where bucket attribution has nil placement
 		bucketName += "2"
-		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.DefaultPlacement))
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storxnetwork.DefaultPlacement))
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err)
 
@@ -188,12 +188,12 @@ func TestBucketPlacementAttribution(t *testing.T) {
 
 		require.NoError(t, planet.Satellites[0].DB.Buckets().DeleteBucket(ctx, []byte(bucketName), satProject.ID))
 
-		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.PlacementConstraint(1)))
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storxnetwork.PlacementConstraint(1)))
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already attributed to a different placement constraint")
 
-		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.DefaultPlacement))
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storxnetwork.DefaultPlacement))
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err)
 	})

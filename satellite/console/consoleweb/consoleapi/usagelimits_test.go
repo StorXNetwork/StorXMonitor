@@ -16,19 +16,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestTotalUsageLimits(t *testing.T) {
@@ -197,7 +197,7 @@ func TestTotalUsageReport(t *testing.T) {
 				config.Console.RateLimit.Burst = 10
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `0:annotation("location", "defaultPlacement")`}
 				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{productID: productPrice})
-				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(storj.DefaultPlacement): productID})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(storxnetwork.DefaultPlacement): productID})
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

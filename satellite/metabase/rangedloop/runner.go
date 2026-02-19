@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
 )
 
 // RunOnce is a helper to run the ranged loop only once.

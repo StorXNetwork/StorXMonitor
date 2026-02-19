@@ -50,4 +50,4 @@ This testplan covers the new Satellite Admin UI.
 
 ## Questions
 
-How about tagging storj select nodes? We are currently using SQL war crimes to do that. It is not planned for the current admin UI. Can we add some tickets to our backlog to add that function?
+How about tagging storxnetwork select nodes? We are currently using SQL war crimes to do that. It is not planned for the current admin UI. Can we add some tickets to our backlog to add that function?

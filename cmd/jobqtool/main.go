@@ -16,15 +16,15 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Config holds the toplevel configuration for jobqtool.
@@ -111,8 +111,8 @@ var (
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "jobqtool")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "jobqtool")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "jobqtool")
+	defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "jobqtool")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for jobqtool configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for jobqtool identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
@@ -147,7 +147,7 @@ func prepareConnection(ctx context.Context, cfg Config) (*jobq.Client, error) {
 		return nil, fmt.Errorf("TLS options: %w", err)
 	}
 
-	serverNodeURL, err := storj.ParseNodeURL(cfg.Server)
+	serverNodeURL, err := storxnetwork.ParseNodeURL(cfg.Server)
 	if err != nil {
 		return nil, fmt.Errorf("invalid server URL %q: %w", cfg.Server, err)
 	}
@@ -175,7 +175,7 @@ func lenCommand(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid placement %q: %w", args[0], err)
 		}
-		repairLen, retryLen, err = drpcConn.Len(ctx, storj.PlacementConstraint(placement))
+		repairLen, retryLen, err = drpcConn.Len(ctx, storxnetwork.PlacementConstraint(placement))
 		if err != nil {
 			return fmt.Errorf("querying queue length: %w", err)
 		}
@@ -201,7 +201,7 @@ func truncateCommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("invalid placement %q: %w", args[0], err)
 	}
-	err = drpcConn.Truncate(ctx, storj.PlacementConstraint(placement))
+	err = drpcConn.Truncate(ctx, storxnetwork.PlacementConstraint(placement))
 	if err != nil {
 		return fmt.Errorf("failed to truncate queue: %w", err)
 	}
@@ -222,7 +222,7 @@ func statCommand(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid placement %q: %w", args[0], err)
 		}
-		jobStat, err := drpcConn.Stat(ctx, storj.PlacementConstraint(placement), statCfg.Histogram)
+		jobStat, err := drpcConn.Stat(ctx, storxnetwork.PlacementConstraint(placement), statCfg.Histogram)
 		if err != nil {
 			return fmt.Errorf("querying queue statistics: %w", err)
 		}
@@ -379,7 +379,7 @@ func peekCommand(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid placement %q: %w", args[0], err)
 		}
-		jobs, err = drpcConn.Peek(ctx, peekCfg.Count, []storj.PlacementConstraint{storj.PlacementConstraint(placement)}, nil)
+		jobs, err = drpcConn.Peek(ctx, peekCfg.Count, []storxnetwork.PlacementConstraint{storxnetwork.PlacementConstraint(placement)}, nil)
 	} else {
 		jobs, err = drpcConn.Peek(ctx, peekCfg.Count, nil, nil)
 	}
@@ -433,7 +433,7 @@ func cleanCommand(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid placement %q: %w", args[1], err)
 		}
-		removed, err = drpcConn.Clean(ctx, storj.PlacementConstraint(placement), timestamp)
+		removed, err = drpcConn.Clean(ctx, storxnetwork.PlacementConstraint(placement), timestamp)
 	} else {
 		removed, err = drpcConn.CleanAll(ctx, timestamp)
 	}
@@ -464,7 +464,7 @@ func trimCommand(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid placement %q: %w", args[1], err)
 		}
-		removed, err = drpcConn.Trim(ctx, storj.PlacementConstraint(placement), healthThreshold)
+		removed, err = drpcConn.Trim(ctx, storxnetwork.PlacementConstraint(placement), healthThreshold)
 	} else {
 		removed, err = drpcConn.TrimAll(ctx, healthThreshold)
 	}

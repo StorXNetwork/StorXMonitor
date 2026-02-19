@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Status refers to the state of the relationship with a satellites.
@@ -38,7 +38,7 @@ const (
 
 // ExitProgress contains the status of a graceful exit.
 type ExitProgress struct {
-	SatelliteID       storj.NodeID
+	SatelliteID       storxnetwork.NodeID
 	InitiatedAt       *time.Time
 	FinishedAt        *time.Time
 	StartingDiskUsage int64
@@ -49,7 +49,7 @@ type ExitProgress struct {
 
 // Satellite contains the satellite and status.
 type Satellite struct {
-	SatelliteID storj.NodeID
+	SatelliteID storxnetwork.NodeID
 	Address     string
 	AddedAt     time.Time
 	Status      Status
@@ -60,27 +60,27 @@ type Satellite struct {
 // architecture: Database
 type DB interface {
 	// SetAddress inserts into satellite's db id, address.
-	SetAddress(ctx context.Context, satelliteID storj.NodeID, address string) error
+	SetAddress(ctx context.Context, satelliteID storxnetwork.NodeID, address string) error
 	// SetAddressAndStatus inserts into satellite's db id, address and status.
-	SetAddressAndStatus(ctx context.Context, satelliteID storj.NodeID, address string, status Status) error
+	SetAddressAndStatus(ctx context.Context, satelliteID storxnetwork.NodeID, address string, status Status) error
 	// GetSatellite retrieves that satellite by ID
-	GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite Satellite, err error)
+	GetSatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (satellite Satellite, err error)
 	// GetSatellites retrieves all satellites, including untrusted ones.
 	GetSatellites(ctx context.Context) (sats []Satellite, err error)
 	// DeleteSatellite removes that satellite by ID.
-	DeleteSatellite(ctx context.Context, satelliteID storj.NodeID) error
+	DeleteSatellite(ctx context.Context, satelliteID storxnetwork.NodeID) error
 	// UpdateSatelliteStatus updates the status of the satellite.
-	UpdateSatelliteStatus(ctx context.Context, satelliteID storj.NodeID, status Status) error
+	UpdateSatelliteStatus(ctx context.Context, satelliteID storxnetwork.NodeID, status Status) error
 	// GetSatellitesUrls retrieves all satellite's id and urls.
-	GetSatellitesUrls(ctx context.Context) (satelliteURLs []storj.NodeURL, err error)
+	GetSatellitesUrls(ctx context.Context) (satelliteURLs []storxnetwork.NodeURL, err error)
 	// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
-	InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) error
+	InitiateGracefulExit(ctx context.Context, satelliteID storxnetwork.NodeID, intitiatedAt time.Time, startingDiskUsage int64) error
 	// CancelGracefulExit removes that satellite by ID
-	CancelGracefulExit(ctx context.Context, satelliteID storj.NodeID) error
+	CancelGracefulExit(ctx context.Context, satelliteID storxnetwork.NodeID) error
 	// UpdateGracefulExit increments the total bytes deleted during a graceful exit
-	UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, bytesDeleted int64) error
+	UpdateGracefulExit(ctx context.Context, satelliteID storxnetwork.NodeID, bytesDeleted int64) error
 	// CompleteGracefulExit updates the database when a graceful exit is completed or failed
-	CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus Status, completionReceipt []byte) error
+	CompleteGracefulExit(ctx context.Context, satelliteID storxnetwork.NodeID, finishedAt time.Time, exitStatus Status, completionReceipt []byte) error
 	// ListGracefulExits lists all graceful exit records
 	ListGracefulExits(ctx context.Context) ([]ExitProgress, error)
 }

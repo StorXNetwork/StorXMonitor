@@ -27,7 +27,7 @@ jobs:
         $env:GOFLAGS = "-buildvcs=false"
         
         # Build the ldflags with proper variable expansion
-        $ldflags = "-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'"
+        $ldflags = "-s -w -X 'github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'"
         $buildCmd = "go build -ldflags `"$ldflags`" -o `"$env:TEMP_PATH\satellite.exe`" ./cmd/satellite"
         Write-Host "Build command: $buildCmd"
         

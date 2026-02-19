@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 func TestParseBucketPrefixInvalid(t *testing.T) {
@@ -791,8 +791,8 @@ func TestIfNoneMatchVerify(t *testing.T) {
 func BenchmarkSegmentPieceSize(b *testing.B) {
 	segment := metabase.Segment{
 		EncryptedSize: 64 * memory.MiB.Int32(),
-		Redundancy: storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		Redundancy: storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			RequiredShares: 29,
 			RepairShares:   35,
 			OptimalShares:  80,
@@ -803,7 +803,7 @@ func BenchmarkSegmentPieceSize(b *testing.B) {
 
 	b.Run("eestream.CalcPieceSize", func(b *testing.B) {
 		for k := 0; k < b.N; k++ {
-			redundancyScheme, _ := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+			redundancyScheme, _ := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 			_ = eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancyScheme)
 		}
 	})

@@ -11,12 +11,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
 )
 
 // Module registers the console server dependency injection components.

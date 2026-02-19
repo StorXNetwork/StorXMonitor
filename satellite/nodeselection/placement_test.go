@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestPlacementFromString(t *testing.T) {
-	signer, err := storj.NodeIDFromString("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4")
+	signer, err := storxnetwork.NodeIDFromString("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4")
 	require.NoError(t, err)
 
 	t.Run("invalid country-code", func(t *testing.T) {
@@ -29,7 +29,7 @@ func TestPlacementFromString(t *testing.T) {
 			p := TestPlacementDefinitions()
 			err := p.AddPlacementFromString("11:" + placementDef)
 			require.NoError(t, err)
-			filters := p[storj.PlacementConstraint(11)]
+			filters := p[storxnetwork.PlacementConstraint(11)]
 			require.NotNil(t, filters)
 			for _, code := range shouldBeExcluded {
 				require.False(t, filters.Match(&SelectedNode{
@@ -64,7 +64,7 @@ func TestPlacementFromString(t *testing.T) {
 		p := TestPlacementDefinitions()
 		err := p.AddPlacementFromString(`11:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo","bar")`)
 		require.NoError(t, err)
-		filters := p[storj.PlacementConstraint(11)]
+		filters := p[storxnetwork.PlacementConstraint(11)]
 		require.NotNil(t, filters)
 		require.True(t, filters.Match(&SelectedNode{
 			Tags: tagged("foo", "bar"),
@@ -133,7 +133,7 @@ func TestPlacementFromString(t *testing.T) {
 				p := TestPlacementDefinitions()
 				err := p.AddPlacementFromString(tc.placement)
 				require.NoError(t, err)
-				filters := p[storj.PlacementConstraint(11)]
+				filters := p[storxnetwork.PlacementConstraint(11)]
 				require.NotNil(t, filters)
 				for _, i := range tc.includedNodes {
 					require.True(t, filters.Match(i), "%v should be included", i)
@@ -150,7 +150,7 @@ func TestPlacementFromString(t *testing.T) {
 		err := p.AddPlacementFromString(`1:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo","bar");2:exclude(placement(1))`)
 		require.NoError(t, err)
 
-		require.True(t, p[storj.PlacementConstraint(1)].Match(&SelectedNode{
+		require.True(t, p[storxnetwork.PlacementConstraint(1)].Match(&SelectedNode{
 			Tags: NodeTags{
 				{
 					Signer: signer,
@@ -160,7 +160,7 @@ func TestPlacementFromString(t *testing.T) {
 			},
 		}))
 
-		placement2 := p[storj.PlacementConstraint(2)]
+		placement2 := p[storxnetwork.PlacementConstraint(2)]
 		require.False(t, placement2.Match(&SelectedNode{
 			Tags: NodeTags{
 				{
@@ -190,7 +190,7 @@ func TestPlacementFromString(t *testing.T) {
 			p := TestPlacementDefinitions()
 			err := p.AddPlacementFromString(syntax)
 			require.NoError(t, err)
-			filters := p[storj.PlacementConstraint(11)]
+			filters := p[storxnetwork.PlacementConstraint(11)]
 			require.NotNil(t, filters)
 			require.True(t, filters.Match(&SelectedNode{
 				CountryCode: location.UnitedKingdom,
@@ -228,7 +228,7 @@ func TestPlacementFromString(t *testing.T) {
 		err := p.AddPlacementFromString(`11:country("GB");12:country("DE")`)
 		require.NoError(t, err)
 
-		filters := p[storj.PlacementConstraint(11)]
+		filters := p[storxnetwork.PlacementConstraint(11)]
 		require.NotNil(t, filters)
 		require.True(t, filters.Match(&SelectedNode{
 			CountryCode: location.UnitedKingdom,
@@ -238,7 +238,7 @@ func TestPlacementFromString(t *testing.T) {
 		}))
 		require.Equal(t, `country("GB")`, fmt.Sprintf("%s", filters.NodeFilter))
 
-		filters = p[storj.PlacementConstraint(12)]
+		filters = p[storxnetwork.PlacementConstraint(12)]
 		require.NotNil(t, filters)
 		require.False(t, filters.Match(&SelectedNode{
 			CountryCode: location.UnitedKingdom,
@@ -254,7 +254,7 @@ func TestPlacementFromString(t *testing.T) {
 		err := p.AddPlacementFromString(`11:country("GB") || country("DE")`)
 		require.NoError(t, err)
 
-		filters := p[storj.PlacementConstraint(11)]
+		filters := p[storxnetwork.PlacementConstraint(11)]
 		require.NotNil(t, filters)
 		require.True(t, filters.Match(&SelectedNode{
 			CountryCode: location.UnitedKingdom,
@@ -270,7 +270,7 @@ func TestPlacementFromString(t *testing.T) {
 		err := p.AddPlacementFromString(`11:((country("GB") || country("DE")) && tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo","bar"))`)
 		require.NoError(t, err)
 
-		filters := p[storj.PlacementConstraint(11)]
+		filters := p[storxnetwork.PlacementConstraint(11)]
 		require.NotNil(t, filters)
 		require.False(t, filters.Match(&SelectedNode{
 			CountryCode: location.UnitedKingdom,
@@ -303,7 +303,7 @@ func TestPlacementFromString(t *testing.T) {
 			p := TestPlacementDefinitions()
 			err := p.AddPlacementFromString(`11:annotated(country("GB"),annotation("autoExcludeSubnet","off"))`)
 			require.NoError(t, err)
-			filters := p[storj.PlacementConstraint(11)]
+			filters := p[storxnetwork.PlacementConstraint(11)]
 			require.True(t, filters.Match(&SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
@@ -316,7 +316,7 @@ func TestPlacementFromString(t *testing.T) {
 			err := p.AddPlacementFromString(`11:country("GB") && annotation("foo","bar") && annotation("bar","foo")`)
 			require.NoError(t, err)
 
-			filters := p[storj.PlacementConstraint(11)]
+			filters := p[storxnetwork.PlacementConstraint(11)]
 			require.True(t, filters.Match(&SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
@@ -329,7 +329,7 @@ func TestPlacementFromString(t *testing.T) {
 			p := TestPlacementDefinitions()
 			err := p.AddPlacementFromString(`11:annotated(annotated(country("GB"),annotation("foo","bar")),annotation("bar","foo"))`)
 			require.NoError(t, err)
-			filters := p[storj.PlacementConstraint(11)]
+			filters := p[storxnetwork.PlacementConstraint(11)]
 			require.True(t, filters.Match(&SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
@@ -342,7 +342,7 @@ func TestPlacementFromString(t *testing.T) {
 			p := TestPlacementDefinitions()
 			s := fmt.Sprintf(`11:annotated(annotated(country("GB"),annotation("%s","test-location")),annotation("%s","%s"))`, Location, AutoExcludeSubnet, AutoExcludeSubnetOFF)
 			require.NoError(t, p.AddPlacementFromString(s))
-			filters := p[storj.PlacementConstraint(11)]
+			filters := p[storxnetwork.PlacementConstraint(11)]
 			require.True(t, filters.Match(&SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
@@ -356,7 +356,7 @@ func TestPlacementFromString(t *testing.T) {
 		p := TestPlacementDefinitions()
 		err := p.AddPlacementFromString(`11:exclude(country("GB"))`)
 		require.NoError(t, err)
-		filters := p[storj.PlacementConstraint(11)]
+		filters := p[storxnetwork.PlacementConstraint(11)]
 		require.False(t, filters.Match(&SelectedNode{
 			CountryCode: location.UnitedKingdom,
 		}))
@@ -370,7 +370,7 @@ func TestPlacementFromString(t *testing.T) {
 		p.AddLegacyStaticRules()
 
 		t.Run("nr", func(t *testing.T) {
-			nr := p[storj.NR] //lint:ignore SA1019 testing legacy placement
+			nr := p[storxnetwork.NR] //lint:ignore SA1019 testing legacy placement
 			require.True(t, nr.Match(&SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
@@ -382,7 +382,7 @@ func TestPlacementFromString(t *testing.T) {
 			}))
 		})
 		t.Run("us", func(t *testing.T) {
-			us := p[storj.US] //lint:ignore SA1019 testing legacy placement
+			us := p[storxnetwork.US] //lint:ignore SA1019 testing legacy placement
 			require.True(t, us.Match(&SelectedNode{
 				CountryCode: location.UnitedStates,
 			}))
@@ -432,7 +432,7 @@ func TestPlacementFromString(t *testing.T) {
 
 		// check if old geofencing rules are working as before (and string based config is the same as the code base)
 		// Using numeric values for legacy placements: EU=1, EEA=2, DE=4, US=3, NR=6
-		for _, placement := range []storj.PlacementConstraint{1, 2, 4, 3, 6} {
+		for _, placement := range []storxnetwork.PlacementConstraint{1, 2, 4, 3, 6} {
 			filter1, _ := rules1.CreateFilters(placement)
 			filter2, _ := rules2.CreateFilters(placement)
 			for _, country := range testCountries {
@@ -446,8 +446,8 @@ func TestPlacementFromString(t *testing.T) {
 			}
 		}
 
-		filter1, _ := rules1.CreateFilters(storj.NR) //lint:ignore SA1019 testing legacy placement
-		filter2, _ := rules2.CreateFilters(storj.NR) //lint:ignore SA1019 testing legacy placement
+		filter1, _ := rules1.CreateFilters(storxnetwork.NR) //lint:ignore SA1019 testing legacy placement
+		filter2, _ := rules2.CreateFilters(storxnetwork.NR) //lint:ignore SA1019 testing legacy placement
 		// make sure that new rules exclude location.None from NR
 		assert.False(t, filter1.Match(&SelectedNode{}))
 		assert.False(t, filter2.Match(&SelectedNode{}))
@@ -465,7 +465,7 @@ func TestPlacementFromString(t *testing.T) {
 		}
 
 		// Using numeric values for legacy placements: EveryCountry=0, EU=1, EEA=2, DE=4, US=3, NR=6
-		for _, placement := range []storj.PlacementConstraint{0, 1, 2, 4, 3, 6} {
+		for _, placement := range []storxnetwork.PlacementConstraint{0, 1, 2, 4, 3, 6} {
 			filter, _ := rules1.CreateFilters(placement)
 			assert.False(t, filter.Match(node))
 		}
@@ -507,7 +507,7 @@ func TestPlacementFromString(t *testing.T) {
 			},
 		}
 		// Using numeric values for legacy placements: EveryCountry=0, EU=1, EEA=2, DE=4, US=3, NR=6
-		for _, placement := range []storj.PlacementConstraint{0, 1, 2, 4, 3, 6} {
+		for _, placement := range []storxnetwork.PlacementConstraint{0, 1, 2, 4, 3, 6} {
 			filter, _ := rules1.CreateFilters(placement)
 			value := filter.Match(datacenterNode)
 			assert.False(t, value)
@@ -526,7 +526,7 @@ func TestPlacementFromString(t *testing.T) {
 
 		// check if annotation present on 11,12, but not on other
 		for i := 0; i < 20; i++ {
-			filter, _ := rules1.CreateFilters(storj.PlacementConstraint(i))
+			filter, _ := rules1.CreateFilters(storxnetwork.PlacementConstraint(i))
 			subnetDisabled := GetAnnotation(filter, AutoExcludeSubnet) == AutoExcludeSubnetOFF
 			if i == 11 || i == 12 || i == 14 {
 				require.True(t, subnetDisabled, "Placement filter should be disabled for %d", i)

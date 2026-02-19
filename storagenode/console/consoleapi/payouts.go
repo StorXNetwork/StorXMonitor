@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrPayoutAPI - console payouts api error type.
@@ -63,7 +63,7 @@ func (payout *Payout) PayStubMonthly(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		satelliteID, err := storj.NodeIDFromString(id)
+		satelliteID, err := storxnetwork.NodeIDFromString(id)
 		if err != nil {
 			payout.serveJSONError(w, http.StatusBadRequest, ErrPayoutAPI.Wrap(err))
 			return
@@ -128,7 +128,7 @@ func (payout *Payout) PayStubPeriod(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		satelliteID, err := storj.NodeIDFromString(id)
+		satelliteID, err := storxnetwork.NodeIDFromString(id)
 		if err != nil {
 			payout.serveJSONError(w, http.StatusBadRequest, ErrPayoutAPI.Wrap(err))
 			return
@@ -225,7 +225,7 @@ func (payout *Payout) HeldAmountPeriods(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	} else {
-		satelliteID, err := storj.NodeIDFromString(id)
+		satelliteID, err := storxnetwork.NodeIDFromString(id)
 		if err != nil {
 			payout.serveJSONError(w, http.StatusBadRequest, ErrPayoutAPI.Wrap(err))
 			return

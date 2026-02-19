@@ -26,39 +26,39 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/encryption"
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/rpc/rpctest"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/time2"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/shared/nodetag"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/uplink"
-	"storj.io/uplink/private/bucket"
-	"storj.io/uplink/private/metaclient"
-	"storj.io/uplink/private/object"
-	"storj.io/uplink/private/piecestore"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpctest"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/time2"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/bucket"
+	"github.com/StorXNetwork/uplink/private/metaclient"
+	"github.com/StorXNetwork/uplink/private/object"
+	"github.com/StorXNetwork/uplink/private/piecestore"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 const (
@@ -273,17 +273,17 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			params := metaclient.BeginObjectParams{
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
+				Redundancy: storxnetwork.RedundancyScheme{
+					Algorithm:      storxnetwork.ReedSolomon,
 					ShareSize:      256,
 					RequiredShares: 1,
 					RepairShares:   1,
 					OptimalShares:  3,
 					TotalShares:    4,
 				},
-				EncryptionParameters: storj.EncryptionParameters{
+				EncryptionParameters: storxnetwork.EncryptionParameters{
 					BlockSize:   256,
-					CipherSuite: storj.EncNull,
+					CipherSuite: storxnetwork.EncNull,
 				},
 				ExpiresAt: time.Now().Add(24 * time.Hour),
 			}
@@ -333,17 +333,17 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			params := metaclient.BeginObjectParams{
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
+				Redundancy: storxnetwork.RedundancyScheme{
+					Algorithm:      storxnetwork.ReedSolomon,
 					ShareSize:      256,
 					RequiredShares: 1,
 					RepairShares:   1,
 					OptimalShares:  3,
 					TotalShares:    4,
 				},
-				EncryptionParameters: storj.EncryptionParameters{
+				EncryptionParameters: storxnetwork.EncryptionParameters{
 					BlockSize:   256,
-					CipherSuite: storj.EncNull,
+					CipherSuite: storxnetwork.EncNull,
 				},
 				ExpiresAt: time.Now().Add(24 * time.Hour),
 			}
@@ -533,8 +533,8 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			beginResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte("a/b/testobject"),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -597,9 +597,9 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 
 			params := metaclient.BeginObjectParams{
 				Bucket: []byte(bucketName),
-				EncryptionParameters: storj.EncryptionParameters{
+				EncryptionParameters: storxnetwork.EncryptionParameters{
 					BlockSize:   256,
-					CipherSuite: storj.EncNull,
+					CipherSuite: storxnetwork.EncNull,
 				},
 			}
 
@@ -640,7 +640,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			encodedStreamID, err := pb.Marshal(signedStreamID)
 			require.NoError(t, err)
-			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+			streamID, err := storxnetwork.StreamIDFromBytes(encodedStreamID)
 			require.NoError(t, err)
 			_, err = metainfoClient.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{
 				Bucket:             []byte(expectedBucketName),
@@ -725,9 +725,9 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 
 			params := metaclient.BeginObjectParams{
 				Bucket: []byte(bucketName),
-				EncryptionParameters: storj.EncryptionParameters{
+				EncryptionParameters: storxnetwork.EncryptionParameters{
 					BlockSize:   256,
-					CipherSuite: storj.EncNull,
+					CipherSuite: storxnetwork.EncNull,
 				},
 				ExpiresAt: time.Now().Add(-24 * time.Hour),
 			}
@@ -1310,7 +1310,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
-		euPlacement := storj.PlacementConstraint(1)
+		euPlacement := storxnetwork.PlacementConstraint(1)
 		require.NoError(t, planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, planet.Uplinks[0].Projects[0].ID, euPlacement))
 
 		bucketName := "testbucket"
@@ -1324,7 +1324,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			}
 		}
 
-		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		fullIDMap := make(map[storxnetwork.NodeID]*identity.FullIdentity)
 		for _, node := range planet.StorageNodes {
 			fullIDMap[node.ID()] = node.Identity
 		}
@@ -1367,8 +1367,8 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			params := metaclient.BeginObjectParams{
 				Bucket:             []byte(bucket.Name),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 				ExpiresAt: time.Now().Add(24 * time.Hour),
@@ -1751,7 +1751,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			bucketName := "initial-bucket"
 			objectName := "file1"
-			placementTest := storj.PlacementConstraint(1)
+			placementTest := storxnetwork.PlacementConstraint(1)
 
 			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 			t.Log(apiKey)
@@ -1988,7 +1988,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			for _, sd := range response.SegmentDownload {
 				require.NotEmpty(t, sd.SegmentId, "segment ID must be set")
 
-				encodedSegID, err := storj.SegmentIDFromBytes(sd.SegmentId)
+				encodedSegID, err := storxnetwork.SegmentIDFromBytes(sd.SegmentId)
 				require.NoError(t, err)
 				require.False(t, encodedSegID.IsZero(), "segment ID cannot be 0")
 
@@ -2062,9 +2062,9 @@ func TestMoveObject_Geofencing(t *testing.T) {
 			uplink := planet.Uplinks[0]
 			projectID := uplink.Projects[0].ID
 
-			globalPlacement := storj.DefaultPlacement
-			usPlacement := storj.PlacementConstraint(3)
-			euPlacement := storj.PlacementConstraint(1)
+			globalPlacement := storxnetwork.DefaultPlacement
+			usPlacement := storxnetwork.PlacementConstraint(3)
+			euPlacement := storxnetwork.PlacementConstraint(1)
 
 			// create buckets with different placement
 			createGeofencedBucket(t, ctx, buckets, projectID, "global1", globalPlacement)
@@ -2124,7 +2124,7 @@ func TestEndpoint_GetObjectIPs_With_Placement(t *testing.T) {
 		sat := planet.Satellites[0]
 
 		bucketName := "test-bucket"
-		customPlacement := storj.PlacementConstraint(5)
+		customPlacement := storxnetwork.PlacementConstraint(5)
 		createGeofencedBucket(t, ctx, sat.API.Buckets.Service, uplnk.Projects[0].ID, bucketName, customPlacement)
 
 		require.NoError(t, uplnk.Upload(ctx, sat, bucketName, "test-placement", testrand.Bytes(3*memory.KB)))
@@ -2141,11 +2141,11 @@ func TestEndpoint_GetObjectIPs_With_Placement(t *testing.T) {
 			EncryptedObjectKey: []byte(objects[0].ObjectKey),
 		})
 		require.NoError(t, err)
-		require.Equal(t, customPlacement, storj.PlacementConstraint(getResp.PlacementConstraint))
+		require.Equal(t, customPlacement, storxnetwork.PlacementConstraint(getResp.PlacementConstraint))
 	})
 }
 
-func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, service *buckets.Service, projectID uuid.UUID, bucketName string, placement storj.PlacementConstraint) {
+func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, service *buckets.Service, projectID uuid.UUID, bucketName string, placement storxnetwork.PlacementConstraint) {
 	// generate the bucket id
 	bucketID, err := uuid.New()
 	require.NoError(t, err)
@@ -2170,7 +2170,7 @@ func TestEndpoint_CopyObject(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 4,
 		Reconfigure: testplanet.Reconfigure{
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
-				config.DefaultPathCipher = storj.EncNull
+				config.DefaultPathCipher = storxnetwork.EncNull
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2895,7 +2895,7 @@ func TestListUploads(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// basic ListUploads tests, more tests are on storj/uplink side
+		// basic ListUploads tests, more tests are on storxnetwork/uplink side
 		u := planet.Uplinks[0]
 		s := planet.Satellites[0]
 
@@ -2922,7 +2922,7 @@ func TestListUploads(t *testing.T) {
 }
 
 func TestNodeTagPlacement(t *testing.T) {
-	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
+	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()))
 
 	placementRules := nodeselection.ConfigurablePlacementRule{}
 	tag := fmt.Sprintf(`tag("%s", "certified","true")`, satelliteIdentity.ID())
@@ -2946,7 +2946,7 @@ func TestNodeTagPlacement(t *testing.T) {
 				StorageNode: func(index int, config *storagenode.Config) {
 					if index%2 == 0 {
 						tags := &pb.NodeTagSet{
-							NodeId:   testidentity.MustPregeneratedSignedIdentity(index+1, storj.LatestIDVersion()).ID.Bytes(),
+							NodeId:   testidentity.MustPregeneratedSignedIdentity(index+1, storxnetwork.LatestIDVersion()).ID.Bytes(),
 							SignedAt: time.Now().Unix(),
 							Tags: []*pb.Tag{
 								{
@@ -2985,12 +2985,12 @@ func TestNodeTagPlacement(t *testing.T) {
 				_ = metainfoClient.Close()
 			}()
 
-			nodeIndex := map[storj.NodeID]int{}
+			nodeIndex := map[storxnetwork.NodeID]int{}
 			for ix, node := range planet.StorageNodes {
 				nodeIndex[node.Identity.ID] = ix
 			}
 			testPlacement := func(t *testing.T, bucketName string, placement int, allowedNodes func(int) bool) {
-				createGeofencedBucket(t, ctx, buckets, projectID, bucketName, storj.PlacementConstraint(placement))
+				createGeofencedBucket(t, ctx, buckets, projectID, bucketName, storxnetwork.PlacementConstraint(placement))
 
 				const objectNo = 5
 				for i := 0; i < objectNo; i++ {
@@ -3569,11 +3569,11 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				require.NoError(t, err)
 
 				require.NotNil(t, commitResp.Object.Retention)
-				require.EqualValues(t, storj.ComplianceMode, commitResp.Object.Retention.Mode)
+				require.EqualValues(t, storxnetwork.ComplianceMode, commitResp.Object.Retention.Mode)
 				require.WithinDuration(t, beginReq.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
 
 				obj := requireObject(t, bucketName, key)
-				require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)
+				require.Equal(t, storxnetwork.ComplianceMode, obj.Retention.Mode)
 				require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
 			})
 
@@ -3719,11 +3719,11 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				require.NoError(t, err)
 
 				require.NotNil(t, commitResp.Object.Retention)
-				require.EqualValues(t, storj.ComplianceMode, commitResp.Object.Retention.Mode)
+				require.EqualValues(t, storxnetwork.ComplianceMode, commitResp.Object.Retention.Mode)
 				require.WithinDuration(t, reqs.beginObject.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
 
 				obj := requireObject(t, bucketName, key)
-				require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)
+				require.Equal(t, storxnetwork.ComplianceMode, obj.Retention.Mode)
 				require.WithinDuration(t, reqs.beginObject.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
 			})
 
@@ -3885,7 +3885,7 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 		}
 
 		type testOpts struct {
-			defaultRetentionMode  storj.RetentionMode
+			defaultRetentionMode  storxnetwork.RetentionMode
 			defaultRetentionDays  int
 			defaultRetentionYears int
 			overrideRetention     *pb.Retention
@@ -3952,10 +3952,10 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 
 		t.Run("Use default retention", func(t *testing.T) {
 			opts := testOpts{
-				defaultRetentionMode: storj.ComplianceMode,
+				defaultRetentionMode: storxnetwork.ComplianceMode,
 				defaultRetentionDays: 3,
 				expectedRetention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
+					Mode:        storxnetwork.ComplianceMode,
 					RetainUntil: time.Now().AddDate(0, 0, 3),
 				},
 			}
@@ -3970,10 +3970,10 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 			})
 
 			opts = testOpts{
-				defaultRetentionMode:  storj.GovernanceMode,
+				defaultRetentionMode:  storxnetwork.GovernanceMode,
 				defaultRetentionYears: 5,
 				expectedRetention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: time.Now().AddDate(5, 0, 0),
 				},
 			}
@@ -4009,10 +4009,10 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 				// Expect 1 day to always be considered a 24-hour period, with no adjustments
 				// made to accommodate the leap day.
 				opts := testOpts{
-					defaultRetentionMode: storj.ComplianceMode,
+					defaultRetentionMode: storxnetwork.ComplianceMode,
 					defaultRetentionDays: 365 * years,
 					expectedRetention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
+						Mode:        storxnetwork.ComplianceMode,
 						RetainUntil: time.Now().AddDate(0, 0, 365*years),
 					},
 				}
@@ -4028,10 +4028,10 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 
 				// Expect the retention period duration to take the leap day into account.
 				opts = testOpts{
-					defaultRetentionMode:  storj.ComplianceMode,
+					defaultRetentionMode:  storxnetwork.ComplianceMode,
 					defaultRetentionYears: years,
 					expectedRetention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
+						Mode:        storxnetwork.ComplianceMode,
 						RetainUntil: time.Now().AddDate(0, 0, 365*years+1),
 					},
 				}
@@ -4049,14 +4049,14 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 
 		t.Run("Override default retention", func(t *testing.T) {
 			opts := testOpts{
-				defaultRetentionMode:  storj.ComplianceMode,
+				defaultRetentionMode:  storxnetwork.ComplianceMode,
 				defaultRetentionYears: 3,
 				overrideRetention: &pb.Retention{
 					Mode:        pb.Retention_GOVERNANCE,
 					RetainUntil: time.Now().AddDate(0, 0, 5),
 				},
 				expectedRetention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
+					Mode:        storxnetwork.GovernanceMode,
 					RetainUntil: time.Now().AddDate(0, 0, 5),
 				},
 				commitInline: false,
@@ -4081,7 +4081,7 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 					Versioning: buckets.VersioningEnabled,
 					ObjectLock: buckets.ObjectLockSettings{
 						Enabled:              true,
-						DefaultRetentionMode: storj.ComplianceMode,
+						DefaultRetentionMode: storxnetwork.ComplianceMode,
 						DefaultRetentionDays: 7,
 					},
 				})
@@ -4787,14 +4787,14 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		t.Run("Success", func(t *testing.T) {
 			objStream1 := randObjectStream(project.ID, lockBucketName)
 			retention1 := metabase.Retention{
-				Mode:        storj.GovernanceMode,
+				Mode:        storxnetwork.GovernanceMode,
 				RetainUntil: time.Now().Add(time.Hour),
 			}
 			object1 := createObject(t, objStream1, retention1)
 
 			objStream2 := objStream1
 			objStream2.Version++
-			retention2 := randRetention(storj.ComplianceMode)
+			retention2 := randRetention(storxnetwork.ComplianceMode)
 			createObject(t, objStream2, retention2)
 
 			req := &pb.GetObjectRetentionRequest{
@@ -4828,7 +4828,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Missing object", func(t *testing.T) {
-			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storj.ComplianceMode)
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storxnetwork.ComplianceMode)
 
 			req := &pb.GetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -4850,7 +4850,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Delete marker", func(t *testing.T) {
-			objStream1, retention := randObjectStream(project.ID, lockBucketName), randRetention(storj.ComplianceMode)
+			objStream1, retention := randObjectStream(project.ID, lockBucketName), randRetention(storxnetwork.ComplianceMode)
 			createObject(t, objStream1, retention)
 
 			deleteOpts := metainfo.DeleteCommittedObject{
@@ -4903,7 +4903,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 
 		t.Run("Pending object", func(t *testing.T) {
 			objStream := randObjectStream(project.ID, lockBucketName)
-			retention := randRetention(storj.ComplianceMode)
+			retention := randRetention(storxnetwork.ComplianceMode)
 			pending, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: objStream,
 				Encryption:   metabasetest.DefaultEncryption,
@@ -4935,7 +4935,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			_, err = db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: pendingObjStream,
 				Encryption:   metabasetest.DefaultEncryption,
-				Retention:    randRetention(storj.ComplianceMode),
+				Retention:    randRetention(storxnetwork.ComplianceMode),
 			})
 			require.NoError(t, err)
 
@@ -5012,7 +5012,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			endpoint.TestSetObjectLockEnabled(false)
 			defer endpoint.TestSetObjectLockEnabled(true)
 
-			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storj.ComplianceMode)
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storxnetwork.ComplianceMode)
 			object := createObject(t, objStream, retention)
 			req := &pb.GetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -5029,7 +5029,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 			require.NoError(t, err)
 
-			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storj.ComplianceMode)
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storxnetwork.ComplianceMode)
 			object := createObject(t, objStream, retention)
 			req := &pb.GetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: oldApiKey.SerializeRaw()},
@@ -5126,10 +5126,10 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 		testCases := []struct {
 			name string
-			mode storj.RetentionMode
+			mode storxnetwork.RetentionMode
 		}{
-			{name: "Compliance mode", mode: storj.ComplianceMode},
-			{name: "Governance mode", mode: storj.GovernanceMode},
+			{name: "Compliance mode", mode: storxnetwork.ComplianceMode},
+			{name: "Governance mode", mode: storxnetwork.GovernanceMode},
 		}
 
 		lockBucketName := createBucket(t, true, true)
@@ -5224,7 +5224,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 					opts.BypassGovernanceRetention = true
 
 					_, err = endpoint.SetObjectRetention(ctx, opts)
-					if tt.mode == storj.GovernanceMode {
+					if tt.mode == storxnetwork.GovernanceMode {
 						require.NoError(t, err)
 						requireRetention(t, activeRetentionObj.Location(), activeRetentionObj.Version, metabase.Retention{})
 					} else {
@@ -5258,7 +5258,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 					opts.BypassGovernanceRetention = true
 
 					_, err = endpoint.SetObjectRetention(ctx, opts)
-					if tt.mode == storj.GovernanceMode {
+					if tt.mode == storxnetwork.GovernanceMode {
 						require.NoError(t, err)
 						requireRetention(t, obj.Location(), obj.Version, newRetention)
 					} else {
@@ -5270,11 +5270,11 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Change retention mode", func(t *testing.T) {
-			retention := randRetention(storj.GovernanceMode)
+			retention := randRetention(storxnetwork.GovernanceMode)
 			obj := createObject(t, randObjectStream(project.ID, lockBucketName), retention)
 
 			newRetention := retention
-			newRetention.Mode = storj.ComplianceMode
+			newRetention.Mode = storxnetwork.ComplianceMode
 
 			opts := &pb.SetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -5353,7 +5353,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				Bucket:             []byte(objStream.BucketName),
 				EncryptedObjectKey: []byte(objStream.ObjectKey),
 				ObjectVersion:      obj.StreamVersionID().Bytes(),
-				Retention:          retentionToProto(randRetention(storj.ComplianceMode)),
+				Retention:          retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 			})
 			rpctest.RequireStatus(t, err, rpcstatus.NotFound, "bucket not found: "+string(objStream.BucketName))
 
@@ -5367,7 +5367,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte(objStream.BucketName),
 				EncryptedObjectKey: []byte(objStream.ObjectKey),
-				Retention:          retentionToProto(randRetention(storj.ComplianceMode)),
+				Retention:          retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 			}
 
 			// last committed version
@@ -5392,7 +5392,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			retention := randRetention(storj.ComplianceMode)
+			retention := randRetention(storxnetwork.ComplianceMode)
 			req := &pb.SetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte(objStream.BucketName),
@@ -5445,7 +5445,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				Bucket:             []byte(objStream.BucketName),
 				EncryptedObjectKey: []byte(objStream.ObjectKey),
 				ObjectVersion:      deleteResult.Markers[0].StreamVersionID().Bytes(),
-				Retention:          retentionToProto(randRetention(storj.ComplianceMode)),
+				Retention:          retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 			}
 
 			// exact version
@@ -5488,7 +5488,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			endpoint.TestSetObjectLockEnabled(false)
 			defer endpoint.TestSetObjectLockEnabled(true)
 
-			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storj.ComplianceMode)
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storxnetwork.ComplianceMode)
 			obj := createObject(t, objStream, metabase.Retention{})
 
 			req := &pb.SetObjectRetentionRequest{
@@ -5509,7 +5509,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 				require.NoError(t, err)
 
-				objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storj.ComplianceMode)
+				objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storxnetwork.ComplianceMode)
 				obj := createObject(t, objStream, metabase.Retention{})
 
 				_, err = endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
@@ -5526,7 +5526,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 				require.NoError(t, err)
 
-				objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storj.ComplianceMode)
+				objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storxnetwork.ComplianceMode)
 				obj := createObject(t, objStream, metabase.Retention{})
 
 				_, err = endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
@@ -5543,7 +5543,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowBypassGovernanceRetention: true})
 				require.NoError(t, err)
 
-				objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storj.GovernanceMode)
+				objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention(storxnetwork.GovernanceMode)
 				obj := createObject(t, objStream, metabase.Retention{})
 
 				// Ensure that retention shortening is forbidden.
@@ -5572,7 +5572,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 				// Ensure that changing the retention mode is forbidden.
 				newRetention = retention
-				newRetention.Mode = storj.ComplianceMode
+				newRetention.Mode = storxnetwork.ComplianceMode
 				opts.Retention = retentionToProto(newRetention)
 
 				_, err = endpoint.SetObjectRetention(ctx, opts)
@@ -5627,7 +5627,7 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 			return obj
 		}
 
-		lockedObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), randRetention(storj.ComplianceMode), true)
+		lockedObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), randRetention(storxnetwork.ComplianceMode), true)
 		plainObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), metabase.Retention{}, false)
 
 		t.Run("GetObject", func(t *testing.T) {
@@ -5730,7 +5730,7 @@ var objectLockTestCases = []struct {
 		name: "retention - compliance, no legal hold",
 		expectedRetention: func() *metabase.Retention {
 			return &metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
 			}
 		},
@@ -5739,7 +5739,7 @@ var objectLockTestCases = []struct {
 		name: "retention - governance, no legal hold",
 		expectedRetention: func() *metabase.Retention {
 			return &metabase.Retention{
-				Mode:        storj.GovernanceMode,
+				Mode:        storxnetwork.GovernanceMode,
 				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
 			}
 		},
@@ -5749,7 +5749,7 @@ var objectLockTestCases = []struct {
 		name: "retention - compliance, legal hold",
 		expectedRetention: func() *metabase.Retention {
 			return &metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storxnetwork.ComplianceMode,
 				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
 			}
 		},
@@ -5759,7 +5759,7 @@ var objectLockTestCases = []struct {
 		name: "retention - governance, legal hold",
 		expectedRetention: func() *metabase.Retention {
 			return &metabase.Retention{
-				Mode:        storj.GovernanceMode,
+				Mode:        storxnetwork.GovernanceMode,
 				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
 			}
 		},
@@ -5984,7 +5984,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 
 			beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.ComplianceMode)
+			expectedRetention := randRetention(storxnetwork.ComplianceMode)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
 				Header: &pb.RequestHeader{
@@ -6017,7 +6017,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 				StreamId:              beginResponse.StreamId,
 				NewBucket:             []byte(dstBucket),
 				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+				Retention:             retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 			})
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
@@ -6035,7 +6035,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 				StreamId:              beginResponse.StreamId,
 				NewBucket:             []byte(dstBucket),
 				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+				Retention:             retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 			})
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
@@ -6046,7 +6046,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 
 			beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.NoRetention)
+			expectedRetention := randRetention(storxnetwork.NoRetention)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
 				Header: &pb.RequestHeader{
@@ -6066,7 +6066,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 
 			beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.ComplianceMode)
+			expectedRetention := randRetention(storxnetwork.ComplianceMode)
 			expectedRetention.RetainUntil = time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
@@ -6089,7 +6089,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 
 			beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, &ttl, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.ComplianceMode)
+			expectedRetention := randRetention(storxnetwork.ComplianceMode)
 			expectedRetention.RetainUntil = expectedRetention.RetainUntil.Add(time.Hour)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
@@ -6112,7 +6112,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 
 			beginResponse := newCopy(t, satellite, project.ID, ttlApiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.ComplianceMode)
+			expectedRetention := randRetention(storxnetwork.ComplianceMode)
 			expectedRetention.RetainUntil = expectedRetention.RetainUntil.Add(time.Hour)
 
 			response, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
@@ -6144,7 +6144,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 					StreamId:              beginResponse.StreamId,
 					NewBucket:             []byte(dstBucket),
 					NewEncryptedObjectKey: []byte(dstKey),
-					Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+					Retention:             retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 				})
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 				requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
@@ -6160,7 +6160,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 				Versioning: buckets.VersioningEnabled,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled:              true,
-					DefaultRetentionMode: storj.GovernanceMode,
+					DefaultRetentionMode: storxnetwork.GovernanceMode,
 					DefaultRetentionDays: 1,
 				},
 			})
@@ -6169,7 +6169,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			beginResponse1 := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey1)
 			beginResponse2 := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey2)
 
-			finishCopy := func(streamID storj.StreamID, dstBucket, dstKey string, retention *pb.Retention) {
+			finishCopy := func(streamID storxnetwork.StreamID, dstBucket, dstKey string, retention *pb.Retention) {
 				_, err = satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
 					Header: &pb.RequestHeader{
 						ApiKey: apiKey.SerializeRaw(),
@@ -6184,12 +6184,12 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 
 			finishCopy(beginResponse1.StreamId, dstBucket, dstKey1, nil)
 
-			retention := randRetention(storj.ComplianceMode)
+			retention := randRetention(storxnetwork.ComplianceMode)
 
 			finishCopy(beginResponse2.StreamId, dstBucket, dstKey2, retentionToProto(retention))
 
 			requireRetentionWithinDuration(t, satellite, project.ID, dstBucket, dstKey1, &metabase.Retention{
-				Mode:        storj.GovernanceMode,
+				Mode:        storxnetwork.GovernanceMode,
 				RetainUntil: time.Now().AddDate(0, 0, 1),
 			}, time.Minute)
 
@@ -6406,7 +6406,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.ComplianceMode)
+			expectedRetention := randRetention(storxnetwork.ComplianceMode)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 				Header: &pb.RequestHeader{
@@ -6439,7 +6439,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				StreamId:              beginResponse.StreamId,
 				NewBucket:             []byte(dstBucket),
 				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+				Retention:             retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 			})
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
@@ -6457,7 +6457,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				StreamId:              beginResponse.StreamId,
 				NewBucket:             []byte(dstBucket),
 				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+				Retention:             retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 			})
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
@@ -6468,7 +6468,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.NoRetention)
+			expectedRetention := randRetention(storxnetwork.NoRetention)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 				Header: &pb.RequestHeader{
@@ -6488,7 +6488,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.ComplianceMode)
+			expectedRetention := randRetention(storxnetwork.ComplianceMode)
 			expectedRetention.RetainUntil = time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
@@ -6511,7 +6511,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, &ttl, metabase.Retention{}, false, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.ComplianceMode)
+			expectedRetention := randRetention(storxnetwork.ComplianceMode)
 			expectedRetention.RetainUntil = expectedRetention.RetainUntil.Add(time.Hour)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
@@ -6534,7 +6534,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 			beginResponse := newMove(t, satellite, project.ID, ttlApiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
-			expectedRetention := randRetention(storj.ComplianceMode)
+			expectedRetention := randRetention(storxnetwork.ComplianceMode)
 			expectedRetention.RetainUntil = expectedRetention.RetainUntil.Add(time.Hour)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
@@ -6564,7 +6564,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 					StreamId:              beginResponse.StreamId,
 					NewBucket:             []byte(dstBucket),
 					NewEncryptedObjectKey: []byte(dstKey),
-					Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+					Retention:             retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 				})
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 				requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
@@ -6574,7 +6574,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		t.Run("moving an object from a locked location is impossible", func(t *testing.T) {
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, randRetention(storj.ComplianceMode), false, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, randRetention(storxnetwork.ComplianceMode), false, dstBucket, dstKey)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 				Header: &pb.RequestHeader{
@@ -6583,7 +6583,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				StreamId:              beginResponse.StreamId,
 				NewBucket:             []byte(dstBucket),
 				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+				Retention:             retentionToProto(randRetention(storxnetwork.ComplianceMode)),
 			})
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockObjectProtected)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
@@ -6598,7 +6598,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				Versioning: buckets.VersioningEnabled,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled:              true,
-					DefaultRetentionMode: storj.GovernanceMode,
+					DefaultRetentionMode: storxnetwork.GovernanceMode,
 					DefaultRetentionDays: 1,
 				},
 			})
@@ -6607,7 +6607,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			beginResponse1 := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey1)
 			beginResponse2 := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey2)
 
-			finishMove := func(streamID storj.StreamID, dstBucket, dstKey string, retention *pb.Retention) {
+			finishMove := func(streamID storxnetwork.StreamID, dstBucket, dstKey string, retention *pb.Retention) {
 				_, err = satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 					Header: &pb.RequestHeader{
 						ApiKey: apiKey.SerializeRaw(),
@@ -6622,12 +6622,12 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 			finishMove(beginResponse1.StreamId, dstBucket, dstKey1, nil)
 
-			retention := randRetention(storj.ComplianceMode)
+			retention := randRetention(storxnetwork.ComplianceMode)
 
 			finishMove(beginResponse2.StreamId, dstBucket, dstKey2, retentionToProto(retention))
 
 			requireRetentionWithinDuration(t, satellite, project.ID, dstBucket, dstKey1, &metabase.Retention{
-				Mode:        storj.GovernanceMode,
+				Mode:        storxnetwork.GovernanceMode,
 				RetainUntil: time.Now().AddDate(0, 0, 1),
 			}, time.Minute)
 
@@ -6821,7 +6821,7 @@ func TestListObjects_ArbitraryPrefix(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
-				config.DefaultPathCipher = storj.EncNull
+				config.DefaultPathCipher = storxnetwork.EncNull
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -7093,7 +7093,7 @@ func TestDownloadObject_DownloadSegment_ServerSideCopy(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
-				config.DefaultPathCipher = storj.EncNull
+				config.DefaultPathCipher = storxnetwork.EncNull
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -7170,7 +7170,7 @@ func TestDownloadObject_DownloadSegment_ServerSideCopy(t *testing.T) {
 						require.GreaterOrEqual(t, len(data), 500)
 					} else {
 						limit := toDownload.AddressedLimits[0]
-						nodeURL := storj.NodeURL{
+						nodeURL := storxnetwork.NodeURL{
 							ID:      limit.Limit.StorageNodeId,
 							Address: limit.StorageNodeAddress.Address,
 						}
@@ -7210,7 +7210,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
-				config.DefaultPathCipher = storj.EncNull
+				config.DefaultPathCipher = storxnetwork.EncNull
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -7392,7 +7392,7 @@ func TestDownloadObject_DownloadSegment_DesiredNodes(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
-				config.DefaultPathCipher = storj.EncNull
+				config.DefaultPathCipher = storxnetwork.EncNull
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -7408,8 +7408,8 @@ func TestDownloadObject_DownloadSegment_DesiredNodes(t *testing.T) {
 				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
 			}})
 
-		defaultNodesNumber := planet.Satellites[0].API.Orders.Service.DownloadNodes(storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		defaultNodesNumber := planet.Satellites[0].API.Orders.Service.DownloadNodes(storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			RequiredShares: 2,
 			TotalShares:    6,
 		})
@@ -7458,7 +7458,7 @@ func TestDownloadObject_DownloadSegment_DesiredNodes(t *testing.T) {
 	})
 }
 
-func randRetention(mode storj.RetentionMode) metabase.Retention {
+func randRetention(mode storxnetwork.RetentionMode) metabase.Retention {
 	randDur := time.Duration(rand.Int63n(1000 * int64(time.Hour)))
 	return metabase.Retention{
 		Mode:        mode,

@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/httpmock"
-	"storj.io/storj/satellite/console/valdi"
-	"storj.io/storj/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/StorXMonitor/private/httpmock"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var validURL = "http://localhost:1234"
@@ -40,7 +40,7 @@ func TestNewService(t *testing.T) {
 	})
 	t.Run("nil client", func(t *testing.T) {
 		s, err := valdi.NewService(zaptest.NewLogger(t), valdi.Config{
-			SatelliteEmail: "satellite@storj.test",
+			SatelliteEmail: "satellite@storxnetwork.test",
 		}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "valdi client cannot be nil")
@@ -48,7 +48,7 @@ func TestNewService(t *testing.T) {
 	})
 	t.Run("success", func(t *testing.T) {
 		s, err := valdi.NewService(zaptest.NewLogger(t), valdi.Config{
-			SatelliteEmail: "satellite@storj.test",
+			SatelliteEmail: "satellite@storxnetwork.test",
 		}, vClient)
 		require.NoError(t, err)
 		require.NotNil(t, s)
@@ -56,10 +56,10 @@ func TestNewService(t *testing.T) {
 }
 
 func TestCreateUserEmail(t *testing.T) {
-	satelliteEmail := "satellite@storj.test"
+	satelliteEmail := "satellite@storxnetwork.test"
 	projectID := testrand.UUID()
 
-	expect := fmt.Sprintf("satellite+%s@storj.test", projectID.String())
+	expect := fmt.Sprintf("satellite+%s@storxnetwork.test", projectID.String())
 
 	mockClient, _ := httpmock.NewClient()
 
@@ -87,7 +87,7 @@ func TestServiceCreateAPIKey(t *testing.T) {
 	require.NoError(t, err)
 
 	s, err := valdi.NewService(zaptest.NewLogger(t), valdi.Config{
-		SatelliteEmail: "satellite@storj.test",
+		SatelliteEmail: "satellite@storxnetwork.test",
 	}, vClient)
 	require.NoError(t, err)
 
@@ -144,7 +144,7 @@ func TestServiceCreateUser(t *testing.T) {
 	require.NoError(t, err)
 
 	s, err := valdi.NewService(zaptest.NewLogger(t), valdi.Config{
-		SatelliteEmail: "satellite@storj.test",
+		SatelliteEmail: "satellite@storxnetwork.test",
 	}, vClient)
 	require.NoError(t, err)
 

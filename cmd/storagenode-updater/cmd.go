@@ -13,16 +13,16 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/errs2"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/private/version/checker"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 
 var (
 	// TODO: replace with config value of random bytes in storagenode config.
-	nodeID storj.NodeID
+	nodeID storxnetwork.NodeID
 
 	updaterBinaryPath string
 
@@ -80,8 +80,8 @@ var (
 
 func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
-	defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "storagenode")
+	defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "storagenode")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
 

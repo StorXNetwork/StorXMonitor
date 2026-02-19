@@ -16,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // DateFormat is the layout of dates passed into and out of the API.
@@ -84,7 +84,7 @@ func (a *API) generateGo() ([]byte, error) {
 			switch {
 			case !strings.Contains(path, "."):
 				slice = &imports.Standard
-			case strings.HasPrefix(path, "storj.io"):
+			case strings.HasPrefix(path, "storxnetwork.io"):
 				slice = &imports.Internal
 			default:
 				slice = &imports.External
@@ -160,7 +160,7 @@ func (a *API) generateGo() ([]byte, error) {
 				paramStr += "request " + a.handleTypesPackage(reflect.TypeOf(e.Request)) + ", "
 			}
 
-			i("context", "storj.io/storj/private/api")
+			i("context", "github.com/StorXNetwork/StorXMonitor/private/api")
 			if e.Response != nil {
 				responseType := reflect.TypeOf(e.Response)
 				returnParam := a.handleTypesPackage(responseType)
@@ -470,7 +470,7 @@ func handleParams(builder *StringBuilder, i func(paths ...string), pathParams, q
 
 			switch param.Type {
 			case reflect.TypeOf(uuid.UUID{}):
-				i("storj.io/common/uuid")
+				i("github.com/StorXNetwork/common/uuid")
 				pf("%s, err := uuid.FromString(%s)", param.Name, varName)
 				pErrCheck()
 			case reflect.TypeOf(time.Time{}):

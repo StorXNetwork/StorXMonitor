@@ -19,11 +19,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgxutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgxutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RawObject defines the full object that is stored in the database. It should be rarely used directly.
@@ -44,7 +44,7 @@ type RawObject struct {
 	// FixedSegmentSize is 0 for a migrated object.
 	FixedSegmentSize int32
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 
 	// ZombieDeletionDeadline defines when the pending raw object should be deleted from the database.
 	// This is as a safeguard against objects that failed to upload and the client has not indicated
@@ -64,7 +64,7 @@ type RawSegment struct {
 	RepairedAt *time.Time
 	ExpiresAt  *time.Time
 
-	RootPieceID       storj.PieceID
+	RootPieceID       storxnetwork.PieceID
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
@@ -75,12 +75,12 @@ type RawSegment struct {
 	PlainOffset   int64
 	EncryptedETag []byte
 
-	Redundancy storj.RedundancyScheme
+	Redundancy storxnetwork.RedundancyScheme
 
 	InlineData []byte
 	Pieces     Pieces
 
-	Placement storj.PlacementConstraint
+	Placement storxnetwork.PlacementConstraint
 }
 
 // RawCopy contains a copy that is stored in the database.
@@ -899,7 +899,7 @@ func (s *SpannerAdapter) TestingSetObjectCreatedAt(ctx context.Context, object O
 }
 
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
-func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement storxnetwork.PlacementConstraint) (err error) {
 	for _, a := range db.adapters {
 		err = a.TestingSetPlacementAllSegments(ctx, placement)
 		if err != nil {
@@ -910,13 +910,13 @@ func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement stor
 }
 
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
-func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storxnetwork.PlacementConstraint) (err error) {
 	_, err = p.db.ExecContext(ctx, "UPDATE segments SET placement = $1", placement)
 	return Error.Wrap(err)
 }
 
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
-func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storxnetwork.PlacementConstraint) (err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		_, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL:    "UPDATE segments SET placement = @placement WHERE true",

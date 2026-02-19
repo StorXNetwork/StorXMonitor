@@ -13,20 +13,20 @@ import (
 	monkit "github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
-func calculateSpaceUsed(segmentSize int64, numberOfPieces int, rs storj.RedundancyScheme) (totalStored int64) {
+func calculateSpaceUsed(segmentSize int64, numberOfPieces int, rs storxnetwork.RedundancyScheme) (totalStored int64) {
 	pieceSize := segmentSize / int64(rs.RequiredShares)
 	return pieceSize * int64(numberOfPieces)
 }
@@ -79,11 +79,11 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		}
 	}
 
-	placement := endpoint.placement[storj.PlacementConstraint(streamID.Placement)]
+	placement := endpoint.placement[storxnetwork.PlacementConstraint(streamID.Placement)]
 	config := endpoint.config
 	rsParams := config.RS.Override(placement.EC)
-	defaultRedundancy := storj.RedundancyScheme{
-		Algorithm:      storj.ReedSolomon,
+	defaultRedundancy := storxnetwork.RedundancyScheme{
+		Algorithm:      storxnetwork.ReedSolomon,
 		RequiredShares: int16(rsParams.Min),
 		RepairShares:   int16(rsParams.Repair),
 		OptimalShares:  int16(rsParams.Success),
@@ -95,7 +95,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
 		RequestedCount: int(defaultRedundancy.TotalShares),
-		Placement:      storj.PlacementConstraint(streamID.Placement),
+		Placement:      storxnetwork.PlacementConstraint(streamID.Placement),
 		Requester:      peer.ID,
 	})
 
@@ -111,9 +111,9 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	}
 
 	var (
-		rootPieceID     storj.PieceID
+		rootPieceID     storxnetwork.PieceID
 		addressedLimits []*pb.AddressedOrderLimit
-		piecePrivateKey storj.PiecePrivateKey
+		piecePrivateKey storxnetwork.PiecePrivateKey
 	)
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
@@ -168,7 +168,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
-	redundancyScheme := endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement))
+	redundancyScheme := endpoint.getRSProto(storxnetwork.PlacementConstraint(streamID.Placement))
 
 	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{
 		StreamId:            streamID,
@@ -263,8 +263,8 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// that failed to store a piece, which are the ones that we are going to retry. The method, that
 	// receives this list, distinguishes between both receiving them in two separated slices, but we
 	// use one because we need to perform a considerable amount of changes before we can split them.
-	// See https://github.com/storj/storj/issues/7675
-	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
+	// See https://github.com/storxnetwork/storxnetwork/issues/7675
+	excludedIDs := make([]storxnetwork.NodeID, 0, len(segmentID.OriginalOrderLimits))
 	dedicatedSuccessTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
 	globalSuccessTracker := endpoint.successTrackers.GetGlobalTracker()
 	isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
@@ -277,7 +277,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
 		RequestedCount: len(req.RetryPieceNumbers),
-		Placement:      storj.PlacementConstraint(segmentID.StreamId.Placement),
+		Placement:      storxnetwork.PlacementConstraint(segmentID.StreamId.Placement),
 		ExcludedIDs:    excludedIDs,
 	})
 	if err != nil {
@@ -296,7 +296,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
-	placement := endpoint.placement[storj.PlacementConstraint(segmentID.StreamId.Placement)]
+	placement := endpoint.placement[storxnetwork.PlacementConstraint(segmentID.StreamId.Placement)]
 	if placement.CohortNames != nil {
 		for i, piecenum := range req.RetryPieceNumbers {
 			addressedLimits[piecenum].Tags = make(map[string][]byte, len(placement.CohortNames))
@@ -321,7 +321,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	}, nil
 }
 
-func (endpoint *Endpoint) updateTrackers(ctx context.Context, dedicatedSuccessTracker, globalSuccessTracker SuccessTracker, isTrusted bool, nodeID storj.NodeID, success bool) {
+func (endpoint *Endpoint) updateTrackers(ctx context.Context, dedicatedSuccessTracker, globalSuccessTracker SuccessTracker, isTrusted bool, nodeID storxnetwork.NodeID, success bool) {
 	if dedicatedSuccessTracker != nil {
 		dedicatedSuccessTracker.Increment(nodeID, success)
 	}
@@ -368,7 +368,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	// cheap basic verification
 	rsParam := segmentID.RedundancyScheme
 	if rsParam == nil {
-		rsParam = endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement))
+		rsParam = endpoint.getRSProto(storxnetwork.PlacementConstraint(streamID.Placement))
 	}
 	if numResults := len(req.UploadResult); numResults < int(rsParam.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
@@ -382,8 +382,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		)
 	}
 
-	rs := storj.RedundancyScheme{
-		Algorithm:      storj.RedundancyAlgorithm(rsParam.Type),
+	rs := storxnetwork.RedundancyScheme{
+		Algorithm:      storxnetwork.RedundancyAlgorithm(rsParam.Type),
 		RequiredShares: int16(rsParam.MinReq),
 		RepairShares:   int16(rsParam.RepairThreshold),
 		OptimalShares:  int16(rsParam.SuccessThreshold),
@@ -480,7 +480,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		RootPieceID: segmentID.RootPieceId,
 		Redundancy:  rs,
 		Pieces:      pieces,
-		Placement:   storj.PlacementConstraint(streamID.Placement),
+		Placement:   storxnetwork.PlacementConstraint(streamID.Placement),
 
 		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 
@@ -526,7 +526,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		dedicatedTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
 		globalTracker := endpoint.successTrackers.GetGlobalTracker()
 		isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
-		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
+		validPieceSet := make(map[storxnetwork.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {
 			endpoint.updateTrackers(ctx, dedicatedTracker, globalTracker, isTrusted, piece.NodeId, true)
 			validPieceSet[piece.NodeId] = struct{}{}
@@ -543,7 +543,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
 	// Track piece-level telemetry for garbage discrepancy analysis
-	placement := storj.PlacementConstraint(streamID.Placement)
+	placement := storxnetwork.PlacementConstraint(streamID.Placement)
 	placementTag := monkit.NewSeriesTag("placement", strconv.FormatInt(int64(placement), 10))
 	mon.IntVal("segment_commit_pieces_successful", placementTag).Observe(int64(len(pieces)))
 	mon.IntVal("segment_commit_pieces_received", placementTag).Observe(int64(len(req.UploadResult)))
@@ -724,7 +724,7 @@ func convertStreamListResults(result metabase.ListStreamPositionsResult) (*pb.Se
 		}
 		items[i].EncryptedETag = item.EncryptedETag
 		var err error
-		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
+		items[i].EncryptedKeyNonce, err = storxnetwork.NonceFromBytes(item.EncryptedKeyNonce)
 		if err != nil {
 			return nil, err
 		}
@@ -824,7 +824,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		)
 	}
 
-	encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
+	encryptedKeyNonce, err := storxnetwork.NonceFromBytes(segment.EncryptedKeyNonce)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get encryption key nonce from metadata")
 	}

@@ -13,15 +13,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/migration"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/migration"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
 )
 
 // MigrateSatelliteDB migrates satellite database.
@@ -89,7 +89,7 @@ func createTestData(ctx context.Context, db satellite.DB) error {
 		_, err = db.Console().Users().Insert(ctx, &console.User{
 			ID:                    userID,
 			FullName:              "Hiro Protagonist",
-			Email:                 "test@storj.io",
+			Email:                 "test@storxnetwork.io",
 			ProjectLimit:          5,
 			ProjectStorageLimit:   (memory.GB * 150).Int64(),
 			ProjectBandwidthLimit: (memory.GB * 150).Int64(),
@@ -151,7 +151,7 @@ func createTestData(ctx context.Context, db satellite.DB) error {
 }
 
 // GetTestApiKey generates a new API key, using the predefined test credentials.
-func GetTestApiKey(ctx context.Context, uplinkCfg uplink.Config, satelliteID storj.NodeID, satelliteAddr string) (*uplink.Access, error) {
+func GetTestApiKey(ctx context.Context, uplinkCfg uplink.Config, satelliteID storxnetwork.NodeID, satelliteAddr string) (*uplink.Access, error) {
 	apiKey, err := macaroon.FromParts(head, secret)
 	if err != nil {
 		return nil, err

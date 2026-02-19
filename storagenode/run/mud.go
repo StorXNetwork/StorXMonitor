@@ -4,11 +4,11 @@
 package root
 
 import (
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/modular/cli"
-	"storj.io/storj/shared/modular/logger"
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/cli"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/logger"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
 )
 
 // Module registers all the possible components for the storagenode instance.

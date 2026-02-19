@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Chore contains the information and variables to ensure the Software is up to date.

@@ -11,14 +11,14 @@ package overlay_test
 // 	"github.com/stretchr/testify/assert"
 // 	"github.com/stretchr/testify/require"
 
-// 	"storj.io/common/pb"
-// 	"storj.io/common/storj"
-// 	"storj.io/common/testcontext"
-// 	"storj.io/storj/satellite"
-// 	"storj.io/storj/satellite/nodeselection"
-// 	"storj.io/storj/satellite/overlay"
-// 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-// 	"storj.io/storj/shared/location"
+// 	"github.com/StorXNetwork/common/pb"
+// 	"github.com/StorXNetwork/common/storxnetwork"
+// 	"github.com/StorXNetwork/common/testcontext"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+// 	"github.com/StorXNetwork/StorXMonitor/shared/location"
 // )
 
 // func TestStatDB(t *testing.T) {
@@ -29,7 +29,7 @@ package overlay_test
 
 // func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 // 	for i, tt := range []struct {
-// 		nodeID                storj.NodeID
+// 		nodeID                storxnetwork.NodeID
 // 		unknownAuditSuspended bool
 // 		offlineSuspended      bool
 // 		disqualified          bool
@@ -37,14 +37,14 @@ package overlay_test
 // 		gracefullyExited      bool
 // 		countryCode           string
 // 	}{
-// 		{storj.NodeID{1}, false, false, false, false, false, "DE"}, // good
-// 		{storj.NodeID{2}, false, false, true, false, false, "DE"},  // disqualified
-// 		{storj.NodeID{3}, true, false, false, false, false, "DE"},  // unknown audit suspended
-// 		{storj.NodeID{4}, false, false, false, true, false, "DE"},  // offline
-// 		{storj.NodeID{5}, false, false, false, false, true, "DE"},  // gracefully exited
-// 		{storj.NodeID{6}, false, true, false, false, false, "DE"},  // offline suspended
-// 		{storj.NodeID{7}, false, false, false, false, false, "FR"}, // excluded country
-// 		{storj.NodeID{8}, false, false, false, false, false, ""},   // good
+// 		{storxnetwork.NodeID{1}, false, false, false, false, false, "DE"}, // good
+// 		{storxnetwork.NodeID{2}, false, false, true, false, false, "DE"},  // disqualified
+// 		{storxnetwork.NodeID{3}, true, false, false, false, false, "DE"},  // unknown audit suspended
+// 		{storxnetwork.NodeID{4}, false, false, false, true, false, "DE"},  // offline
+// 		{storxnetwork.NodeID{5}, false, false, false, false, true, "DE"},  // gracefully exited
+// 		{storxnetwork.NodeID{6}, false, true, false, false, false, "DE"},  // offline suspended
+// 		{storxnetwork.NodeID{7}, false, false, false, false, false, "FR"}, // excluded country
+// 		{storxnetwork.NodeID{8}, false, false, false, false, false, ""},   // good
 // 	} {
 // 		addr := fmt.Sprintf("127.0.%d.0:8080", i)
 // 		lastNet := fmt.Sprintf("127.0.%d", i)
@@ -93,12 +93,12 @@ package overlay_test
 // 		}
 // 	}
 
-// 	nodeIds := storj.NodeIDList{
-// 		storj.NodeID{1}, storj.NodeID{2},
-// 		storj.NodeID{3}, storj.NodeID{4},
-// 		storj.NodeID{5}, storj.NodeID{6},
-// 		storj.NodeID{7}, storj.NodeID{8},
-// 		storj.NodeID{9},
+// 	nodeIds := storxnetwork.NodeIDList{
+// 		storxnetwork.NodeID{1}, storxnetwork.NodeID{2},
+// 		storxnetwork.NodeID{3}, storxnetwork.NodeID{4},
+// 		storxnetwork.NodeID{5}, storxnetwork.NodeID{6},
+// 		storxnetwork.NodeID{7}, storxnetwork.NodeID{8},
+// 		storxnetwork.NodeID{9},
 // 	}
 
 // 	t.Run("GetParticipatingNodes", func(t *testing.T) {
@@ -138,7 +138,7 @@ package overlay_test
 // 		allNodes, err := cache.GetAllParticipatingNodes(ctx, time.Hour, 0)
 // 		require.NoError(t, err)
 
-// 		expectOnline := func(t *testing.T, nodeList []nodeselection.SelectedNode, nodeID storj.NodeID, shouldBeOnline bool) {
+// 		expectOnline := func(t *testing.T, nodeList []nodeselection.SelectedNode, nodeID storxnetwork.NodeID, shouldBeOnline bool) {
 // 			for _, n := range nodeList {
 // 				if n.ID == nodeID {
 // 					if n.Online != shouldBeOnline {
@@ -150,14 +150,14 @@ package overlay_test
 // 			require.Fail(t, "node not found in list", "node ID %x not found in list. list: %v", nodeID[:], nodeList)
 // 		}
 
-// 		expectOnline(t, allNodes, storj.NodeID{1}, true)  // normal and online
-// 		expectOnline(t, allNodes, storj.NodeID{3}, true)  // unknown audit suspended
-// 		expectOnline(t, allNodes, storj.NodeID{4}, false) // offline
-// 		expectOnline(t, allNodes, storj.NodeID{6}, true)  // offline suspended
-// 		expectOnline(t, allNodes, storj.NodeID{7}, true)  // excluded country
-// 		expectOnline(t, allNodes, storj.NodeID{8}, true)  // normal and online, no country code
+// 		expectOnline(t, allNodes, storxnetwork.NodeID{1}, true)  // normal and online
+// 		expectOnline(t, allNodes, storxnetwork.NodeID{3}, true)  // unknown audit suspended
+// 		expectOnline(t, allNodes, storxnetwork.NodeID{4}, false) // offline
+// 		expectOnline(t, allNodes, storxnetwork.NodeID{6}, true)  // offline suspended
+// 		expectOnline(t, allNodes, storxnetwork.NodeID{7}, true)  // excluded country
+// 		expectOnline(t, allNodes, storxnetwork.NodeID{8}, true)  // normal and online, no country code
 
-// 		expectNotInList := func(t *testing.T, nodeList []nodeselection.SelectedNode, nodeID storj.NodeID) {
+// 		expectNotInList := func(t *testing.T, nodeList []nodeselection.SelectedNode, nodeID storxnetwork.NodeID) {
 // 			for index, n := range nodeList {
 // 				if n.ID == nodeID {
 // 					require.Failf(t, "not found in list", "node %x should not have been found in list, but it was found at index [%d].", nodeID[:], index)
@@ -165,15 +165,15 @@ package overlay_test
 // 			}
 // 		}
 
-// 		expectNotInList(t, allNodes, storj.NodeID{2}) // disqualified
-// 		expectNotInList(t, allNodes, storj.NodeID{5}) // gracefully exited
-// 		expectNotInList(t, allNodes, storj.NodeID{9}) // not in db
+// 		expectNotInList(t, allNodes, storxnetwork.NodeID{2}) // disqualified
+// 		expectNotInList(t, allNodes, storxnetwork.NodeID{5}) // gracefully exited
+// 		expectNotInList(t, allNodes, storxnetwork.NodeID{9}) // not in db
 
 // 		require.Len(t, allNodes, 6)
 // 	})
 
 // 	t.Run("TestUpdateOperator", func(t *testing.T) {
-// 		nodeID := storj.NodeID{10}
+// 		nodeID := storxnetwork.NodeID{10}
 // 		addr := "127.0.1.0:8080"
 // 		lastNet := "127.0.1"
 // 		d := overlay.NodeCheckInInfo{
@@ -249,7 +249,7 @@ package overlay_test
 
 // 	// test UpdateCheckIn updates the reputation correctly when the node is offline/online
 // 	t.Run("UpdateCheckIn", func(t *testing.T) {
-// 		nodeID := storj.NodeID{1}
+// 		nodeID := storxnetwork.NodeID{1}
 
 // 		// get the existing node info that is stored in nodes table
 // 		_, err := cache.Get(ctx, nodeID)

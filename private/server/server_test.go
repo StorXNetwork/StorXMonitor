@@ -16,22 +16,22 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	_ "storj.io/common/rpc/quic"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	_ "github.com/StorXNetwork/common/rpc/quic"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestServer(t *testing.T) {
 	ctx := testcontext.New(t)
 	log := zaptest.NewLogger(t)
-	identity := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+	identity := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 
 	host := "127.0.0.1"
 	if hostlist := os.Getenv("STORJ_TEST_HOST"); hostlist != "" {
@@ -85,7 +85,7 @@ func TestServer(t *testing.T) {
 func TestDefaultRoute(t *testing.T) {
 	ctx := testcontext.New(t)
 	log := zaptest.NewLogger(t)
-	identity := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+	identity := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 
 	host := "127.0.0.1"
 	if hostlist := os.Getenv("STORJ_TEST_HOST"); hostlist != "" {
@@ -175,7 +175,7 @@ func TestHybridConnector_QUICOnly(t *testing.T) {
 		require.NoError(t, err)
 
 		tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
-			PeerIDVersions: strconv.Itoa(int(storj.LatestIDVersion().Number)),
+			PeerIDVersions: strconv.Itoa(int(storxnetwork.LatestIDVersion().Number)),
 		}, nil)
 		require.NoError(t, err)
 
@@ -200,7 +200,7 @@ func TestHybridConnector_TCPOnly(t *testing.T) {
 		require.NoError(t, err)
 
 		tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
-			PeerIDVersions: strconv.Itoa(int(storj.LatestIDVersion().Number)),
+			PeerIDVersions: strconv.Itoa(int(storxnetwork.LatestIDVersion().Number)),
 		}, nil)
 		require.NoError(t, err)
 

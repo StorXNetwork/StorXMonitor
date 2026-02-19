@@ -10,14 +10,14 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testmonkit"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/jobq/jobqtest"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil/dbtest"
-	"storj.io/storj/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/jobqtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
 )
 
 // Run runs testplanet in multiple configurations.

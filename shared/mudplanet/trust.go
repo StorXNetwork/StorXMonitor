@@ -8,13 +8,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // StaticTrust is a trust source that trusts a single satellite with a pregenerated identity.
@@ -26,20 +26,20 @@ type StaticTrust struct {
 // The idno parameter is used to select a specific pregenerated identity.
 func NewStaticTrust(idno int) *StaticTrust {
 	return &StaticTrust{
-		identity: testidentity.MustPregeneratedIdentity(idno, storj.LatestIDVersion()),
+		identity: testidentity.MustPregeneratedIdentity(idno, storxnetwork.LatestIDVersion()),
 	}
 }
 
 // GetSatellites implements the TrustedSatelliteSource interface.
 // It returns a slice containing this instance's identity ID as the only trusted satellite.
-func (a StaticTrust) GetSatellites(ctx context.Context) (satellites []storj.NodeID) {
-	return []storj.NodeID{a.identity.ID}
+func (a StaticTrust) GetSatellites(ctx context.Context) (satellites []storxnetwork.NodeID) {
+	return []storxnetwork.NodeID{a.identity.ID}
 }
 
 // GetNodeURL implements the TrustedSatelliteSource interface.
 // It returns a NodeURL with the provided ID and a fixed localhost address.
-func (a StaticTrust) GetNodeURL(ctx context.Context, id storj.NodeID) (_ storj.NodeURL, err error) {
-	return storj.NodeURL{
+func (a StaticTrust) GetNodeURL(ctx context.Context, id storxnetwork.NodeID) (_ storxnetwork.NodeURL, err error) {
+	return storxnetwork.NodeURL{
 		ID:      id,
 		Address: "localhost:0",
 	}, nil
@@ -47,7 +47,7 @@ func (a StaticTrust) GetNodeURL(ctx context.Context, id storj.NodeID) (_ storj.N
 
 // VerifySatelliteID implements the TrustedSatelliteSource interface.
 // It verifies that the given NodeID matches this instance's identity ID.
-func (a StaticTrust) VerifySatelliteID(ctx context.Context, id storj.NodeID) error {
+func (a StaticTrust) VerifySatelliteID(ctx context.Context, id storxnetwork.NodeID) error {
 	if id != a.identity.ID {
 		return errs.New("Untrusted satellite")
 	}

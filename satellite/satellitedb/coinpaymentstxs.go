@@ -10,12 +10,12 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/currency"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/slices2"
-	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/private/slices2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.
@@ -132,8 +132,8 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (strip
 		ID:        coinpayments.TransactionID(dbxCPTX.Id),
 		AccountID: userID,
 		Address:   dbxCPTX.Address,
-		Amount:    currency.AmountFromBaseUnits(dbxCPTX.AmountNumeric, currency.StorjToken),
-		Received:  currency.AmountFromBaseUnits(dbxCPTX.ReceivedNumeric, currency.StorjToken),
+		Amount:    currency.AmountFromBaseUnits(dbxCPTX.AmountNumeric, currency.StorxToken),
+		Received:  currency.AmountFromBaseUnits(dbxCPTX.ReceivedNumeric, currency.StorxToken),
 		Status:    coinpayments.Status(dbxCPTX.Status),
 		Key:       dbxCPTX.Key,
 		Timeout:   time.Second * time.Duration(dbxCPTX.Timeout),

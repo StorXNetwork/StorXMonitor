@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ensures that pricingDB implements pricing.DB interface.
@@ -54,7 +54,7 @@ func (db *pricingDB) Store(ctx context.Context, pricing pricing.Pricing) (err er
 }
 
 // Get retrieves pricing model for specific satellite.
-func (db *pricingDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *pricing.Pricing, err error) {
+func (db *pricingDB) Get(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *pricing.Pricing, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pricingModel := pricing.Pricing{

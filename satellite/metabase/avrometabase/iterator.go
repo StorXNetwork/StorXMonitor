@@ -17,7 +17,7 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 var stopErr = errs.New("stop")

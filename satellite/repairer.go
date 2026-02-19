@@ -14,26 +14,26 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	version_checker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Repairer is the repairer process.
@@ -304,4 +304,4 @@ func (peer *Repairer) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Repairer) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Repairer) ID() storxnetwork.NodeID { return peer.Identity.ID }

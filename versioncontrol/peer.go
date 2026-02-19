@@ -21,9 +21,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 // seedLength is the number of bytes in a rollout seed.

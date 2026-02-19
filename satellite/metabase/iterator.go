@@ -11,8 +11,8 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // objectIterator enables iteration on objects in a bucket.

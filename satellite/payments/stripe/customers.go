@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrNoCustomer is error class defining that there is no customer for user.

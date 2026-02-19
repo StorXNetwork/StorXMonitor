@@ -6,9 +6,9 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/storj/satellite/buckets"
-	internalpb "storj.io/storj/satellite/internalpb"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	internalpb "github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 )
 
 func encodeBucketTags(tags []buckets.Tag) ([]byte, error) {

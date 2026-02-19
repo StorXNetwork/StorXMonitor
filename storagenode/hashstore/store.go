@@ -28,10 +28,10 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/context2"
-	"storj.io/common/memory"
-	"storj.io/drpc/drpcsignal"
-	"storj.io/storj/storagenode/hashstore/platform"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/drpc/drpcsignal"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore/platform"
 )
 
 var (

@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
 )
 
 // ErrSegmentNotFound is an error class for non-existing segment.

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestBitshiftSuccessTracker(t *testing.T) {
@@ -20,54 +20,54 @@ func TestBitshiftSuccessTracker(t *testing.T) {
 	run := func(t *testing.T, do func(func()), wait func()) {
 		tr := newBitshiftSuccessTracker(0)
 
-		check := func(id storj.NodeID, expect float64) {
+		check := func(id storxnetwork.NodeID, expect float64) {
 			got := tr.Get(&nodeselection.SelectedNode{ID: id})
 			require.Equal(t, expect, got)
 		}
 
 		// clear out the initial values
 		for i := 0; i < 64; i++ {
-			tr.Increment(storj.NodeID{0: 1}, false)
-			tr.Increment(storj.NodeID{0: 2}, false)
+			tr.Increment(storxnetwork.NodeID{0: 1}, false)
+			tr.Increment(storxnetwork.NodeID{0: 2}, false)
 		}
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
 
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 2)
-		check(storj.NodeID{0: 2}, 3)
+		check(storxnetwork.NodeID{0: 1}, 2)
+		check(storxnetwork.NodeID{0: 2}, 3)
 
 		tr.BumpGeneration()
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 4)
-		check(storj.NodeID{0: 2}, 5)
+		check(storxnetwork.NodeID{0: 1}, 4)
+		check(storxnetwork.NodeID{0: 2}, 5)
 
 		tr.BumpGeneration()
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, false) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 5)
-		check(storj.NodeID{0: 2}, 6)
+		check(storxnetwork.NodeID{0: 1}, 5)
+		check(storxnetwork.NodeID{0: 2}, 6)
 
 		do(tr.BumpGeneration)
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, false) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 7)
-		check(storj.NodeID{0: 2}, 7)
+		check(storxnetwork.NodeID{0: 1}, 7)
+		check(storxnetwork.NodeID{0: 2}, 7)
 	}
 
 	t.Run("Serial", func(t *testing.T) {
@@ -99,45 +99,45 @@ func TestLagSuccessTracker(t *testing.T) {
 
 	tr := newLagSuccessTracker()
 
-	check := func(id storj.NodeID, expect float64) {
+	check := func(id storxnetwork.NodeID, expect float64) {
 		got := tr.Get(&nodeselection.SelectedNode{ID: id})
 		assert.Equal(t, expect, got)
 	}
 
-	tr.Increment(storj.NodeID{0: 1}, true)
-	tr.Increment(storj.NodeID{0: 1}, true)
-	tr.Increment(storj.NodeID{0: 1}, false)
+	tr.Increment(storxnetwork.NodeID{0: 1}, true)
+	tr.Increment(storxnetwork.NodeID{0: 1}, true)
+	tr.Increment(storxnetwork.NodeID{0: 1}, false)
 
-	tr.Increment(storj.NodeID{0: 2}, true)
-	tr.Increment(storj.NodeID{0: 2}, true)
-	tr.Increment(storj.NodeID{0: 2}, true)
+	tr.Increment(storxnetwork.NodeID{0: 2}, true)
+	tr.Increment(storxnetwork.NodeID{0: 2}, true)
+	tr.Increment(storxnetwork.NodeID{0: 2}, true)
 
-	check(storj.NodeID{0: 1}, 1)
-	check(storj.NodeID{0: 2}, 3)
-
-	tr.BumpGeneration()
-
-	tr.Increment(storj.NodeID{0: 1}, true)
-	tr.Increment(storj.NodeID{0: 2}, true)
-
-	check(storj.NodeID{0: 1}, 3)
-	check(storj.NodeID{0: 2}, 5)
+	check(storxnetwork.NodeID{0: 1}, 1)
+	check(storxnetwork.NodeID{0: 2}, 3)
 
 	tr.BumpGeneration()
 
-	tr.Increment(storj.NodeID{0: 1}, false)
-	tr.Increment(storj.NodeID{0: 2}, false)
+	tr.Increment(storxnetwork.NodeID{0: 1}, true)
+	tr.Increment(storxnetwork.NodeID{0: 2}, true)
 
-	check(storj.NodeID{0: 1}, 2)
-	check(storj.NodeID{0: 2}, 3)
+	check(storxnetwork.NodeID{0: 1}, 3)
+	check(storxnetwork.NodeID{0: 2}, 5)
 
 	tr.BumpGeneration()
 
-	tr.Increment(storj.NodeID{0: 1}, true)
-	tr.Increment(storj.NodeID{0: 2}, false)
+	tr.Increment(storxnetwork.NodeID{0: 1}, false)
+	tr.Increment(storxnetwork.NodeID{0: 2}, false)
 
-	check(storj.NodeID{0: 1}, 4)
-	check(storj.NodeID{0: 2}, 2)
+	check(storxnetwork.NodeID{0: 1}, 2)
+	check(storxnetwork.NodeID{0: 2}, 3)
+
+	tr.BumpGeneration()
+
+	tr.Increment(storxnetwork.NodeID{0: 1}, true)
+	tr.Increment(storxnetwork.NodeID{0: 2}, false)
+
+	check(storxnetwork.NodeID{0: 1}, 4)
+	check(storxnetwork.NodeID{0: 2}, 2)
 }
 
 func TestLagSuccessTracker_Concurrent(t *testing.T) {
@@ -154,55 +154,55 @@ func TestLagSuccessTracker_Concurrent(t *testing.T) {
 
 	tr := newLagSuccessTracker()
 
-	check := func(id storj.NodeID, expect float64) {
+	check := func(id storxnetwork.NodeID, expect float64) {
 		got := tr.Get(&nodeselection.SelectedNode{ID: id})
 		assert.Equal(t, expect, got)
 	}
 
-	do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-	do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-	do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-	do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-	do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-	do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
 	wg.Wait()
 
-	check(storj.NodeID{0: 1}, 0)
-	check(storj.NodeID{0: 2}, 3)
+	check(storxnetwork.NodeID{0: 1}, 0)
+	check(storxnetwork.NodeID{0: 2}, 3)
 
 	tr.BumpGeneration()
 
-	do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-	do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
 	wg.Wait()
 
-	check(storj.NodeID{0: 1}, 2)
-	check(storj.NodeID{0: 2}, 5)
+	check(storxnetwork.NodeID{0: 1}, 2)
+	check(storxnetwork.NodeID{0: 2}, 5)
 
 	tr.BumpGeneration()
 
-	do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-	do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, false) })
 	wg.Wait()
 
-	check(storj.NodeID{0: 1}, 1)
-	check(storj.NodeID{0: 2}, 3)
+	check(storxnetwork.NodeID{0: 1}, 1)
+	check(storxnetwork.NodeID{0: 2}, 3)
 
 	tr.BumpGeneration()
 
-	do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-	do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+	do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, false) })
 	wg.Wait()
 
-	check(storj.NodeID{0: 1}, 3)
-	check(storj.NodeID{0: 2}, 2)
+	check(storxnetwork.NodeID{0: 1}, 3)
+	check(storxnetwork.NodeID{0: 2}, 2)
 
 	tr.BumpGeneration()
 
 	for i := 0; i < 3; i++ {
 		i := i
-		do(func() { tr.Increment(storj.NodeID{0: 1}, i&1 == 0) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, i&1 == 0) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, i&1 == 0) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, i&1 == 0) })
 	}
 	wg.Wait()
 }
@@ -210,7 +210,7 @@ func TestLagSuccessTracker_Concurrent(t *testing.T) {
 func TestLagSuccessTracker_Recovery(t *testing.T) {
 	t.Parallel()
 
-	id := storj.NodeID{0: 1}
+	id := storxnetwork.NodeID{0: 1}
 	tr := newLagSuccessTracker()
 	check := func(expect float64) {
 		got := tr.Get(&nodeselection.SelectedNode{ID: id})
@@ -234,52 +234,52 @@ func TestPercentSuccessTracker(t *testing.T) {
 	run := func(t *testing.T, do func(func()), wait func()) {
 		var tr percentSuccessTracker
 
-		check := func(id storj.NodeID, expect float64) {
+		check := func(id storxnetwork.NodeID, expect float64) {
 			got := tr.Get(&nodeselection.SelectedNode{ID: id})
 			require.Equal(t, expect, got)
 		}
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
 
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 2./3)
-		check(storj.NodeID{0: 2}, 3./3)
+		check(storxnetwork.NodeID{0: 1}, 2./3)
+		check(storxnetwork.NodeID{0: 2}, 3./3)
 
 		tr.BumpGeneration()
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 3./4)
-		check(storj.NodeID{0: 2}, 4./4)
+		check(storxnetwork.NodeID{0: 1}, 3./4)
+		check(storxnetwork.NodeID{0: 2}, 4./4)
 
 		tr.BumpGeneration()
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, false) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 3./5)
-		check(storj.NodeID{0: 2}, 4./5)
+		check(storxnetwork.NodeID{0: 1}, 3./5)
+		check(storxnetwork.NodeID{0: 2}, 4./5)
 
 		do(tr.BumpGeneration)
 		do(tr.BumpGeneration)
 		do(tr.BumpGeneration)
 		do(tr.BumpGeneration)
 		do(tr.BumpGeneration) // first generation finally falls out
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, false) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 2./3)
-		check(storj.NodeID{0: 2}, 1./3)
+		check(storxnetwork.NodeID{0: 1}, 2./3)
+		check(storxnetwork.NodeID{0: 2}, 1./3)
 	}
 
 	t.Run("Serial", func(t *testing.T) {
@@ -312,54 +312,54 @@ func TestBigBitshiftSuccessTracker(t *testing.T) {
 	run := func(t *testing.T, do func(func()), wait func()) {
 		tr := NewBigBitshiftSuccessTracker(10)
 
-		check := func(id storj.NodeID, expect float64) {
+		check := func(id storxnetwork.NodeID, expect float64) {
 			got := tr.Get(&nodeselection.SelectedNode{ID: id})
 			require.Equal(t, expect, got)
 		}
 
 		// clear out the initial values
 		for i := 0; i < 64; i++ {
-			tr.Increment(storj.NodeID{0: 1}, false)
-			tr.Increment(storj.NodeID{0: 2}, false)
+			tr.Increment(storxnetwork.NodeID{0: 1}, false)
+			tr.Increment(storxnetwork.NodeID{0: 2}, false)
 		}
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
 
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 2)
-		check(storj.NodeID{0: 2}, 3)
+		check(storxnetwork.NodeID{0: 1}, 2)
+		check(storxnetwork.NodeID{0: 2}, 3)
 
 		tr.BumpGeneration()
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, true) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 4)
-		check(storj.NodeID{0: 2}, 5)
+		check(storxnetwork.NodeID{0: 1}, 4)
+		check(storxnetwork.NodeID{0: 2}, 5)
 
 		tr.BumpGeneration()
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, false) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 5)
-		check(storj.NodeID{0: 2}, 6)
+		check(storxnetwork.NodeID{0: 1}, 5)
+		check(storxnetwork.NodeID{0: 2}, 6)
 
 		do(tr.BumpGeneration)
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storxnetwork.NodeID{0: 2}, false) })
 
 		wait()
-		check(storj.NodeID{0: 1}, 7)
-		check(storj.NodeID{0: 2}, 7)
+		check(storxnetwork.NodeID{0: 1}, 7)
+		check(storxnetwork.NodeID{0: 2}, 7)
 	}
 
 	t.Run("Serial", func(t *testing.T) {
@@ -429,7 +429,7 @@ func TestBigBitList_small(t *testing.T) {
 	b, _ := GetNewSuccessTracker("bitshift3")
 	tracker := b()
 	for i := 0; i < 10; i++ {
-		tracker.Increment(storj.NodeID{}, true)
+		tracker.Increment(storxnetwork.NodeID{}, true)
 	}
 	require.Equal(t, float64(3), tracker.Get(&nodeselection.SelectedNode{}))
 }
@@ -439,7 +439,7 @@ func TestBitshiftNoiseTracker(t *testing.T) {
 	require.True(t, ok)
 
 	tr := trackerFn()
-	id := storj.NodeID{0: 1}
+	id := storxnetwork.NodeID{0: 1}
 	node := &nodeselection.SelectedNode{ID: id}
 	tr.Increment(id, true)
 

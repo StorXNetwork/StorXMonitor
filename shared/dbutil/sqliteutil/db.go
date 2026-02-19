@@ -11,8 +11,8 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/dbutil/dbschema"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // LoadSchemaFromSQL inserts script into connstr and loads schema.

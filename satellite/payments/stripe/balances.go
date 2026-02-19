@@ -9,8 +9,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stripe/stripe-go/v81"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 type balances struct {

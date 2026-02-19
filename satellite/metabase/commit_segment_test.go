@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestBeginSegment(t *testing.T) {
@@ -57,7 +57,7 @@ func TestBeginSegment(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "pieces missing",
@@ -73,7 +73,7 @@ func TestBeginSegment(t *testing.T) {
 					ObjectStream: obj,
 					Pieces: []metabase.Piece{{
 						Number:      1,
-						StorageNode: storj.NodeID{},
+						StorageNode: storxnetwork.NodeID{},
 					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -134,7 +134,7 @@ func TestBeginSegment(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
@@ -164,7 +164,7 @@ func TestBeginSegment(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
@@ -189,7 +189,7 @@ func TestBeginSegment(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
@@ -214,7 +214,7 @@ func TestBeginSegment(t *testing.T) {
 				metabasetest.BeginSegment{
 					Opts: metabase.BeginSegment{
 						ObjectStream: obj,
-						RootPieceID:  storj.PieceID{1},
+						RootPieceID:  storxnetwork.PieceID{1},
 						Pieces: []metabase.Piece{{
 							Number:      1,
 							StorageNode: testrand.NodeID(),
@@ -296,7 +296,7 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					ObjectStream: obj,
 					Pieces: []metabase.Piece{{
 						Number:      1,
-						StorageNode: storj.NodeID{},
+						StorageNode: storxnetwork.NodeID{},
 					}},
 					TestingUseMutations: useMutations,
 				},
@@ -460,7 +460,7 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 				ErrText:  "Redundancy zero",
 			}.Check(ctx, t, db)
 
-			redundancy := storj.RedundancyScheme{
+			redundancy := storxnetwork.RedundancyScheme{
 				OptimalShares: 2,
 			}
 
@@ -1126,10 +1126,10 @@ func TestCommitInlineSegment(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 
 			segment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
-			segment.RootPieceID = storj.PieceID{}
+			segment.RootPieceID = storxnetwork.PieceID{}
 			segment.InlineData = []byte{1, 2, 3}
 			segment.EncryptedSize = int32(len(segment.InlineData))
-			segment.Redundancy = storj.RedundancyScheme{}
+			segment.Redundancy = storxnetwork.RedundancyScheme{}
 			segment.Pieces = nil
 
 			metabasetest.CommitInlineSegment{
@@ -1552,10 +1552,10 @@ func TestCommitInlineSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			segment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
-			segment.RootPieceID = storj.PieceID{}
+			segment.RootPieceID = storxnetwork.PieceID{}
 			segment.InlineData = []byte{1, 2, 3}
 			segment.EncryptedSize = int32(len(segment.InlineData))
-			segment.Redundancy = storj.RedundancyScheme{}
+			segment.Redundancy = storxnetwork.RedundancyScheme{}
 			segment.Pieces = nil
 
 			expectedExpiresAt := time.Now().Add(33 * time.Hour)

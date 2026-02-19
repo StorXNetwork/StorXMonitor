@@ -10,10 +10,10 @@ import (
 	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // TransactionOptions contains options for transaction.
@@ -108,7 +108,7 @@ type Adapter interface {
 	TestingDeleteAll(ctx context.Context) (err error)
 	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
 	TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error)
-	TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error)
+	TestingSetPlacementAllSegments(ctx context.Context, placement storxnetwork.PlacementConstraint) (err error)
 	TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error)
 
 	// TestMigrateToLatest creates a database and applies all the migration for test purposes.

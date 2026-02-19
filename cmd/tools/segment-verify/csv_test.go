@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	segmentverify "storj.io/storj/cmd/tools/segment-verify"
-	"storj.io/storj/satellite/metabase"
+	segmentverify "github.com/StorXNetwork/StorXMonitor/cmd/tools/segment-verify"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestCSVWriter(t *testing.T) {
@@ -27,7 +27,7 @@ func TestCSVWriter(t *testing.T) {
 			VerifySegment: metabase.VerifySegment{
 				StreamID: uuid.UUID{1, 2, 3, 4, 5, 6},
 				Position: metabase.SegmentPosition{Part: 10, Index: 56},
-				Redundancy: storj.RedundancyScheme{
+				Redundancy: storxnetwork.RedundancyScheme{
 					RequiredShares: 6,
 				},
 			},
@@ -37,7 +37,7 @@ func TestCSVWriter(t *testing.T) {
 			VerifySegment: metabase.VerifySegment{
 				StreamID: uuid.UUID{10},
 				Position: metabase.SegmentPosition{Part: 1, Index: 1},
-				Redundancy: storj.RedundancyScheme{
+				Redundancy: storxnetwork.RedundancyScheme{
 					RequiredShares: 3,
 				},
 			},
@@ -52,7 +52,7 @@ func TestCSVWriter(t *testing.T) {
 			VerifySegment: metabase.VerifySegment{
 				StreamID: uuid.UUID{11},
 				Position: metabase.SegmentPosition{Part: 5, Index: 2},
-				Redundancy: storj.RedundancyScheme{
+				Redundancy: storxnetwork.RedundancyScheme{
 					RequiredShares: 9,
 				},
 				CreatedAt: now,

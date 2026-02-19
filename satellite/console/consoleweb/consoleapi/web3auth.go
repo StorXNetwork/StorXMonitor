@@ -14,9 +14,9 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
 )
 
 // Package-level Counter definitions - ensures they're registered with monkit at package load time

@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
 )
 
 var (

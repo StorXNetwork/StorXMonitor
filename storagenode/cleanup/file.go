@@ -7,7 +7,7 @@ import "os"
 
 // FileExistsConfig contains the configuration for FileExists.
 type FileExistsConfig struct {
-	Path string `help:"path to the file. Cleanup will be stopped if file exists" default:"/tmp/storj.chore.disable"`
+	Path string `help:"path to the file. Cleanup will be stopped if file exists" default:"/tmp/storxnetwork.chore.disable"`
 }
 
 // FileExists is an availability check which is false if file exists.

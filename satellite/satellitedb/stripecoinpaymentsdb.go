@@ -4,7 +4,7 @@
 package satellitedb
 
 import (
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 // ensures that *stripeCoinPaymentsDB implements stripecoinpayments.DB.

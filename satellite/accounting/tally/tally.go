@@ -11,14 +11,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/uuid"
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/eventkit"
 )
 
 // Error is a standard error class for this package.
@@ -445,7 +445,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 				return err
 			}
 		} else {
-			var placementByLocation map[metabase.BucketLocation]storj.PlacementConstraint
+			var placementByLocation map[metabase.BucketLocation]storxnetwork.PlacementConstraint
 			if observer.config.EventkitTrackingEnabled {
 				placementByLocation, err = observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
 				if err != nil {
@@ -637,4 +637,4 @@ func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.Bu
 }
 
 // using custom name to avoid breaking monitoring.
-var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
+var monAccounting = monkit.ScopeNamed("github.com/StorXNetwork/StorXMonitor/satellite/accounting")

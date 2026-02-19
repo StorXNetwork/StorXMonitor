@@ -27,7 +27,7 @@ import (
 	"github.com/stripe/stripe-go/v81/taxid"
 	"go.uber.org/zap"
 
-	"storj.io/common/time2"
+	"github.com/StorXNetwork/common/time2"
 )
 
 // Client Stripe client interface.

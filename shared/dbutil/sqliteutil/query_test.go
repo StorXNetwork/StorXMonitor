@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/shared/dbutil/dbschema"
-	"storj.io/storj/shared/dbutil/sqliteutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 func TestQuery(t *testing.T) {

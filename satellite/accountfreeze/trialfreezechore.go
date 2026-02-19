@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 var trialFreezeError = errs.Class("trial-freeze-chore")

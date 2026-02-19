@@ -8,13 +8,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/storj/shared/nodeidmap"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeidmap"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 // testid constructs a node id for testing, setting the first byte as the prefix and rest as the suffix.
-func testid(x string) (r storj.NodeID) {
+func testid(x string) (r storxnetwork.NodeID) {
 	r[0] = x[0]
 	copy(r[4:], x[1:])
 	return r
@@ -32,7 +32,7 @@ func TestMap(t *testing.T) {
 	xs.Store(testid("223"), 223)
 	xs.Store(testid("245"), 245)
 
-	require.Equal(t, map[storj.NodeID]int{
+	require.Equal(t, map[storxnetwork.NodeID]int{
 		testid("123"): 123,
 		testid("145"): 145,
 		testid("223"): 223,
@@ -71,7 +71,7 @@ func TestMap(t *testing.T) {
 		return 267
 	})
 
-	require.Equal(t, map[storj.NodeID]int{
+	require.Equal(t, map[storxnetwork.NodeID]int{
 		testid("123"): 123,
 		testid("145"): 1450,
 		testid("223"): 223,
@@ -105,7 +105,7 @@ func TestMap_Add(t *testing.T) {
 
 	a.Add(b, func(old, new int) int { return old + new })
 
-	require.Equal(t, map[storj.NodeID]int{
+	require.Equal(t, map[storxnetwork.NodeID]int{
 		testid("12"): 0x12_12,
 		testid("13"): 0x13_13,
 		testid("24"): 0x24_00,
@@ -118,7 +118,7 @@ func TestMap_Add(t *testing.T) {
 
 func BenchmarkLoad(b *testing.B) {
 	type Entry struct {
-		ID    storj.NodeID
+		ID    storxnetwork.NodeID
 		Value int32
 	}
 
@@ -136,7 +136,7 @@ func BenchmarkLoad(b *testing.B) {
 	}
 
 	m := nodeidmap.Make[int32]()
-	g := map[storj.NodeID]int32{}
+	g := map[storxnetwork.NodeID]int32{}
 	for _, e := range entries {
 		m.Store(e.ID, e.Value)
 		g[e.ID] = e.Value

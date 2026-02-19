@@ -19,9 +19,9 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/api/option"
 
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/dbschema"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 var mon = monkit.Package()
@@ -39,7 +39,7 @@ var rxInsertQuery = regexp.MustCompile(`(?i)^\s*insert\s+into\b`)
 
 // OpenUnique opens a spanner database with a temporary unique schema, which will be cleaned up
 // when closed. It is expected that this should normally be used by way of
-// "storj.io/storj/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
+// "github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
 func OpenUnique(ctx context.Context, log *zap.Logger, connstr string, databasePrefix string, extraStatements []string) (*dbutil.TempDatabase, error) {
 	// separate DDL and DML queries
 	// TODO(spanner): this only handles insert queries, which is sufficient for tests, but it's not a general solution.

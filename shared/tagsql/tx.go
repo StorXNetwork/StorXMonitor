@@ -9,9 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/leak"
-	"storj.io/common/traces"
-	"storj.io/storj/shared/flightrecorder"
+	"github.com/StorXNetwork/common/leak"
+	"github.com/StorXNetwork/common/traces"
+	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
 )
 
 // ExecQueryer contains methods for executing queries.

@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	stripeLib "github.com/stripe/stripe-go/v81"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestCreditCards_List(t *testing.T) {
@@ -61,7 +61,7 @@ func TestCreditCards_Add(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				u, err := satellite.AddUser(ctx, console.CreateUser{
 					FullName: "Test User",
-					Email:    fmt.Sprintf("t%d@storj.test", i),
+					Email:    fmt.Sprintf("t%d@storxnetwork.test", i),
 				}, 1)
 				require.NoError(t, err)
 
@@ -95,7 +95,7 @@ func TestCreditCards_AddByPaymentMethodID(t *testing.T) {
 
 		u, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
-			Email:    "test@storj.test",
+			Email:    "test@storxnetwork.test",
 		}, 1)
 		require.NoError(t, err)
 
@@ -161,7 +161,7 @@ func TestCreditCards_AddDuplicateCard(t *testing.T) {
 
 		u, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
-			Email:    "test@storj.test",
+			Email:    "test@storxnetwork.test",
 		}, 1)
 		require.NoError(t, err)
 

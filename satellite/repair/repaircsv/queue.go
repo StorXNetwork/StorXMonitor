@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Queue implements queue.Consumer interface for CSV-based segment repair tracking.
@@ -97,7 +97,7 @@ func NewQueue(cfg Config, log *zap.Logger) (*Queue, error) {
 }
 
 // Select implements queue.Consumer interface.
-func (c *Queue) Select(ctx context.Context, limit int, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) ([]queue.InjuredSegment, error) {
+func (c *Queue) Select(ctx context.Context, limit int, includedPlacements []storxnetwork.PlacementConstraint, excludedPlacements []storxnetwork.PlacementConstraint) ([]queue.InjuredSegment, error) {
 	var result []queue.InjuredSegment
 
 	for len(result) < limit {
@@ -148,7 +148,7 @@ func (c *Queue) Select(ctx context.Context, limit int, includedPlacements []stor
 			AttemptedAt:   nil,
 			UpdatedAt:     time.Now(),
 			InsertedAt:    time.Now(),
-			Placement:     storj.PlacementConstraint(0), // Default placement
+			Placement:     storxnetwork.PlacementConstraint(0), // Default placement
 		}
 
 		result = append(result, injuredSegment)

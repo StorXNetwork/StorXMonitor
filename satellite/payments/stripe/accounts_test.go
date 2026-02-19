@@ -15,24 +15,24 @@ package stripe_test
 // 	"go.uber.org/zap"
 // 	"go.uber.org/zap/zaptest"
 
-// 	"storj.io/common/storj"
-// 	"storj.io/common/testcontext"
-// 	"storj.io/common/testrand"
-// 	"storj.io/storj/private/testplanet"
-// 	"storj.io/storj/private/testredis"
-// 	"storj.io/storj/satellite"
-// 	"storj.io/storj/satellite/accounting"
-// 	"storj.io/storj/satellite/accounting/live"
-// 	"storj.io/storj/satellite/analytics"
-// 	"storj.io/storj/satellite/attribution"
-// 	"storj.io/storj/satellite/buckets"
-// 	"storj.io/storj/satellite/console"
-// 	"storj.io/storj/satellite/console/consoleauth"
-// 	"storj.io/storj/satellite/console/restkeys"
-// 	"storj.io/storj/satellite/nodeselection"
-// 	"storj.io/storj/satellite/payments"
-// 	"storj.io/storj/satellite/payments/paymentsconfig"
-// 	"storj.io/storj/satellite/payments/stripe"
+// 	"github.com/StorXNetwork/common/storxnetwork"
+// 	"github.com/StorXNetwork/common/testcontext"
+// 	"github.com/StorXNetwork/common/testrand"
+// 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+// 	"github.com/StorXNetwork/StorXMonitor/private/testredis"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/console/restkeys"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 // )
 
 // func TestSignupCouponCodes(t *testing.T) {
@@ -367,8 +367,8 @@ package stripe_test
 // 		require.NoError(t, err)
 
 // 		// Create buckets with different placements to generate different product IDs.
-// 		defaultPlacement := storj.DefaultPlacement
-// 		customPlacement := storj.PlacementConstraint(12)
+// 		defaultPlacement := storxnetwork.DefaultPlacement
+// 		customPlacement := storxnetwork.PlacementConstraint(12)
 
 // 		bucket1, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
 // 			ID:        testrand.UUID(),
@@ -564,8 +564,8 @@ package stripe_test
 // 		_, err := accounts.Setup(ctx, user.ID, user.Email, "")
 // 		require.NoError(t, err)
 
-// 		defaultPlacement := storj.DefaultPlacement
-// 		customPlacement := storj.PlacementConstraint(12)
+// 		defaultPlacement := storxnetwork.DefaultPlacement
+// 		customPlacement := storxnetwork.PlacementConstraint(12)
 
 // 		bucket1, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
 // 			ID:        testrand.UUID(),
@@ -750,10 +750,10 @@ package stripe_test
 // 		_, err := accounts.Setup(ctx, user.ID, user.Email, "")
 // 		require.NoError(t, err)
 
-// 		placement0 := storj.DefaultPlacement         // Both fees.
-// 		placement10 := storj.PlacementConstraint(10) // No fees.
-// 		placement20 := storj.PlacementConstraint(20) // Small object fee only.
-// 		placement30 := storj.PlacementConstraint(30) // With GB rounding.
+// 		placement0 := storxnetwork.DefaultPlacement         // Both fees.
+// 		placement10 := storxnetwork.PlacementConstraint(10) // No fees.
+// 		placement20 := storxnetwork.PlacementConstraint(20) // Small object fee only.
+// 		placement30 := storxnetwork.PlacementConstraint(30) // With GB rounding.
 
 // 		bucket1, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
 // 			ID:        testrand.UUID(),

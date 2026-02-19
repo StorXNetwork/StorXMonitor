@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // CSVWriter writes segments to a file.
@@ -131,7 +131,7 @@ func (csv *pieceCSVWriter) Close() error {
 func (csv *pieceCSVWriter) Write(
 	ctx context.Context,
 	segment *metabase.VerifySegment,
-	nodeID storj.NodeID,
+	nodeID storxnetwork.NodeID,
 	pieceNum int,
 	outcome audit.Outcome,
 ) (err error) {

@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDownloadSwitch(t *testing.T) {
@@ -25,7 +25,7 @@ func TestDownloadSwitch(t *testing.T) {
 	node3 := &nodeselection.SelectedNode{ID: testrand.NodeID()}
 	node4 := &nodeselection.SelectedNode{ID: testrand.NodeID()}
 
-	possibleNodes := map[storj.NodeID]*nodeselection.SelectedNode{
+	possibleNodes := map[storxnetwork.NodeID]*nodeselection.SelectedNode{
 		node1.ID: node1,
 		node2.ID: node2,
 		node3.ID: node3,
@@ -35,8 +35,8 @@ func TestDownloadSwitch(t *testing.T) {
 	requester := testrand.NodeID()
 
 	t.Run("no cases - uses default selector", func(t *testing.T) {
-		defaultSelector := func(ctx context.Context, requester storj.NodeID, nodes map[storj.NodeID]*nodeselection.SelectedNode, needed int) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
-			result := make(map[storj.NodeID]*nodeselection.SelectedNode)
+		defaultSelector := func(ctx context.Context, requester storxnetwork.NodeID, nodes map[storxnetwork.NodeID]*nodeselection.SelectedNode, needed int) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
+			result := make(map[storxnetwork.NodeID]*nodeselection.SelectedNode)
 			count := 0
 			for id, node := range nodes {
 				if count >= needed {
@@ -56,21 +56,21 @@ func TestDownloadSwitch(t *testing.T) {
 	})
 
 	t.Run("case condition matches - uses case selector", func(t *testing.T) {
-		matchingCondition := func(ctx context.Context, requestor storj.NodeID) bool {
+		matchingCondition := func(ctx context.Context, requestor storxnetwork.NodeID) bool {
 			return requestor == requester
 		}
 
-		caseSelector := func(ctx context.Context, requester storj.NodeID, nodes map[storj.NodeID]*nodeselection.SelectedNode, needed int) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
+		caseSelector := func(ctx context.Context, requester storxnetwork.NodeID, nodes map[storxnetwork.NodeID]*nodeselection.SelectedNode, needed int) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
 			// Select only node1
-			result := map[storj.NodeID]*nodeselection.SelectedNode{
+			result := map[storxnetwork.NodeID]*nodeselection.SelectedNode{
 				node1.ID: node1,
 			}
 			return result, nil
 		}
 
-		defaultSelector := func(ctx context.Context, requester storj.NodeID, nodes map[storj.NodeID]*nodeselection.SelectedNode, needed int) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
+		defaultSelector := func(ctx context.Context, requester storxnetwork.NodeID, nodes map[storxnetwork.NodeID]*nodeselection.SelectedNode, needed int) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
 			// Select remaining nodes
-			result := make(map[storj.NodeID]*nodeselection.SelectedNode)
+			result := make(map[storxnetwork.NodeID]*nodeselection.SelectedNode)
 			count := 0
 			for id, node := range nodes {
 				if count >= needed {
@@ -92,18 +92,18 @@ func TestDownloadSwitch(t *testing.T) {
 	})
 
 	t.Run("case condition doesn't match - uses default selector", func(t *testing.T) {
-		nonMatchingCondition := func(ctx context.Context, requestor storj.NodeID) bool {
+		nonMatchingCondition := func(ctx context.Context, requestor storxnetwork.NodeID) bool {
 			return requestor != requester // Will never match
 		}
 
-		caseSelector := func(ctx context.Context, requester storj.NodeID, nodes map[storj.NodeID]*nodeselection.SelectedNode, needed int) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
+		caseSelector := func(ctx context.Context, requester storxnetwork.NodeID, nodes map[storxnetwork.NodeID]*nodeselection.SelectedNode, needed int) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
 			// Should never be called
 			t.Fatal("Case selector should not be called when condition doesn't match")
 			return nil, nil
 		}
 
-		defaultSelector := func(ctx context.Context, requester storj.NodeID, nodes map[storj.NodeID]*nodeselection.SelectedNode, needed int) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
-			result := make(map[storj.NodeID]*nodeselection.SelectedNode)
+		defaultSelector := func(ctx context.Context, requester storxnetwork.NodeID, nodes map[storxnetwork.NodeID]*nodeselection.SelectedNode, needed int) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
+			result := make(map[storxnetwork.NodeID]*nodeselection.SelectedNode)
 			count := 0
 			for id, node := range nodes {
 				if count >= needed {
@@ -124,18 +124,18 @@ func TestDownloadSwitch(t *testing.T) {
 	})
 
 	t.Run("multiple cases - stops when enough nodes selected", func(t *testing.T) {
-		matchingCondition := func(ctx context.Context, requestor storj.NodeID) bool {
+		matchingCondition := func(ctx context.Context, requestor storxnetwork.NodeID) bool {
 			return true
 		}
 
-		case1Selector := func(ctx context.Context, requester storj.NodeID, nodes map[storj.NodeID]*nodeselection.SelectedNode, needed int) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
-			return map[storj.NodeID]*nodeselection.SelectedNode{
+		case1Selector := func(ctx context.Context, requester storxnetwork.NodeID, nodes map[storxnetwork.NodeID]*nodeselection.SelectedNode, needed int) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
+			return map[storxnetwork.NodeID]*nodeselection.SelectedNode{
 				node1.ID: node1,
 				node2.ID: node2,
 			}, nil
 		}
 
-		case2Selector := func(ctx context.Context, requester storj.NodeID, nodes map[storj.NodeID]*nodeselection.SelectedNode, needed int) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
+		case2Selector := func(ctx context.Context, requester storxnetwork.NodeID, nodes map[storxnetwork.NodeID]*nodeselection.SelectedNode, needed int) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
 			t.Fatal("Second case should not be called when first case satisfies needed count")
 			return nil, nil
 		}
@@ -183,7 +183,7 @@ func TestDownloadFilter(t *testing.T) {
 		Exiting: true,
 	}
 
-	possibleNodes := map[storj.NodeID]*nodeselection.SelectedNode{
+	possibleNodes := map[storxnetwork.NodeID]*nodeselection.SelectedNode{
 		node1.ID: node1,
 		node2.ID: node2,
 		node3.ID: node3,

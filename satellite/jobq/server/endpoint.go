@@ -11,11 +11,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	pb "storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/jobq/jobqueue"
+	pb "github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/jobqueue"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // JobqEndpoint implements the DRPCJobQueueServer interface.
@@ -32,7 +32,7 @@ func (se *JobqEndpoint) Push(ctx context.Context, req *pb.JobQueuePushRequest) (
 	if reqJob == nil {
 		return nil, errors.New("missing job")
 	}
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(reqJob.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(reqJob.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", reqJob.Placement, err)
 	}
@@ -58,7 +58,7 @@ func (se *JobqEndpoint) PushBatch(ctx context.Context, req *pb.JobQueuePushBatch
 	wasNewList := make([]bool, len(req.Jobs))
 
 	for i, reqJob := range req.Jobs {
-		q, err := se.queues.GetQueue(storj.PlacementConstraint(reqJob.Placement))
+		q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(reqJob.Placement))
 		if err != nil {
 			encounteredErrors = append(encounteredErrors, fmt.Errorf("failed to get queue for placement %d: %w", reqJob.Placement, err))
 			nonNilErrors = true
@@ -117,7 +117,7 @@ func (se *JobqEndpoint) Len(ctx context.Context, req *pb.JobQueueLengthRequest) 
 	if req.AllPlacements {
 		return se.lenAll(ctx)
 	}
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(req.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
@@ -144,7 +144,7 @@ func (se *JobqEndpoint) Delete(ctx context.Context, req *pb.JobQueueDeleteReques
 	if err != nil {
 		return nil, fmt.Errorf("invalid stream id %x: %w", req.StreamId, err)
 	}
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(req.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
@@ -164,7 +164,7 @@ func (se *JobqEndpoint) Inspect(ctx context.Context, req *pb.JobQueueInspectRequ
 		return nil, fmt.Errorf("invalid stream id %x: %w", req.StreamId, err)
 	}
 	position := req.Position
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(req.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
@@ -183,7 +183,7 @@ func (se *JobqEndpoint) Truncate(ctx context.Context, req *pb.JobQueueTruncateRe
 	if req.AllPlacements {
 		return se.truncateAll()
 	}
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(req.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
@@ -206,7 +206,7 @@ func (se *JobqEndpoint) Stat(ctx context.Context, req *pb.JobQueueStatRequest) (
 	if req.AllPlacements {
 		return se.statAll(ctx, req.WithHistogram)
 	}
-	placement := storj.PlacementConstraint(req.Placement)
+	placement := storxnetwork.PlacementConstraint(req.Placement)
 	q, err := se.queues.GetQueue(placement)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
@@ -317,7 +317,7 @@ func (se *JobqEndpoint) Clean(ctx context.Context, req *pb.JobQueueCleanRequest)
 	if req.Placement < 0 || req.AllPlacements {
 		return se.cleanAll(req.UpdatedBefore)
 	}
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(req.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
@@ -346,7 +346,7 @@ func (se *JobqEndpoint) Trim(ctx context.Context, req *pb.JobQueueTrimRequest) (
 	if req.Placement < 0 || req.AllPlacements {
 		return se.trimAll(req.HealthGreaterThan)
 	}
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(req.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
@@ -371,7 +371,7 @@ func (se *JobqEndpoint) trimAll(healthGreaterThan float64) (*pb.JobQueueTrimResp
 func (se *JobqEndpoint) TestingSetAttemptedTime(ctx context.Context, req *pb.JobQueueTestingSetAttemptedTimeRequest) (_ *pb.JobQueueTestingSetAttemptedTimeResponse, err error) {
 	mon.Task()(&ctx)(&err)
 
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(req.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
@@ -390,7 +390,7 @@ func (se *JobqEndpoint) TestingSetAttemptedTime(ctx context.Context, req *pb.Job
 func (se *JobqEndpoint) TestingSetUpdatedTime(ctx context.Context, req *pb.JobQueueTestingSetUpdatedTimeRequest) (_ *pb.JobQueueTestingSetUpdatedTimeResponse, err error) {
 	mon.Task()(&ctx)(&err)
 
-	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	q, err := se.queues.GetQueue(storxnetwork.PlacementConstraint(req.Placement))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
@@ -412,10 +412,10 @@ func NewEndpoint(log *zap.Logger, queues *QueueMap) *JobqEndpoint {
 	}
 }
 
-func int32SliceToPlacementConstraints(placements []int32) []storj.PlacementConstraint {
-	slice := make([]storj.PlacementConstraint, len(placements))
+func int32SliceToPlacementConstraints(placements []int32) []storxnetwork.PlacementConstraint {
+	slice := make([]storxnetwork.PlacementConstraint, len(placements))
 	for i, p := range placements {
-		slice[i] = storj.PlacementConstraint(p)
+		slice[i] = storxnetwork.PlacementConstraint(p)
 	}
 	return slice
 }

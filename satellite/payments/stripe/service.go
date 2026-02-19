@@ -23,20 +23,20 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/currency"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/healthcheck"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/private/healthcheck"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -605,7 +605,7 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 }
 
 func (service *Service) productIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, payments.ProductUsagePriceModel) {
-	placement := int(storj.DefaultPlacement)
+	placement := int(storxnetwork.DefaultPlacement)
 
 	// The key format is now just "placement" (e.g., "25").
 	// Parse the placement directly from the key.
@@ -615,7 +615,7 @@ func (service *Service) productIdAndPriceForUsageKey(ctx context.Context, projec
 	}
 
 	// Get price model for the placement.
-	return service.Accounts().GetPlacementPriceModel(ctx, projectPublicID, storj.PlacementConstraint(placement))
+	return service.Accounts().GetPlacementPriceModel(ctx, projectPublicID, storxnetwork.PlacementConstraint(placement))
 }
 
 func (service *Service) getAndProcessUsages(
@@ -1552,7 +1552,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 			return nil, err
 		}
 
-		whitePaperLink := "https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
+		whitePaperLink := "https://www.storxnetwork.io/documents/storxnetwork-sustainability-whitepaper.pdf"
 		footerMsg := fmt.Sprintf(
 			"Estimated Storj Emissions: %.3f kgCO2e\nEstimated Hyperscaler Emissions: %.3f kgCO2e\nMore information on estimates: %s",
 			impact.EstimatedKgCO2eStorj,

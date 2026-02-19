@@ -12,20 +12,20 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/date"
-	"storj.io/storj/private/version/checker"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/operator"
-	"storj.io/storj/storagenode/payouts/estimatedpayouts"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/operator"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts/estimatedpayouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 var (
@@ -117,18 +117,18 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, version *checker.Servic
 
 // SatelliteInfo encapsulates satellite ID and disqualification.
 type SatelliteInfo struct {
-	ID           storj.NodeID `json:"id"`
-	URL          string       `json:"url"`
-	Disqualified *time.Time   `json:"disqualified"`
-	Suspended    *time.Time   `json:"suspended"`
-	VettedAt     *time.Time   `json:"vettedAt"`
+	ID           storxnetwork.NodeID `json:"id"`
+	URL          string              `json:"url"`
+	Disqualified *time.Time          `json:"disqualified"`
+	Suspended    *time.Time          `json:"suspended"`
+	VettedAt     *time.Time          `json:"vettedAt"`
 }
 
 // Dashboard encapsulates dashboard stale data.
 type Dashboard struct {
-	NodeID         storj.NodeID `json:"nodeID"`
-	Wallet         string       `json:"wallet"`
-	WalletFeatures []string     `json:"walletFeatures"`
+	NodeID         storxnetwork.NodeID `json:"nodeID"`
+	Wallet         string              `json:"wallet"`
+	WalletFeatures []string            `json:"walletFeatures"`
 
 	Satellites []SatelliteInfo `json:"satellites"`
 
@@ -226,7 +226,7 @@ type PriceModel struct {
 
 // Satellite encapsulates satellite related data.
 type Satellite struct {
-	ID                storj.NodeID            `json:"id"`
+	ID                storxnetwork.NodeID     `json:"id"`
 	StorageDaily      []storageusage.Stamp    `json:"storageDaily"`
 	BandwidthDaily    []bandwidth.UsageRollup `json:"bandwidthDaily"`
 	StorageSummary    float64                 `json:"storageSummary"`
@@ -242,7 +242,7 @@ type Satellite struct {
 }
 
 // GetSatelliteData returns satellite related data.
-func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID) (_ *Satellite, err error) {
+func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 	from, to := date.MonthBoundary(time.Now().UTC())
 
@@ -468,7 +468,7 @@ func filterAhw(auditHistryWindow []reputation.AuditHistoryWindow, filterType str
 }
 
 // GetSatelliteEstimatedPayout returns estimated payouts for current and previous months for selected satellite.
-func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (estimatedPayout estimatedpayouts.EstimatedPayout, err error) {
+func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storxnetwork.NodeID, now time.Time) (estimatedPayout estimatedpayouts.EstimatedPayout, err error) {
 	estimatedPayout, err = s.estimation.GetSatelliteEstimatedPayout(ctx, satelliteID, now)
 	if err != nil {
 		return estimatedpayouts.EstimatedPayout{}, SNOServiceErr.Wrap(err)
@@ -488,7 +488,7 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.
 }
 
 // VerifySatelliteID verifies if the satellite belongs to the trust pool.
-func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.trust.VerifySatelliteID(ctx, satelliteID)
@@ -500,7 +500,7 @@ func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeI
 }
 
 // GetSatellitePricingModel returns pricing model for the specified satellite.
-func (s *Service) GetSatellitePricingModel(ctx context.Context, satelliteID storj.NodeID) (pricingModel *pricing.Pricing, err error) {
+func (s *Service) GetSatellitePricingModel(ctx context.Context, satelliteID storxnetwork.NodeID) (pricingModel *pricing.Pricing, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pricingModel, err = s.pricingDB.Get(ctx, satelliteID)

@@ -8,11 +8,11 @@ import (
 	"net/url"
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/billing"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 )
 
 var _ billing.Observer = (*UpgradeUserObserver)(nil)

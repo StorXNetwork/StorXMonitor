@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/lifecycle"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 )
 
 func TestGroup(t *testing.T) {

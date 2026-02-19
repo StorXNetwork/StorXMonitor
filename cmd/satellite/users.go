@@ -19,16 +19,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/process"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
@@ -533,7 +533,7 @@ func deleteAccounts(
 
 		emptyName := ""
 		emptyNamePtr := &emptyName
-		deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID)
+		deactivatedEmail := fmt.Sprintf("deactivated+%s@storxnetwork.io", user.ID)
 		status := console.Deleted
 
 		err := satDB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{

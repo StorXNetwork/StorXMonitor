@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // SupportEmptyTrashWithoutStat is an interface for blobstores that support emptying trash without calculating stats.
@@ -50,7 +50,7 @@ func (t *TrashRunOnce) Run(ctx context.Context) (err error) {
 		return errs.Wrap(err)
 	}
 	for _, namespace := range namespaces {
-		var satellite storj.NodeID
+		var satellite storxnetwork.NodeID
 		copy(satellite[:], namespace)
 		timeStart := time.Now()
 		t.log.Info("emptying trash started", zap.Stringer("satellite_id", satellite))

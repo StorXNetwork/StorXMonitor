@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
 )
 
 func TestPriceOverrides(t *testing.T) {

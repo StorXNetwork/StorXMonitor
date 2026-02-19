@@ -3,7 +3,7 @@
 
 package cli
 
-import "storj.io/storj/shared/mud"
+import "github.com/StorXNetwork/StorXMonitor/shared/mud"
 
 // Subcommand is a mud annotation for components, which can work as subcommands.
 type Subcommand struct {

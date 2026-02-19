@@ -11,15 +11,15 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/eventkit"
-	"storj.io/storj/private/slices2"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/private/slices2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/eventkit"
 )
 
 // ensures that projects implements console.Projects.
@@ -595,7 +595,7 @@ func (projects *projects) UpdateStatus(ctx context.Context, id uuid.UUID, status
 func (projects *projects) UpdateDefaultPlacement(
 	ctx context.Context,
 	id uuid.UUID,
-	placement storj.PlacementConstraint,
+	placement storxnetwork.PlacementConstraint,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -913,9 +913,9 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, err
 	}
 
-	var placement storj.PlacementConstraint
+	var placement storxnetwork.PlacementConstraint
 	if project.DefaultPlacement != nil {
-		placement = storj.PlacementConstraint(*project.DefaultPlacement)
+		placement = storxnetwork.PlacementConstraint(*project.DefaultPlacement)
 	}
 
 	return &console.Project{

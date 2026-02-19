@@ -11,9 +11,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/encryption"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var (
@@ -29,8 +29,8 @@ var (
 type Service struct {
 	config Config
 
-	defaultKey *storj.Key
-	keys       map[int]*storj.Key
+	defaultKey *storxnetwork.Key
+	keys       map[int]*storxnetwork.Key
 
 	initialized sync2.Fence
 }
@@ -39,7 +39,7 @@ type Service struct {
 func NewService(config Config) *Service {
 	return &Service{
 		config: config,
-		keys:   make(map[int]*storj.Key),
+		keys:   make(map[int]*storxnetwork.Key),
 	}
 }
 
@@ -90,13 +90,13 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 // GenerateEncryptedPassphrase generates a cryptographically random passphrase,
 // returning its encrypted form and the id of the encryption key.
 func (s *Service) GenerateEncryptedPassphrase(ctx context.Context) (_ []byte, keyID int, err error) {
-	randBytes := make([]byte, storj.KeySize)
+	randBytes := make([]byte, storxnetwork.KeySize)
 	_, err = rand.Read(randBytes)
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
 
-	passphrase := make([]byte, base64.StdEncoding.EncodedLen(storj.KeySize))
+	passphrase := make([]byte, base64.StdEncoding.EncodedLen(storxnetwork.KeySize))
 	base64.StdEncoding.Encode(passphrase, randBytes)
 
 	return s.EncryptPassphrase(ctx, passphrase)
@@ -109,7 +109,7 @@ func (s *Service) EncryptPassphrase(ctx context.Context, passphrase []byte) (_ [
 		return nil, 0, Error.New("service not initialized")
 	}
 
-	var nonce storj.Nonce
+	var nonce storxnetwork.Nonce
 	_, err = rand.Read(nonce[:])
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
@@ -121,9 +121,9 @@ func (s *Service) EncryptPassphrase(ctx context.Context, passphrase []byte) (_ [
 	}
 
 	// Prepend the nonce to the encrypted passphrase.
-	encryptedPassphrase := make([]byte, storj.NonceSize+len(cipherText))
-	copy(encryptedPassphrase[:storj.NonceSize], nonce[:])
-	copy(encryptedPassphrase[storj.NonceSize:], cipherText)
+	encryptedPassphrase := make([]byte, storxnetwork.NonceSize+len(cipherText))
+	copy(encryptedPassphrase[:storxnetwork.NonceSize], nonce[:])
+	copy(encryptedPassphrase[storxnetwork.NonceSize:], cipherText)
 
 	return encryptedPassphrase, s.config.DefaultMasterKey, nil
 }
@@ -139,10 +139,10 @@ func (s *Service) DecryptPassphrase(ctx context.Context, keyID int, encryptedPas
 	if key == nil {
 		return nil, Error.New("key with ID %d not found", keyID)
 	}
-	var nonce storj.Nonce
-	copy(nonce[:], encryptedPassphrase[:storj.NonceSize])
+	var nonce storxnetwork.Nonce
+	copy(nonce[:], encryptedPassphrase[:storxnetwork.NonceSize])
 
-	plaintext, err := encryption.DecryptSecretBox(encryptedPassphrase[storj.NonceSize:], key, &nonce)
+	plaintext, err := encryption.DecryptSecretBox(encryptedPassphrase[storxnetwork.NonceSize:], key, &nonce)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

@@ -8,14 +8,14 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/uplink"
-	privateAccess "storj.io/uplink/private/access"
-	privateProject "storj.io/uplink/private/project"
-	"storj.io/uplink/private/testuplink"
-	"storj.io/uplink/private/transport"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/uplink"
+	privateAccess "github.com/StorXNetwork/uplink/private/access"
+	privateProject "github.com/StorXNetwork/uplink/private/project"
+	"github.com/StorXNetwork/uplink/private/testuplink"
+	"github.com/StorXNetwork/uplink/private/transport"
 )
 
 const uplinkCLIUserAgent = "uplink-cli"

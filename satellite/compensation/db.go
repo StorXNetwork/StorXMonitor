@@ -6,8 +6,8 @@ package compensation
 import (
 	"context"
 
-	"storj.io/common/storj"
-	"storj.io/storj/private/currency"
+	"github.com/StorXNetwork/StorXMonitor/private/currency"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // TotalAmounts holds the amounts held and disposed.
@@ -27,7 +27,7 @@ type TotalAmounts struct {
 // DB is the interface we need to source the data to calculate compensation.
 type DB interface {
 	// QueryTotalAmounts queries the WithheldAmounts for the given nodeID.
-	QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID) (TotalAmounts, error)
+	QueryTotalAmounts(ctx context.Context, nodeID storxnetwork.NodeID) (TotalAmounts, error)
 
 	// RecordPeriod records a set of paystubs and payments for some time period.
 	RecordPeriod(ctx context.Context, paystubs []Paystub, payments []Payment) error

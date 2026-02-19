@@ -11,11 +11,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/shared/tagsql"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrOrders represents errors from the ordersdb database.
@@ -121,7 +121,7 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*ordersfile.
 // which have not. In case of database or other system error, the method will
 // stop without any further processing and will return an error without any
 // order.
-func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.NodeID][]*ordersfile.Info, err error) {
+func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storxnetwork.NodeID][]*ordersfile.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: add some limiting
 
@@ -140,7 +140,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 	var unmarshalErrors errs.Group
 	defer func() { err = errs.Combine(err, unmarshalErrors.Err(), rows.Close()) }()
 
-	infos := map[storj.NodeID][]*ordersfile.Info{}
+	infos := map[storxnetwork.NodeID][]*ordersfile.Info{}
 	for rows.Next() {
 		var limitSerialized []byte
 		var orderSerialized []byte

@@ -4,8 +4,8 @@
 package accounting
 
 import (
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // BucketTally contains information about aggregate data stored in a bucket.
@@ -20,7 +20,7 @@ type BucketTally struct {
 
 	MetadataSize int64
 
-	Placement storj.PlacementConstraint
+	Placement storxnetwork.PlacementConstraint
 }
 
 // Combine aggregates all the tallies.

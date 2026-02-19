@@ -19,64 +19,64 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/healthcheck"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/abtesting"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consoleauth/csrf"
-	"storj.io/storj/satellite/console/consoleauth/sso"
-	"storj.io/storj/satellite/console/consoleservice"
-	"storj.io/storj/satellite/console/consoleweb"
-	consoleapi "storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/console/pushnotifications"
-	"storj.io/storj/satellite/console/restapikeys"
-	"storj.io/storj/satellite/console/restkeys"
-	"storj.io/storj/satellite/console/secretconstants"
-	"storj.io/storj/satellite/console/userinfo"
-	"storj.io/storj/satellite/console/valdi"
-	"storj.io/storj/satellite/console/valdi/valdiclient"
-	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/developer"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/kms"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/mailservice/hubspotmails"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/nodeselection/tracker"
-	"storj.io/storj/satellite/nodestats"
-	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/satellite/smartcontract"
-	"storj.io/storj/satellite/snopayouts"
-	"storj.io/storj/satellite/trust"
-	"storj.io/storj/satellite/userworker"
-	"storj.io/storj/shared/nodetag"
+	"github.com/StorXNetwork/StorXMonitor/private/healthcheck"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/abtesting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	consoleapi "github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restkeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/userinfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/StorXMonitor/satellite/contact"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gracefulexit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/kms"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice/hubspotmails"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection/tracker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodestats"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
+	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
+	"github.com/StorXNetwork/StorXMonitor/satellite/trust"
+	"github.com/StorXNetwork/StorXMonitor/satellite/userworker"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // API is the satellite API process.
@@ -262,7 +262,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	var trackerInfo *metainfo.TrackerInfo
-	var successTrackerUplinks []storj.NodeID
+	var successTrackerUplinks []storxnetwork.NodeID
 	{
 		successTrackerTrustedUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerTrustedUplinks)
 		if err != nil {
@@ -293,7 +293,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if !ok {
 			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
 		}
-		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, func(uplink storj.NodeID) metainfo.SuccessTracker {
+		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, func(uplink storxnetwork.NodeID) metainfo.SuccessTracker {
 			tracker := newTracker()
 			peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("success_tracker").WithTag("uplink", uplink.String()), tracker)
 			return tracker
@@ -1393,25 +1393,25 @@ func (peer *API) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *API) ID() storxnetwork.NodeID { return peer.Identity.ID }
 
 // Addr returns the public address.
 func (peer *API) Addr() string {
 	return peer.ExternalAddress
 }
 
-// URL returns the storj.NodeURL.
-func (peer *API) URL() storj.NodeURL {
-	return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()}
+// URL returns the storxnetwork.NodeURL.
+func (peer *API) URL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: peer.ID(), Address: peer.Addr()}
 }
 
 // PrivateAddr returns the private address.
 func (peer *API) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
 
-func parseNodeIDs(nodeIDs []string) ([]storj.NodeID, error) {
-	rv := make([]storj.NodeID, 0, len(nodeIDs))
+func parseNodeIDs(nodeIDs []string) ([]storxnetwork.NodeID, error) {
+	rv := make([]storxnetwork.NodeID, 0, len(nodeIDs))
 	for _, nodeID := range nodeIDs {
-		parsedID, err := storj.NodeIDFromString(nodeID)
+		parsedID, err := storxnetwork.NodeIDFromString(nodeID)
 		if err != nil {
 			return nil, err
 		}

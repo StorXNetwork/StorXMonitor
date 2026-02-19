@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/process"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Config is a mud annotation.

@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/userworker"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/userworker"
 )
 
 type deleteUserQueue struct {

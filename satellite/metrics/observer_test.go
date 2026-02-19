@@ -10,18 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop/rangedlooptest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
-	testEUPlacement = storj.PlacementConstraint(1)
-	testUSPlacement = storj.PlacementConstraint(3)
+	testEUPlacement = storxnetwork.PlacementConstraint(1)
+	testUSPlacement = storxnetwork.PlacementConstraint(3)
 
 	// Segments in the EU placement.
 	inline1 = []rangedloop.Segment{

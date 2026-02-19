@@ -9,9 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/testcontext"
-	uplinkcli "storj.io/storj/cmd/uplink"
-	"storj.io/storj/cmd/uplink/ultest"
+	"github.com/StorXNetwork/common/testcontext"
+	uplinkcli "github.com/StorXNetwork/StorXMonitor/cmd/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
 )
 
 func TestAccessSetup_FreeTierCredentialsExpiration(t *testing.T) {

@@ -10,9 +10,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Verify verifies a collection of segments.
@@ -139,7 +139,7 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 }
 
 // convertAliasToNodeURL converts a node alias to node url, using a cache if needed.
-func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabase.NodeAlias) (_ storj.NodeURL, err error) {
+func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabase.NodeAlias) (_ storxnetwork.NodeURL, err error) {
 	service.mu.RLock()
 	nodeURL, ok := service.aliasToNodeURL[alias]
 	service.mu.RUnlock()
@@ -150,28 +150,28 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 		if !ok {
 			latest, err := service.metabase.LatestNodesAliasMap(ctx)
 			if !ok {
-				return storj.NodeURL{}, Error.Wrap(err)
+				return storxnetwork.NodeURL{}, Error.Wrap(err)
 			}
 			service.aliasMap = latest
 
 			nodeID, ok = service.aliasMap.Node(alias)
 			if !ok {
-				return storj.NodeURL{}, ErrNoSuchNode.New("no node has alias %d", alias)
+				return storxnetwork.NodeURL{}, ErrNoSuchNode.New("no node has alias %d", alias)
 			}
 		}
 
 		info, err := service.overlay.Get(ctx, nodeID)
 		if err != nil {
-			return storj.NodeURL{}, Error.Wrap(err)
+			return storxnetwork.NodeURL{}, Error.Wrap(err)
 		}
 
 		if info.Disqualified != nil || info.ExitStatus.ExitFinishedAt != nil {
-			return storj.NodeURL{}, ErrNoSuchNode.New("node %s is no longer on the network", nodeID.String())
+			return storxnetwork.NodeURL{}, ErrNoSuchNode.New("node %s is no longer on the network", nodeID.String())
 		}
 		// TODO: single responsibility?
 		service.nodesVersionMap[alias] = info.Version.Version
 
-		nodeURL = storj.NodeURL{
+		nodeURL = storxnetwork.NodeURL{
 			ID:      info.Id,
 			Address: info.Address.Address,
 		}
@@ -184,7 +184,7 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 // NodeInfo contains node information.
 type NodeInfo struct {
 	Version string
-	NodeURL storj.NodeURL
+	NodeURL storxnetwork.NodeURL
 }
 
 // GetNodeInfo retrieves node information, using a cache if needed.

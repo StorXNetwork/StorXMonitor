@@ -13,10 +13,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/leak"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/common/leak"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -28,7 +28,7 @@ var (
 
 	mon = monkit.Package()
 	// for backwards compatibility.
-	monStorage = monkit.ScopeNamed("storj.io/storj/storage/filestore")
+	monStorage = monkit.ScopeNamed("github.com/StorXNetwork/StorXMonitor/storage/filestore")
 
 	_ blobstore.Blobs = (*blobStore)(nil)
 )
@@ -382,13 +382,13 @@ func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef)
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (store *blobStore) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
+func (store *blobStore) CreateVerificationFile(ctx context.Context, id storxnetwork.NodeID) error {
 	return store.dir.CreateVerificationFile(ctx, id)
 }
 
 // VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (store *blobStore) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
+func (store *blobStore) VerifyStorageDir(ctx context.Context, id storxnetwork.NodeID) error {
 	return store.dir.Verify(ctx, id)
 }
 

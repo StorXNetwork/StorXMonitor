@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/errs"
 	"github.com/zeebo/xxh3"
 
-	"storj.io/common/memory"
-	"storj.io/drpc/drpcsignal"
-	"storj.io/storj/storagenode/hashstore/platform"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/drpc/drpcsignal"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore/platform"
 )
 
 const hashtbl_invalidPage = 1<<64 - 1

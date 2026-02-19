@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/time2"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/time2"
 )
 
 func TestCache_LRU(t *testing.T) {

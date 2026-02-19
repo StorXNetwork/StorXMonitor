@@ -15,8 +15,8 @@ import (
 // =============================================================================
 var (
 	// Core Commands
-	storjSimCmd    = []string{"storj-sim", "network", "run", "--no-gateways"}
-	storjSimEnvCmd = []string{"storj-sim", "network", "env", "SATELLITE_0_URL"}
+	storjSimCmd    = []string{"storxnetwork-sim", "network", "run", "--no-gateways"}
+	storjSimEnvCmd = []string{"storxnetwork-sim", "network", "env", "SATELLITE_0_URL"}
 	authServiceCmd = "authservice"
 	gatewayMTCmd   = "gateway-mt"
 	linkShareCmd   = "linksharing"
@@ -52,13 +52,13 @@ func main() {
 		}
 	}
 
-	// Always run storj-sim
+	// Always run storxnetwork-sim
 	fmt.Printf("▶ Running: %s\n", strings.Join(storjSimCmd, " "))
 	simCmd := exec.Command(storjSimCmd[0], storjSimCmd[1:]...)
 	if err := simCmd.Start(); err != nil {
-		log.Fatalf("❌ Failed to start storj-sim network: %v", err)
+		log.Fatalf("❌ Failed to start storxnetwork-sim network: %v", err)
 	}
-	log.Println("✅ storj-sim network started successfully")
+	log.Println("✅ storxnetwork-sim network started successfully")
 
 	// Fetch SATELLITE_0_URL only if authservice is requested
 	var satelliteURL string
@@ -158,7 +158,7 @@ func main() {
 
 	log.Println("🛑 Interrupt received. Cleaning up...")
 
-	cleanupProcess(simCmd, "storj-sim")
+	cleanupProcess(simCmd, "storxnetwork-sim")
 	cleanupProcess(authCmd, "authservice")
 	cleanupProcess(gatewayCmd, "gateway-mt")
 	cleanupProcess(linkshareCmd, "linksharing")

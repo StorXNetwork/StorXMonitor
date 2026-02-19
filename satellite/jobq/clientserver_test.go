@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/jobq/jobqtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/jobqtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestClientAndServer(t *testing.T) {
@@ -115,7 +115,7 @@ func TestClientServerPeek(t *testing.T) {
 		require.True(t, wasNew)
 
 		// Peek the job
-		peekedJobs, err := cli.Peek(ctx, 1, []storj.PlacementConstraint{42}, nil)
+		peekedJobs, err := cli.Peek(ctx, 1, []storxnetwork.PlacementConstraint{42}, nil)
 		require.NoError(t, err)
 		require.Len(t, peekedJobs, 1)
 		require.Equal(t, job.ID.StreamID, peekedJobs[0].ID.StreamID)
@@ -308,7 +308,7 @@ func TestStat(t *testing.T) {
 		}
 
 		// Get stats for the queue
-		stat, err := client.Stat(ctx, storj.PlacementConstraint(42), false)
+		stat, err := client.Stat(ctx, storxnetwork.PlacementConstraint(42), false)
 		require.NoError(t, err)
 		require.Equal(t, jobq.QueueStat{
 			Placement:        42,

@@ -12,9 +12,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore/usedserials"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore/usedserials"
 )
 
 var mon = monkit.Package()

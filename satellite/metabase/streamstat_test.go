@@ -6,11 +6,11 @@ package metabase_test
 import (
 	"testing"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestGetStreamPieceCountByNodeID(t *testing.T) {
@@ -37,7 +37,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					ProjectID: obj.ProjectID,
 					StreamID:  obj.StreamID,
 				},
-				Result: map[storj.NodeID]int64{},
+				Result: map[storxnetwork.NodeID]int64{},
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -75,7 +75,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					ProjectID: obj.ProjectID,
 					StreamID:  obj.StreamID,
 				},
-				Result: map[storj.NodeID]int64{},
+				Result: map[storxnetwork.NodeID]int64{},
 			}.Check(ctx, t, db)
 		})
 
@@ -144,7 +144,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					ProjectID: obj.ProjectID,
 					StreamID:  obj.StreamID,
 				},
-				Result: map[storj.NodeID]int64{
+				Result: map[storxnetwork.NodeID]int64{
 					n01: 1,
 					n02: 2,
 					n03: 2,
@@ -158,7 +158,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
 
-			testNodeIDs := make([]storj.NodeID, 3)
+			testNodeIDs := make([]storxnetwork.NodeID, 3)
 			for i := range testNodeIDs {
 				testNodeIDs[i] = testrand.NodeID()
 			}
@@ -201,7 +201,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					ProjectID: obj.ProjectID,
 					StreamID:  obj.StreamID,
 				},
-				Result: map[storj.NodeID]int64{
+				Result: map[storxnetwork.NodeID]int64{
 					testNodeIDs[0]: 1,
 					testNodeIDs[1]: 1,
 					testNodeIDs[2]: 1,
@@ -213,7 +213,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					ProjectID: obj.ProjectID,
 					StreamID:  copyStream.StreamID,
 				},
-				Result: map[storj.NodeID]int64{
+				Result: map[storxnetwork.NodeID]int64{
 					testNodeIDs[0]: 1,
 					testNodeIDs[1]: 1,
 					testNodeIDs[2]: 1,

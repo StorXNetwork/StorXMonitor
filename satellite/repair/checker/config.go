@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Config contains configurable values for checker.
@@ -108,6 +108,6 @@ func (ros *RepairOverrides) GetOverrideValuePB(rs *pb.RedundancyScheme) int32 {
 }
 
 // GetOverrideValue returns the override value for an RS scheme if it exists, or 0 otherwise.
-func (ros *RepairOverrides) GetOverrideValue(rs storj.RedundancyScheme) int32 {
+func (ros *RepairOverrides) GetOverrideValue(rs storxnetwork.RedundancyScheme) int32 {
 	return int32(ros.Values[int(rs.RequiredShares)])
 }

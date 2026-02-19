@@ -6,8 +6,8 @@ package consoleservice
 import (
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module is a mud module.

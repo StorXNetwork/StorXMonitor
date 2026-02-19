@@ -13,14 +13,14 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting/nodetally"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/nodetally"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
@@ -137,7 +137,7 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 		err := planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, now.Add(1*time.Second), 5000)
 		require.NoError(t, err)
 		err = planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally,
-			[]storj.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
+			[]storxnetwork.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
 			[]float64{0, 0, 0, 0},
 		)
 		require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 
 		lastTally := now.Add(-timespanHours * time.Hour)
 		err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally,
-			[]storj.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
+			[]storxnetwork.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
 			[]float64{0, 0, 0, 0},
 		)
 		require.NoError(t, err)

@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 // Error is a standard error class for this package.

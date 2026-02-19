@@ -11,15 +11,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/grant"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/drpc/drpcmux"
-	"storj.io/drpc/drpcserver"
-	uplinkcli "storj.io/storj/cmd/uplink"
-	"storj.io/storj/cmd/uplink/ultest"
+	uplinkcli "github.com/StorXNetwork/StorXMonitor/cmd/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/drpc/drpcmux"
+	"github.com/StorXNetwork/drpc/drpcserver"
 )
 
 const testAPIKey = "13Yqe3oHi5dcnGhMu2ru3cmePC9iEYv6nDrYMbLRh4wre1KtVA9SFwLNAuuvWwc43b9swRsrfsnrbuTHQ6TJKVt4LjGnaARN9PhxJEu"
@@ -115,7 +115,7 @@ func TestShare(t *testing.T) {
 
 	t.Run("share access with --public", func(t *testing.T) {
 		// Can't run this scenario because AuthService is not running in testplanet.
-		// If necessary we can mock AuthService like in https://github.com/storj/uplink/blob/main/testsuite/edge_test.go
+		// If necessary we can mock AuthService like in https://github.com/storxnetwork/uplink/blob/main/testsuite/edge_test.go
 		t.Skip("No AuthService available in testplanet")
 		state := ultest.Setup(uplinkcli.Commands)
 
@@ -182,9 +182,9 @@ func TestShare(t *testing.T) {
 	apiKey, err := macaroon.ParseAPIKey(testAPIKey)
 	require.NoError(t, err)
 
-	encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
+	encAccess := grant.NewEncryptionAccessWithDefaultKey(&storxnetwork.Key{})
 	access, err := (&grant.Access{
-		SatelliteAddress: "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777",
+		SatelliteAddress: "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storxnetwork.io:7777",
 		APIKey:           apiKey,
 		EncAccess:        encAccess,
 	}).Serialize()
@@ -216,13 +216,13 @@ func TestShare(t *testing.T) {
 			$ORIGIN example.com.
 			$TTL    3600
 			test.com    	IN	CNAME	link.storjshare.io.
-			txt-test.com	IN	TXT  	storj-root:some/prefix
-			txt-test.com	IN	TXT  	storj-access:accesskeyid
+			txt-test.com	IN	TXT  	storxnetwork-root:some/prefix
+			txt-test.com	IN	TXT  	storxnetwork-access:accesskeyid
 		`
 
 		state.Succeed(t, "share", "--access", access, "--not-after=none", "--dns", "test.com", "--auth-service", authAddr, "sj://some/prefix").RequireStdoutGlob(t, expected)
 
-		expected += "\ntxt-test.com	IN	TXT  	storj-tls:true\n"
+		expected += "\ntxt-test.com	IN	TXT  	storxnetwork-tls:true\n"
 
 		state.Succeed(t, "share", "--access", access, "--not-after=none", "--dns", "test.com", "--tls", "--auth-service", authAddr, "sj://some/prefix").RequireStdoutGlob(t, expected)
 	})

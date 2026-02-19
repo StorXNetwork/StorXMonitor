@@ -4,17 +4,17 @@
 package root
 
 import (
-	"storj.io/storj/shared/debug"
-	"storj.io/storj/shared/modular/tracing"
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/console/consoleserver"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/shared/debug"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/tracing"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console/consoleserver"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
 )
 
 // Run is a subcommand to start the regular storagenode.

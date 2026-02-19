@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/nodeoperator"
+	"github.com/StorXNetwork/StorXMonitor/private/nodeoperator"
 )
 
 func TestWalletFeaturesValidation(t *testing.T) {

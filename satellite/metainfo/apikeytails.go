@@ -10,11 +10,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/sync2/combiner"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/shared/lrucache"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/sync2/combiner"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
 )
 
 // keyTailsHandler is a handler for processing API key tails using a combiner queue.

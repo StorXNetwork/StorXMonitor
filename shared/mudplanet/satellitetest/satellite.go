@@ -9,17 +9,17 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	trustmud "storj.io/storj/satellite/trust/mud"
-	"storj.io/storj/shared/dbutil/dbtest"
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/shared/mudplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	trustmud "github.com/StorXNetwork/StorXMonitor/satellite/trust/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Satellite is a configuration. For db support, Wrap it with WithDB.
@@ -36,7 +36,7 @@ var Satellite = mudplanet.Customization{
 		func(options *orders.Config) error {
 			key, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 				ID:  orders.EncryptionKeyID{1},
-				Key: storj.Key{1},
+				Key: storxnetwork.Key{1},
 			})
 			if err != nil {
 				return err

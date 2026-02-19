@@ -27,39 +27,39 @@ package console_test
 // 	"go.uber.org/zap/zaptest"
 // 	"golang.org/x/crypto/bcrypt"
 
-// 	"storj.io/common/currency"
-// 	"storj.io/common/macaroon"
-// 	"storj.io/common/memory"
-// 	"storj.io/common/pb"
-// 	"storj.io/common/storj"
-// 	"storj.io/common/testcontext"
-// 	"storj.io/common/testrand"
-// 	"storj.io/common/uuid"
-// 	"storj.io/storj/private/blockchain"
-// 	"storj.io/storj/private/httpmock"
-// 	"storj.io/storj/private/post"
-// 	"storj.io/storj/private/testplanet"
-// 	"storj.io/storj/satellite"
-// 	"storj.io/storj/satellite/accounting"
-// 	"storj.io/storj/satellite/buckets"
-// 	"storj.io/storj/satellite/console"
-// 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-// 	"storj.io/storj/satellite/console/valdi/valdiclient"
-// 	"storj.io/storj/satellite/entitlements"
-// 	"storj.io/storj/satellite/kms"
-// 	"storj.io/storj/satellite/mailservice"
-// 	"storj.io/storj/satellite/metabase"
-// 	"storj.io/storj/satellite/nodeselection"
-// 	"storj.io/storj/satellite/orders"
-// 	"storj.io/storj/satellite/payments"
-// 	"storj.io/storj/satellite/payments/billing"
-// 	"storj.io/storj/satellite/payments/coinpayments"
-// 	"storj.io/storj/satellite/payments/paymentsconfig"
-// 	"storj.io/storj/satellite/payments/storjscan"
-// 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-// 	"storj.io/storj/satellite/payments/stripe"
-// 	"storj.io/storj/satellite/tenancy"
-// 	"storj.io/uplink/private/metaclient"
+// 	"github.com/StorXNetwork/common/currency"
+// 	"github.com/StorXNetwork/common/macaroon"
+// 	"github.com/StorXNetwork/common/memory"
+// 	"github.com/StorXNetwork/common/pb"
+// 	"github.com/StorXNetwork/common/storxnetwork"
+// 	"github.com/StorXNetwork/common/testcontext"
+// 	"github.com/StorXNetwork/common/testrand"
+// 	"github.com/StorXNetwork/common/uuid"
+// 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+// 	"github.com/StorXNetwork/StorXMonitor/private/httpmock"
+// 	"github.com/StorXNetwork/StorXMonitor/private/post"
+// 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/kms"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
+// 	"github.com/StorXNetwork/uplink/private/metaclient"
 // )
 
 // func TestService(t *testing.T) {
@@ -139,7 +139,7 @@ package console_test
 // 			t.Run("GetUserHasVarPartner", func(t *testing.T) {
 // 				varUser, err := sat.AddUser(ctx, console.CreateUser{
 // 					FullName:  "Var User",
-// 					Email:     "var@storj.test",
+// 					Email:     "var@storxnetwork.test",
 // 					Password:  "password",
 // 					UserAgent: []byte("partner1"),
 // 				}, 1)
@@ -154,7 +154,7 @@ package console_test
 
 // 				user, err := sat.AddUser(ctx, console.CreateUser{
 // 					FullName: "Regular User",
-// 					Email:    "reg@storj.test",
+// 					Email:    "reg@storxnetwork.test",
 // 					Password: "password",
 // 				}, 1)
 // 				require.NoError(t, err)
@@ -267,7 +267,7 @@ package console_test
 
 // 				scope := entitlements.ConvertPublicIDToProjectScope(classicProject.PublicID)
 // 				classicFeatures := entitlements.ProjectFeatures{
-// 					NewBucketPlacements: []storj.PlacementConstraint{0, 1},
+// 					NewBucketPlacements: []storxnetwork.PlacementConstraint{0, 1},
 // 				}
 // 				classicFeatBytes, err := json.Marshal(classicFeatures)
 // 				require.NoError(t, err)
@@ -284,7 +284,7 @@ package console_test
 
 // 				modernScope := entitlements.ConvertPublicIDToProjectScope(modernProject.PublicID)
 // 				modernFeatures := entitlements.ProjectFeatures{
-// 					NewBucketPlacements: []storj.PlacementConstraint{2, 3},
+// 					NewBucketPlacements: []storxnetwork.PlacementConstraint{2, 3},
 // 				}
 // 				modernFeatBytes, err := json.Marshal(modernFeatures)
 // 				require.NoError(t, err)
@@ -399,7 +399,7 @@ package console_test
 // 				// add a credit card.
 // 				user, err := sat.API.DB.Console().Users().Insert(ctx, &console.User{
 // 					ID:           testrand.UUID(),
-// 					Email:        "credituser@storj.io",
+// 					Email:        "credituser@storxnetwork.io",
 // 					PasswordHash: []byte("password"),
 // 				})
 // 				require.NoError(t, err)
@@ -546,8 +546,8 @@ package console_test
 
 // 			t.Run("CreateProject with placement", func(t *testing.T) {
 // 				uid := planet.Uplinks[2].Projects[0].Owner.ID
-// 				pPtr := new(*storj.PlacementConstraint)
-// 				placement := storj.PlacementConstraint(10)
+// 				pPtr := new(*storxnetwork.PlacementConstraint)
+// 				placement := storxnetwork.PlacementConstraint(10)
 // 				*pPtr = &placement
 // 				err := sat.API.DB.Console().Users().Update(ctx, uid, console.UpdateUserRequest{
 // 					DefaultPlacement: pPtr,
@@ -1392,9 +1392,9 @@ package console_test
 // 				list, err := sat.DB.Buckets().ListBuckets(ctx, up2Proj.ID, buckets.ListOptions{Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
 // 				require.NoError(t, err)
 // 				for i, item := range list.Items {
-// 					item.Placement = storj.PlacementConstraint(i)
+// 					item.Placement = storxnetwork.PlacementConstraint(i)
 // 					if i > len(placements)-1 {
-// 						item.Placement = storj.PlacementConstraint(len(placements) - 1)
+// 						item.Placement = storxnetwork.PlacementConstraint(len(placements) - 1)
 // 					}
 // 					b, err := sat.DB.Buckets().UpdateBucket(ctx, item)
 // 					require.NoError(t, err)
@@ -1438,7 +1438,7 @@ package console_test
 // 				})
 // 				require.NoError(t, err)
 
-// 				euPlacement := storj.PlacementConstraint(1)
+// 				euPlacement := storxnetwork.PlacementConstraint(1)
 // 				storedBucket.Placement = euPlacement
 
 // 				_, err = sat.DB.Buckets().UpdateBucket(ctx, storedBucket)
@@ -1908,12 +1908,12 @@ package console_test
 // 	var (
 // 		productID         = int32(1)
 // 		productID2        = int32(2)
-// 		placement11       = storj.PlacementConstraint(11)
+// 		placement11       = storxnetwork.PlacementConstraint(11)
 // 		placementDetail11 = console.PlacementDetail{
 // 			ID:     int(placement11),
 // 			IdName: "placement11",
 // 		}
-// 		placement13       = storj.PlacementConstraint(13)
+// 		placement13       = storxnetwork.PlacementConstraint(13)
 // 		placementDetail13 = console.PlacementDetail{
 // 			ID:     int(placement13),
 // 			IdName: "placement13",
@@ -1971,11 +1971,11 @@ package console_test
 // 					productID2: productPrice2,
 // 				})
 // 				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
-// 					int(storj.DefaultPlacement): productID,
+// 					int(storxnetwork.DefaultPlacement): productID,
 // 					int(placement11):            productID2,
 // 				})
-// 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
-// 					storj.DefaultPlacement: {ID: 0},
+// 				config.Console.Placement.SelfServeDetails.SetMap(map[storxnetwork.PlacementConstraint]console.PlacementDetail{
+// 					storxnetwork.DefaultPlacement: {ID: 0},
 // 					placement11:            placementDetail11,
 // 					placement13:            placementDetail13,
 // 				})
@@ -2039,7 +2039,7 @@ package console_test
 // 				require.NoError(t, err)
 
 // 				err = projectEntitlements.SetNewBucketPlacementsByPublicID(ctx, p.PublicID,
-// 					[]storj.PlacementConstraint{placement11, placement13, storj.DefaultPlacement},
+// 					[]storxnetwork.PlacementConstraint{placement11, placement13, storxnetwork.DefaultPlacement},
 // 				)
 // 				require.NoError(t, err)
 
@@ -2166,7 +2166,7 @@ package console_test
 // 				if item.Placement == placement11 {
 // 					require.Equal(t, productPrice2.Name, item.ProductName)
 // 				}
-// 				if item.Placement == storj.DefaultPlacement {
+// 				if item.Placement == storxnetwork.DefaultPlacement {
 // 					require.Equal(t, productPrice.Name, item.ProductName)
 // 				}
 // 				require.Empty(t, item.BucketName)
@@ -2183,7 +2183,7 @@ package console_test
 // 				if item.Placement == placement11 {
 // 					require.Equal(t, productPrice2.Name, item.ProductName)
 // 				}
-// 				if item.Placement == storj.DefaultPlacement {
+// 				if item.Placement == storxnetwork.DefaultPlacement {
 // 					require.Equal(t, productPrice.Name, item.ProductName)
 // 				}
 // 				require.NotEmpty(t, item.BucketName)
@@ -2192,7 +2192,7 @@ package console_test
 
 // 			// test overriding project price mappings via entitlement
 // 			err = projectEntitlements.SetPlacementProductMappingsByPublicID(ctx, project.PublicID, entitlements.PlacementProductMappings{
-// 				storj.DefaultPlacement: productID2, // reverse of the global mapping
+// 				storxnetwork.DefaultPlacement: productID2, // reverse of the global mapping
 // 				placement11:            productID,
 // 			})
 // 			require.NoError(t, err)
@@ -2205,7 +2205,7 @@ package console_test
 // 				if item.Placement == placement11 {
 // 					require.Equal(t, productPrice.Name, item.ProductName)
 // 				}
-// 				if item.Placement == storj.DefaultPlacement {
+// 				if item.Placement == storxnetwork.DefaultPlacement {
 // 					require.Equal(t, productPrice2.Name, item.ProductName)
 // 				}
 // 				require.NotEmpty(t, item.BucketName)
@@ -2221,7 +2221,7 @@ package console_test
 // 				if item.Placement == placement11 {
 // 					require.Equal(t, productPrice.Name, item.ProductName)
 // 				}
-// 				if item.Placement == storj.DefaultPlacement {
+// 				if item.Placement == storxnetwork.DefaultPlacement {
 // 					require.Equal(t, productPrice2.Name, item.ProductName)
 // 				}
 // 				require.Empty(t, item.BucketName)
@@ -2256,7 +2256,7 @@ package console_test
 // 			user, err = sat.AddUser(ctx, console.CreateUser{
 // 				FullName:  "test_name",
 // 				ShortName: "",
-// 				Email:     "test@storj.test",
+// 				Email:     "test@storxnetwork.test",
 // 			}, 1)
 // 			require.NoError(t, err)
 
@@ -2520,7 +2520,7 @@ package console_test
 
 // 		// test sso user can't change email.
 // 		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
-// 			Email:    "test@storj.test",
+// 			Email:    "test@storxnetwork.test",
 // 			FullName: "test test",
 // 		}, 1)
 // 		require.NoError(t, err)
@@ -2538,8 +2538,8 @@ package console_test
 
 // func TestCreateProject_WithEntitlementsService(t *testing.T) {
 // 	var (
-// 		placement10       = storj.PlacementConstraint(10)
-// 		placement50       = storj.PlacementConstraint(50)
+// 		placement10       = storxnetwork.PlacementConstraint(10)
+// 		placement50       = storxnetwork.PlacementConstraint(50)
 // 		placement10Detail = console.PlacementDetail{
 // 			ID:     10,
 // 			IdName: "placement10",
@@ -2548,10 +2548,10 @@ package console_test
 // 			ID:     0,
 // 			IdName: "0",
 // 		}
-// 		allowedPlacements = []storj.PlacementConstraint{storj.DefaultPlacement, placement10}
+// 		allowedPlacements = []storxnetwork.PlacementConstraint{storxnetwork.DefaultPlacement, placement10}
 // 		defaultMapping    = entitlements.PlacementProductMappings{
-// 			storj.DefaultPlacement:        1,
-// 			storj.PlacementConstraint(12): 2,
+// 			storxnetwork.DefaultPlacement:        1,
+// 			storxnetwork.PlacementConstraint(12): 2,
 // 		}
 // 	)
 // 	testplanet.Run(t, testplanet.Config{
@@ -2562,8 +2562,8 @@ package console_test
 // 					PlacementRules: `0:annotation("location", "global");12:annotation("location", "archive")`,
 // 				}
 // 				config.Console.Placement.SelfServeEnabled = true
-// 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
-// 					storj.DefaultPlacement: placement0Detail,
+// 				config.Console.Placement.SelfServeDetails.SetMap(map[storxnetwork.PlacementConstraint]console.PlacementDetail{
+// 					storxnetwork.DefaultPlacement: placement0Detail,
 // 					placement10:            placement10Detail,
 // 				})
 // 				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
@@ -2668,7 +2668,7 @@ package console_test
 // 		feats, err = sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
 // 		require.NoError(t, err)
 // 		require.NotNil(t, feats.NewBucketPlacements)
-// 		require.EqualValues(t, []storj.PlacementConstraint{placement50}, feats.NewBucketPlacements)
+// 		require.EqualValues(t, []storxnetwork.PlacementConstraint{placement50}, feats.NewBucketPlacements)
 // 		require.NotNil(t, feats.PlacementProductMappings)
 // 		require.EqualValues(t, defaultMapping, feats.PlacementProductMappings)
 
@@ -2968,7 +2968,7 @@ package console_test
 // 		require.NotNil(t, project)
 
 // 		scope := entitlements.ConvertPublicIDToProjectScope(project.PublicID)
-// 		feats := entitlements.ProjectFeatures{NewBucketPlacements: []storj.PlacementConstraint{storj.DefaultPlacement}}
+// 		feats := entitlements.ProjectFeatures{NewBucketPlacements: []storxnetwork.PlacementConstraint{storxnetwork.DefaultPlacement}}
 // 		featBytes, err := json.Marshal(feats)
 // 		require.NoError(t, err)
 // 		require.NotNil(t, featBytes)
@@ -3931,7 +3931,7 @@ package console_test
 // 			require.Len(t, cards, 1)
 
 // 			scope := entitlements.ConvertPublicIDToProjectScope(p2.PublicID)
-// 			feats := entitlements.ProjectFeatures{NewBucketPlacements: []storj.PlacementConstraint{storj.DefaultPlacement}}
+// 			feats := entitlements.ProjectFeatures{NewBucketPlacements: []storxnetwork.PlacementConstraint{storxnetwork.DefaultPlacement}}
 // 			featBytes, err := json.Marshal(feats)
 // 			require.NoError(t, err)
 // 			require.NotNil(t, featBytes)
@@ -7689,7 +7689,7 @@ package console_test
 // 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 // 				config.Console.CloudGpusEnabled = true
 // 				config.Valdi.SignRequests = false
-// 				config.Valdi.SatelliteEmail = "storj@storj.test"
+// 				config.Valdi.SatelliteEmail = "storxnetwork@storxnetwork.test"
 // 				config.Console.RateLimit.Burst = 10
 // 			},
 // 		},
@@ -7973,14 +7973,14 @@ package console_test
 
 // func TestMigrateProjectPricing(t *testing.T) {
 // 	var (
-// 		legacyPlacement0  = storj.DefaultPlacement
-// 		legacyPlacement12 = storj.PlacementConstraint(12)
-// 		legacyPlacements  = []storj.PlacementConstraint{legacyPlacement0, legacyPlacement12}
+// 		legacyPlacement0  = storxnetwork.DefaultPlacement
+// 		legacyPlacement12 = storxnetwork.PlacementConstraint(12)
+// 		legacyPlacements  = []storxnetwork.PlacementConstraint{legacyPlacement0, legacyPlacement12}
 
-// 		newPlacement10 = storj.PlacementConstraint(1)
-// 		newPlacement20 = storj.PlacementConstraint(2)
-// 		newPlacement30 = storj.PlacementConstraint(3)
-// 		newPlacements  = []storj.PlacementConstraint{newPlacement10, newPlacement20, newPlacement30}
+// 		newPlacement10 = storxnetwork.PlacementConstraint(1)
+// 		newPlacement20 = storxnetwork.PlacementConstraint(2)
+// 		newPlacement30 = storxnetwork.PlacementConstraint(3)
+// 		newPlacements  = []storxnetwork.PlacementConstraint{newPlacement10, newPlacement20, newPlacement30}
 
 // 		// Legacy products (old billing before migration).
 // 		legacyProduct100 = int32(100)

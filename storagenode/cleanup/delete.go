@@ -10,10 +10,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DeleteEmpty chore deletes the remaining empty blobstore directories.
@@ -39,7 +39,7 @@ func (d *DeleteEmpty) Delete(ctx context.Context) error {
 		return err
 	}
 	for _, ns := range namespaces {
-		satelliteID, err := storj.NodeIDFromBytes(ns)
+		satelliteID, err := storxnetwork.NodeIDFromBytes(ns)
 		if err != nil {
 			d.log.Error("Invalid namespace", zap.Binary("namespace", ns), zap.Error(err))
 			continue

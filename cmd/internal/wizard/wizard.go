@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/term"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // PromptForAccessName handles user input for access name to be used with wizards.
@@ -56,7 +56,7 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	}
 
 	for iterator, value := range satellites {
-		nodeURL, err := storj.ParseNodeURL(value)
+		nodeURL, err := storxnetwork.ParseNodeURL(value)
 		if err != nil {
 			return "", err
 		}
@@ -104,7 +104,7 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 		satelliteAddress = satellites[satIdx-1]
 	}
 
-	nodeURL, err := storj.ParseNodeURL(satelliteAddress)
+	nodeURL, err := storxnetwork.ParseNodeURL(satelliteAddress)
 	if err != nil {
 		return "", err
 	}

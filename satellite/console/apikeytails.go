@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // APIKeyTails is interface for working with api key tails store.

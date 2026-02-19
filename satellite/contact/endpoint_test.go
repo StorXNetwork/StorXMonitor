@@ -10,12 +10,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	ekpb "storj.io/eventkit/pb"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/shared/modular/eventkit/eventkitspy"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	ekpb "github.com/StorXNetwork/eventkit/pb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/eventkit/eventkitspy"
 )
 
 func TestEmitEventkitEvent(t *testing.T) {

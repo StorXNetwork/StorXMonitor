@@ -3,7 +3,7 @@
 &nbsp;
 
 ## Background
-This testplan is going to cover the new account Freeze/Unfreeze. It will go over the design doc seen here - [Freeze/Unfreeze](https://github.com/storj/storj/blob/main/docs/blueprints/automatic-account-freeze.md)
+This testplan is going to cover the new account Freeze/Unfreeze. It will go over the design doc seen here - [Freeze/Unfreeze](https://github.com/storxnetwork/storxnetwork/blob/main/docs/blueprints/automatic-account-freeze.md)
 
 &nbsp;
 

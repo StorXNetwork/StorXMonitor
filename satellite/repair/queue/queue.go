@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // InjuredSegment contains information about segment which
@@ -23,7 +23,7 @@ type InjuredSegment struct {
 	UpdatedAt     time.Time
 	InsertedAt    time.Time
 
-	Placement storj.PlacementConstraint
+	Placement storxnetwork.PlacementConstraint
 
 	NumNormalizedHealthy     int16
 	NumNormalizedRetrievable int16
@@ -33,7 +33,7 @@ type InjuredSegment struct {
 // Stat contains information about a segment of repair queue.
 type Stat struct {
 	Count            int
-	Placement        storj.PlacementConstraint
+	Placement        storxnetwork.PlacementConstraint
 	MaxInsertedAt    time.Time
 	MinInsertedAt    time.Time
 	MaxAttemptedAt   *time.Time
@@ -45,7 +45,7 @@ type Stat struct {
 // Consumer defines the minimum number of methods to process segments from queue.
 type Consumer interface {
 	// Select gets an injured segments.
-	Select(ctx context.Context, limit int, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) ([]InjuredSegment, error)
+	Select(ctx context.Context, limit int, includedPlacements []storxnetwork.PlacementConstraint, excludedPlacements []storxnetwork.PlacementConstraint) ([]InjuredSegment, error)
 	// Release releases an injured segment record. This should be called after
 	// the segment is acquired by Select(), once the segment has been repaired
 	// or the repair has failed.
@@ -75,7 +75,7 @@ type RepairQueue interface {
 	Stat(ctx context.Context) ([]Stat, error)
 
 	// TestingSetAttemptedTime sets attempted time for a segment.
-	TestingSetAttemptedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error)
+	TestingSetAttemptedTime(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error)
 	// TestingSetUpdatedTime sets updated time for a segment. For testing only.
-	TestingSetUpdatedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error)
+	TestingSetUpdatedTime(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error)
 }

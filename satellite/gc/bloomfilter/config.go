@@ -6,8 +6,8 @@ package bloomfilter
 import (
 	"time"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Config contains configurable values for garbage collection.
@@ -28,7 +28,7 @@ type Config struct {
 	ZipBatchSize int           `help:"how many bloom filters will be packed in a single zip" default:"40" testDefault:"2"`
 	ExpireIn     time.Duration `help:"how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted" default:"336h"`
 
-	CollectNodesPieceIDs    storj.NodeIDList `help:"list of node IDs for which we will collect raw list of piece IDs" default:""`
-	NodesPieceIDsBufferSize int              `help:"buffer size of piece IDs before will be uploaded" default:"1000000" devDefault:"100"`
-	UploadPackConcurrency   int              `help:"number of concurrent zip compression and uploads of bloom filters" default:"4"`
+	CollectNodesPieceIDs    storxnetwork.NodeIDList `help:"list of node IDs for which we will collect raw list of piece IDs" default:""`
+	NodesPieceIDsBufferSize int                     `help:"buffer size of piece IDs before will be uploaded" default:"1000000" devDefault:"100"`
+	UploadPackConcurrency   int                     `help:"number of concurrent zip compression and uploads of bloom filters" default:"4"`
 }

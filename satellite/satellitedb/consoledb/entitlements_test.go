@@ -10,12 +10,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestEntitlements(t *testing.T) {
@@ -40,9 +40,9 @@ func TestEntitlements(t *testing.T) {
 		})
 
 		scope := []byte("proj_id:" + testrand.UUID().String())
-		newBucketPlacements := []storj.PlacementConstraint{storj.DefaultPlacement, 12}
+		newBucketPlacements := []storxnetwork.PlacementConstraint{storxnetwork.DefaultPlacement, 12}
 		placementProductMappings := entitlements.PlacementProductMappings{
-			storj.DefaultPlacement: 1,
+			storxnetwork.DefaultPlacement: 1,
 			12:                     2,
 		}
 
@@ -86,7 +86,7 @@ func TestEntitlements(t *testing.T) {
 		})
 
 		t.Run("Upsert (update) preserves unrelated fields", func(t *testing.T) {
-			newBucketPlacements1 := []storj.PlacementConstraint{3}
+			newBucketPlacements1 := []storxnetwork.PlacementConstraint{3}
 			projectFeatures := entitlements.ProjectFeatures{
 				NewBucketPlacements:      newBucketPlacements1,
 				PlacementProductMappings: placementProductMappings,

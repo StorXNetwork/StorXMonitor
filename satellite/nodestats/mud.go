@@ -3,7 +3,7 @@
 
 package nodestats
 
-import "storj.io/storj/shared/mud"
+import "github.com/StorXNetwork/StorXMonitor/shared/mud"
 
 // Module is a mud module definition.
 func Module(ball *mud.Ball) {

@@ -17,15 +17,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/memory"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/private/prompt"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/prompt"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type gracefulExitCfg struct {
@@ -72,7 +72,7 @@ type gracefulExitClient struct {
 }
 
 type unavailableSatellite struct {
-	id         storj.NodeID
+	id         storxnetwork.NodeID
 	monthsLeft int
 }
 
@@ -96,7 +96,7 @@ func (client *gracefulExitClient) getExitProgress(ctx context.Context) (*interna
 	return internalpb.NewDRPCNodeGracefulExitClient(client.conn).GetExitProgress(ctx, &internalpb.GetExitProgressRequest{})
 }
 
-func (client *gracefulExitClient) gracefulExitFeasibility(ctx context.Context, id storj.NodeID) (*internalpb.GracefulExitFeasibilityResponse, error) {
+func (client *gracefulExitClient) gracefulExitFeasibility(ctx context.Context, id storxnetwork.NodeID) (*internalpb.GracefulExitFeasibilityResponse, error) {
 	return internalpb.NewDRPCNodeGracefulExitClient(client.conn).GracefulExitFeasibility(ctx, &internalpb.GracefulExitFeasibilityRequest{NodeId: id})
 }
 
@@ -169,7 +169,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, cfg *gracefulExitCfg) error {
 	}
 
 	// validate user input
-	satelliteIDs := make([]storj.NodeID, 0, len(satelliteList.GetSatellites()))
+	satelliteIDs := make([]storxnetwork.NodeID, 0, len(satelliteList.GetSatellites()))
 	for _, selected := range selectedSatellite {
 		for _, satellite := range satelliteList.GetSatellites() {
 			if satellite.GetDomainName() == selected {
@@ -244,7 +244,7 @@ func displayExitProgress(w io.Writer, progresses []*internalpb.ExitProgress) {
 	}
 }
 
-func gracefulExitInit(ctx context.Context, satelliteIDs []storj.NodeID, w *tabwriter.Writer, client *gracefulExitClient) (err error) {
+func gracefulExitInit(ctx context.Context, satelliteIDs []storxnetwork.NodeID, w *tabwriter.Writer, client *gracefulExitClient) (err error) {
 	if len(satelliteIDs) < 1 {
 		fmt.Println("Invalid input. Please use valid satellite domian names.")
 		return errs.New("Invalid satellite domain names")

@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // AuthService handles JWT token generation and validation for admin authentication.
@@ -24,7 +24,7 @@ type AuthService struct {
 type AuthConfig struct {
 	SecretKey  string        `help:"secret key for signing JWT tokens"`
 	Expiration time.Duration `help:"token expiration time" default:"24h"`
-	Issuer     string        `help:"token issuer identifier" default:"storj-admin"`
+	Issuer     string        `help:"token issuer identifier" default:"storxnetwork-admin"`
 }
 
 // NewAuthService creates a new admin authentication service.

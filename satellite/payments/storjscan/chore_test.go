@@ -14,14 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	"storj.io/storj/satellite/payments/storjscan/storjscantest"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/blockchaintest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan/storjscantest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestChore(t *testing.T) {
@@ -50,7 +50,7 @@ func TestChore(t *testing.T) {
 					ChainID:     chainId,
 					From:        blockchaintest.NewAddress(),
 					To:          blockchaintest.NewAddress(),
-					TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorjToken),
+					TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorxToken),
 					USDValue:    currency.AmountFromBaseUnits(int64(i)*1100000, currency.USDollarsMicro),
 					BlockHash:   blockchaintest.NewHash(),
 					BlockNumber: int64(i),

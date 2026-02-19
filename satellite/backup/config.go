@@ -6,9 +6,9 @@ package backup
 import (
 	"time"
 
-	"storj.io/common/debug"
-	"storj.io/common/memory"
-	version_checker "storj.io/storj/private/version/checker"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/memory"
+	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
 )
 
 // Config contains configurable values for backup service.

@@ -9,15 +9,15 @@ import (
 	"github.com/zeebo/errs/v2"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Check defines the interface for verifying order and order limit signatures.
 type Check interface {
-	VerifyUplinkOrderSignature(ctx context.Context, publicKey storj.PiecePublicKey, signed *pb.Order) error
+	VerifyUplinkOrderSignature(ctx context.Context, publicKey storxnetwork.PiecePublicKey, signed *pb.Order) error
 	VerifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, signed *pb.OrderLimit) error
 }
 
@@ -26,7 +26,7 @@ type Full struct {
 }
 
 // VerifyUplinkOrderSignature verifies the signature of an order from an uplink.
-func (f *Full) VerifyUplinkOrderSignature(ctx context.Context, publicKey storj.PiecePublicKey, signed *pb.Order) error {
+func (f *Full) VerifyUplinkOrderSignature(ctx context.Context, publicKey storxnetwork.PiecePublicKey, signed *pb.Order) error {
 	return signing.VerifyUplinkOrderSignature(ctx, publicKey, signed)
 }
 
@@ -45,17 +45,17 @@ type Config struct {
 // Trusted implements the Check interface and bypasses signature verification
 // for uplinks and satellites whose node IDs are in the trusted list.
 type Trusted struct {
-	trusted []storj.NodeID
+	trusted []storxnetwork.NodeID
 }
 
 // NewTrusted creates a new Trusted signature checker.
 func NewTrusted(config Config) (*Trusted, error) {
-	trusted := make([]storj.NodeID, 0, len(config.TrustedUplinks))
+	trusted := make([]storxnetwork.NodeID, 0, len(config.TrustedUplinks))
 	for _, nodeID := range config.TrustedUplinks {
 		if nodeID == "" {
 			continue
 		}
-		id, err := storj.NodeIDFromString(nodeID)
+		id, err := storxnetwork.NodeIDFromString(nodeID)
 		if err != nil {
 			return nil, errs.Errorf("Couldn't parse node ID %q for trusted signature check: %v", nodeID, err)
 		}
@@ -68,7 +68,7 @@ func NewTrusted(config Config) (*Trusted, error) {
 
 // VerifyUplinkOrderSignature verifies the signature of an order from an uplink.
 // If the peer ID from the context is in the trusted list, signature verification is skipped.
-func (t *Trusted) VerifyUplinkOrderSignature(ctx context.Context, publicKey storj.PiecePublicKey, signed *pb.Order) error {
+func (t *Trusted) VerifyUplinkOrderSignature(ctx context.Context, publicKey storxnetwork.PiecePublicKey, signed *pb.Order) error {
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ type AcceptAll struct {
 }
 
 // VerifyUplinkOrderSignature always returns nil, effectively skipping signature verification.
-func (n AcceptAll) VerifyUplinkOrderSignature(ctx context.Context, publicKey storj.PiecePublicKey, signed *pb.Order) error {
+func (n AcceptAll) VerifyUplinkOrderSignature(ctx context.Context, publicKey storxnetwork.PiecePublicKey, signed *pb.Order) error {
 	return nil
 }
 

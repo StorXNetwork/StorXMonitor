@@ -20,7 +20,7 @@ Storj is a decentralized cloud storage network where data is encrypted, split in
 - Single Test: `go test -v ./package/path -run TestName`
 - Lint: `make llint`
 - Lint only one package: `make llint LINT_TARGET=./<directory>`
-- Format imports: `gci write --section Standard --section Default --section 'Prefix(storj.io/)' <file>`
+- Format imports: `gci write --section Standard --section Default --section 'Prefix(storxnetwork.io/)' <file>`
 
 ### Running Unit Tests
 
@@ -28,7 +28,7 @@ By default run unit tests using Spanner.
 
 ## Code Style Guidelines
 
-- Packages: Use `storj.io/storj/...` import paths
+- Packages: Use `github.com/StorXNetwork/StorXMonitor/...` import paths
 - Commit style: `{scope}: {message}` format (e.g., `satellite/metainfo: add validation`). Never add AI attribution (author, committer or other additional lines) to the commit.
 - Error handling: Always check errors, use proper context. Use `github.com/zeebo/errs`. Wrap errors from external sources.
 - Naming: Use descriptive names, prefer clarity over brevity
@@ -36,8 +36,8 @@ By default run unit tests using Spanner.
 - Import order and grouping:
     * First group should include standard golang SDK libraries
     * Next group the 3rd party libraries
-    * Last group: all the `storj.io` libraries.
-- Import orders can be forced with `gci write --section Standard --section Default --section 'Prefix(storj.io/)'`
+    * Last group: all the `storxnetwork.io` libraries.
+- Import orders can be forced with `gci write --section Standard --section Default --section 'Prefix(storxnetwork.io/)'`
 - Use `monkit` instrumentation patterns for metrics (Usually it's the `defer mon.Task()(&ctx)(&err)` pattern)
 - Comments: Use meaningful comments for complex code sections. Only mention the return types when it add additional info.
 - Tests: Write comprehensive tests for new functionality
@@ -177,7 +177,7 @@ return Error.New("description")  // Create new errors
 ### Running Local Development Environment
 
 See `DEVELOPING.md` for detailed instructions:
-- Use `storj-up` for local multi-node setup
+- Use `storxnetwork-up` for local multi-node setup
 - Supports PostgreSQL and CockroachDB backends
 - Frontend development requires npm for web applications
 
@@ -221,5 +221,5 @@ See `DEVELOPING.md` for detailed instructions:
 - **docs/testplan/**: Test plan templates and existing test plans
 - **satellite/console/consoleweb/consoleapi/apidocs.gen.md**: Console API reference
 - **satellite/admin/api-docs.gen.md**: Admin API reference
-- Design documents: https://github.com/storj/design-docs
+- Design documents: https://github.com/storxnetwork/design-docs
 

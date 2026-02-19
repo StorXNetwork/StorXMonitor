@@ -9,11 +9,11 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -117,7 +117,7 @@ func (e *Endpoint) GetUntrustedSatellites(ctx context.Context, req *internalpb.G
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	var untrustedSatellites []storj.NodeID
+	var untrustedSatellites []storxnetwork.NodeID
 	for _, satellite := range sats {
 		if satellite.Status == satellites.Untrusted {
 			untrustedSatellites = append(untrustedSatellites, satellite.SatelliteID)

@@ -16,11 +16,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // generateGracefulExitCSV creates a report with graceful exit data for exiting or exited nodes in a given period.
@@ -33,7 +33,7 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 		err = errs.Combine(err, db.Close())
 	}()
 
-	var nodeIDs storj.NodeIDList
+	var nodeIDs storxnetwork.NodeIDList
 	if completed {
 		nodeIDs, err = db.OverlayCache().GetGracefulExitCompletedByTimeFrame(ctx, start, end)
 		if err != nil {
@@ -95,7 +95,7 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 	return err
 }
 
-func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdentity, nodeID storj.NodeID, receipt string) error {
+func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdentity, nodeID storxnetwork.NodeID, receipt string) error {
 	signee := signing.SigneeFromPeerIdentity(identity.PeerIdentity())
 
 	bytes, err := hex.DecodeString(receipt)
@@ -140,7 +140,7 @@ func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdent
 	return writeVerificationMessage(true, completed.SatelliteId, completed.NodeId, completed.Completed)
 }
 
-func checkIDs(satelliteID storj.NodeID, providedSNID storj.NodeID, receiptSatelliteID storj.NodeID, receiptSNID storj.NodeID) error {
+func checkIDs(satelliteID storxnetwork.NodeID, providedSNID storxnetwork.NodeID, receiptSatelliteID storxnetwork.NodeID, receiptSNID storxnetwork.NodeID) error {
 	if satelliteID != receiptSatelliteID {
 		return errs.New("satellite ID (%v) does not match receipt satellite ID (%v).", satelliteID, receiptSatelliteID)
 	}
@@ -150,7 +150,7 @@ func checkIDs(satelliteID storj.NodeID, providedSNID storj.NodeID, receiptSatell
 	return nil
 }
 
-func writeVerificationMessage(succeeded bool, satelliteID storj.NodeID, snID storj.NodeID, timestamp time.Time) error {
+func writeVerificationMessage(succeeded bool, satelliteID storxnetwork.NodeID, snID storxnetwork.NodeID, timestamp time.Time) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(w, "Succeeded:\t%v\n", succeeded)
 	_, _ = fmt.Fprintf(w, "Satellite ID:\t%v\n", satelliteID)

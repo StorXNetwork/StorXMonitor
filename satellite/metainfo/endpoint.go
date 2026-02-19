@@ -18,32 +18,32 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/common/encryption"
-	"storj.io/common/identity"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/eventing/eventingconfig"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo/bloomrate"
-	"storj.io/storj/satellite/metainfo/pointerverification"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/revocation"
-	"storj.io/storj/satellite/trust"
-	"storj.io/storj/shared/lrucache"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing/eventingconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo/bloomrate"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo/pointerverification"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/trust"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/eventkit"
 )
 
 const (
@@ -106,7 +106,7 @@ type Endpoint struct {
 	trustedUplinks                 *trust.TrustedPeersList
 	placement                      nodeselection.PlacementDefinitions
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
-	selfServePlacements            map[storj.PlacementConstraint]console.PlacementDetail
+	selfServePlacements            map[storxnetwork.PlacementConstraint]console.PlacementDetail
 	nodeSelectionStats             *NodeSelectionStats
 	bucketEventing                 eventingconfig.Config
 	bucketEventingCache            *eventing.ConfigCache
@@ -133,8 +133,8 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	placementEdgeUrlOverrides := consoleConfig.Config.PlacementEdgeURLOverrides
 	// TODO do something with too many params
 
-	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
-		CipherSuite: storj.EncAESGCM,
+	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storxnetwork.EncryptionParameters{
+		CipherSuite: storxnetwork.EncAESGCM,
 		BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
 	})
 	if err != nil {
@@ -156,9 +156,9 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		return nil, errs.Wrap(err)
 	}
 
-	selfServePlacements := make(map[storj.PlacementConstraint]console.PlacementDetail)
+	selfServePlacements := make(map[storxnetwork.PlacementConstraint]console.PlacementDetail)
 	for _, p := range consoleConfig.Placement.SelfServeDetails {
-		selfServePlacements[storj.PlacementConstraint(p.ID)] = p
+		selfServePlacements[storxnetwork.PlacementConstraint(p.ID)] = p
 	}
 
 	e := &Endpoint{
@@ -399,7 +399,7 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	return &pb.RevokeAPIKeyResponse{}, nil
 }
 
-func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storj.StreamID, err error) {
+func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storxnetwork.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if satStreamID == nil {
@@ -422,14 +422,14 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *interna
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
-	streamID, err = storj.StreamIDFromBytes(encodedStreamID)
+	streamID, err = storxnetwork.StreamIDFromBytes(encodedStreamID)
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	return streamID, nil
 }
 
-func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *internalpb.SegmentID) (segmentID storj.SegmentID, err error) {
+func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *internalpb.SegmentID) (segmentID storxnetwork.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if satSegmentID == nil {
@@ -472,14 +472,14 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *inter
 		return nil, err
 	}
 
-	segmentID, err = storj.SegmentIDFromBytes(encodedSegmentID)
+	segmentID, err = storxnetwork.SegmentIDFromBytes(encodedSegmentID)
 	if err != nil {
 		return nil, err
 	}
 	return segmentID, nil
 }
 
-func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storj.StreamID) (_ *internalpb.StreamID, err error) {
+func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storxnetwork.StreamID) (_ *internalpb.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satStreamID := &internalpb.StreamID{}
@@ -496,7 +496,7 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 	return satStreamID, nil
 }
 
-func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (_ *internalpb.SegmentID, err error) {
+func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storxnetwork.SegmentID) (_ *internalpb.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(segmentID) == 0 {
@@ -591,7 +591,7 @@ func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.
 	}, tags...)...)
 }
 
-func (endpoint *Endpoint) getRSProto(placementID storj.PlacementConstraint) *pb.RedundancyScheme {
+func (endpoint *Endpoint) getRSProto(placementID storxnetwork.PlacementConstraint) *pb.RedundancyScheme {
 	rs := endpoint.config.RS.Override(endpoint.placement[placementID].EC)
 	return &pb.RedundancyScheme{
 		Type:             pb.RedundancyScheme_RS,
@@ -614,7 +614,7 @@ func (endpoint *Endpoint) TestingSetRateLimiterTime(time func() time.Time) {
 }
 
 // TestingAddTrustedUplink is a helper function for tests to add a trusted uplink.
-func (endpoint *Endpoint) TestingAddTrustedUplink(id storj.NodeID) {
+func (endpoint *Endpoint) TestingAddTrustedUplink(id storxnetwork.NodeID) {
 	endpoint.trustedUplinks.TestingAddTrustedUplink(id)
 }
 

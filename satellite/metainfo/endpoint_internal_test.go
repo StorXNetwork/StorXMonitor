@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
 )
 
 func TestEndpoint_ConvertMetabaseErr(t *testing.T) {

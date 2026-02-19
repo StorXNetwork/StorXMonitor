@@ -3,7 +3,7 @@
 
 package durability
 
-import "storj.io/storj/satellite/nodeselection"
+import "github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 
 // Config contains configuration for the durability ranged loop observer.
 type Config struct {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestRandomWeight(t *testing.T) {
@@ -49,9 +49,9 @@ func TestNodes(t *testing.T) {
 	// will use at the end, but we need here to initialize the nodeSelection
 	dcSelection := map[string]int{}
 	serverSelection := map[string]int{}
-	nodeSelection := map[storj.NodeID]int{}
+	nodeSelection := map[storxnetwork.NodeID]int{}
 
-	var high, low, excluded storj.NodeID
+	var high, low, excluded storxnetwork.NodeID
 	{
 		// building the node pool
 		for dc, servers := range serversPerDatacenter {
@@ -104,7 +104,7 @@ func TestNodes(t *testing.T) {
 
 	for i := 0; i < 10000; i++ {
 		// select 3 datacenters, 2 servers from each datacenter, 1 node from each server (total 6 nodes)
-		selection := root.Select([]int{3, 2, 1}, 6, []storj.NodeID{excluded})
+		selection := root.Select([]int{3, 2, 1}, 6, []storxnetwork.NodeID{excluded})
 		require.Len(t, selection, 6)
 		for _, s := range selection {
 			dcSelection[attributes[0](*s)]++
@@ -173,14 +173,14 @@ func TestUnbalanced(t *testing.T) {
 	}
 
 	// splits are just ratio
-	selection := root.Select([]int{3, 2}, 11, []storj.NodeID{})
+	selection := root.Select([]int{3, 2}, 11, []storxnetwork.NodeID{})
 	require.Equal(t, 11, len(selection))
 
 	// we can always select 6, but will select more than one from a server
-	selection = root.Select([]int{3, 1024}, 6, []storj.NodeID{})
+	selection = root.Select([]int{3, 1024}, 6, []storxnetwork.NodeID{})
 	require.Equal(t, 6, len(selection))
 
 	// as one datacenter doesn't have 2 servers, we should select more from other datacenters
-	selection = root.Select([]int{3, 1024}, 6, []storj.NodeID{})
+	selection = root.Select([]int{3, 1024}, 6, []storxnetwork.NodeID{})
 	require.Equal(t, 6, len(selection))
 }

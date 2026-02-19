@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestCsv_NewCsv(t *testing.T) {
@@ -95,7 +95,7 @@ func TestCsv_Select(t *testing.T) {
 		require.Equal(t, expectedUUIDs[i], segment.StreamID.String())
 		require.Equal(t, expectedPositions[i], segment.Position.Encode())
 		require.Equal(t, float64(0.0), segment.SegmentHealth)
-		require.Equal(t, storj.PlacementConstraint(0), segment.Placement)
+		require.Equal(t, storxnetwork.PlacementConstraint(0), segment.Placement)
 		require.Nil(t, segment.AttemptedAt)
 	}
 

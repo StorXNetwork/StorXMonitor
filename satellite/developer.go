@@ -15,14 +15,14 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/developer"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Developer is the satellite core process that runs developer console.
@@ -220,7 +220,7 @@ func (peer *Developer) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Developer) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Developer) ID() storxnetwork.NodeID { return peer.Identity.ID }
 
 // developerDBAdapter adapts satellite.DB to developer.DB interface.
 type developerDBAdapter struct {

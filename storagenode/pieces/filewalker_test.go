@@ -14,16 +14,16 @@ import (
 	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestFilewalker_Basic(t *testing.T) {
@@ -81,7 +81,7 @@ func TestFilewalker_Basic(t *testing.T) {
 
 		// WalkSatellitePiecesToTrash
 		trashPieceCount := 0
-		piecesCount, _, err := fw.WalkSatellitePiecesToTrash(ctx, satellite, time.Now(), filter, func(pieceID storj.PieceID) error {
+		piecesCount, _, err := fw.WalkSatellitePiecesToTrash(ctx, satellite, time.Now(), filter, func(pieceID storxnetwork.PieceID) error {
 			trashPieceCount++
 			return nil
 		})
@@ -161,8 +161,8 @@ func TestWalkAndComputeSpaceUsedBySatellite_resume(t *testing.T) {
 		require.Equal(t, int64(numberOfPieces), piecesCount)
 	})
 }
-func numToPieceID(n uint16) storj.PieceID {
+func numToPieceID(n uint16) storxnetwork.PieceID {
 	var b [32]byte
 	binary.BigEndian.PutUint16(b[:], n<<6)
-	return storj.PieceID(b[:])
+	return storxnetwork.PieceID(b[:])
 }

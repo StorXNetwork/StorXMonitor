@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/shared/flightrecorder"
+	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
 )
 
 func TestEvent(t *testing.T) {

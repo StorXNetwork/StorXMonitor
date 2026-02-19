@@ -24,7 +24,7 @@ satellite-admin:
   environment:
     ####
     ####
-    STORJ_ADMIN_STATIC_DIR: /var/lib/storj/storj/satellite/admin/ui
+    STORJ_ADMIN_STATIC_DIR: /var/lib/storxnetwork/storxnetwork/satellite/admin/ui
     STORJ_ADMIN_BYPASS_AUTH: "true"
     ####
     ####
@@ -32,8 +32,8 @@ satellite-admin:
     ####
     ####
     - type: bind
-      source: /storj/satellite/admin/ui
-      target: /var/lib/storj/storj/satellite/admin/ui
+      source: /storxnetwork/satellite/admin/ui
+      target: /var/lib/storxnetwork/storxnetwork/satellite/admin/ui
       bind: {}
 ```
 For this setup, we can use the back-office via the satellite admin endpoint; `localhost:9080`. The variable
@@ -85,8 +85,8 @@ satellite-admin:
     ####
     ####
     - type: bind
-      source: /storj/satellite/admin/ui
-      target: /var/lib/storj/storj/satellite/admin/ui
+      source: /storxnetwork/satellite/admin/ui
+      target: /var/lib/storxnetwork/storxnetwork/satellite/admin/ui
       bind: {}
 ```
 
@@ -161,4 +161,4 @@ We must allow to search items by different fields. When multiple fields are used
 
 The endpoint accepts one optional query parameter: `filter`. The server doesn't apply any filter if it doesn't receive the `filter` parameter.
 
-`filter` is a comma-separated list of tuples `<field-name>:<value>`, for example `filter=company:storj,name:john`. Field's names cannot contain colons, the order of the fields is irrelevant because a logical `AND` is applied for all of them.
+`filter` is a comma-separated list of tuples `<field-name>:<value>`, for example `filter=company:storxnetwork,name:john`. Field's names cannot contain colons, the order of the fields is irrelevant because a logical `AND` is applied for all of them.

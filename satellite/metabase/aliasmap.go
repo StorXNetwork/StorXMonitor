@@ -4,8 +4,8 @@
 package metabase
 
 import (
-	"storj.io/common/storj"
-	"storj.io/storj/shared/nodeidmap"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeidmap"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeAliasMap contains bidirectional mapping between node ID and a NodeAlias.
@@ -14,14 +14,14 @@ import (
 // prefixes to a linked list of node ID/alias pairs, so that the whole ID
 // does not need to be hashed with each lookup.
 type NodeAliasMap struct {
-	node  []storj.NodeID
+	node  []storxnetwork.NodeID
 	alias nodeidmap.Map[NodeAlias]
 }
 
 // NewNodeAliasMap creates a new alias map from the given entries.
 func NewNodeAliasMap(entries []NodeAliasEntry) *NodeAliasMap {
 	m := &NodeAliasMap{
-		node:  make([]storj.NodeID, len(entries)),
+		node:  make([]storxnetwork.NodeID, len(entries)),
 		alias: nodeidmap.MakeSized[NodeAlias](len(entries)),
 	}
 	for _, e := range entries {
@@ -32,15 +32,15 @@ func NewNodeAliasMap(entries []NodeAliasEntry) *NodeAliasMap {
 }
 
 // setNode sets a value in `m.node` and increases the size when necessary.
-func (m *NodeAliasMap) setNode(alias NodeAlias, value storj.NodeID) {
+func (m *NodeAliasMap) setNode(alias NodeAlias, value storxnetwork.NodeID) {
 	if int(alias) >= len(m.node) {
-		m.node = append(m.node, make([]storj.NodeID, int(alias)-len(m.node)+1)...)
+		m.node = append(m.node, make([]storxnetwork.NodeID, int(alias)-len(m.node)+1)...)
 	}
 	m.node[alias] = value
 }
 
 // setAlias sets a value in `m.alias`.
-func (m *NodeAliasMap) setAlias(id storj.NodeID, alias NodeAlias) {
+func (m *NodeAliasMap) setAlias(id storxnetwork.NodeID, alias NodeAlias) {
 	m.alias.Store(id, alias)
 }
 
@@ -58,16 +58,16 @@ func (m *NodeAliasMap) Merge(other *NodeAliasMap) {
 }
 
 // Node returns NodeID for the given alias.
-func (m *NodeAliasMap) Node(alias NodeAlias) (x storj.NodeID, ok bool) {
+func (m *NodeAliasMap) Node(alias NodeAlias) (x storxnetwork.NodeID, ok bool) {
 	if int(alias) >= len(m.node) {
-		return storj.NodeID{}, false
+		return storxnetwork.NodeID{}, false
 	}
 	v := m.node[alias]
 	return v, !v.IsZero()
 }
 
 // Alias returns alias for the given node ID.
-func (m *NodeAliasMap) Alias(node storj.NodeID) (x NodeAlias, ok bool) {
+func (m *NodeAliasMap) Alias(node storxnetwork.NodeID) (x NodeAlias, ok bool) {
 	x, ok = m.alias.Load(node)
 	if !ok {
 		return -1, false
@@ -76,8 +76,8 @@ func (m *NodeAliasMap) Alias(node storj.NodeID) (x NodeAlias, ok bool) {
 }
 
 // Nodes returns NodeID-s for the given aliases and aliases that are not in this map.
-func (m *NodeAliasMap) Nodes(aliases []NodeAlias) (xs []storj.NodeID, missing []NodeAlias) {
-	xs = make([]storj.NodeID, 0, len(aliases))
+func (m *NodeAliasMap) Nodes(aliases []NodeAlias) (xs []storxnetwork.NodeID, missing []NodeAlias) {
+	xs = make([]storxnetwork.NodeID, 0, len(aliases))
 	for _, p := range aliases {
 		if x, ok := m.Node(p); ok {
 			xs = append(xs, x)
@@ -89,7 +89,7 @@ func (m *NodeAliasMap) Nodes(aliases []NodeAlias) (xs []storj.NodeID, missing []
 }
 
 // Aliases returns aliases-s for the given node ID-s and node ID-s that are not in this map.
-func (m *NodeAliasMap) Aliases(nodes []storj.NodeID) (xs []NodeAlias, missing []storj.NodeID) {
+func (m *NodeAliasMap) Aliases(nodes []storxnetwork.NodeID) (xs []NodeAlias, missing []storxnetwork.NodeID) {
 	xs = make([]NodeAlias, 0, len(nodes))
 	for _, n := range nodes {
 		if x, ok := m.Alias(n); ok {
@@ -102,7 +102,7 @@ func (m *NodeAliasMap) Aliases(nodes []storj.NodeID) (xs []NodeAlias, missing []
 }
 
 // ContainsAll returns true when the table contains all entries.
-func (m *NodeAliasMap) ContainsAll(nodeIDs []storj.NodeID, nodeAliases []NodeAlias) bool {
+func (m *NodeAliasMap) ContainsAll(nodeIDs []storxnetwork.NodeID, nodeAliases []NodeAlias) bool {
 	for _, id := range nodeIDs {
 		if _, ok := m.Alias(id); !ok {
 			return false

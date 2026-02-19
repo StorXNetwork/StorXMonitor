@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/dbtest"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 var anArrayOfStrings = []string{
@@ -119,7 +119,7 @@ func TestInt2Array(t *testing.T) {
 
 func TestPlacementConstraintArray(t *testing.T) {
 	withUniqueDB(t, "pgutil-types", func(ctx *testcontext.Context, t *testing.T, db *dbutil.TempDatabase) {
-		array := []storj.PlacementConstraint{storj.PlacementConstraint(0), storj.PlacementConstraint(4), storj.PlacementConstraint(1), storj.PlacementConstraint(3), math.MaxUint16}
+		array := []storxnetwork.PlacementConstraint{storxnetwork.PlacementConstraint(0), storxnetwork.PlacementConstraint(4), storxnetwork.PlacementConstraint(1), storxnetwork.PlacementConstraint(3), math.MaxUint16}
 
 		// PostgreSQL (and SQL) don't have unsigned int types, but values above math.MaxInt16 should
 		// translate ok in a round trip.
@@ -132,7 +132,7 @@ func TestPlacementConstraintArray(t *testing.T) {
 
 		for _, expected := range array {
 			require.True(t, rows.Next())
-			var got storj.PlacementConstraint
+			var got storxnetwork.PlacementConstraint
 			require.NoError(t, rows.Scan(&got))
 			require.Equal(t, expected, got)
 		}

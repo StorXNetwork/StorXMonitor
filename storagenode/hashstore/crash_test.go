@@ -20,8 +20,8 @@ import (
 	"github.com/zeebo/assert"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/drpc/drpcsignal"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/drpc/drpcsignal"
 )
 
 func TestMain(m *testing.M) {
@@ -145,7 +145,7 @@ func TestCorrectDuringCrashes(t *testing.T) {
 	// grab all of the keys out of stdout.
 	var keys []Key
 	for line := range bytes.Lines(stdout.Bytes()) {
-		key, err := storj.PieceIDFromString(string(line))
+		key, err := storxnetwork.PieceIDFromString(string(line))
 		assert.NoError(t, err)
 		keys = append(keys, key)
 	}

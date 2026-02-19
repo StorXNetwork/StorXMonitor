@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/web"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
 )
 
 // AddCardRateLimiterConfig defines the configuration for the add card rate limiter.

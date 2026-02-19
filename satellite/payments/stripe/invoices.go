@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // invoices is an implementation of payments.Invoices.
@@ -552,7 +552,7 @@ func (invoices *invoices) isInvoiceFailed(invoice *stripe.Invoice) bool {
 	}
 
 	if invoice.DueDate > 0 {
-		// https://github.com/storj/storj/blob/77bf88e916a10dc898ebb594eafac667ed4426cd/satellite/payments/stripecoinpayments/service.go#L781-L787
+		// https://github.com/storxnetwork/storxnetwork/blob/77bf88e916a10dc898ebb594eafac667ed4426cd/satellite/payments/stripecoinpayments/service.go#L781-L787
 		invoices.service.log.Info("Skipping invoice marked for manual payment",
 			zap.String("id", invoice.ID),
 			zap.String("number", invoice.Number),

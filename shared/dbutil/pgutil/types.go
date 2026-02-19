@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgtype"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // The following XArray() helper methods exist alongside similar methods in the
@@ -192,9 +192,9 @@ func Float8Array(floats []float64) *pgtype.Float8Array {
 	}
 }
 
-// NodeIDArray returns an object usable by pg drivers for passing a []storj.NodeID
+// NodeIDArray returns an object usable by pg drivers for passing a []storxnetwork.NodeID
 // slice into a database as type BYTEA[].
-func NodeIDArray(nodeIDs []storj.NodeID) *pgtype.ByteaArray {
+func NodeIDArray(nodeIDs []storxnetwork.NodeID) *pgtype.ByteaArray {
 	if nodeIDs == nil {
 		return &pgtype.ByteaArray{Status: pgtype.Null}
 	}
@@ -231,8 +231,8 @@ func UUIDArray(uuids []uuid.UUID) *pgtype.ByteaArray {
 }
 
 // PlacementConstraintArray returns an object usable by pg drivers for passing a
-// []storj.PlacementConstraint slice into a database as type INT2[].
-func PlacementConstraintArray(constraints []storj.PlacementConstraint) *pgtype.Int2Array {
+// []storxnetwork.PlacementConstraint slice into a database as type INT2[].
+func PlacementConstraintArray(constraints []storxnetwork.PlacementConstraint) *pgtype.Int2Array {
 	pgtypeInt2Array := make([]pgtype.Int2, len(constraints))
 	for i, someInt := range constraints {
 		pgtypeInt2Array[i].Int = int16(someInt)

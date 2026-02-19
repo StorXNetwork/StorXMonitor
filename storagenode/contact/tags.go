@@ -10,10 +10,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/storj/shared/nodetag"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
 )
 
 // GetTags returns with all the node tags including pre-defined and self-signed tags.

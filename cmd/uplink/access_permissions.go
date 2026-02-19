@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/internal"
-	"storj.io/storj/cmd/uplink/ulloc"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/internal"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/uplink"
 )
 
 // accessPermissions holds flags and provides a Setup method for commands that

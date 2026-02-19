@@ -12,8 +12,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -46,7 +46,7 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, opts
 
 	db.mu.Lock()
 	count := 0
-	infoRecordsBySatellite := make(map[storj.NodeID]*pieces.ExpiredInfoRecords)
+	infoRecordsBySatellite := make(map[storxnetwork.NodeID]*pieces.ExpiredInfoRecords)
 
 	for ei, exp := range db.buf {
 		if exp.Before(now) {
@@ -119,7 +119,7 @@ func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.T
 		err = errs.Combine(err, rows.Err(), rows.Close())
 	}()
 
-	infoRecordsBySatellite := make(map[storj.NodeID]*pieces.ExpiredInfoRecords)
+	infoRecordsBySatellite := make(map[storxnetwork.NodeID]*pieces.ExpiredInfoRecords)
 	for rows.Next() {
 		var ei pieces.ExpiredInfo
 		err = rows.Scan(&ei.SatelliteID, &ei.PieceID)
@@ -141,7 +141,7 @@ func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.T
 var monSetExpiration = mon.Task()
 
 // SetExpiration sets an expiration time for the given piece ID on the given satellite.
-func (db *pieceExpirationDB) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) (err error) {
+func (db *pieceExpirationDB) SetExpiration(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, expiresAt time.Time, pieceSize int64) (err error) {
 	defer monSetExpiration(&ctx)(&err)
 
 	ei := pieces.ExpiredInfo{

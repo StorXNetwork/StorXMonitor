@@ -15,17 +15,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/version"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/version"
 )
 
 func TestGetOfflineNodesForEmail(t *testing.T) {
@@ -54,7 +54,7 @@ func TestGetOfflineNodesForEmail(t *testing.T) {
 				Release:    false,
 			},
 			Operator: &pb.NodeOperator{
-				Email: "offline@storj.test",
+				Email: "offline@storxnetwork.test",
 			},
 		}
 
@@ -126,7 +126,7 @@ func TestUpdateLastOfflineEmail(t *testing.T) {
 				Release:    false,
 			},
 			Operator: &pb.NodeOperator{
-				Email: "test@storj.test",
+				Email: "test@storxnetwork.test",
 			},
 		}
 
@@ -135,7 +135,7 @@ func TestUpdateLastOfflineEmail(t *testing.T) {
 		require.NoError(t, cache.UpdateCheckIn(ctx, checkInInfo, now, selectionCfg))
 		checkInInfo.NodeID = nodeID1
 		require.NoError(t, cache.UpdateCheckIn(ctx, checkInInfo, now, selectionCfg))
-		require.NoError(t, cache.UpdateLastOfflineEmail(ctx, []storj.NodeID{nodeID0, nodeID1}, now))
+		require.NoError(t, cache.UpdateLastOfflineEmail(ctx, []storxnetwork.NodeID{nodeID0, nodeID1}, now))
 
 		node0, err := cache.Get(ctx, nodeID0)
 		require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestSetNodeContained(t *testing.T) {
 				Release:    false,
 			},
 			Operator: &pb.NodeOperator{
-				Email: "offline@storj.test",
+				Email: "offline@storxnetwork.test",
 			},
 		}
 
@@ -214,7 +214,7 @@ func TestUpdateCheckInDirectUpdate(t *testing.T) {
 				Release:    false,
 			},
 			Operator: &pb.NodeOperator{
-				Email: "test@storj.test",
+				Email: "test@storxnetwork.test",
 			},
 		}
 		now := time.Now().UTC()
@@ -241,7 +241,7 @@ func TestSetAllContainedNodes(t *testing.T) {
 		node3 := testrand.NodeID()
 
 		// put nodes with these IDs in the db
-		for _, n := range []storj.NodeID{node1, node2, node3} {
+		for _, n := range []storxnetwork.NodeID{node1, node2, node3} {
 			checkInInfo := overlay.NodeCheckInInfo{
 				IsUp:    true,
 				Address: &pb.NodeAddress{Address: "1.2.3.4"},
@@ -255,22 +255,22 @@ func TestSetAllContainedNodes(t *testing.T) {
 		assertContained(ctx, t, cache, node1, false, node2, false, node3, false)
 
 		// Set node2 (only) to be contained
-		err := cache.SetAllContainedNodes(ctx, []storj.NodeID{node2})
+		err := cache.SetAllContainedNodes(ctx, []storxnetwork.NodeID{node2})
 		require.NoError(t, err)
 		assertContained(ctx, t, cache, node1, false, node2, true, node3, false)
 
 		// Set node1 and node3 (only) to be contained
-		err = cache.SetAllContainedNodes(ctx, []storj.NodeID{node1, node3})
+		err = cache.SetAllContainedNodes(ctx, []storxnetwork.NodeID{node1, node3})
 		require.NoError(t, err)
 		assertContained(ctx, t, cache, node1, true, node2, false, node3, true)
 
 		// Set node1 (only) to be contained
-		err = cache.SetAllContainedNodes(ctx, []storj.NodeID{node1})
+		err = cache.SetAllContainedNodes(ctx, []storxnetwork.NodeID{node1})
 		require.NoError(t, err)
 		assertContained(ctx, t, cache, node1, true, node2, false, node3, false)
 
 		// Set no nodes to be contained
-		err = cache.SetAllContainedNodes(ctx, []storj.NodeID{})
+		err = cache.SetAllContainedNodes(ctx, []storxnetwork.NodeID{})
 		require.NoError(t, err)
 		assertContained(ctx, t, cache, node1, false, node2, false, node3, false)
 	})
@@ -279,7 +279,7 @@ func TestSetAllContainedNodes(t *testing.T) {
 func assertContained(ctx context.Context, t testing.TB, cache overlay.DB, args ...interface{}) {
 	require.Equal(t, 0, len(args)%2, "must be given an even number of args")
 	for n := 0; n < len(args); n += 2 {
-		nodeID := args[n].(storj.NodeID)
+		nodeID := args[n].(storxnetwork.NodeID)
 		expectedContainment := args[n+1].(bool)
 		nodeInDB, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -291,7 +291,7 @@ func assertContained(ctx context.Context, t testing.TB, cache overlay.DB, args .
 
 func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		tagSigner := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+		tagSigner := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 
 		cache := db.OverlayCache()
 		const netMask = 28
@@ -334,7 +334,7 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 		}
 
 		checkNodes := func(selectedNodes []*nodeselection.SelectedNode) {
-			selectedNodesMap := map[storj.NodeID]*nodeselection.SelectedNode{}
+			selectedNodesMap := map[storxnetwork.NodeID]*nodeselection.SelectedNode{}
 			for _, node := range selectedNodes {
 				selectedNodesMap[node.ID] = node
 			}
@@ -379,7 +379,7 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 }
 
 type nodeDisposition struct {
-	id               storj.NodeID
+	id               storxnetwork.NodeID
 	address          string
 	email            string
 	wallet           string
@@ -465,7 +465,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 				Offline: sNodes(1, 4, 5),
 			},
 		} {
-			ids := make([]storj.NodeID, len(tc.QueryNodes))
+			ids := make([]storxnetwork.NodeID, len(tc.QueryNodes))
 			for i := range tc.QueryNodes {
 				ids[i] = tc.QueryNodes[i].id
 			}
@@ -491,11 +491,11 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 		}
 
 		// test empty id list
-		_, err := cache.GetParticipatingNodes(ctx, storj.NodeIDList{}, 1*time.Hour, 0)
+		_, err := cache.GetParticipatingNodes(ctx, storxnetwork.NodeIDList{}, 1*time.Hour, 0)
 		require.Error(t, err)
 
 		// test as of system time
-		allIDs := make([]storj.NodeID, len(allNodes))
+		allIDs := make([]storxnetwork.NodeID, len(allNodes))
 		for i := range allNodes {
 			allIDs[i] = allNodes[i].id
 		}
@@ -504,7 +504,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
-		require.Equal(t, "test@storj.io", selection[0].Email)
+		require.Equal(t, "test@storxnetwork.io", selection[0].Email)
 		require.True(t, selection[0].Vetted)
 	})
 }
@@ -565,7 +565,7 @@ func TestOverlayCache_GetAllParticipatingNodes(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
-		require.Equal(t, "test@storj.io", selection[0].Email)
+		require.Equal(t, "test@storxnetwork.io", selection[0].Email)
 		require.True(t, selection[0].Vetted)
 	})
 }
@@ -601,7 +601,7 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 		offlineSuspended: offlineSuspended,
 		exiting:          exiting,
 		exited:           exited,
-		email:            "test@storj.io",
+		email:            "test@storxnetwork.io",
 		wallet:           "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0",
 		vetted:           true,
 	}
@@ -668,7 +668,7 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 }
 
 func TestOverlayCache_KnownReliableTagHandling(t *testing.T) {
-	signer := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+	signer := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 
@@ -676,12 +676,12 @@ func TestOverlayCache_KnownReliableTagHandling(t *testing.T) {
 
 		// GIVEN
 
-		var ids []storj.NodeID
+		var ids []storxnetwork.NodeID
 		for i := 0; i < 10; i++ {
 			address := fmt.Sprintf("127.0.0.%d", i)
 			checkInInfo := overlay.NodeCheckInInfo{
 				IsUp:        true,
-				NodeID:      testidentity.MustPregeneratedIdentity(i+1, storj.LatestIDVersion()).ID,
+				NodeID:      testidentity.MustPregeneratedIdentity(i+1, storxnetwork.LatestIDVersion()).ID,
 				Address:     &pb.NodeAddress{Address: address},
 				LastIPPort:  address + ":1234",
 				LastNet:     "127.0.0.0",
@@ -766,7 +766,7 @@ func TestOverlayCache_GetLastIPPortByNodeTagName(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
 
-		var ids storj.NodeIDList
+		var ids storxnetwork.NodeIDList
 		for i := 0; i < 6; i++ {
 			ids = append(ids, testrand.NodeID())
 		}
@@ -884,8 +884,8 @@ func TestGetNodesByEmail(t *testing.T) {
 			OnlineWindow: 4 * time.Hour,
 		}
 
-		testEmail := "operator@storj.test"
-		otherEmail := "other@storj.test"
+		testEmail := "operator@storxnetwork.test"
+		otherEmail := "other@storxnetwork.test"
 
 		node1ID := testrand.NodeID()
 		node2ID := testrand.NodeID()
@@ -948,7 +948,7 @@ func TestGetNodesByEmail(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 4)
 
-		foundIDs := make(map[storj.NodeID]bool)
+		foundIDs := make(map[storxnetwork.NodeID]bool)
 		for _, node := range nodes {
 			foundIDs[node.Id] = true
 			require.Equal(t, testEmail, node.Operator.Email)
@@ -966,7 +966,7 @@ func TestGetNodesByEmail(t *testing.T) {
 		require.Len(t, nodes, 1)
 		require.Equal(t, otherEmailID, nodes[0].Id)
 
-		options.Email = "nonexistent@storj.test"
+		options.Email = "nonexistent@storxnetwork.test"
 		// test GetNodesByEmail with non-existent email
 		nodes, _, err = cache.GetNodesByEmail(ctx, options)
 		require.NoError(t, err)
@@ -992,7 +992,7 @@ func TestGetNodesByEmail(t *testing.T) {
 		require.Len(t, secondPage, 2)
 
 		// verify all 4 nodes returned across pages
-		allIDs := make(map[storj.NodeID]bool)
+		allIDs := make(map[storxnetwork.NodeID]bool)
 		for _, n := range firstPage {
 			allIDs[n.Id] = true
 		}

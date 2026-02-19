@@ -3,7 +3,7 @@
 
 package nodeselection
 
-import "storj.io/storj/shared/location"
+import "github.com/StorXNetwork/StorXMonitor/shared/location"
 
 // EuCountries defines the member countries of European Union.
 var EuCountries = []location.CountryCode{

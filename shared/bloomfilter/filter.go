@@ -13,8 +13,8 @@ import (
 	"github.com/bmkessler/fastdiv"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const (
@@ -83,7 +83,7 @@ func (filter *Filter) SeedAndParameters() (seed, hashCount byte, size int) {
 }
 
 // Add adds an element to the bloom filter.
-func (filter *Filter) Add(pieceID storj.PieceID) {
+func (filter *Filter) Add(pieceID storxnetwork.PieceID) {
 	var id [len(pieceID) * 2]byte
 	copy(id[:], pieceID[:])
 	copy(id[len(pieceID):], pieceID[:])
@@ -93,12 +93,12 @@ func (filter *Filter) Add(pieceID storj.PieceID) {
 		hash, bit := binary.LittleEndian.Uint64(id[offset:offset+8]), id[offset+8]
 		bucket := filter.tableSize.Mod(hash)
 		filter.table[bucket] |= 1 << (bit % 8)
-		offset = (offset + rangeOffset) % byte(len(storj.PieceID{}))
+		offset = (offset + rangeOffset) % byte(len(storxnetwork.PieceID{}))
 	}
 }
 
 // Contains return true if pieceID may be in the set.
-func (filter *Filter) Contains(pieceID storj.PieceID) bool {
+func (filter *Filter) Contains(pieceID storxnetwork.PieceID) bool {
 	var id [len(pieceID) * 2]byte
 	copy(id[:], pieceID[:])
 	copy(id[len(pieceID):], pieceID[:])
@@ -110,7 +110,7 @@ func (filter *Filter) Contains(pieceID storj.PieceID) bool {
 		if filter.table[bucket]&(1<<(bit%8)) == 0 {
 			return false
 		}
-		offset = (offset + rangeOffset) % byte(len(storj.PieceID{}))
+		offset = (offset + rangeOffset) % byte(len(storxnetwork.PieceID{}))
 	}
 
 	return true

@@ -6,8 +6,8 @@ package main_test
 import (
 	"testing"
 
-	uplinkcli "storj.io/storj/cmd/uplink"
-	"storj.io/storj/cmd/uplink/ultest"
+	uplinkcli "github.com/StorXNetwork/StorXMonitor/cmd/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
 )
 
 func TestMv(t *testing.T) {

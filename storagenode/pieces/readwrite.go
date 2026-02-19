@@ -13,10 +13,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const (
@@ -67,12 +67,12 @@ type Writer struct {
 	pieceSize int64 // piece size only; i.e., not including piece header
 
 	blobs     blobstore.Blobs
-	satellite storj.NodeID
+	satellite storxnetwork.NodeID
 	closed    bool
 }
 
 // NewWriter creates a new writer for blobstore.BlobWriter.
-func NewWriter(log *zap.Logger, blobWriter blobstore.BlobWriter, blobs blobstore.Blobs, satellite storj.NodeID, hashAlgorithm pb.PieceHashAlgorithm) (*Writer, error) {
+func NewWriter(log *zap.Logger, blobWriter blobstore.BlobWriter, blobs blobstore.Blobs, satellite storxnetwork.NodeID, hashAlgorithm pb.PieceHashAlgorithm) (*Writer, error) {
 	w := &Writer{log: log}
 	if blobWriter.StorageFormatVersion() >= filestore.FormatV1 {
 		// We are reserving header area for now- we want the header to be at the

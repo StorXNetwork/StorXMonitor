@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Chore is the contact chore for nodes announcing themselves to their trusted satellites.
@@ -23,7 +23,7 @@ type Chore struct {
 	service *Service
 
 	mu      sync.Mutex
-	cycles  map[storj.NodeID]*sync2.Cycle
+	cycles  map[storxnetwork.NodeID]*sync2.Cycle
 	started sync2.Fence
 
 	interval, timeout time.Duration
@@ -35,7 +35,7 @@ func NewChore(log *zap.Logger, interval, timeout time.Duration, service *Service
 		log:     log,
 		service: service,
 
-		cycles:   make(map[storj.NodeID]*sync2.Cycle),
+		cycles:   make(map[storxnetwork.NodeID]*sync2.Cycle),
 		interval: interval,
 		timeout:  timeout,
 	}
@@ -66,11 +66,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, satellites []storj.NodeID) {
+func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, satellites []storxnetwork.NodeID) {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 
-	trustedIDs := make(map[storj.NodeID]struct{})
+	trustedIDs := make(map[storxnetwork.NodeID]struct{})
 
 	for _, satellite := range satellites {
 		satellite := satellite // alias the loop var since it is captured below

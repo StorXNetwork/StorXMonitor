@@ -8,15 +8,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 // DefaultRedundancy contains default redundancy scheme.
-var DefaultRedundancy = storj.RedundancyScheme{
-	Algorithm:      storj.ReedSolomon,
+var DefaultRedundancy = storxnetwork.RedundancyScheme{
+	Algorithm:      storxnetwork.ReedSolomon,
 	ShareSize:      2048,
 	RequiredShares: 1,
 	RepairShares:   1,
@@ -25,8 +25,8 @@ var DefaultRedundancy = storj.RedundancyScheme{
 }
 
 // DefaultEncryption contains default encryption parameters.
-var DefaultEncryption = storj.EncryptionParameters{
-	CipherSuite: storj.EncAESGCM,
+var DefaultEncryption = storxnetwork.EncryptionParameters{
+	CipherSuite: storxnetwork.EncAESGCM,
 	BlockSize:   29 * 256,
 }
 
@@ -121,8 +121,8 @@ func DefaultRawSegment(obj metabase.ObjectStream, segmentPosition metabase.Segme
 	return metabase.RawSegment{
 		StreamID:    obj.StreamID,
 		Position:    segmentPosition,
-		RootPieceID: storj.PieceID{1},
-		Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+		RootPieceID: storxnetwork.PieceID{1},
+		Pieces:      metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 		CreatedAt:   time.Now(),
 
 		EncryptedKey:      []byte{3},

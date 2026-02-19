@@ -11,14 +11,14 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/eventkit"
 )
 
 var ek = eventkit.Package()
@@ -30,7 +30,7 @@ type HistogramByPlacement []Histogram // placement -> Histogram
 
 // HealthStat stores the number of segments for each piece count (healthy / retrievable pairs).
 type HealthStat struct {
-	Placement         storj.PlacementConstraint
+	Placement         storxnetwork.PlacementConstraint
 	HealthyPieces     int // k-normalized number of healthy pieces
 	RetrievablePieces int // k-normalized number of retrievable pieces
 	SegmentCount      int
@@ -43,7 +43,7 @@ type HealthMatrix struct {
 }
 
 // Increment updates the health matrix counter for the given parameters.
-func (h *HealthMatrix) Increment(placement storj.PlacementConstraint, healthyPieces int, retrievablePieces int, increment int, segmentExemplar string) {
+func (h *HealthMatrix) Increment(placement storxnetwork.PlacementConstraint, healthyPieces int, retrievablePieces int, increment int, segmentExemplar string) {
 	for ix := range h.Stat {
 		if h.Stat[ix].Placement == placement && h.Stat[ix].HealthyPieces == healthyPieces && h.Stat[ix].RetrievablePieces == retrievablePieces {
 			h.Stat[ix].SegmentCount += increment
@@ -67,7 +67,7 @@ func (h *HealthMatrix) Merge(matrix *HealthMatrix) {
 }
 
 // Find returns the number of segments for the given placement, healthyPieces and retrievablePieces.
-func (h *HealthMatrix) Find(placement storj.PlacementConstraint, healthyPieces, retrievablePieces int) int {
+func (h *HealthMatrix) Find(placement storxnetwork.PlacementConstraint, healthyPieces, retrievablePieces int) int {
 	for _, stat := range h.Stat {
 		if stat.Placement == placement && stat.HealthyPieces == healthyPieces && stat.RetrievablePieces == retrievablePieces {
 			return stat.SegmentCount
@@ -107,7 +107,7 @@ type Bucket struct {
 
 // NodeGetter returns node information required by the durability loop.
 type NodeGetter interface {
-	GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storj.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error)
+	GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storxnetwork.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error)
 }
 
 // Increment increments the bucket counters.
@@ -203,8 +203,8 @@ type Report struct {
 	nodes              []nodeselection.SelectedNode
 	db                 overlay.DB
 	metabaseDB         *metabase.DB
-	reporter           func(n time.Time, class string, missingProviders int, ix int, placement storj.PlacementConstraint, stat Bucket, classResolver func(id ClassID) string)
-	matrixReporter     func(n time.Time, placement storj.PlacementConstraint, healthy int, retrievable int, segmentCount int, segmentExemplar string)
+	reporter           func(n time.Time, class string, missingProviders int, ix int, placement storxnetwork.PlacementConstraint, stat Bucket, classResolver func(id ClassID) string)
+	matrixReporter     func(n time.Time, placement storxnetwork.PlacementConstraint, healthy int, retrievable int, segmentCount int, segmentExemplar string)
 	asOfSystemInterval time.Duration
 
 	// map between classes (like "country:hu" and integer IDs)
@@ -238,7 +238,7 @@ func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter
 func (c *Report) Start(ctx context.Context, startTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c.nodes, err = c.db.GetParticipatingNodes(ctx, storj.NodeIDList{}, -12*time.Hour, c.asOfSystemInterval)
+	c.nodes, err = c.db.GetParticipatingNodes(ctx, storxnetwork.NodeIDList{}, -12*time.Hour, c.asOfSystemInterval)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -328,10 +328,10 @@ func (c *Report) Finish(ctx context.Context) error {
 	for group, healthStat := range c.healthStat {
 		for placement, histogram := range healthStat {
 			for ix, stat := range histogram.Buckets {
-				c.reporter(reportTime, c.Class, group, ix, storj.PlacementConstraint(placement), *stat, c.resolveClass)
+				c.reporter(reportTime, c.Class, group, ix, storxnetwork.PlacementConstraint(placement), *stat, c.resolveClass)
 			}
 			for ix, stat := range histogram.NegativeBuckets {
-				c.reporter(reportTime, c.Class, group, ix*-1, storj.PlacementConstraint(placement), *stat, c.resolveClass)
+				c.reporter(reportTime, c.Class, group, ix*-1, storxnetwork.PlacementConstraint(placement), *stat, c.resolveClass)
 			}
 		}
 	}
@@ -342,7 +342,7 @@ func (c *Report) Finish(ctx context.Context) error {
 }
 
 // TestChangeReporter modifies the reporter for unit tests.
-func (c *Report) TestChangeReporter(r func(n time.Time, class string, missingProvider int, ix int, placement storj.PlacementConstraint, stat Bucket, resolver func(id ClassID) string)) {
+func (c *Report) TestChangeReporter(r func(n time.Time, class string, missingProvider int, ix int, placement storxnetwork.PlacementConstraint, stat Bucket, resolver func(id ClassID) string)) {
 	c.reporter = r
 }
 
@@ -363,7 +363,7 @@ type ObserverFork struct {
 	nodesCache NodeGetter
 
 	// reuse those slices to optimize memory usage
-	nodeIDs []storj.NodeID
+	nodeIDs []storxnetwork.NodeID
 	nodes   []nodeselection.SelectedNode
 
 	classified []ClassID
@@ -392,7 +392,7 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 
 		// reuse fork.nodeIDs and fork.nodes slices if large enough
 		if cap(c.nodeIDs) < len(pieces) {
-			c.nodeIDs = make([]storj.NodeID, len(pieces))
+			c.nodeIDs = make([]storxnetwork.NodeID, len(pieces))
 			c.nodes = make([]nodeselection.SelectedNode, len(pieces))
 		} else {
 			c.nodeIDs = c.nodeIDs[:len(pieces)]
@@ -460,7 +460,7 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 	return nil
 }
 
-func reportToEventkit(n time.Time, class string, missingProviders int, ix int, placement storj.PlacementConstraint, stat Bucket, classResolver func(id ClassID) string) {
+func reportToEventkit(n time.Time, class string, missingProviders int, ix int, placement storxnetwork.PlacementConstraint, stat Bucket, classResolver func(id ClassID) string) {
 	var classExemplars []string
 	for _, ex := range stat.ClassExemplars {
 		classExemplars = append(classExemplars, classResolver(ex))
@@ -477,7 +477,7 @@ func reportToEventkit(n time.Time, class string, missingProviders int, ix int, p
 	)
 }
 
-func matrixReportToEventkit(n time.Time, placement storj.PlacementConstraint, healthy int, retrievable int, count int, exemplar string) {
+func matrixReportToEventkit(n time.Time, placement storxnetwork.PlacementConstraint, healthy int, retrievable int, count int, exemplar string) {
 	ek.Event("durability_matrix",
 		eventkit.Int64("placement", int64(placement)),
 		eventkit.Int64("healthy_pieces", int64(healthy)),

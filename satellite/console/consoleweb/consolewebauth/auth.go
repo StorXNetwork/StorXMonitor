@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 )
 
 // CookieSettings variable cookie settings.

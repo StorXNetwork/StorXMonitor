@@ -4,22 +4,22 @@
 package trust
 
 import (
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // TrustedOperatorSigner is the zero signer that we use in production. This Go
 // syntax is equivalent to
 // 0000000000000000000000000000000000000000000000000000000000000100.
-var TrustedOperatorSigner = storj.NodeID{30: 1}
+var TrustedOperatorSigner = storxnetwork.NodeID{30: 1}
 
 // TrustedPeersList represents a configuration-time list of trusted peers.
 type TrustedPeersList struct {
-	isTrusted map[storj.NodeID]bool
+	isTrusted map[storxnetwork.NodeID]bool
 }
 
 // NewTrustedPeerList creates a TrustedPeerList from a list of trusted NodeIDs.
-func NewTrustedPeerList(nodes []storj.NodeID) *TrustedPeersList {
-	isTrusted := make(map[storj.NodeID]bool, len(nodes))
+func NewTrustedPeerList(nodes []storxnetwork.NodeID) *TrustedPeersList {
+	isTrusted := make(map[storxnetwork.NodeID]bool, len(nodes))
 	for _, node := range nodes {
 		isTrusted[node] = true
 	}
@@ -29,11 +29,11 @@ func NewTrustedPeerList(nodes []storj.NodeID) *TrustedPeersList {
 }
 
 // IsTrusted returns whether a peer is marked as trusted.
-func (list *TrustedPeersList) IsTrusted(node storj.NodeID) bool {
+func (list *TrustedPeersList) IsTrusted(node storxnetwork.NodeID) bool {
 	return list.isTrusted[node]
 }
 
 // TestingAddTrustedUplink is a helper function for tests to add a trusted uplink.
-func (list *TrustedPeersList) TestingAddTrustedUplink(id storj.NodeID) {
+func (list *TrustedPeersList) TestingAddTrustedUplink(id storxnetwork.NodeID) {
 	list.isTrusted[id] = true
 }

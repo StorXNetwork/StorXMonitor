@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/oauth2"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/console/consoleauth"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 )
 
 var (

@@ -4,8 +4,8 @@
 package nodeselection
 
 import (
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // PlacementConfig is placement configuration, separated from other generic configuration.

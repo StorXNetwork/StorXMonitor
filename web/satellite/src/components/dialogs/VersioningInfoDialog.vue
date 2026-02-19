@@ -153,7 +153,7 @@ const configStore = useConfigStore();
 
 const isDialogOpen = defineModel<boolean>({ default: false });
 
-const docsLink = 'https://storj.dev/dcs/api/s3/object-versioning';
+const docsLink = 'https://storxnetwork.dev/dcs/api/s3/object-versioning';
 
 /**
  * whether object lock UI is globally enabled.

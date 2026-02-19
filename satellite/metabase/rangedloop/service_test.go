@@ -17,22 +17,22 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/accounting/nodetally"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
-	"storj.io/storj/satellite/metrics"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/nodetally"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop/rangedlooptest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metrics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestLoopCount(t *testing.T) {
@@ -543,20 +543,20 @@ func TestInlineSegmentDetection(t *testing.T) {
 
 	segments := []rangedloop.Segment{
 		{ // regular inline segment
-			RootPieceID: storj.PieceID{},
-			Redundancy:  storj.RedundancyScheme{},
+			RootPieceID: storxnetwork.PieceID{},
+			Redundancy:  storxnetwork.RedundancyScheme{},
 			Pieces:      metabase.Pieces{},
 		}, { // inline segment with mixed state because of bug
-			RootPieceID: storj.PieceID{},
+			RootPieceID: storxnetwork.PieceID{},
 			Pieces: metabase.Pieces{
 				{Number: 1, StorageNode: testrand.NodeID()},
 			},
-			Redundancy: storj.RedundancyScheme{
+			Redundancy: storxnetwork.RedundancyScheme{
 				ShareSize: 256,
 			},
 		}, { // remove segment
 			RootPieceID: testrand.PieceID(),
-			Redundancy: storj.RedundancyScheme{
+			Redundancy: storxnetwork.RedundancyScheme{
 				ShareSize: 256,
 			},
 		},

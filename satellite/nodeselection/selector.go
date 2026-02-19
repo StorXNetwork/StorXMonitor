@@ -16,7 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var unvettedSelectorTask = mon.Task()
@@ -50,7 +50,7 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 			}
 		}
 
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
 			defer unvettedSelectorSelectionTask(&ctx)(&err)
 
 			if math.IsNaN(newNodeFraction) || newNodeFraction <= 0 {
@@ -126,7 +126,7 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			attributes = append(attributes, k)
 		}
 
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			defer attributeGroupSelectorSelectionTask(&ctx)(&err)
 			if n == 0 {
 				return selected, nil
@@ -174,7 +174,7 @@ func EqualSelector(nodeAttribute NodeAttribute, attribute string) func(SelectedN
 	}
 }
 
-func included(alreadySelected []storj.NodeID, nodes ...*SelectedNode) bool {
+func included(alreadySelected []storxnetwork.NodeID, nodes ...*SelectedNode) bool {
 	for _, node := range nodes {
 		for _, id := range alreadySelected {
 			if node.ID == id {
@@ -212,7 +212,7 @@ func RandomSelector() NodeSelectorInit {
 			filteredNodes = append(filteredNodes, node)
 		}
 
-		return func(ctx context.Context, id storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, id storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			defer randomSelectorSelectionTask(&ctx)(&err)
 			if n == 0 {
 				return selected, nil
@@ -283,7 +283,7 @@ func BalancedGroupBasedSelector(attribute NodeAttribute, uploadFilter NodeFilter
 			count += len(nodeList)
 		}
 		mon.IntVal("selector_balanced_filtered_nodes").Observe(int64(count))
-		return func(ctx context.Context, id storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, id storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			defer balancedGroupBasedSelectorSelectionTask(&ctx)(&err)
 
 			if n == 0 {
@@ -351,7 +351,7 @@ func ChoiceOfTwo(comparer CompareNodes, delegate NodeSelectorInit) NodeSelectorI
 // It compares nodes by evaluating each score in order and using the first non-equal result.
 // If all scores are equal, it returns 0.
 func Compare(scoreNodes ...ScoreNode) CompareNodes {
-	return func(uplink storj.NodeID) func(node1 *SelectedNode, node2 *SelectedNode) int {
+	return func(uplink storxnetwork.NodeID) func(node1 *SelectedNode, node2 *SelectedNode) int {
 		scoreFuncs := make([]func(*SelectedNode) float64, len(scoreNodes))
 		for i, scoreNode := range scoreNodes {
 			scoreFuncs[i] = scoreNode.Get(uplink)
@@ -464,7 +464,7 @@ func ChoiceOfN(comparison CompareNodes, n int64, delegate NodeSelectorInit) Node
 	return func(ctx context.Context, allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		defer choiceOfNTask(&ctx)(nil)
 		selector := delegate(ctx, allNodes, filter)
-		return func(ctx context.Context, requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, m int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			defer choiceOfNInternalSelectionTask(&ctx)(&err)
 			choiceOfNInternalSelectionExcludedCount.Observe(int64(len(excluded)))
 			choiceOfNInternalSelectionAlreadySelectedCount.Observe(int64(len(alreadySelected)))
@@ -487,21 +487,21 @@ func ChoiceOfN(comparison CompareNodes, n int64, delegate NodeSelectorInit) Node
 }
 
 // ScoreSelection can help to choose between two selections with assigning a score. The higher score is better.
-type ScoreSelection func(uplink storj.NodeID, selected []*SelectedNode) float64
+type ScoreSelection func(uplink storxnetwork.NodeID, selected []*SelectedNode) float64
 
 // ScoreNode can help to assign a score to a node. The higher score is better. float.Nan is valid, if no information is available.
 type ScoreNode interface {
-	Get(uplink storj.NodeID) func(node *SelectedNode) float64
+	Get(uplink storxnetwork.NodeID) func(node *SelectedNode) float64
 }
 
 // CompareNodes compare two nodes for a specific client (uplink). Returns < 0 if node2 is better, returns > 0 if node1 is better, and returns 0 if both are equal.
-type CompareNodes func(uplink storj.NodeID) func(node1 *SelectedNode, node2 *SelectedNode) int
+type CompareNodes func(uplink storxnetwork.NodeID) func(node1 *SelectedNode, node2 *SelectedNode) int
 
 // ScoreNodeFunc implements ScoreNode interface with a single func.
-type ScoreNodeFunc func(uplink storj.NodeID, node *SelectedNode) float64
+type ScoreNodeFunc func(uplink storxnetwork.NodeID, node *SelectedNode) float64
 
 // Get implements ScoreNode.
-func (s ScoreNodeFunc) Get(id storj.NodeID) func(node *SelectedNode) float64 {
+func (s ScoreNodeFunc) Get(id storxnetwork.NodeID) func(node *SelectedNode) float64 {
 	return func(node *SelectedNode) float64 {
 		return s(id, node)
 	}
@@ -509,14 +509,14 @@ func (s ScoreNodeFunc) Get(id storj.NodeID) func(node *SelectedNode) float64 {
 
 // Desc is a score node, which reverses the score of the original node.
 func Desc(original ScoreNode) ScoreNode {
-	return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+	return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 		return -original.Get(uplink)(node)
 	})
 }
 
 // PieceCount scores the node based on the piece count.
 func PieceCount(divider int64) ScoreNode {
-	return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+	return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 		return float64(node.PieceCount) / float64(divider)
 	})
 }
@@ -536,7 +536,7 @@ func Median(attr ScoreNode) ScoreSelection {
 }
 
 func scoreBy(attr ScoreNode, indexer func(int) int) ScoreSelection {
-	return func(uplink storj.NodeID, nodes []*SelectedNode) float64 {
+	return func(uplink storxnetwork.NodeID, nodes []*SelectedNode) float64 {
 		if len(nodes) == 0 {
 			return 0
 		}
@@ -565,7 +565,7 @@ func scoreBy(attr ScoreNode, indexer func(int) int) ScoreSelection {
 
 // MaxGroup returns with the size of the biggest group in the node selection.
 func MaxGroup(attr NodeAttribute) ScoreSelection {
-	return func(uplink storj.NodeID, selected []*SelectedNode) float64 {
+	return func(uplink storxnetwork.NodeID, selected []*SelectedNode) float64 {
 		var attributes []string
 		for _, node := range selected {
 			a := attr(*node)
@@ -598,7 +598,7 @@ func ChoiceOfNSelection(n int64, delegate NodeSelectorInit, scoreSource ...Score
 	return func(ctx context.Context, allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		defer choiceOfNSelectionTask(&ctx)(nil)
 		selector := delegate(ctx, allNodes, filter)
-		return func(ctx context.Context, requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, m int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			defer choiceOfNSelectionSelectionTask(&ctx)(&err)
 			var bestSelection []*SelectedNode
 			var bestScores []float64
@@ -633,10 +633,10 @@ var filterBestTask = mon.Task()
 // FilterBest is a selector, which keeps only the best nodes (based on percentage, or fixed number of nodes).
 // this selector will permanently ban the worst nodes for the period of nodeselection cache refresh.
 func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, delegate NodeSelectorInit) NodeSelectorInit {
-	var uplinkID storj.NodeID
+	var uplinkID storxnetwork.NodeID
 	if uplink != "" {
 		var err error
-		uplinkID, err = storj.NodeIDFromString(uplink)
+		uplinkID, err = storxnetwork.NodeIDFromString(uplink)
 		if err != nil {
 			panic(err)
 		}
@@ -706,7 +706,7 @@ func BestOfN(tracker ScoreNode, ratio float64, delegate NodeSelectorInit) NodeSe
 		defer bestOfNTask(&ctx)(nil)
 
 		wrappedSelector := delegate(ctx, nodes, filter)
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
 			defer bestOfNSelectionTask(&ctx)(&err)
 			getSuccessRate := tracker.Get(requester)
 
@@ -741,7 +741,7 @@ func EnoughFast(tracker UploadSuccessTracker, ratio float64, splitLine float64, 
 	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		defer enoughFastTask(&ctx)(nil)
 		wrappedSelector := delegate(ctx, nodes, filter)
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
 			defer enoughFastSelectionTask(&ctx)(&err)
 			getSuccessRate := tracker.Get(requester)
 
@@ -797,7 +797,7 @@ func DualSelector(fraction float64, first NodeSelectorInit, second NodeSelectorI
 		}
 		firstSelector := first(ctx, nodes, filter)
 		secondSelector := second(ctx, nodes, filter)
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
 			defer dualSelectorSelectionTask(&ctx)(&err)
 
 			firstSelectionCount := RoundWithProbability(float64(n) * fraction)
@@ -903,7 +903,7 @@ func WeightedSelector(weightFunc NodeValue, initFilter NodeFilter) NodeSelectorI
 				overfull = append(overfull, of)
 			}
 		}
-		return func(ctx context.Context, requester storj.NodeID, selectN int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, selectN int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
 			defer weightedSelectorSelectionTask(&ctx)(&err)
 			var selected []*SelectedNode
 			if n == 0 {
@@ -965,7 +965,7 @@ func Reduce(delegate NodeSelectorInit, sortOrder CompareNodes, needMoreChecks ..
 		}
 
 		if sortOrder != nil {
-			slices.SortFunc(nodes, sortOrder(storj.NodeID{}))
+			slices.SortFunc(nodes, sortOrder(storxnetwork.NodeID{}))
 		}
 		var filtered []*SelectedNode
 		for _, node := range nodes {
@@ -1007,7 +1007,7 @@ func MultiSelector(selectors ...NodeSelectorInit) NodeSelectorInit {
 		for _, delegate := range selectors {
 			all = append(all, delegate(ctx, nodes, filter))
 		}
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (nodes []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (nodes []*SelectedNode, err error) {
 			for _, delegate := range all {
 				selectedNodes, selectErr := delegate(ctx, requester, n/len(selectors), excluded, alreadySelected)
 				if err != nil {
@@ -1024,7 +1024,7 @@ func MultiSelector(selectors ...NodeSelectorInit) NodeSelectorInit {
 func FixedSelector(fixed int64, delegate NodeSelectorInit) NodeSelectorInit {
 	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		selector := delegate(ctx, nodes, filter)
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (nodes []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storxnetwork.NodeID, n int, excluded []storxnetwork.NodeID, alreadySelected []*SelectedNode) (nodes []*SelectedNode, err error) {
 			return selector(ctx, requester, int(fixed), excluded, alreadySelected)
 		}
 	}

@@ -8,8 +8,8 @@ import (
 
 	"github.com/zeebo/assert"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSatStore(t *testing.T) {
@@ -30,7 +30,7 @@ func TestSatStore(t *testing.T) {
 	assert.NoError(t, s2.Set(ctx, sat1, b("s2 sat1")))
 	assert.NoError(t, s2.Set(ctx, sat2, b("s2 sat2")))
 
-	check := func(s *SatelliteStore, sat storj.NodeID, exp string) {
+	check := func(s *SatelliteStore, sat storxnetwork.NodeID, exp string) {
 		t.Helper()
 		got, err := s.Get(ctx, sat)
 		assert.NoError(t, err)
@@ -43,9 +43,9 @@ func TestSatStore(t *testing.T) {
 	check(s2, sat2, "s2 sat2")
 
 	// range should work
-	collect := func(s *SatelliteStore) map[storj.NodeID]string {
-		out := make(map[storj.NodeID]string)
-		assert.NoError(t, s.Range(func(sat storj.NodeID, data []byte) error {
+	collect := func(s *SatelliteStore) map[storxnetwork.NodeID]string {
+		out := make(map[storxnetwork.NodeID]string)
+		assert.NoError(t, s.Range(func(sat storxnetwork.NodeID, data []byte) error {
 			if _, ok := out[sat]; ok {
 				t.Fatal("duplicate satellite")
 			}
@@ -55,11 +55,11 @@ func TestSatStore(t *testing.T) {
 		return out
 	}
 
-	assert.DeepEqual(t, collect(s1), map[storj.NodeID]string{
+	assert.DeepEqual(t, collect(s1), map[storxnetwork.NodeID]string{
 		sat1: "s1 sat1",
 		sat2: "s1 sat2",
 	})
-	assert.DeepEqual(t, collect(s2), map[storj.NodeID]string{
+	assert.DeepEqual(t, collect(s2), map[storxnetwork.NodeID]string{
 		sat1: "s2 sat1",
 		sat2: "s2 sat2",
 	})
@@ -67,7 +67,7 @@ func TestSatStore(t *testing.T) {
 	// update should work
 	assert.NoError(t, s1.Set(ctx, sat1, b("s1 sat1 updated")))
 	check(s1, sat1, "s1 sat1 updated")
-	assert.DeepEqual(t, collect(s1), map[storj.NodeID]string{
+	assert.DeepEqual(t, collect(s1), map[storxnetwork.NodeID]string{
 		sat1: "s1 sat1 updated",
 		sat2: "s1 sat2",
 	})

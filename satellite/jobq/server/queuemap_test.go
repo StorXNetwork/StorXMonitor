@@ -13,14 +13,14 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/jobq/jobqueue"
-	"storj.io/storj/satellite/jobq/server"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/jobqueue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/server"
 )
 
 func TestQueueMap(t *testing.T) {
 	log := zaptest.NewLogger(t)
-	qm := server.NewQueueMap(log, func(pc storj.PlacementConstraint) (*jobqueue.Queue, error) {
+	qm := server.NewQueueMap(log, func(pc storxnetwork.PlacementConstraint) (*jobqueue.Queue, error) {
 		return jobqueue.NewQueue(log.Named(fmt.Sprintf("queue-for-placement-%d", pc)), time.Hour, 100, 0, 10)
 	})
 	defer qm.StopAll()
@@ -47,7 +47,7 @@ func TestQueueMap(t *testing.T) {
 	for i := 0; i < 30; i++ {
 		i := i
 		group.Go(func() error {
-			q, err := qm.GetQueue(storj.PlacementConstraint(i))
+			q, err := qm.GetQueue(storxnetwork.PlacementConstraint(i))
 			if err != nil {
 				return err
 			}

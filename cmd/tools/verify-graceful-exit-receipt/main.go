@@ -15,13 +15,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func main() {
@@ -121,8 +121,8 @@ func handleExitCompleted(ctx context.Context, satelliteurl string, data []byte) 
 	return nil
 }
 
-func fetchSigneeFromSatellite(ctx context.Context, satelliteurl string, id storj.NodeID) (signing.Signee, error) {
-	satellite, err := storj.ParseNodeURL(satelliteurl)
+func fetchSigneeFromSatellite(ctx context.Context, satelliteurl string, id storxnetwork.NodeID) (signing.Signee, error) {
+	satellite, err := storxnetwork.ParseNodeURL(satelliteurl)
 	if err != nil {
 		return nil, fmt.Errorf("does not seem to be a node url: %w", err)
 	}

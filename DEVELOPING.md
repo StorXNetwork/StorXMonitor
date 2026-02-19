@@ -6,19 +6,19 @@ To provide useful information for developers and maintainers of Storj.
 
 ## Development
 
-[`storj-up`](https://github.com/storj/up) provides a convenient way to configure and spin up a cluster locally for
-active development. In addition to `storj-up`, you will need the following tools:
+[`storxnetwork-up`](https://github.com/storxnetwork/up) provides a convenient way to configure and spin up a cluster locally for
+active development. In addition to `storxnetwork-up`, you will need the following tools:
 
 - TODO
 
 ## Version Control and Code Review
 
-All of our source code is hosted on [GitHub](https://github.com/storj) and most of our reviews are done in
-[Gerrit](https://review.dev.storj.tools). Reviews require 2 `Code Review +2` and a passing build in order to be merged.
+All of our source code is hosted on [GitHub](https://github.com/storxnetwork) and most of our reviews are done in
+[Gerrit](https://review.dev.storxnetwork.tools). Reviews require 2 `Code Review +2` and a passing build in order to be merged.
 
 ## Continuous Integration
 
-Currently, builds are performed by a [Jenkins](https://build.dev.storj.io) cluster hosted in Google Cloud. Because of
+Currently, builds are performed by a [Jenkins](https://build.dev.storxnetwork.io) cluster hosted in Google Cloud. Because of
 issues with how Google Cloud connects their disk to your virtual machine, we've disabled debug logging in our tests for
 the time being. If a build fails and the failure message is insufficient for troubleshooting the test failure, rerunning
 the test locally will output debug logs to aid in the troubleshooting.
@@ -32,9 +32,9 @@ repository, many engineers at Storj prefer Gerrit for code reviews. For an overv
 the [Intro to Gerrit Walkthrough][gerrit-walkthrough-link]. Be sure to [sign in][] to Gerrit before attempting to
 contribute any changes. You'll likely need to upload an SSH key in order to push any changes.
 
-[sign in]: https://review.dev.storj.tools
-[gerrit-link]: https://review.dev.storj.tools/Documentation/index.html
-[gerrit-walkthrough-link]: https://review.dev.storj.tools/Documentation/intro-gerrit-walkthrough-github.html
+[sign in]: https://review.dev.storxnetwork.tools
+[gerrit-link]: https://review.dev.storxnetwork.tools/Documentation/index.html
+[gerrit-walkthrough-link]: https://review.dev.storxnetwork.tools/Documentation/intro-gerrit-walkthrough-github.html
 
 Below, you'll find several common workflows that I've used when contributing code.
 
@@ -44,11 +44,11 @@ When a project uses Gerrit, there is some additional work that needs to be done 
 
 1. Clone the repository.
    ```shell
-   git clone git@github.com:storj/storj.git && cd storj
+   git clone git@github.com:storxnetwork/storxnetwork.git && cd storxnetwork
    ```
 2. Setup Gerrit commit hook and aliases.
    ```shell
-   curl -L storj.io/clone | sh
+   curl -L storxnetwork.io/clone | sh
    ```
 
 That should be it. At this point, the repository should be setup properly for Gerrit.
@@ -84,7 +84,7 @@ Change-Id: {changeID}
   before and after ([example][performance-example-link]).
 - `{changeID}` refers to the automatically generated change id.
 
-[performance-example-link]: https://github.com/storj/picobuf/commit/1d3412eb3ac13a476e56fa0e732552ed2ee89ecf
+[performance-example-link]: https://github.com/storxnetwork/picobuf/commit/1d3412eb3ac13a476e56fa0e732552ed2ee89ecf
 
 To produce this commit message, I find it easiest to start with the scope and message and then amend the commit to add
 the detail. This allows the commit hook to automatically add the change id before filling in the longer detail of the
@@ -300,35 +300,35 @@ _**Note:** While you can run the full suite of tests locally, you will likely be
 By starting with the tests from packages you have modified, you can build a great deal of confidence in your changes
 before pushing them up for review._
 
-## Developing locally with `storj-up`
+## Developing locally with `storxnetwork-up`
 
-Following the instructions in the `storj-up` project `README`, the following will deploy a copy of the stack.
+Following the instructions in the `storxnetwork-up` project `README`, the following will deploy a copy of the stack.
 
 ```shell
-storj-up init
+storxnetwork-up init
 docker compose up -d
 ```
 
-Outside the automation `storj-up` provides, there are a handful of manual changes that can be made to support testing
+Outside the automation `storxnetwork-up` provides, there are a handful of manual changes that can be made to support testing
 and developing against different portions of the stack. In the following sections, we demonstrate how this can be done
 using the satellite process as an example, but the same process should work with many of our other processes.
 
 ### Testing backend changes
 
-To test local backend changes, all you need to do is tell `storj-up` to mount a local binary for those containers.
+To test local backend changes, all you need to do is tell `storxnetwork-up` to mount a local binary for those containers.
 Before mounting the local binary, you'll need to ensure your local binary is up-to-date.
 
 ```shell
 # on Linux
 go install ./cmd/satellite      
-storj-up local-bin satellite-core satellite-admin satellite-api
+storxnetwork-up local-bin satellite-core satellite-admin satellite-api
 
 # on OSX
 GOOS=linux GOARCH=amd64 go install ./cmd/satellite
-storj-up local-bin -s linux_amd64 satellite-core satellite-admin satellite-api
+storxnetwork-up local-bin -s linux_amd64 satellite-core satellite-admin satellite-api
 ```
 
-Once `storj-up` completes, you'll need to redeploy the containers to pick up the new configuration.
+Once `storxnetwork-up` completes, you'll need to redeploy the containers to pick up the new configuration.
 
 ```shell
 docker compose up -d
@@ -340,17 +340,17 @@ changes.
 ```shell
 # on Linux
 go install ./cmd/satellite
-docker restart storj-satellite-core-1 storj-satellite-api-1 storj-satellite-admin-1
+docker restart storxnetwork-satellite-core-1 storxnetwork-satellite-api-1 storxnetwork-satellite-admin-1
 
 # on OSX
 GOOS=linux GOARCH=amd64 go install ./cmd/satellite
-docker restart storj-satellite-core-1 storj-satellite-api-1 storj-satellite-admin-1
+docker restart storxnetwork-satellite-core-1 storxnetwork-satellite-api-1 storxnetwork-satellite-admin-1
 ```
 
 _Aside_ - A few more notes here on OSX:
 
 - Ensure your `GOPATH` is mountable by Docker. On OSX, only certain folders are mounted into the VM so you'll need to
-  make sure it falls under one of those. Otherwise, `storj-up` will attempt to mount a directory under `GOBIN` that is
+  make sure it falls under one of those. Otherwise, `storxnetwork-up` will attempt to mount a directory under `GOBIN` that is
   unavailable on the VM.
 - Even if you're on a Mac M1 (like me), you should target an `amd64` architecture. OSX provides some supporting tools
   that allows you to run `amd64` workloads on `arm64` processors.
@@ -359,12 +359,12 @@ _Aside_ - A few more notes here on OSX:
 
 In order to support mounting local web builds into the container, manual changes needed to be made to the
 `satellite-api` volumes block of the `docker-compose.yaml` file. The following block adds a bind mount for the web
-assets. Be sure to replace `${SOURCE_DIR}` with the path to the storj source repository (`pwd` on OSX and Linux).
+assets. Be sure to replace `${SOURCE_DIR}` with the path to the storxnetwork source repository (`pwd` on OSX and Linux).
 
 ```yaml
     - type: bind
       source: ${SOURCE_DIR}/web/satellite/dist/
-      target: /var/lib/storj/storj/web/satellite/dist/
+      target: /var/lib/storxnetwork/storxnetwork/web/satellite/dist/
       bind:
         create_host_path: true
 ```
@@ -390,7 +390,7 @@ Any changes to the `static` directory (including wasm) will require an additiona
 ```yaml
     - type: bind
       source: ${SOURCE_DIR}/web/satellite/static/
-      target: /var/lib/storj/storj/web/satellite/static/
+      target: /var/lib/storxnetwork/storxnetwork/web/satellite/static/
       bind:
         create_host_path: true
 ```

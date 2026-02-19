@@ -13,17 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
-	"storj.io/storj/storagenode"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop/rangedlooptest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 type observerConfiguration struct {
@@ -125,14 +125,14 @@ func TestGarbageCollection(t *testing.T) {
 			segmentToKeep := segments[0]
 			segmentToDelete := segments[1]
 
-			findPiece := func(segment metabase.Segment) storj.PieceID {
+			findPiece := func(segment metabase.Segment) storxnetwork.PieceID {
 				for _, p := range segment.Pieces {
 					if p.StorageNode == targetNode.ID() {
 						return segment.RootPieceID.Derive(p.StorageNode, int32(p.Number))
 					}
 				}
 				require.Fail(t, "piece id not found")
-				return storj.PieceID{}
+				return storxnetwork.PieceID{}
 			}
 
 			keptPieceID := findPiece(segmentToKeep)
@@ -491,7 +491,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 	})
 }
 
-func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, data []byte) string {
+func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storxnetwork.Path, data []byte) string {
 	_, found := testuplink.GetMaxSegmentSize(ctx)
 	if !found {
 		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)
@@ -516,7 +516,7 @@ func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.
 	return info.UploadID
 }
 
-func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, streamID string) {
+func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storxnetwork.Path, streamID string) {
 	_, found := testuplink.GetMaxSegmentSize(ctx)
 	if !found {
 		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)
@@ -591,20 +591,20 @@ func BenchmarkGarbageCollection(b *testing.B) {
 var observerDurations map[rangedloop.Observer]time.Duration
 
 type mockOverlay struct {
-	pieceCounts map[storj.NodeID]int64
+	pieceCounts map[storxnetwork.NodeID]int64
 }
 
-func (o *mockOverlay) ActiveNodesPieceCounts(context.Context) (map[storj.NodeID]int64, error) {
+func (o *mockOverlay) ActiveNodesPieceCounts(context.Context) (map[storxnetwork.NodeID]int64, error) {
 	return o.pieceCounts, nil
 }
 
-func randomSegments(nodesCount, segmentsCount, piecesPerSegment int) ([]rangedloop.Segment, map[storj.NodeID]int64) {
-	var nodes []storj.NodeID
+func randomSegments(nodesCount, segmentsCount, piecesPerSegment int) ([]rangedloop.Segment, map[storxnetwork.NodeID]int64) {
+	var nodes []storxnetwork.NodeID
 	for i := 0; i < nodesCount; i++ {
 		nodes = append(nodes, testrand.NodeID())
 	}
 
-	pieceCounts := make(map[storj.NodeID]int64)
+	pieceCounts := make(map[storxnetwork.NodeID]int64)
 
 	startDate := time.Date(2000, time.August, 8, 0, 0, 0, 0, time.UTC)
 	var segments []rangedloop.Segment

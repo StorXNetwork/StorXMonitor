@@ -31,36 +31,36 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/http/requestid"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/http/requestid"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/abtesting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consoleauth/csrf"
-	"storj.io/storj/satellite/console/consoleauth/sso"
-	"storj.io/storj/satellite/console/consoleservice"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/privateapi"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/socialmedia"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
-	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/console/consoleweb/staticapi"
-	"storj.io/storj/satellite/console/pushnotifications"
-	"storj.io/storj/satellite/developer"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/mailservice/hubspotmails"
-	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/tenancy"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/abtesting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/privateapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/staticapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice/hubspotmails"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -145,21 +145,21 @@ type Config struct {
 	AuthCookieDomain string `help:"optional domain for cookies to use" default:""`
 
 	ContactInfoURL                  string        `help:"url link to contacts page" default:"https://forum.storx.io"`
-	ScheduleMeetingURL              string        `help:"url link to schedule a meeting with a storj representative" default:"https://meetings.hubspot.com/tom144/meeting-with-tom-troy"`
+	ScheduleMeetingURL              string        `help:"url link to schedule a meeting with a storxnetwork representative" default:"https://meetings.hubspot.com/tom144/meeting-with-tom-troy"`
 	LetUsKnowURL                    string        `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                             string        `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName                   string        `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator               string        `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL           string        `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
+	TermsAndConditionsURL           string        `help:"url link to terms and conditions page" default:"https://www.storxnetwork.io/terms-of-service/"`
 	AccountActivationRedirectURL    string        `help:"url link for account activation redirect" default:""`
-	PartneredSatellites             Satellites    `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
-	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	PartneredSatellites             Satellites    `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storxnetwork.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storxnetwork.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storxnetwork.io\"}]"`
+	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storxnetwork.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storxnetwork.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
 	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string        "help:\"url link for beta satellite feedback\" default:\"\""
 	BetaSatelliteSupportURL         string        "help:\"url link for beta satellite support\" default:\"\""
-	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
+	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storxnetwork.io/"`
 	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"true"`
 	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool          `help:"indicates if file browser flow is disabled" default:"false"`
@@ -171,10 +171,10 @@ type Config struct {
 	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	RestAPIKeysUIEnabled            bool          `help:"whether the rest API keys UI is enabled" default:"false"`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
-	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	HomepageURL                     string        `help:"url link to storxnetwork.io homepage" default:"https://www.storxnetwork.io"`
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	CloudGpusEnabled                bool          `help:"whether to enable cloud GPU functionality" default:"false"`
-	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
+	NativeTokenPaymentsEnabled      bool          `help:"indicates if storxnetwork native token payments system is enabled" default:"false"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
@@ -209,7 +209,7 @@ type Config struct {
 
 	// CSP configs
 	CSPEnabled       bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	FrameAncestors   string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
+	FrameAncestors   string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storxnetwork.io"`
 	ImgSrcSuffix     string `help:"additional values for Content Security Policy img-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
 	ConnectSrcSuffix string `help:"additional values for Content Security Policy connect-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io"`
 	MediaSrcSuffix   string `help:"additional values for Content Security Policy media-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
@@ -264,7 +264,7 @@ type Server struct {
 	ipRateLimiter       *web.RateLimiter
 	userIDRateLimiter   *web.RateLimiter
 	addCardRateLimiter  *web.RateLimiter
-	nodeURL             storj.NodeURL
+	nodeURL             storxnetwork.NodeURL
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
@@ -293,7 +293,7 @@ type Server struct {
 func NewServer(logger *zap.Logger, config Config, service *console.Service, consoleService *consoleservice.Service, oidcService *oidc.Service,
 	mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, analytics *analytics.Service, abTesting *abtesting.Service,
 	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
-	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
+	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storxnetwork.NodeURL,
 	analyticsConfig analytics.Config, notificationService *pushnotifications.Service, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
 	entitlementsEnabled bool, ssoEnabled bool) *Server {
@@ -871,7 +871,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 // It should only be used with RunFrontEnd and Close. We plan on moving this to its own type, but
 // right now since we have a feature flag to allow the backend server to continue serving the frontend, it
 // makes it easier if they are the same type.
-func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener, nodeURL storj.NodeURL, csrfService *csrf.Service, stripePublicKey string) (server *Server, err error) {
+func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener, nodeURL storxnetwork.NodeURL, csrfService *csrf.Service, stripePublicKey string) (server *Server, err error) {
 	server = &Server{
 		log:             logger,
 		config:          config,

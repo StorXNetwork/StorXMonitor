@@ -18,21 +18,21 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair"
-	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/shared/location"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/eventkit"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 var (
@@ -84,11 +84,11 @@ type FetchResultReport struct {
 
 // participatingNodesCache alias for making the code a bit nicer below.
 // This chaches the nodes retrieved from the database to upload repaired pieces.
-type participatingNodesCache = sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
+type participatingNodesCache = sync2.ReadCacheOf[map[storxnetwork.NodeID]*nodeselection.SelectedNode]
 
 // nodesForRepairCache alias for making the code a bit nicer below.
 // This caches the nodes retrieved from the database for getting repair orders.
-type nodesForRepairCache = sync2.ReadCacheOf[map[storj.NodeID]*overlay.NodeReputation]
+type nodesForRepairCache = sync2.ReadCacheOf[map[storxnetwork.NodeID]*overlay.NodeReputation]
 
 // SegmentRepairer for segments.
 type SegmentRepairer struct {
@@ -189,7 +189,7 @@ func NewSegmentRepairer(
 
 	if config.NodesForRepairCacheEnabled {
 		repairer.nodesForRepairCache, err = sync2.NewReadCache(
-			config.NodesForRepairCacheInterval, config.NodesForRepairCacheStale, func(ctx context.Context) (map[storj.NodeID]*overlay.NodeReputation, error) {
+			config.NodesForRepairCacheInterval, config.NodesForRepairCacheStale, func(ctx context.Context) (map[storxnetwork.NodeID]*overlay.NodeReputation, error) {
 				return overlaysvc.GetAllOnlineNodesForRepair(ctx, repairer.onlineWindow)
 			})
 		if err != nil {
@@ -267,7 +267,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	stats.repairAttempts.Mark(1)
 	stats.repairSegmentSize.Observe(int64(segment.EncryptedSize))
 
-	allNodeIDs := make([]storj.NodeID, len(segment.Pieces))
+	allNodeIDs := make([]storxnetwork.NodeID, len(segment.Pieces))
 	for i, p := range segment.Pieces {
 		allNodeIDs[i] = p.StorageNode
 	}
@@ -453,7 +453,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		return false, overlayQueryError.Wrap(err)
 	}
 
-	oldRedundancyStrategy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+	oldRedundancyStrategy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 	if err != nil {
 		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)
 	}
@@ -530,9 +530,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			}
 			stats.repairTooManyNodesFailed.Mark(1)
 
-			failedNodeIDs := make([]storj.NodeID, 0, len(piecesReport.Failed))
-			offlineNodeIDs := make([]storj.NodeID, 0, len(piecesReport.Offline))
-			timedOutNodeIDs := make([]storj.NodeID, 0, len(piecesReport.Contained))
+			failedNodeIDs := make([]storxnetwork.NodeID, 0, len(piecesReport.Failed))
+			offlineNodeIDs := make([]storxnetwork.NodeID, 0, len(piecesReport.Offline))
+			timedOutNodeIDs := make([]storxnetwork.NodeID, 0, len(piecesReport.Contained))
 			unknownErrs := make([]string, 0, len(piecesReport.Unknown))
 			for _, outcome := range piecesReport.Failed {
 				failedNodeIDs = append(failedNodeIDs, outcome.Piece.StorageNode)
@@ -651,7 +651,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	}
 
 	// only report audit result when segment can be successfully downloaded
-	cachedNodesReputation := make(map[storj.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
+	cachedNodesReputation := make(map[storxnetwork.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
 	for id, info := range cachedNodesInfo {
 		cachedNodesReputation[id] = info.Reputation
 	}
@@ -707,7 +707,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
 
-	newRedundancyStrategy, err := eestream.NewRedundancyStrategyFromStorj(newRedundancy)
+	newRedundancyStrategy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(newRedundancy)
 	if err != nil {
 		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)
 	}
@@ -882,7 +882,7 @@ func (repairer *SegmentRepairer) checkIfSegmentAltered(ctx context.Context, oldS
 	return nil
 }
 
-func (repairer *SegmentRepairer) getStats(r storj.RedundancyScheme, p storj.PlacementConstraint) *stats {
+func (repairer *SegmentRepairer) getStats(r storxnetwork.RedundancyScheme, p storxnetwork.PlacementConstraint) *stats {
 	return repairer.statsCollector.getStats(getRSString(r), getPlacementString(p))
 }
 
@@ -976,7 +976,7 @@ func (repairer *SegmentRepairer) AdminFetchPieces(
 	return pieceInfos, nil
 }
 
-func (repairer *SegmentRepairer) getParticipatingNodes(ctx context.Context, nodes []storj.NodeID) ([]nodeselection.SelectedNode, error) {
+func (repairer *SegmentRepairer) getParticipatingNodes(ctx context.Context, nodes []storxnetwork.NodeID) ([]nodeselection.SelectedNode, error) {
 	if repairer.participatingNodesCache == nil {
 		return repairer.overlay.GetParticipatingNodesForRepair(ctx, nodes, repairer.onlineWindow)
 	}
@@ -998,13 +998,13 @@ func (repairer *SegmentRepairer) getParticipatingNodes(ctx context.Context, node
 	return result, nil
 }
 
-func (repairer *SegmentRepairer) fetchParticipatingNodes(ctx context.Context) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
+func (repairer *SegmentRepairer) fetchParticipatingNodes(ctx context.Context) (map[storxnetwork.NodeID]*nodeselection.SelectedNode, error) {
 	nodes, err := repairer.overlay.GetAllParticipatingNodesForRepair(ctx, repairer.onlineWindow)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	selected := make(map[storj.NodeID]*nodeselection.SelectedNode, len(nodes))
+	selected := make(map[storxnetwork.NodeID]*nodeselection.SelectedNode, len(nodes))
 	for i := range nodes {
 		selected[nodes[i].ID] = &nodes[i]
 	}
@@ -1021,7 +1021,7 @@ func (repairer *SegmentRepairer) RefreshParticipatingNodesCache(ctx context.Cont
 	return err
 }
 
-func (repairer *SegmentRepairer) getNodesForRepair(ctx context.Context, nodes []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
+func (repairer *SegmentRepairer) getNodesForRepair(ctx context.Context, nodes []storxnetwork.NodeID) (map[storxnetwork.NodeID]*overlay.NodeReputation, error) {
 	if repairer.nodesForRepairCache == nil {
 		return repairer.overlay.GetOnlineNodesForRepair(ctx, nodes, repairer.onlineWindow)
 	}

@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/xxh3"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 )
 
 // TableKind is an enumeration of the different table kinds.

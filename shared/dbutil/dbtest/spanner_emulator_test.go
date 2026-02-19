@@ -6,8 +6,8 @@ package dbtest_test
 import (
 	"testing"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
 )
 
 func TestStartSpannerEmulator(t *testing.T) {

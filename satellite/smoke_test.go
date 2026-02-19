@@ -10,15 +10,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity"
-	"storj.io/storj/private/server"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/shared/debug"
-	"storj.io/storj/shared/mudplanet"
-	"storj.io/storj/shared/mudplanet/satellitetest"
-	"storj.io/storj/shared/mudplanet/uplinktest"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/debug"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet/satellitetest"
+	"github.com/StorXNetwork/StorXMonitor/shared/mudplanet/uplinktest"
+	"github.com/StorXNetwork/uplink"
 )
 
 // TestApiModules tests if API modules are correctly set up.

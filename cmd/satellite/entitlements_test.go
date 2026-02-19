@@ -16,16 +16,16 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestSetEntitlement_UserEmail(t *testing.T) {
@@ -73,7 +73,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 		// Create a project for user4 with custom default placement.
 		user4Project, err := sat.AddProject(ctx, user4.ID, "user4project")
 		require.NoError(t, err)
-		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultPlacement(ctx, user4Project.ID, storj.PlacementConstraint(10)))
+		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultPlacement(ctx, user4Project.ID, storxnetwork.PlacementConstraint(10)))
 
 		entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
 
@@ -85,7 +85,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 			}
 			t.Run("SetNewBucketPlacements", func(t *testing.T) {
 				args.action = actionSetNewBucketPlacements
-				args.newPlacements = []storj.PlacementConstraint{5, 12}
+				args.newPlacements = []storxnetwork.PlacementConstraint{5, 12}
 
 				err = processUserEmail(ctx, user1.Email, args, true)
 				require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				// Verify that entitlements were set for user1's project
 				features, err := entService.Projects().GetByPublicID(ctx, user1Project.PublicID)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{5, 12}, features.NewBucketPlacements)
+				require.EqualValues(t, []storxnetwork.PlacementConstraint{5, 12}, features.NewBucketPlacements)
 			})
 
 			t.Run("SetPlacementProductMap", func(t *testing.T) {
@@ -158,7 +158,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 
 			t.Run("SetNewBucketPlacements", func(t *testing.T) {
 				args.action = actionSetNewBucketPlacements
-				args.newPlacements = []storj.PlacementConstraint{1, 2}
+				args.newPlacements = []storxnetwork.PlacementConstraint{1, 2}
 
 				err = processUserEmail(ctx, user2.Email, args, true)
 				require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				for _, publicID := range projectPublicIDs {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
-					require.EqualValues(t, []storj.PlacementConstraint{1, 2}, features.NewBucketPlacements)
+					require.EqualValues(t, []storxnetwork.PlacementConstraint{1, 2}, features.NewBucketPlacements)
 				}
 			})
 
@@ -202,7 +202,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 			t.Run("SetNewBucketPlacements", func(t *testing.T) {
 				args.action = actionSetNewBucketPlacements
 				args.newPlacements = nil // Use default logic
-				args.allowedPlacements = []storj.PlacementConstraint{3, 4}
+				args.allowedPlacements = []storxnetwork.PlacementConstraint{3, 4}
 
 				err = processUserEmail(ctx, user4.Email, args, true)
 				require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				// Verify that user4's project got its custom default placement (10)
 				features, err := entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{10}, features.NewBucketPlacements)
+				require.EqualValues(t, []storxnetwork.PlacementConstraint{10}, features.NewBucketPlacements)
 			})
 
 			t.Run("SetPlacementProductMap", func(t *testing.T) {
@@ -321,7 +321,7 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 		require.NoError(t, err)
 
 		// Set custom default placement for user3's project.
-		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultPlacement(ctx, user3Project.ID, storj.PlacementConstraint(10)))
+		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultPlacement(ctx, user3Project.ID, storxnetwork.PlacementConstraint(10)))
 
 		entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
 		args := processingArgs{
@@ -334,7 +334,7 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 		t.Run("ProcessAllActiveUsers", func(t *testing.T) {
 			t.Run("SetNewBucketPlacements", func(t *testing.T) {
 				args.action = actionSetNewBucketPlacements
-				args.newPlacements = []storj.PlacementConstraint{5, 12}
+				args.newPlacements = []storxnetwork.PlacementConstraint{5, 12}
 
 				err = processAllUsers(ctx, args)
 				require.NoError(t, err)
@@ -343,7 +343,7 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 				for _, publicID := range activeProjects {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
-					require.EqualValues(t, []storj.PlacementConstraint{5, 12}, features.NewBucketPlacements)
+					require.EqualValues(t, []storxnetwork.PlacementConstraint{5, 12}, features.NewBucketPlacements)
 				}
 			})
 
@@ -380,7 +380,7 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 			t.Run("SetNewBucketPlacements", func(t *testing.T) {
 				args.action = actionSetNewBucketPlacements
 				args.newPlacements = nil // use default logic
-				args.allowedPlacements = []storj.PlacementConstraint{3, 4}
+				args.allowedPlacements = []storxnetwork.PlacementConstraint{3, 4}
 
 				err = processAllUsers(ctx, args)
 				require.NoError(t, err)
@@ -390,13 +390,13 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 				for _, publicID := range defaultPlacementProjects {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
-					require.EqualValues(t, []storj.PlacementConstraint{3, 4}, features.NewBucketPlacements)
+					require.EqualValues(t, []storxnetwork.PlacementConstraint{3, 4}, features.NewBucketPlacements)
 				}
 
 				// Verify that user3's project got its custom default placement (10).
 				features, err := entService.Projects().GetByPublicID(ctx, user3Project.PublicID)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{10}, features.NewBucketPlacements)
+				require.EqualValues(t, []storxnetwork.PlacementConstraint{10}, features.NewBucketPlacements)
 			})
 
 			t.Run("SetPlacementProductMap", func(t *testing.T) {
@@ -426,12 +426,12 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 			args.action = actionSetNewBucketPlacements
 			// Reset entitlements first.
 			for _, publicID := range activeProjects {
-				err = entService.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, []storj.PlacementConstraint{storj.DefaultPlacement})
+				err = entService.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, []storxnetwork.PlacementConstraint{storxnetwork.DefaultPlacement})
 				require.NoError(t, err)
 			}
 
-			args.newPlacements = []storj.PlacementConstraint{7, 8, 9}
-			args.allowedPlacements = []storj.PlacementConstraint{1, 2, 3} // These should be ignored
+			args.newPlacements = []storxnetwork.PlacementConstraint{7, 8, 9}
+			args.allowedPlacements = []storxnetwork.PlacementConstraint{1, 2, 3} // These should be ignored
 
 			err = processAllUsers(ctx, args)
 			require.NoError(t, err)
@@ -440,7 +440,7 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 			for _, publicID := range activeProjects {
 				features, err := entService.Projects().GetByPublicID(ctx, publicID)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{7, 8, 9}, features.NewBucketPlacements)
+				require.EqualValues(t, []storxnetwork.PlacementConstraint{7, 8, 9}, features.NewBucketPlacements)
 			}
 		})
 	})
@@ -511,7 +511,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args.newPlacements = []storj.PlacementConstraint{5, 12}
+			args.newPlacements = []storxnetwork.PlacementConstraint{5, 12}
 
 			err = processCSVFile(ctx, csvPath, args)
 			require.NoError(t, err)
@@ -520,14 +520,14 @@ func TestSetEntitlement_CSV(t *testing.T) {
 			for _, publicID := range activeProjects {
 				features, err := entService.Projects().GetByPublicID(ctx, publicID)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{5, 12}, features.NewBucketPlacements)
+				require.EqualValues(t, []storxnetwork.PlacementConstraint{5, 12}, features.NewBucketPlacements)
 			}
 		})
 
 		t.Run("ValidCSVWithoutHeader", func(t *testing.T) {
 			// Reset entitlements first.
 			for _, publicID := range activeProjects {
-				err = entService.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, []storj.PlacementConstraint{storj.DefaultPlacement})
+				err = entService.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, []storxnetwork.PlacementConstraint{storxnetwork.DefaultPlacement})
 				require.NoError(t, err)
 			}
 
@@ -537,7 +537,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args.newPlacements = []storj.PlacementConstraint{3, 4}
+			args.newPlacements = []storxnetwork.PlacementConstraint{3, 4}
 
 			err = processCSVFile(ctx, csvPath, args)
 			require.NoError(t, err)
@@ -546,14 +546,14 @@ func TestSetEntitlement_CSV(t *testing.T) {
 			for _, publicID := range activeProjects {
 				features, err := entService.Projects().GetByPublicID(ctx, publicID)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{3, 4}, features.NewBucketPlacements)
+				require.EqualValues(t, []storxnetwork.PlacementConstraint{3, 4}, features.NewBucketPlacements)
 			}
 		})
 
 		t.Run("CSVWithValidEmailsOnly", func(t *testing.T) {
 			// Reset entitlements first.
 			for _, publicID := range activeProjects {
-				err = entService.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, []storj.PlacementConstraint{storj.DefaultPlacement})
+				err = entService.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, []storxnetwork.PlacementConstraint{storxnetwork.DefaultPlacement})
 				require.NoError(t, err)
 			}
 
@@ -563,7 +563,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args.newPlacements = []storj.PlacementConstraint{7, 8}
+			args.newPlacements = []storxnetwork.PlacementConstraint{7, 8}
 
 			err = processCSVFile(ctx, csvPath, args)
 			require.NoError(t, err)
@@ -572,7 +572,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 			for _, publicID := range activeProjects {
 				features, err := entService.Projects().GetByPublicID(ctx, publicID)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{7, 8}, features.NewBucketPlacements)
+				require.EqualValues(t, []storxnetwork.PlacementConstraint{7, 8}, features.NewBucketPlacements)
 			}
 		})
 
@@ -583,7 +583,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args.newPlacements = []storj.PlacementConstraint{9, 10}
+			args.newPlacements = []storxnetwork.PlacementConstraint{9, 10}
 
 			// Should return error because of invalid email addresses.
 			err = processCSVFile(ctx, csvPath, args)
@@ -598,7 +598,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args.newPlacements = []storj.PlacementConstraint{11, 12}
+			args.newPlacements = []storxnetwork.PlacementConstraint{11, 12}
 
 			// Should return error because of nonexistent user.
 			err = processCSVFile(ctx, csvPath, args)
@@ -613,7 +613,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args.newPlacements = []storj.PlacementConstraint{13, 14}
+			args.newPlacements = []storxnetwork.PlacementConstraint{13, 14}
 
 			// Should return error because user3 is inactive.
 			err = processCSVFile(ctx, csvPath, args)
@@ -694,7 +694,7 @@ func TestSetEntitlement_Validation(t *testing.T) {
 				config.Console.Placement.SelfServeDetails = []console.PlacementDetail{
 					{ID: 0},
 				}
-				config.Console.Placement.AllowedPlacementIdsForNewProjects = []storj.PlacementConstraint{0}
+				config.Console.Placement.AllowedPlacementIdsForNewProjects = []storxnetwork.PlacementConstraint{0}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

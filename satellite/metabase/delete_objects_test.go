@@ -9,12 +9,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestDeleteObjects(t *testing.T) {
@@ -109,7 +109,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: obj2.StreamVersionID(),
 									Status:          metabase.CommittedUnversioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                obj1.ObjectKey,
@@ -118,7 +118,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedUnversioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj1.SegmentCount + obj2.SegmentCount),
@@ -171,22 +171,22 @@ func TestDeleteObjects(t *testing.T) {
 						Items: []metabase.DeleteObjectsResultItem{
 							{
 								ObjectKey: key2,
-								Status:    storj.DeleteObjectsStatusNotFound,
+								Status:    storxnetwork.DeleteObjectsStatusNotFound,
 							},
 							{
 								ObjectKey:                key1,
 								RequestedStreamVersionID: streamVersionID1,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: objStreamVersionID1,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: objStreamVersionID2,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 						},
 						DeletedSegmentCount: 0,
@@ -225,7 +225,7 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{{
 							ObjectKey: obj.ObjectKey,
-							Status:    storj.DeleteObjectsStatusNotFound,
+							Status:    storxnetwork.DeleteObjectsStatusNotFound,
 						}},
 					},
 				}.Check(ctx, t, db)
@@ -257,7 +257,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: sv,
 								Status:          metabase.Pending,
 							},
-							Status: storj.DeleteObjectsStatusOK,
+							Status: storxnetwork.DeleteObjectsStatusOK,
 						}},
 						DeletedSegmentCount: int64(len(segments)),
 					},
@@ -293,7 +293,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: sv,
 								Status:          metabase.CommittedUnversioned,
 							},
-							Status: storj.DeleteObjectsStatusOK,
+							Status: storxnetwork.DeleteObjectsStatusOK,
 						}},
 						DeletedSegmentCount: int64(obj.SegmentCount),
 					},
@@ -337,13 +337,13 @@ func TestDeleteObjects(t *testing.T) {
 							{
 								ObjectKey: obj.ObjectKey,
 								Removed:   expectedRemoved,
-								Status:    storj.DeleteObjectsStatusOK,
+								Status:    storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed:                  expectedRemoved,
-								Status:                   storj.DeleteObjectsStatusOK,
+								Status:                   storxnetwork.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
@@ -401,12 +401,12 @@ func TestDeleteObjects(t *testing.T) {
 							Items: []metabase.DeleteObjectsResultItem{
 								{
 									ObjectKey: lastCommittedObj.ObjectKey,
-									Status:    storj.DeleteObjectsStatusLocked,
+									Status:    storxnetwork.DeleteObjectsStatusLocked,
 								},
 								{
 									ObjectKey:                exactVersionObj.ObjectKey,
 									RequestedStreamVersionID: exactVersionStreamVersionID,
-									Status:                   storj.DeleteObjectsStatusLocked,
+									Status:                   storxnetwork.DeleteObjectsStatusLocked,
 								},
 							},
 						},
@@ -447,7 +447,7 @@ func TestDeleteObjects(t *testing.T) {
 										StreamVersionID: lastCommittedObj.StreamVersionID(),
 										Status:          metabase.CommittedUnversioned,
 									},
-									Status: storj.DeleteObjectsStatusOK,
+									Status: storxnetwork.DeleteObjectsStatusOK,
 								},
 								{
 									ObjectKey:                exactVersionObj.ObjectKey,
@@ -456,7 +456,7 @@ func TestDeleteObjects(t *testing.T) {
 										StreamVersionID: exactVersionStreamVersionID,
 										Status:          metabase.CommittedUnversioned,
 									},
-									Status: storj.DeleteObjectsStatusOK,
+									Status: storxnetwork.DeleteObjectsStatusOK,
 								},
 							},
 							DeletedSegmentCount: int64(exactVersionObj.SegmentCount + lastCommittedObj.SegmentCount),
@@ -532,7 +532,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj3.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey: obj4.ObjectKey,
@@ -540,7 +540,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj4.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                obj1.ObjectKey,
@@ -549,7 +549,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                obj2.ObjectKey,
@@ -558,7 +558,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: obj2StreamVersionID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj1.SegmentCount + obj2.SegmentCount),
@@ -640,22 +640,22 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                missingObjStream1.ObjectKey,
 								RequestedStreamVersionID: missingStreamVersionID,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID1,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID2,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 						},
 					},
@@ -704,7 +704,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: metabase.NewStreamVersionID(pending.Version+1, uuid.UUID{}),
 								Status:          metabase.DeleteMarkerVersioned,
 							},
-							Status: storj.DeleteObjectsStatusOK,
+							Status: storxnetwork.DeleteObjectsStatusOK,
 						}},
 					},
 				}.Check(ctx, t, db)
@@ -743,7 +743,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: sv,
 								Status:          metabase.Pending,
 							},
-							Status: storj.DeleteObjectsStatusOK,
+							Status: storxnetwork.DeleteObjectsStatusOK,
 						}},
 						DeletedSegmentCount: int64(len(segments)),
 					},
@@ -787,7 +787,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj2.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                obj1.ObjectKey,
@@ -796,7 +796,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj1.SegmentCount),
@@ -847,7 +847,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
@@ -856,7 +856,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: sv,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
@@ -935,12 +935,12 @@ func TestDeleteObjects(t *testing.T) {
 										StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj.Version+1, uuid.UUID{}),
 										Status:          metabase.DeleteMarkerVersioned,
 									},
-									Status: storj.DeleteObjectsStatusOK,
+									Status: storxnetwork.DeleteObjectsStatusOK,
 								},
 								{
 									ObjectKey:                exactVersionObj.ObjectKey,
 									RequestedStreamVersionID: exactVersionStreamVersionID,
-									Status:                   storj.DeleteObjectsStatusLocked,
+									Status:                   storxnetwork.DeleteObjectsStatusLocked,
 								},
 							},
 						},
@@ -992,7 +992,7 @@ func TestDeleteObjects(t *testing.T) {
 										StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj.Version+1, uuid.UUID{}),
 										Status:          metabase.DeleteMarkerVersioned,
 									},
-									Status: storj.DeleteObjectsStatusOK,
+									Status: storxnetwork.DeleteObjectsStatusOK,
 								},
 								{
 									ObjectKey:                exactVersionObj.ObjectKey,
@@ -1001,7 +1001,7 @@ func TestDeleteObjects(t *testing.T) {
 										StreamVersionID: exactVersionStreamVersionID,
 										Status:          metabase.CommittedUnversioned,
 									},
-									Status: storj.DeleteObjectsStatusOK,
+									Status: storxnetwork.DeleteObjectsStatusOK,
 								},
 							},
 							DeletedSegmentCount: int64(exactVersionObj.SegmentCount),
@@ -1093,7 +1093,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj1.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey: lastCommittedObj2.ObjectKey,
@@ -1101,7 +1101,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj2.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                exactVersionObj1.ObjectKey,
@@ -1110,7 +1110,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: exactVersionObj1SVID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                exactVersionObj2.ObjectKey,
@@ -1119,7 +1119,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: exactVersionObj2SVID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(exactVersionObj1.SegmentCount + exactVersionObj2.SegmentCount + lastCommittedObj1.SegmentCount),
@@ -1195,22 +1195,22 @@ func TestDeleteObjects(t *testing.T) {
 						Items: []metabase.DeleteObjectsResultItem{
 							{
 								ObjectKey: missingObjStream2.ObjectKey,
-								Status:    storj.DeleteObjectsStatusNotFound,
+								Status:    storxnetwork.DeleteObjectsStatusNotFound,
 							},
 							{
 								ObjectKey:                missingObjStream1.ObjectKey,
 								RequestedStreamVersionID: missingStreamVersionID,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID1,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID2,
-								Status:                   storj.DeleteObjectsStatusNotFound,
+								Status:                   storxnetwork.DeleteObjectsStatusNotFound,
 							},
 						},
 					},
@@ -1250,7 +1250,7 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{{
 							ObjectKey: pending.ObjectKey,
-							Status:    storj.DeleteObjectsStatusNotFound,
+							Status:    storxnetwork.DeleteObjectsStatusNotFound,
 						}},
 					},
 				}.Check(ctx, t, db)
@@ -1281,7 +1281,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: sv,
 								Status:          metabase.Pending,
 							},
-							Status: storj.DeleteObjectsStatusOK,
+							Status: storxnetwork.DeleteObjectsStatusOK,
 						}},
 						DeletedSegmentCount: int64(len(segments)),
 					},
@@ -1323,7 +1323,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj2.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                obj1.ObjectKey,
@@ -1332,7 +1332,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj1.SegmentCount),
@@ -1383,7 +1383,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 							{
 								ObjectKey:                obj.ObjectKey,
@@ -1392,7 +1392,7 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: sv,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: storj.DeleteObjectsStatusOK,
+								Status: storxnetwork.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
@@ -1467,12 +1467,12 @@ func TestDeleteObjects(t *testing.T) {
 							Items: []metabase.DeleteObjectsResultItem{
 								{
 									ObjectKey: lastCommittedObj.ObjectKey,
-									Status:    storj.DeleteObjectsStatusLocked,
+									Status:    storxnetwork.DeleteObjectsStatusLocked,
 								},
 								{
 									ObjectKey:                exactVersionObj.ObjectKey,
 									RequestedStreamVersionID: exactVersionStreamVersionID,
-									Status:                   storj.DeleteObjectsStatusLocked,
+									Status:                   storxnetwork.DeleteObjectsStatusLocked,
 								},
 							},
 						},
@@ -1522,7 +1522,7 @@ func TestDeleteObjects(t *testing.T) {
 										StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj.Version+1, uuid.UUID{}),
 										Status:          metabase.DeleteMarkerUnversioned,
 									},
-									Status: storj.DeleteObjectsStatusOK,
+									Status: storxnetwork.DeleteObjectsStatusOK,
 								},
 								{
 									ObjectKey:                exactVersionObj.ObjectKey,
@@ -1531,7 +1531,7 @@ func TestDeleteObjects(t *testing.T) {
 										StreamVersionID: exactVersionStreamVersionID,
 										Status:          metabase.CommittedUnversioned,
 									},
-									Status: storj.DeleteObjectsStatusOK,
+									Status: storxnetwork.DeleteObjectsStatusOK,
 								},
 							},
 							DeletedSegmentCount: int64(exactVersionObj.SegmentCount + lastCommittedObj.SegmentCount),

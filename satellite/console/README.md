@@ -84,7 +84,7 @@ In this example:
 
 ## Partner UI Configuration (STORJ_CONSOLE_PARTNER_UI_CONFIG)
 This section refers to partner-specific UI configurations for the Satellite UI.
-The UI customizations refer to configs that were previously stored in the [tardigrade satellite theme](https://github.com/storj/tardigrade-satellite-theme) repository.
+The UI customizations refer to configs that were previously stored in the [tardigrade satellite theme](https://github.com/storxnetwork/tardigrade-satellite-theme) repository.
 Depending on which satellite's folder in the repo is being viewed, there are files for different sections of the UI to be customized. All the files will look like;
 
 ```json

@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
 )
 
 func (oh *overlayHeap) verify(t *testing.T, i int) {

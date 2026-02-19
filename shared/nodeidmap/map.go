@@ -1,20 +1,20 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Package nodeidmap implements an optimized version of map for storj.NodeID.
+// Package nodeidmap implements an optimized version of map for storxnetwork.NodeID.
 package nodeidmap
 
-import "storj.io/common/storj"
+import "github.com/StorXNetwork/common/storxnetwork"
 
-// Map implements a map[storj.NodeID]Value with some useful methods.
+// Map implements a map[storxnetwork.NodeID]Value with some useful methods.
 type Map[Value any] struct {
-	entries map[storj.NodeID]Value
+	entries map[storxnetwork.NodeID]Value
 }
 
 // Make creates a new Map.
 func Make[Value any]() Map[Value] {
 	var x Map[Value]
-	x.entries = make(map[storj.NodeID]Value)
+	x.entries = make(map[storxnetwork.NodeID]Value)
 	return x
 }
 
@@ -27,7 +27,7 @@ func MakeSized[Value any](size int) Map[Value] {
 
 // Reset recreates the map.
 func (m *Map[Value]) Reset(size int) {
-	m.entries = make(map[storj.NodeID]Value, size)
+	m.entries = make(map[storxnetwork.NodeID]Value, size)
 }
 
 // IsEmpty returns true when there are no entries in the map.
@@ -41,18 +41,18 @@ func (m Map[Value]) Clear() {
 }
 
 // Store stores the value at id.
-func (m Map[Value]) Store(id storj.NodeID, value Value) {
+func (m Map[Value]) Store(id storxnetwork.NodeID, value Value) {
 	m.entries[id] = value
 }
 
 // Load loads the value for id.
-func (m Map[Value]) Load(id storj.NodeID) (value Value, ok bool) {
+func (m Map[Value]) Load(id storxnetwork.NodeID) (value Value, ok bool) {
 	value, ok = m.entries[id]
 	return value, ok
 }
 
 // Modify modifies the value at id.
-func (m Map[Value]) Modify(id storj.NodeID, modify func(old Value, ok bool) Value) {
+func (m Map[Value]) Modify(id storxnetwork.NodeID, modify func(old Value, ok bool) Value) {
 	old, ok := m.entries[id]
 	if !ok {
 		var zero Value
@@ -64,7 +64,7 @@ func (m Map[Value]) Modify(id storj.NodeID, modify func(old Value, ok bool) Valu
 
 // Range iterates over all the values in the map.
 // Callback should return false to stop iteration.
-func (m Map[Value]) Range(fn func(k storj.NodeID, v Value) bool) {
+func (m Map[Value]) Range(fn func(k storxnetwork.NodeID, v Value) bool) {
 	for id, value := range m.entries {
 		if ok := fn(id, value); !ok {
 			return
@@ -101,7 +101,7 @@ func (m Map[Value]) Add(xs Map[Value], combine func(old, new Value) Value) {
 }
 
 // AsMap converts Map to a regular Go map.
-func (m Map[Value]) AsMap() map[storj.NodeID]Value {
+func (m Map[Value]) AsMap() map[storxnetwork.NodeID]Value {
 	clone := m.Clone()
 	return clone.entries
 }

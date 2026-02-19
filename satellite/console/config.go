@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/yaml.v3"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Config keeps track of core console service configuration parameters.
@@ -40,7 +40,7 @@ type Config struct {
 	SignupActivationCodeEnabled               bool                      `help:"indicates whether the whether account activation is done using activation code" default:"true" testDefault:"false" devDefault:"false"`
 	FreeTrialDuration                         time.Duration             `help:"duration for which users can access the system free of charge, 0 = unlimited time trial" default:"0"`
 	VarPartners                               []string                  `help:"list of partners whose users will not see billing UI." default:""`
-	ObjectBrowserKeyNamePrefix                string                    `help:"prefix for object browser API key names" default:".storj-web-file-browser-api-key-"`
+	ObjectBrowserKeyNamePrefix                string                    `help:"prefix for object browser API key names" default:".storxnetwork-web-file-browser-api-key-"`
 	ObjectBrowserKeyLifetime                  time.Duration             `help:"duration for which the object browser API key remains valid" default:"72h"`
 	MaxNameCharacters                         int                       `help:"defines the maximum number of characters allowed for names, e.g. user first/last names and company names" default:"100"`
 	MaxLongFormFieldCharacters                int                       `help:"defines the maximum number of characters allowed for long form fields, e.g. comment type fields" default:"500"`
@@ -155,7 +155,7 @@ type EdgeURLOverrides struct {
 }
 
 // AllowedPlacementIDsForNewProjects represents a list of placement IDs that are allowed for new projects.
-type AllowedPlacementIDsForNewProjects []storj.PlacementConstraint
+type AllowedPlacementIDsForNewProjects []storxnetwork.PlacementConstraint
 
 // Ensure that AllowedPlacementIDsForNewProjects implements pflag.Value.
 var _ pflag.Value = (*AllowedPlacementIDsForNewProjects)(nil)
@@ -185,7 +185,7 @@ func (ap *AllowedPlacementIDsForNewProjects) Set(s string) error {
 		return nil
 	}
 
-	var placements []storj.PlacementConstraint
+	var placements []storxnetwork.PlacementConstraint
 	err := json.Unmarshal([]byte(s), &placements)
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func (ap *AllowedPlacementIDsForNewProjects) Set(s string) error {
 
 // PlacementEdgeURLOverrides represents a mapping between placement IDs and edge service URL overrides.
 type PlacementEdgeURLOverrides struct {
-	overrideMap map[storj.PlacementConstraint]EdgeURLOverrides
+	overrideMap map[storxnetwork.PlacementConstraint]EdgeURLOverrides
 }
 
 // Ensure that PlacementEdgeOverrides implements pflag.Value.
@@ -226,7 +226,7 @@ func (ov *PlacementEdgeURLOverrides) Set(s string) error {
 		return nil
 	}
 
-	overrides := make(map[storj.PlacementConstraint]EdgeURLOverrides)
+	overrides := make(map[storxnetwork.PlacementConstraint]EdgeURLOverrides)
 	err := json.Unmarshal([]byte(s), &overrides)
 	if err != nil {
 		return err
@@ -237,7 +237,7 @@ func (ov *PlacementEdgeURLOverrides) Set(s string) error {
 }
 
 // Get returns the edge service URL overrides for the given placement ID.
-func (ov *PlacementEdgeURLOverrides) Get(placement storj.PlacementConstraint) (overrides EdgeURLOverrides, ok bool) {
+func (ov *PlacementEdgeURLOverrides) Get(placement storxnetwork.PlacementConstraint) (overrides EdgeURLOverrides, ok bool) {
 	if ov == nil {
 		return EdgeURLOverrides{}, false
 	}
@@ -284,7 +284,7 @@ func (pd *PlacementDetails) String() string {
 }
 
 // SetMap sets the internal mapping between a placement and detail.
-func (pd *PlacementDetails) SetMap(overrides map[storj.PlacementConstraint]PlacementDetail) {
+func (pd *PlacementDetails) SetMap(overrides map[storxnetwork.PlacementConstraint]PlacementDetail) {
 	details := make([]PlacementDetail, 0, len(overrides))
 	for _, detail := range overrides {
 		details = append(details, detail)
@@ -293,10 +293,10 @@ func (pd *PlacementDetails) SetMap(overrides map[storj.PlacementConstraint]Place
 }
 
 // GetMap returns the internal mapping between a placement and detail.
-func (pd *PlacementDetails) GetMap() map[storj.PlacementConstraint]PlacementDetail {
-	detailMap := make(map[storj.PlacementConstraint]PlacementDetail, len(*pd))
+func (pd *PlacementDetails) GetMap() map[storxnetwork.PlacementConstraint]PlacementDetail {
+	detailMap := make(map[storxnetwork.PlacementConstraint]PlacementDetail, len(*pd))
 	for _, detail := range *pd {
-		detailMap[storj.PlacementConstraint(detail.ID)] = detail
+		detailMap[storxnetwork.PlacementConstraint(detail.ID)] = detail
 	}
 	return detailMap
 }
@@ -337,7 +337,7 @@ func (pd *PlacementDetails) Set(s string) error {
 }
 
 // Get returns the details for the given placement ID.
-func (pd *PlacementDetails) Get(placement storj.PlacementConstraint) (details PlacementDetail, ok bool) {
+func (pd *PlacementDetails) Get(placement storxnetwork.PlacementConstraint) (details PlacementDetail, ok bool) {
 	if pd == nil {
 		return PlacementDetail{}, false
 	}
@@ -351,7 +351,7 @@ func (pd *PlacementDetails) Get(placement storj.PlacementConstraint) (details Pl
 
 // PlacementProductMappings represents a mapping between placement IDs and product IDs.
 type PlacementProductMappings struct {
-	mappings map[storj.PlacementConstraint]int32
+	mappings map[storxnetwork.PlacementConstraint]int32
 }
 
 // Ensure that PlacementProductMappings implements pflag.Value.
@@ -382,7 +382,7 @@ func (ppm *PlacementProductMappings) Set(value string) error {
 
 	value = strings.TrimSpace(value)
 
-	mappings := make(map[storj.PlacementConstraint]int32)
+	mappings := make(map[storxnetwork.PlacementConstraint]int32)
 	if err := json.Unmarshal([]byte(value), &mappings); err != nil {
 		return errs.New("failed to parse PlacementProductMappings: %w", err)
 	}

@@ -20,15 +20,15 @@ import (
 	"syscall"
 	"time"
 
-	"storj.io/storj/satellite/newrelic"
+	"github.com/StorXNetwork/StorXMonitor/satellite/newrelic"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zapcore"
 
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/shared/processgroup"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/shared/processgroup"
 )
 
 type NewRelicConfig struct {

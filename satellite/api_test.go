@@ -11,11 +11,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 const certExample = `
@@ -45,7 +45,7 @@ LgIhALqIm7uONq0H1xQEtV2nnGFUHC6v+6tIOu2Z7W92DSzb
 const signedTag = "CqIBCjQKIBaACbi52g7o8pQaX+hkw6TJNDHJ0UVqSLQtibPHoqkAEgoKA2ZvbxIDYmFyGKWoiaYGGiAJ20r8flrnkM9YBpKEvXmeXhYLfwx/HUEwu9Lv4QzaACJIMEYCIQCHk1wkMPYB6ZkmGGSU9M2p0E+WdjXCzxy4Kx2+gUP9wgIhALvcaTIgHCFOsc9gjGhSA0wS8L+cXaXQQPvq2nFapiLc"
 
 func TestLoadAuthorities(t *testing.T) {
-	selfIdentity := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+	selfIdentity := testidentity.MustPregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 	t.Run("real cert", func(t *testing.T) {
 		certPath := filepath.Join(t.TempDir(), "identity.cert")
 		err := os.WriteFile(certPath, []byte(certExample), 0644)

@@ -24,17 +24,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -792,7 +792,7 @@ func (p *Payments) GetPlacementPriceModel(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var placement storj.PlacementConstraint
+	var placement storxnetwork.PlacementConstraint
 	placementStr := r.URL.Query().Get("placement")
 	if placementStr == "" {
 		placementStr = r.URL.Query().Get("placementName")
@@ -807,7 +807,7 @@ func (p *Payments) GetPlacementPriceModel(w http.ResponseWriter, r *http.Request
 			p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid placement"))
 			return
 		}
-		placement = storj.PlacementConstraint(pl)
+		placement = storxnetwork.PlacementConstraint(pl)
 	}
 
 	projectIDStr := r.URL.Query().Get("projectID")
@@ -918,7 +918,7 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 		origin := "https://storx.io/"
 		signInLink := origin + "login"
 		contactInfoURL := "https://forum.storx.io"
-		termsAndConditionsURL := "https://www.storj.io/terms-of-service/"
+		termsAndConditionsURL := "https://www.storxnetwork.io/terms-of-service/"
 
 		p.mailService.SendRenderedAsync(
 			emailCtx,

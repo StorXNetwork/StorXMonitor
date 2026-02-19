@@ -16,9 +16,9 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/changestream"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/changestream"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrInvalidEventType is used when an invalid bucket event type is encountered.
@@ -135,7 +135,7 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 		record := EventRecord{}
 
 		record.EventVersion = "2.1"
-		record.EventSource = "storj:s3"
+		record.EventSource = "storxnetwork:s3"
 		record.EventTime = dataRecord.CommitTimestamp.UTC().Format(ISO8601)
 		record.S3.S3SchemaVersion = "1.0"
 		record.S3.ConfigurationId = "ObjectEvents"
@@ -171,7 +171,7 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 
 		if bucketName, ok := extractString("bucket_name", keys); ok {
 			record.S3.Bucket.Name = bucketName
-			record.S3.Bucket.Arn = fmt.Sprintf("arn:storj:s3:::%s", bucketName)
+			record.S3.Bucket.Arn = fmt.Sprintf("arn:storxnetwork:s3:::%s", bucketName)
 		}
 
 		if projectID, ok := extractString("project_id", keys); ok {

@@ -6,7 +6,7 @@
         <PageTitleComponent title="SSH Keys" />
         <PageSubtitleComponent
             subtitle="SSH keys are used to securely access virtual machines that support key-based authentication."
-            link="https://docs.storj.io/dcs/access"
+            link="https://docs.storxnetwork.io/dcs/access"
         />
 
         <v-col>

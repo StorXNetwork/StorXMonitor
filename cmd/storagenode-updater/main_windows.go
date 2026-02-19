@@ -19,7 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
 
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 )
 
 func isRunCmd() bool {

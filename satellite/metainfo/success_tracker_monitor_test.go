@@ -12,14 +12,14 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/shared/location"
-	"storj.io/storj/shared/mud"
-	"storj.io/storj/shared/mud/mudtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud/mudtest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSuccessTrackerMonitor_Stats(t *testing.T) {
@@ -93,16 +93,16 @@ func (m *mockOverlayDB) GetAllParticipatingNodes(ctx context.Context, cutoff tim
 
 // mockSuccessTracker implements metainfo.SuccessTracker for testing.
 type mockSuccessTracker struct {
-	scores map[storj.NodeID]float64
+	scores map[storxnetwork.NodeID]float64
 }
 
 func newMockSuccessTracker() *mockSuccessTracker {
 	return &mockSuccessTracker{
-		scores: make(map[storj.NodeID]float64),
+		scores: make(map[storxnetwork.NodeID]float64),
 	}
 }
 
-func (m *mockSuccessTracker) Increment(node storj.NodeID, success bool) {
+func (m *mockSuccessTracker) Increment(node storxnetwork.NodeID, success bool) {
 	if success {
 		m.scores[node]++
 	}
@@ -112,7 +112,7 @@ func (m *mockSuccessTracker) Get(node *nodeselection.SelectedNode) float64 {
 	return m.scores[node.ID]
 }
 
-func (m *mockSuccessTracker) Range(fn func(storj.NodeID, float64)) {
+func (m *mockSuccessTracker) Range(fn func(storxnetwork.NodeID, float64)) {
 	for id, score := range m.scores {
 		fn(id, score)
 	}

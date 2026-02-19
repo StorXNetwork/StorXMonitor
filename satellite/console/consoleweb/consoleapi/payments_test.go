@@ -14,12 +14,12 @@ import (
 	stripeLib "github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestPurchasePackage(t *testing.T) {
@@ -92,7 +92,7 @@ func TestPurchasePackage(t *testing.T) {
 				user, err := sat.AddUser(ctx, console.CreateUser{
 					FullName:  "test_name",
 					ShortName: "",
-					Email:     fmt.Sprintf("test%d@storj.test", i),
+					Email:     fmt.Sprintf("test%d@storxnetwork.test", i),
 					UserAgent: []byte(tt.partner),
 				}, 1)
 				require.NoError(t, err)
@@ -133,7 +133,7 @@ func TestPackageAvailable(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				user, err := sat.AddUser(ctx, console.CreateUser{
 					FullName:  "Test User",
-					Email:     fmt.Sprintf("test%d@storj.test", i),
+					Email:     fmt.Sprintf("test%d@storxnetwork.test", i),
 					UserAgent: []byte(tt.partner),
 				}, 1)
 				require.NoError(t, err)

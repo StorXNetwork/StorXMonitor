@@ -20,16 +20,16 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var mon = monkit.Package()
@@ -40,10 +40,10 @@ const defaultInterval = 15 * time.Second
 type Peer interface {
 	Label() string
 
-	ID() storj.NodeID
+	ID() storxnetwork.NodeID
 	Addr() string
 	URL() string
-	NodeURL() storj.NodeURL
+	NodeURL() storxnetwork.NodeURL
 
 	Run(context.Context) error
 	Close() error
@@ -56,7 +56,7 @@ type Config struct {
 	UplinkCount      int
 	MultinodeCount   int
 
-	IdentityVersion *storj.IDVersion
+	IdentityVersion *storxnetwork.IDVersion
 	LastNetFunc     overlay.LastNetFunc
 	Reconfigure     Reconfigure
 
@@ -78,7 +78,7 @@ type DatabaseConfig struct {
 	SatelliteDB string
 }
 
-// Planet is a full storj system setup.
+// Planet is a full storxnetwork system setup.
 type Planet struct {
 	ctx       *testcontext.Context
 	id        string
@@ -139,7 +139,7 @@ func (peer *closablePeer) Close() error {
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
 	if config.IdentityVersion == nil {
-		version := storj.LatestIDVersion()
+		version := storxnetwork.LatestIDVersion()
 		config.IdentityVersion = &version
 	}
 
@@ -198,7 +198,7 @@ func (planet *Planet) createPeers(ctx context.Context, satelliteDatabases satell
 		return errs.Wrap(err)
 	}
 
-	whitelistedSatellites := make(storj.NodeURLs, 0, len(planet.Satellites))
+	whitelistedSatellites := make(storxnetwork.NodeURLs, 0, len(planet.Satellites))
 	for _, satellite := range planet.Satellites {
 		whitelistedSatellites = append(whitelistedSatellites, satellite.NodeURL())
 	}
@@ -353,7 +353,7 @@ func (planet *Planet) StopNodeAndUpdate(ctx context.Context, node *StorageNode) 
 func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // FindNode is a helper to retrieve a storage node record by its node ID.
-func (planet *Planet) FindNode(nodeID storj.NodeID) *StorageNode {
+func (planet *Planet) FindNode(nodeID storxnetwork.NodeID) *StorageNode {
 	for _, node := range planet.StorageNodes {
 		if node.ID() == nodeID {
 			return node
@@ -452,7 +452,7 @@ func (planet *Planet) NewListener() (net.Listener, error) {
 }
 
 // WriteWhitelist writes the pregenerated signer's CA cert to a "CA whitelist", PEM-encoded.
-func (planet *Planet) WriteWhitelist(version storj.IDVersion) (string, error) {
+func (planet *Planet) WriteWhitelist(version storxnetwork.IDVersion) (string, error) {
 	whitelistPath := filepath.Join(planet.directory, "whitelist.pem")
 	signer := testidentity.NewPregeneratedSigner(version)
 	err := identity.PeerCAConfig{

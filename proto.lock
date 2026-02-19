@@ -78,7 +78,7 @@
         "options": [
           {
             "name": "go_package",
-            "value": "storj.io/storj/certificate/certificatepb"
+            "value": "github.com/StorXNetwork/StorXMonitor/certificate/certificatepb"
           }
         ]
       }
@@ -512,7 +512,7 @@
           },
           {
             "name": "go_package",
-            "value": "storj.io/storj/private/multinodepb"
+            "value": "github.com/StorXNetwork/StorXMonitor/private/multinodepb"
           }
         ]
       }
@@ -1459,7 +1459,7 @@
         "options": [
           {
             "name": "go_package",
-            "value": "storj.io/storj/private/multinodepb"
+            "value": "github.com/StorXNetwork/StorXMonitor/private/multinodepb"
           }
         ]
       }

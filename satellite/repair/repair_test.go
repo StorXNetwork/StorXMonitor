@@ -20,28 +20,28 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/storagenode"
-	"storj.io/uplink/private/eestream"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/eestream"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 // TestDataRepair does the following:
@@ -125,9 +125,9 @@ func testDataRepair(t *testing.T, inMemoryRepair bool, hashAlgo pb.PieceHashAlgo
 		)
 
 		// kill nodes and track lost pieces
-		nodesToKill := make(map[storj.NodeID]bool)
-		nodesToDisqualify := make(map[storj.NodeID]bool)
-		nodesToKeepAlive := make(map[storj.NodeID]bool)
+		nodesToKill := make(map[storxnetwork.NodeID]bool)
+		nodesToDisqualify := make(map[storxnetwork.NodeID]bool)
+		nodesToKeepAlive := make(map[storxnetwork.NodeID]bool)
 
 		var numDisqualified int
 		for i, piece := range remotePieces {
@@ -184,7 +184,7 @@ func testDataRepair(t *testing.T, inMemoryRepair bool, hashAlgo pb.PieceHashAlgo
 			for _, storageNode := range planet.StorageNodes {
 				storageNode.Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
 			}
-			repairSettled := make(map[storj.NodeID]uint64)
+			repairSettled := make(map[storxnetwork.NodeID]uint64)
 			err = satellite.DB.StoragenodeAccounting().GetBandwidthSince(ctx, time.Time{}, func(c context.Context, sbr *accounting.StoragenodeBandwidthRollup) error {
 				if sbr.Action == uint(pb.PieceAction_GET_REPAIR) {
 					repairSettled[sbr.NodeID] += sbr.Settled
@@ -291,9 +291,9 @@ func TestDataRepairPendingObject(t *testing.T) {
 		)
 
 		// kill nodes and track lost pieces
-		nodesToKill := make(map[storj.NodeID]bool)
-		nodesToDisqualify := make(map[storj.NodeID]bool)
-		nodesToKeepAlive := make(map[storj.NodeID]bool)
+		nodesToKill := make(map[storxnetwork.NodeID]bool)
+		nodesToDisqualify := make(map[storxnetwork.NodeID]bool)
+		nodesToKeepAlive := make(map[storxnetwork.NodeID]bool)
 
 		var numDisqualified int
 		for i, piece := range remotePieces {
@@ -400,8 +400,8 @@ func TestMinRequiredDataRepair(t *testing.T) {
 		toKill := 5
 
 		// kill nodes and track lost pieces
-		var availableNodes storj.NodeIDList
-		var killedNodes storj.NodeIDList
+		var availableNodes storxnetwork.NodeIDList
+		var killedNodes storxnetwork.NodeIDList
 
 		for i, piece := range segment.Pieces {
 			if i >= toKill {
@@ -421,7 +421,7 @@ func TestMinRequiredDataRepair(t *testing.T) {
 		// TestFlushAllNodeInfo(), below.
 		reputationService := planet.Satellites[0].Reputation.Service
 
-		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		nodesReputation := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, nodeID := range availableNodes {
 			info, err := reputationService.Get(ctx, nodeID)
 			require.NoError(t, err)
@@ -507,7 +507,7 @@ func TestFailedDataRepair(t *testing.T) {
 
 		// kill nodes and track lost pieces
 		var availablePieces metabase.Pieces
-		var originalNodes storj.NodeIDList
+		var originalNodes storxnetwork.NodeIDList
 
 		for i, piece := range segment.Pieces {
 			originalNodes = append(originalNodes, piece.StorageNode)
@@ -538,7 +538,7 @@ func TestFailedDataRepair(t *testing.T) {
 
 		reputationService := satellite.Repairer.Reputation
 
-		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		nodesReputation := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -551,7 +551,7 @@ func TestFailedDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		nodesReputationAfter := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -626,7 +626,7 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 
 		// kill nodes and track lost pieces
 		var availablePieces metabase.Pieces
-		var killedNodes storj.NodeIDList
+		var killedNodes storxnetwork.NodeIDList
 
 		for i, piece := range segment.Pieces {
 			if i >= toKill {
@@ -651,7 +651,7 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 
 		reputationService := satellite.Repairer.Reputation
 
-		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		nodesReputation := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -665,7 +665,7 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		nodesReputationAfter := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -746,7 +746,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 
 		// kill nodes and track lost pieces
 		var availablePieces metabase.Pieces
-		var killedNodes storj.NodeIDList
+		var killedNodes storxnetwork.NodeIDList
 
 		for i, piece := range segment.Pieces {
 			if i >= toKill {
@@ -771,7 +771,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 
 		reputationService := satellite.Repairer.Reputation
 
-		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		nodesReputation := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -784,7 +784,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		nodesReputationAfter := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -889,7 +889,7 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 
 		reputationService := satellite.Repairer.Reputation
 
-		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		nodesReputation := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -903,7 +903,7 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		nodesReputationAfter := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -980,7 +980,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		toKill := 5
 
 		// kill nodes and track lost pieces
-		originalNodes := make(map[storj.NodeID]bool)
+		originalNodes := make(map[storxnetwork.NodeID]bool)
 		var availablePieces metabase.Pieces
 
 		for i, piece := range segment.Pieces {
@@ -1005,7 +1005,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 
 		reputationService := satellite.Repairer.Reputation
 
-		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		nodesReputation := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -1023,7 +1023,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		nodesReputationAfter := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -1135,7 +1135,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 
 				reputationService := satellite.Repairer.Reputation
 
-				nodesReputation := make(map[storj.NodeID]reputation.Info)
+				nodesReputation := make(map[storxnetwork.NodeID]reputation.Info)
 				for _, piece := range availablePieces {
 					info, err := reputationService.Get(ctx, piece.StorageNode)
 					require.NoError(t, err)
@@ -1151,7 +1151,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 				satellite.Repair.Repairer.Loop.Pause()
 				require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-				nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+				nodesReputationAfter := make(map[storxnetwork.NodeID]reputation.Info)
 				for _, piece := range availablePieces {
 					info, err := reputationService.Get(ctx, piece.StorageNode)
 					require.NoError(t, err)
@@ -1230,7 +1230,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		toKill := 5
 
 		// kill nodes and track lost pieces
-		originalNodes := make(map[storj.NodeID]bool)
+		originalNodes := make(map[storxnetwork.NodeID]bool)
 		var availablePieces metabase.Pieces
 
 		for i, piece := range segment.Pieces {
@@ -1255,7 +1255,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 
 		reputationService := satellite.Repairer.Reputation
 
-		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		nodesReputation := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -1273,7 +1273,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		nodesReputationAfter := make(map[storxnetwork.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
 			info, err := reputationService.Get(ctx, piece.StorageNode)
 			require.NoError(t, err)
@@ -1333,7 +1333,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		segment := getRemoteSegment(ctx, t, satellite)
 
 		// kill nodes and track lost pieces
-		nodesToDQ := make(map[storj.NodeID]bool)
+		nodesToDQ := make(map[storxnetwork.NodeID]bool)
 
 		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
 		toKill := 3
@@ -1411,7 +1411,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		segment := getRemoteSegment(ctx, t, satellite)
 
 		// kill nodes and track lost pieces
-		nodesToDQ := make(map[storj.NodeID]bool)
+		nodesToDQ := make(map[storxnetwork.NodeID]bool)
 
 		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
 		toKill := 3
@@ -1500,7 +1500,7 @@ func TestSegmentDeletedDuringRepair(t *testing.T) {
 		toKill := 3
 
 		// kill nodes and track lost pieces
-		var availableNodes storj.NodeIDList
+		var availableNodes storxnetwork.NodeIDList
 
 		for i, piece := range segment.Pieces {
 			if i >= toKill {
@@ -1592,7 +1592,7 @@ func TestSegmentModifiedDuringRepair(t *testing.T) {
 		toKill := 3
 
 		// kill nodes and track lost pieces
-		var availableNodes storj.NodeIDList
+		var availableNodes storxnetwork.NodeIDList
 
 		for i, piece := range segment.Pieces {
 			if i >= toKill {
@@ -1967,9 +1967,9 @@ func TestRepairMultipleDisqualifiedAndSuspended(t *testing.T) {
 		require.True(t, (numStorageNodes-toDisqualify-toSuspend) >= numPieces)
 
 		// disqualify nodes and track lost pieces
-		nodesToDisqualify := make(map[storj.NodeID]bool)
-		nodesToSuspend := make(map[storj.NodeID]bool)
-		nodesToKeepAlive := make(map[storj.NodeID]bool)
+		nodesToDisqualify := make(map[storxnetwork.NodeID]bool)
+		nodesToSuspend := make(map[storxnetwork.NodeID]bool)
+		nodesToKeepAlive := make(map[storxnetwork.NodeID]bool)
 
 		// disqualify and suspend nodes
 		for i := 0; i < toDisqualify; i++ {
@@ -2072,8 +2072,8 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 		require.True(t, toKill >= 1)
 
 		// kill nodes and track lost pieces
-		nodesToKill := make(map[storj.NodeID]bool)
-		originalNodes := make(map[storj.NodeID]bool)
+		nodesToKill := make(map[storxnetwork.NodeID]bool)
+		originalNodes := make(map[storxnetwork.NodeID]bool)
 
 		for i, piece := range remotePieces {
 			originalNodes[piece.StorageNode] = true
@@ -2159,8 +2159,8 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 		require.True(t, toKill >= 1)
 
 		// kill nodes and track lost pieces
-		nodesToKill := make(map[storj.NodeID]bool)
-		originalNodes := make(map[storj.NodeID]bool)
+		nodesToKill := make(map[storxnetwork.NodeID]bool)
+		originalNodes := make(map[storxnetwork.NodeID]bool)
 
 		for i, piece := range remotePieces {
 			originalNodes[piece.StorageNode] = true
@@ -2285,12 +2285,12 @@ func TestDataRepairUploadLimit(t *testing.T) {
 			)
 		}
 
-		originalStorageNodes := make(map[storj.NodeID]struct{})
+		originalStorageNodes := make(map[storxnetwork.NodeID]struct{})
 		for _, p := range originalPieces {
 			originalStorageNodes[p.StorageNode] = struct{}{}
 		}
 
-		killedNodes := make(map[storj.NodeID]struct{})
+		killedNodes := make(map[storxnetwork.NodeID]struct{})
 		{ // Register nodes of the network which don't have pieces for the segment
 			// to be injured and ill nodes which have pieces of the segment in order
 			// to injure it
@@ -2388,8 +2388,8 @@ func TestRepairGracefullyExited(t *testing.T) {
 		require.True(t, (numStorageNodes-toExit) >= numPieces)
 
 		// gracefully exit nodes and track lost pieces
-		nodesToExit := make(map[storj.NodeID]bool)
-		nodesToKeepAlive := make(map[storj.NodeID]bool)
+		nodesToExit := make(map[storxnetwork.NodeID]bool)
+		nodesToKeepAlive := make(map[storxnetwork.NodeID]bool)
 
 		// exit nodes
 		for i := 0; i < toExit; i++ {
@@ -2537,7 +2537,7 @@ func TestECRepairerGet(t *testing.T) {
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 		require.NoError(t, err)
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 
@@ -2604,7 +2604,7 @@ func TestECRepairerGetCorrupted(t *testing.T) {
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 		require.NoError(t, err)
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
@@ -2674,7 +2674,7 @@ func TestECRepairerGetMissingPiece(t *testing.T) {
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 		require.NoError(t, err)
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
@@ -2742,7 +2742,7 @@ func TestECRepairerGetOffline(t *testing.T) {
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 		require.NoError(t, err)
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
@@ -2810,7 +2810,7 @@ func TestECRepairerGetUnknown(t *testing.T) {
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 		require.NoError(t, err)
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
@@ -2893,7 +2893,7 @@ func TestECRepairerGetFailure(t *testing.T) {
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 		require.NoError(t, err)
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
@@ -2959,7 +2959,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		mock := &mockConnector{}
 		ec := ecRepairerWithMockConnector(t, testSatellite, mock)
 
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 		require.NoError(t, err)
 
 		readCloser, pieces, err := ec.Get(ctx, zaptest.NewLogger(t), limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize))
@@ -3046,7 +3046,7 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 
 		ec := ecRepairerWithMockConnector(t, testSatellite, mock)
 
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 		require.NoError(t, err)
 
 		readCloser, pieces, err := ec.Get(ctx, zaptest.NewLogger(t), limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize))
@@ -3111,7 +3111,7 @@ func TestSegmentInExcludedCountriesRepair(t *testing.T) {
 		require.GreaterOrEqual(t, len(segment.Pieces), int(segment.Redundancy.OptimalShares))
 
 		numExcluded := 5
-		var nodesInExcluded storj.NodeIDList
+		var nodesInExcluded storxnetwork.NodeIDList
 		for i := 0; i < numExcluded; i++ {
 			planet.FindNode(remotePieces[i].StorageNode).Contact.Chore.Pause(ctx)
 			err = planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, remotePieces[i].StorageNode, "FR")
@@ -3171,7 +3171,7 @@ func TestSegmentInExcludedCountriesRepair(t *testing.T) {
 			}
 		}
 		require.Equal(t, found, expectRemainingExcluded, "found wrong number of excluded-country pieces after repair")
-		nodesInPointer := make(map[storj.NodeID]bool)
+		nodesInPointer := make(map[storxnetwork.NodeID]bool)
 		for _, n := range segmentAfterRepair.Pieces {
 			// check for duplicates
 			_, ok := nodesInPointer[n.StorageNode]
@@ -3269,7 +3269,7 @@ func TestSegmentInExcludedCountriesRepairIrreparable(t *testing.T) {
 		require.True(t, nodeInExcludedAreaFound, fmt.Sprintf("node %s not in segment, but should be\n", nodeInExcluded.String()))
 		require.False(t, offlineNodeFound, fmt.Sprintf("node %s in segment, but should not be\n", offlineNode.String()))
 
-		nodesInPointer := make(map[storj.NodeID]bool)
+		nodesInPointer := make(map[storxnetwork.NodeID]bool)
 		for _, n := range segmentAfterRepair.Pieces {
 			// check for duplicates
 			_, ok := nodesInPointer[n.StorageNode]
@@ -3393,7 +3393,7 @@ func TestRepairClumpedPieces(t *testing.T) {
 }
 
 func TestRepairClumpedPiecesBasedOnTags(t *testing.T) {
-	signer := testidentity.MustPregeneratedIdentity(50, storj.LatestIDVersion())
+	signer := testidentity.MustPregeneratedIdentity(50, storxnetwork.LatestIDVersion())
 	tempDir := t.TempDir()
 	pc := identity.PeerConfig{
 		CertPath: filepath.Join(tempDir, "identity.cert"),
@@ -3556,7 +3556,7 @@ func TestRepairRSOverride(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 
 		// suspend half of the nodes to force segments to the remaining half
-		suspendedNodes := make(map[storj.NodeID]bool)
+		suspendedNodes := make(map[storxnetwork.NodeID]bool)
 		for i := 0; i < len(planet.StorageNodes)/2; i++ {
 			require.NoError(t, satellite.DB.OverlayCache().TestSuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID(), time.Now()))
 			suspendedNodes[planet.StorageNodes[i].ID()] = true
@@ -3601,7 +3601,7 @@ func TestRepairRSOverride(t *testing.T) {
 			ctx, satellite.Config.Checker.OnlineWindow,
 		)
 		require.NoError(t, err)
-		activeNodes := make(map[storj.NodeID]bool)
+		activeNodes := make(map[storxnetwork.NodeID]bool)
 		for _, node := range allNodes {
 			if !node.Suspended {
 				activeNodes[node.ID] = true
@@ -3613,7 +3613,7 @@ func TestRepairRSOverride(t *testing.T) {
 
 		// kill enough nodes to trigger default segment as injured, but not RS overridden segment
 		nodesToKill := len(segments[0].Pieces) - int(segments[0].Redundancy.RepairShares)
-		killedNodes := make(map[storj.NodeID]bool)
+		killedNodes := make(map[storxnetwork.NodeID]bool)
 		for _, piece := range segments[0].Pieces {
 			if activeNodes[piece.StorageNode] {
 				require.NoError(t, planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode)))
@@ -3699,10 +3699,10 @@ func TestRepairRSOverride(t *testing.T) {
 func createGetRepairOrderLimits(
 	t *testing.T, sat *testplanet.Satellite, ctx context.Context, segment metabase.SegmentForRepair,
 	healthy metabase.Pieces, // onlineWindow time.Duration,
-) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation) {
+) (_ []*pb.AddressedOrderLimit, _ storxnetwork.PiecePrivateKey, cachedNodesInfo map[storxnetwork.NodeID]overlay.NodeReputation) {
 	limits, privateKey, cachedNodesInfo, err := sat.Orders.Service.CreateGetRepairOrderLimits(
 		ctx, segment, segment.Pieces,
-		func(ctx context.Context, nodes []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
+		func(ctx context.Context, nodes []storxnetwork.NodeID) (map[storxnetwork.NodeID]*overlay.NodeReputation, error) {
 			return sat.Overlay.Service.GetOnlineNodesForRepair(ctx, nodes, sat.Config.Repairer.OnlineWindow)
 
 		},

@@ -9,7 +9,7 @@ import (
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // gsmService is a service for encrypting/decrypting project passphrases.
@@ -42,10 +42,10 @@ func newGsmService(ctx context.Context, config Config) (*gsmService, error) {
 }
 
 // GetKeys gets keys from source.
-func (s *gsmService) GetKeys(ctx context.Context) (keys map[int]*storj.Key, err error) {
+func (s *gsmService) GetKeys(ctx context.Context) (keys map[int]*storxnetwork.Key, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keys = make(map[int]*storj.Key)
+	keys = make(map[int]*storxnetwork.Key)
 
 	for id, k := range s.config.KeyInfos.Values {
 		keyRequest := &secretmanagerpb.AccessSecretVersionRequest{
@@ -64,7 +64,7 @@ func (s *gsmService) GetKeys(ctx context.Context) (keys map[int]*storj.Key, err 
 			return nil, Error.New("checksum mismatch")
 		}
 
-		keys[id], err = storj.NewKey(keyResp.Payload.Data)
+		keys[id], err = storxnetwork.NewKey(keyResp.Payload.Data)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

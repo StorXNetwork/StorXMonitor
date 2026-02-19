@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
-	"storj.io/storj/satellite/analytics"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 )
 
 var (

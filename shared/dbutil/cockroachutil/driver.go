@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/dbutil/retrydb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/retrydb"
 )
 
 // Driver is the type for the "cockroach" sql/database driver. It uses

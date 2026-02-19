@@ -17,20 +17,20 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/peertls"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/pkcrypto"
-	"storj.io/common/storj"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/server"
-	pb "storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/jobq"
-	"storj.io/storj/satellite/jobq/jobqueue"
-	jobqserver "storj.io/storj/satellite/jobq/server"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	pb "github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq/jobqueue"
+	jobqserver "github.com/StorXNetwork/StorXMonitor/satellite/jobq/server"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/peertls"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/pkcrypto"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // JobqConfig is the configuration for the job queue server.
@@ -160,7 +160,7 @@ func NewJobq(log *zap.Logger, identity *identity.FullIdentity, atomicLogLevel *z
 	{ // setup endpoint
 		log.Debug("initializing job queue", zap.Uint64("elements_before_queue_resize", initElements), zap.Uint64("element_mem_release_threshold", memReleaseThreshold))
 
-		queueFactory := func(placement storj.PlacementConstraint) (*jobqueue.Queue, error) {
+		queueFactory := func(placement storxnetwork.PlacementConstraint) (*jobqueue.Queue, error) {
 			return jobqueue.NewQueue(log.Named(fmt.Sprintf("placement-%d", placement)), config.RetryAfter, int(initElements), int(maxElements), int(memReleaseThreshold))
 		}
 		peer.Jobq.QueueMap = jobqserver.NewQueueMap(log, queueFactory)

@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // MetabaseRangeSplitter implements RangeSplitter.

@@ -13,8 +13,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/restapikeys"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
 )
 
 // NewRestKeysService returns a minimally set up console service that is set up ONLY

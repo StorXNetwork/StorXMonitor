@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type writer interface {
@@ -53,11 +53,11 @@ type TrashHandler struct {
 	log        *zap.Logger
 	lineBuffer []byte
 
-	trashFunc func(pieceID storj.PieceID) error
+	trashFunc func(pieceID storxnetwork.PieceID) error
 }
 
 // NewTrashHandler creates new trash handler.
-func NewTrashHandler(log *zap.Logger, trashFunc func(pieceID storj.PieceID) error) *TrashHandler {
+func NewTrashHandler(log *zap.Logger, trashFunc func(pieceID storxnetwork.PieceID) error) *TrashHandler {
 	return &TrashHandler{
 		log:       log.Named("trash-handler"),
 		trashFunc: trashFunc,

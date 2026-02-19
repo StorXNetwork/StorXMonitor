@@ -13,11 +13,11 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestNodeAliases(t *testing.T) {
@@ -25,7 +25,7 @@ func TestNodeAliases(t *testing.T) {
 		t.Run("Zero", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			nodes := []storj.NodeID{
+			nodes := []storxnetwork.NodeID{
 				testrand.NodeID(),
 				{},
 			}
@@ -48,7 +48,7 @@ func TestNodeAliases(t *testing.T) {
 		t.Run("Valid", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			nodes := []storj.NodeID{
+			nodes := []storxnetwork.NodeID{
 				testrand.NodeID(),
 				testrand.NodeID(),
 				testrand.NodeID(),
@@ -77,7 +77,7 @@ func TestNodeAliases(t *testing.T) {
 
 			metabasetest.EnsureNodeAliases{
 				Opts: metabase.EnsureNodeAliases{
-					Nodes: []storj.NodeID{testrand.NodeID()},
+					Nodes: []storxnetwork.NodeID{testrand.NodeID()},
 				},
 			}.Check(ctx, t, db)
 
@@ -88,7 +88,7 @@ func TestNodeAliases(t *testing.T) {
 		t.Run("GetNodeAliasEntries", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			nodes := []storj.NodeID{
+			nodes := []storxnetwork.NodeID{
 				testrand.NodeID(),
 				testrand.NodeID(),
 				testrand.NodeID(),
@@ -105,7 +105,7 @@ func TestNodeAliases(t *testing.T) {
 
 			byid := metabasetest.GetNodeAliasEntries{
 				Opts: metabase.GetNodeAliasEntries{
-					Nodes: []storj.NodeID{aliases[1].ID},
+					Nodes: []storxnetwork.NodeID{aliases[1].ID},
 				},
 			}.Check(ctx, t, db)
 			require.Len(t, byid, 1)
@@ -121,7 +121,7 @@ func TestNodeAliases(t *testing.T) {
 
 			bymix := metabasetest.GetNodeAliasEntries{
 				Opts: metabase.GetNodeAliasEntries{
-					Nodes:   []storj.NodeID{aliases[0].ID, aliases[1].ID},
+					Nodes:   []storxnetwork.NodeID{aliases[0].ID, aliases[1].ID},
 					Aliases: []metabase.NodeAlias{aliases[2].Alias},
 				},
 			}.Check(ctx, t, db)
@@ -134,7 +134,7 @@ func TestNodeAliases(t *testing.T) {
 
 			missing := metabasetest.GetNodeAliasEntries{
 				Opts: metabase.GetNodeAliasEntries{
-					Nodes:   []storj.NodeID{{100}},
+					Nodes:   []storxnetwork.NodeID{{100}},
 					Aliases: []metabase.NodeAlias{10000},
 				},
 			}.Check(ctx, t, db)
@@ -144,7 +144,7 @@ func TestNodeAliases(t *testing.T) {
 		t.Run("Concurrent", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			nodes := make([]storj.NodeID, 128)
+			nodes := make([]storxnetwork.NodeID, 128)
 			for i := range nodes {
 				nodes[i] = testrand.NodeID()
 			}
@@ -154,7 +154,7 @@ func TestNodeAliases(t *testing.T) {
 				node := nodes[k]
 				group.Go(func() error {
 					return db.EnsureNodeAliases(ctx, metabase.EnsureNodeAliases{
-						Nodes: []storj.NodeID{node},
+						Nodes: []storxnetwork.NodeID{node},
 					})
 				})
 			}
@@ -175,7 +175,7 @@ func TestNodeAliases(t *testing.T) {
 		t.Run("Stress Concurrent", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			nodes := make([]storj.NodeID, 128)
+			nodes := make([]storxnetwork.NodeID, 128)
 			for i := range nodes {
 				nodes[i] = testrand.NodeID()
 			}
@@ -188,7 +188,7 @@ func TestNodeAliases(t *testing.T) {
 						if k > len(loc) {
 							k = len(loc)
 						}
-						var batch []storj.NodeID
+						var batch []storxnetwork.NodeID
 						batch, loc = loc[:k], loc[k:]
 						err := db.EnsureNodeAliases(gctx,
 							metabase.EnsureNodeAliases{Nodes: batch},
@@ -210,7 +210,7 @@ func TestNodeAliases(t *testing.T) {
 		t.Run("Stress Concurrent Random Order", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			nodes := make([]storj.NodeID, 128)
+			nodes := make([]storxnetwork.NodeID, 128)
 			for i := range nodes {
 				nodes[i] = testrand.NodeID()
 			}
@@ -221,7 +221,7 @@ func TestNodeAliases(t *testing.T) {
 			preparations.Add(N)
 			for k := 0; k < N; k++ {
 				group.Go(func() error {
-					batch := append([]storj.NodeID{}, nodes...)
+					batch := append([]storxnetwork.NodeID{}, nodes...)
 					rand.Shuffle(len(batch), func(i, k int) {
 						batch[i], batch[k] = batch[k], batch[i]
 					})
@@ -249,7 +249,7 @@ func TestNodeAliases(t *testing.T) {
 			// problem).
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			nodes := make([]storj.NodeID, 128)
+			nodes := make([]storxnetwork.NodeID, 128)
 			for i := range nodes {
 				nodes[i] = testrand.NodeID()
 			}
@@ -261,11 +261,11 @@ func TestNodeAliases(t *testing.T) {
 			for k := 0; k < N; k++ {
 				k := k
 				group.Go(func() error {
-					batch := append([]storj.NodeID{}, nodes...)
+					batch := append([]storxnetwork.NodeID{}, nodes...)
 					if k%2 == 0 {
-						sort.Sort(storj.NodeIDList(batch))
+						sort.Sort(storxnetwork.NodeIDList(batch))
 					} else {
-						sort.Sort(sort.Reverse(storj.NodeIDList(batch)))
+						sort.Sort(sort.Reverse(storxnetwork.NodeIDList(batch)))
 					}
 
 					preparations.Done()
@@ -285,7 +285,7 @@ func TestNodeAliases(t *testing.T) {
 	})
 }
 
-func nodesContains(nodes []storj.NodeID, v storj.NodeID) bool {
+func nodesContains(nodes []storxnetwork.NodeID, v storxnetwork.NodeID) bool {
 	for _, n := range nodes {
 		if n == v {
 			return true

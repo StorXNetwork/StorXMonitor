@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 func TestNormalizeAcrossDayBoundaries(t *testing.T) {

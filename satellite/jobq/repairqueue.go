@@ -7,20 +7,20 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/identity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
-// This file relates to usage of jobq by storj.io/storj.
+// This file relates to usage of jobq by github.com/StorXNetwork/StorXMonitor.
 
 // Config holds the Storj-style configuration for a job queue client.
 type Config struct {
-	ServerNodeURL storj.NodeURL `help:"\"node URL\" of the job queue server" default:"" testDefault:""`
+	ServerNodeURL storxnetwork.NodeURL `help:"\"node URL\" of the job queue server" default:"" testDefault:""`
 	TLS           tlsopts.Config
 }
 
@@ -93,7 +93,7 @@ func (rjq *RepairJobQueue) InsertBatch(ctx context.Context, segments []*queue.In
 // only segments with placements in includedPlacements are returned. If
 // excludedPlacements is non-empty, only segments with placements not in
 // excludedPlacements are returned.
-func (rjq *RepairJobQueue) Select(ctx context.Context, limit int, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) ([]queue.InjuredSegment, error) {
+func (rjq *RepairJobQueue) Select(ctx context.Context, limit int, includedPlacements []storxnetwork.PlacementConstraint, excludedPlacements []storxnetwork.PlacementConstraint) ([]queue.InjuredSegment, error) {
 	jobs, err := rjq.jobqClient.Pop(ctx, limit, includedPlacements, excludedPlacements)
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func (rjq *RepairJobQueue) Select(ctx context.Context, limit int, includedPlacem
 			AttemptedAt:              attemptedAt,
 			UpdatedAt:                time.Unix(int64(job.UpdatedAt), 0),
 			InsertedAt:               time.Unix(int64(job.InsertedAt), 0),
-			Placement:                storj.PlacementConstraint(job.Placement),
+			Placement:                storxnetwork.PlacementConstraint(job.Placement),
 			NumNormalizedRetrievable: job.NumNormalizedRetrievable,
 			NumNormalizedHealthy:     job.NumNormalizedHealthy,
 			NumOutOfPlacement:        job.NumOutOfPlacement,
@@ -183,7 +183,7 @@ func (rjq *RepairJobQueue) SelectN(ctx context.Context, limit int) ([]queue.Inju
 			AttemptedAt:              attemptedAt,
 			UpdatedAt:                time.Unix(int64(job.UpdatedAt), 0),
 			InsertedAt:               time.Unix(int64(job.InsertedAt), 0),
-			Placement:                storj.PlacementConstraint(job.Placement),
+			Placement:                storxnetwork.PlacementConstraint(job.Placement),
 			NumNormalizedRetrievable: job.NumNormalizedRetrievable,
 			NumNormalizedHealthy:     job.NumNormalizedHealthy,
 			NumOutOfPlacement:        job.NumOutOfPlacement,
@@ -243,14 +243,14 @@ func (rjq *RepairJobQueue) Stat(ctx context.Context) ([]queue.Stat, error) {
 // TestingSetAttemptedTime is a testing-only method that sets the
 // LastAttemptedAt field of a segment in the repair queue. It is not intended
 // for production use.
-func (rjq *RepairJobQueue) TestingSetAttemptedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+func (rjq *RepairJobQueue) TestingSetAttemptedTime(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 	return rjq.jobqClient.TestingSetAttemptedTime(ctx, placement, streamID, position.Encode(), t)
 }
 
 // TestingSetUpdatedTime is a testing-only method that sets the
 // UpdatedAt field of a segment in the repair queue. It is not intended
 // for production use.
-func (rjq *RepairJobQueue) TestingSetUpdatedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+func (rjq *RepairJobQueue) TestingSetUpdatedTime(ctx context.Context, placement storxnetwork.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 	return rjq.jobqClient.TestingSetUpdatedTime(ctx, placement, streamID, position.Encode(), t)
 }
 

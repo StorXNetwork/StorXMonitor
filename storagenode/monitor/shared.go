@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
 )
 
 // HashStoreBackend is an interface describing the methods needed by SharedDisk

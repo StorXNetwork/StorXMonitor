@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/uplink"
-	"storj.io/uplink/private/access"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/access"
 )
 
 func (ex *external) loadAccesses() error {

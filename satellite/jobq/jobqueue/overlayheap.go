@@ -6,7 +6,7 @@ package jobqueue
 import (
 	"container/heap"
 
-	"storj.io/storj/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
 )
 
 // overlayHeap is a layer on top of an existing heap which keeps track of a set

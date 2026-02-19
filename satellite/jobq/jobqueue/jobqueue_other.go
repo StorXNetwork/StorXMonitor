@@ -6,7 +6,7 @@
 package jobqueue
 
 import (
-	"storj.io/storj/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
 )
 
 func memAlloc(lenRecords int) ([]byte, []jobq.RepairJob, error) {

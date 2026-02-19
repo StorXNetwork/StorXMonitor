@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/shared/nodeidmap"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeidmap"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // SyncObserver implements a rangedloop observer to collect bloom filters for the garbage collection.
@@ -26,7 +26,7 @@ type SyncObserver struct {
 
 	// The following fields are reset for each loop.
 	startTime       time.Time
-	lastPieceCounts map[storj.NodeID]int64
+	lastPieceCounts map[storxnetwork.NodeID]int64
 	seed            byte
 
 	mu          sync.Mutex
@@ -69,7 +69,7 @@ func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err er
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int64)
+		lastPieceCounts = make(map[storxnetwork.NodeID]int64)
 	}
 
 	obs.startTime = startTime
@@ -155,7 +155,7 @@ func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segm
 }
 
 // add adds a pieceID to the relevant node's RetainInfo.
-func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
+func (obs *SyncObserver) add(nodeID storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	obs.mu.Lock()
 	defer obs.mu.Unlock()
 

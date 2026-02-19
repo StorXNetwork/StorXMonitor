@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -28,7 +28,7 @@ type gcFilewalkerProgressDB struct {
 	dbContainerImpl
 
 	mu  sync.Mutex
-	buf map[storj.NodeID]*progressBuffer
+	buf map[storxnetwork.NodeID]*progressBuffer
 }
 
 type progressBuffer struct {
@@ -41,7 +41,7 @@ func (db *gcFilewalkerProgressDB) Store(ctx context.Context, progress pieces.GCF
 
 	db.mu.Lock()
 	if db.buf == nil {
-		db.buf = make(map[storj.NodeID]*progressBuffer)
+		db.buf = make(map[storxnetwork.NodeID]*progressBuffer)
 	}
 	sat := db.buf[progress.SatelliteID]
 
@@ -57,7 +57,7 @@ func (db *gcFilewalkerProgressDB) Store(ctx context.Context, progress pieces.GCF
 	}
 	// if any of the satellites has scanned more than maxPrefixesScannedToFlush prefixes, flush the buffer
 	batch := db.buf
-	db.buf = make(map[storj.NodeID]*progressBuffer)
+	db.buf = make(map[storxnetwork.NodeID]*progressBuffer)
 	db.mu.Unlock()
 
 	var args []any
@@ -73,7 +73,7 @@ func (db *gcFilewalkerProgressDB) Store(ctx context.Context, progress pieces.GCF
 	return ErrGCProgress.Wrap(err)
 }
 
-func (db *gcFilewalkerProgressDB) Get(ctx context.Context, satelliteID storj.NodeID) (progress pieces.GCFilewalkerProgress, err error) {
+func (db *gcFilewalkerProgressDB) Get(ctx context.Context, satelliteID storxnetwork.NodeID) (progress pieces.GCFilewalkerProgress, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	db.mu.Lock()
@@ -96,7 +96,7 @@ func (db *gcFilewalkerProgressDB) Get(ctx context.Context, satelliteID storj.Nod
 	return progress, ErrGCProgress.Wrap(err)
 }
 
-func (db *gcFilewalkerProgressDB) Reset(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *gcFilewalkerProgressDB) Reset(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	db.mu.Lock()

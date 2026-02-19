@@ -3,34 +3,34 @@
 
 package multinodepb
 
-import "storj.io/common/storj"
+import "github.com/StorXNetwork/common/storxnetwork"
 
 // Path represents a object path.
-type Path = storj.Path
+type Path = storxnetwork.Path
 
-// NodeID is an alias to storj.NodeID for use in generated protobuf code.
-type NodeID = storj.NodeID
+// NodeID is an alias to storxnetwork.NodeID for use in generated protobuf code.
+type NodeID = storxnetwork.NodeID
 
-// NodeIDList is an alias to storj.NodeIDList for use in generated protobuf code.
-type NodeIDList = storj.NodeIDList
+// NodeIDList is an alias to storxnetwork.NodeIDList for use in generated protobuf code.
+type NodeIDList = storxnetwork.NodeIDList
 
-// PieceID is an alias to storj.PieceID for use in generated protobuf code.
-type PieceID = storj.PieceID
+// PieceID is an alias to storxnetwork.PieceID for use in generated protobuf code.
+type PieceID = storxnetwork.PieceID
 
-// PiecePublicKey is an alias to storj.PiecePublicKey for use in generated protobuf code.
-type PiecePublicKey = storj.PiecePublicKey
+// PiecePublicKey is an alias to storxnetwork.PiecePublicKey for use in generated protobuf code.
+type PiecePublicKey = storxnetwork.PiecePublicKey
 
-// PiecePrivateKey is an alias to storj.PiecePrivateKey for use in generated protobuf code.
-type PiecePrivateKey = storj.PiecePrivateKey
+// PiecePrivateKey is an alias to storxnetwork.PiecePrivateKey for use in generated protobuf code.
+type PiecePrivateKey = storxnetwork.PiecePrivateKey
 
-// SerialNumber is an alias to storj.SerialNumber for use in generated protobuf code.
-type SerialNumber = storj.SerialNumber
+// SerialNumber is an alias to storxnetwork.SerialNumber for use in generated protobuf code.
+type SerialNumber = storxnetwork.SerialNumber
 
-// StreamID is an alias to storj.StreamID for use in generated protobuf code.
-type StreamID = storj.StreamID
+// StreamID is an alias to storxnetwork.StreamID for use in generated protobuf code.
+type StreamID = storxnetwork.StreamID
 
-// Nonce is an alias to storj.Nonce for use in generated protobuf code.
-type Nonce = storj.Nonce
+// Nonce is an alias to storxnetwork.Nonce for use in generated protobuf code.
+type Nonce = storxnetwork.Nonce
 
-// SegmentID is an alias to storj.SegmentID for use in generated protobuf code.
-type SegmentID = storj.SegmentID
+// SegmentID is an alias to storxnetwork.SegmentID for use in generated protobuf code.
+type SegmentID = storxnetwork.SegmentID

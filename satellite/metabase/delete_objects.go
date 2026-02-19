@@ -8,8 +8,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // DeleteObjectsMaxItems is the maximum amount of items that are allowed
@@ -78,7 +78,7 @@ type DeleteObjectsResultItem struct {
 	Removed *DeleteObjectsInfo
 	Marker  *DeleteObjectsInfo
 
-	Status storj.DeleteObjectsStatus
+	Status storxnetwork.DeleteObjectsStatus
 }
 
 // DeleteObjectsInfo contains information about an object that was deleted or a delete marker that was inserted
@@ -101,7 +101,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 	defer func() {
 		var deletedObjects int
 		for _, item := range result.Items {
-			if item.Status == storj.DeleteObjectsStatusOK && item.Removed != nil {
+			if item.Status == storxnetwork.DeleteObjectsStatusOK && item.Removed != nil {
 				deletedObjects++
 			}
 		}
@@ -162,7 +162,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 				Status:          CommittedUnversioned,
 			}
 			resultItem.Removed = deleteInfo
-			resultItem.Status = storj.DeleteObjectsStatusOK
+			resultItem.Status = storxnetwork.DeleteObjectsStatusOK
 
 			if !opts.Versioned {
 				// Handle the case where an object was specified twice in the deletion request:
@@ -173,7 +173,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 					StreamVersionID: sv,
 				}]; ok {
 					processedOpts.results[i].Removed = deleteInfo
-					processedOpts.results[i].Status = storj.DeleteObjectsStatusOK
+					processedOpts.results[i].Status = storxnetwork.DeleteObjectsStatusOK
 				}
 			}
 		}
@@ -184,26 +184,26 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 				StreamVersionID: marker.StreamVersionID(),
 				Status:          marker.Status,
 			}
-			resultItem.Status = storj.DeleteObjectsStatusOK
+			resultItem.Status = storxnetwork.DeleteObjectsStatusOK
 		}
 
 		if err != nil {
 			if ErrObjectLock.Has(err) {
-				resultItem.Status = storj.DeleteObjectsStatusLocked
+				resultItem.Status = storxnetwork.DeleteObjectsStatusLocked
 				err = nil
 			} else {
 				return result, err
 			}
 		}
 
-		if resultItem.Status == storj.DeleteObjectsStatusInternalError {
-			resultItem.Status = storj.DeleteObjectsStatusNotFound
+		if resultItem.Status == storxnetwork.DeleteObjectsStatusInternalError {
+			resultItem.Status = storxnetwork.DeleteObjectsStatusNotFound
 		}
 	}
 
 	for i := processedOpts.lastCommittedCount; i < len(processedOpts.results); i++ {
 		resultItem := &processedOpts.results[i]
-		if resultItem.Status == storj.DeleteObjectsStatusOK {
+		if resultItem.Status == storxnetwork.DeleteObjectsStatusOK {
 			continue
 		}
 
@@ -214,7 +214,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			}]; ok {
 				marker := processedOpts.results[linkedItemIdx].Marker
 				if marker != nil && marker.StreamVersionID == resultItem.RequestedStreamVersionID {
-					resultItem.Status = storj.DeleteObjectsStatusNotFound
+					resultItem.Status = storxnetwork.DeleteObjectsStatusNotFound
 					continue
 				}
 			}
@@ -236,7 +236,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		result.DeletedSegmentCount += int64(deleteObjectResult.DeletedSegmentCount)
 
 		if len(deleteObjectResult.Removed) > 0 {
-			resultItem.Status = storj.DeleteObjectsStatusOK
+			resultItem.Status = storxnetwork.DeleteObjectsStatusOK
 			resultItem.Removed = &DeleteObjectsInfo{
 				StreamVersionID: resultItem.RequestedStreamVersionID,
 				Status:          deleteObjectResult.Removed[0].Status,
@@ -245,15 +245,15 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 
 		if err != nil {
 			if ErrObjectLock.Has(err) {
-				resultItem.Status = storj.DeleteObjectsStatusLocked
+				resultItem.Status = storxnetwork.DeleteObjectsStatusLocked
 				err = nil
 			} else {
 				return result, err
 			}
 		}
 
-		if resultItem.Status == storj.DeleteObjectsStatusInternalError {
-			resultItem.Status = storj.DeleteObjectsStatusNotFound
+		if resultItem.Status == storxnetwork.DeleteObjectsStatusInternalError {
+			resultItem.Status = storxnetwork.DeleteObjectsStatusNotFound
 		}
 	}
 

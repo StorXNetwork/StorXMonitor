@@ -201,10 +201,10 @@ group "images" {
 
 /* Development binaries for images. */
 
-target "storj-up" {
+target "storxnetwork-up" {
   context    = "."
   dockerfile = "release.Dockerfile"
-  target     = "storj-up-binaries"
+  target     = "storxnetwork-up-binaries"
   output     = []
 }
 
@@ -274,7 +274,7 @@ target "satellite-image" {
   contexts = {
     binaries = "target:binaries-linux"
     ui       = "target:web-satellite"
-    storj-up = "target:storj-up"
+    storxnetwork-up = "target:storxnetwork-up"
     delve    = "target:delve"
   }
   dockerfile = "cmd/satellite/Dockerfile"
@@ -301,10 +301,10 @@ target "storagenode-dev-image" {
   contexts = {
     binaries = "target:binaries-linux"
     ui       = "target:web-storagenode"
-    storj-up = "target:storj-up"
+    storxnetwork-up = "target:storxnetwork-up"
     delve    = "target:delve"
   }
   dockerfile = "cmd/storagenode/Dockerfile.dev"
   platforms  = ["linux/amd64", "linux/arm64"]
-  tags       = ["img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}"]
+  tags       = ["img.dev.storxnetwork.io/dev/storagenode:${TAG}${CUSTOMTAG}"]
 }

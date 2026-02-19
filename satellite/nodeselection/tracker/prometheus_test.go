@@ -27,11 +27,11 @@ package tracker
 // 	"github.com/zeebo/errs"
 // 	"go.uber.org/zap/zaptest"
 
-// 	"storj.io/common/storj"
-// 	"storj.io/common/testcontext"
-// 	"storj.io/common/testrand"
-// 	"storj.io/storj/satellite/nodeselection"
-// 	"storj.io/storj/satellite/overlay"
+// 	"github.com/StorXNetwork/common/storxnetwork"
+// 	"github.com/StorXNetwork/common/testcontext"
+// 	"github.com/StorXNetwork/common/testrand"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 // )
 
 // func TestTracker(t *testing.T) {
@@ -49,17 +49,17 @@ package tracker
 // 					{
 // 						Name:   "dc",
 // 						Value:  []byte("dc1"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 					{
 // 						Name:   "server",
 // 						Value:  []byte("s1"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 					{
 // 						Name:   "instance",
 // 						Value:  []byte("storagenode1"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 				},
 // 			},
@@ -69,17 +69,17 @@ package tracker
 // 					{
 // 						Name:   "dc",
 // 						Value:  []byte("dc1"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 					{
 // 						Name:   "server",
 // 						Value:  []byte("s1"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 					{
 // 						Name:   "instance",
 // 						Value:  []byte("storagenode2"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 				},
 // 			},
@@ -89,17 +89,17 @@ package tracker
 // 					{
 // 						Name:   "dc",
 // 						Value:  []byte("dc1"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 					{
 // 						Name:   "server",
 // 						Value:  []byte("s1"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 					{
 // 						Name:   "instance",
 // 						Value:  []byte("storagenode3"),
-// 						Signer: storj.NodeID{},
+// 						Signer: storxnetwork.NodeID{},
 // 					},
 // 				},
 // 			},
@@ -152,7 +152,7 @@ package tracker
 // 		}
 // 	}()
 
-// 	score := tracker.Get(storj.NodeID{})
+// 	score := tracker.Get(storxnetwork.NodeID{})
 // 	require.Equal(t, 0.5, score(&nodeselection.SelectedNode{
 // 		ID: nodeID1,
 // 	}))

@@ -13,14 +13,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/identity"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/storj/private/server"
-	"storj.io/storj/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // forgetSatelliteCfg defines configuration for forget-satellite command.
@@ -171,7 +171,7 @@ func startForgetSatellite(ctx context.Context, log *zap.Logger, client *forgetSa
 
 	statuses := make([]*forgetSatelliteStatus, 0, len(opts.SatelliteIDs))
 	for _, satelliteID := range opts.SatelliteIDs {
-		id, err := storj.NodeIDFromString(satelliteID)
+		id, err := storxnetwork.NodeIDFromString(satelliteID)
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -227,7 +227,7 @@ func cmdForgetSatelliteStatus(ctx context.Context, log *zap.Logger, cfg *forgetS
 
 	statuses := make([]*forgetSatelliteStatus, 0, len(cfg.SatelliteIDs))
 	for _, satelliteID := range cfg.SatelliteIDs {
-		id, err := storj.NodeIDFromString(satelliteID)
+		id, err := storxnetwork.NodeIDFromString(satelliteID)
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -258,7 +258,7 @@ func cmdForgetSatelliteStatus(ctx context.Context, log *zap.Logger, cfg *forgetS
 }
 
 type forgetSatelliteStatus struct {
-	satelliteID storj.NodeID
+	satelliteID storxnetwork.NodeID
 	inProgress  bool
 	successful  bool
 }
@@ -315,11 +315,11 @@ func (client *forgetSatelliteClient) getUntrustedSatellites(ctx context.Context)
 
 }
 
-func (client *forgetSatelliteClient) startForgetSatellite(ctx context.Context, id storj.NodeID, force bool) (*internalpb.InitForgetSatelliteResponse, error) {
+func (client *forgetSatelliteClient) startForgetSatellite(ctx context.Context, id storxnetwork.NodeID, force bool) (*internalpb.InitForgetSatelliteResponse, error) {
 	return internalpb.NewDRPCNodeForgetSatelliteClient(client.conn).InitForgetSatellite(ctx, &internalpb.InitForgetSatelliteRequest{SatelliteId: id, ForceCleanup: force})
 }
 
-func (client *forgetSatelliteClient) getForgetSatelliteStatus(ctx context.Context, id storj.NodeID) (*internalpb.ForgetSatelliteStatusResponse, error) {
+func (client *forgetSatelliteClient) getForgetSatelliteStatus(ctx context.Context, id storxnetwork.NodeID) (*internalpb.ForgetSatelliteStatusResponse, error) {
 	return internalpb.NewDRPCNodeForgetSatelliteClient(client.conn).ForgetSatelliteStatus(ctx, &internalpb.ForgetSatelliteStatusRequest{SatelliteId: id})
 }
 

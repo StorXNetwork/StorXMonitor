@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeAliasDB is an interface for looking up node alises.
@@ -44,7 +44,7 @@ func (cache *NodeAliasCache) getLatest() *NodeAliasMap {
 // Nodes returns node ID-s corresponding to the aliases,
 // refreshing the cache once when an alias is missing.
 // This results in an error when the alias is not in the database.
-func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]storj.NodeID, error) {
+func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]storxnetwork.NodeID, error) {
 	latest := cache.getLatest()
 
 	nodes, missing := latest.Nodes(aliases)
@@ -68,7 +68,7 @@ func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]
 
 // EnsureAliases returns node aliases corresponding to the node ID-s,
 // adding missing node ID-s to the database when needed.
-func (cache *NodeAliasCache) EnsureAliases(ctx context.Context, nodes []storj.NodeID) ([]NodeAlias, error) {
+func (cache *NodeAliasCache) EnsureAliases(ctx context.Context, nodes []storxnetwork.NodeID) ([]NodeAlias, error) {
 	latest := cache.getLatest()
 
 	aliases, missing := latest.Aliases(nodes)
@@ -91,7 +91,7 @@ func (cache *NodeAliasCache) EnsureAliases(ctx context.Context, nodes []storj.No
 }
 
 // Aliases returns node aliases corresponding to the node ID-s and returns an error when node is missing.
-func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storj.NodeID) ([]NodeAlias, error) {
+func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storxnetwork.NodeID) ([]NodeAlias, error) {
 	latest := cache.getLatest()
 
 	aliases, missing := latest.Aliases(nodes)
@@ -129,7 +129,7 @@ func (cache *NodeAliasCache) Latest(ctx context.Context) (_ *NodeAliasMap, err e
 }
 
 // ensure tries to ensure that the specified missing node ID-s are assigned a alias.
-func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storj.NodeID) (_ *NodeAliasMap, err error) {
+func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storxnetwork.NodeID) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := cache.db.EnsureNodeAliases(ctx, EnsureNodeAliases{
@@ -142,7 +142,7 @@ func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storj.NodeID
 
 // refresh refreshes the state of the cache, when missingNodes or missingAliases is still missing.
 // When both are nil, then it always refreshes.
-func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storj.NodeID, missingAliases []NodeAlias) (_ *NodeAliasMap, err error) {
+func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storxnetwork.NodeID, missingAliases []NodeAlias) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cache.refreshing.Lock()
@@ -193,7 +193,7 @@ func (cache *NodeAliasCache) EnsurePiecesToAliases(ctx context.Context, pieces P
 		return AliasPieces{}, nil
 	}
 
-	nodes := make([]storj.NodeID, len(pieces))
+	nodes := make([]storxnetwork.NodeID, len(pieces))
 	for i, p := range pieces {
 		nodes[i] = p.StorageNode
 	}

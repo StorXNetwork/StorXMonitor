@@ -18,7 +18,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/version"
 )
 
 var (
@@ -30,7 +30,7 @@ var (
 
 // ClientConfig is the config struct for the version control client.
 type ClientConfig struct {
-	ServerAddress  string        `help:"server address to check its version against" default:"https://version.storj.io"`
+	ServerAddress  string        `help:"server address to check its version against" default:"https://version.storxnetwork.io"`
 	RequestTimeout time.Duration `help:"Request timeout for version checks" default:"0h1m0s"`
 }
 

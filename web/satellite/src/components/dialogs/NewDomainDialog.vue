@@ -94,9 +94,9 @@
                         <setup-t-x-t-step
                             :ref="stepInfos[NewDomainFlowStep.SetupTXT].ref"
                             :domain="domain"
-                            :storj-root="storjRoot"
-                            :storj-access="storjAccess"
-                            :storj-tls="storjTLS"
+                            :storxnetwork-root="storjRoot"
+                            :storxnetwork-access="storjAccess"
+                            :storxnetwork-tls="storjTLS"
                         />
                     </v-window-item>
 
@@ -125,7 +125,7 @@
                         <v-btn
                             variant="outlined"
                             color="default"
-                            href="https://docs.storj.io/dcs/code/static-site-hosting/custom-domains"
+                            href="https://docs.storxnetwork.io/dcs/code/static-site-hosting/custom-domains"
                             target="_blank"
                             rel="noopener noreferrer"
                             block
@@ -319,9 +319,9 @@ const stepInfos: Record<NewDomainFlowStep, StepInfo> = {
 };
 
 const cname = computed<string>(() => `${publicLinksharingURL.value.split('//').pop() ?? ''}.`);
-const storjRoot = computed<string>(() => `storj-root:${bucket.value}`);
-const storjAccess = computed<string>(() => `storj-access:${accessKeyID.value}`);
-const storjTLS = 'storj-tls:true';
+const storjRoot = computed<string>(() => `storxnetwork-root:${bucket.value}`);
+const storjAccess = computed<string>(() => `storxnetwork-access:${accessKeyID.value}`);
+const storjTLS = 'storxnetwork-tls:true';
 const txt = computed<string[]>(() => [storjRoot.value, storjAccess.value, storjTLS]);
 
 const currentTitle = computed<string>(() => {

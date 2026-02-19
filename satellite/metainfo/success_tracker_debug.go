@@ -11,23 +11,23 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/debug"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // TrackerInfo is an interface that provides information about the current trackers.
 type TrackerInfo struct {
 	db                overlay.DB
 	successTrackers   *SuccessTrackers
-	successUplinks    []storj.NodeID
+	successUplinks    []storxnetwork.NodeID
 	failureTracker    SuccessTracker
 	prometheusTracker nodeselection.ScoreNode
 }
 
 // NewTrackerInfo creates a new TrackerInfo.
-func NewTrackerInfo(successTrackers *SuccessTrackers, failureTracker SuccessTracker, successUplinks []storj.NodeID, db overlay.DB) *TrackerInfo {
+func NewTrackerInfo(successTrackers *SuccessTrackers, failureTracker SuccessTracker, successUplinks []storxnetwork.NodeID, db overlay.DB) *TrackerInfo {
 	t := &TrackerInfo{
 		db:              db,
 		successTrackers: successTrackers,
@@ -94,9 +94,9 @@ func asText(writer http.ResponseWriter, result string, err error) {
 
 // DumpSuccessTracker prints out all scores for one specific tracker..
 func (t *TrackerInfo) DumpSuccessTracker(ctx context.Context, success string) (string, error) {
-	var uplink storj.NodeID
+	var uplink storxnetwork.NodeID
 	if success != "global" && success != "" {
-		url, err := storj.NodeIDFromString(success)
+		url, err := storxnetwork.NodeIDFromString(success)
 		if err != nil {
 			return "", errs.Wrap(err)
 		}
@@ -127,7 +127,7 @@ func (t *TrackerInfo) DumpPrometheusTracker(ctx context.Context) (string, error)
 		return "", errs.Wrap(err)
 	}
 	output := ""
-	scoreFunc := t.prometheusTracker.Get(storj.NodeID{})
+	scoreFunc := t.prometheusTracker.Get(storxnetwork.NodeID{})
 	for _, node := range nodes {
 		value := scoreFunc(&node)
 		output += fmt.Sprintf("%s %f\n", node.ID, value)

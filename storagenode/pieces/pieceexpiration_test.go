@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireDB PieceExpirationDB) {
@@ -91,8 +91,8 @@ func TestPieceExpirationStoreInDepth(t *testing.T) {
 	const numSatellites = 2
 	const numPieces = 2
 
-	satellites := make([]storj.NodeID, numSatellites)
-	expirePieces := make([]storj.PieceID, numPieces)
+	satellites := make([]storxnetwork.NodeID, numSatellites)
+	expirePieces := make([]storxnetwork.PieceID, numPieces)
 	now := time.Now()
 
 	for i := range satellites {
@@ -193,7 +193,7 @@ func TestPieceExpirationStoreFileTruncation(t *testing.T) {
 	// write a full piece expiration record for pieceID1
 	n, err := f.Write(pieceID1[:])
 	require.NoError(t, err)
-	require.Equal(t, len(storj.PieceID{}), n)
+	require.Equal(t, len(storxnetwork.PieceID{}), n)
 	sizeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(sizeBytes, 100)
 	n, err = f.Write(sizeBytes)
@@ -203,7 +203,7 @@ func TestPieceExpirationStoreFileTruncation(t *testing.T) {
 	// but only a part expiration record for pieceID2
 	n, err = f.Write(pieceID2[:])
 	require.NoError(t, err)
-	require.Equal(t, len(storj.PieceID{}), n)
+	require.Equal(t, len(storxnetwork.PieceID{}), n)
 
 	require.NoError(t, f.Close())
 
@@ -260,7 +260,7 @@ func TestPieceExpirationPeriodicFlushing(t *testing.T) {
 	require.NoError(t, err)
 
 	size := st.Size()
-	const recordSize = int64(len(storj.PieceID{})) + 8
+	const recordSize = int64(len(storxnetwork.PieceID{})) + 8
 	require.Equal(t, recordSize, size)
 }
 
@@ -322,7 +322,7 @@ func TestGetExpiredFromFile(t *testing.T) {
 
 	now := time.Now()
 
-	var expectedIDs []storj.PieceID
+	var expectedIDs []storxnetwork.PieceID
 	for i := 0; i < 10; i++ {
 		pieceID := testrand.PieceID()
 		err = store.SetExpiration(ctx, satelliteID, pieceID, now.Add(-time.Hour), int64(pieceID.Bytes()[0]))
@@ -334,7 +334,7 @@ func TestGetExpiredFromFile(t *testing.T) {
 	require.NoError(t, err)
 
 	ix := 0
-	err = GetExpiredFromFile(ctx, flatFiles[0], func(id storj.PieceID, size uint64) {
+	err = GetExpiredFromFile(ctx, flatFiles[0], func(id storxnetwork.PieceID, size uint64) {
 		require.Equal(t, expectedIDs[ix], id)
 		require.Equal(t, uint64(expectedIDs[ix].Bytes()[0]), size)
 		ix++

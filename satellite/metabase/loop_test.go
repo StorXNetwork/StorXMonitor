@@ -11,11 +11,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestIterateLoopSegments(t *testing.T) {
@@ -141,8 +141,8 @@ func TestIterateLoopSegments(t *testing.T) {
 			metabasetest.CreateExpiredObject(ctx, t, db, committedExpires, 1, expectedExpiresAt)
 
 			genericLoopEntry := metabase.LoopSegmentEntry{
-				RootPieceID:   storj.PieceID{1},
-				Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				RootPieceID:   storxnetwork.PieceID{1},
+				Pieces:        metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				CreatedAt:     now,
 				EncryptedSize: 1024,
 				PlainSize:     512,
@@ -218,8 +218,8 @@ func TestIterateLoopSegments(t *testing.T) {
 					entry := metabase.LoopSegmentEntry{
 						StreamID:      committed.StreamID,
 						Position:      metabase.SegmentPosition{0, uint32(j)},
-						RootPieceID:   storj.PieceID{1},
-						Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						RootPieceID:   storxnetwork.PieceID{1},
+						Pieces:        metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 						CreatedAt:     now,
 						EncryptedSize: 1024,
 						PlainSize:     512,

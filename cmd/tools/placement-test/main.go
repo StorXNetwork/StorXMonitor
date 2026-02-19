@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -72,7 +72,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 			node.LastNet = kv[1]
 		case "tag":
 			tkv := strings.SplitN(kv[1], "/", 3)
-			signer, err := storj.NodeIDFromString(tkv[0])
+			signer, err := storxnetwork.NodeIDFromString(tkv[0])
 			if err != nil {
 				return err
 			}

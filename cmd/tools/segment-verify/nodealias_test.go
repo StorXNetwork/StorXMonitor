@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 func randomNodeAlias() metabase.NodeAlias {

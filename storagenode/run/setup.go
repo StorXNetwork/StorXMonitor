@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/storj/shared/modular/cli"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/cli"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 // SetupArgs contains arguments for the setup command.

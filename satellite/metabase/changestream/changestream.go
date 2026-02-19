@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/storj/shared/dbutil/recordeddb"
-	"storj.io/storj/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/recordeddb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
 )
 
 // ChangeRecord represents a record from Spanner change stream.

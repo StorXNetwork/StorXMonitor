@@ -12,11 +12,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // I can see how keeping around the query to only get attribution for one partner might be good,
@@ -71,7 +71,7 @@ func (a *attributionDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID
 }
 
 // UpdatePlacement updates bucket placement.
-func (a *attributionDB) UpdatePlacement(ctx context.Context, projectID uuid.UUID, bucketName string, placement *storj.PlacementConstraint) (err error) {
+func (a *attributionDB) UpdatePlacement(ctx context.Context, projectID uuid.UUID, bucketName string, placement *storxnetwork.PlacementConstraint) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.ValueAttribution_Update_Fields{}
@@ -313,9 +313,9 @@ func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	var placementPtr *storj.PlacementConstraint
+	var placementPtr *storxnetwork.PlacementConstraint
 	if info.Placement != nil {
-		placementVal := storj.PlacementConstraint(*info.Placement)
+		placementVal := storxnetwork.PlacementConstraint(*info.Placement)
 		placementPtr = &placementVal
 	}
 	return &attribution.Info{

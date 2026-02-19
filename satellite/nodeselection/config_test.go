@@ -12,19 +12,19 @@ import (
 	"github.com/jtolio/mito"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestParsedConfig(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	zeroSigner, err := storj.NodeIDFromString("1111111111111111111111111111111VyS547o")
+	zeroSigner, err := storxnetwork.NodeIDFromString("1111111111111111111111111111111VyS547o")
 	require.NoError(t, err)
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
@@ -67,7 +67,7 @@ func TestParsedConfig(t *testing.T) {
 		// checking one invariant
 		node := func(ix int, owner string) SelectedNode {
 			return SelectedNode{
-				ID: testidentity.MustPregeneratedSignedIdentity(ix, storj.LatestIDVersion()).ID,
+				ID: testidentity.MustPregeneratedSignedIdentity(ix, storxnetwork.LatestIDVersion()).ID,
 				Tags: NodeTags{
 					{
 						Name:  "owner",
@@ -79,7 +79,7 @@ func TestParsedConfig(t *testing.T) {
 
 		piece := func(ix int, nodeIx int) metabase.Piece {
 			return metabase.Piece{
-				Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storj.LatestIDVersion()).ID,
+				Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storxnetwork.LatestIDVersion()).ID,
 			}
 		}
 
@@ -111,7 +111,7 @@ func TestParsedConfig(t *testing.T) {
 			{
 				Vetted: false,
 			},
-		}, nil)(ctx, storj.NodeID{}, 1, nil, nil)
+		}, nil)(ctx, storxnetwork.NodeID{}, 1, nil, nil)
 
 		// having: new, requires: 0% unvetted = 100% vetted
 		require.Len(t, selected, 0)
@@ -132,7 +132,7 @@ func TestParsedConfig(t *testing.T) {
 					ID: testrand.NodeID(),
 				},
 			}, nil,
-		)(ctx, storj.NodeID{}, 1, nil, nil)
+		)(ctx, storxnetwork.NodeID{}, 1, nil, nil)
 
 		require.Len(t, selected, 1)
 		require.NoError(t, err)
@@ -162,7 +162,7 @@ func TestParsedConfig(t *testing.T) {
 	}
 
 	t.Run("download-selector", func(t *testing.T) {
-		possibleNodes := map[storj.NodeID]*SelectedNode{}
+		possibleNodes := map[storxnetwork.NodeID]*SelectedNode{}
 		for i := 0; i < 10; i++ {
 			id := testrand.NodeID()
 			node := &SelectedNode{
@@ -176,7 +176,7 @@ func TestParsedConfig(t *testing.T) {
 			possibleNodes[id] = node
 		}
 		// smoketest for download selector
-		requester, err := storj.NodeIDFromString("126fuL2fPdYYvAJwgEjF4NwBDkfGRoRwBT8JcXpjF9QmUMgLuVe")
+		requester, err := storxnetwork.NodeIDFromString("126fuL2fPdYYvAJwgEjF4NwBDkfGRoRwBT8JcXpjF9QmUMgLuVe")
 		require.NoError(t, err)
 
 		selected, err := config[19].DownloadSelector(ctx, requester, possibleNodes, 1)
@@ -186,7 +186,7 @@ func TestParsedConfig(t *testing.T) {
 			require.Equal(t, location.UnitedStates, node.CountryCode)
 		}
 
-		selected2, err := config[19].DownloadSelector(ctx, storj.NodeID{}, possibleNodes, 1)
+		selected2, err := config[19].DownloadSelector(ctx, storxnetwork.NodeID{}, possibleNodes, 1)
 		require.NoError(t, err)
 		require.Len(t, selected2, 9)
 		for _, node := range selected2 {
@@ -197,7 +197,7 @@ func TestParsedConfig(t *testing.T) {
 	t.Run("combined-invariant", func(t *testing.T) {
 		piece := func(ix int, nodeIx int) metabase.Piece {
 			return metabase.Piece{
-				Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storj.LatestIDVersion()).ID,
+				Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storxnetwork.LatestIDVersion()).ID,
 			}
 
 		}
@@ -254,7 +254,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 				ID: testrand.NodeID(),
 			},
 		}, nil,
-	)(ctx, storj.NodeID{}, 1, nil, nil)
+	)(ctx, storxnetwork.NodeID{}, 1, nil, nil)
 
 	require.Len(t, selected, 1)
 	require.NoError(t, err)
@@ -266,10 +266,10 @@ func TestFilterFromString(t *testing.T) {
 	require.NoError(t, err)
 
 	require.False(t, filter.Match(&SelectedNode{
-		ID: testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
+		ID: testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID,
 	}))
 	require.True(t, filter.Match(&SelectedNode{
-		ID: testidentity.MustPregeneratedIdentity(3, storj.LatestIDVersion()).ID,
+		ID: testidentity.MustPregeneratedIdentity(3, storxnetwork.LatestIDVersion()).ID,
 	}))
 
 }
@@ -285,24 +285,24 @@ func TestSelectorFromString(t *testing.T) {
 	var nodes []*SelectedNode
 	for i := 0; i < 10; i++ {
 		nodes = append(nodes, &SelectedNode{
-			ID: testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			ID: testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 		})
 	}
 
 	initialized := selector(ctx, nodes, nil)
 
 	for i := 0; i < 100; i++ {
-		selected, err := initialized(ctx, storj.NodeID{}, 1, []storj.NodeID{}, nil)
+		selected, err := initialized(ctx, storxnetwork.NodeID{}, 1, []storxnetwork.NodeID{}, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, 1)
-		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
-		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
+		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID, selected[0].ID)
+		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID, selected[0].ID)
 	}
 
 }
 
 func TestTargetType(t *testing.T) {
-	r := targetType(float64(1), ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+	r := targetType(float64(1), ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 		return 0
 	}))
 	require.Equal(t, "ScoreNode", r.Name())
@@ -313,11 +313,11 @@ func TestCompare(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// Create two score nodes for testing
-	scoreNode1 := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+	scoreNode1 := ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 		return float64(node.FreeDisk)
 	})
 
-	scoreNode2 := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+	scoreNode2 := ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 		return float64(node.PieceCount)
 	})
 
@@ -327,7 +327,7 @@ func TestCompare(t *testing.T) {
 	node3 := &SelectedNode{FreeDisk: 5, PieceCount: 10}
 
 	compareFunc := Compare(scoreNode1, scoreNode2)
-	compareFn := compareFunc(storj.NodeID{})
+	compareFn := compareFunc(storxnetwork.NodeID{})
 
 	// Test cases
 	require.Equal(t, 0, compareFn(node1, node1), "Node should be equal to itself")
@@ -340,14 +340,14 @@ func TestCompare(t *testing.T) {
 	nodeNaN1 := &SelectedNode{FreeDisk: 0, PieceCount: 0} // Will return NaN for both scores
 	nodeNaN2 := &SelectedNode{FreeDisk: 5, PieceCount: 0} // Will return NaN for second score
 
-	scoreNodeNaN1 := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+	scoreNodeNaN1 := ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 		if node.FreeDisk == 0 {
 			return math.NaN()
 		}
 		return float64(node.FreeDisk)
 	})
 
-	scoreNodeNaN2 := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+	scoreNodeNaN2 := ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 		if node.PieceCount == 0 {
 			return math.NaN()
 		}
@@ -355,7 +355,7 @@ func TestCompare(t *testing.T) {
 	})
 
 	compareNaNFunc := Compare(scoreNodeNaN1, scoreNodeNaN2)
-	compareNaNFn := compareNaNFunc(storj.NodeID{})
+	compareNaNFn := compareNaNFunc(storxnetwork.NodeID{})
 
 	require.Equal(t, 0, compareNaNFn(nodeNaN1, nodeNaN1), "Both nodes have NaN for both scores")
 	require.Equal(t, 1, compareNaNFn(nodeNaN1, nodeNaN2), "First node has NaN for first score, second has value")
@@ -363,7 +363,7 @@ func TestCompare(t *testing.T) {
 }
 
 func TestArithmetic(t *testing.T) {
-	zeroSigner, err := storj.NodeIDFromString("1111111111111111111111111111111VyS547o")
+	zeroSigner, err := storxnetwork.NodeIDFromString("1111111111111111111111111111111VyS547o")
 	require.NoError(t, err)
 	node := SelectedNode{
 		FreeDisk: 2,
@@ -380,7 +380,7 @@ func TestArithmetic(t *testing.T) {
 		}
 		return val
 	}
-	env["uploadSuccessTracker"] = ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+	env["uploadSuccessTracker"] = ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 		return 1.0
 	})
 	AddArithmetic(env)
@@ -457,7 +457,7 @@ func TestArithmetic(t *testing.T) {
 		t.Run("score node and node field", func(t *testing.T) {
 			res, err := mito.Eval("uploadSuccessTracker + node_value(\"free_disk\") ^ 2", env)
 			require.NoError(t, err)
-			i := res.(ScoreNode).Get(storj.NodeID{})(&node)
+			i := res.(ScoreNode).Get(storxnetwork.NodeID{})(&node)
 			require.Equal(t, 5.0, i)
 		})
 	})
@@ -505,14 +505,14 @@ func TestArithmetic(t *testing.T) {
 		})
 
 		t.Run("score node", func(t *testing.T) {
-			scoreNodeFloat := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			scoreNodeFloat := ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				return 4.7
 			})
 			env["floatScoreTracker"] = scoreNodeFloat
 
 			res, err := mito.Eval("round(floatScoreTracker)", env)
 			require.NoError(t, err)
-			i := res.(ScoreNode).Get(storj.NodeID{})(&node)
+			i := res.(ScoreNode).Get(storxnetwork.NodeID{})(&node)
 			require.Equal(t, 5.0, i)
 		})
 	})
@@ -534,7 +534,7 @@ placements:
 `
 		placements, err := LoadConfigFromString(yamlConfig, env)
 		require.NoError(t, err)
-		require.Contains(t, placements, storj.PlacementConstraint(1))
+		require.Contains(t, placements, storxnetwork.PlacementConstraint(1))
 
 		placement := placements[1]
 		require.Equal(t, 2, placement.EC.Minimum)
@@ -561,7 +561,7 @@ placements:
 `
 		placements, err := LoadConfigFromString(yamlConfig, env)
 		require.NoError(t, err)
-		require.Contains(t, placements, storj.PlacementConstraint(2))
+		require.Contains(t, placements, storxnetwork.PlacementConstraint(2))
 
 		placement := placements[2]
 		require.Equal(t, 2, placement.EC.Minimum)
@@ -646,6 +646,6 @@ placements:
 type mockTracker struct {
 }
 
-func (m mockTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
+func (m mockTracker) Get(uplink storxnetwork.NodeID) func(node *SelectedNode) float64 {
 	return func(node *SelectedNode) float64 { return 0 }
 }

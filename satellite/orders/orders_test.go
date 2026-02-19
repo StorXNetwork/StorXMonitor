@@ -10,16 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSendingReceivingOrders(t *testing.T) {
@@ -169,7 +169,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		var expectedBucketBandwidth int64
-		expectedStorageBandwidth := make(map[storj.NodeID]int64)
+		expectedStorageBandwidth := make(map[storxnetwork.NodeID]int64)
 		for _, storageNode := range planet.StorageNodes {
 			infos, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
@@ -274,7 +274,7 @@ func TestUpdateStoragenodeBandwidthSettleWithWindow(t *testing.T) {
 		now := time.Now().UTC()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
-		snID := storj.NodeID{1}
+		snID := storxnetwork.NodeID{1}
 		windowTime := now.AddDate(0, 0, -1)
 		actionAmounts := map[int32]int64{
 			int32(pb.PieceAction_GET):    100,
@@ -284,7 +284,7 @@ func TestUpdateStoragenodeBandwidthSettleWithWindow(t *testing.T) {
 
 		// confirm there aren't any records in the storagenodebandwidth or bucketbandwidth table
 		// at the beginning of the test
-		storagenodeID := storj.NodeID{1}
+		storagenodeID := storxnetwork.NodeID{1}
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, storagenodeID, time.Time{}, now)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), snbw)

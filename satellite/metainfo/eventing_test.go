@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testredis"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/eventing/eventingconfig"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/testredis"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing/eventingconfig"
 )
 
 func TestEndpoint_ShouldTransmitEvent(t *testing.T) {

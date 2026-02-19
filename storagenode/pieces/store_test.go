@@ -17,24 +17,24 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/pkcrypto"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/cmd/storagenode/internalcmd"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker/execwrapper"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/pkcrypto"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestPieces(t *testing.T) {
@@ -52,8 +52,8 @@ func TestPieces(t *testing.T) {
 	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
 	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
 
-	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-	pieceID := storj.NewPieceID()
+	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()).ID
+	pieceID := storxnetwork.NewPieceID()
 
 	source := testrand.Bytes(8000)
 
@@ -127,7 +127,7 @@ func TestPieces(t *testing.T) {
 	}
 
 	{ // write cancel
-		cancelledPieceID := storj.NewPieceID()
+		cancelledPieceID := storxnetwork.NewPieceID()
 		writer, err := store.Writer(ctx, satelliteID, cancelledPieceID, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(t, err)
 
@@ -147,7 +147,7 @@ func TestPieces(t *testing.T) {
 	}
 }
 
-func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte, atTime time.Time, expireTime *time.Time, formatVersion blobstore.FormatVersion) {
+func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID, data []byte, atTime time.Time, expireTime *time.Time, formatVersion blobstore.FormatVersion) {
 	tStore := &pieces.StoreForTest{store}
 	writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, formatVersion, pb.PieceHashAlgorithm_SHA256)
 	require.NoError(t, err)
@@ -179,7 +179,7 @@ func verifyPieceHandle(t testing.TB, reader *pieces.Reader, expectDataLen int, e
 	}
 }
 
-func tryOpeningAPiece(ctx context.Context, t testing.TB, store *pieces.StoreForTest, satelliteID storj.NodeID, pieceID storj.PieceID, expectDataLen int, expectTime time.Time, expectFormat blobstore.FormatVersion) {
+func tryOpeningAPiece(ctx context.Context, t testing.TB, store *pieces.StoreForTest, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID, expectDataLen int, expectTime time.Time, expectFormat blobstore.FormatVersion) {
 	reader, err := store.Reader(ctx, satelliteID, pieceID)
 	require.NoError(t, err)
 	verifyPieceHandle(t, reader, expectDataLen, expectTime, expectFormat)
@@ -197,13 +197,13 @@ func TestTrashAndRestore(t *testing.T) {
 		formatVer blobstore.FormatVersion
 	}
 	type testpiece struct {
-		pieceID    storj.PieceID
+		pieceID    storxnetwork.PieceID
 		files      []testfile
 		expiration time.Time
 		trashDur   time.Duration
 	}
 	type testsatellite struct {
-		satelliteID storj.NodeID
+		satelliteID storxnetwork.NodeID
 		pieces      []testpiece
 	}
 
@@ -214,9 +214,9 @@ func TestTrashAndRestore(t *testing.T) {
 	require.NoError(t, err)
 	privateKeyBytes, err := hex.DecodeString("afefcccadb3d17b1f241b7c83f88c088b54c01b5a25409c13cbeca6bfa22b06901eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
 	require.NoError(t, err)
-	publicKey, err := storj.PiecePublicKeyFromBytes(publicKeyBytes)
+	publicKey, err := storxnetwork.PiecePublicKeyFromBytes(publicKeyBytes)
 	require.NoError(t, err)
-	privateKey, err := storj.PiecePrivateKeyFromBytes(privateKeyBytes)
+	privateKey, err := storxnetwork.PiecePrivateKeyFromBytes(privateKeyBytes)
 	require.NoError(t, err)
 
 	trashDurToBeEmptied := 7 * 24 * time.Hour
@@ -458,7 +458,7 @@ func TestTrashAndRestore(t *testing.T) {
 	})
 }
 
-func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.StoreForTest, satelliteID storj.NodeID, pieceID storj.PieceID, formatVer blobstore.FormatVersion, expected []byte, expiration time.Time, publicKey storj.PiecePublicKey) {
+func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.StoreForTest, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID, formatVer blobstore.FormatVersion, expected []byte, expiration time.Time, publicKey storxnetwork.PiecePublicKey) {
 	r, err := store.ReaderWithStorageFormat(ctx, satelliteID, pieceID, formatVer)
 	require.NoError(t, err)
 
@@ -525,9 +525,9 @@ func TestPieceVersionMigrate(t *testing.T) {
 		require.NoError(t, err)
 		privateKeyBytes, err := hex.DecodeString("afefcccadb3d17b1f241b7c83f88c088b54c01b5a25409c13cbeca6bfa22b06901eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
 		require.NoError(t, err)
-		publicKey, err := storj.PiecePublicKeyFromBytes(publicKeyBytes)
+		publicKey, err := storxnetwork.PiecePublicKeyFromBytes(publicKeyBytes)
 		require.NoError(t, err)
-		privateKey, err := storj.PiecePrivateKeyFromBytes(privateKeyBytes)
+		privateKey, err := storxnetwork.PiecePrivateKeyFromBytes(privateKeyBytes)
 		require.NoError(t, err)
 
 		ol := &pb.OrderLimit{
@@ -914,12 +914,12 @@ func TestEmptyTrash_lazyFilewalker(t *testing.T) {
 			numPiecesPerSatellite = 10
 			deleteDays            = 4
 		)
-		satellites := make([]storj.NodeID, numSatellites)
-		pieceIDs := make([][]storj.PieceID, numSatellites)
+		satellites := make([]storxnetwork.NodeID, numSatellites)
+		pieceIDs := make([][]storxnetwork.PieceID, numSatellites)
 		contents := make([][][]byte, numSatellites)
 		for sat := 0; sat < numSatellites; sat++ {
 			satellites[sat] = testrand.NodeID()
-			pieceIDs[sat] = make([]storj.PieceID, numPiecesPerSatellite)
+			pieceIDs[sat] = make([]storxnetwork.PieceID, numPiecesPerSatellite)
 			contents[sat] = make([][]byte, numPiecesPerSatellite)
 
 			for p := 0; p < numPiecesPerSatellite; p++ {
@@ -962,7 +962,7 @@ func TestEmptyTrash_lazyFilewalker(t *testing.T) {
 	})
 }
 
-func storeSinglePiece(ctx *testcontext.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte) {
+func storeSinglePiece(ctx *testcontext.Context, t testing.TB, store *pieces.Store, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID, data []byte) {
 	writer, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
 	require.NoError(t, err)
 

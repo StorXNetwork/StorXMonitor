@@ -18,11 +18,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var (
@@ -96,7 +96,7 @@ var _ pflag.Value = &SignedTags{}
 
 // NodeInfo contains information necessary for introducing storagenode to satellite.
 type NodeInfo struct {
-	ID                  storj.NodeID
+	ID                  storxnetwork.NodeID
 	Address             string
 	Version             pb.NodeVersion
 	Capacity            pb.NodeCapacity
@@ -116,7 +116,7 @@ type Service struct {
 
 	mu               sync.Mutex
 	self             NodeInfo
-	checkinCallbacks []func(context.Context, storj.NodeID, *pb.CheckInResponse) error
+	checkinCallbacks []func(context.Context, storxnetwork.NodeID, *pb.CheckInResponse) error
 
 	trust     trust.TrustedSatelliteSource
 	quicStats *QUICStats
@@ -140,7 +140,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust trust.T
 }
 
 // RegisterCheckinCallback registers a checkin callback.
-func (service *Service) RegisterCheckinCallback(cb func(ctx context.Context, satellite storj.NodeID, resp *pb.CheckInResponse) error) {
+func (service *Service) RegisterCheckinCallback(cb func(ctx context.Context, satellite storxnetwork.NodeID, resp *pb.CheckInResponse) error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	service.checkinCallbacks = append(service.checkinCallbacks, cb)
@@ -160,7 +160,7 @@ func (service *Service) PingSatellites(ctx context.Context, maxInterval, timeout
 	return group.Wait()
 }
 
-func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeID, maxInterval, timeout time.Duration) error {
+func (service *Service) pingSatellite(ctx context.Context, satellite storxnetwork.NodeID, maxInterval, timeout time.Duration) error {
 	interval := initialBackOff
 	attempts := 0
 	for {
@@ -186,7 +186,7 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 	}
 }
 
-func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID, timeout time.Duration) (err error) {
+func (service *Service) pingSatelliteOnce(ctx context.Context, id storxnetwork.NodeID, timeout time.Duration) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -288,7 +288,7 @@ func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats
 	return stats, errPingSatellite.New("failed to ping storage node using QUIC: %q", err)
 }
 
-func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.NodeID) (err error) {
+func (service *Service) requestPingMeOnce(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx, satellite)(&err)
 
 	conn, err := service.dialSatellite(ctx, satellite)
@@ -309,7 +309,7 @@ func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.N
 	return nil
 }
 
-func (service *Service) dialSatellite(ctx context.Context, id storj.NodeID) (*rpc.Conn, error) {
+func (service *Service) dialSatellite(ctx context.Context, id storxnetwork.NodeID) (*rpc.Conn, error) {
 	nodeurl, err := service.trust.GetNodeURL(ctx, id)
 	if err != nil {
 		return nil, errPingSatellite.Wrap(err)

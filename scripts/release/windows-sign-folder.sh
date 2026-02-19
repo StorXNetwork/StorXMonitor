@@ -7,7 +7,7 @@ set -euo pipefail
 
 if [ $# -ne 1 ]; then
     echo "Usage: $0 <folder>"
-    echo "Signs all windows executables in folder with storj-sign"
+    echo "Signs all windows executables in folder with storxnetwork-sign"
     exit 1
 fi
 
@@ -40,7 +40,7 @@ for exefile in "$FOLDER"/*.exe; do
     fi
 
     echo " Signing $(basename "$exefile")"
-    storj-sign "$exefile"
+    storxnetwork-sign "$exefile"
 done
 
 echo "All files signed"

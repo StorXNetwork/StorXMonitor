@@ -11,12 +11,12 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/trust"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/trust"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -46,7 +46,7 @@ func NewService(db overlay.PeerIdentities, overlay *overlay.Service, trustedUpli
 }
 
 // VerifySizes verifies that the remote piece sizes in commitSegment match each other.
-func (service *Service) VerifySizes(ctx context.Context, redundancy storj.RedundancyScheme, encryptedSize int64, uploadResponses []*pb.SegmentPieceUploadResult) (err error) {
+func (service *Service) VerifySizes(ctx context.Context, redundancy storxnetwork.RedundancyScheme, encryptedSize int64, uploadResponses []*pb.SegmentPieceUploadResult) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	commonSize := int64(-1)
@@ -79,7 +79,7 @@ func (service *Service) VerifySizes(ctx context.Context, redundancy storj.Redund
 
 // InvalidPiece is information about an invalid piece in the pointer.
 type InvalidPiece struct {
-	NodeID   storj.NodeID
+	NodeID   storxnetwork.NodeID
 	PieceNum int32
 	Reason   error
 }
@@ -89,7 +89,7 @@ func (service *Service) SelectValidPieces(ctx context.Context, uplink *identity.
 	defer mon.Task()(&ctx)(&err)
 
 	trustedOrders := service.trustedOrders && service.trustedUplinks.IsTrusted(uplink.ID)
-	untrustedNodeIDs := make([]storj.NodeID, 0, len(uploadResponses))
+	untrustedNodeIDs := make([]storxnetwork.NodeID, 0, len(uploadResponses))
 	nodeTrustedByUploadResponse := make([]bool, len(uploadResponses))
 
 	for uploadResponseIdx, piece := range uploadResponses {

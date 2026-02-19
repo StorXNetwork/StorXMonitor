@@ -14,18 +14,18 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	version_checker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/gc/sender"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/sender"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // GarbageCollection is the satellite garbage collection process.
@@ -168,4 +168,4 @@ func (peer *GarbageCollection) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *GarbageCollection) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *GarbageCollection) ID() storxnetwork.NodeID { return peer.Identity.ID }

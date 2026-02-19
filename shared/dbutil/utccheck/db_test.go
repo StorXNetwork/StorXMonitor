@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/shared/dbutil/utccheck"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/utccheck"
 )
 
 func TestUTCDB(t *testing.T) {

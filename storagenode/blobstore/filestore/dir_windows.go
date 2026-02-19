@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 // DiskInfoFromPath returns the disk info for the given path.

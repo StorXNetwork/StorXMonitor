@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LOG_FILE=${STORJ_SIM_POSTGRES_LOG:-"storj-sim-postgres.log"}
+LOG_FILE=${STORJ_SIM_POSTGRES_LOG:-"storxnetwork-sim-postgres.log"}
 CONTAINER_NAME=storj_sim_postgres
 
 cleanup(){

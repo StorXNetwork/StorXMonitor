@@ -15,7 +15,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var mon = monkit.Package()
@@ -37,7 +37,7 @@ func NewSatelliteStore(dir, ext string) *SatelliteStore {
 }
 
 // Set atomically writes the data for the given satellite.
-func (s *SatelliteStore) Set(ctx context.Context, satellite storj.NodeID, data []byte) (err error) {
+func (s *SatelliteStore) Set(ctx context.Context, satellite storxnetwork.NodeID, data []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	s.mu.Lock()
@@ -78,7 +78,7 @@ func (s *SatelliteStore) Set(ctx context.Context, satellite storj.NodeID, data [
 
 // Range calls the callback for every satellite, recording any errors returned by either the
 // callback or the iteration process into the returned error value.
-func (s *SatelliteStore) Range(cb func(storj.NodeID, []byte) error) (err error) {
+func (s *SatelliteStore) Range(cb func(storxnetwork.NodeID, []byte) error) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -98,7 +98,7 @@ func (s *SatelliteStore) Range(cb func(storj.NodeID, []byte) error) (err error) 
 			if !ok {
 				return nil
 			}
-			satellite, err := storj.NodeIDFromString(name)
+			satellite, err := storxnetwork.NodeIDFromString(name)
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -114,7 +114,7 @@ func (s *SatelliteStore) Range(cb func(storj.NodeID, []byte) error) (err error) 
 
 // Get returns the data for the given satellite returning any errors. There will be an error if
 // the satellite does not exist.
-func (s *SatelliteStore) Get(ctx context.Context, satellite storj.NodeID) (_ []byte, err error) {
+func (s *SatelliteStore) Get(ctx context.Context, satellite storxnetwork.NodeID) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	s.mu.Lock()
@@ -123,7 +123,7 @@ func (s *SatelliteStore) Get(ctx context.Context, satellite storj.NodeID) (_ []b
 	return s.getLocked(satellite)
 }
 
-func (s *SatelliteStore) getLocked(satellite storj.NodeID) ([]byte, error) {
+func (s *SatelliteStore) getLocked(satellite storxnetwork.NodeID) ([]byte, error) {
 	data, err := os.ReadFile(filepath.Join(s.dir, satellite.String()+"."+s.ext))
 	return data, errs.Wrap(err)
 }

@@ -4,10 +4,10 @@
 package modular
 
 import (
-	"storj.io/common/identity"
-	"storj.io/common/storj"
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // IdentityModule provides identity related components for modular setup.
@@ -16,7 +16,7 @@ func IdentityModule(ball *mud.Ball) {
 	mud.Provide[*identity.FullIdentity](ball, func(cfg *identity.Config) (*identity.FullIdentity, error) {
 		return cfg.Load()
 	})
-	mud.View[*identity.FullIdentity, storj.NodeID](ball, func(fid *identity.FullIdentity) storj.NodeID {
+	mud.View[*identity.FullIdentity, storxnetwork.NodeID](ball, func(fid *identity.FullIdentity) storxnetwork.NodeID {
 		return fid.ID
 	})
 }

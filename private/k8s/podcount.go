@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"storj.io/common/time2"
+	"github.com/StorXNetwork/common/time2"
 )
 
 var (

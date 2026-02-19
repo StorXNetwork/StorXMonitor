@@ -13,9 +13,9 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
 )
 
 const (

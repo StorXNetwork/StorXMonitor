@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pkcrypto"
+	"github.com/StorXNetwork/common/pkcrypto"
 )
 
 var (

@@ -12,7 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/leak"
+	"github.com/StorXNetwork/common/leak"
 )
 
 // Rows implements a wrapper for *sql.Rows.

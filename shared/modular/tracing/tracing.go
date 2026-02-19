@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	stracing "storj.io/common/tracing"
-	jaeger "storj.io/monkit-jaeger"
+	"github.com/StorXNetwork/common/storxnetwork"
+	stracing "github.com/StorXNetwork/common/tracing"
+	jaeger "github.com/StorXNetwork/monkit-jaeger"
 )
 
 // Config holds the configuration for distributed tracing.
@@ -26,11 +26,11 @@ type Config struct {
 	Enabled      bool          `help:"whether tracing collector is enabled" default:"true"`
 	SamplingRate float64       `help:"how frequent to sample traces"`
 	App          string        `help:"application name for tracing identification"`
-	AgentAddr    string        `help:"address for jaeger agent" default:"agent.tracing.datasci.storj.io:5775"`
+	AgentAddr    string        `help:"address for jaeger agent" default:"agent.tracing.datasci.storxnetwork.io:5775"`
 	BufferSize   int           `help:"buffer size for collector batch packet size"`
 	QueueSize    int           `help:"buffer size for collector queue size"`
 	Interval     time.Duration `help:"how frequently to flush traces to tracing agent" default:"15s"`
-	HostRegex    string        `help:"the possible hostnames that trace-host designated traces can be sent to" default:"\\.storj\\.tools:[0-9]+$"`
+	HostRegex    string        `help:"the possible hostnames that trace-host designated traces can be sent to" default:"\\.storxnetwork\\.tools:[0-9]+$"`
 }
 
 var (
@@ -48,14 +48,14 @@ type Tracing struct {
 	cfg      Config
 	log      *zap.Logger
 
-	nodeID storj.NodeID
+	nodeID storxnetwork.NodeID
 
 	unregister func()
 	cancel     context.CancelFunc
 }
 
 // NewTracing creates a new Tracing instance.
-func NewTracing(log *zap.Logger, nodeID storj.NodeID, cfg Config) *Tracing {
+func NewTracing(log *zap.Logger, nodeID storxnetwork.NodeID, cfg Config) *Tracing {
 	return &Tracing{
 		registry: monkit.Default,
 		cfg:      cfg,

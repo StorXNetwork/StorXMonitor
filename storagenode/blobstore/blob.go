@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrInvalidBlobRef is returned when an blob reference is invalid.
@@ -124,10 +124,10 @@ type Blobs interface {
 	// CheckWritability tests writability of the storage directory by creating and deleting a file.
 	CheckWritability(ctx context.Context) error
 	// CreateVerificationFile creates a file to be used for storage directory verification.
-	CreateVerificationFile(ctx context.Context, id storj.NodeID) error
+	CreateVerificationFile(ctx context.Context, id storxnetwork.NodeID) error
 	// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 	// of the verification file.
-	VerifyStorageDir(ctx context.Context, id storj.NodeID) error
+	VerifyStorageDir(ctx context.Context, id storxnetwork.NodeID) error
 
 	// Close closes the blob store and any resources associated with it.
 	Close() error

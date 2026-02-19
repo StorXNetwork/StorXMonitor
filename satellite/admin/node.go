@@ -15,9 +15,9 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 const defaultOnlineWindow = 2 * time.Hour
@@ -276,7 +276,7 @@ func (server *Server) getNodeDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(nodeIDStr)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDStr)
 	if err != nil {
 		sendJSONError(w, "Bad request", "invalid node ID format", http.StatusBadRequest)
 		return
@@ -479,7 +479,7 @@ func (server *Server) updateNodeStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Parse and validate node ID
 	nodeIDStr = strings.TrimSpace(nodeIDStr)
-	nodeID, err := storj.NodeIDFromString(nodeIDStr)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDStr)
 	if err != nil {
 		sendJSONError(w, "Bad request", "invalid node ID format: "+err.Error(), http.StatusBadRequest)
 		return

@@ -21,21 +21,21 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/time/rate"
 
-	"storj.io/common/encryption"
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/time2"
-	"storj.io/common/uuid"
-	"storj.io/eventkit"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/encryption"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/time2"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/eventkit"
 )
 
 const (
@@ -364,7 +364,7 @@ func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.Request
 //  3. If entitlements exist but NewBucketPlacements is nil/empty: error (no fallback)
 //  4. If entitlements exist with valid placements: check placement is in that list
 //  5. Always verify placement exists in selfServePlacements and has no WaitlistURL
-func (endpoint *Endpoint) validateSelfServePlacement(ctx context.Context, project *console.Project, placement storj.PlacementConstraint) error {
+func (endpoint *Endpoint) validateSelfServePlacement(ctx context.Context, project *console.Project, placement storxnetwork.PlacementConstraint) error {
 	if placementDetail, exists := endpoint.selfServePlacements[placement]; !exists || placementDetail.WaitlistURL != "" {
 		return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
 	}
@@ -383,7 +383,7 @@ func (endpoint *Endpoint) validateSelfServePlacement(ctx context.Context, projec
 			return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
 		}
 	} else {
-		if project.DefaultPlacement != storj.DefaultPlacement {
+		if project.DefaultPlacement != storxnetwork.DefaultPlacement {
 			return rpcstatus.Error(rpcstatus.PlacementConflictingValues, "conflicting placement values")
 		}
 	}
@@ -634,7 +634,7 @@ func protobufRetentionToMetabase(pbRetention *pb.Retention) metabase.Retention {
 		return metabase.Retention{}
 	}
 	return metabase.Retention{
-		Mode:        storj.RetentionMode(pbRetention.Mode),
+		Mode:        storxnetwork.RetentionMode(pbRetention.Mode),
 		RetainUntil: pbRetention.RetainUntil,
 	}
 }
@@ -658,7 +658,7 @@ func convertProtobufObjectLockConfig(config *pb.ObjectLockConfiguration) (update
 	updateParams.ObjectLockEnabled = true
 
 	if config.DefaultRetention == nil {
-		noRetention := storj.NoRetention
+		noRetention := storxnetwork.NoRetention
 		updateParams.DefaultRetentionMode = doublePtr(noRetention)
 		updateParams.DefaultRetentionDays = nilDoublePtr[int]()
 		updateParams.DefaultRetentionYears = nilDoublePtr[int]()
@@ -670,7 +670,7 @@ func convertProtobufObjectLockConfig(config *pb.ObjectLockConfiguration) (update
 			)
 		}
 
-		mode := storj.RetentionMode(config.DefaultRetention.Mode)
+		mode := storxnetwork.RetentionMode(config.DefaultRetention.Mode)
 		updateParams.DefaultRetentionMode = doublePtr(mode)
 
 		switch duration := config.DefaultRetention.Duration.(type) {
@@ -747,8 +747,8 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 		return Error.New("invalid no order limit for piece")
 	}
 
-	maxAllowed, err := encryption.CalcEncryptedSize(endpoint.config.MaxSegmentSize.Int64(), storj.EncryptionParameters{
-		CipherSuite: storj.EncAESGCM,
+	maxAllowed, err := encryption.CalcEncryptedSize(endpoint.config.MaxSegmentSize.Int64(), storxnetwork.EncryptionParameters{
+		CipherSuite: storxnetwork.EncAESGCM,
 		BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
 	})
 	if err != nil {
@@ -765,7 +765,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 	}
 
 	pieceNums := make(map[uint16]struct{})
-	nodeIds := make(map[storj.NodeID]struct{})
+	nodeIds := make(map[storxnetwork.NodeID]struct{})
 	deriver := commitRequest.RootPieceID.Deriver()
 	for _, piece := range commitRequest.Pieces {
 		if int(piece.Number) >= len(originalLimits) {
@@ -903,7 +903,7 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo 
 }
 
 // checkEncryptedMetadata checks encrypted metadata and it's encrypted key sizes. Metadata encrypted key nonce
-// is serialized to storj.Nonce automatically.
+// is serialized to storxnetwork.Nonce automatically.
 func (endpoint *Endpoint) checkEncryptedMetadataSize(userData metabase.EncryptedUserData) error {
 	metadataSize := memory.Size(len(userData.EncryptedMetadata) + len(userData.EncryptedETag))
 	if metadataSize > endpoint.config.MaxMetadataSize {

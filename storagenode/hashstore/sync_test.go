@@ -12,8 +12,8 @@ import (
 
 	"github.com/zeebo/assert"
 
-	"storj.io/common/sync2"
-	"storj.io/drpc/drpcsignal"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/drpc/drpcsignal"
 )
 
 func TestMutex(t *testing.T) {

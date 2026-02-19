@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/common/errs2"
+	"github.com/StorXNetwork/common/errs2"
 )
 
 var mon = monkit.Package()

@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/common/fpath"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Flags contains different flags for commands.
@@ -33,7 +33,7 @@ type Flags struct {
 
 	OnlyEnv bool // only do things necessary for loading env vars
 
-	// Connection string for the postgres database to use for storj-sim processes
+	// Connection string for the postgres database to use for storxnetwork-sim processes
 	Postgres string
 	Redis    string
 
@@ -59,11 +59,11 @@ func main() {
 	var flags Flags
 
 	rootCmd := &cobra.Command{
-		Use:   "storj-sim",
+		Use:   "storxnetwork-sim",
 		Short: "Storj Network Simulator",
 	}
 
-	defaultConfigDir := fpath.ApplicationDir("storj", "local-network")
+	defaultConfigDir := fpath.ApplicationDir("storxnetwork", "local-network")
 
 	configDir := defaultConfigDir
 	if os.Getenv("STORJ_NETWORK_DIR") != "" {
@@ -139,7 +139,7 @@ func main() {
 
 	toolCmd := &cobra.Command{
 		Use:   "tool",
-		Short: "tools for working with storj-sim",
+		Short: "tools for working with storxnetwork-sim",
 	}
 
 	toolCmd.AddCommand(

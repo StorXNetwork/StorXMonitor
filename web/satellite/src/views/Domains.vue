@@ -6,7 +6,7 @@
         <PageTitleComponent title="Domains" />
         <PageSubtitleComponent
             subtitle="Setup secure custom domains (HTTPS) for your shared content."
-            link="https://docs.storj.io/dcs/code/static-site-hosting/custom-domains"
+            link="https://docs.storxnetwork.io/dcs/code/static-site-hosting/custom-domains"
         />
 
         <v-col>

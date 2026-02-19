@@ -3,7 +3,7 @@
 &nbsp;
 
 ## Background
-This testplan is going to cover our secure custom domain support for Linksharing. It will go over the linksharing secure custom domain support blueprint - [Paid Tier TLS](https://github.com/storj/storj/blob/main/docs/blueprints/paid-tier-tls.md)
+This testplan is going to cover our secure custom domain support for Linksharing. It will go over the linksharing secure custom domain support blueprint - [Paid Tier TLS](https://github.com/storxnetwork/storxnetwork/blob/main/docs/blueprints/paid-tier-tls.md)
 
 &nbsp;
 

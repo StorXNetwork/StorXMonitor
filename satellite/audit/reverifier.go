@@ -12,16 +12,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 // PieceLocator specifies all information necessary to look up a particular piece
@@ -29,7 +29,7 @@ import (
 type PieceLocator struct {
 	StreamID uuid.UUID
 	Position metabase.SegmentPosition
-	NodeID   storj.NodeID
+	NodeID   storxnetwork.NodeID
 	PieceNum int
 }
 
@@ -283,7 +283,7 @@ func hashWithAlgo(algo pb.PieceHashAlgorithm, data []byte) []byte {
 
 // GetPiece uses the piecestore client to download a piece (and the associated
 // original OrderLimit and PieceHash) from a node.
-func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPAndPort string, pieceSize int32) (pieceData []byte, hash *pb.PieceHash, origLimit *pb.OrderLimit, err error) {
+func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storxnetwork.PiecePrivateKey, cachedIPAndPort string, pieceSize int32) (pieceData []byte, hash *pb.PieceHash, origLimit *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// determines number of seconds allotted for receiving data from a storage node
@@ -304,7 +304,7 @@ func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedO
 
 	// if cached IP is given, try connecting there first
 	if cachedIPAndPort != "" {
-		nodeAddr := storj.NodeURL{
+		nodeAddr := storxnetwork.NodeURL{
 			ID:      targetNodeID,
 			Address: cachedIPAndPort,
 		}
@@ -316,7 +316,7 @@ func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedO
 
 	// if no cached IP was given, or connecting to cached IP failed, use node address
 	if ps == nil {
-		nodeAddr := storj.NodeURL{
+		nodeAddr := storxnetwork.NodeURL{
 			ID:      targetNodeID,
 			Address: limit.GetStorageNodeAddress().Address,
 		}

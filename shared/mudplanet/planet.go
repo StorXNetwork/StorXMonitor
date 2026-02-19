@@ -16,13 +16,13 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/shared/modular"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 // Config is a configuration for the test environment.
@@ -154,8 +154,8 @@ func Run(t *testing.T, c Config, callback func(t *testing.T, ctx context.Context
 			{
 				// default components, usually provided by the CLI Runner
 				mud.Supply[*zap.Logger](ball, logger)
-				mud.Supply[*identity.FullIdentity](ball, testidentity.MustPregeneratedIdentity(ix, storj.LatestIDVersion()))
-				mud.View[*identity.FullIdentity, storj.NodeID](ball, func(fullIdentity *identity.FullIdentity) storj.NodeID {
+				mud.Supply[*identity.FullIdentity](ball, testidentity.MustPregeneratedIdentity(ix, storxnetwork.LatestIDVersion()))
+				mud.View[*identity.FullIdentity, storxnetwork.NodeID](ball, func(fullIdentity *identity.FullIdentity) storxnetwork.NodeID {
 					return fullIdentity.ID
 				})
 				mud.Supply[*modular.StopTrigger](ball, &modular.StopTrigger{Cancel: cancel})

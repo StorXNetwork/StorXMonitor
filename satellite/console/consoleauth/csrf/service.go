@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	"storj.io/storj/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 )
 
 // CookieName is the name of the cookie storing the CSRF token.

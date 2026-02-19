@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// APIKeyPath is the path for storj api keys.
-const APIKeyPath = "storj/apikey"
+// APIKeyPath is the path for storxnetwork api keys.
+const APIKeyPath = "storxnetwork/apikey"
 
 // CreateAPIKeyResponse is what Valdi returns when api key is created.
 type CreateAPIKeyResponse struct {

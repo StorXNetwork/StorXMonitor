@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
+	"github.com/StorXNetwork/common/pb"
 )
 
 func TestParseTagPairs(t *testing.T) {

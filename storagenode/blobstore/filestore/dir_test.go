@@ -20,10 +20,10 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
 func TestDiskInfoFromPath(t *testing.T) {

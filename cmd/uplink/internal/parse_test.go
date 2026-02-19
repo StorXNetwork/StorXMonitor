@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/cmd/uplink/internal"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/internal"
 )
 
 func TestParseHumanDate(t *testing.T) {

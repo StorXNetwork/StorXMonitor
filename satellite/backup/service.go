@@ -14,11 +14,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	version_checker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/smartcontract"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
 )
 
 // Service is the backup service process.

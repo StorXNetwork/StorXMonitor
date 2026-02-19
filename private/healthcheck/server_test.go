@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/healthcheck"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/healthcheck"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
 )
 
 func TestHealthCheck(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"storj.io/storj/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
 )
 
 func memRealloc(mem []byte, heap []jobq.RepairJob, newLenRecords int) ([]byte, []jobq.RepairJob, error) {

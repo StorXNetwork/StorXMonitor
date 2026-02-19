@@ -6,7 +6,7 @@ package ulfs
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 //

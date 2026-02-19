@@ -11,17 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/metaclient"
 )
 
 func TestBatch(t *testing.T) {
@@ -78,8 +78,8 @@ func TestBatch(t *testing.T) {
 			requests = append(requests, &metaclient.BeginObjectParams{
 				Bucket:             []byte("second-test-bucket"),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -152,8 +152,8 @@ func TestBatch(t *testing.T) {
 			beginObjectResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
 				Bucket:             []byte("third-test-bucket"),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})

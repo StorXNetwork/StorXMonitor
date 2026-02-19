@@ -4,9 +4,9 @@ In order to use the uplink library from the browser, we can compile the uplink l
 
 ### Setup
 
-To generate wasm code that can create access grants in the web browser, run the following from the storj/wasm directory:
+To generate wasm code that can create access grants in the web browser, run the following from the storxnetwork/wasm directory:
 ```
-$ GOOS=js GOARCH=wasm go build -o access.wasm storj.io/storj/web/satellite/wasm
+$ GOOS=js GOARCH=wasm go build -o access.wasm github.com/StorXNetwork/StorXMonitor/web/satellite/wasm
 ```
 
 The `access.wasm` code can then be loaded into the browser in a script tag in an html page. Also needed is a JavaScript support file which ships with golang.
@@ -96,7 +96,7 @@ function setAPIKeyPermission(apiKey, buckets, permission)
         - **Details:**
             An object that defines what actions can be used for a given api key.
             It should be constructed by calling `newPermission`
-            See also: https://github.com/storj/uplink/blob/b8e0f0a90665143a8ce975d92530737130874f5a/access.go#L46
+            See also: https://github.com/storxnetwork/uplink/blob/b8e0f0a90665143a8ce975d92530737130874f5a/access.go#L46
             This parameter is required.
 
 - **Returns**

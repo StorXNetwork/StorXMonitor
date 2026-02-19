@@ -11,14 +11,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN update-ca-certificates
 
 # test identities for quick-start (pinned to amd64 as base image lacks arm/v7)
-FROM --platform=linux/amd64 img.dev.storj.io/storjup/base:20230607-1 AS identities
+FROM --platform=linux/amd64 img.dev.github.com/StorXNetwork/StorXMonitorup/base:20230607-1 AS identities
 
 FROM debian:trixie-slim
 
 ARG TARGETOS
 ARG TARGETARCH
 
-ENV CONF_PATH=/root/.local/share/storj/satellite \
+ENV CONF_PATH=/root/.local/share/storxnetwork/satellite \
     STORJ_CONSOLE_STATIC_DIR=/app \
     STORJ_MAIL_TEMPLATE_PATH=/app/static/emails \
     STORJ_CONSOLE_ADDRESS=0.0.0.0:10100
@@ -31,10 +31,10 @@ WORKDIR /app
 
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-COPY --from=storj-up /${TARGETOS}_${TARGETARCH}/storj-up /usr/local/bin/storj-up
+COPY --from=storxnetwork-up /${TARGETOS}_${TARGETARCH}/storxnetwork-up /usr/local/bin/storxnetwork-up
 COPY --from=delve    /${TARGETOS}_${TARGETARCH}/dlv      /usr/local/bin/dlv
 
-COPY --from=identities /var/lib/storj/identities /var/lib/storj/identities
+COPY --from=identities /var/lib/storxnetwork/identities /var/lib/storxnetwork/identities
 
 COPY --from=binaries /${TARGETOS}_${TARGETARCH}/satellite /app/satellite
 

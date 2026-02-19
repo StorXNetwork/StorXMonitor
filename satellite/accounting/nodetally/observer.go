@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -98,7 +98,7 @@ func (observer *Observer) Join(ctx context.Context, partial rangedloop.Partial) 
 }
 
 // for backwards compatibility.
-var monRangedTally = monkit.ScopeNamed("storj.io/storj/satellite/accounting/tally")
+var monRangedTally = monkit.ScopeNamed("github.com/StorXNetwork/StorXMonitor/satellite/accounting/tally")
 
 // Finish calculates byte*hours from per node storage usage and save tallies to DB.
 func (observer *Observer) Finish(ctx context.Context) (err error) {
@@ -109,7 +109,7 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	// calculate byte hours, not just bytes
 	hours := finishTime.Sub(observer.lastTallyTime).Hours()
 	var totalSum float64
-	nodeIDs := make([]storj.NodeID, 0, observer.batchSize)
+	nodeIDs := make([]storxnetwork.NodeID, 0, observer.batchSize)
 	byteHours := make([]float64, 0, observer.batchSize)
 	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
 	if err != nil {

@@ -18,18 +18,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.UUID, owner *uuid.UUID) (_ map[uuid.UUID]console.User, _ map[string]console.User) {
@@ -41,7 +41,7 @@ func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.
 			ID:                    memberID,
 			FullName:              fmt.Sprintf("Member FullName%c", rune('A'+i)),
 			ShortName:             fmt.Sprintf("Member ShortName%c", rune('A'+i)),
-			Email:                 fmt.Sprintf("member%d@storj.test", i),
+			Email:                 fmt.Sprintf("member%d@storxnetwork.test", i),
 			ProjectLimit:          1,
 			ProjectStorageLimit:   (memory.GB * 150).Int64(),
 			ProjectBandwidthLimit: (memory.GB * 150).Int64(),
@@ -61,7 +61,7 @@ func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.
 		require.NoError(t, err)
 
 		inviteeID := testrand.UUID()
-		inviteeEmail := fmt.Sprintf("invitee%d@storj.test", i)
+		inviteeEmail := fmt.Sprintf("invitee%d@storxnetwork.test", i)
 		invitee, err := db.Users().Insert(ctx, &console.User{
 			ID:                    inviteeID,
 			FullName:              fmt.Sprintf("Invitee FullName%c", rune('A'+i)),
@@ -574,13 +574,13 @@ func TestDeleteProject(t *testing.T) {
 
 func TestEdgeURLOverrides(t *testing.T) {
 	var (
-		noOverridePlacementID      storj.PlacementConstraint
-		partialOverridePlacementID storj.PlacementConstraint = 1
-		fullOverridePlacementID    storj.PlacementConstraint = 2
+		noOverridePlacementID      storxnetwork.PlacementConstraint
+		partialOverridePlacementID storxnetwork.PlacementConstraint = 1
+		fullOverridePlacementID    storxnetwork.PlacementConstraint = 2
 
-		authServiceURL         = "auth.storj.io"
-		publicLinksharingURL   = "public-link.storj.io"
-		internalLinksharingURL = "link.storj.io"
+		authServiceURL         = "auth.storxnetwork.io"
+		publicLinksharingURL   = "public-link.storxnetwork.io"
+		internalLinksharingURL = "link.storxnetwork.io"
 	)
 
 	testplanet.Run(t, testplanet.Config{
@@ -615,7 +615,7 @@ func TestEdgeURLOverrides(t *testing.T) {
 
 		for _, tt := range []struct {
 			name             string
-			placement        *storj.PlacementConstraint
+			placement        *storxnetwork.PlacementConstraint
 			expectedEdgeURLs *console.EdgeURLOverrides
 		}{
 			{"nil placement", nil, nil},

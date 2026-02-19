@@ -12,10 +12,10 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
-	"storj.io/uplink/private/object"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
+	"github.com/StorXNetwork/uplink/private/object"
 )
 
 var mon = monkit.Package()
@@ -40,7 +40,7 @@ func (client *Uplink) OpenProject(ctx context.Context) (_ *uplink.Project, err e
 }
 
 // Upload data to specific satellite.
-func (client *Uplink) Upload(ctx context.Context, bucket string, path storj.Path, data []byte) (err error) {
+func (client *Uplink) Upload(ctx context.Context, bucket string, path storxnetwork.Path, data []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return errs.Wrap(client.UploadWithExpiration(ctx, bucket, path, data, time.Time{}))
 }
@@ -86,7 +86,7 @@ func (client *Uplink) UploadWithOptions(ctx context.Context, bucketName, key str
 }
 
 // Download data from specific satellite.
-func (client *Uplink) Download(ctx context.Context, bucketName string, path storj.Path) (_ []byte, err error) {
+func (client *Uplink) Download(ctx context.Context, bucketName string, path storxnetwork.Path) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx)
@@ -109,7 +109,7 @@ func (client *Uplink) Download(ctx context.Context, bucketName string, path stor
 }
 
 // Delete data from specific satellite.
-func (client *Uplink) Delete(ctx context.Context, bucketName string, path storj.Path) (err error) {
+func (client *Uplink) Delete(ctx context.Context, bucketName string, path storxnetwork.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx)
@@ -127,7 +127,7 @@ func (client *Uplink) Delete(ctx context.Context, bucketName string, path storj.
 }
 
 // DeleteMany objects from specific satellite.
-func (client *Uplink) DeleteMany(ctx context.Context, bucketName string, paths []storj.Path) (resultItems []object.DeleteObjectsResultItem, err error) {
+func (client *Uplink) DeleteMany(ctx context.Context, bucketName string, paths []storxnetwork.Path) (resultItems []object.DeleteObjectsResultItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx)
@@ -150,7 +150,7 @@ func (client *Uplink) DeleteMany(ctx context.Context, bucketName string, paths [
 }
 
 // Copy data between source and destination on specific satellite.
-func (client *Uplink) Copy(ctx context.Context, srcBucket string, srcPath storj.Path, destBucket string, destPath storj.Path) (err error) {
+func (client *Uplink) Copy(ctx context.Context, srcBucket string, srcPath storxnetwork.Path, destBucket string, destPath storxnetwork.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx)
@@ -168,7 +168,7 @@ func (client *Uplink) Copy(ctx context.Context, srcBucket string, srcPath storj.
 }
 
 // Move data between source and destination on specific satellite.
-func (client *Uplink) Move(ctx context.Context, srcBucket string, srcPath storj.Path, destBucket string, destPath storj.Path) (err error) {
+func (client *Uplink) Move(ctx context.Context, srcBucket string, srcPath storxnetwork.Path, destBucket string, destPath storxnetwork.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx)

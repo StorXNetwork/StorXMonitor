@@ -33,7 +33,7 @@
 			- [run from storxweb] cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" "./static/wasm"
 - Setup process
 	- when we deploy system on server we need to update localhost with server ip or hostname in storage node config and satellite config.
-	- start storj-sim, auth, gateway-mt, link service
+	- start storxnetwork-sim, auth, gateway-mt, link service
 	- create database mystorx
 	- storxweb > satellite path in satelite config > console.static-dir: /Users/pradipparmar/git/personal/storx/storxweb
 	- linksharing config file "/Users/pradipparmar/Library/Application Support/Storj/Linksharing/config.yaml" #storx-imp
@@ -64,4 +64,4 @@
 	  SELECT * FROM "satellite/0".users ;
 	  ```
 - if **allowed satellite** is not working then try using 127.0.0.1 instead of localhost
-- satellite config in ubuntu => `/home/ubuntu/.local/share/storj/local-network/storagenode`
+- satellite config in ubuntu => `/home/ubuntu/.local/share/storxnetwork/local-network/storagenode`

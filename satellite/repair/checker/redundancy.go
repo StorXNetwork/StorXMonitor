@@ -4,12 +4,12 @@
 package checker
 
 import (
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // AdjustRedundancy modifies the redundancy scheme based on repair threshold and target overrides.
-func AdjustRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides RepairThresholdOverrides, repairTargetOverrides RepairTargetOverrides, placement nodeselection.Placement) storj.RedundancyScheme {
+func AdjustRedundancy(redundancy storxnetwork.RedundancyScheme, repairThresholdOverrides RepairThresholdOverrides, repairTargetOverrides RepairTargetOverrides, placement nodeselection.Placement) storxnetwork.RedundancyScheme {
 	repair := int(redundancy.RepairShares)
 	optimal := int(redundancy.OptimalShares)
 	total := int(redundancy.TotalShares)
@@ -39,7 +39,7 @@ func AdjustRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverride
 		total = optimal
 	}
 
-	return storj.RedundancyScheme{
+	return storxnetwork.RedundancyScheme{
 		Algorithm:      redundancy.Algorithm,
 		ShareSize:      redundancy.ShareSize,
 		RequiredShares: redundancy.RequiredShares,

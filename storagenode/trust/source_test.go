@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 func TestNewSource(t *testing.T) {
@@ -56,12 +56,12 @@ func TestNewSource(t *testing.T) {
 		},
 		{
 			name:   "explicit satellite URL",
-			config: "storj://121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@domain.test:7777",
+			config: "storxnetwork://121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@domain.test:7777",
 			typ:    new(trust.StaticURLSource),
 		},
 		{
 			name:   "explicit bad satellite URL",
-			config: "storj://domain.test:7777",
+			config: "storxnetwork://domain.test:7777",
 			err:    "static source: invalid satellite URL: must contain an ID",
 		},
 		{

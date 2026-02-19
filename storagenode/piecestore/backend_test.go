@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/mwc"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode/hashstore"
-	"storj.io/storj/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestHashstoreBackendTrash(t *testing.T) {
@@ -30,7 +30,7 @@ func TestHashstoreBackendTrash(t *testing.T) {
 	defer ctx.Check(backend.Close)
 
 	// write an empty piece
-	wr, err := backend.Writer(ctx, storj.NodeID{}, storj.PieceID{}, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
+	wr, err := backend.Writer(ctx, storxnetwork.NodeID{}, storxnetwork.PieceID{}, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
 	require.NoError(t, err)
 	require.NoError(t, wr.Commit(ctx, &pb.PieceHeader{
 		Hash: wr.Hash(),
@@ -38,18 +38,18 @@ func TestHashstoreBackendTrash(t *testing.T) {
 
 	// set the restore time to way in the past and add an empty bloom filter way in the future that
 	// will cause the piece to be trashed
-	require.NoError(t, rtm.TestingSetRestoreTime(ctx, storj.NodeID{}, time.Now().AddDate(-1, 0, 0)))
+	require.NoError(t, rtm.TestingSetRestoreTime(ctx, storxnetwork.NodeID{}, time.Now().AddDate(-1, 0, 0)))
 	filter := bloomfilter.NewOptimal(1000, 0.01)
-	require.NoError(t, bfm.Queue(ctx, storj.NodeID{}, &pb.RetainRequest{
+	require.NoError(t, bfm.Queue(ctx, storxnetwork.NodeID{}, &pb.RetainRequest{
 		CreationDate: time.Now().AddDate(1, 0, 0),
 		Filter:       filter.Bytes(),
 	}))
 
 	// compact to trigger the piece being flagged as trash
-	require.NoError(t, backend.dbs[storj.NodeID{}].Compact(ctx))
+	require.NoError(t, backend.dbs[storxnetwork.NodeID{}].Compact(ctx))
 
 	// ensure the piece is trash
-	rd, err := backend.Reader(ctx, storj.NodeID{}, storj.PieceID{})
+	rd, err := backend.Reader(ctx, storxnetwork.NodeID{}, storxnetwork.PieceID{})
 	require.NoError(t, err)
 	defer ctx.Check(rd.Close)
 	require.True(t, rd.Trash())
@@ -62,9 +62,9 @@ func TestPieceValid(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(backend.Close)
 
-	var satellite storj.NodeID
+	var satellite storxnetwork.NodeID
 	_, _ = mwc.Rand().Read(satellite[:])
-	var pieceID storj.PieceID
+	var pieceID storxnetwork.PieceID
 	_, _ = mwc.Rand().Read(pieceID[:])
 
 	// write a piece with like 1024 bytes of data
@@ -107,7 +107,7 @@ func TestPieceValid(t *testing.T) {
 }
 
 func BenchmarkPieceStore(b *testing.B) {
-	var satellite storj.NodeID
+	var satellite storxnetwork.NodeID
 
 	run := func(b *testing.B, backendFunc func(b *testing.B) PieceBackend, size int64) {
 		backend := backendFunc(b)
@@ -125,7 +125,7 @@ func BenchmarkPieceStore(b *testing.B) {
 		now := time.Now()
 
 		for i := 0; i < b.N; i++ {
-			var piece storj.PieceID
+			var piece storxnetwork.PieceID
 			_, _ = mwc.Rand().Read(piece[:])
 
 			wr, err := backend.Writer(b.Context(), satellite, piece, pb.PieceHashAlgorithm_BLAKE3, time.Time{})

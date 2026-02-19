@@ -17,11 +17,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/testcontext"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 // CacheService updates the space used cache.
@@ -168,7 +168,7 @@ func (service *CacheService) Init(ctx context.Context) (err error) {
 			return err
 		}
 
-		satellitesMap := make(map[storj.NodeID]struct{}, len(storingSatellites))
+		satellitesMap := make(map[storxnetwork.NodeID]struct{}, len(storingSatellites))
 		for i := range storingSatellites {
 			satellitesMap[storingSatellites[i]] = struct{}{}
 		}
@@ -226,7 +226,7 @@ type BlobsUsageCache struct {
 	piecesTotal          int64
 	piecesContentSize    int64
 	trashTotal           int64
-	spaceUsedBySatellite map[storj.NodeID]SatelliteUsage
+	spaceUsedBySatellite map[storxnetwork.NodeID]SatelliteUsage
 }
 
 // NewBlobsUsageCache creates a new disk blob store with a space used cache.
@@ -234,14 +234,14 @@ func NewBlobsUsageCache(log *zap.Logger, blob blobstore.Blobs) *BlobsUsageCache 
 	usageCache := &BlobsUsageCache{
 		log:                  log,
 		Blobs:                blob,
-		spaceUsedBySatellite: map[storj.NodeID]SatelliteUsage{},
+		spaceUsedBySatellite: map[storxnetwork.NodeID]SatelliteUsage{},
 	}
 	mon.Chain(usageCache)
 	return usageCache
 }
 
 // NewBlobsUsageCacheTest creates a new disk blob store with a space used cache.
-func NewBlobsUsageCacheTest(ctx *testcontext.Context, log *zap.Logger, blob blobstore.Blobs, piecesTotal, piecesContentSize, trashTotal int64, spaceUsedBySatellite map[storj.NodeID]SatelliteUsage) (*BlobsUsageCache, error) {
+func NewBlobsUsageCacheTest(ctx *testcontext.Context, log *zap.Logger, blob blobstore.Blobs, piecesTotal, piecesContentSize, trashTotal int64, spaceUsedBySatellite map[storxnetwork.NodeID]SatelliteUsage) (*BlobsUsageCache, error) {
 	blobsDir := ctx.Dir("storage", "blobs")
 
 	if len(spaceUsedBySatellite) > 0 {
@@ -265,7 +265,7 @@ func NewBlobsUsageCacheTest(ctx *testcontext.Context, log *zap.Logger, blob blob
 	}, nil
 }
 
-func (blobs *BlobsUsageCache) init(pieceTotal, contentSize, trashTotal int64, totalsBySatellite map[storj.NodeID]SatelliteUsage) {
+func (blobs *BlobsUsageCache) init(pieceTotal, contentSize, trashTotal int64, totalsBySatellite map[storxnetwork.NodeID]SatelliteUsage) {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 	blobs.piecesTotal = pieceTotal
@@ -276,7 +276,7 @@ func (blobs *BlobsUsageCache) init(pieceTotal, contentSize, trashTotal int64, to
 
 // SpaceUsedBySatellite returns the current total space used for a specific
 // satellite for all pieces.
-func (blobs *BlobsUsageCache) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (piecesTotal int64, piecesContentSize int64, err error) {
+func (blobs *BlobsUsageCache) SpaceUsedBySatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (piecesTotal int64, piecesContentSize int64, err error) {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 	values := blobs.spaceUsedBySatellite[satelliteID]
@@ -315,7 +315,7 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.Blob
 		return Error.Wrap(err)
 	}
 
-	satelliteID, err := storj.NodeIDFromBytes(blobRef.Namespace)
+	satelliteID, err := storxnetwork.NodeIDFromBytes(blobRef.Namespace)
 	if err != nil {
 		return err
 	}
@@ -352,7 +352,7 @@ func (blobs *BlobsUsageCache) DeleteWithStorageFormat(ctx context.Context, ref b
 		return Error.Wrap(err)
 	}
 
-	satelliteID, err := storj.NodeIDFromBytes(ref.Namespace)
+	satelliteID, err := storxnetwork.NodeIDFromBytes(ref.Namespace)
 	if err != nil {
 		return err
 	}
@@ -375,7 +375,7 @@ func (blobs *BlobsUsageCache) pieceSizes(ctx context.Context, blobRef blobstore.
 }
 
 // Update updates the cache totals.
-func (blobs *BlobsUsageCache) Update(ctx context.Context, satelliteID storj.NodeID, piecesTotalDelta, piecesContentSizeDelta, trashDelta int64) {
+func (blobs *BlobsUsageCache) Update(ctx context.Context, satelliteID storxnetwork.NodeID, piecesTotalDelta, piecesContentSizeDelta, trashDelta int64) {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 
@@ -423,7 +423,7 @@ func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobR
 		return Error.Wrap(err)
 	}
 
-	satelliteID, err := storj.NodeIDFromBytes(blobRef.Namespace)
+	satelliteID, err := storxnetwork.NodeIDFromBytes(blobRef.Namespace)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -450,7 +450,7 @@ func (blobs *BlobsUsageCache) TrashWithStorageFormat(ctx context.Context, blobRe
 		return Error.Wrap(err)
 	}
 
-	satelliteID, err := storj.NodeIDFromBytes(blobRef.Namespace)
+	satelliteID, err := storxnetwork.NodeIDFromBytes(blobRef.Namespace)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -461,7 +461,7 @@ func (blobs *BlobsUsageCache) TrashWithStorageFormat(ctx context.Context, blobRe
 
 // EmptyTrash empties the trash and updates the cache.
 func (blobs *BlobsUsageCache) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
-	satelliteID, err := storj.NodeIDFromBytes(namespace)
+	satelliteID, err := storxnetwork.NodeIDFromBytes(namespace)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -478,7 +478,7 @@ func (blobs *BlobsUsageCache) EmptyTrash(ctx context.Context, namespace []byte, 
 
 // RestoreTrash restores the trash for the namespace and updates the cache.
 func (blobs *BlobsUsageCache) RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error) {
-	satelliteID, err := storj.NodeIDFromBytes(namespace)
+	satelliteID, err := storxnetwork.NodeIDFromBytes(namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +505,7 @@ func (blobs *BlobsUsageCache) RestoreTrash(ctx context.Context, namespace []byte
 
 // DeleteNamespace deletes all blobs for a satellite and updates the cache.
 func (blobs *BlobsUsageCache) DeleteNamespace(ctx context.Context, namespace []byte) error {
-	satelliteID, err := storj.NodeIDFromBytes(namespace)
+	satelliteID, err := storxnetwork.NodeIDFromBytes(namespace)
 	if err != nil {
 		return err
 	}
@@ -528,7 +528,7 @@ func (blobs *BlobsUsageCache) DeleteNamespace(ctx context.Context, namespace []b
 func (blobs *BlobsUsageCache) copyCacheTotals() BlobsUsageCache {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
-	var copyMap = map[storj.NodeID]SatelliteUsage{}
+	var copyMap = map[storxnetwork.NodeID]SatelliteUsage{}
 	for k, v := range blobs.spaceUsedBySatellite {
 		copyMap[k] = v
 	}
@@ -552,7 +552,7 @@ func (blobs *BlobsUsageCache) Recalculate(
 	trashTotal,
 	trashTotalAtStart int64,
 	totalsBySatellite,
-	totalsBySatelliteAtStart map[storj.NodeID]SatelliteUsage,
+	totalsBySatelliteAtStart map[storxnetwork.NodeID]SatelliteUsage,
 ) {
 
 	blobs.recalculateUsage(piecesTotal, piecesTotalAtStart, piecesContentSize, piecesContentSizeAtStart, totalsBySatellite, totalsBySatelliteAtStart)
@@ -565,7 +565,7 @@ func (blobs *BlobsUsageCache) recalculateTrash(trashTotal, totalAtStart int64) {
 	blobs.mu.Unlock()
 }
 
-func (blobs *BlobsUsageCache) recalculateUsageForSatellite(satelliteID storj.NodeID, usage SatelliteUsage, totalAtStart, contentSizeAtStart int64) {
+func (blobs *BlobsUsageCache) recalculateUsageForSatellite(satelliteID storxnetwork.NodeID, usage SatelliteUsage, totalAtStart, contentSizeAtStart int64) {
 
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
@@ -581,7 +581,7 @@ func (blobs *BlobsUsageCache) recalculateUsageForSatellite(satelliteID storj.Nod
 	blobs.piecesContentSize = (blobs.piecesContentSize - usageAtEnd.ContentSize) + estimatedUsage.ContentSize
 }
 
-func (blobs *BlobsUsageCache) recalculateUsage(piecesTotal, piecesTotalAtStart, piecesContentSize, piecesContentSizeAtStart int64, totalsBySatellite, totalsBySatelliteAtStart map[storj.NodeID]SatelliteUsage) {
+func (blobs *BlobsUsageCache) recalculateUsage(piecesTotal, piecesTotalAtStart, piecesContentSize, piecesContentSizeAtStart int64, totalsBySatellite, totalsBySatelliteAtStart map[storxnetwork.NodeID]SatelliteUsage) {
 
 	totalsAtEnd := blobs.copyCacheTotals()
 
@@ -597,7 +597,7 @@ func (blobs *BlobsUsageCache) recalculateUsage(piecesTotal, piecesTotalAtStart, 
 		totalsAtEnd.piecesContentSize,
 	)
 
-	var estimatedTotalsBySatellite = map[storj.NodeID]SatelliteUsage{}
+	var estimatedTotalsBySatellite = map[storxnetwork.NodeID]SatelliteUsage{}
 	for ID, values := range totalsBySatellite {
 		estimatedTotal := estimate(
 			values.Total,
@@ -672,8 +672,8 @@ func estimate(newSpaceUsedTotal, totalAtIterationStart, totalAtIterationEnd int6
 	return estimatedTotal
 }
 
-func getMissed(endTotals, newTotals map[storj.NodeID]SatelliteUsage) map[storj.NodeID]SatelliteUsage {
-	var missed = map[storj.NodeID]SatelliteUsage{}
+func getMissed(endTotals, newTotals map[storxnetwork.NodeID]SatelliteUsage) map[storxnetwork.NodeID]SatelliteUsage {
+	var missed = map[storxnetwork.NodeID]SatelliteUsage{}
 	for id, vals := range endTotals {
 		if _, ok := newTotals[id]; !ok {
 			missed[id] = vals

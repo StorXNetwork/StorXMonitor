@@ -5,7 +5,7 @@
     <v-container>
         <v-row justify="center">
             <v-col class="text-center py-4">
-                <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                <icon-storxnetwork-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
                 <v-img v-else :src="configStore.logo" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
                 <p class="text-overline mt-2 mb-1">
                     Welcome

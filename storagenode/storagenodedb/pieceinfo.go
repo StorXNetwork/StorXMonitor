@@ -9,11 +9,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrPieceInfo represents errors from the piece info database.
@@ -56,7 +56,7 @@ func (db *v0PieceInfoDB) Add(ctx context.Context, info *pieces.Info) (err error)
 	return ErrPieceInfo.Wrap(err)
 }
 
-func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore blobstore.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
+func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore blobstore.Blobs, satelliteID storxnetwork.NodeID) ([]v0StoredPieceAccess, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT piece_id, piece_size, piece_creation, piece_expiration
 		FROM pieceinfo_
@@ -89,7 +89,7 @@ func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore blob
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.
-func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore blobstore.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
+func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore blobstore.Blobs, satelliteID storxnetwork.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: is it worth paging this query? we hope that SNs will not yet have too many V0 pieces.
@@ -111,7 +111,7 @@ func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore bl
 }
 
 // Get gets piece information by satellite id and piece id.
-func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (_ *pieces.Info, err error) {
+func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) (_ *pieces.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 	info := &pieces.Info{}
 	info.SatelliteID = satelliteID
@@ -150,7 +150,7 @@ func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storj.NodeID, piec
 }
 
 // Delete deletes piece information.
-func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `
@@ -178,7 +178,7 @@ func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time) (i
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	expiredListsBySatelliteID := make(map[storj.NodeID]*pieces.ExpiredInfoRecords)
+	expiredListsBySatelliteID := make(map[storxnetwork.NodeID]*pieces.ExpiredInfoRecords)
 	expiredLists := make([]*pieces.ExpiredInfoRecords, 0)
 
 	for rows.Next() {
@@ -213,8 +213,8 @@ func (db *v0PieceInfoDB) DeleteExpirations(ctx context.Context, expiredAt time.T
 
 type v0StoredPieceAccess struct {
 	blobStore      blobstore.Blobs
-	satellite      storj.NodeID
-	pieceID        storj.PieceID
+	satellite      storxnetwork.NodeID
+	pieceID        storxnetwork.PieceID
 	pieceSize      int64
 	creationTime   time.Time
 	expirationTime *time.Time
@@ -222,12 +222,12 @@ type v0StoredPieceAccess struct {
 }
 
 // PieceID returns the piece ID for the piece.
-func (v0Access *v0StoredPieceAccess) PieceID() storj.PieceID {
+func (v0Access *v0StoredPieceAccess) PieceID() storxnetwork.PieceID {
 	return v0Access.pieceID
 }
 
 // Satellite returns the satellite ID that owns the piece.
-func (v0Access *v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
+func (v0Access *v0StoredPieceAccess) Satellite() (storxnetwork.NodeID, error) {
 	return v0Access.satellite, nil
 }
 

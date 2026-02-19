@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 // Mockdb is an in-memory  mock implementation of the nodeevents.DB interface for testing.
@@ -42,12 +42,12 @@ func (m *Mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg N
 }
 
 // GetOnlineNodesForAuditAndRepair satisfies nodeevents.DB interface.
-func (m *Mockdb) GetOnlineNodesForAuditAndRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error) {
+func (m *Mockdb) GetOnlineNodesForAuditAndRepair(ctx context.Context, nodeIDs []storxnetwork.NodeID, onlineWindow time.Duration) (map[storxnetwork.NodeID]*NodeReputation, error) {
 	panic("implement me")
 }
 
 // GetAllOnlineNodesForRepair satisfies nodeevents.DB interface.
-func (m *Mockdb) GetAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error) {
+func (m *Mockdb) GetAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (map[storxnetwork.NodeID]*NodeReputation, error) {
 	panic("implement me")
 }
 
@@ -57,12 +57,12 @@ func (m *Mockdb) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow
 }
 
 // Get satisfies nodeevents.DB interface.
-func (m *Mockdb) Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error) {
+func (m *Mockdb) Get(ctx context.Context, nodeID storxnetwork.NodeID) (*NodeDossier, error) {
 	panic("implement me")
 }
 
 // GetParticipatingNodes satisfies nodeevents.DB interface.
-func (m *Mockdb) GetParticipatingNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
+func (m *Mockdb) GetParticipatingNodes(ctx context.Context, nodeIDs storxnetwork.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
 	panic("implement me")
 }
 
@@ -81,7 +81,7 @@ func (m *Mockdb) GetAllParticipatingNodes(ctx context.Context, onlineWindow, asO
 }
 
 // KnownReliable satisfies nodeevents.DB interface.
-func (m *Mockdb) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
+func (m *Mockdb) KnownReliable(ctx context.Context, nodeIDs storxnetwork.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
 	panic("implement me")
 }
 
@@ -91,12 +91,12 @@ func (m *Mockdb) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval 
 }
 
 // UpdateReputation satisfies nodeevents.DB interface.
-func (m *Mockdb) UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error {
+func (m *Mockdb) UpdateReputation(ctx context.Context, id storxnetwork.NodeID, request ReputationUpdate) error {
 	panic("implement me")
 }
 
 // UpdateNodeInfo satisfies nodeevents.DB interface.
-func (m *Mockdb) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
+func (m *Mockdb) UpdateNodeInfo(ctx context.Context, node storxnetwork.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
 	panic("implement me")
 }
 
@@ -106,22 +106,22 @@ func (m *Mockdb) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timest
 }
 
 // SetNodeContained satisfies nodeevents.DB interface.
-func (m *Mockdb) SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error) {
+func (m *Mockdb) SetNodeContained(ctx context.Context, node storxnetwork.NodeID, contained bool) (err error) {
 	panic("implement me")
 }
 
 // SetAllContainedNodes satisfies nodeevents.DB interface.
-func (m *Mockdb) SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error) {
+func (m *Mockdb) SetAllContainedNodes(ctx context.Context, containedNodes []storxnetwork.NodeID) (err error) {
 	panic("implement me")
 }
 
 // ActiveNodesPieceCounts satisfies nodeevents.DB interface.
-func (m *Mockdb) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
+func (m *Mockdb) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storxnetwork.NodeID]int64, err error) {
 	panic("implement me")
 }
 
 // UpdatePieceCounts satisfies nodeevents.DB interface.
-func (m *Mockdb) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error) {
+func (m *Mockdb) UpdatePieceCounts(ctx context.Context, pieceCounts map[storxnetwork.NodeID]int64) (err error) {
 	panic("implement me")
 }
 
@@ -136,47 +136,47 @@ func (m *Mockdb) GetExitingNodes(ctx context.Context) (exitingNodes []*ExitStatu
 }
 
 // GetGracefulExitCompletedByTimeFrame satisfies nodeevents.DB interface.
-func (m *Mockdb) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
+func (m *Mockdb) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storxnetwork.NodeIDList, err error) {
 	panic("implement me")
 }
 
 // GetGracefulExitIncompleteByTimeFrame satisfies nodeevents.DB interface.
-func (m *Mockdb) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+func (m *Mockdb) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storxnetwork.NodeIDList, err error) {
 	panic("implement me")
 }
 
 // GetExitStatus satisfies nodeevents.DB interface.
-func (m *Mockdb) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error) {
+func (m *Mockdb) GetExitStatus(ctx context.Context, nodeID storxnetwork.NodeID) (exitStatus *ExitStatus, err error) {
 	panic("implement me")
 }
 
 // DisqualifyNode satisfies nodeevents.DB interface.
-func (m *Mockdb) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error) {
+func (m *Mockdb) DisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error) {
 	panic("implement me")
 }
 
 // GetOfflineNodesForEmail satisfies nodeevents.DB interface.
-func (m *Mockdb) GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error) {
+func (m *Mockdb) GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storxnetwork.NodeID]string, err error) {
 	panic("implement me")
 }
 
 // UpdateLastOfflineEmail satisfies nodeevents.DB interface.
-func (m *Mockdb) UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error) {
+func (m *Mockdb) UpdateLastOfflineEmail(ctx context.Context, nodeIDs storxnetwork.NodeIDList, timestamp time.Time) (err error) {
 	panic("implement me")
 }
 
 // DQNodesLastSeenBefore satisfies nodeevents.DB interface.
-func (m *Mockdb) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error) {
+func (m *Mockdb) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storxnetwork.NodeID]string, count int, err error) {
 	panic("implement me")
 }
 
 // TestSuspendNodeUnknownAudit satisfies nodeevents.DB interface.
-func (m *Mockdb) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+func (m *Mockdb) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error) {
 	panic("implement me")
 }
 
 // TestUnsuspendNodeUnknownAudit satisfies nodeevents.DB interface.
-func (m *Mockdb) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (m *Mockdb) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	panic("implement me")
 }
 
@@ -186,22 +186,22 @@ func (m *Mockdb) TestAddNodes(ctx context.Context, nodes []*NodeDossier) (err er
 }
 
 // TestVetNode satisfies nodeevents.DB interface.
-func (m *Mockdb) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+func (m *Mockdb) TestVetNode(ctx context.Context, nodeID storxnetwork.NodeID) (vettedTime *time.Time, err error) {
 	panic("implement me")
 }
 
 // TestUnvetNode satisfies nodeevents.DB interface.
-func (m *Mockdb) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (m *Mockdb) TestUnvetNode(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	panic("implement me")
 }
 
 // TestSuspendNodeOffline satisfies nodeevents.DB interface.
-func (m *Mockdb) TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+func (m *Mockdb) TestSuspendNodeOffline(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error) {
 	panic("implement me")
 }
 
 // TestSetNodeCountryCode satisfies nodeevents.DB interface.
-func (m *Mockdb) TestSetNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+func (m *Mockdb) TestSetNodeCountryCode(ctx context.Context, nodeID storxnetwork.NodeID, countryCode string) (err error) {
 	panic("implement me")
 }
 
@@ -231,17 +231,17 @@ func (m *Mockdb) UpdateNodeTags(ctx context.Context, tags nodeselection.NodeTags
 }
 
 // GetNodeTags satisfies nodeevents.DB interface.
-func (m *Mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error) {
+func (m *Mockdb) GetNodeTags(ctx context.Context, id storxnetwork.NodeID) (nodeselection.NodeTags, error) {
 	panic("implement me")
 }
 
 // GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
-func (m *Mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error) {
+func (m *Mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storxnetwork.NodeIDList, tagName []string) (lastIPPorts map[storxnetwork.NodeID]*string, err error) {
 	panic("implement me")
 }
 
 // AccountingNodeInfo gets records for all specified nodes for accounting.
-func (m *Mockdb) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]NodeAccountingInfo, err error) {
+func (m *Mockdb) AccountingNodeInfo(ctx context.Context, nodeIDs storxnetwork.NodeIDList) (_ map[storxnetwork.NodeID]NodeAccountingInfo, err error) {
 	panic("implement me")
 }
 

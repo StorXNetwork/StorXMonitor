@@ -10,8 +10,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrAccountNotSetup is an error type which indicates that payment account is not created.
@@ -83,7 +83,7 @@ type Accounts interface {
 
 	// GetPlacementPriceModel returns the productID and related usage price model for a placement,
 	// if there is none defined for the project ID.
-	GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel)
+	GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storxnetwork.PlacementConstraint) (productID int32, _ ProductUsagePriceModel)
 
 	// GetPlacementProductMappings returns the placement to product ID mappings.
 	GetPlacementProductMappings() PlacementProductIdMap
@@ -96,7 +96,7 @@ type Accounts interface {
 	// project on the entitlements level or those allowed globally if entitlements are disabled.
 	// It also returns a boolean, entitlementHasPlacement, indicating if the project's entitlement has any new buckets
 	// placements defined.
-	GetPlacements(ctx context.Context, projectPublicID uuid.UUID) (_ []storj.PlacementConstraint, entitlementsHasPlacements bool, _ error)
+	GetPlacements(ctx context.Context, projectPublicID uuid.UUID) (_ []storxnetwork.PlacementConstraint, entitlementsHasPlacements bool, _ error)
 
 	// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 	// which have not been applied/invoiced yet (meaning sent over to stripe).
@@ -114,7 +114,7 @@ type Accounts interface {
 	// PaymentIntents exposes all needed functionality to manage credit cards charging.
 	PaymentIntents() PaymentIntents
 
-	// StorjTokens exposes all storj token related functionality.
+	// StorjTokens exposes all storxnetwork token related functionality.
 	StorjTokens() StorjTokens
 
 	// Invoices exposes all needed functionality to manage account invoices.

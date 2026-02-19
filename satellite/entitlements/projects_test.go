@@ -8,11 +8,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestProjectEntitlements(t *testing.T) {
@@ -32,7 +32,7 @@ func TestProjectEntitlements(t *testing.T) {
 		err = projects.SetNewBucketPlacementsByPublicID(ctx, publicID, nil)
 		require.Error(t, err)
 
-		p1 := []storj.PlacementConstraint{0, 12}
+		p1 := []storxnetwork.PlacementConstraint{0, 12}
 		err = projects.SetNewBucketPlacementsByPublicID(ctx, publicID, p1)
 		require.NoError(t, err)
 
@@ -45,8 +45,8 @@ func TestProjectEntitlements(t *testing.T) {
 		require.Error(t, err)
 
 		m1 := entitlements.PlacementProductMappings{
-			storj.DefaultPlacement: 1,
-			12:                     2,
+			storxnetwork.DefaultPlacement: 1,
+			12:                            2,
 		}
 		err = projects.SetPlacementProductMappingsByPublicID(ctx, publicID, m1)
 		require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestProjectEntitlements(t *testing.T) {
 		require.Equal(t, m1, got.PlacementProductMappings)
 
 		// Update placements again; mappings must remain intact.
-		p2 := []storj.PlacementConstraint{3}
+		p2 := []storxnetwork.PlacementConstraint{3}
 		err = projects.SetNewBucketPlacementsByPublicID(ctx, publicID, p2)
 		require.NoError(t, err)
 

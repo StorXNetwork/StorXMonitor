@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // BeginSegment contains options to verify, whether a new segment upload can be started.
@@ -26,7 +26,7 @@ type BeginSegment struct {
 	Position SegmentPosition
 
 	// TODO: unused field, can remove
-	RootPieceID storj.PieceID
+	RootPieceID storxnetwork.PieceID
 
 	Pieces Pieces
 
@@ -116,7 +116,7 @@ type CommitSegment struct {
 	ObjectStream
 
 	Position    SegmentPosition
-	RootPieceID storj.PieceID
+	RootPieceID storxnetwork.PieceID
 
 	ExpiresAt *time.Time
 
@@ -129,11 +129,11 @@ type CommitSegment struct {
 
 	EncryptedETag []byte
 
-	Redundancy storj.RedundancyScheme
+	Redundancy storxnetwork.RedundancyScheme
 
 	Pieces Pieces
 
-	Placement storj.PlacementConstraint
+	Placement storxnetwork.PlacementConstraint
 
 	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
@@ -589,7 +589,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
 	values := []any{
 		opts.StreamID, opts.Position, opts.ExpiresAt,
-		storj.PieceID{},
+		storxnetwork.PieceID{},
 		opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
@@ -661,7 +661,7 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
 	values := []any{
 		opts.StreamID, opts.Position, opts.ExpiresAt,
-		storj.PieceID{},
+		storxnetwork.PieceID{},
 		opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
@@ -733,7 +733,7 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 			"stream_id":           opts.StreamID,
 			"position":            opts.Position,
 			"expires_at":          opts.ExpiresAt,
-			"root_piece_id":       storj.PieceID{},
+			"root_piece_id":       storxnetwork.PieceID{},
 			"redundancy":          0,
 			"remote_alias_pieces": nil,
 			"encrypted_key_nonce": opts.EncryptedKeyNonce,
@@ -779,7 +779,7 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 			Params: map[string]interface{}{
 				"position":            opts.Position,
 				"expires_at":          opts.ExpiresAt,
-				"root_piece_id":       storj.PieceID{},
+				"root_piece_id":       storxnetwork.PieceID{},
 				"encrypted_key_nonce": opts.EncryptedKeyNonce,
 				"encrypted_key":       opts.EncryptedKey,
 				"encrypted_size":      len(opts.InlineData),

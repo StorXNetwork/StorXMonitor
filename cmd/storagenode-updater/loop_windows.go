@@ -13,8 +13,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/version"
-	"storj.io/storj/private/version/checker"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
 )
 
 // loopFunc is func that is run by the update cycle.

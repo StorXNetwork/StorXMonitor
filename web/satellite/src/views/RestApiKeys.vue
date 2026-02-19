@@ -4,7 +4,7 @@
 <template>
     <v-container>
         <PageTitleComponent title="Project Management API Keys" />
-        <PageSubtitleComponent subtitle="Interact with projects using API Keys" link="https://github.com/storj/storj/blob/main/satellite/console/consoleweb/consoleapi/apidocs.gen.md" />
+        <PageSubtitleComponent subtitle="Interact with projects using API Keys" link="https://github.com/storxnetwork/storxnetwork/blob/main/satellite/console/consoleweb/consoleapi/apidocs.gen.md" />
 
         <v-col>
             <v-row class="mt-1 mb-3">

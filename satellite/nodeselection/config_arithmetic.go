@@ -10,7 +10,7 @@ import (
 	"github.com/jtolio/mito"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ConvertType tries to convert a type for the most generic mathmetical type which supports math operations.
@@ -60,23 +60,23 @@ func ConvertType(b any, t reflect.Type) (any, error) {
 		case ScoreNodeFunc, ScoreNode:
 			return bv, nil
 		case NodeValue:
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				return bv(*node)
 			}), nil
 		case float64:
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				return bv
 			}), nil
 		case float32:
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				return float64(bv)
 			}), nil
 		case int:
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				return float64(bv)
 			}), nil
 		case int64:
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				return float64(bv)
 			}), nil
 		}
@@ -134,7 +134,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return math.Pow(float64(av), float64(bv))
 			}), nil
 		case reflect.TypeOf(ScoreNode(nil)):
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
 				return math.Pow(av, bv)
@@ -165,7 +165,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return a.(NodeValue)(node) + b.(NodeValue)(node)
 			}), nil
 		case reflect.TypeOf(new(ScoreNode)).Elem():
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
 				return av + bv
@@ -196,7 +196,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return a.(NodeValue)(node) - b.(NodeValue)(node)
 			}), nil
 		case reflect.TypeOf(new(ScoreNode)).Elem():
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
 				return av - bv
@@ -227,7 +227,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return a.(NodeValue)(node) * b.(NodeValue)(node)
 			}), nil
 		case reflect.TypeOf(new(ScoreNode)).Elem():
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
 				return av * bv
@@ -258,7 +258,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return a.(NodeValue)(node) / b.(NodeValue)(node)
 			}), nil
 		case reflect.TypeOf(new(ScoreNode)).Elem():
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
 				return av / bv
@@ -303,7 +303,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return bv
 			}), nil
 		case reflect.TypeOf(new(ScoreNode)).Elem():
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
 				if av > bv {
@@ -351,7 +351,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return bv
 			}), nil
 		case reflect.TypeOf(new(ScoreNode)).Elem():
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
 				if av < bv {
@@ -378,11 +378,11 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return math.Round(av(node))
 			}), nil
 		case ScoreNodeFunc:
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				return math.Round(av(uplink, node))
 			}), nil
 		case ScoreNode:
-			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return ScoreNodeFunc(func(uplink storxnetwork.NodeID, node *SelectedNode) float64 {
 				return math.Round(av.Get(uplink)(node))
 			}), nil
 

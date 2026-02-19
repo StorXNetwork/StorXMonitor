@@ -4,9 +4,9 @@
 package bloomfilter
 
 import (
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Module provides dependency injection configuration for garbage collection bloom filter components.

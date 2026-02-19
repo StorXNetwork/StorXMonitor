@@ -8,8 +8,8 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 type observerRSStats struct {
@@ -131,7 +131,7 @@ type segmentRSStats struct {
 	yearOldSegmentPiecesLostPerWeek    *monkit.FloatVal
 }
 
-func newSegmentRSStats(rs string, placement storj.PlacementConstraint) *segmentRSStats {
+func newSegmentRSStats(rs string, placement storxnetwork.PlacementConstraint) *segmentRSStats {
 	placementTag := strconv.Itoa(int(placement))
 	return &segmentRSStats{
 		segmentsBelowMinReq:         monkit.NewCounter(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segments_below_min_req").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
@@ -181,7 +181,7 @@ func (stats *observerRSStats) collectAggregates() {
 }
 
 // aggregateStatsPlacements aggregate stats per placement.
-// storj.PlacementConstraint values are the indexes of the slice.
+// storxnetwork.PlacementConstraint values are the indexes of the slice.
 type aggregateStatsPlacements []aggregateStats
 
 func (ap *aggregateStatsPlacements) combine(stats aggregateStatsPlacements) {

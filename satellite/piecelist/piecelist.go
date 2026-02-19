@@ -13,8 +13,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Config is the configuration for the piece list observer.
@@ -28,7 +28,7 @@ type PieceList struct {
 	mu        sync.Mutex
 	counter   int
 	outputDir string
-	nodeID    storj.NodeID
+	nodeID    storxnetwork.NodeID
 }
 
 var _ rangedloop.Observer = &PieceList{}
@@ -38,7 +38,7 @@ func NewPieceList(cfg Config) (*PieceList, error) {
 	if cfg.NodeID == "" {
 		return nil, errs.New("node ID is required")
 	}
-	nodeID, err := storj.NodeIDFromString(cfg.NodeID)
+	nodeID, err := storxnetwork.NodeIDFromString(cfg.NodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (p *PieceList) Finish(ctx context.Context) error {
 // Fork is a partial implementation that writes pieces to a file.
 type Fork struct {
 	destination *os.File
-	nodeID      storj.NodeID
+	nodeID      storxnetwork.NodeID
 }
 
 var _ rangedloop.Partial = &Fork{}

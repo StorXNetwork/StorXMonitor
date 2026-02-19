@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDeleteZombieObjects(t *testing.T) {
@@ -96,7 +96,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj1,
-					RootPieceID:  storj.PieceID{1},
+					RootPieceID:  storxnetwork.PieceID{1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
@@ -106,8 +106,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj1,
-					RootPieceID:  storj.PieceID{1},
-					Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+					RootPieceID:  storxnetwork.PieceID{1},
+					Pieces:       metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 					EncryptedKey:      []byte{3},
 					EncryptedKeyNonce: []byte{4},
@@ -142,8 +142,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID:    obj1.StreamID,
-						RootPieceID: storj.PieceID{1},
-						Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						RootPieceID: storxnetwork.PieceID{1},
+						Pieces:      metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 						CreatedAt:   now,
 
 						EncryptedKey:      []byte{3},
@@ -187,7 +187,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 						Opts: metabase.BeginSegment{
 							ObjectStream: obj,
 							Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-							RootPieceID:  storj.PieceID{i + 1},
+							RootPieceID:  storxnetwork.PieceID{i + 1},
 							Pieces: []metabase.Piece{{
 								Number:      1,
 								StorageNode: testrand.NodeID(),
@@ -199,8 +199,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 						Opts: metabase.CommitSegment{
 							ObjectStream: obj,
 							Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-							RootPieceID:  storj.PieceID{1},
-							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+							RootPieceID:  storxnetwork.PieceID{1},
+							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 							EncryptedKey:      []byte{3},
 							EncryptedKeyNonce: []byte{4},
@@ -279,14 +279,14 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			expectedObj1Segment := metabase.Segment{
 				StreamID:          obj1.StreamID,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				CreatedAt:         now,
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1060,
 				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 

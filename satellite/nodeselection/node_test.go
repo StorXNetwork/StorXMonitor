@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/storj/shared/location"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestNodeAttribute(t *testing.T) {
@@ -35,16 +35,16 @@ func TestNodeAttribute(t *testing.T) {
 		Wallet: "0xCAFEBABE",
 	}))
 
-	assert.Equal(t, "ahoj@storj.io", must(CreateNodeAttribute("email"))(SelectedNode{
-		Email: "ahoj@storj.io",
+	assert.Equal(t, "ahoj@storxnetwork.io", must(CreateNodeAttribute("email"))(SelectedNode{
+		Email: "ahoj@storxnetwork.io",
 	}))
 
 	assert.Equal(t, "DE", must(CreateNodeAttribute("country"))(SelectedNode{
 		CountryCode: location.Germany,
 	}))
 
-	signerID := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID
-	otherSignerID := testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID
+	signerID := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID
+	otherSignerID := testidentity.MustPregeneratedIdentity(2, storxnetwork.LatestIDVersion()).ID
 
 	assert.Equal(t, "bar", must(CreateNodeAttribute(fmt.Sprintf("tag:%s/foo", signerID)))(SelectedNode{
 		Tags: NodeTags{
@@ -80,11 +80,11 @@ func TestNodeAttribute(t *testing.T) {
 	}))
 
 	assert.Equal(t, "1aNZuRaYRSxJAGZMBrikdvqNEE6K9BK82DmZnTv6mTqiW5M4W4", must(CreateNodeAttribute("id"))(SelectedNode{
-		ID: testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
+		ID: testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID,
 	}))
 
 	assert.Equal(t, "1aNZuRaYRSxJAGZMBrikdvqNEE6K9BK82DmZnTv6mTqiW5M4W4", must(CreateNodeAttribute("node_id"))(SelectedNode{
-		ID: testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
+		ID: testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID,
 	}))
 
 	assert.Equal(t, "1111111111111111111111111111111112m1s9K", must(CreateNodeAttribute("node_id"))(SelectedNode{}))
@@ -106,8 +106,8 @@ func TestNodeValue(t *testing.T) {
 		FreeDisk: 123.0,
 	}))
 
-	signerID := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID
-	otherSignerID := testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID
+	signerID := testidentity.MustPregeneratedIdentity(1, storxnetwork.LatestIDVersion()).ID
+	otherSignerID := testidentity.MustPregeneratedIdentity(2, storxnetwork.LatestIDVersion()).ID
 
 	assert.Equal(t, 12.0, must(CreateNodeValue(fmt.Sprintf("tag:%s/foo", signerID)))(SelectedNode{
 		Tags: NodeTags{

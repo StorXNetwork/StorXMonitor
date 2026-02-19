@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/shared/nodeidmap"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeidmap"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var mon = monkit.Package()
@@ -28,7 +28,7 @@ type TestingObserver interface {
 
 // Overlay minimal set of overlay functions that are needed for the observer.
 type Overlay interface {
-	ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
+	ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storxnetwork.NodeID]int64, err error)
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data.
@@ -40,8 +40,8 @@ type RetainInfo struct {
 // MinimalRetainInfoMap is what is exposed by the observer to the upload.
 type MinimalRetainInfoMap interface {
 	IsEmpty() bool
-	Load(nodeID storj.NodeID) (info *RetainInfo, ok bool)
-	Range(f func(nodeID storj.NodeID, info *RetainInfo) bool)
+	Load(nodeID storxnetwork.NodeID) (info *RetainInfo, ok bool)
+	Range(f func(nodeID storxnetwork.NodeID, info *RetainInfo) bool)
 }
 
 // Observer implements a rangedloop observer to collect bloom filters for the garbage collection.
@@ -55,7 +55,7 @@ type Observer struct {
 
 	// The following fields are reset for each loop.
 	startTime       time.Time
-	lastPieceCounts map[storj.NodeID]int64
+	lastPieceCounts map[storxnetwork.NodeID]int64
 	retainInfos     nodeidmap.Map[*RetainInfo]
 	creationTime    time.Time
 	seed            byte
@@ -93,7 +93,7 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int64)
+		lastPieceCounts = make(map[storxnetwork.NodeID]int64)
 	}
 
 	obs.startTime = startTime
@@ -148,7 +148,7 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 	obs.expiredCount += pieceTracker.expiredCount
 	obs.remoteCount += pieceTracker.remoteCount
 
-	pieceTracker.pieceIDs.Range(func(nodeID storj.NodeID, pieceIDs []storj.PieceID) bool {
+	pieceTracker.pieceIDs.Range(func(nodeID storxnetwork.NodeID, pieceIDs []storxnetwork.PieceID) bool {
 		if err := pieceTracker.upload.UploadPieceIDs(ctx, nodeID, pieceIDs, pieceTracker.startTime, pieceTracker.identifier); err != nil {
 			// we don't want to interrup main GC process if we fail to upload piece IDs
 			pieceTracker.log.Error("error uploading piece IDs", zap.Stringer("node", nodeID), zap.Int("identifier", pieceTracker.identifier), zap.Error(err))
@@ -191,7 +191,7 @@ type observerFork struct {
 	identifier int
 	config     Config
 	// TODO: should we use int or int64 consistently for piece count (db type is int64)?
-	pieceCounts map[storj.NodeID]int64
+	pieceCounts map[storxnetwork.NodeID]int64
 	seed        byte
 	startTime   time.Time
 
@@ -203,7 +203,7 @@ type observerFork struct {
 	// * choose the oldest one from all latest creation time and GC observer start time
 	latestCreationTime map[string]time.Time
 
-	pieceIDs nodeidmap.Map[[]storj.PieceID]
+	pieceIDs nodeidmap.Map[[]storxnetwork.PieceID]
 
 	forcedTableSize int
 
@@ -212,12 +212,12 @@ type observerFork struct {
 
 // newObserverFork instantiates a new observer fork to process different segment range.
 // The seed is passed so that it can be shared among all parallel forks.
-func newObserverFork(log *zap.Logger, upload *Upload, config Config, pieceCounts map[storj.NodeID]int64,
+func newObserverFork(log *zap.Logger, upload *Upload, config Config, pieceCounts map[storxnetwork.NodeID]int64,
 	seed byte, startTime time.Time, forcedTableSize int) *observerFork {
 
-	pieceIDs := nodeidmap.MakeSized[[]storj.PieceID](len(config.CollectNodesPieceIDs))
+	pieceIDs := nodeidmap.MakeSized[[]storxnetwork.PieceID](len(config.CollectNodesPieceIDs))
 	for _, nodeID := range config.CollectNodesPieceIDs {
-		pieceIDs.Store(nodeID, make([]storj.PieceID, 0, config.NodesPieceIDsBufferSize))
+		pieceIDs.Store(nodeID, make([]storxnetwork.PieceID, 0, config.NodesPieceIDsBufferSize))
 	}
 
 	return &observerFork{
@@ -274,7 +274,7 @@ func (fork *observerFork) updateLatestCreationTime(segment rangedloop.Segment) {
 }
 
 // add adds a pieceID to the relevant node's RetainInfo.
-func (fork *observerFork) add(nodeID storj.NodeID, pieceID storj.PieceID) {
+func (fork *observerFork) add(nodeID storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	info, ok := fork.retainInfos.Load(nodeID)
 	if !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
@@ -306,7 +306,7 @@ func (fork *observerFork) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 	info.Count++
 }
 
-func (fork *observerFork) addPieceID(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) {
+func (fork *observerFork) addPieceID(ctx context.Context, nodeID storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	pieceIDs, found := fork.pieceIDs.Load(nodeID)
 	if !found {
 		return

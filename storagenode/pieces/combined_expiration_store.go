@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // CombinedExpirationStore prefers the flat file store for setting expirations but
@@ -31,7 +31,7 @@ func NewCombinedExpirationStore(log *zap.Logger, chainedDB PieceExpirationDB, fl
 }
 
 // SetExpiration sets the expiration for a piece.
-func (c *CombinedExpirationStore) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) error {
+func (c *CombinedExpirationStore) SetExpiration(ctx context.Context, satellite storxnetwork.NodeID, pieceID storxnetwork.PieceID, expiresAt time.Time, pieceSize int64) error {
 	return c.flatFileStore.SetExpiration(ctx, satellite, pieceID, expiresAt, pieceSize)
 }
 

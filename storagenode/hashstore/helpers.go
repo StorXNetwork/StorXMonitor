@@ -13,16 +13,16 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/drpc/drpcsignal"
-	"storj.io/storj/storagenode/hashstore/platform"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore/platform"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/drpc/drpcsignal"
 )
 
 var mon = monkit.Package()
 
 // Key is the key space operated on by the store.
-type Key = storj.PieceID
+type Key = storxnetwork.PieceID
 
 func safeDivide(x, y float64) float64 {
 	if y == 0 {

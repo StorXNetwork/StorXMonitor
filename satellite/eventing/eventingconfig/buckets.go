@@ -8,8 +8,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // BucketLocationTopicIDMap is a map of bucket locations to their corresponding topic ID values.

@@ -11,7 +11,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/common/time2"
+	"github.com/StorXNetwork/common/time2"
 )
 
 var mon = monkit.Package()

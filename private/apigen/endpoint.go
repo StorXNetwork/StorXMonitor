@@ -14,8 +14,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
 )
 
 var (
@@ -355,7 +355,7 @@ type Middleware interface {
 	//
 	// type middlewareImpl struct {
 	// 	 log  *zap.Logger // Import path: "go.uber.org/zap"
-	//   auth api.Auth   // Import path: "storj.io/storj/private/api"
+	//   auth api.Auth   // Import path: "github.com/StorXNetwork/StorXMonitor/private/api"
 	// }
 	//
 	// The generated code can access to log and auth through h.log and h.auth.

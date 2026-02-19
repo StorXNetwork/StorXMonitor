@@ -4,8 +4,8 @@
 package nodeselection
 
 import (
-	"storj.io/storj/private/intset"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/private/intset"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Invariant checks the current placement, and identifies the pieces which should be moved.

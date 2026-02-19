@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"strings"
 
-	"storj.io/storj/shared/modular/config"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/config"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // ConfigList is a command that lists all configuration options for modular components.

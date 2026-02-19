@@ -16,14 +16,14 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/yaml.v3"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/useragent"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/useragent"
 )
 
 // Error is payments config err class.
@@ -657,7 +657,7 @@ func (p *PackagePlans) Get(userAgent []byte) (pkg payments.PackagePlan, err erro
 // ValidatePlacementOverrideMap ensures placements and product IDs in price override maps exist.
 func ValidatePlacementOverrideMap(overrideMap map[int]int32, productPrices map[int32]payments.ProductUsagePriceModel, placements nodeselection.PlacementDefinitions) error {
 	for placement, productID := range overrideMap {
-		if _, ok := placements[storj.PlacementConstraint(placement)]; !ok {
+		if _, ok := placements[storxnetwork.PlacementConstraint(placement)]; !ok {
 			return errs.New("placement %d not found in placement constraints", placement)
 		}
 

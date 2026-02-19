@@ -6,7 +6,7 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (

@@ -8,9 +8,9 @@ import (
 	"database/sql"
 	"errors"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/snopayouts"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // snopayoutsDB is payment data for specific storagenode for some specific period by working with satellite.
@@ -21,7 +21,7 @@ type snopayoutsDB struct {
 }
 
 // GetPaystub returns payStub by nodeID and period.
-func (db *snopayoutsDB) GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (paystub snopayouts.Paystub, err error) {
+func (db *snopayoutsDB) GetPaystub(ctx context.Context, nodeID storxnetwork.NodeID, period string) (paystub snopayouts.Paystub, err error) {
 
 	defer mon.Task()(&ctx)(&err)
 
@@ -38,7 +38,7 @@ func (db *snopayoutsDB) GetPaystub(ctx context.Context, nodeID storj.NodeID, per
 }
 
 // GetAllPaystubs return all payStubs by nodeID.
-func (db *snopayoutsDB) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) (paystubs []snopayouts.Paystub, err error) {
+func (db *snopayoutsDB) GetAllPaystubs(ctx context.Context, nodeID storxnetwork.NodeID) (paystubs []snopayouts.Paystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxPaystubs, err := db.db.All_StoragenodePaystub_By_NodeId(ctx,
@@ -57,7 +57,7 @@ func (db *snopayoutsDB) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID)
 }
 
 func convertDBXPaystub(dbxPaystub *dbx.StoragenodePaystub) (snopayouts.Paystub, error) {
-	nodeID, err := storj.NodeIDFromBytes(dbxPaystub.NodeId)
+	nodeID, err := storxnetwork.NodeIDFromBytes(dbxPaystub.NodeId)
 	if err != nil {
 		return snopayouts.Paystub{}, Error.Wrap(err)
 	}
@@ -88,7 +88,7 @@ func convertDBXPaystub(dbxPaystub *dbx.StoragenodePaystub) (snopayouts.Paystub, 
 }
 
 // GetPayment returns payment by nodeID and period.
-func (db *snopayoutsDB) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment snopayouts.Payment, err error) {
+func (db *snopayoutsDB) GetPayment(ctx context.Context, nodeID storxnetwork.NodeID, period string) (payment snopayouts.Payment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// N.B. There can be multiple payments for a single node id and period, but the old query
@@ -115,7 +115,7 @@ func (db *snopayoutsDB) GetPayment(ctx context.Context, nodeID storj.NodeID, per
 }
 
 // GetAllPayments return all payments by nodeID.
-func (db *snopayoutsDB) GetAllPayments(ctx context.Context, nodeID storj.NodeID) (payments []snopayouts.Payment, err error) {
+func (db *snopayoutsDB) GetAllPayments(ctx context.Context, nodeID storxnetwork.NodeID) (payments []snopayouts.Payment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxPayments, err := db.db.All_StoragenodePayment_By_NodeId(ctx,
@@ -136,7 +136,7 @@ func (db *snopayoutsDB) GetAllPayments(ctx context.Context, nodeID storj.NodeID)
 }
 
 func convertDBXPayment(dbxPayment *dbx.StoragenodePayment) (snopayouts.Payment, error) {
-	nodeID, err := storj.NodeIDFromBytes(dbxPayment.NodeId)
+	nodeID, err := storxnetwork.NodeIDFromBytes(dbxPayment.NodeId)
 	if err != nil {
 		return snopayouts.Payment{}, Error.Wrap(err)
 	}

@@ -13,23 +13,23 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/cmd/storagenode/internalcmd"
-	"storj.io/storj/shared/bloomfilter"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/retain"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/cmd/storagenode/internalcmd"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/retain"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestRetainPieces(t *testing.T) {
@@ -52,10 +52,10 @@ func TestRetainPieces(t *testing.T) {
 
 		pieceIDs := generateTestIDs(numPieces)
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storxnetwork.LatestIDVersion())
 
-		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
+		uplink := testidentity.MustPregeneratedSignedIdentity(3, storxnetwork.LatestIDVersion())
 
 		// keep pieceIDs[0 : numPiecesToKeep] (old + in filter)
 		// delete pieceIDs[numPiecesToKeep : numPiecesToKeep+numOldPieces] (old + not in filter)
@@ -76,7 +76,7 @@ func TestRetainPieces(t *testing.T) {
 			const size = 100 * memory.B
 
 			// Write file for all satellites
-			for _, satelliteID := range []storj.NodeID{satellite0.ID, satellite1.ID} {
+			for _, satelliteID := range []storxnetwork.NodeID{satellite0.ID, satellite1.ID} {
 				now := time.Now()
 				w, err := testStore.WriterForFormatVersion(ctx, satelliteID, id, formatVer, pb.PieceHashAlgorithm_SHA256)
 				require.NoError(t, err)
@@ -275,10 +275,10 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 
 		pieceIDs := generateTestIDs(numPieces)
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storxnetwork.LatestIDVersion())
 
-		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
+		uplink := testidentity.MustPregeneratedSignedIdentity(3, storxnetwork.LatestIDVersion())
 
 		// keep pieceIDs[0 : numPiecesToKeep] (old + in filter)
 		// delete pieceIDs[numPiecesToKeep : numPiecesToKeep+numOldPieces] (old + not in filter)
@@ -299,7 +299,7 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 			const size = 100 * memory.B
 
 			// Write file for all satellites
-			for _, satelliteID := range []storj.NodeID{satellite0.ID, satellite1.ID} {
+			for _, satelliteID := range []storxnetwork.NodeID{satellite0.ID, satellite1.ID} {
 				now := time.Now()
 				w, err := testStore.WriterForFormatVersion(ctx, satelliteID, id, formatVer, pb.PieceHashAlgorithm_SHA256)
 				require.NoError(t, err)
@@ -428,10 +428,10 @@ func TestRetainPieces_fromStore(t *testing.T) {
 
 		pieceIDs := generateTestIDs(numPieces)
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storxnetwork.LatestIDVersion())
 
-		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
+		uplink := testidentity.MustPregeneratedSignedIdentity(3, storxnetwork.LatestIDVersion())
 
 		// keep pieceIDs[0 : numPiecesToKeep] (old + in filter)
 		// delete pieceIDs[numPiecesToKeep : numPiecesToKeep+numOldPieces] (old + not in filter)
@@ -452,7 +452,7 @@ func TestRetainPieces_fromStore(t *testing.T) {
 			const size = 100 * memory.B
 
 			// Write file for all satellites
-			for _, satelliteID := range []storj.NodeID{satellite0.ID, satellite1.ID} {
+			for _, satelliteID := range []storxnetwork.NodeID{satellite0.ID, satellite1.ID} {
 				now := time.Now()
 				w, err := testStore.WriterForFormatVersion(ctx, satelliteID, id, formatVer, pb.PieceHashAlgorithm_SHA256)
 				require.NoError(t, err)
@@ -558,7 +558,7 @@ func TestRetainPieces_fromStore(t *testing.T) {
 	})
 }
 
-func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID) (pieceIDs []storj.PieceID, err error) {
+func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storxnetwork.NodeID) (pieceIDs []storxnetwork.PieceID, err error) {
 	err = store.WalkSatellitePieces(ctx, satellite, func(pieceAccess pieces.StoredPieceAccess) error {
 		pieceIDs = append(pieceIDs, pieceAccess.PieceID())
 		return nil
@@ -567,8 +567,8 @@ func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.No
 }
 
 // generateTestIDs generates n piece ids.
-func generateTestIDs(n int) []storj.PieceID {
-	ids := make([]storj.PieceID, n)
+func generateTestIDs(n int) []storxnetwork.PieceID {
+	ids := make([]storxnetwork.PieceID, n)
 	for i := range ids {
 		ids[i] = testrand.PieceID()
 	}

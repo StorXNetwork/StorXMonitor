@@ -20,10 +20,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // PrometheusTrackerConfig is the configuration for the PrometheusTracker.
@@ -39,7 +39,7 @@ type PrometheusTrackerConfig struct {
 
 type prometheusScoreCacheState map[string]float64
 
-type prometheusNodeCacheState map[storj.NodeID]string
+type prometheusNodeCacheState map[storxnetwork.NodeID]string
 
 // PrometheusTracker is a tracker (ScoreNode implementation) which scores the nodes based on metrics from external Prometheus server.
 // As the metrics may not be tagged with node_id, the tracker pairs all the metrics with nodes based on attributes / labels.
@@ -123,7 +123,7 @@ func (p *PrometheusTracker) Run(ctx context.Context) error {
 }
 
 // Get implements ScoreNode.
-func (p *PrometheusTracker) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
+func (p *PrometheusTracker) Get(uplink storxnetwork.NodeID) func(node *nodeselection.SelectedNode) float64 {
 	return func(node *nodeselection.SelectedNode) float64 {
 		// TODO: it would be nice to make it compatible with the top level CLI context, but nodeselection doesn't support it right now
 		ctx, cancel := context.WithTimeout(context.TODO(), 15*time.Second)

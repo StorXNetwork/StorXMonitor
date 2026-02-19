@@ -18,15 +18,15 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/hashstore"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/satstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/hashstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satstore"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var mon = monkit.Package()
@@ -37,10 +37,10 @@ var mon = monkit.Package()
 // TODO(artur): make at least OldPieceBackend implement this interface,
 // or give up and just put the pieces' type for the old backend.
 type Backend interface {
-	Writer(context.Context, storj.NodeID, storj.PieceID, pb.PieceHashAlgorithm) (*pieces.Writer, error)
-	Reader(context.Context, storj.NodeID, storj.PieceID) (*pieces.Reader, error)
-	WalkSatellitePieces(context.Context, storj.NodeID, func(pieces.StoredPieceAccess) error) error
-	Delete(context.Context, storj.NodeID, storj.PieceID) error
+	Writer(context.Context, storxnetwork.NodeID, storxnetwork.PieceID, pb.PieceHashAlgorithm) (*pieces.Writer, error)
+	Reader(context.Context, storxnetwork.NodeID, storxnetwork.PieceID) (*pieces.Reader, error)
+	WalkSatellitePieces(context.Context, storxnetwork.NodeID, func(pieces.StoredPieceAccess) error) error
+	Delete(context.Context, storxnetwork.NodeID, storxnetwork.PieceID) error
 }
 
 // Config defines the configuration for the chore.
@@ -70,7 +70,7 @@ type Chore struct {
 	reportingBatchSize int
 
 	mu        sync.Mutex
-	migrating map[storj.NodeID]bool // map[sat](activeMigration?)
+	migrating map[storxnetwork.NodeID]bool // map[sat](activeMigration?)
 
 	migrationQueue   chan migrationItem
 	baselineDataRate *monkit.FloatVal
@@ -78,8 +78,8 @@ type Chore struct {
 }
 
 type migrationItem struct {
-	satellite storj.NodeID
-	piece     storj.PieceID
+	satellite storxnetwork.NodeID
+	piece     storxnetwork.PieceID
 }
 
 // NewChore initializes and returns a new Chore instance.
@@ -93,20 +93,20 @@ func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, ol
 		new:                new,
 		reportingBatchSize: 10000,
 
-		migrating: make(map[storj.NodeID]bool),
+		migrating: make(map[storxnetwork.NodeID]bool),
 
 		migrationQueue:   make(chan migrationItem, config.BufferSize),
 		baselineDataRate: mon.FloatVal("migration_chore"),
 	}
 
-	_ = store.Range(func(sat storj.NodeID, data []byte) error {
+	_ = store.Range(func(sat storxnetwork.NodeID, data []byte) error {
 		b, _ := strconv.ParseBool(string(bytes.TrimSpace(data)))
 		chore.SetMigrate(sat, true, b)
 		return nil
 	})
 
 	if !config.SuppressCentralMigration && contactService != nil {
-		contactService.RegisterCheckinCallback(func(ctx context.Context, satelliteID storj.NodeID, resp *pb.CheckInResponse) error {
+		contactService.RegisterCheckinCallback(func(ctx context.Context, satelliteID storxnetwork.NodeID, resp *pb.CheckInResponse) error {
 			if resp.HashstoreSettings == nil {
 				return nil
 			}
@@ -144,7 +144,7 @@ func (chore *Chore) Stats(cb func(key monkit.SeriesKey, field string, val float6
 
 // TryMigrateOne enqueues a migration item for the given satellite and
 // piece if the queue has capacity. Fails silently if the queue is full.
-func (chore *Chore) TryMigrateOne(sat storj.NodeID, piece storj.PieceID) {
+func (chore *Chore) TryMigrateOne(sat storxnetwork.NodeID, piece storxnetwork.PieceID) {
 	select {
 	case chore.migrationQueue <- migrationItem{satellite: sat, piece: piece}:
 	default:
@@ -154,7 +154,7 @@ func (chore *Chore) TryMigrateOne(sat storj.NodeID, piece storj.PieceID) {
 // SetMigrate enables or disables migration for the given satellite. If
 // migrate is true, adds the satellite with its migration status to the
 // active set; otherwise, removes it.
-func (chore *Chore) SetMigrate(sat storj.NodeID, migrate, activeMigration bool) {
+func (chore *Chore) SetMigrate(sat storxnetwork.NodeID, migrate, activeMigration bool) {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 
@@ -165,7 +165,7 @@ func (chore *Chore) SetMigrate(sat storj.NodeID, migrate, activeMigration bool) 
 	}
 }
 
-func (chore *Chore) getMigrate(sat storj.NodeID) (bool, bool) {
+func (chore *Chore) getMigrate(sat storxnetwork.NodeID) (bool, bool) {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 
@@ -223,7 +223,7 @@ func (chore *Chore) runOnce(ctx context.Context) (err error) {
 // enqueueSatellite enqueues pieces for migration from the old to the
 // new backend for a given satellite. Returns an error if it fails to
 // list the pieces.
-func (chore *Chore) enqueueSatellite(ctx context.Context, sat storj.NodeID) (err error) {
+func (chore *Chore) enqueueSatellite(ctx context.Context, sat storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = chore.old.WalkSatellitePieces(ctx, sat, func(spa pieces.StoredPieceAccess) error {
@@ -305,14 +305,14 @@ func (chore *Chore) processQueue(ctx context.Context) (err error) {
 	}
 }
 
-func incProcessedSuccesses(sat storj.NodeID, size int64, d time.Duration) {
+func incProcessedSuccesses(sat storxnetwork.NodeID, size int64, d time.Duration) {
 	incProcessedPieces(sat, "success")
 	satTag := monkit.NewSeriesTag("sat", sat.String())
 	mon.Counter("processed_pieces_size", satTag).Inc(size)
 	mon.DurationVal("processed_pieces_duration", satTag).Observe(d)
 }
 
-func incProcessedPieces(sat storj.NodeID, result string) {
+func incProcessedPieces(sat storxnetwork.NodeID, result string) {
 	mon.Counter("processed_pieces",
 		monkit.NewSeriesTag("sat", sat.String()),
 		monkit.NewSeriesTag("result", result),
@@ -321,7 +321,7 @@ func incProcessedPieces(sat storj.NodeID, result string) {
 
 // migrateOne migrates a piece returning the size of the migrated piece
 // and any error encountered.
-func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece storj.PieceID) (size int64, err error) {
+func (chore *Chore) migrateOne(ctx context.Context, sat storxnetwork.NodeID, piece storxnetwork.PieceID) (size int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	src, err := chore.old.Reader(ctx, sat, piece)
@@ -373,7 +373,7 @@ func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece stor
 	return size, nil
 }
 
-func (chore *Chore) copyPiece(ctx context.Context, src *pieces.Reader, sat storj.NodeID, piece storj.PieceID, hdr *pb.PieceHeader) (size int64, err error) {
+func (chore *Chore) copyPiece(ctx context.Context, src *pieces.Reader, sat storxnetwork.NodeID, piece storxnetwork.PieceID, hdr *pb.PieceHeader) (size int64, err error) {
 	dst, err := chore.new.Writer(ctx, sat, piece, hdr.HashAlgorithm, hdr.OrderLimit.PieceExpiration)
 	if err != nil {
 		return 0, errs.New("opening the new writer: %w", err)

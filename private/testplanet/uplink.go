@@ -15,25 +15,25 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/grant"
-	"storj.io/common/identity"
-	"storj.io/common/macaroon"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
-	"storj.io/uplink/private/object"
-	"storj.io/uplink/private/piecestore"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
+	"github.com/StorXNetwork/uplink/private/object"
+	"github.com/StorXNetwork/uplink/private/piecestore"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 // UplinkConfig testplanet configuration for uplink.
 type UplinkConfig struct {
-	DefaultPathCipher storj.CipherSuite
+	DefaultPathCipher storxnetwork.CipherSuite
 	APIKeyVersion     macaroon.APIKeyVersion
 }
 
@@ -45,9 +45,9 @@ type Uplink struct {
 	Dialer   rpc.Dialer
 	Config   uplink.Config
 
-	APIKey map[storj.NodeID]*macaroon.APIKey
-	Access map[storj.NodeID]*uplink.Access
-	User   map[storj.NodeID]UserLogin
+	APIKey map[storxnetwork.NodeID]*macaroon.APIKey
+	Access map[storxnetwork.NodeID]*uplink.Access
+	User   map[storxnetwork.NodeID]UserLogin
 
 	// Projects is indexed by the satellite number.
 	Projects []*Project
@@ -128,9 +128,9 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 	planetUplink := &Uplink{
 		Log:      planet.log.Named(name),
 		Identity: identity,
-		APIKey:   map[storj.NodeID]*macaroon.APIKey{},
-		Access:   map[storj.NodeID]*uplink.Access{},
-		User:     map[storj.NodeID]UserLogin{},
+		APIKey:   map[storxnetwork.NodeID]*macaroon.APIKey{},
+		Access:   map[storxnetwork.NodeID]*uplink.Access{},
+		User:     map[storxnetwork.NodeID]UserLogin{},
 	}
 
 	planetUplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
@@ -185,9 +185,9 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 
 		// create access grant manually to avoid dialing satellite for
 		// project id and deriving key with argon2.IDKey method
-		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
-		if config.DefaultPathCipher == storj.EncUnspecified {
-			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storxnetwork.Key{})
+		if config.DefaultPathCipher == storxnetwork.EncUnspecified {
+			encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 		} else {
 			encAccess.SetDefaultPathCipher(config.DefaultPathCipher)
 		}
@@ -217,7 +217,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 }
 
 // ID returns uplink id.
-func (client *Uplink) ID() storj.NodeID { return client.Identity.ID }
+func (client *Uplink) ID() storxnetwork.NodeID { return client.Identity.ID }
 
 // Addr returns uplink address.
 func (client *Uplink) Addr() string { return "" }
@@ -248,7 +248,7 @@ func (client *Uplink) OpenProject(ctx context.Context, satellite *Satellite) (_ 
 }
 
 // Upload data to specific satellite.
-func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket string, path storj.Path, data []byte) (err error) {
+func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket string, path storxnetwork.Path, data []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return errs.Wrap(client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{}))
 }
@@ -304,7 +304,7 @@ func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellit
 }
 
 // Download data from specific satellite.
-func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) (_ []byte, err error) {
+func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucketName string, path storxnetwork.Path) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)
@@ -327,7 +327,7 @@ func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucket
 }
 
 // DownloadStream returns stream for downloading data.
-func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) (_ io.ReadCloser, cleanup func() error, err error) {
+func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, bucketName string, path storxnetwork.Path) (_ io.ReadCloser, cleanup func() error, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)
@@ -347,7 +347,7 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, 
 }
 
 // DownloadStreamRange returns stream for downloading data.
-func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
+func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satellite, bucketName string, path storxnetwork.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)
@@ -367,7 +367,7 @@ func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satell
 }
 
 // DeleteObject deletes an object at the path in a bucket.
-func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) (err error) {
+func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bucketName string, path storxnetwork.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)

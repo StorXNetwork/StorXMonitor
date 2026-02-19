@@ -11,11 +11,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Service is the reputation service.
@@ -25,7 +25,7 @@ type Service struct {
 	log *zap.Logger
 
 	db            DB
-	nodeID        storj.NodeID
+	nodeID        storxnetwork.NodeID
 	notifications *notifications.Service
 
 	dialer rpc.Dialer
@@ -33,7 +33,7 @@ type Service struct {
 }
 
 // NewService creates new instance of service.
-func NewService(log *zap.Logger, db DB, dialer rpc.Dialer, trust *trust.Pool, nodeID storj.NodeID, notifications *notifications.Service) *Service {
+func NewService(log *zap.Logger, db DB, dialer rpc.Dialer, trust *trust.Pool, nodeID storxnetwork.NodeID, notifications *notifications.Service) *Service {
 	return &Service{
 		log:           log,
 		db:            db,
@@ -45,7 +45,7 @@ func NewService(log *zap.Logger, db DB, dialer rpc.Dialer, trust *trust.Pool, no
 }
 
 // Store stores reputation stats into db, and notify's in case of offline suspension.
-func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storj.NodeID) error {
+func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storxnetwork.NodeID) error {
 	rep, err := s.db.Get(ctx, satelliteID)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storj.Node
 }
 
 // GetStats retrieves reputation stats from particular satellite.
-func (s *Service) GetStats(ctx context.Context, satelliteID storj.NodeID) (_ *Stats, err error) {
+func (s *Service) GetStats(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.dial(ctx, satelliteID)
@@ -147,7 +147,7 @@ func (c *Client) Close() error {
 }
 
 // dial dials the NodeStats client for the satellite by id.
-func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
+func (s *Service) dial(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeurl, err := s.trust.GetNodeURL(ctx, satelliteID)
@@ -184,7 +184,7 @@ func isSuspended(new, old Stats) bool {
 }
 
 // newSuspensionNotification - returns offline suspension notification.
-func newSuspensionNotification(satelliteID storj.NodeID, senderID storj.NodeID, time time.Time) (_ notifications.NewNotification) {
+func newSuspensionNotification(satelliteID storxnetwork.NodeID, senderID storxnetwork.NodeID, time time.Time) (_ notifications.NewNotification) {
 	return notifications.NewNotification{
 		SenderID: senderID,
 		Type:     notifications.TypeSuspension,

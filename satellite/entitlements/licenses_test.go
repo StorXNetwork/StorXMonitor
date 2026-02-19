@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestLicenseEntitlements(t *testing.T) {
@@ -25,7 +25,7 @@ func TestLicenseEntitlements(t *testing.T) {
 
 		user, err := db.Console().Users().Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
-			Email:        "test@storj.test",
+			Email:        "test@storxnetwork.test",
 			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestLicenses_GetActive(t *testing.T) {
 
 		user, err := db.Console().Users().Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
-			Email:        "test@storj.test",
+			Email:        "test@storxnetwork.test",
 			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)

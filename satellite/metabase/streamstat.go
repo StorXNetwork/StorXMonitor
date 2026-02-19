@@ -10,9 +10,9 @@ import (
 
 	"cloud.google.com/go/spanner"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // GetStreamPieceCountByNodeID contains arguments for GetStreamPieceCountByNodeID.
@@ -22,14 +22,14 @@ type GetStreamPieceCountByNodeID struct {
 }
 
 // GetStreamPieceCountByNodeID returns piece count by node id.
-func (db *DB) GetStreamPieceCountByNodeID(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[storj.NodeID]int64, err error) {
+func (db *DB) GetStreamPieceCountByNodeID(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[storxnetwork.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if opts.StreamID.IsZero() {
 		return nil, ErrInvalidRequest.New("StreamID missing")
 	}
 
-	result = map[storj.NodeID]int64{}
+	result = map[storxnetwork.NodeID]int64{}
 	countByAlias, err := db.ChooseAdapter(opts.ProjectID).GetStreamPieceCountByAlias(ctx, opts)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

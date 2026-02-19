@@ -21,9 +21,9 @@ import (
 	"github.com/stripe/stripe-go/v81/paymentmethod"
 	"github.com/stripe/stripe-go/v81/promotioncode"
 
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -133,7 +133,7 @@ var mockEmptyQuery = stripe.Query(func(*stripe.Params, *form.Values) ([]interfac
 // times with the same id, it will return the same mock instance for that id.
 //
 // If called by satellite component, the id param should be the peer.ID().
-// If called by CLI tool, the id param should be a zero value, i.e. storj.NodeID{}.
+// If called by CLI tool, the id param should be a zero value, i.e. storxnetwork.NodeID{}.
 // If called by satellitedb test case, the id param should be a random value,
 // i.e. testrand.NodeID().
 func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {

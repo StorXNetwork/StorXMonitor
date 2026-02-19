@@ -14,10 +14,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/uplink"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 // External is the interface for all of the ways that the uplink command may interact with

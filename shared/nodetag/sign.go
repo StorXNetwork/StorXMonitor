@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/common/signing"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
 )
 
 var (

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/clingy"
 
-	"storj.io/common/memory"
+	"github.com/StorXNetwork/common/memory"
 )
 
 // Test configuration structures

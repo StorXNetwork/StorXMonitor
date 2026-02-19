@@ -9,14 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestBasic(t *testing.T) {
-	for _, version := range storj.IDVersions {
+	for _, version := range storxnetwork.IDVersions {
 		version := version
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 2, StorageNodeCount: 4, UplinkCount: 1,

@@ -6,8 +6,8 @@ package satellitedb
 import (
 	"context"
 
-	"storj.io/common/pb"
-	"storj.io/storj/satellite/audit"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 )
 
 type containment struct {

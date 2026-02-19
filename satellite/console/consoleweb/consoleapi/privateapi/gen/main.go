@@ -12,9 +12,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/api"
-	"storj.io/storj/private/apigen"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 		Version:     "v1",
 		BasePath:    "/api",
 		Description: "Used by the Satellite UI",
-		PackagePath: "storj.io/storj/satellite/console/consoleweb/consoleapi/privateapi",
+		PackagePath: "github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/privateapi",
 	}
 
 	{

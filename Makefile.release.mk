@@ -88,7 +88,7 @@ release/binaries/build-installers: ## Build installers for platforms that need i
 .PHONY: release/binaries/sign-installers
 release/binaries/sign-installers: ## Sign installers for platforms that need it.
 	@echo "Signing installers"
-	storj-sign "release/$(BUILD_VERSION)/windows_amd64/storagenode.msi"
+	storxnetwork-sign "release/$(BUILD_VERSION)/windows_amd64/storagenode.msi"
 
 .PHONY: release/binaries/compress
 release/binaries/compress: ## Compress all components into a single archive for a given platform.
@@ -101,7 +101,7 @@ release/binaries/compress: ## Compress all components into a single archive for 
 release/binaries/upload-to-google-storage: ## Upload binaries to Google Storage (jenkins)
 	@echo "Uploading binaries to Google Storage"
 	cd "release/$(BUILD_VERSION)" \
-		&& gsutil -m cp -r ./*.zip sha256sums "gs://storj-v3-alpha-builds/$(BUILD_VERSION)/"
+		&& gsutil -m cp -r ./*.zip sha256sums "gs://storxnetwork-v3-alpha-builds/$(BUILD_VERSION)/"
 
 .PHONY: release/binaries/publish-to-github
 release/binaries/publish-to-github: ## Publish the release to github.
@@ -128,7 +128,7 @@ release/images/clean: ## Remove all images
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}
+	-docker rmi img.dev.storxnetwork.io/dev/storagenode:${TAG}${CUSTOMTAG}
 
 ##@ Clean
 

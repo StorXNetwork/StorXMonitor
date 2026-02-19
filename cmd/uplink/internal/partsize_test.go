@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/storj/cmd/uplink/internal"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/internal"
 )
 
 func TestCpPartSize(t *testing.T) {

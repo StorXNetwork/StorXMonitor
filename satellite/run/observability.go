@@ -4,11 +4,11 @@
 package root
 
 import (
-	"storj.io/storj/shared/debug"
-	"storj.io/storj/shared/modular/eventkit"
-	"storj.io/storj/shared/modular/profiler"
-	"storj.io/storj/shared/modular/tracing"
-	"storj.io/storj/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/debug"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/eventkit"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/profiler"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/tracing"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
 // Observability implements mud.ComponentSelectorProvider. It selects all standard observability modules.

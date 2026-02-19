@@ -10,10 +10,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/shared/dbutil/sqliteutil"
-	"storj.io/storj/shared/tagsql"
-	"storj.io/storj/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrSatellitesDB represents errors from the satellites database.
@@ -28,7 +28,7 @@ type satellitesDB struct {
 }
 
 // SetAddress inserts into satellite's db id, address, added time.
-func (db *satellitesDB) SetAddress(ctx context.Context, satelliteID storj.NodeID, address string) (err error) {
+func (db *satellitesDB) SetAddress(ctx context.Context, satelliteID storxnetwork.NodeID, address string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx,
@@ -43,7 +43,7 @@ func (db *satellitesDB) SetAddress(ctx context.Context, satelliteID storj.NodeID
 }
 
 // SetAddressAndStatus inserts into satellite's db id, address, added time and status.
-func (db *satellitesDB) SetAddressAndStatus(ctx context.Context, satelliteID storj.NodeID, address string, status satellites.Status) (err error) {
+func (db *satellitesDB) SetAddressAndStatus(ctx context.Context, satelliteID storxnetwork.NodeID, address string, status satellites.Status) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx,
@@ -58,7 +58,7 @@ func (db *satellitesDB) SetAddressAndStatus(ctx context.Context, satelliteID sto
 }
 
 // GetSatellite retrieves that satellite by ID.
-func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite satellites.Satellite, err error) {
+func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (satellite satellites.Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, "SELECT node_id, address, added_at, status FROM satellites WHERE node_id = ?", satelliteID)
@@ -102,7 +102,7 @@ func (db *satellitesDB) GetSatellites(ctx context.Context) (sats []satellites.Sa
 }
 
 // GetSatellitesUrls retrieves all satellite's id and urls.
-func (db *satellitesDB) GetSatellitesUrls(ctx context.Context) (satelliteURLs []storj.NodeURL, err error) {
+func (db *satellitesDB) GetSatellitesUrls(ctx context.Context) (satelliteURLs []storxnetwork.NodeURL, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT
@@ -117,9 +117,9 @@ func (db *satellitesDB) GetSatellitesUrls(ctx context.Context) (satelliteURLs []
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var urls []storj.NodeURL
+	var urls []storxnetwork.NodeURL
 	for rows.Next() {
-		var url storj.NodeURL
+		var url storxnetwork.NodeURL
 
 		err := rows.Scan(&url.ID, &url.Address)
 		if err != nil {
@@ -136,12 +136,12 @@ func (db *satellitesDB) GetSatellitesUrls(ctx context.Context) (satelliteURLs []
 }
 
 // UpdateSatelliteStatus updates satellite status.
-func (db *satellitesDB) UpdateSatelliteStatus(ctx context.Context, satelliteID storj.NodeID, status satellites.Status) (err error) {
+func (db *satellitesDB) UpdateSatelliteStatus(ctx context.Context, satelliteID storxnetwork.NodeID, status satellites.Status) (err error) {
 	return db.updateSatelliteStatus(ctx, db.DB, satelliteID, status)
 }
 
 // updateSatelliteStatus updates satellite status.
-func (db *satellitesDB) updateSatelliteStatus(ctx context.Context, tx tagsql.ExecQueryer, satelliteID storj.NodeID, status satellites.Status) (err error) {
+func (db *satellitesDB) updateSatelliteStatus(ctx context.Context, tx tagsql.ExecQueryer, satelliteID storxnetwork.NodeID, status satellites.Status) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = tx.ExecContext(ctx, "UPDATE satellites SET status = ? WHERE node_id = ?", status, satelliteID)
@@ -149,7 +149,7 @@ func (db *satellitesDB) updateSatelliteStatus(ctx context.Context, tx tagsql.Exe
 }
 
 // InitiateGracefulExit updates the database to reflect the beginning of a graceful exit.
-func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
+func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storxnetwork.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
 		query := `INSERT OR REPLACE INTO satellites (node_id, status, added_at) VALUES (?,?, COALESCE((SELECT added_at FROM satellites WHERE node_id = ?), ?))`
@@ -164,7 +164,7 @@ func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID st
 }
 
 // CancelGracefulExit delete an entry by satellite ID.
-func (db *satellitesDB) CancelGracefulExit(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *satellitesDB) CancelGracefulExit(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, "DELETE FROM satellite_exit_progress WHERE satellite_id = ?", satelliteID)
@@ -172,7 +172,7 @@ func (db *satellitesDB) CancelGracefulExit(ctx context.Context, satelliteID stor
 }
 
 // UpdateGracefulExit increments the total bytes deleted during a graceful exit.
-func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, addToBytesDeleted int64) (err error) {
+func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID storxnetwork.NodeID, addToBytesDeleted int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	query := `UPDATE satellite_exit_progress SET bytes_deleted = bytes_deleted + ? WHERE satellite_id = ?`
 	_, err = db.ExecContext(ctx, query, addToBytesDeleted, satelliteID)
@@ -180,7 +180,7 @@ func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID stor
 }
 
 // CompleteGracefulExit updates the database when a graceful exit is completed or failed.
-func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
+func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storxnetwork.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
 		err := db.updateSatelliteStatus(ctx, tx, satelliteID, exitStatus)
@@ -219,7 +219,7 @@ func (db *satellitesDB) ListGracefulExits(ctx context.Context) (exitList []satel
 }
 
 // DeleteSatellite deletes the satellite from the database.
-func (db *satellitesDB) DeleteSatellite(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (db *satellitesDB) DeleteSatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, "DELETE FROM satellites WHERE node_id = ?", satelliteID)
