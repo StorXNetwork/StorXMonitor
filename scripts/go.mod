@@ -12,15 +12,15 @@ tool (
 	github.com/magefile/mage
 	github.com/mfridman/tparse
 	github.com/nilslice/protolock/cmd/protolock
-	github.com/storxnetwork/ci/check-atomic-align
-	github.com/storxnetwork/ci/check-copyright
-	github.com/storxnetwork/ci/check-errs
-	github.com/storxnetwork/ci/check-imports
-	github.com/storxnetwork/ci/check-mod-tidy
-	github.com/storxnetwork/ci/check-monitoring
-	github.com/storxnetwork/ci/check-monkit
-	github.com/storxnetwork/ci/check-peer-constraints
-	github.com/storxnetwork/ci/check-tx
+	github.com/StorXNetwork/ci/check-atomic-align
+	github.com/StorXNetwork/ci/check-copyright
+	github.com/StorXNetwork/ci/check-errs
+	github.com/StorXNetwork/ci/check-imports
+	github.com/StorXNetwork/ci/check-mod-tidy
+	github.com/StorXNetwork/ci/check-monitoring
+	github.com/StorXNetwork/ci/check-monkit
+	github.com/StorXNetwork/ci/check-peer-constraints
+	github.com/StorXNetwork/ci/check-tx
 	honnef.co/go/tools/cmd/staticcheck
 )
 
@@ -212,7 +212,7 @@ require (
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.2.0 // indirect
-	github.com/storxnetwork/ci v0.0.1 // indirect
+	github.com/StorXNetwork/ci v0.0.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
