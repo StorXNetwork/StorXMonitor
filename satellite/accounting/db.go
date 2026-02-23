@@ -168,14 +168,14 @@ type BucketUsage struct {
 	UserAgent  []byte    `json:"-"`
 
 	DefaultPlacement storxnetwork.PlacementConstraint `json:"defaultPlacement"`
-	Location         string                    `json:"location"`
+	Location         string                           `json:"location"`
 
-	Versioning            buckets.Versioning  `json:"versioning"`
-	ObjectLockEnabled     bool                `json:"objectLockEnabled"`
-	EventingEnabled       bool                `json:"eventingEnabled"`
+	Versioning            buckets.Versioning         `json:"versioning"`
+	ObjectLockEnabled     bool                       `json:"objectLockEnabled"`
+	EventingEnabled       bool                       `json:"eventingEnabled"`
 	DefaultRetentionMode  storxnetwork.RetentionMode `json:"defaultRetentionMode"`
-	DefaultRetentionDays  *int                `json:"defaultRetentionDays"`
-	DefaultRetentionYears *int                `json:"defaultRetentionYears"`
+	DefaultRetentionDays  *int                       `json:"defaultRetentionDays"`
+	DefaultRetentionYears *int                       `json:"defaultRetentionYears"`
 
 	Storage      float64 `json:"storage"`
 	Egress       float64 `json:"egress"`
@@ -221,7 +221,7 @@ type BucketUsageRollup struct {
 	BucketName string    `json:"bucketName"`
 
 	Placement storxnetwork.PlacementConstraint `json:"-"`
-	UserAgent []byte                    `json:"-"`
+	UserAgent []byte                           `json:"-"`
 
 	TotalStoredData float64 `json:"totalStoredData"`
 
@@ -380,8 +380,8 @@ type ProjectAccounting interface {
 	GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*BucketUsageRollup, error)
 	// GetSingleBucketTotals returns single bucket total usage summary since bucket creation.
 	GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (usage *BucketUsage, err error)
-	// GetBucketTotals returns per bucket total usage summary since bucket creation.
-	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error)
+	// GetBucketTotals returns per bucket total usage summary for the given time range.
+	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
 	// GetBucketTotalsForReservedBuckets returns per buckt total usage summary.
 	GetBucketTotalsForReservedBuckets(ctx context.Context, projectID uuid.UUID) ([]BucketUsage, error)
 	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.

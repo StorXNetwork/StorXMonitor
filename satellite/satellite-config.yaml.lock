@@ -2061,7 +2061,7 @@ server.private-address: 127.0.0.1:7778
 # version.request-timeout: 1m0s
 
 # server address to check its version against
-# version.server-address: https://version.storxnetwork.io
+# version.server-address: https://version.stoj.io
 
 # as of system interval
 # zombie-deletion.as-of-system-interval: -5m0s

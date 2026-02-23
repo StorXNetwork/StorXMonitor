@@ -10,7 +10,7 @@ require (
 	cloud.google.com/go/spanner v1.80.0
 	cloud.google.com/go/storage v1.53.0
 	firebase.google.com/go/v4 v4.19.0
-	github.com/StorXNetwork/common v0.0.3
+	github.com/StorXNetwork/common v0.0.4
 	github.com/StorXNetwork/drpc v0.0.36
 	github.com/StorXNetwork/eventkit v0.0.2
 	github.com/StorXNetwork/minmaxheap v0.0.1

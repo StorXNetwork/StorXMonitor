@@ -109,7 +109,7 @@ install_sim(){
     if [ -d "${work_dir}/cmd/gateway" ]; then
         (cd ${work_dir}/cmd/gateway && go build -race -o ${bin_dir}/gateway github.com/StorXNetwork/StorXMonitor/cmd/gateway 2>&1)
     else
-        GOBIN=${bin_dir} go install -race storxnetwork.io/gateway@latest
+        GOBIN=${bin_dir} go install -race github.com/StorXNetwork/gateway-st@latest
     fi
     if [ -d "${work_dir}/cmd/multinode" ]; then
         # as storxnetwork-sim is most likely installed from $PWD and contains storxnetwork-sim version which requires multinode

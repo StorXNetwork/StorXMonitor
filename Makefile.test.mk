@@ -77,7 +77,7 @@ install-sim: ## install storxnetwork-sim
 		github.com/StorXNetwork/StorXMonitor/cmd/multinode
 
 	## install the latest stable version of Gateway-ST
-	go install -race -v storxnetwork.io/gateway@latest
+	go install -race -v github.com/StorXNetwork/gateway-st@latest
 
 .PHONY: test-sim
 test-sim: ## Test source with storxnetwork-sim (jenkins)

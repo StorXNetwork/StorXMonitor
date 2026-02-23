@@ -423,7 +423,7 @@ func (users *users) GetEmailsForDeletion(ctx context.Context, statusUpdatedBefor
 
 // GetAllUsersOptimized retrieves users with all filters, session data, and project count in a single optimized query
 // This is a production-ready method that applies all filters in SQL for maximum performance
-func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (usersList []*console.User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error) {
+func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, kindFilter *int, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (usersList []*console.User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Build comprehensive query with CTEs for session stats and project counts
@@ -447,7 +447,7 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 		SELECT 
 			u.id, u.full_name, u.email, u.status, u.created_at, u.source,
 			u.utm_source, u.utm_medium, u.utm_campaign, u.utm_term, u.utm_content,
-			u.paid_tier, u.project_storage_limit, u.project_bandwidth_limit,
+			u.kind, u.project_storage_limit, u.project_bandwidth_limit,
 			s.last_session_expiry, s.first_session_expiry, s.total_session_count,
 			COALESCE(p.project_count, 0) AS project_count
 		FROM "satellite/0".users u
@@ -485,9 +485,9 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 		argIndex++
 	}
 
-	if paidTierFilter != nil {
-		whereConditions = append(whereConditions, fmt.Sprintf("u.paid_tier = $%d", argIndex))
-		args = append(args, *paidTierFilter)
+	if kindFilter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.kind = $%d", argIndex))
+		args = append(args, *kindFilter)
 		argIndex++
 	}
 
@@ -618,7 +618,7 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 	}
 
 	// Get total count with same filters
-	totalCount, err = users.GetUsersCountOptimized(ctx, statusFilter, createdAfter, createdBefore, search, paidTierFilter, sourceFilter, hasActiveSession, lastSessionAfter, lastSessionBefore, sessionCountMin, sessionCountMax)
+	totalCount, err = users.GetUsersCountOptimized(ctx, statusFilter, createdAfter, createdBefore, search, kindFilter, sourceFilter, hasActiveSession, lastSessionAfter, lastSessionBefore, sessionCountMin, sessionCountMax)
 	if err != nil {
 		return nil, nil, nil, nil, nil, 0, err
 	}
@@ -647,7 +647,8 @@ func buildOrderByClause(sortColumn, sortOrder string) string {
 		"email":                 "u.email",
 		"status":                "u.status",
 		"createdAt":             "u.created_at",
-		"paidTier":              "u.paid_tier",
+		"paidTier":              "u.kind",
+		"kind":                  "u.kind",
 		"projectStorageLimit":   "u.project_storage_limit",
 		"projectBandwidthLimit": "u.project_bandwidth_limit",
 		"source":                "u.source",
@@ -690,7 +691,7 @@ func buildOrderByClause(sortColumn, sortOrder string) string {
 }
 
 // GetUsersCountOptimized returns total count with all filters applied
-func (users *users) GetUsersCountOptimized(ctx context.Context, statusFilter *int, createdAfter, createdBefore *time.Time, search string, paidTierFilter *bool, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (count int, err error) {
+func (users *users) GetUsersCountOptimized(ctx context.Context, statusFilter *int, createdAfter, createdBefore *time.Time, search string, kindFilter *int, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -736,9 +737,9 @@ func (users *users) GetUsersCountOptimized(ctx context.Context, statusFilter *in
 		argIndex++
 	}
 
-	if paidTierFilter != nil {
-		whereConditions = append(whereConditions, fmt.Sprintf("u.paid_tier = $%d", argIndex))
-		args = append(args, *paidTierFilter)
+	if kindFilter != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("u.kind = $%d", argIndex))
+		args = append(args, *kindFilter)
 		argIndex++
 	}
 
@@ -788,12 +789,12 @@ func (users *users) GetUsersCountOptimized(ctx context.Context, statusFilter *in
 	return count, err
 }
 
-// GetUserStats returns counts of users grouped by status and paid tier using optimized SQL aggregation
+// GetUserStats returns counts of users grouped by status and kind (pro = PaidUser kind 1, free = FreeUser kind 0) using optimized SQL aggregation
 func (users *users) GetUserStats(ctx context.Context) (total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification, pro, free int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Use a single optimized SQL query with FILTER to count users by status and paid tier
-	// This is much more efficient than fetching all users and counting in memory
+	// Use a single optimized SQL query with FILTER to count users by status and kind
+	// pro = kind 1 (PaidUser), free = kind 0 (FreeUser)
 	query := `
 		SELECT 
 			COUNT(*) FILTER (WHERE status = 0) AS inactive,
@@ -802,8 +803,8 @@ func (users *users) GetUserStats(ctx context.Context) (total, active, inactive, 
 			COUNT(*) FILTER (WHERE status = 3) AS pending_deletion,
 			COUNT(*) FILTER (WHERE status = 4) AS legal_hold,
 			COUNT(*) FILTER (WHERE status = 5) AS pending_bot_verification,
-			COUNT(*) FILTER (WHERE paid_tier = true) AS pro,
-			COUNT(*) FILTER (WHERE paid_tier = false) AS free,
+			COUNT(*) FILTER (WHERE kind = 1) AS pro,
+			COUNT(*) FILTER (WHERE kind = 0) AS free,
 			COUNT(*) AS total
 		FROM "satellite/0".users
 	`

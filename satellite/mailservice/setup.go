@@ -108,13 +108,26 @@ func CreateSender(mailConfig Config) (Sender, error) {
 			ServerAddress: mailConfig.SMTPServerAddress,
 		}, nil
 
-	case "login":
+	case "mail", "login":
 		from, err := parseFromAddress(mailConfig.From)
 		if err != nil {
 			return nil, err
 		}
 
 		return &post.SMTPSender{
+			From: *from,
+			Auth: post.LoginAuth{
+				Username: mailConfig.Login,
+				Password: mailConfig.Password,
+			},
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}, nil
+	case "mailv2":
+		from, _, err := parseFromAndHost(mailConfig)
+		if err != nil {
+			return nil, err
+		}
+		return &post.MailV2{
 			From: *from,
 			Auth: post.LoginAuth{
 				Username: mailConfig.Login,
@@ -146,7 +159,7 @@ func parseFromAndHost(cfg Config) (*mail.Address, string, error) {
 	}
 
 	host, _, err := net.SplitHostPort(cfg.SMTPServerAddress)
-	if err != nil && cfg.AuthType != "simulate" && cfg.AuthType != "nologin" {
+	if err != nil && cfg.AuthType != "simulate" && cfg.AuthType != "nologin" && cfg.AuthType != "mailv2" {
 		return nil, "", errs.New("SMTP server address '%s' couldn't be parsed: %v", cfg.SMTPServerAddress, err)
 	}
 

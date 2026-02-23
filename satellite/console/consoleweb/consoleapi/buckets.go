@@ -14,11 +14,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -259,15 +259,14 @@ func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sinceString := r.URL.Query().Get("since")
-	if sinceString == "" {
-		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "since"))
-		return
-	}
-	since, err := time.Parse(dateLayout, sinceString)
-	if err != nil {
-		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, sinceString, "since", err))
-		return
+	var since time.Time
+	if sinceString := r.URL.Query().Get("since"); sinceString != "" {
+		var parseErr error
+		since, parseErr = time.Parse(dateLayout, sinceString)
+		if parseErr != nil {
+			b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, sinceString, "since", parseErr))
+			return
+		}
 	}
 
 	beforeString := r.URL.Query().Get("before")

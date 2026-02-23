@@ -735,6 +735,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup console
+		// OIDC service must be set before NewServer, which uses it for the OAuth/OIDC endpoint.
+		peer.OIDC.Service = oidc.NewService(db.OIDC())
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
@@ -962,10 +964,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	if !config.DisableConsoleFromSatelliteAPI {
-		{ // setup oidc
-			peer.OIDC.Service = oidc.NewService(db.OIDC())
-		}
-
 		{ // setup analytics service
 			peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
 
@@ -1116,9 +1114,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		{ // setup console
 			consoleConfig := config.Console
-			peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
+			// Reuse listener if already created earlier in NewAPI (avoid binding same address twice).
+			if peer.Console.Listener == nil {
+				peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
 			}
 			if consoleConfig.AuthTokenSecret == "" {
 				return nil, errs.New("Auth token secret required")
@@ -1188,6 +1189,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 			supportURL := config.Console.SupportURL()
 
+			// Web3 social share helper: create when configured so get_social_share does not panic
+			var web3AuthSocialShareHelper smartcontract.SocialShareHelper
+			if secretconstants.Web3AuthPrivateKey != "" {
+				web3AuthSocialShareHelper, err = smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
+					NetworkRPC:   consoleConfig.Web3AuthNetworkRPC,
+					ContractAddr: consoleConfig.Web3AuthContractAddress,
+					Address:      consoleConfig.Web3AuthAddress,
+				}, secretconstants.Web3AuthPrivateKey)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+			}
+
 			peer.Console.Service, err = console.NewService(
 				peer.Log.Named("console:service"),
 				peer.DB.Console(),
@@ -1231,7 +1245,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				minimumChargeDate,
 				config.Payments.PackagePlans.Packages,
 				consoleConfig.BackupToolsURL,
-				nil, // socialShareHelper - Web3 auth not set up in this code path
+				web3AuthSocialShareHelper,
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())

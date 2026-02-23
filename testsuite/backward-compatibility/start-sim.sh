@@ -55,7 +55,7 @@ install_sim_noquic(){
     go build -race -tags noquic -o ${bin_dir}/identity github.com/StorXNetwork/StorXMonitor/cmd/identity 2>&1
     go build -race -tags noquic -o ${bin_dir}/certificates github.com/StorXNetwork/StorXMonitor/cmd/certificates 2>&1
 
-    GOBIN=${bin_dir} go install -race -tags noquic storxnetwork.io/gateway@latest
+    GOBIN=${bin_dir} go install -race -tags noquic github.com/StorXNetwork/gateway-st@latest
 }
 
 ##

@@ -150,16 +150,16 @@ type Config struct {
 	SEO                             string        `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName                   string        `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator               string        `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL           string        `help:"url link to terms and conditions page" default:"https://www.storxnetwork.io/terms-of-service/"`
+	TermsAndConditionsURL           string        `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
 	AccountActivationRedirectURL    string        `help:"url link for account activation redirect" default:""`
-	PartneredSatellites             Satellites    `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storxnetwork.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storxnetwork.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storxnetwork.io\"}]"`
-	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storxnetwork.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storxnetwork.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	PartneredSatellites             Satellites    `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
+	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
 	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string        "help:\"url link for beta satellite feedback\" default:\"\""
 	BetaSatelliteSupportURL         string        "help:\"url link for beta satellite support\" default:\"\""
-	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storxnetwork.io/"`
+	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
 	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"true"`
 	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool          `help:"indicates if file browser flow is disabled" default:"false"`
@@ -171,7 +171,7 @@ type Config struct {
 	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	RestAPIKeysUIEnabled            bool          `help:"whether the rest API keys UI is enabled" default:"false"`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
-	HomepageURL                     string        `help:"url link to storxnetwork.io homepage" default:"https://www.storxnetwork.io"`
+	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	CloudGpusEnabled                bool          `help:"whether to enable cloud GPU functionality" default:"false"`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storxnetwork native token payments system is enabled" default:"false"`
@@ -504,6 +504,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/user", (http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/delete-request", server.withAuth(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
@@ -1398,8 +1399,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		newPricingStartDate = &date
 	}
 
+	apiBase := server.getExternalAddress(ctx)
 	cfg := FrontendConfig{
-		ExternalAddress:                   server.getExternalAddress(ctx),
+		ExternalAddress:                   apiBase,
+		ApiBaseURL:                        apiBase,
 		SatelliteName:                     server.config.SatelliteName,
 		SatelliteNodeURL:                  server.nodeURL.String(),
 		StripePublicKey:                   server.stripePublicKey,

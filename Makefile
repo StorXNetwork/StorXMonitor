@@ -113,7 +113,7 @@ define INSTALL_COMMAND
 	$(1) go install $(2) -v $(LDFLAGS) $(3) github.com/StorXNetwork/StorXMonitor/cmd/satellite
 
 	# Install the latest stable version of Gateway-ST
-	$(1) go install $(2) -v $(3) storxnetwork.io/gateway@latest
+	$(1) go install $(2) -v $(3) github.com/StorXNetwork/gateway-st@latest
 endef
 
 .PHONY: install-sim

@@ -13,8 +13,13 @@ import (
 
 // FrontendConfig holds the configuration for the satellite frontend.
 type FrontendConfig struct {
-	ExternalAddress                   string                      `json:"externalAddress"`
-	SatelliteName                     string                      `json:"satelliteName"`
+	// ExternalAddress is the canonical URL of the console (e.g. for links and redirects).
+	ExternalAddress string `json:"externalAddress"`
+	// ApiBaseURL is the base URL for all API requests. The frontend MUST use this (e.g. apiBaseURL + "api/v0/...")
+	// for every API call so requests hit the correct host. Using relative paths when the app is served from
+	// a different host (e.g. dev server) causes the wrong host to return HTML → DOCTYPE/JSON parse error.
+	ApiBaseURL     string `json:"apiBaseURL"`
+	SatelliteName  string `json:"satelliteName"`
 	SatelliteNodeURL                  string                      `json:"satelliteNodeURL"`
 	StripePublicKey                   string                      `json:"stripePublicKey"`
 	PartneredSatellites               []PartneredSatellite        `json:"partneredSatellites"`

@@ -787,6 +787,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		varPartners:                partners,
 		versioningConfig:           versioning,
 		nowFn:                      time.Now,
+		socialShareHelper:          socialShareHelper,
 	}, nil
 }
 
@@ -1951,7 +1952,23 @@ func (s *Service) ValidateSecurityToken(value string) error {
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, socialsign bool) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	mon.Counter("create_user_attempt").Inc(1)
+	var captchaScore *float64
+
+	mon.Counter("create_user_attempt").Inc(1) //mon:locked
+
+	if s.config.Captcha.Registration.Recaptcha.Enabled || s.config.Captcha.Registration.Hcaptcha.Enabled {
+		valid, score, err := s.registrationCaptchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
+		if err != nil {
+			mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
+			s.log.Error("captcha authorization failed", zap.Error(err))
+			return nil, ErrCaptcha.Wrap(err)
+		}
+		if !valid {
+			mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
+			return nil, ErrCaptcha.New("captcha validation unsuccessful")
+		}
+		captchaScore = score
+	}
 
 	if !socialsign {
 		if err := user.IsValid(user.AllowNoName); err != nil {
@@ -2051,10 +2068,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			CompanyName:      user.CompanyName,
 			EmployeeCount:    user.EmployeeCount,
 			HaveSalesContact: user.HaveSalesContact,
+			SignupCaptcha:    captchaScore,
 			SignupPromoCode:  user.SignupPromoCode,
-			SignupCaptcha:    user.CaptchaScore,
 			ActivationCode:   user.ActivationCode,
 			SignupId:         user.SignupId,
+			Source:           user.Source,
+			WalletId:         user.WalletId,
 		}
 
 		if user.UserAgent != nil {
@@ -2093,30 +2112,34 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return err
 		}
 
-		verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
-		if err != nil {
-			return err
-		}
-
-		if verified != nil {
-			err = tx.Users().Delete(ctx, u.ID)
+		// Post-insert duplicate check only for non-social signup. For social signup we skip this
+		// so we don't treat the user we just inserted (Active) as a duplicate and delete them.
+		if !socialsign {
+			verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
 			if err != nil {
 				return err
 			}
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-			return ErrEmailUsed.New(emailUsedErrMsg)
-		}
 
-		for _, other := range unverified {
-			// We compare IDs because a parallel user creation transaction for the same
-			// email could have created a record at the same time as ours.
-			if other.CreatedAt.Before(u.CreatedAt) || other.ID.Less(u.ID) {
+			if verified != nil {
 				err = tx.Users().Delete(ctx, u.ID)
 				if err != nil {
 					return err
 				}
-				mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+				mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
 				return ErrEmailUsed.New(emailUsedErrMsg)
+			}
+
+			for _, other := range unverified {
+				// We compare IDs because a parallel user creation transaction for the same
+				// email could have created a record at the same time as ours.
+				if other.CreatedAt.Before(u.CreatedAt) || other.ID.Less(u.ID) {
+					err = tx.Users().Delete(ctx, u.ID)
+					if err != nil {
+						return err
+					}
+					mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+					return ErrEmailUsed.New(emailUsedErrMsg)
+				}
 			}
 		}
 
@@ -2136,6 +2159,53 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	s.auditLog(ctx, "create user", nil, user.Email)
 	mon.Counter("create_user_success").Inc(1) //mon:locked
+
+	// // Send push notification for user sign up
+	// variables := map[string]interface{}{
+	// 	"email": u.Email,
+	// }
+	// s.SendNotificationAsync(u.ID, u.Email, "user_sign_up", "account", variables)
+
+	// // Send push notification for registered successfully
+	// s.SendNotificationAsync(u.ID, u.Email, "registered_successfully", "account", variables)
+
+	// // Send welcome email for user registration (all types: regular, Google, LinkedIn)
+	// go func() {
+	// 	if s.mailService == nil {
+	// 		return
+	// 	}
+
+	// 	emailCtx := context.Background()
+	// 	emailUserEmail := u.Email
+	// 	emailUserName := u.FullName
+	// 	if emailUserName == "" {
+	// 		emailUserName = u.Email
+	// 	}
+
+	// 	origin := s.satelliteAddress
+	// 	if origin == "" {
+	// 		origin = "https://storx.io/"
+	// 	}
+	// 	if !strings.HasSuffix(origin, "/") {
+	// 		origin += "/"
+	// 	}
+
+	// 	signInLink := origin + "login"
+	// 	contactInfoURL := "https://forum.storx.io"                        // Default contact info URL
+	// 	termsAndConditionsURL := "https://www.storj.io/terms-of-service/" // Default terms URL
+
+	// 	s.mailService.SendRenderedAsync(
+	// 		emailCtx,
+	// 		[]post.Address{{Address: emailUserEmail, Name: emailUserName}},
+	// 		&WelcomeEmail{
+	// 			Username:              emailUserName,
+	// 			Origin:                origin,
+	// 			SignInLink:            signInLink,
+	// 			ContactInfoURL:        contactInfoURL,
+	// 			TermsAndConditionsURL: termsAndConditionsURL,
+	// 		},
+	// 	)
+	// }()
 
 	return u, nil
 }
@@ -2467,7 +2537,9 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 
 	s.auditLog(ctx, "login", &userID, email)
 
-	s.analytics.TrackSignedIn(userID, email, anonymousID, hubspotObjectID, tenantID)
+	if s.analytics != nil {
+		s.analytics.TrackSignedIn(userID, email, anonymousID, hubspotObjectID, tenantID)
+	}
 
 	return &TokenInfo{
 		Token:     token,
@@ -2612,7 +2684,9 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 	}
 
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
-	s.analytics.TrackAccountVerified(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackAccountVerified(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+	}
 
 	// Send push notification for account activated
 	variables := map[string]interface{}{
@@ -3715,7 +3789,9 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 			zap.String("user_email", user.Email),
 			zap.String("current_usage_price", currentPriceStr),
 		)
-		s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID, user.TenantID)
+		if s.analytics != nil {
+			s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID, user.TenantID)
+		}
 
 		// We need to reset the step value to prevent the possibility of bypassing steps
 		// in subsequent delete project requests.
@@ -3756,7 +3832,9 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
 	)
-	s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID, user.TenantID)
+	}
 
 	// We need to reset the step value to prevent the possibility of bypassing steps
 	// in subsequent delete project requests.
@@ -3792,7 +3870,9 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 			zap.String("user_id", user.ID.String()),
 			zap.String("user_email", user.Email),
 		)
-		s.analytics.TrackDeleteUser(user.ID, user.Email, false, user.HubspotObjectID, user.TenantID)
+		if s.analytics != nil {
+			s.analytics.TrackDeleteUser(user.ID, user.Email, false, user.HubspotObjectID, user.TenantID)
+		}
 
 		s.mailService.SendRenderedAsync(
 			ctx,
@@ -3871,7 +3951,9 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 	)
-	s.analytics.TrackDeleteUser(user.ID, user.Email, false, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackDeleteUser(user.ID, user.Email, false, user.HubspotObjectID, user.TenantID)
+	}
 
 	s.mailService.SendRenderedAsync(
 		ctx,
@@ -3985,7 +4067,9 @@ func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data stri
 		}
 	}
 
-	s.analytics.ChangeContactEmail(user.ID, user.Email, *user.NewUnverifiedEmail)
+	if s.analytics != nil {
+		s.analytics.ChangeContactEmail(user.ID, user.Email, *user.NewUnverifiedEmail)
+	}
 
 	return nil
 }
@@ -4209,7 +4293,9 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	} else {
 		onboardingFields.Type = analytics.Personal
 	}
-	s.analytics.TrackUserOnboardingInfo(onboardingFields)
+	if s.analytics != nil {
+		s.analytics.TrackUserOnboardingInfo(onboardingFields)
+	}
 
 	return nil
 }
@@ -4492,20 +4578,26 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 	if project.PassphraseEnc != nil && s.kmsService != nil {
 		if project.PassphraseEncKeyID == nil {
-			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "nil key ID for project in DB", user.HubspotObjectID, user.TenantID)
+			if s.analytics != nil {
+				s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "nil key ID for project in DB", user.HubspotObjectID, user.TenantID)
+			}
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
 		passphrase, err = s.kmsService.DecryptPassphrase(ctx, *project.PassphraseEncKeyID, project.PassphraseEnc)
 		if err != nil {
 			s.log.Error("failed to decrypt passphrase", zap.Error(err))
-			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, err.Error(), user.HubspotObjectID, user.TenantID)
+			if s.analytics != nil {
+				s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, err.Error(), user.HubspotObjectID, user.TenantID)
+			}
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
 	}
 
 	if len(passphrase) == 0 && hasManagedPassphrase {
 		// the UI handles this condition on its own, so we track an analytics event, but continue to send a valid response to the client.
-		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite", user.HubspotObjectID, user.TenantID)
+		if s.analytics != nil {
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite", user.HubspotObjectID, user.TenantID)
+		}
 	}
 
 	pathEncryptionEnabled := project.PathEncryption == nil || *project.PathEncryption
@@ -4554,7 +4646,7 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 		return nil, Error.Wrap(err)
 	}
 
-	ps, err = s.store.Projects().GetActiveByUserID(ctx, user.ID)
+	ps, err = s.store.Projects().GetByUserID(ctx, user.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4651,7 +4743,9 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 
 	data.Email = user.Email
 
-	s.analytics.JoinCunoFSBeta(data)
+	if s.analytics != nil {
+		s.analytics.JoinCunoFSBeta(data)
+	}
 
 	noticeDismissal.CunoFSBetaJoined = true
 	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
@@ -4685,7 +4779,9 @@ func (s *Service) SendUserFeedback(ctx context.Context, data analytics.UserFeedb
 		"message":       data.Message,
 		"allow_contact": strconv.FormatBool(data.AllowContact),
 	}
-	s.analytics.TrackEvent(analytics.EventUserFeedbackSubmitted, user.ID, user.Email, props, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackEvent(analytics.EventUserFeedbackSubmitted, user.ID, user.Email, props, user.HubspotObjectID, user.TenantID)
+	}
 
 	return nil
 }
@@ -4737,7 +4833,9 @@ func (s *Service) JoinPlacementWaitlist(ctx context.Context, data analytics.Trac
 	}
 
 	data.WaitlistURL = placement.WaitlistURL
-	s.analytics.JoinPlacementWaitlist(data)
+	if s.analytics != nil {
+		s.analytics.JoinPlacementWaitlist(data)
+	}
 
 	noticeDismissal.PlacementWaitlistsJoined = append(noticeDismissal.PlacementWaitlistsJoined, storxnetwork.PlacementConstraint(placement.ID))
 	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
@@ -4783,7 +4881,9 @@ func (s *Service) RequestObjectMountConsultation(ctx context.Context, data analy
 	data.Email = user.Email
 	data.TenantID = user.TenantID
 
-	s.analytics.RequestObjectMountConsultation(data)
+	if s.analytics != nil {
+		s.analytics.RequestObjectMountConsultation(data)
+	}
 
 	noticeDismissal.ObjectMountConsultationRequested = true
 	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
@@ -4810,7 +4910,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
 	if err != nil {
-		s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+		if s.analytics != nil {
+			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+		}
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
@@ -4868,7 +4970,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			}
 		}
 		if numBefore >= limit {
-			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+			if s.analytics != nil {
+				s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+			}
 			// Send push notification for project limit error (before returning error)
 			variables := map[string]interface{}{
 				"project_name": p.Name,
@@ -4892,7 +4996,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1, user.IsProfessional, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1, user.IsProfessional, user.HubspotObjectID, user.TenantID)
+	}
 
 	// Send push notification for project created
 	variables := map[string]interface{}{
@@ -5010,7 +5116,9 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
 	)
-	s.analytics.TrackProjectDeleted(user.ID, user.Email, p.PublicID, currentPriceStr, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackProjectDeleted(user.ID, user.Email, p.PublicID, currentPriceStr, user.HubspotObjectID, user.TenantID)
+	}
 
 	return httpError
 }
@@ -5428,12 +5536,14 @@ func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID,
 		return Error.Wrap(err)
 	}
 
-	s.analytics.TrackRequestLimitIncrease(user.ID, user.Email, analytics.LimitRequestInfo{
-		ProjectName:  project.Name,
-		LimitType:    info.LimitType,
-		CurrentLimit: info.CurrentLimit.String(),
-		DesiredLimit: info.DesiredLimit.String(),
-	}, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackRequestLimitIncrease(user.ID, user.Email, analytics.LimitRequestInfo{
+			ProjectName:  project.Name,
+			LimitType:    info.LimitType,
+			CurrentLimit: info.CurrentLimit.String(),
+			DesiredLimit: info.DesiredLimit.String(),
+		}, user.HubspotObjectID, user.TenantID)
+	}
 
 	return nil
 }
@@ -5460,11 +5570,13 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 		return ErrInvalidProjectLimit.New("Requested project limit (%d) must be greater than current limit (%d)", limitInt, user.ProjectLimit)
 	}
 
-	s.analytics.TrackRequestLimitIncrease(user.ID, user.Email, analytics.LimitRequestInfo{
-		LimitType:    "projects",
-		CurrentLimit: strconv.Itoa(user.ProjectLimit),
-		DesiredLimit: limit,
-	}, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackRequestLimitIncrease(user.ID, user.Email, analytics.LimitRequestInfo{
+			LimitType:    "projects",
+			CurrentLimit: strconv.Itoa(user.ProjectLimit),
+			DesiredLimit: limit,
+		}, user.HubspotObjectID, user.TenantID)
+	}
 
 	return nil
 }
@@ -5605,7 +5717,9 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectMemberAddition(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackProjectMemberAddition(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+	}
 
 	return users, nil
 }
@@ -5691,7 +5805,9 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 		return nil
 	})
 
-	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+	if s.analytics != nil {
+		s.analytics.TrackProjectMemberDeletion(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+	}
 
 	return Error.Wrap(err)
 }
@@ -6335,7 +6451,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 
 	cursor.EventingEnabled = s.bucketEventing.Projects.Enabled(isMember.project.ID)
 
-	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, before)
+	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, since, before)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

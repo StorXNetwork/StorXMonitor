@@ -92,7 +92,7 @@ pipeline {
                 stage('go -race gateway') {
                     steps {
                         // install gateway for storxnetwork-sim
-                        sh 'go install -race -v storxnetwork.io/gateway@latest'
+                        sh 'go install -race -v github.com/StorXNetwork/gateway-st@latest'
                     }
                 }
 

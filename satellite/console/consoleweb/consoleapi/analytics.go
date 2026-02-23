@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ErrAnalyticsAPI - console analytics api error type.

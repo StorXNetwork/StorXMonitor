@@ -17,12 +17,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/grant"
-	"github.com/StorXNetwork/common/macaroon"
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (

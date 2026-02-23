@@ -9,6 +9,7 @@ import (
 	"fmt"
 	htmltemplate "html/template"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -82,6 +83,17 @@ type emailVars struct {
 	WhiteLabelConfig
 	// Data is the message-specific data to be used in the template.
 	Data any
+}
+
+// developerAccountCreationVars exposes DeveloperAccountCreation template fields at root (FullName, etc.)
+// so templates can use .FullName instead of .Data.FullName. Used when Template() == "DeveloperAccountCreation".
+type developerAccountCreationVars struct {
+	emailVars
+	FullName       string
+	Email          string
+	Password       string
+	ActivationLink string
+	Origin         string
 }
 
 // Service sends template-backed email messages through SMTP.
@@ -171,6 +183,36 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	templateVars := service.getEmailVars(ctx)
 	templateVars.Data = msg
 
+	var templateData any = &templateVars
+	if msg.Template() == "DeveloperAccountCreation" {
+		// Expose FullName, Email, etc. at root so template can use .FullName (not .Data.FullName)
+		devVars := developerAccountCreationVars{emailVars: templateVars}
+		if v := reflect.ValueOf(msg); v.IsValid() {
+			if v.Kind() == reflect.Ptr {
+				v = v.Elem()
+			}
+			if v.Kind() == reflect.Struct {
+				for _, name := range []string{"FullName", "Email", "Password", "ActivationLink", "Origin"} {
+					if f := v.FieldByName(name); f.IsValid() && f.Kind() == reflect.String {
+						switch name {
+						case "FullName":
+							devVars.FullName = f.String()
+						case "Email":
+							devVars.Email = f.String()
+						case "Password":
+							devVars.Password = f.String()
+						case "ActivationLink":
+							devVars.ActivationLink = f.String()
+						case "Origin":
+							devVars.Origin = f.String()
+						}
+					}
+				}
+			}
+		}
+		templateData = &devVars
+	}
+
 	var htmlBuffer bytes.Buffer
 	var textBuffer bytes.Buffer
 
@@ -179,7 +221,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	// 	return
 	// }
 
-	if err = service.html.ExecuteTemplate(&htmlBuffer, msg.Template()+".html", templateVars); err != nil {
+	if err = service.html.ExecuteTemplate(&htmlBuffer, msg.Template()+".html", templateData); err != nil {
 		return err
 	}
 

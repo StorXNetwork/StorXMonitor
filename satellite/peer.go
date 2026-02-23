@@ -297,6 +297,11 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		defaultSender = simulate.NoMail{}
 	case "simulate", "":
 		defaultSender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
+	case "mail", "mailv2", "login", "plain", "oauth2", "insecure":
+		defaultSender, err = mailservice.CreateSender(mailConfig)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		defaultSender, err = mailservice.CreateSender(mailConfig)
 		if err != nil {

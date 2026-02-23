@@ -40,7 +40,7 @@ type Config struct {
 	SignupActivationCodeEnabled               bool                      `help:"indicates whether the whether account activation is done using activation code" default:"true" testDefault:"false" devDefault:"false"`
 	FreeTrialDuration                         time.Duration             `help:"duration for which users can access the system free of charge, 0 = unlimited time trial" default:"0"`
 	VarPartners                               []string                  `help:"list of partners whose users will not see billing UI." default:""`
-	ObjectBrowserKeyNamePrefix                string                    `help:"prefix for object browser API key names" default:".storxnetwork-web-file-browser-api-key-"`
+	ObjectBrowserKeyNamePrefix                string                    `help:"prefix for object browser API key names" default:".storj-web-file-browser-api-key-"`
 	ObjectBrowserKeyLifetime                  time.Duration             `help:"duration for which the object browser API key remains valid" default:"72h"`
 	MaxNameCharacters                         int                       `help:"defines the maximum number of characters allowed for names, e.g. user first/last names and company names" default:"100"`
 	MaxLongFormFieldCharacters                int                       `help:"defines the maximum number of characters allowed for long form fields, e.g. comment type fields" default:"500"`

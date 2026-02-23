@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
-	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 )
 
 const (

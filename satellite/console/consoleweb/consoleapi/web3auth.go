@@ -12,11 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/golang-jwt/jwt/v5"
-	"go.uber.org/zap"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
+	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 )
 
 // Package-level Counter definitions - ensures they're registered with monkit at package load time

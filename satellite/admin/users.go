@@ -1694,7 +1694,7 @@ type User struct {
 	Email                 string     `json:"email"`
 	Status                int        `json:"status"`
 	CreatedAt             time.Time  `json:"createdAt"`
-	PaidTier              bool       `json:"paidTier"`
+	Kind                  int        `json:"kind"`
 	ProjectStorageLimit   int64      `json:"projectStorageLimit"`
 	ProjectBandwidthLimit int64      `json:"projectBandwidthLimit"`
 	Source                string     `json:"source"`
@@ -1725,7 +1725,7 @@ type UserListFilters struct {
 	// Basic filters
 	Search       string
 	StatusFilter *int
-	PaidTier     *bool
+	Kind         *int // UserKind filter: nil = no filter, 0 = FreeUser, 1 = PaidUser, etc.
 	SourceFilter string
 
 	// Date range filters
@@ -1789,11 +1789,11 @@ func parseUserListFilters(r *http.Request) (*UserListFilters, error) {
 	tierFilter := query.Get("tier")
 	switch tierFilter {
 	case "paid":
-		paidTier := true
-		filters.PaidTier = &paidTier
+		paidTier := 1
+		filters.Kind = &paidTier
 	case "free":
-		paidTier := false
-		filters.PaidTier = &paidTier
+		paidTier := 0
+		filters.Kind = &paidTier
 	}
 
 	// Parse date range filters
@@ -1937,7 +1937,7 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 		filters.CreatedAfter,
 		filters.CreatedBefore,
 		filters.Search,
-		filters.PaidTier,
+		filters.Kind,
 		filters.SourceFilter,
 		filters.HasActiveSession,
 		filters.LastSessionAfter,
@@ -1987,7 +1987,7 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			Email:                 user.Email,
 			Status:                int(user.Status),
 			CreatedAt:             user.CreatedAt,
-			PaidTier:              user.IsPaid(),
+			Kind:                  int(user.Kind),
 			ProjectStorageLimit:   user.ProjectStorageLimit,
 			ProjectBandwidthLimit: user.ProjectBandwidthLimit,
 			Source:                user.Source,
@@ -2098,7 +2098,7 @@ func (server *Server) exportUsersData(w http.ResponseWriter, users []User, searc
 				user.Email,
 				fmt.Sprintf("%d", user.Status),
 				user.CreatedAt.Format("2006-01-02 15:04:05"),
-				fmt.Sprintf("%t", user.PaidTier),
+				fmt.Sprintf("%d", user.Kind),
 				fmt.Sprintf("%d", user.ProjectStorageLimit),
 				fmt.Sprintf("%d", user.ProjectBandwidthLimit),
 
@@ -2369,11 +2369,11 @@ func (server *Server) deactivateUserAccount(w http.ResponseWriter, r *http.Reque
 			}
 			termsAndConditionsURL := server.console.TermsAndConditionsURL
 			if termsAndConditionsURL == "" {
-				termsAndConditionsURL = "https://www.storxnetwork.io/terms-of-service/"
+				termsAndConditionsURL = "https://www.storj.io/terms-of-service/"
 			}
 			supportURL := server.console.GeneralRequestURL
 			if supportURL == "" {
-				supportURL = "https://supportdcs.storxnetwork.io/hc/en-us/requests/new?ticket_form_id=360000379291"
+				supportURL = "https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"
 			}
 
 			server.mailService.SendRenderedAsync(

@@ -119,7 +119,7 @@ install_sim(){
             go build -race -o ${bin_dir}/gateway github.com/StorXNetwork/StorXMonitor/cmd/gateway 2>&1
         popd
     else
-        GOBIN=${bin_dir} go install -race storxnetwork.io/gateway@latest
+        GOBIN=${bin_dir} go install -race github.com/StorXNetwork/gateway-st@latest
     fi
 
     if [ -d "${work_dir}/cmd/multinode" ]; then
