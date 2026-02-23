@@ -238,7 +238,7 @@ func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter
 func (c *Report) Start(ctx context.Context, startTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c.nodes, err = c.db.GetParticipatingNodes(ctx, storxnetwork.NodeIDList{}, -12*time.Hour, c.asOfSystemInterval)
+	c.nodes, err = c.db.GetAllParticipatingNodes(ctx, -12*time.Hour, c.asOfSystemInterval)
 	if err != nil {
 		return errs.Wrap(err)
 	}

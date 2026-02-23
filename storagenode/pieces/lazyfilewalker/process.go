@@ -22,7 +22,6 @@ type process struct {
 	executable string
 	args       []string
 
-	stdout io.ReadWriter
 	stderr io.Writer
 
 	cmd execwrapper.Command
@@ -41,8 +40,10 @@ func newProcess(cmd execwrapper.Command, log *zap.Logger, executable string, arg
 }
 
 // run runs the process.
+// req is encoded to JSON and sent to the subprocess stdin; the subprocess stdout is connected to stdoutPipe.
+// The caller should decode the response from stdoutPipe after run returns (e.g. via stdoutPipe.Decode).
 // It returns an error if the Process fails to start, or if the Process exits with a non-zero status.
-func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
+func (p *process) run(ctx context.Context, req interface{}, stdoutPipe io.Writer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -64,7 +65,7 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 	}
 
 	p.cmd.SetIn(&buf)
-	p.cmd.SetOut(p.stdout)
+	p.cmd.SetOut(stdoutPipe)
 	p.cmd.SetErr(p.stderr)
 
 	if err := p.cmd.Start(); err != nil {
@@ -79,13 +80,6 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 		} else {
 			p.log.Error("subprocess exited with error", zap.Error(err))
 		}
-		return errLazyFilewalker.Wrap(err)
-	}
-
-	// Decode and receive the response data struct from the subprocess
-	decoder := json.NewDecoder(p.stdout)
-	if err := decoder.Decode(&resp); err != nil {
-		p.log.Error("failed to decode response from subprocess", zap.Error(err))
 		return errLazyFilewalker.Wrap(err)
 	}
 

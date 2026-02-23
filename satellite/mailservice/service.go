@@ -85,15 +85,34 @@ type emailVars struct {
 	Data any
 }
 
-// developerAccountCreationVars exposes DeveloperAccountCreation template fields at root (FullName, etc.)
-// so templates can use .FullName instead of .Data.FullName. Used when Template() == "DeveloperAccountCreation".
-type developerAccountCreationVars struct {
+// flattenedEmailVars exposes common message fields at root so templates can use .Username, .FullName, etc.
+// instead of .Data.Username. Populated via reflection from the message for all templates.
+type flattenedEmailVars struct {
 	emailVars
-	FullName       string
-	Email          string
-	Password       string
-	ActivationLink string
-	Origin         string
+	// Message fields flattened to root for templates that use .Username, .LoginLink, etc.
+	Username              string
+	LoginLink             string
+	FullName              string
+	Email                 string
+	Password              string
+	ActivationLink        string
+	Origin                string
+	Device                string
+	Browser               string
+	Location              string
+	State                 string
+	IPAddress             string
+	LoginTime             string
+	SignInLink            string
+	ContactInfoURL        string
+	TermsAndConditionsURL string
+}
+
+// copyStringField sets dst to the string value of v.FieldByName(fieldName) if the field exists and is a string.
+func copyStringField(dst *string, v reflect.Value, fieldName string) {
+	if f := v.FieldByName(fieldName); f.IsValid() && f.Kind() == reflect.String {
+		*dst = f.String()
+	}
 }
 
 // Service sends template-backed email messages through SMTP.
@@ -183,35 +202,32 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	templateVars := service.getEmailVars(ctx)
 	templateVars.Data = msg
 
-	var templateData any = &templateVars
-	if msg.Template() == "DeveloperAccountCreation" {
-		// Expose FullName, Email, etc. at root so template can use .FullName (not .Data.FullName)
-		devVars := developerAccountCreationVars{emailVars: templateVars}
-		if v := reflect.ValueOf(msg); v.IsValid() {
-			if v.Kind() == reflect.Ptr {
-				v = v.Elem()
-			}
-			if v.Kind() == reflect.Struct {
-				for _, name := range []string{"FullName", "Email", "Password", "ActivationLink", "Origin"} {
-					if f := v.FieldByName(name); f.IsValid() && f.Kind() == reflect.String {
-						switch name {
-						case "FullName":
-							devVars.FullName = f.String()
-						case "Email":
-							devVars.Email = f.String()
-						case "Password":
-							devVars.Password = f.String()
-						case "ActivationLink":
-							devVars.ActivationLink = f.String()
-						case "Origin":
-							devVars.Origin = f.String()
-						}
-					}
-				}
-			}
+	// Expose message string fields at root so templates can use .Username, .FullName, .LoginLink, etc.
+	flatVars := flattenedEmailVars{emailVars: templateVars}
+	if v := reflect.ValueOf(msg); v.IsValid() {
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
 		}
-		templateData = &devVars
+		if v.Kind() == reflect.Struct {
+			copyStringField(&flatVars.Username, v, "Username")
+			copyStringField(&flatVars.LoginLink, v, "LoginLink")
+			copyStringField(&flatVars.FullName, v, "FullName")
+			copyStringField(&flatVars.Email, v, "Email")
+			copyStringField(&flatVars.Password, v, "Password")
+			copyStringField(&flatVars.ActivationLink, v, "ActivationLink")
+			copyStringField(&flatVars.Origin, v, "Origin")
+			copyStringField(&flatVars.Device, v, "Device")
+			copyStringField(&flatVars.Browser, v, "Browser")
+			copyStringField(&flatVars.Location, v, "Location")
+			copyStringField(&flatVars.State, v, "State")
+			copyStringField(&flatVars.IPAddress, v, "IPAddress")
+			copyStringField(&flatVars.LoginTime, v, "LoginTime")
+			copyStringField(&flatVars.SignInLink, v, "SignInLink")
+			copyStringField(&flatVars.ContactInfoURL, v, "ContactInfoURL")
+			copyStringField(&flatVars.TermsAndConditionsURL, v, "TermsAndConditionsURL")
+		}
 	}
+	templateData := &flatVars
 
 	var htmlBuffer bytes.Buffer
 	var textBuffer bytes.Buffer

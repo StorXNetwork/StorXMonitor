@@ -131,15 +131,13 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 	log := fw.log.Named(UsedSpaceFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := newGenericWriter(log)
-	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, stdout, req)
+	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, req, stdout)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-
 	if err := stdout.Decode(&resp); err != nil {
 		return 0, 0, 0, err
 	}
-
 	return resp.PiecesTotal, resp.PiecesContentSize, resp.PieceCount, nil
 }
 
@@ -161,15 +159,13 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 	log := fw.log.Named(GCFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := NewTrashHandler(log, trashFunc)
-	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, stdout, req)
+	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, req, stdout)
 	if err != nil {
 		return 0, 0, err
 	}
-
 	if err := stdout.Decode(&resp); err != nil {
 		return 0, 0, err
 	}
-
 	if !resp.Completed {
 		// Something went wrong. The filewalker did not complete
 		log.Warn("gc-filewalker did not complete")
@@ -193,13 +189,12 @@ func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storxnet
 	log := fw.log.Named(TrashCleanupFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := newGenericWriter(log)
-	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, stdout, req)
+	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, req, stdout)
 	if err != nil {
 		return 0, nil, err
 	}
 	if err := stdout.Decode(&resp); err != nil {
 		return 0, nil, err
 	}
-
 	return resp.BytesDeleted, resp.KeysDeleted, nil
 }
