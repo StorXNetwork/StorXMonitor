@@ -20,6 +20,17 @@ jobs:
       with:
         fetch-depth: 1
         clean: true
+
+    - name: Set up Go module authentication
+      shell: powershell
+      env:
+        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: |
+        git config --global url."https://$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+        go env -w GOPRIVATE=github.com/StorXNetwork/*
+        go env -w GONOSUMDB=github.com/StorXNetwork/*
+        go env -w GONOPROXY=github.com/StorXNetwork/*
+        go mod tidy
         
     - name: Build storxnetwork-sim.exe
       run: |
