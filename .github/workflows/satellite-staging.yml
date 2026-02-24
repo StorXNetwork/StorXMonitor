@@ -22,14 +22,12 @@ jobs:
         fetch-depth: 1
         clean: true
 
-    - name: Setup GitHub authentication for private Go modules
+    - name: Setup Git Auth for Private Go Modules
       shell: powershell
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
-        $env:GIT_TERMINAL_PROMPT="0"
-        echo "machine github.com login x-access-token password $env:PERSONAL_ACCESS_TOKEN" > $env:USERPROFILE\_netrc
-        git config --global credential.helper store
+        git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
         go env -w GOPRIVATE=github.com/StorXNetwork/*
         go env -w GONOSUMDB=github.com/StorXNetwork/*
         go env -w GONOPROXY=github.com/StorXNetwork/*
