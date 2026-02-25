@@ -788,6 +788,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		versioningConfig:           versioning,
 		nowFn:                      time.Now,
 		socialShareHelper:          socialShareHelper,
+		backupToolsURL:             backupToolsURL,
 	}, nil
 }
 
