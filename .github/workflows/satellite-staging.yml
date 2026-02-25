@@ -34,8 +34,11 @@ jobs:
         $gomodcache = if ($env:RUNNER_TEMP) { "$env:RUNNER_TEMP\go-mod-cache" } else { "$env:GITHUB_WORKSPACE\.go-mod-cache" }
         New-Item -ItemType Directory -Force -Path $gomodcache | Out-Null
         go env -w GOMODCACHE=$gomodcache
-        go mod tidy
-        
+
+    - name: Go mod tidy
+      shell: powershell
+      run: go mod tidy
+
     - name: Build satellite.exe
       env:
         WEB3_AUTH_PRIVATE_KEY: ${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
@@ -52,12 +55,16 @@ jobs:
         }
         
     - name: Quick file replacement
+      shell: powershell
       run: |
-        # Minimal file operations
-        if (Test-Path "$env:BIN_PATH\satellite.exe") {
-          Remove-Item "$env:BIN_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
+        $dest = "$env:BIN_PATH\satellite.exe"
+        $src = "$env:TEMP_PATH\satellite.exe"
+        if (Test-Path $dest) {
+          Remove-Item $dest -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 1
         }
-        Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        Copy-Item -Path $src -Destination $dest -Force
+        Remove-Item $src -Force -ErrorAction SilentlyContinue
         Write-Host "satellite.exe replaced"
         
     - name: Quick service start
