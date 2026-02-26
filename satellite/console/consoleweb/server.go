@@ -692,7 +692,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		router.HandleFunc("/payment-plans", paymentController.HandlePaymentPlans).Methods(http.MethodGet, http.MethodOptions)
 	}
 
-	bucketsController := consoleapi.NewBuckets(logger, service, server.config.BillingUpgradeURL, server.config.StorageWarningThreshold, server.config.BandwidthWarningThreshold)
+	bucketsController := consoleapi.NewBuckets(logger, service, server.config.BillingUpgradeURL, server.config.StorageWarningThreshold, server.config.BandwidthWarningThreshold, "secret")
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
 	bucketsRouter.Use(server.withCORS)
 	bucketsRouter.Use(server.withAuth)
@@ -705,6 +705,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 
 	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-migration-status", bucketsController.UpdateBucketMigrationStatus).Methods(http.MethodPut, http.MethodOptions)
+	bucketsRouter.HandleFunc("/immutability-rules", bucketsController.GetImmutabilityRules).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/update-immutability-rules", bucketsController.UpdateImmutabilityRules).Methods(http.MethodPost, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals-for-reserved", bucketsController.GetBucketTotalsForReservedBucket).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/check-upload", bucketsController.CheckUpload).Methods(http.MethodPost, http.MethodOptions)

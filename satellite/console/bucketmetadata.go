@@ -16,8 +16,9 @@ type Placement struct {
 
 // BucketMetadata contains bucket name, versioning and placement info.
 type BucketMetadata struct {
-	Name              string             `json:"name"`
-	Versioning        buckets.Versioning `json:"versioning"`
-	Placement         Placement          `json:"placement"`
-	ObjectLockEnabled bool               `json:"objectLockEnabled"`
+	Name              string                    `json:"name"`
+	Versioning        buckets.Versioning        `json:"versioning"`
+	Placement         Placement                 `json:"placement"`
+	ObjectLockEnabled bool                      `json:"objectLockEnabled"`
+	ImmutabilityRules buckets.ImmutabilityRules `json:"immutabilityRules"`
 }

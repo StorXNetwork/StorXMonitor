@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 
 	"cloud.google.com/go/spanner"
@@ -73,6 +74,12 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	} else if bucket.ObjectLock.DefaultRetentionDays != 0 || bucket.ObjectLock.DefaultRetentionYears != 0 {
 		return buckets.Bucket{}, buckets.ErrBucket.New("default retention duration must not be set without a default retention mode")
 	}
+	rules, err := json.Marshal(bucket.ImmutabilityRules)
+	if err != nil {
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	}
+	optionalFields.ImmutabilityRules = dbx.BucketMetainfo_ImmutabilityRules(rules)
+	optionalFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	row, err := db.db.Create_BucketMetainfo(ctx,
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
@@ -110,7 +117,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 
 	switch db.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		dbxBucket, err := db.db.Get_Bucket(ctx,
+		dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
 			dbx.BucketMetainfo_ProjectId(projectID[:]),
 			dbx.BucketMetainfo_Name(bucketName),
 		)
@@ -120,16 +127,17 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 			}
 			return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 		}
-		return convertDBXtoBucket(projectID, string(bucketName), dbxBucket)
+		return convertFullDBXtoBucket(dbxBucket)
 	case dbutil.Spanner:
 		bucket.ProjectID = projectID
 		bucket.Name = string(bucketName)
 		var createdBy []byte
+		var immutabilityRulesJSON []byte
 		err = spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
 			row, err := client.Single().ReadRow(ctx, "bucket_metainfos", spanner.Key{projectID[:], bucketName}, []string{
 				"id", "created_by", "user_agent", "created_at", "placement", "versioning",
 				"object_lock_enabled", "default_retention_mode", "default_retention_days",
-				"default_retention_years",
+				"default_retention_years", "immutability_rules",
 			})
 			if err != nil {
 				return err
@@ -137,7 +145,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 
 			return row.Columns(&bucket.ID, &createdBy, &bucket.UserAgent, &bucket.Created, &bucket.Placement, spannerutil.Int(&bucket.Versioning),
 				&bucket.ObjectLock.Enabled, spannerutil.Int(&bucket.ObjectLock.DefaultRetentionMode), spannerutil.Int(&bucket.ObjectLock.DefaultRetentionDays),
-				spannerutil.Int(&bucket.ObjectLock.DefaultRetentionYears))
+				spannerutil.Int(&bucket.ObjectLock.DefaultRetentionYears), &immutabilityRulesJSON)
 		})
 		if err != nil {
 			if errors.Is(err, spanner.ErrRowNotFound) {
@@ -149,6 +157,11 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		if createdBy != nil {
 			bucket.CreatedBy, err = uuid.FromBytes(createdBy)
 			if err != nil {
+				return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+			}
+		}
+		if immutabilityRulesJSON != nil {
+			if err := json.Unmarshal(immutabilityRulesJSON, &bucket.ImmutabilityRules); err != nil {
 				return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 			}
 		}
@@ -334,6 +347,12 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 
 	updateFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
+	rules, err := json.Marshal(bucket.ImmutabilityRules)
+	if err != nil {
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	}
+	updateFields.ImmutabilityRules = dbx.BucketMetainfo_ImmutabilityRules(rules)
+
 	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]), dbx.BucketMetainfo_Name([]byte(bucket.Name)), updateFields)
 	if err != nil {
 		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
@@ -455,6 +474,26 @@ func (db *bucketsDB) UpdateBucketMigrationStatus(ctx context.Context, bucketName
 		dbx.BucketMetainfo_Name(bucketName),
 		dbx.BucketMetainfo_Update_Fields{
 			MigrationStatus: dbx.BucketMetainfo_MigrationStatus(status),
+		},
+	)
+
+	return err
+}
+
+// UpdateBucketImmutabilityRules updates the immutability rules of a bucket.
+func (db *bucketsDB) UpdateBucketImmutabilityRules(ctx context.Context, bucketName []byte, projectID uuid.UUID, rules buckets.ImmutabilityRules) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	marshaledRules, err := json.Marshal(rules)
+	if err != nil {
+		return buckets.ErrBucket.Wrap(err)
+	}
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		dbx.BucketMetainfo_Update_Fields{
+			ImmutabilityRules: dbx.BucketMetainfo_ImmutabilityRules(marshaledRules),
 		},
 	)
 
@@ -621,6 +660,13 @@ func convertFullDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucke
 		ObjectLock: buckets.ObjectLockSettings{
 			Enabled: dbxBucket.ObjectLockEnabled,
 		},
+	}
+
+	if dbxBucket.ImmutabilityRules != nil {
+		err = json.Unmarshal(dbxBucket.ImmutabilityRules, &bucket.ImmutabilityRules)
+		if err != nil {
+			return bucket, buckets.ErrBucket.Wrap(err)
+		}
 	}
 
 	if dbxBucket.Placement != nil {

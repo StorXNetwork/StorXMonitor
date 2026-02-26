@@ -6,6 +6,7 @@ package metainfo
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/pubsub/v2"
@@ -396,6 +397,8 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 }
 
 // DeleteBucket deletes a bucket.
+// Empty buckets are deleted immediately. When the bucket has objects, immutability uses
+// the latest object created_at in the bucket + retention period; delete is allowed only after that expiry.
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -454,7 +457,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+	bucketData, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -467,9 +470,37 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 		}
-
-		if member.Role != console.RoleAdmin && bucket.CreatedBy != keyInfo.CreatedBy {
+		if member.Role != console.RoleAdmin && bucketData.CreatedBy != keyInfo.CreatedBy {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "not enough access to delete this bucket")
+		}
+	}
+
+	// If bucket has immutability rules, allow delete only after retention period from latest object created_at.
+	if bucketData.ImmutabilityRules.Immutability && bucketData.ImmutabilityRules.RetentionPeriod > 0 {
+		latestCreatedAt, hasObjects, err := endpoint.metabase.GetBucketLatestObjectCreatedAt(ctx, metabase.BucketEmpty{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: metabase.BucketName(bucketData.Name),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if hasObjects {
+			expiry := latestCreatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
+			if time.Now().Before(expiry) {
+				return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("bucket is immutable until %s", expiry.Format(time.RFC3339)))
+			}
+		}
+	}
+
+	var (
+		bucket     buckets.MinimalBucket
+		convBucket *pb.Bucket
+	)
+	if canRead || canList {
+		// Info about deleted bucket is returned only if either Read, or List permission is granted.
+		bucket, err = endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 		}
 	}
 
@@ -481,7 +512,6 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
 	}
 
-	var convBucket *pb.Bucket
 	if canRead || canList {
 		// Info about deleted bucket is returned only if either Read, or List permission is granted.
 		convBucket, err = convertMinimalBucketToProto(
@@ -489,7 +519,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 				Name:      []byte(bucket.Name),
 				Placement: bucket.Placement,
 				CreatedBy: bucket.CreatedBy,
-				CreatedAt: bucket.Created,
+				CreatedAt: bucketData.Created,
 			},
 			endpoint.getRSProto(bucket.Placement),
 			endpoint.config.MaxSegmentSize,
@@ -499,7 +529,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		}
 	}
 
-	err = endpoint.deleteBucket(ctx, bucket)
+	err = endpoint.deleteBucket(ctx, bucketData)
 	if err != nil {
 		if !canRead && !canList {
 			if !buckets.ErrBucketNotFound.Has(err) && !ErrBucketNotEmpty.Has(err) {
@@ -520,10 +550,10 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 			// Check both event types since DeleteAllBucketObjects can delete
 			// objects or create delete markers
-			transmitEvent := endpoint.shouldTransmitEvent(ctx, bucket.ProjectID, bucket.Name, nil,
+			transmitEvent := endpoint.shouldTransmitEvent(ctx, bucketData.ProjectID, bucketData.Name, nil,
 				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated)
 
-			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucket, transmitEvent)
+			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucketData, transmitEvent)
 			if err != nil {
 				return nil, err
 			}
@@ -586,6 +616,15 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket bucke
 	var maxCommitDelay *time.Duration
 	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[bucket.ProjectID]; ok {
 		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
+	}
+
+	bucketData, err := endpoint.buckets.GetBucket(ctx, []byte(bucket.Name), bucket.ProjectID)
+	if err != nil {
+		return 0, err
+	}
+
+	if bucketData.ImmutabilityRules.Immutability {
+		return 0, rpcstatus.Error(rpcstatus.PermissionDenied, "bulk deletion is not allowed for immutable buckets; objects must be deleted individually after their retention period expires")
 	}
 
 	deletedCount, err := endpoint.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
@@ -995,7 +1034,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 		return buckets.Bucket{}, err
 	}
 
-	return buckets.Bucket{
+	bucket = buckets.Bucket{
 		ID:        bucketID,
 		Name:      string(req.GetName()),
 		ProjectID: keyInfo.ProjectID,
@@ -1003,7 +1042,23 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 		ObjectLock: buckets.ObjectLockSettings{
 			Enabled: req.GetObjectLockEnabled(),
 		},
-	}, nil
+	}
+
+	// Set default immutability rules for automated backup buckets
+	bucketName := strings.ToLower(bucket.Name)
+	if bucketName == "gmail" || bucketName == "google-drive" || bucketName == "google-photos" || bucketName == "outlook" {
+		bucket.ImmutabilityRules = buckets.ImmutabilityRules{
+			Immutability:    true,
+			RetentionPeriod: 90,
+		}
+	} else {
+		bucket.ImmutabilityRules = buckets.ImmutabilityRules{
+			Immutability:    false,
+			RetentionPeriod: 0,
+		}
+	}
+
+	return bucket, nil
 }
 
 func convertMinimalBucketToProto(bucket buckets.MinimalBucket, rs *pb.RedundancyScheme, maxSegmentSize memory.Size) (pbBucket *pb.Bucket, err error) {

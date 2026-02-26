@@ -11,8 +11,8 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // objectIterator enables iteration on objects in a bucket.
@@ -691,6 +691,19 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 	}
 
 	return nil
+}
+
+func prefixLimit(a ObjectKey) ObjectKey {
+	if a == "" {
+		return ""
+	}
+	if a[len(a)-1] == 0xFF {
+		return a + "\x00"
+	}
+
+	key := []byte(a)
+	key[len(key)-1]++
+	return ObjectKey(key)
 }
 
 // LessObjectKey returns whether a < b.

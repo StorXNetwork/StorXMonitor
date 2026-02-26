@@ -16,6 +16,7 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 	"github.com/StorXNetwork/common/uuid"
@@ -37,17 +38,19 @@ type Buckets struct {
 	service                   *console.Service
 	billingURL                string
 	storageWarningThreshold   float64
+	secreteKey                string
 	bandwidthWarningThreshold float64
 }
 
 // NewBuckets is a constructor for api buckets controller.
-func NewBuckets(log *zap.Logger, service *console.Service, billingURL string, storageWarningThreshold float64, bandwidthWarningThreshold float64) *Buckets {
+func NewBuckets(log *zap.Logger, service *console.Service, billingURL string, storageWarningThreshold float64, bandwidthWarningThreshold float64, secreteKey string) *Buckets {
 	return &Buckets{
 		log:                       log,
 		service:                   service,
 		billingURL:                billingURL,
 		storageWarningThreshold:   storageWarningThreshold,
 		bandwidthWarningThreshold: bandwidthWarningThreshold,
+		secreteKey:                secreteKey,
 	}
 }
 
@@ -169,7 +172,6 @@ func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
 			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
-
 		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
@@ -183,6 +185,153 @@ func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(details)
 	if err != nil {
 		b.log.Error("failed to write placement details json", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
+// bucketImmutabilityRulesItem is the per-bucket payload for GetImmutabilityRules.
+type bucketImmutabilityRulesItem struct {
+	BucketName        string                    `json:"bucketName"`
+	ImmutabilityRules buckets.ImmutabilityRules `json:"immutabilityRules"`
+}
+
+// GetImmutabilityRules returns immutability rules for all buckets in the project.
+// Response: { "buckets": [ { "bucketName", "immutabilityRules" }, ... ] }.
+// Project-scoped authorization is enforced via GetProject before fetching bucket metadata.
+func (b *Buckets) GetImmutabilityRules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "projectID"))
+		return
+	}
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, projectIDString, "projectID", err))
+		return
+	}
+
+	if _, err = b.service.GetProject(ctx, projectID); err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	bucketMetadata, err := b.service.GetBucketMetadata(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	resp := struct {
+		Buckets []bucketImmutabilityRulesItem `json:"buckets"`
+	}{
+		Buckets: make([]bucketImmutabilityRulesItem, 0, len(bucketMetadata)),
+	}
+	for _, bm := range bucketMetadata {
+		resp.Buckets = append(resp.Buckets, bucketImmutabilityRulesItem{
+			BucketName:        bm.Name,
+			ImmutabilityRules: bm.ImmutabilityRules,
+		})
+	}
+	if err = json.NewEncoder(w).Encode(resp); err != nil {
+		b.log.Error("failed to write json get immutability rules response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
+// UpdateImmutabilityRules updates the immutability rules of a bucket with re-authentication.
+func (b *Buckets) UpdateImmutabilityRules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "projectID"))
+		return
+	}
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, projectIDString, "projectID", err))
+		return
+	}
+
+	bucketName := r.URL.Query().Get("bucketName")
+	if bucketName == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "bucketName"))
+		return
+	}
+
+	var request struct {
+		Immutability    bool `json:"immutability"`
+		RetentionPeriod int  `json:"retentionPeriod"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := console.GetUser(ctx)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	// Re-authentication logic
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	mfaPasscode := r.Header.Get("X-MFA-Passcode")
+	mfaRecoveryCode := r.Header.Get("X-MFA-Recovery-Code")
+
+	// Call login function (TokenWithoutPassword) to check if user is able to relogin
+	_, err = b.service.TokenWithoutPassword(ctx, console.AuthWithoutPassword{
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       r.UserAgent(),
+		MFAPasscode:     mfaPasscode,
+		MFARecoveryCode: mfaRecoveryCode,
+	})
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusUnauthorized, errs.New("re-authentication failed: %v", err))
+		return
+	}
+
+	// Update immutability rules
+	rules := buckets.ImmutabilityRules{
+		Immutability:    request.Immutability,
+		RetentionPeriod: request.RetentionPeriod,
+	}
+
+	if !rules.Immutability {
+		rules.RetentionPeriod = 0
+	}
+
+	err = b.service.UpdateBucketImmutabilityRules(ctx, []byte(bucketName), projectID, rules)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(rules)
+	if err != nil {
+		b.log.Error("failed to write json update immutability rules response", zap.Error(ErrBucketsAPI.Wrap(err)))
 	}
 }
 
@@ -237,7 +386,14 @@ func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Migration status updated successfully",
+	})
+	if err != nil {
+		b.log.Error("failed to write json update migration status response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
 }
 
 // GetBucketTotals returns a page of bucket usage totals since project creation.

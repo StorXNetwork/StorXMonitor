@@ -43,15 +43,16 @@ var (
 
 // Bucket contains information about a specific bucket.
 type Bucket struct {
-	ID         uuid.UUID
-	Name       string
-	ProjectID  uuid.UUID
-	CreatedBy  uuid.UUID
-	UserAgent  []byte
-	Created    time.Time
-	Placement  storxnetwork.PlacementConstraint
-	Versioning Versioning
-	ObjectLock ObjectLockSettings
+	ID                uuid.UUID
+	Name              string
+	ProjectID         uuid.UUID
+	CreatedBy         uuid.UUID
+	UserAgent         []byte
+	Created           time.Time
+	Placement         storxnetwork.PlacementConstraint
+	Versioning        Versioning
+	ObjectLock        ObjectLockSettings
+	ImmutabilityRules ImmutabilityRules
 }
 
 // UpdateBucketObjectLockParams contains the parameters for updating bucket object lock settings.
@@ -70,6 +71,14 @@ type ObjectLockSettings struct {
 	DefaultRetentionMode  storxnetwork.RetentionMode
 	DefaultRetentionDays  int
 	DefaultRetentionYears int
+}
+
+// ImmutabilityRules represents the immutability rules of a bucket.
+// Deletion permission is based on the object's or bucket's latest file/folder created_at
+// plus RetentionPeriod, not on when these rules were updated.
+type ImmutabilityRules struct {
+	Immutability    bool `json:"immutability"`
+	RetentionPeriod int  `json:"retention_period"`
 }
 
 // ListDirection specifies listing direction.
@@ -130,10 +139,11 @@ type Tag struct {
 
 // MinimalBucket contains minimal bucket fields for metainfo protocol.
 type MinimalBucket struct {
-	Name      []byte
-	CreatedBy uuid.UUID
-	CreatedAt time.Time
-	Placement storxnetwork.PlacementConstraint
+	Name       []byte
+	CreatedBy  uuid.UUID
+	CreatedAt  time.Time
+	Placement  storxnetwork.PlacementConstraint
+	ObjectLock ObjectLockSettings
 }
 
 // NotificationConfig contains bucket event notification configuration.
@@ -197,6 +207,8 @@ type DB interface {
 	UpdateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
 	// UpdateBucketMigrationStatus updates the migration status of a bucket.
 	UpdateBucketMigrationStatus(ctx context.Context, bucketName []byte, projectID uuid.UUID, status int) error
+	// UpdateBucketImmutabilityRules updates the immutability rules of a bucket.
+	UpdateBucketImmutabilityRules(ctx context.Context, bucketName []byte, projectID uuid.UUID, rules ImmutabilityRules) error
 	// UpdateUserAgent updates buckets user agent.
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
 	// UpdateBucketObjectLockSettings updates object lock settings for a bucket without an extra database query.

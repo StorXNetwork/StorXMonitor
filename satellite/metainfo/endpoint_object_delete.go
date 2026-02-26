@@ -123,6 +123,18 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			}
 		}
 	} else {
+		key := metabase.ObjectKey(req.EncryptedObjectKey)
+		if len(key) > 0 && len(metabase.Delimiter) > 0 && key[len(key)-1] == metabase.Delimiter[0] {
+			_, err = endpoint.DeleteObjectsByPrefix(ctx, keyInfo.ProjectID, string(req.Bucket), key)
+			// Return success with no single object; deleted count is not in response
+			if err != nil {
+				if !canRead && !canList {
+					return &pb.ObjectBeginDeleteResponse{}, nil
+				}
+				return nil, endpoint.ConvertMetabaseErr(err)
+			}
+			return &pb.ObjectBeginDeleteResponse{}, nil
+		}
 		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, DeleteCommittedObject{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
@@ -192,11 +204,23 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 
 	// TODO(ver): for production we need to avoid somehow additional GetBucket call
 	bucketData, err := endpoint.buckets.GetBucket(ctx, []byte(opts.BucketName), opts.ProjectID)
-	if err != nil {
-		if buckets.ErrBucketNotFound.Has(err) {
-			return nil, nil
+	if err == nil && bucketData.ImmutabilityRules.Immutability && bucketData.ImmutabilityRules.RetentionPeriod > 0 {
+		var obj metabase.Object
+		if len(opts.Version) == 0 {
+			obj, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{ObjectLocation: req})
+		} else {
+			var sv metabase.StreamVersionID
+			sv, err = metabase.StreamVersionIDFromBytes(opts.Version)
+			if err == nil {
+				obj, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{ObjectLocation: req, Version: sv.Version()})
+			}
 		}
-		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket state")
+		if err == nil {
+			expiry := obj.CreatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
+			if time.Now().Before(expiry) {
+				return nil, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("object is immutable until %s", expiry.Format(time.RFC3339)))
+			}
+		}
 	}
 
 	var result metabase.DeleteObjectResult
@@ -292,6 +316,77 @@ func (endpoint *Endpoint) deleteObjectResultToProto(ctx context.Context, result 
 	return deletedObjects, nil
 }
 
+func (endpoint *Endpoint) DeleteObjectsByPrefix(ctx context.Context, projectID uuid.UUID, bucket string, prefix metabase.ObjectKey) (deleted int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bucketData, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
+	if err != nil {
+		return 0, err
+	}
+
+	latestCreatedAt, hasObjects, err := endpoint.metabase.GetPrefixLatestObjectCreatedAt(ctx, metabase.GetPrefixLatestObjectCreatedAtOptions{
+		ProjectID:  projectID,
+		BucketName: bucket,
+		Prefix:     prefix,
+	})
+	if err != nil {
+		return 0, err
+	}
+	if !hasObjects {
+		return 0, nil
+	}
+
+	// If the latest object in the folder has not yet passed retention, block the entire folder delete (do not delete anything).
+	if bucketData.ImmutabilityRules.Immutability && bucketData.ImmutabilityRules.RetentionPeriod > 0 {
+		expiry := latestCreatedAt.AddDate(0, 0, bucketData.ImmutabilityRules.RetentionPeriod)
+		if time.Now().Before(expiry) {
+			return 0, rpcstatus.Error(rpcstatus.PermissionDenied, fmt.Sprintf("folder is immutable until %s", expiry.Format(time.RFC3339)))
+		}
+	}
+
+	retentionDays := 0
+	if bucketData.ImmutabilityRules.Immutability {
+		retentionDays = bucketData.ImmutabilityRules.RetentionPeriod
+	}
+	now := time.Now()
+
+	err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+		ProjectID:  projectID,
+		BucketName: metabase.BucketName(bucket),
+		Prefix:     prefix,
+		Recursive:  true,
+		BatchSize:  250,
+		Pending:    false,
+	}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+		var entry metabase.ObjectEntry
+		for it.Next(ctx, &entry) {
+			if entry.IsPrefix {
+				continue
+			}
+			if retentionDays > 0 {
+				expiry := entry.CreatedAt.AddDate(0, 0, retentionDays)
+				if now.Before(expiry) {
+					continue
+				}
+			}
+			_, delErr := endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucket),
+					ObjectKey:  entry.ObjectKey,
+				},
+				Version: entry.Version,
+			})
+			if delErr != nil {
+				return Error.Wrap(delErr)
+			}
+			deleted++
+		}
+		return nil
+	})
+	return deleted, Error.Wrap(err)
+}
+
 // DeleteObjects deletes multiple objects from a bucket.
 func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjectsRequest) (resp *pb.DeleteObjectsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -349,6 +444,10 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 			return nil, rpcstatus.Error(rpcstatus.BucketNotFound, "The specified bucket was not found")
 		}
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket state")
+	}
+
+	if bucket.ImmutabilityRules.Immutability {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "bulk deletion is not allowed for immutable buckets; objects must be deleted individually after their retention period expires")
 	}
 
 	allowedObjectKeys := make(map[string]bool, len(req.Items))
