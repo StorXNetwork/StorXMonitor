@@ -17,12 +17,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/StorXNetwork/common/errs2"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/console"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/console/consoleapi"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/common/errs2"
 )
 
 var (
@@ -94,7 +94,7 @@ func NewServer(logger *zap.Logger, assets fs.FS, notifications *notifications.Se
 	payoutRouter.HandleFunc("/payout-history/{period}", payoutController.PayoutHistory).Methods(http.MethodGet)
 
 	staticServer := http.FileServer(http.FS(server.assets))
-	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", web.CacheHandler(staticServer)))
+	router.PathPrefix("/static/").Handler(web.CacheHandler(staticServer))
 	router.PathPrefix("/").HandlerFunc(server.appHandler)
 
 	server.server = http.Server{
