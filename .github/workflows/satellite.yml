@@ -12,7 +12,7 @@ on:
 env:
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
-  SERVICES: 'StorxBackup,StorxAuditor,StorjSatellite'
+  SERVICES: 'StorxBackup,StorxAuditor,storxnetworksatellite'
 
 jobs:
   build-satellite:
