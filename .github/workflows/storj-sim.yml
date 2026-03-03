@@ -1,4 +1,4 @@
-name: Build Storj Sim
+name: Build StorXNetwork Sim
 
 on:
   workflow_dispatch:
@@ -69,9 +69,9 @@ jobs:
     - name: Quick service stop
       run: |
         Set-Location $env:BIN_PATH
-        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
+        $status = (Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue).Status
         if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-          & ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
+          & ".\nssm.exe" stop storxnetworksatellite 2>&1 | Out-Null
           Start-Sleep -Seconds 2  # Reduced wait time
         }
         
@@ -87,9 +87,9 @@ jobs:
     - name: Quick service start
       run: |
         Set-Location $env:BIN_PATH
-        & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-Null
+        & cmd /c ".\nssm.exe" start storxnetworksatellite 2>&1 | Out-Null
         Start-Sleep -Seconds 2  # Reduced wait time
         
-        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
-        Write-Host "StorjSatellite status: $status"
+        $status = (Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue).Status
+        Write-Host "storxnetworksatellite status: $status"
         Write-Host "Service start initiated"
