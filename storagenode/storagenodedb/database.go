@@ -18,7 +18,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/process"
 	"github.com/StorXNetwork/StorXMonitor/private/migrate"
 	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
 	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
@@ -38,6 +37,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/common/process"
 )
 
 // VersionTable is the table that stores the version info in each db.
