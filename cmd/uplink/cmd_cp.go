@@ -20,15 +20,16 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/context2"
-	"storj.io/common/fpath"
-	"storj.io/common/memory"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/sync2"
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/storj/cmd/uplink/ulloc"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/internal"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 type cmdCp struct {
@@ -53,8 +54,6 @@ type cmdCp struct {
 
 	locs []ulloc.Location
 }
-
-const maxPartCount int64 = 10000
 
 func newCmdCp(ex ulext.External) *cmdCp {
 	return &cmdCp{ex: ex}
@@ -119,13 +118,6 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		clingy.Transform(strconv.Atoi),
 		clingy.Advanced,
 	).(int)
-	c.uploadConfig.LongTailMargin = params.Flag(
-		"long-tail-margin",
-		"How many extra pieces to upload and cancel per segment",
-		c.uploadConfig.LongTailMargin,
-		clingy.Transform(strconv.Atoi),
-		clingy.Advanced,
-	).(int)
 	c.uploadLogFile = params.Flag("upload-log-file", "File to write upload logs to", "",
 		clingy.Advanced,
 	).(string)
@@ -138,11 +130,11 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 
 	c.expires = params.Flag("expires",
 		"Schedule removal after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
+		time.Time{}, clingy.Transform(internal.ParseHumanDate), clingy.Type("relative_date")).(time.Time)
 
 	c.metadata = params.Flag("metadata",
 		"optional metadata for the object. Please use a single level JSON object of string to string only",
-		nil, clingy.Transform(parseJSON), clingy.Type("string")).(map[string]string)
+		nil, clingy.Transform(internal.ParseJSON), clingy.Type("string")).(map[string]string)
 
 	c.locs = params.Arg("locations", "Locations to copy (at least one source and one destination). Use - for standard input/output",
 		clingy.Transform(ulloc.Parse),
@@ -232,7 +224,7 @@ func (c *cmdCp) dispatchCopy(ctx context.Context, fs ulfs.Filesystem, source, de
 	dest = joinDestWith(dest, base)
 
 	if !dest.Std() {
-		fmt.Fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
 	}
 
 	var bar *mpb.Bar
@@ -240,8 +232,7 @@ func (c *cmdCp) dispatchCopy(ctx context.Context, fs ulfs.Filesystem, source, de
 		progress := mpb.New(mpb.WithOutput(clingy.Stdout(ctx)))
 		defer progress.Wait()
 
-		var namer barNamer
-		bar = newProgressBar(progress, namer.NameFor(source, dest), 1, 1)
+		bar = newProgressBar(progress, source.String())
 		defer func() {
 			bar.Abort(true)
 			bar.Wait()
@@ -275,13 +266,13 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 		mu.Lock()
 		defer mu.Unlock()
 
-		fmt.Fprintln(w, args...)
+		_, _ = fmt.Fprintln(w, args...)
 	}
 	fprintf := func(w io.Writer, format string, args ...interface{}) {
 		mu.Lock()
 		defer mu.Unlock()
 
-		fmt.Fprintf(w, format, args...)
+		_, _ = fmt.Fprintf(w, format, args...)
 	}
 
 	addError := func(err error) {
@@ -295,64 +286,42 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 		es.Add(err)
 	}
 
-	type copyOp struct {
-		src  ulloc.Location
-		dest ulloc.Location
-	}
-
-	var verb string
-	var verbing string
-	var namer barNamer
-	var ops []copyOp
-	for iter.Next() {
-		item := iter.Item().Loc
-		rel, err := source.RelativeTo(item)
-		if err != nil {
-			return err
-		}
-		dest := joinDestWith(dest, rel)
-
-		verb = copyVerb(item, dest)
-		verbing = copyVerbing(item, dest)
-
-		namer.Preview(item, dest)
-
-		ops = append(ops, copyOp{src: item, dest: dest})
-	}
-	if err := iter.Err(); err != nil {
-		return errs.Wrap(err)
-	}
-
-	fprintln(clingy.Stdout(ctx), verbing, len(ops), "files...")
-
 	var progress *mpb.Progress
 	if c.progress {
 		progress = mpb.New(mpb.WithOutput(clingy.Stdout(ctx)))
 		defer progress.Wait()
 	}
 
-	for i, op := range ops {
-		i := i
-		op := op
+	for i := 0; iter.Next(); i++ {
+		src := iter.Item().Loc
+		rel, err := source.RelativeTo(src)
+		if err != nil {
+			return err
+		}
+		dest := joinDestWith(dest, rel)
+		verb := copyVerb(src, dest)
 
 		ok := limiter.Go(ctx, func() {
 			var bar *mpb.Bar
 			if progress != nil {
-				bar = newProgressBar(progress, namer.NameFor(op.src, op.dest), i+1, len(ops))
+				bar = newProgressBar(progress, src.String())
 				defer func() {
 					bar.Abort(true)
 					bar.Wait()
 				}()
 			} else {
-				fprintf(clingy.Stdout(ctx), "%s %s to %s (%d of %d)\n", verb, op.src, op.dest, i+1, len(ops))
+				fprintf(clingy.Stdout(ctx), "%s %s to %s\n", verb, src, dest)
 			}
-			if err := c.copyFile(ctx, fs, op.src, op.dest, bar); err != nil {
-				addError(errs.New("%s %s to %s failed: %w", verb, op.src, op.dest, err))
+			if err := c.copyFile(ctx, fs, src, dest, bar); err != nil {
+				addError(errs.New("%s %s to %s failed: %w", verb, src, dest, err))
 			}
 		})
 		if !ok {
 			break
 		}
+	}
+	if err := iter.Err(); err != nil {
+		return errs.Wrap(err)
 	}
 
 	limiter.Wait()
@@ -367,7 +336,7 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 		for _, e := range es {
 			fprintln(clingy.Stdout(ctx), e)
 		}
-		return errs.New("recursive %s failed (%d of %d)", verb, len(es), len(ops))
+		return errs.New("recursive copy failed (%d errors)", len(es))
 	}
 	return nil
 }
@@ -397,7 +366,7 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	}
 	defer func() { _ = mrh.Close() }()
 
-	cfg, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64(), c.parallelism)
+	cfg, err := internal.CalculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64(), c.parallelism)
 	if err != nil {
 		return err
 	}
@@ -405,7 +374,7 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{
 		Expires:    c.expires,
 		Metadata:   c.metadata,
-		SinglePart: cfg.singlePart,
+		SinglePart: cfg.SinglePart,
 	})
 	if err != nil {
 		return err
@@ -416,91 +385,10 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 		ctx,
 		source, dest,
 		mrh, mwh,
-		cfg.parallelism, cfg.partSize,
+		cfg.Parallelism, cfg.PartSize,
 		offset, length,
 		bar,
 	))
-}
-
-type partSizeConfig struct {
-	partSize    int64
-	singlePart  bool
-	parallelism int
-}
-
-// calculatePartSize returns the needed part size in order to upload the file with size of 'length'.
-// It hereby respects if the client requests/prefers a certain size and only increases if needed.
-func (c *cmdCp) calculatePartSize(contentLength, preferredPartSize int64, parallelism int) (cfg partSizeConfig, err error) {
-	const minimumPartSize = memory.GiB
-	const alignPartSize = 64 * memory.MiB
-
-	// Let the user pick their size if we don't have a contentLength to know better.
-	if contentLength < 0 {
-		partSize := preferredPartSize
-
-		if partSize <= 0 { // user didn't pick a size
-			partSize = minimumPartSize.Int64()
-		}
-
-		partSize = roundUpToNext(partSize, alignPartSize.Int64())
-
-		return partSizeConfig{
-			partSize:    partSize,
-			singlePart:  false,
-			parallelism: parallelism,
-		}, nil
-	}
-
-	// When we are not parallel, there's no point in doing multipart upload.
-	if parallelism <= 1 {
-		return partSizeConfig{
-			partSize:    contentLength,
-			singlePart:  true,
-			parallelism: 1,
-		}, nil
-	}
-
-	// ceil(contentLength / maxPartCount)
-	smallestAllowedPartSize := (contentLength + (maxPartCount - 1)) / maxPartCount
-
-	// Calculate a good part size.
-	partSize := roundUpToNext(smallestAllowedPartSize, alignPartSize.Int64())
-
-	// Let's set a lower limit for the expected part size.
-	if partSize < minimumPartSize.Int64() {
-		partSize = minimumPartSize.Int64()
-	}
-
-	// check whether we can use preferred part size instead?
-	if preferredPartSize > 0 {
-		if preferredPartSize < partSize {
-			return cfg, errs.New(fmt.Sprintf("the specified chunk size %s is too small, requires %s or larger",
-				memory.FormatBytes(preferredPartSize), memory.FormatBytes(partSize)))
-		}
-
-		partSize = roundUpToNext(preferredPartSize, alignPartSize.Int64())
-	}
-
-	cfg = partSizeConfig{
-		partSize:    partSize,
-		singlePart:  contentLength <= partSize,
-		parallelism: parallelism,
-	}
-
-	// if there's a single part there's no point in allowing parallelism.
-	if cfg.singlePart {
-		cfg.parallelism = 1
-	}
-
-	return cfg, nil
-}
-
-func roundUpToNext(v, r int64) int64 {
-	return ((v + (r - 1)) / r) * r
-}
-
-func copyVerbing(source, dest ulloc.Location) (verb string) {
-	return copyVerb(source, dest) + "ing"
 }
 
 func copyVerb(source, dest ulloc.Location) (verb string) {
@@ -662,15 +550,14 @@ func (c *cmdCp) parallelCopy(
 	return errs.Wrap(combineErrs(es))
 }
 
-func newProgressBar(progress *mpb.Progress, name string, which, total int) *mpb.Bar {
+func newProgressBar(progress *mpb.Progress, name string) *mpb.Bar {
 	const counterFmt = " % .2f / % .2f"
 	const percentageFmt = "%.2f "
 
-	prepends := []decor.Decorator{decor.Name(name + " ")}
-	if total > 1 {
-		prepends = append(prepends, decor.Name(fmt.Sprintf("(%d of %d)", which, total)))
+	prepends := []decor.Decorator{
+		decor.Name(name),
+		decor.CountersKiloByte(counterFmt),
 	}
-	prepends = append(prepends, decor.CountersKiloByte(counterFmt))
 
 	appends := []decor.Decorator{
 		decor.NewPercentage(percentageFmt),
@@ -743,39 +630,4 @@ func combineErrs(group errs.Group) error {
 	}
 
 	return fmt.Errorf("%s", strings.Join(errstrings, "\n"))
-}
-
-type barNamer struct {
-	longestTotalLen int
-}
-
-func (n *barNamer) Preview(src, dst ulloc.Location) {
-	if src.Local() {
-		n.preview(src)
-		return
-	}
-	n.preview(dst)
-}
-
-func (n *barNamer) NameFor(src, dst ulloc.Location) string {
-	if src.Local() {
-		return n.nameFor(src)
-	}
-	return n.nameFor(dst)
-}
-
-func (n *barNamer) preview(loc ulloc.Location) {
-	locLen := len(loc.String())
-	if locLen > n.longestTotalLen {
-		n.longestTotalLen = locLen
-	}
-}
-
-func (n *barNamer) nameFor(loc ulloc.Location) string {
-	name := loc.String()
-	if n.longestTotalLen > 0 {
-		pad := n.longestTotalLen - len(loc.String())
-		name += strings.Repeat(" ", pad)
-	}
-	return name
 }

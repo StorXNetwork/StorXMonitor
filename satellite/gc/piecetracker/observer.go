@@ -10,11 +10,12 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -89,21 +90,33 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	observer.log.Info("piecetracker observer finished")
 
 	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
-	pieceCounts := make(map[storj.NodeID]int64, len(observer.pieceCounts))
+	nodesToUpdate := make(map[storxnetwork.NodeID]int64, observer.config.UpdateBatchSize)
+
+	updateNodes := func(nodesToUpdate map[storxnetwork.NodeID]int64) {
+		err = observer.overlay.UpdatePieceCounts(ctx, nodesToUpdate)
+		if err != nil {
+			// don't stop on error as updating always all nodes is not critical
+			// missed numbers will be updated with next iterations
+			observer.log.Error("error updating nodes piece counts", zap.Error(err))
+		}
+	}
 
 	for nodeAlias, count := range observer.pieceCounts {
 		nodeID, ok := nodeAliasMap.Node(nodeAlias)
 		if !ok {
-			observer.log.Error("unrecognized node alias in piecetracker ranged-loop", zap.Int32("node-alias", int32(nodeAlias)))
+			observer.log.Error("unrecognized node alias in piecetracker ranged-loop", zap.Int32("node_alias", int32(nodeAlias)))
 			continue
 		}
-		pieceCounts[nodeID] = count
+		nodesToUpdate[nodeID] = count
+
+		if len(nodesToUpdate) >= observer.config.UpdateBatchSize {
+			updateNodes(nodesToUpdate)
+
+			maps.Clear(nodesToUpdate)
+		}
 	}
-	err = observer.overlay.UpdatePieceCounts(ctx, pieceCounts)
-	if err != nil {
-		observer.log.Error("error updating piece counts", zap.Error(err))
-		return Error.Wrap(err)
-	}
+
+	updateNodes(nodesToUpdate)
 
 	return nil
 }
@@ -121,8 +134,9 @@ func newObserverFork() *observerFork {
 
 // Process iterates over segment range updating partial piece counts for each node.
 func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) error {
+	now := time.Now()
 	for _, segment := range segments {
-		if segment.Inline() {
+		if segment.Inline() || segment.Expired(now) {
 			continue
 		}
 

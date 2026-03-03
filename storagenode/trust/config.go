@@ -4,15 +4,14 @@
 package trust
 
 import (
+	"errors"
 	"strings"
 	"time"
-
-	"github.com/zeebo/errs"
 )
 
 // Config is the trust configuration.
 type Config struct {
-	Sources         Sources       `help:"list of trust sources" devDefault:"" releaseDefault:"https://www.storj.io/dcs-satellites"`
+	Sources         Sources       `help:"list of trust sources" devDefault:"" releaseDefault:"https://static.storxnetwork.io/dcs-satellites"`
 	Exclusions      Exclusions    `help:"list of trust exclusions" devDefault:"" releaseDefault:""`
 	RefreshInterval time.Duration `help:"how often the trust pool should be refreshed" default:"6h"`
 	CachePath       string        `help:"file path where trust lists should be cached" default:"${CONFDIR}/trust-cache.json"`
@@ -41,7 +40,7 @@ func (sources *Sources) Set(value string) error {
 	for _, entry := range entries {
 		source, err := NewSource(entry)
 		if err != nil {
-			return Error.New("invalid source %q: %w", entry, errs.Unwrap(err))
+			return Error.New("invalid source %q: %w", entry, errors.Unwrap(err))
 		}
 		toSet = append(toSet, source)
 	}
@@ -80,7 +79,7 @@ func (exclusions *Exclusions) Set(value string) error {
 	for _, entry := range entries {
 		rule, err := NewExcluder(entry)
 		if err != nil {
-			return Error.New("invalid exclusion %q: %w", entry, errs.Unwrap(err))
+			return Error.New("invalid exclusion %q: %w", entry, errors.Unwrap(err))
 		}
 		rules = append(rules, rule)
 	}

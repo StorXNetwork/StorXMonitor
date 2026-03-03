@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 var (
@@ -26,6 +26,7 @@ type Config struct {
 	Interval           time.Duration `help:"the time between each attempt to go through the db and clean up expired segments" releaseDefault:"24h" devDefault:"10s" testDefault:"$TESTINTERVAL"`
 	Enabled            bool          `help:"set if expired segment cleanup is enabled or not" releaseDefault:"true" devDefault:"true"`
 	ListLimit          int           `help:"how many expired objects to query in a batch" default:"100"`
+	DeleteConcurrency  int           `help:"how many delete queries are sent in parallel" default:"1"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us" hidden:"true"`
 }
 
@@ -84,6 +85,7 @@ func (chore *Chore) deleteExpiredObjects(ctx context.Context) (err error) {
 		ExpiredBefore:      chore.nowFn(),
 		BatchSize:          chore.config.ListLimit,
 		AsOfSystemInterval: chore.config.AsOfSystemInterval,
+		DeleteConcurrency:  chore.config.DeleteConcurrency,
 	})
 	if err != nil {
 		chore.log.Error("deleting expired objects failed", zap.Error(err))

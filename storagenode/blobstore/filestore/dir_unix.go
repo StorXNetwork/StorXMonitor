@@ -2,20 +2,21 @@
 // See LICENSE for copying information.
 
 //go:build !windows
-// +build !windows
 
 package filestore
 
 import (
-	"fmt"
+	"errors"
 	"os"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 
-	"storj.io/storj/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
 )
 
-func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
+// DiskInfoFromPath returns the disk info for the given path.
+func DiskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	var stat unix.Statfs_t
 	err = unix.Statfs(path, &stat)
 	if err != nil {
@@ -26,10 +27,8 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	reservedBlocks := int64(stat.Bfree) - int64(stat.Bavail)
 	totalSpace := (int64(stat.Blocks) - reservedBlocks) * int64(stat.Bsize) //nolint: unconvert
 	availableSpace := int64(stat.Bavail) * int64(stat.Bsize)                //nolint: unconvert
-	filesystemID := fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
 	return blobstore.DiskInfo{
-		ID:             filesystemID,
 		TotalSpace:     totalSpace,
 		AvailableSpace: availableSpace,
 	}, nil
@@ -38,6 +37,16 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 // rename renames oldpath to newpath.
 func rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
+}
+
+// rmDir removes the directory named by path.
+func rmDir(path string) error {
+	for {
+		err := syscall.Rmdir(path)
+		if !errors.Is(err, syscall.EINTR) {
+			return err
+		}
+	}
 }
 
 // openFileReadOnly opens the file with read only.

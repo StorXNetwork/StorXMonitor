@@ -10,21 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/multinodepb"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/multinode"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/payouts/estimatedpayouts"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/multinode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts/estimatedpayouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var (
@@ -169,7 +169,7 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 			err := bandwidthdb.Add(ctx, satelliteID, action, 2300000000000, now)
 			require.NoError(t, err)
 		}
-		var satellites []storj.NodeID
+		var satellites []storxnetwork.NodeID
 
 		satellites = append(satellites, satelliteID)
 		stamps := storagenodedbtest.MakeStorageUsageStamps(satellites, 30, time.Now().UTC())

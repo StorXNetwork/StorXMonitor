@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -29,11 +29,11 @@ var (
 type Service struct {
 	log    *zap.Logger
 	dialer rpc.Dialer
-	nodes  nodes.DB
+	nodes  *nodes.Service
 }
 
 // NewService creates new instance of Service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, nodes nodes.DB) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, nodes *nodes.Service) *Service {
 	return &Service{
 		log:    log,
 		dialer: dialer,
@@ -42,7 +42,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes nodes.DB) *Service {
 }
 
 // Usage retrieves node's daily storage usage for provided interval.
-func (service *Service) Usage(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ Usage, err error) {
+func (service *Service) Usage(ctx context.Context, nodeID storxnetwork.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -59,7 +59,7 @@ func (service *Service) Usage(ctx context.Context, nodeID storj.NodeID, from, to
 }
 
 // UsageSatellite retrieves node's daily storage usage for provided interval and satellite.
-func (service *Service) UsageSatellite(ctx context.Context, nodeID, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
+func (service *Service) UsageSatellite(ctx context.Context, nodeID, satelliteID storxnetwork.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -89,13 +89,11 @@ func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ U
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
+
 		usage, err := service.dialUsage(ctx, node, from, to)
 		if err != nil {
-			if nodes.ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return Usage{}, Error.Wrap(err)
+			service.log.Error("Failed to retrieve nodes's storage usage for provided interval:", zap.Error(err))
+			continue
 		}
 
 		totalSummary += usage.Summary
@@ -113,7 +111,7 @@ func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ U
 }
 
 // TotalUsageSatellite retrieves aggregated daily storage usage for provided interval and satellite.
-func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
+func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodesList, err := service.nodes.List(ctx)
@@ -126,13 +124,11 @@ func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID sto
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
+
 		usage, err := service.dialUsageSatellite(ctx, node, satelliteID, from, to)
 		if err != nil {
-			if nodes.ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return Usage{}, Error.Wrap(err)
+			service.log.Error("Failed to retrieve node storage usage for provided interval and satellite:", zap.Error(err))
+			continue
 		}
 
 		totalSummary += usage.Summary
@@ -161,11 +157,8 @@ func (service *Service) TotalDiskSpace(ctx context.Context) (totalDiskSpace Disk
 	for _, node := range listNodes {
 		diskSpace, err := service.dialDiskSpace(ctx, node)
 		if err != nil {
-			if nodes.ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return DiskSpace{}, Error.Wrap(err)
+			service.log.Error("Failed to retrieve storagenode disk space usage:", zap.Error(err))
+			continue
 		}
 
 		totalDiskSpace.Add(diskSpace)
@@ -175,7 +168,7 @@ func (service *Service) TotalDiskSpace(ctx context.Context) (totalDiskSpace Disk
 }
 
 // DiskSpace returns all info about concrete storagenode disk space usage.
-func (service *Service) DiskSpace(ctx context.Context, nodeID storj.NodeID) (_ DiskSpace, err error) {
+func (service *Service) DiskSpace(ctx context.Context, nodeID storxnetwork.NodeID) (_ DiskSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -188,7 +181,7 @@ func (service *Service) DiskSpace(ctx context.Context, nodeID storj.NodeID) (_ D
 
 // dialDiskSpace dials node and retrieves all info about concrete storagenode disk space usage.
 func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (diskSpace DiskSpace, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -211,12 +204,14 @@ func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (dis
 	}
 
 	return DiskSpace{
-		Allocated: diskSpaceResponse.Allocated,
-		Used:      diskSpaceResponse.UsedPieces,
-		Trash:     diskSpaceResponse.UsedTrash,
-		Free:      diskSpaceResponse.Free,
-		Available: diskSpaceResponse.Available,
-		Overused:  diskSpaceResponse.Overused,
+		Allocated:       diskSpaceResponse.Allocated,
+		Used:            diskSpaceResponse.Used,
+		UsedPieces:      diskSpaceResponse.UsedPieces,
+		UsedTrash:       diskSpaceResponse.UsedTrash,
+		UsedReclaimable: diskSpaceResponse.UsedReclaimable,
+		Free:            diskSpaceResponse.Free,
+		Available:       diskSpaceResponse.Available,
+		Overused:        diskSpaceResponse.Overused,
 	}, nil
 }
 
@@ -224,7 +219,7 @@ func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (dis
 func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -266,10 +261,10 @@ func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to
 }
 
 // dialUsageSatellite dials node and retrieves it's storage usage for provided interval and satellite.
-func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
+func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node, satelliteID storxnetwork.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})

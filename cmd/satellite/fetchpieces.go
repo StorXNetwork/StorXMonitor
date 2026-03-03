@@ -15,14 +15,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/process"
-	"storj.io/common/uuid"
-	"storj.io/common/version"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
@@ -79,7 +79,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		identity,
 		metabaseDB,
 		revocationDB,
-		db.RepairQueue(),
+		nil,
 		db.Buckets(),
 		db.OverlayCache(),
 		db.NodeEvents(),
@@ -93,7 +93,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	segmentInfo, err := metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segmentInfo, err := metabaseDB.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
 		StreamID: streamID,
 		Position: metabase.SegmentPositionFromEncoded(streamPosition),
 	})
@@ -101,7 +101,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, &segmentInfo, saveDir)
+	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, log, &segmentInfo, saveDir)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		if pieceInfo.GetLimit == nil {
 			continue
 		}
-		log := log.With(zap.Int("piece-index", pieceIndex))
+		log := log.With(zap.Int("piece_index", pieceIndex))
 		if err := pieceInfo.FetchError; err != nil {
 			writeErrorMessageToFile(log, err, saveDir, pieceIndex)
 		}
@@ -131,7 +131,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 func writeErrorMessageToFile(log *zap.Logger, err error, saveDir string, pieceIndex int) {
 	errorMessage := err.Error()
 	filename := path.Join(saveDir, fmt.Sprintf("piece.%d.error.txt", pieceIndex))
-	log = log.With(zap.String("file-path", filename))
+	log = log.With(zap.String("file_path", filename))
 	errorFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0o700)
 	if err != nil {
 		log.Error("could not open error file", zap.Error(err))
@@ -155,7 +155,7 @@ type pieceMetaInfo struct {
 
 func writeMetaInfoToFile(log *zap.Logger, getLimit *pb.AddressedOrderLimit, originalLimit *pb.OrderLimit, hash *pb.PieceHash, saveDir string, pieceIndex int) {
 	filename := path.Join(saveDir, fmt.Sprintf("piece.%d.metainfo.json", pieceIndex))
-	log = log.With(zap.String("file-path", filename))
+	log = log.With(zap.String("file_path", filename))
 	metaInfoFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o700)
 	if err != nil {
 		log.Error("could not open metainfo file", zap.Error(err))
@@ -185,7 +185,7 @@ func writeMetaInfoToFile(log *zap.Logger, getLimit *pb.AddressedOrderLimit, orig
 
 func writePieceToFile(log *zap.Logger, pieceReader io.ReadCloser, saveDir string, pieceIndex int) {
 	filename := path.Join(saveDir, fmt.Sprintf("piece.%d.contents", pieceIndex))
-	log = log.With(zap.String("file-path", filename))
+	log = log.With(zap.String("file_path", filename))
 	contentFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o700)
 	if err != nil {
 		log.Error("could not open content file", zap.Error(err))

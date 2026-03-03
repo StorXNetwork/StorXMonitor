@@ -13,11 +13,11 @@ import (
 )
 
 func TestMessage_ClosingLastPart(t *testing.T) {
-	from := mail.Address{Name: "No reply", Address: "noreply@eu1.storj.io"}
+	from := mail.Address{Name: "No reply", Address: "noreply@eu1.storxnetwork.io"}
 
 	m := &Message{
 		From:      from,
-		To:        []mail.Address{{Name: "Foo Bar", Address: "foo@storj.io"}},
+		To:        []mail.Address{{Name: "Foo Bar", Address: "foo@storxnetwork.io"}},
 		Subject:   "This is a proper test mail",
 		PlainText: "",
 		Parts: []Part{

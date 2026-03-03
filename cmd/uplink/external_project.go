@@ -6,13 +6,16 @@ package main
 import (
 	"context"
 
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/uplink"
-	privateAccess "storj.io/uplink/private/access"
-	"storj.io/uplink/private/testuplink"
-	"storj.io/uplink/private/transport"
+	"github.com/zeebo/errs"
+
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/uplink"
+	privateAccess "github.com/StorXNetwork/uplink/private/access"
+	privateProject "github.com/StorXNetwork/uplink/private/project"
+	"github.com/StorXNetwork/uplink/private/testuplink"
+	"github.com/StorXNetwork/uplink/private/transport"
 )
 
 const uplinkCLIUserAgent = "uplink-cli"
@@ -68,4 +71,19 @@ func (ex *external) OpenProject(ctx context.Context, accessName string, options 
 	}
 
 	return config.OpenProject(ctx, access)
+}
+
+func (ex *external) GetEdgeUrlOverrides(ctx context.Context, access *uplink.Access) (overrides ulext.EdgeURLOverrides, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	info, err := privateProject.GetProjectInfo(ctx, uplink.Config{UserAgent: uplinkCLIUserAgent}, access)
+	if err != nil {
+		return overrides, errs.New("could not get project info: %w", err)
+	}
+	if info.EdgeUrlOverrides != nil {
+		overrides.AuthService = info.EdgeUrlOverrides.AuthService
+		overrides.PublicLinksharing = info.EdgeUrlOverrides.PublicLinksharing
+		overrides.InternalLinksharing = info.EdgeUrlOverrides.InternalLinksharing
+	}
+	return overrides, nil
 }

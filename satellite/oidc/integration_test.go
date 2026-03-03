@@ -5,7 +5,6 @@ package oidc_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -21,17 +20,17 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/grant"
-	"storj.io/common/macaroon"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/oidc"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
 )
 
 func send(t *testing.T, body io.Reader, response interface{}, status int, parts ...string) {
@@ -44,7 +43,7 @@ func send(t *testing.T, body io.Reader, response interface{}, status int, parts 
 		method = http.MethodGet
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), method, parts[0], body)
+	req, err := http.NewRequestWithContext(t.Context(), method, parts[0], body)
 	require.NoError(t, err)
 
 	auth := parts[2]
@@ -98,7 +97,7 @@ func TestOIDC(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
-		adminAddr := sat.Admin.Admin.Listener.Addr().String()
+		adminAddr := sat.Admin.Admin.Listener.Addr().String() + "/legacy"
 		consoleAddr := sat.API.Console.Listener.Addr().String()
 
 		issuer := "http://" + consoleAddr + "/"
@@ -124,7 +123,7 @@ func TestOIDC(t *testing.T) {
 		user, err = sat.API.Console.Service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
-		tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+		tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", "", nil, nil, nil)
 		require.NoError(t, err)
 
 		// Set up a test project and bucket
@@ -283,12 +282,12 @@ func TestOIDC(t *testing.T) {
 		require.NoError(t, err)
 
 		// in practice, you should decrypt the cubbyhole and pass it here
-		key, err := storj.NewKey([]byte(info.Cubbyhole))
+		key, err := storxnetwork.NewKey([]byte(info.Cubbyhole))
 		require.NoError(t, err)
 
 		encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
 		encAccess.SetDefaultKey(key)
-		encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+		encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 
 		accessGrant, err := (&grant.Access{
 			SatelliteAddress: sat.NodeURL().String(),

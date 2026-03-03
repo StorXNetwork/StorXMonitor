@@ -15,24 +15,26 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/grant"
-	"storj.io/common/identity"
-	"storj.io/common/macaroon"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
-	"storj.io/uplink"
-	"storj.io/uplink/private/metaclient"
-	"storj.io/uplink/private/object"
-	"storj.io/uplink/private/piecestore"
-	"storj.io/uplink/private/testuplink"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/metaclient"
+	"github.com/StorXNetwork/uplink/private/object"
+	"github.com/StorXNetwork/uplink/private/piecestore"
+	"github.com/StorXNetwork/uplink/private/testuplink"
 )
 
 // UplinkConfig testplanet configuration for uplink.
 type UplinkConfig struct {
-	DefaultPathCipher storj.CipherSuite
+	DefaultPathCipher storxnetwork.CipherSuite
+	APIKeyVersion     macaroon.APIKeyVersion
 }
 
 // Uplink is a registered user on all satellites,
@@ -43,9 +45,9 @@ type Uplink struct {
 	Dialer   rpc.Dialer
 	Config   uplink.Config
 
-	APIKey map[storj.NodeID]*macaroon.APIKey
-	Access map[storj.NodeID]*uplink.Access
-	User   map[storj.NodeID]UserLogin
+	APIKey map[storxnetwork.NodeID]*macaroon.APIKey
+	Access map[storxnetwork.NodeID]*uplink.Access
+	User   map[storxnetwork.NodeID]UserLogin
 
 	// Projects is indexed by the satellite number.
 	Projects []*Project
@@ -126,19 +128,22 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 	planetUplink := &Uplink{
 		Log:      planet.log.Named(name),
 		Identity: identity,
-		APIKey:   map[storj.NodeID]*macaroon.APIKey{},
-		Access:   map[storj.NodeID]*uplink.Access{},
-		User:     map[storj.NodeID]UserLogin{},
+		APIKey:   map[storxnetwork.NodeID]*macaroon.APIKey{},
+		Access:   map[storxnetwork.NodeID]*uplink.Access{},
+		User:     map[storxnetwork.NodeID]UserLogin{},
 	}
 
 	planetUplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 	for j, satellite := range planet.Satellites {
-		consoleAPI := satellite.API.Console
+		var config UplinkConfig
+		if planet.config.Reconfigure.Uplink != nil {
+			planet.config.Reconfigure.Uplink(log, index, &config)
+		}
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
 		user, err := satellite.AddUser(ctx, console.CreateUser{
-			FullName: fmt.Sprintf("User %s", projectName),
+			FullName: "User " + projectName,
 			Email:    fmt.Sprintf("user@%s.test", projectName),
 		}, 10)
 		if err != nil {
@@ -155,11 +160,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 			return nil, errs.Wrap(err)
 		}
 
-		userCtx, err := satellite.UserContext(ctx, user.ID)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root")
+		apiKey, err := satellite.CreateAPIKey(ctx, project.ID, project.OwnerID, config.APIKeyVersion)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
@@ -182,16 +183,11 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 			RawAPIKey: apiKey,
 		})
 
-		var config UplinkConfig
-		if planet.config.Reconfigure.Uplink != nil {
-			planet.config.Reconfigure.Uplink(log, index, &config)
-		}
-
 		// create access grant manually to avoid dialing satellite for
 		// project id and deriving key with argon2.IDKey method
-		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
-		if config.DefaultPathCipher == storj.EncUnspecified {
-			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storxnetwork.Key{})
+		if config.DefaultPathCipher == storxnetwork.EncUnspecified {
+			encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 		} else {
 			encAccess.SetDefaultPathCipher(config.DefaultPathCipher)
 		}
@@ -221,7 +217,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 }
 
 // ID returns uplink id.
-func (client *Uplink) ID() storj.NodeID { return client.Identity.ID }
+func (client *Uplink) ID() storxnetwork.NodeID { return client.Identity.ID }
 
 // Addr returns uplink address.
 func (client *Uplink) Addr() string { return "" }
@@ -252,7 +248,7 @@ func (client *Uplink) OpenProject(ctx context.Context, satellite *Satellite) (_ 
 }
 
 // Upload data to specific satellite.
-func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket string, path storj.Path, data []byte) (err error) {
+func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket string, path storxnetwork.Path, data []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return errs.Wrap(client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{}))
 }
@@ -261,14 +257,14 @@ func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket s
 func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satellite, bucketName string, key string, data []byte, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.UploadWithOptions(ctx, satellite, bucketName, key, data, &uplink.UploadOptions{
+	_, err = client.UploadWithOptions(ctx, satellite, bucketName, key, data, &metaclient.UploadOptions{
 		Expires: expiration,
 	})
 	return errs.Wrap(err)
 }
 
 // UploadWithOptions uploads data to specific satellite, with defined options.
-func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellite, bucketName, key string, data []byte, options *uplink.UploadOptions) (obj *object.VersionedObject, err error) {
+func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellite, bucketName, key string, data []byte, options *metaclient.UploadOptions) (obj *object.VersionedObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, found := testuplink.GetMaxSegmentSize(ctx)
@@ -282,8 +278,8 @@ func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellit
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	_, err = project.EnsureBucket(ctx, bucketName)
-	if err != nil {
+	err = client.TestingCreateBucket(ctx, satellite, bucketName)
+	if err != nil && !buckets.ErrBucketAlreadyExists.Has(err) {
 		return nil, errs.Wrap(err)
 	}
 
@@ -308,7 +304,7 @@ func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellit
 }
 
 // Download data from specific satellite.
-func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) (_ []byte, err error) {
+func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucketName string, path storxnetwork.Path) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)
@@ -331,7 +327,7 @@ func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucket
 }
 
 // DownloadStream returns stream for downloading data.
-func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) (_ io.ReadCloser, cleanup func() error, err error) {
+func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, bucketName string, path storxnetwork.Path) (_ io.ReadCloser, cleanup func() error, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)
@@ -351,7 +347,7 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, 
 }
 
 // DownloadStreamRange returns stream for downloading data.
-func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
+func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satellite, bucketName string, path storxnetwork.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)
@@ -371,7 +367,7 @@ func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satell
 }
 
 // DeleteObject deletes an object at the path in a bucket.
-func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) (err error) {
+func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bucketName string, path storxnetwork.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)
@@ -401,7 +397,32 @@ func (client *Uplink) CopyObject(ctx context.Context, satellite *Satellite, oldB
 	return err
 }
 
-// CreateBucket creates a new bucket.
+// TestingCreateBucket creates a new bucket for testing.
+// It's doing it using directly DB API so it avoids a lot of overhead from uplink and satellite.
+func (client *Uplink) TestingCreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var projectID uuid.UUID
+	for _, project := range client.Projects {
+		if project.Satellite == satellite {
+			projectID = project.ID
+			break
+		}
+	}
+
+	if projectID.IsZero() {
+		return errs.New("project not found for satellite %s", satellite.ID())
+	}
+
+	_, err = satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+		Name:       bucketName,
+		ProjectID:  projectID,
+		Versioning: buckets.Unversioned,
+	})
+	return errs.Wrap(err)
+}
+
+// CreateBucket creates a new bucket. It's doing it using uplink API.
 func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -411,7 +432,7 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bu
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	_, err = project.CreateBucket(ctx, bucketName)
+	_, err = project.EnsureBucket(ctx, bucketName)
 	if err != nil {
 		return errs.Wrap(err)
 	}

@@ -10,12 +10,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Worker is responsible for completing the graceful exit for a given satellite.
@@ -25,12 +25,12 @@ type Worker struct {
 	service *Service
 
 	dialer              rpc.Dialer
-	satelliteURL        storj.NodeURL
+	satelliteURL        storxnetwork.NodeURL
 	concurrentTransfers int
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, service *Service, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
+func NewWorker(log *zap.Logger, service *Service, dialer rpc.Dialer, satelliteURL storxnetwork.NodeURL, config Config) *Worker {
 	return &Worker{
 		log:                 process.NamedLog(log, satelliteURL.String()),
 		service:             service,
@@ -93,7 +93,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 
 		case *pb.SatelliteMessage_ExitFailed:
 			worker.log.Error("graceful exit failed.",
-				zap.Stringer("Satellite ID", worker.satelliteURL.ID),
+				zap.Stringer("satellite_id", worker.satelliteURL.ID),
 				zap.Stringer("reason", msg.ExitFailed.Reason))
 
 			exitFailedBytes, err := pb.Marshal(msg.ExitFailed)
@@ -104,7 +104,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 			return errs.Wrap(worker.service.ExitFailed(ctx, worker.satelliteURL.ID, msg.ExitFailed.Reason, exitFailedBytes))
 
 		case *pb.SatelliteMessage_ExitCompleted:
-			worker.log.Info("graceful exit completed.", zap.Stringer("Satellite ID", worker.satelliteURL.ID))
+			worker.log.Info("graceful exit completed.", zap.Stringer("satellite_id", worker.satelliteURL.ID))
 
 			exitCompletedBytes, err := pb.Marshal(msg.ExitCompleted)
 			if err != nil {
@@ -119,7 +119,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 			return errs.Wrap(worker.service.DeleteSatelliteData(ctx, worker.satelliteURL.ID))
 		default:
 			// TODO handle err
-			worker.log.Error("unknown graceful exit message.", zap.Stringer("Satellite ID", worker.satelliteURL.ID))
+			worker.log.Error("unknown graceful exit message.", zap.Stringer("satellite_id", worker.satelliteURL.ID))
 		}
 	}
 }

@@ -7,22 +7,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/stripe/stripe-go/v75"
-	"github.com/stripe/stripe-go/v75/charge"
-	"github.com/stripe/stripe-go/v75/customer"
-	"github.com/stripe/stripe-go/v75/customerbalancetransaction"
-	"github.com/stripe/stripe-go/v75/form"
-	"github.com/stripe/stripe-go/v75/invoice"
-	"github.com/stripe/stripe-go/v75/invoiceitem"
-	"github.com/stripe/stripe-go/v75/paymentmethod"
-	"github.com/stripe/stripe-go/v75/promotioncode"
+	"github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/charge"
+	"github.com/stripe/stripe-go/v81/customer"
+	"github.com/stripe/stripe-go/v81/customerbalancetransaction"
+	"github.com/stripe/stripe-go/v81/form"
+	"github.com/stripe/stripe-go/v81/invoice"
+	"github.com/stripe/stripe-go/v81/invoiceitem"
+	"github.com/stripe/stripe-go/v81/paymentmethod"
+	"github.com/stripe/stripe-go/v81/promotioncode"
 
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -104,12 +105,15 @@ type mockStripeState struct {
 
 	customers                   *mockCustomersState
 	paymentMethods              *mockPaymentMethods
+	paymentIntents              *mockPaymentIntents
+	setupIntents                *mockSetupIntents
 	invoices                    *mockInvoices
 	invoiceItems                *mockInvoiceItems
 	customerBalanceTransactions *mockCustomerBalanceTransactions
 	charges                     *mockCharges
 	promoCodes                  *mockPromoCodes
 	creditNotes                 *mockCreditNotes
+	taxIDs                      *mockTaxIDs
 }
 
 type mockStripeClient struct {
@@ -129,19 +133,22 @@ var mockEmptyQuery = stripe.Query(func(*stripe.Params, *form.Values) ([]interfac
 // times with the same id, it will return the same mock instance for that id.
 //
 // If called by satellite component, the id param should be the peer.ID().
-// If called by CLI tool, the id param should be a zero value, i.e. storj.NodeID{}.
+// If called by CLI tool, the id param should be a zero value, i.e. storxnetwork.NodeID{}.
 // If called by satellitedb test case, the id param should be a random value,
 // i.e. testrand.NodeID().
 func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state := &mockStripeState{}
 	state.customers = &mockCustomersState{}
 	state.paymentMethods = newMockPaymentMethods(state)
+	state.paymentIntents = &mockPaymentIntents{}
+	state.setupIntents = &mockSetupIntents{}
 	state.invoiceItems = newMockInvoiceItems(state)
 	state.invoices = newMockInvoices(state, state.invoiceItems)
 	state.customerBalanceTransactions = newMockCustomerBalanceTransactions(state)
 	state.charges = &mockCharges{}
 	state.promoCodes = newMockPromoCodes(state)
 	state.creditNotes = newMockCreditNotes(state)
+	state.taxIDs = newMockTaxIDs(state)
 
 	return &mockStripeClient{
 		customersDB:     customersDB,
@@ -167,6 +174,14 @@ func (m *mockStripeClient) PaymentMethods() PaymentMethods {
 	return m.paymentMethods
 }
 
+func (m *mockStripeClient) PaymentIntents() PaymentIntents {
+	return m.paymentIntents
+}
+
+func (m *mockStripeClient) SetupIntents() SetupIntents {
+	return m.setupIntents
+}
+
 func (m *mockStripeClient) Invoices() Invoices {
 	return m.invoices
 }
@@ -189,6 +204,10 @@ func (m *mockStripeClient) PromoCodes() PromoCodes {
 
 func (m *mockStripeClient) CreditNotes() CreditNotes {
 	return m.creditNotes
+}
+
+func (m *mockStripeClient) TaxIDs() TaxIDs {
+	return m.taxIDs
 }
 
 type mockCustomers struct {
@@ -228,30 +247,32 @@ func (m *mockCustomers) repopulate() error {
 	defer m.root.mu.Unlock()
 
 	if !m.state.repopulated {
-		const limit = 25
-		ctx := context.TODO()
+		const limit = 100
 
-		cusPage, err := m.customersDB.List(ctx, uuid.UUID{}, limit, time.Now())
+		ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+		defer cancel()
+
+		users, err := m.usersDB.TestingGetAll(ctx)
 		if err != nil {
-			return err
-		}
-		for _, cus := range cusPage.Customers {
-			user, err := m.usersDB.Get(ctx, cus.UserID)
-			if err != nil {
-				return err
-			}
-			m.state.customers = append(m.state.customers, newMockCustomer(cus.ID, user.Email))
+			return Error.Wrap(err)
 		}
 
+		userByID := map[uuid.UUID]*console.User{}
+		for _, user := range users {
+			userByID[user.ID] = user
+		}
+
+		var cusPage CustomersPage
+		cusPage.Next = true
 		for cusPage.Next {
 			cusPage, err = m.customersDB.List(ctx, cusPage.Cursor, limit, time.Now())
 			if err != nil {
-				return err
+				return Error.Wrap(err)
 			}
 			for _, cus := range cusPage.Customers {
-				user, err := m.usersDB.Get(ctx, cus.UserID)
-				if err != nil {
-					return err
+				user, ok := userByID[cus.UserID]
+				if !ok {
+					return Error.New("user %q not found", cus.UserID)
 				}
 				m.state.customers = append(m.state.customers, newMockCustomer(cus.ID, user.Email))
 			}
@@ -357,12 +378,40 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		customer.Balance = *params.Balance
 	}
 	if params.InvoiceSettings != nil {
+		customInvoiceSettings := &stripe.CustomerInvoiceSettings{}
+
 		if params.InvoiceSettings.DefaultPaymentMethod != nil {
-			customer.InvoiceSettings = &stripe.CustomerInvoiceSettings{
-				DefaultPaymentMethod: &stripe.PaymentMethod{
-					ID: *params.InvoiceSettings.DefaultPaymentMethod,
-				},
+			customInvoiceSettings.DefaultPaymentMethod = &stripe.PaymentMethod{
+				ID: *params.InvoiceSettings.DefaultPaymentMethod,
 			}
+		}
+		if params.InvoiceSettings.CustomFields != nil {
+			var customFields []*stripe.CustomerInvoiceSettingsCustomField
+			for _, field := range params.InvoiceSettings.CustomFields {
+				f := &stripe.CustomerInvoiceSettingsCustomField{
+					Name:  *field.Name,
+					Value: *field.Value,
+				}
+				customFields = append(customFields, f)
+			}
+
+			customInvoiceSettings.CustomFields = customFields
+		}
+
+		customer.InvoiceSettings = customInvoiceSettings
+	}
+
+	if params.Name != nil {
+		customer.Name = *params.Name
+	}
+	if params.Address != nil {
+		customer.Address = &stripe.Address{
+			Line1:      *params.Address.Line1,
+			Line2:      *params.Address.Line2,
+			City:       *params.Address.City,
+			State:      *params.Address.State,
+			PostalCode: *params.Address.PostalCode,
+			Country:    *params.Address.Country,
 		}
 	}
 	// TODO update customer with more params as necessary
@@ -447,28 +496,37 @@ func (m *mockPaymentMethods) Get(id string, params *stripe.PaymentMethodParams) 
 
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
 	randID := testrand.BucketName()
-	id := fmt.Sprintf("pm_card_%s", randID)
+	id := "pm_card_" + randID
 	if params.Card.Token != nil {
 		switch *params.Card.Token {
 		case TestPaymentMethodsNewFailure:
 			return nil, &stripe.Error{}
 		case TestPaymentMethodsAttachFailure:
 			id = TestPaymentMethodsAttachFailure
+		case MockInvoicesPaySuccess:
+			id = MockInvoicesPaySuccess
 		case MockInvoicesPayFailure:
 			id = MockInvoicesPayFailure
 		}
 	}
 
+	card := &stripe.PaymentMethodCard{
+		ExpMonth:    12,
+		ExpYear:     2050,
+		Brand:       "Mastercard",
+		Last4:       "4444",
+		Description: randID,
+		Fingerprint: "fingerprint" + *params.Card.Token,
+	}
+
+	if params.Card.ExpYear != nil && params.Card.ExpMonth != nil {
+		card.ExpYear = *params.Card.ExpYear
+		card.ExpMonth = *params.Card.ExpMonth
+	}
+
 	newMethod := &stripe.PaymentMethod{
-		ID: id,
-		Card: &stripe.PaymentMethodCard{
-			ExpMonth:    12,
-			ExpYear:     2050,
-			Brand:       "Mastercard",
-			Last4:       "4444",
-			Description: randID,
-			Fingerprint: "fingerprint" + *params.Card.Token,
-		},
+		ID:   id,
+		Card: card,
 		Type: stripe.PaymentMethodTypeCard,
 	}
 
@@ -478,6 +536,32 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 	m.unattached = append(m.unattached, newMethod)
 
 	return newMethod, nil
+}
+
+func (m *mockPaymentMethods) Update(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
+	if params.Card == nil || params.Card.ExpMonth == nil || params.Card.ExpYear == nil {
+		return nil, errors.New("missing required field")
+	}
+	card := &stripe.PaymentMethodCard{
+		ExpMonth: *params.Card.ExpMonth,
+		ExpYear:  *params.Card.ExpYear,
+	}
+
+	method, err := m.Get(id, nil)
+	if err != nil {
+		return nil, err
+	}
+	if method.Card == nil {
+		return nil, errors.New("payment method has no card")
+	}
+
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	method.Card.ExpMonth = card.ExpMonth
+	method.Card.ExpYear = card.ExpYear
+
+	return method, nil
 }
 
 func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error) {
@@ -519,6 +603,27 @@ func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetac
 	}
 
 	return unattached, nil
+}
+
+type mockPaymentIntents struct{}
+
+type mockSetupIntents struct{}
+
+func (m *mockPaymentIntents) New(params *stripe.PaymentIntentParams) (*stripe.PaymentIntent, error) {
+	return &stripe.PaymentIntent{
+		Status:   stripe.PaymentIntentStatusSucceeded,
+		Amount:   *params.Amount,
+		Metadata: params.Metadata,
+	}, nil
+}
+
+func (m *mockSetupIntents) New(params *stripe.SetupIntentParams) (*stripe.SetupIntent, error) {
+	return &stripe.SetupIntent{
+		ClientSecret: fmt.Sprintf("seti_%d_secret", rand.Int31()),
+		Status:       stripe.SetupIntentStatusSucceeded,
+		Usage:        stripe.SetupIntentUsage(*params.Usage),
+		Metadata:     params.Metadata,
+	}, nil
 }
 
 type mockInvoices struct {
@@ -706,6 +811,8 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 	for _, invoices := range m.invoices {
 		for _, invoice := range invoices {
 			if invoice.ID == id {
+				invoice.Attempted = true
+				invoice.AttemptCount++
 				if params.PaymentMethod != nil {
 					if *params.PaymentMethod == MockInvoicesPayFailure {
 						invoice.Status = stripe.InvoiceStatusOpen
@@ -898,11 +1005,12 @@ func (m *mockCustomerBalanceTransactions) New(params *stripe.CustomerBalanceTran
 		}
 	}
 	tx := &stripe.CustomerBalanceTransaction{
-		Type:        stripe.CustomerBalanceTransactionTypeAdjustment,
-		Amount:      *params.Amount,
-		Description: *params.Description,
-		Metadata:    params.Metadata,
-		Created:     time.Now().Unix(),
+		Type:          stripe.CustomerBalanceTransactionTypeAdjustment,
+		Amount:        *params.Amount,
+		Description:   *params.Description,
+		Metadata:      params.Metadata,
+		Created:       time.Now().Unix(),
+		EndingBalance: *params.Amount,
 	}
 
 	m.transactions[*params.Customer] = append(m.transactions[*params.Customer], tx)
@@ -941,8 +1049,7 @@ func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanc
 	return &customerbalancetransaction.Iter{Iter: stripe.GetIter(listParams, query)}
 }
 
-type mockCharges struct {
-}
+type mockCharges struct{}
 
 func (m *mockCharges) List(listParams *stripe.ChargeListParams) *charge.Iter {
 	return &charge.Iter{Iter: stripe.GetIter(listParams, mockEmptyQuery)}
@@ -1080,4 +1187,63 @@ func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNot
 	}
 
 	return item, nil
+}
+
+type mockTaxIDs struct {
+	root *mockStripeState
+}
+
+func newMockTaxIDs(root *mockStripeState) *mockTaxIDs {
+	return &mockTaxIDs{
+		root: root,
+	}
+}
+
+func (m *mockTaxIDs) New(params *stripe.TaxIDParams) (*stripe.TaxID, error) {
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	if params.Customer == nil || params.Type == nil || params.Value == nil {
+		return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
+	}
+
+	taxID := &stripe.TaxID{
+		ID:    "txi_" + string(testrand.RandAlphaNumeric(25)),
+		Type:  stripe.TaxIDType(*params.Type),
+		Value: *params.Value,
+	}
+
+	for _, c := range m.root.customers.customers {
+		if c.ID == *params.Customer {
+			if c.TaxIDs == nil {
+				c.TaxIDs = &stripe.TaxIDList{}
+			}
+			c.TaxIDs.Data = append(c.TaxIDs.Data, taxID)
+		}
+	}
+
+	return taxID, nil
+}
+
+func (m *mockTaxIDs) Del(id string, params *stripe.TaxIDParams) (*stripe.TaxID, error) {
+	for _, c := range m.root.customers.customers {
+		if c.TaxIDs == nil {
+			continue
+		}
+		for _, taxID := range c.TaxIDs.Data {
+			if taxID.ID != id {
+				continue
+			}
+			// remove this taxID from the customer
+			var newTaxIDs []*stripe.TaxID
+			for _, t := range c.TaxIDs.Data {
+				if t.ID != taxID.ID {
+					newTaxIDs = append(newTaxIDs, t)
+				}
+			}
+			c.TaxIDs.Data = newTaxIDs
+			return taxID, nil
+		}
+	}
+	return nil, nil
 }

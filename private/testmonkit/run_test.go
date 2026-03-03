@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/private/testmonkit"
+	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
 )
 
 func TestBasic(t *testing.T) {
 	// Set STORJ_TEST_MONKIT=svg,json for this to see the output.
-	testmonkit.Run(context.Background(), t, func(ctx context.Context) {
+	testmonkit.Run(t.Context(), t, func(ctx context.Context) {
 		time.Sleep(100 * time.Millisecond)
 	})
 }

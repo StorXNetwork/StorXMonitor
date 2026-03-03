@@ -10,10 +10,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jtolio/mito"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // NodeFilter can decide if a Node should be part of the selection or not.
@@ -161,7 +162,7 @@ func (n NodeFilters) WithCountryFilter(permit location.Set) NodeFilters {
 }
 
 // WithExcludedIDs is a helper to create a new filter with additional WithExcludedIDs.
-func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
+func (n NodeFilters) WithExcludedIDs(ds []storxnetwork.NodeID) NodeFilters {
 	return append(n, ExcludedIDs(ds))
 }
 
@@ -239,6 +240,29 @@ func NewCountryFilterFromString(countries []string) (*CountryFilter, error) {
 	return NewCountryFilter(set), nil
 }
 
+// NewContinentFilterFromString parses country definitions like 'SA','!NA'.
+func NewContinentFilterFromString(continent string) (*CountryFilter, error) {
+	var set location.Set
+	apply := func(modified location.Set, code ...location.CountryCode) location.Set {
+		return modified.With(code...)
+	}
+	if continent[0] == '!' {
+		set = location.NewFullSet()
+		apply = func(modified location.Set, code ...location.CountryCode) location.Set {
+			return modified.Without(code...)
+		}
+		continent = continent[1:]
+	}
+
+	countries, ok := location.Continents[continent]
+	if !ok {
+		panic(fmt.Sprintf("unknown continent %q", continent))
+	}
+	set = apply(set, countries...)
+
+	return NewCountryFilter(set), nil
+}
+
 // Match implements NodeFilter interface.
 func (p *CountryFilter) Match(node *SelectedNode) bool {
 	return p.permit.Contains(node.CountryCode)
@@ -294,7 +318,7 @@ func (e ExcludedNodeNetworks) Match(node *SelectedNode) bool {
 var _ NodeFilter = ExcludedNodeNetworks{}
 
 // ExcludedIDs can blacklist NodeIDs.
-type ExcludedIDs []storj.NodeID
+type ExcludedIDs []storxnetwork.NodeID
 
 // Match implements NodeFilter interface.
 func (e ExcludedIDs) Match(node *SelectedNode) bool {
@@ -313,14 +337,14 @@ type ValueMatch func(a []byte, b []byte) bool
 
 // TagFilter matches nodes with specific tags.
 type TagFilter struct {
-	signer storj.NodeID
+	signer storxnetwork.NodeID
 	name   string
 	value  []byte
 	match  ValueMatch
 }
 
 // NewTagFilter creates a new tag filter.
-func NewTagFilter(id storj.NodeID, name string, value []byte, match ValueMatch) TagFilter {
+func NewTagFilter(id storxnetwork.NodeID, name string, value []byte, match ValueMatch) TagFilter {
 	return TagFilter{
 		signer: id,
 		name:   name,
@@ -379,7 +403,7 @@ func (a AnyFilter) Match(node *SelectedNode) bool {
 var _ NodeFilter = AnyFilter{}
 
 // AllowedNodesFilter is a special filter which enables only the selected nodes.
-type AllowedNodesFilter []storj.NodeID
+type AllowedNodesFilter []storxnetwork.NodeID
 
 // AllowedNodesFromFile loads a list of allowed NodeIDs from a text file. One ID per line.
 func AllowedNodesFromFile(file string) (AllowedNodesFilter, error) {
@@ -402,26 +426,26 @@ func AllowedNodesFromFile(file string) (AllowedNodesFilter, error) {
 	return l, nil
 }
 
-func parseHexOrBase58ID(line string) (storj.NodeID, error) {
-	id, err := storj.NodeIDFromString(line)
+func parseHexOrBase58ID(line string) (storxnetwork.NodeID, error) {
+	id, err := storxnetwork.NodeIDFromString(line)
 	if err == nil {
 		return id, nil
 	}
 	raw, err := hex.DecodeString(line)
 	if err != nil {
-		return storj.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
+		return storxnetwork.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
 	}
-	id, err = storj.NodeIDFromBytes(raw)
+	id, err = storxnetwork.NodeIDFromBytes(raw)
 	if err != nil {
-		return storj.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
+		return storxnetwork.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
 	}
 	return id, nil
 }
 
 // Match implements NodeFilter.
 func (n AllowedNodesFilter) Match(node *SelectedNode) bool {
-	for _, white := range n {
-		if node.ID == white {
+	for _, allowed := range n {
+		if node.ID == allowed {
 			return true
 		}
 	}
@@ -432,32 +456,83 @@ var _ NodeFilter = AllowedNodesFilter{}
 
 // AttributeFilter selects nodes based on dynamic node attributes (eg. vetted=true or tag:owner=...).
 type AttributeFilter struct {
-	attribute NodeAttribute
-	value     interface{}
+	mapper func(SelectedNode) any
+	test   mito.OpType
+	value  interface{}
 }
 
-// NewAttributeFilter creates new attribute filter. Value should be string or stringNotMatch.
-func NewAttributeFilter(attr string, value interface{}) (*AttributeFilter, error) {
-	attribute, err := CreateNodeAttribute(attr)
+// NewAttributeFilter creates new attribute filter. testStr is the type of
+// equality test to perform, can be "=", "==", "!=", "<>", "<", "<=", ">", ">=".
+// If value is stringNotMatch, then the test is inverted.
+func NewAttributeFilter(attr string, testStr string, value any) (*AttributeFilter, error) {
+	test := mito.OpEqual
+	switch testStr {
+	case "=", "==", "":
+	case "!=", "<>":
+		test = mito.OpNotEqual
+	case "<":
+		test = mito.OpLess
+	case "<=":
+		test = mito.OpLessEqual
+	case ">":
+		test = mito.OpGreater
+	case ">=":
+		test = mito.OpGreaterEqual
+	default:
+		return nil, errs.New("invalid call to create new attribute filter. Received 3 arguments, second argument was not an expected test")
+	}
+
+	m, err := createNodeMapping(attr)
 	if err != nil {
 		return nil, err
 	}
 	return &AttributeFilter{
-		value:     value,
-		attribute: attribute,
+		mapper: m,
+		test:   test,
+		value:  value,
 	}, nil
+}
+
+// CreateNodeMapping creates either NodeValue Or NodeAttribute from a string.
+// Try to use the more specific, typed CreateNodeValue and CreateNodeAttribute when possible.
+func createNodeMapping(attr string) (func(node SelectedNode) any, error) {
+	na, err := CreateNodeAttribute(attr)
+	if err == nil {
+		return func(node SelectedNode) any {
+			return na(node)
+		}, nil
+	}
+	nv, err2 := CreateNodeValue(attr)
+	if err2 == nil {
+		return func(node SelectedNode) any {
+			return nv(node)
+		}, nil
+	}
+	return nil, errs.New("String %s is neither a node attribute (%s) nor a node value (%s)", attr, err, err2)
+}
+
+func compare(a any, test mito.OpType, b any) bool {
+	res, err := (&mito.Operation{
+		Type:  test,
+		Left:  &mito.Value[any]{Val: a},
+		Right: &mito.Value[any]{Val: b},
+	}).Run(map[any]any{})
+	if err != nil {
+		return false
+	}
+	resbool, ok := res.(bool)
+	return ok && resbool
 }
 
 // Match implements NodeFilter.
 func (a *AttributeFilter) Match(node *SelectedNode) bool {
-	attribute := a.attribute(*node)
+	attribute := a.mapper(*node)
+
 	switch v := a.value.(type) {
 	case stringNotMatch:
-		return attribute != string(v)
-	case string:
-		return attribute == a.value
+		return !compare(attribute, a.test, string(v))
 	default:
-		return false
+		return compare(attribute, a.test, v)
 	}
 }
 

@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 // ensures that coupons implements payments.Coupons.
@@ -34,7 +34,7 @@ func (coupons *coupons) ApplyFreeTierCoupon(ctx context.Context, userID uuid.UUI
 
 	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{
 		Params: stripe.Params{Context: ctx},
-		Coupon: stripe.String(coupons.service.StripeFreeTierCouponID),
+		Coupon: stripe.String(coupons.service.stripeConfig.StripeFreeTierCouponID),
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)

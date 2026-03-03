@@ -11,11 +11,12 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // CSVWriter writes segments to a file.
@@ -61,6 +62,8 @@ func (csv *CSVWriter) Write(ctx context.Context, segments []*Segment) (err error
 		err := csv.wr.Write([]string{
 			"stream id",
 			"position",
+			"created_at",
+			"required",
 			"found",
 			"not found",
 			"retry",
@@ -79,10 +82,12 @@ func (csv *CSVWriter) Write(ctx context.Context, segments []*Segment) (err error
 
 		err := csv.wr.Write([]string{
 			seg.StreamID.String(),
-			fmt.Sprint(seg.Position.Encode()),
-			fmt.Sprint(seg.Status.Found),
-			fmt.Sprint(seg.Status.NotFound),
-			fmt.Sprint(seg.Status.Retry),
+			strconv.FormatUint(seg.Position.Encode(), 10),
+			seg.CreatedAt.Format(time.RFC3339),
+			strconv.Itoa(int(seg.Redundancy.RequiredShares)),
+			strconv.Itoa(int(seg.Status.Found)),
+			strconv.Itoa(int(seg.Status.NotFound)),
+			strconv.Itoa(int(seg.Status.Retry)),
 		})
 		if err != nil {
 			return Error.Wrap(err)
@@ -126,7 +131,7 @@ func (csv *pieceCSVWriter) Close() error {
 func (csv *pieceCSVWriter) Write(
 	ctx context.Context,
 	segment *metabase.VerifySegment,
-	nodeID storj.NodeID,
+	nodeID storxnetwork.NodeID,
 	pieceNum int,
 	outcome audit.Outcome,
 ) (err error) {
@@ -142,6 +147,7 @@ func (csv *pieceCSVWriter) Write(
 		err := csv.wr.Write([]string{
 			"stream id",
 			"position",
+			"created_at",
 			"node id",
 			"piece number",
 			"outcome",
@@ -157,9 +163,10 @@ func (csv *pieceCSVWriter) Write(
 
 	err = csv.wr.Write([]string{
 		segment.StreamID.String(),
-		fmt.Sprint(segment.Position.Encode()),
+		strconv.FormatUint(segment.Position.Encode(), 10),
+		segment.CreatedAt.Format(time.RFC3339),
 		nodeID.String(),
-		fmt.Sprint(pieceNum),
+		strconv.Itoa(pieceNum),
 		outcomeString(outcome),
 	})
 	return Error.Wrap(err)

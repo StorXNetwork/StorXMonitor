@@ -7,7 +7,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/eventkit"
+	"github.com/StorXNetwork/eventkit"
 )
 
 var (

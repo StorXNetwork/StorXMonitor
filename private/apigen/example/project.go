@@ -4,7 +4,7 @@
 package example
 
 import (
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Project contains project information.

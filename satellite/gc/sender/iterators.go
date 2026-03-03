@@ -13,9 +13,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/uplink"
 )
 
 // IterateZipObjectKeys checks inside the top-level of a bucket and yields the keys which look like zip files.
@@ -134,7 +134,7 @@ func validate(fileName string, retainInfo internalpb.RetainInfo) error {
 		return errs.New("Retain filter count is zero for storage node %s", retainInfo.StorageNodeId.String())
 	}
 
-	if retainInfo.Filter == nil || len(retainInfo.Filter) == 0 {
+	if len(retainInfo.Filter) == 0 {
 		return errs.New("Retain filter is missing for storage node %s", retainInfo.StorageNodeId.String())
 	}
 

@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Worker is responsible for completing the cleanup for a given satellite.
@@ -17,11 +17,11 @@ type Worker struct {
 
 	cleaner *Cleaner
 
-	satellite storj.NodeID
+	satellite storxnetwork.NodeID
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, cleaner *Cleaner, satellite storj.NodeID) *Worker {
+func NewWorker(log *zap.Logger, cleaner *Cleaner, satellite storxnetwork.NodeID) *Worker {
 	return &Worker{
 		log:       log,
 		cleaner:   cleaner,

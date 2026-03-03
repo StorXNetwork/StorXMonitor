@@ -32,12 +32,13 @@
 *.swp
 /bin
 resource.syso
+resource_*.syso
 
 *.resource.go
 
 .build
 
-# storj-up automatically generates these files and should not be commit
+# storxnetwork-up automatically generates these files and should not be commit
 /docker-compose.yaml
 /.history/
 dist
@@ -51,4 +52,3 @@ node_modules/
 # go workspaces
 go.work
 go.work.sum
-

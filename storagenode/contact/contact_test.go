@@ -13,13 +13,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode/contact"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
 )
 
 func TestStoragenodeContactEndpoint(t *testing.T) {
@@ -108,7 +108,7 @@ func TestServicePingSatellites(t *testing.T) {
 		}
 
 		node.Contact.Service.UpdateSelf(&newCapacity)
-		err := node.Contact.Service.PingSatellites(ctx, 10*time.Second)
+		err := node.Contact.Service.PingSatellites(ctx, 10*time.Second, 15*time.Second)
 		require.NoError(t, err)
 
 		for _, satellite := range planet.Satellites {

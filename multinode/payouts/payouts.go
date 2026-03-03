@@ -4,19 +4,19 @@
 package payouts
 
 import (
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // SatelliteSummary contains satellite id and earned amount.
 type SatelliteSummary struct {
-	SatelliteID storj.NodeID `json:"satelliteID"`
-	Earned      int64        `json:"earned"`
+	SatelliteID storxnetwork.NodeID `json:"satelliteID"`
+	Earned      int64               `json:"earned"`
 }
 
 // HeldAmountHistory contains held amount history of particular satellite.
 type HeldAmountHistory struct {
-	SatelliteID storj.NodeID `json:"satelliteId"`
-	HeldAmounts []HeldAmount `json:"heldAmounts"`
+	SatelliteID storxnetwork.NodeID `json:"satelliteId"`
+	HeldAmounts []HeldAmount        `json:"heldAmounts"`
 }
 
 // HeldAmount contains amount held for period.
@@ -27,20 +27,20 @@ type HeldAmount struct {
 
 // HeldAmountSummary contains held amount summary for first 3 quarters.
 type HeldAmountSummary struct {
-	SatelliteID      storj.NodeID `json:"satelliteId"`
-	SatelliteAddress string       `json:"satelliteAddress"`
-	FirstQuarter     int64        `json:"firstQuarter"`
-	SecondQuarter    int64        `json:"secondQuarter"`
-	ThirdQuarter     int64        `json:"thirdQuarter"`
-	PeriodCount      int          `json:"periodCount"`
+	SatelliteID      storxnetwork.NodeID `json:"satelliteId"`
+	SatelliteAddress string              `json:"satelliteAddress"`
+	FirstQuarter     int64               `json:"firstQuarter"`
+	SecondQuarter    int64               `json:"secondQuarter"`
+	ThirdQuarter     int64               `json:"thirdQuarter"`
+	PeriodCount      int                 `json:"periodCount"`
 }
 
 // NodeSummary contains node's payout information.
 type NodeSummary struct {
-	NodeID   storj.NodeID `json:"nodeId"`
-	NodeName string       `json:"nodeName"`
-	Held     int64        `json:"held"`
-	Paid     int64        `json:"paid"`
+	NodeID   storxnetwork.NodeID `json:"nodeId"`
+	NodeName string              `json:"nodeName"`
+	Held     int64               `json:"held"`
+	Paid     int64               `json:"paid"`
 }
 
 // Summary contains payouts page data.
@@ -52,7 +52,7 @@ type Summary struct {
 }
 
 // Add appends node payout data to summary.
-func (summary *Summary) Add(held, paid int64, id storj.NodeID, name string) {
+func (summary *Summary) Add(held, paid int64, id storxnetwork.NodeID, name string) {
 	summary.TotalPaid += paid
 	summary.TotalHeld += held
 	summary.TotalEarned += paid + held

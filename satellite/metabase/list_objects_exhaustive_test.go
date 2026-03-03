@@ -10,10 +10,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
 )
 
 var listObjectsExhaustive = flag.Bool("exhaustive", false, "exhaustively test list objects implementation")
@@ -41,42 +41,44 @@ func TestListObjects_Exhaustive(t *testing.T) {
 		var opts metabase.ListObjects
 		opts.ProjectID = uuid.UUID{1}
 		opts.BucketName = "b"
-		for _, opts.Prefix = range []metabase.ObjectKey{"", "A/", "B/"} {
-			for _, opts.Pending = range []bool{false} {
-				for _, opts.AllVersions = range []bool{false} {
-					for _, opts.Recursive = range []bool{true, false} {
-						for _, opts.Limit = range []int{1, 3, 7} {
-							opts.Cursor.Key = ""
-							opts.Cursor.Version = 0
-							check(opts)
-
-							opts.Cursor.Version = metabase.MaxVersion
-							check(opts)
-
-							opts.Cursor.Version = 4
-							check(opts)
-
-							opts.Cursor.Version = 5
-							check(opts)
-
-							for i := range entries {
-								entry := &entries[i]
-								opts.Cursor.Key = entry.ObjectKey
-
+		for _, opts.Delimiter = range []metabase.ObjectKey{"/", "AA", "\xff", "\xff\xff"} {
+			for _, opts.Prefix = range []metabase.ObjectKey{"", "A", "B", "AA/", "BB/"} {
+				for _, opts.Pending = range []bool{true, false} {
+					for _, opts.AllVersions = range []bool{true, false} {
+						for _, opts.Recursive = range []bool{true, false} {
+							for _, opts.Limit = range []int{1, 3, 7} {
+								opts.Cursor.Key = ""
 								opts.Cursor.Version = 0
-								check(opts)
-
-								opts.Cursor.Version = entry.Version
 								check(opts)
 
 								opts.Cursor.Version = metabase.MaxVersion
 								check(opts)
 
-								opts.Cursor.Version = entry.Version - 1
+								opts.Cursor.Version = 4
 								check(opts)
 
-								opts.Cursor.Version = entry.Version + 1
+								opts.Cursor.Version = 5
 								check(opts)
+
+								for i := range entries {
+									entry := &entries[i]
+									opts.Cursor.Key = entry.ObjectKey
+
+									opts.Cursor.Version = 0
+									check(opts)
+
+									opts.Cursor.Version = entry.Version
+									check(opts)
+
+									opts.Cursor.Version = metabase.MaxVersion
+									check(opts)
+
+									opts.Cursor.Version = entry.Version - 1
+									check(opts)
+
+									opts.Cursor.Version = entry.Version + 1
+									check(opts)
+								}
 							}
 						}
 					}
@@ -129,19 +131,19 @@ func generateExhaustiveTestData() []metabase.ObjectEntry {
 				Status:    metabase.CommittedVersioned,
 			},
 			metabase.ObjectEntry{
-				ObjectKey: metabase.ObjectKey([]byte{a, 0x00}),
+				ObjectKey: metabase.ObjectKey([]byte{a, a, 0x00}),
 				Version:   1,
 				StreamID:  streamID,
 				Status:    metabase.CommittedVersioned,
 			},
 			metabase.ObjectEntry{
-				ObjectKey: metabase.ObjectKey([]byte{a, 0xFF}),
+				ObjectKey: metabase.ObjectKey([]byte{a, a, 0xFF}),
 				Version:   1,
 				StreamID:  streamID,
 				Status:    metabase.CommittedVersioned,
 			},
 			metabase.ObjectEntry{
-				ObjectKey: metabase.ObjectKey([]byte{a, '/'}),
+				ObjectKey: metabase.ObjectKey([]byte{a, a, '/'}),
 				Version:   1,
 				StreamID:  streamID,
 				Status:    metabase.CommittedVersioned,
@@ -156,19 +158,19 @@ func generateExhaustiveTestData() []metabase.ObjectEntry {
 					Status:    metabase.DeleteMarkerVersioned,
 				},
 				metabase.ObjectEntry{
-					ObjectKey: metabase.ObjectKey([]byte{a, 0x00}),
+					ObjectKey: metabase.ObjectKey([]byte{a, a, 0x00}),
 					Version:   2,
 					StreamID:  streamID,
 					Status:    metabase.DeleteMarkerVersioned,
 				},
 				metabase.ObjectEntry{
-					ObjectKey: metabase.ObjectKey([]byte{a, 0xFF}),
+					ObjectKey: metabase.ObjectKey([]byte{a, a, 0xFF}),
 					Version:   2,
 					StreamID:  streamID,
 					Status:    metabase.DeleteMarkerVersioned,
 				},
 				metabase.ObjectEntry{
-					ObjectKey: metabase.ObjectKey([]byte{a, '/'}),
+					ObjectKey: metabase.ObjectKey([]byte{a, a, '/'}),
 					Version:   2,
 					StreamID:  streamID,
 					Status:    metabase.DeleteMarkerVersioned,
@@ -179,31 +181,31 @@ func generateExhaustiveTestData() []metabase.ObjectEntry {
 		for _, b := range cornerBytes {
 			entries = append(entries,
 				metabase.ObjectEntry{
-					ObjectKey: metabase.ObjectKey([]byte{a, '/', b}),
+					ObjectKey: metabase.ObjectKey([]byte{a, a, '/', b}),
 					Version:   1,
 					StreamID:  streamID,
 					Status:    metabase.CommittedVersioned,
 				},
 				metabase.ObjectEntry{
-					ObjectKey: metabase.ObjectKey([]byte{a, '/', b}),
+					ObjectKey: metabase.ObjectKey([]byte{a, a, '/', b}),
 					Version:   2,
 					StreamID:  streamID,
 					Status:    metabase.CommittedVersioned,
 				},
 				metabase.ObjectEntry{
-					ObjectKey: metabase.ObjectKey([]byte{a, '/', b}),
+					ObjectKey: metabase.ObjectKey([]byte{a, a, '/', b}),
 					Version:   3,
 					StreamID:  streamID,
 					Status:    metabase.CommittedVersioned,
 				},
 				metabase.ObjectEntry{
-					ObjectKey: metabase.ObjectKey([]byte{a, '/', b, 0x00}),
+					ObjectKey: metabase.ObjectKey([]byte{a, a, '/', b, 0x00}),
 					Version:   1,
 					StreamID:  streamID,
 					Status:    metabase.CommittedVersioned,
 				},
 				metabase.ObjectEntry{
-					ObjectKey: metabase.ObjectKey([]byte{a, '/', b, 0xFF}),
+					ObjectKey: metabase.ObjectKey([]byte{a, a, '/', b, 0xFF}),
 					Version:   1,
 					StreamID:  streamID,
 					Status:    metabase.CommittedVersioned,

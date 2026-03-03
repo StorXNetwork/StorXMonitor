@@ -11,9 +11,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // BlobsCleaner checks for satellites that the node has completed exit successfully and clear blobs of it.

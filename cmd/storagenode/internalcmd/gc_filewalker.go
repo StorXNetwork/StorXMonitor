@@ -11,14 +11,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/iopriority"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/iopriority"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
+
+const piecesBatchSize = 1000
 
 // NewGCFilewalkerCmd creates a new cobra command for running garbage collection filewalker.
 func NewGCFilewalkerCmd() *LazyFilewalkerCmd {
@@ -97,29 +99,68 @@ func gcCmdRun(g *RunOptions) (err error) {
 		return err
 	}
 
-	log.Info("gc-filewalker started", zap.Time("createdBefore", req.CreatedBefore), zap.Int("bloomFilterSize", len(req.BloomFilter)))
+	log.Info("gc-filewalker started", zap.Time("created_before", req.CreatedBefore), zap.Int("bloom_filter_size", len(req.BloomFilter)))
 
-	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo())
-	pieceIDs, piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storj.PieceID) error {
-		// we found a piece that needs to be trashed, so we notify the main process.
-		resp := lazyfilewalker.GCFilewalkerResponse{
-			PieceIDs: []storj.PieceID{pieceID},
+	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress(), nil)
+
+	encoder := json.NewEncoder(g.stdout)
+	numTrashed := 0
+	pieceIDs := make([]storxnetwork.PieceID, 0, piecesBatchSize)
+
+	flushPiecesToTrash := func() error {
+		if len(pieceIDs) == 0 {
+			return nil
 		}
-		return json.NewEncoder(g.stdout).Encode(resp)
+
+		resp := lazyfilewalker.GCFilewalkerResponse{
+			PieceIDs: pieceIDs,
+		}
+		err := encoder.Encode(resp)
+		if err != nil {
+			log.Debug("failed to notify main process", zap.Error(err))
+			return err
+		}
+		numTrashed += len(pieceIDs)
+		pieceIDs = pieceIDs[:0]
+		return nil
+	}
+
+	trashPiecesCount := 0
+	piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storxnetwork.PieceID) error {
+		log.Debug("found a trash piece", zap.Stringer("piece_id", pieceID))
+		// we found a piece that needs to be trashed, so we notify the main process.
+		// do it in batches to avoid sending too many messages.
+		pieceIDs = append(pieceIDs, pieceID)
+		trashPiecesCount++
+
+		if len(pieceIDs) >= piecesBatchSize {
+			return flushPiecesToTrash()
+		}
+		return nil
 	})
 	if err != nil {
+		log.Debug("gc-filewalker failed", zap.Error(err))
+		return err
+	}
+
+	if err := flushPiecesToTrash(); err != nil {
+		log.Debug("failed to notify main process about pieces to trash", zap.Error(err))
 		return err
 	}
 
 	resp := lazyfilewalker.GCFilewalkerResponse{
-		PieceIDs:           pieceIDs,
 		PiecesCount:        piecesCount,
 		PiecesSkippedCount: piecesSkippedCount,
 		Completed:          true,
 	}
 
-	log.Info("gc-filewalker completed", zap.Int64("piecesCount", piecesCount), zap.Int64("piecesSkippedCount", piecesSkippedCount))
+	log.Info("gc-filewalker completed", zap.Int64("pieces_count", piecesCount), zap.Int("total_pieces_to_trash", trashPiecesCount), zap.Int("trashed_pieces", numTrashed), zap.Int64("pieces_skipped", piecesSkippedCount))
 
 	// encode the response struct and write it to stdout
-	return json.NewEncoder(g.stdout).Encode(resp)
+	err = json.NewEncoder(g.stdout).Encode(resp)
+	if err != nil {
+		log.Debug("failed to write to stdout", zap.Error(err))
+		return errs.New("Error writing response to stdout: %v", err)
+	}
+	return nil
 }

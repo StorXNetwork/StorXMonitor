@@ -9,20 +9,23 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/teststorj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestNodeEvents(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID := teststorj.NodeIDFromString("test")
-		testEmail := "test@storj.test"
+		testID := testrand.NodeID()
+		testEmail := "test@storxnetwork.test"
 		eventType := nodeevents.Disqualified
 		ipPort := "127.0.0.1:1234"
+
+		_, err := db.NodeEvents().GetLatestByEmailAndEvent(ctx, "missing@storxnetwork.test", nodeevents.Disqualified)
+		require.Error(t, err)
 
 		neFromInsert, err := db.NodeEvents().Insert(ctx, testEmail, &ipPort, testID, eventType)
 		require.NoError(t, err)
@@ -43,9 +46,8 @@ func TestNodeEvents(t *testing.T) {
 
 func TestNodeEventsUpdateEmailSent(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID1 := teststorj.NodeIDFromString("test1")
-		testID2 := teststorj.NodeIDFromString("test2")
-		testEmail1 := "test1@storj.test"
+		testID1, testID2 := testrand.NodeID(), testrand.NodeID()
+		testEmail1 := "test1@storxnetwork.test"
 		eventType := nodeevents.Disqualified
 
 		// Insert into node events
@@ -86,9 +88,8 @@ func TestNodeEventsUpdateEmailSent(t *testing.T) {
 
 func TestNodeEventsUpdateLastAttempted(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID1 := teststorj.NodeIDFromString("test1")
-		testID2 := teststorj.NodeIDFromString("test2")
-		testEmail1 := "test1@storj.test"
+		testID1, testID2 := testrand.NodeID(), testrand.NodeID()
+		testEmail1 := "test1@storxnetwork.test"
 		eventType := nodeevents.Disqualified
 
 		event1, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID1, eventType)
@@ -119,10 +120,9 @@ func TestNodeEventsUpdateLastAttempted(t *testing.T) {
 
 func TestNodeEventsGetByID(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID1 := teststorj.NodeIDFromString("test1")
-		testID2 := teststorj.NodeIDFromString("test2")
-		testEmail1 := "test1@storj.test"
-		testEmail2 := "test2@storj.test"
+		testID1, testID2 := testrand.NodeID(), testrand.NodeID()
+		testEmail1 := "test1@storxnetwork.test"
+		testEmail2 := "test2@storxnetwork.test"
 
 		eventType := nodeevents.Disqualified
 
@@ -148,10 +148,9 @@ func TestNodeEventsGetByID(t *testing.T) {
 
 func TestNodeEventsGetNextBatch(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID1 := teststorj.NodeIDFromString("test1")
-		testID2 := teststorj.NodeIDFromString("test2")
-		testEmail1 := "test1@storj.test"
-		testEmail2 := "test2@storj.test"
+		testID1, testID2 := testrand.NodeID(), testrand.NodeID()
+		testEmail1 := "test1@storxnetwork.test"
+		testEmail2 := "test2@storxnetwork.test"
 
 		eventType := nodeevents.Disqualified
 
@@ -197,15 +196,12 @@ func TestNodeEventsGetNextBatch(t *testing.T) {
 
 func TestNodeEventsGetNextBatchSelectionOrder(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		id0 := teststorj.NodeIDFromString("test0")
-		id1 := teststorj.NodeIDFromString("test1")
-		id2 := teststorj.NodeIDFromString("test2")
-		id3 := teststorj.NodeIDFromString("test3")
+		id0, id1, id2, id3 := testrand.NodeID(), testrand.NodeID(), testrand.NodeID(), testrand.NodeID()
 
-		email0 := "test0@storj.test"
-		email1 := "test1@storj.test"
-		email2 := "test2@storj.test"
-		email3 := "test3@storj.test"
+		email0 := "test0@storxnetwork.test"
+		email1 := "test1@storxnetwork.test"
+		email2 := "test2@storxnetwork.test"
+		email3 := "test3@storxnetwork.test"
 
 		eventType := nodeevents.Disqualified
 

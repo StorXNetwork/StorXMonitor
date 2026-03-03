@@ -2,4 +2,4 @@
 
 We migrated the blueprints to another repository.
 
-See https://github.com/storj/design-docs
+See https://github.com/storxnetwork/design-docs

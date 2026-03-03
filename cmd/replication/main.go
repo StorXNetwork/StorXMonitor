@@ -13,12 +13,12 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/errs2"
-	"storj.io/common/fpath"
-	"storj.io/common/process"
-	_ "storj.io/storj/private/version"
-	"storj.io/storj/replication"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version"
+	"github.com/StorXNetwork/StorXMonitor/replication"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (
@@ -51,7 +51,7 @@ var (
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "local-network", "replication")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "local-network", "replication")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for replication configuration")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)

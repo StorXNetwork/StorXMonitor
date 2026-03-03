@@ -23,6 +23,6 @@ bloom filters will be generated, because GC only considers NodeID's inside
 the segments table. There is also an explicit check that stops sending out
 an empty bloom filter to a storage node.
 
-See storj/docs/blueprints/garbage-collection.md for more info.
+See storxnetwork/docs/blueprints/garbage-collection.md for more info.
 */
 package gc

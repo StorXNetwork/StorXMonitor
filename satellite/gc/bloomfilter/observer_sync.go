@@ -11,36 +11,41 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/shared/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeidmap"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // SyncObserver implements a rangedloop observer to collect bloom filters for the garbage collection.
 type SyncObserver struct {
 	log     *zap.Logger
 	config  Config
-	overlay overlay.DB
+	overlay Overlay
 	upload  *Upload
 
 	// The following fields are reset for each loop.
 	startTime       time.Time
-	lastPieceCounts map[storj.NodeID]int64
+	lastPieceCounts map[storxnetwork.NodeID]int64
 	seed            byte
 
 	mu          sync.Mutex
-	retainInfos map[storj.NodeID]*RetainInfo
+	retainInfos nodeidmap.Map[*RetainInfo]
 	// LatestCreationTime will be used to set bloom filter CreationDate.
 	// Because bloom filter service needs to be run against immutable database snapshot
 	// we can set CreationDate for bloom filters as a latest segment CreatedAt value.
 	latestCreationTime time.Time
+
+	forcedTableSize int
+
+	inlineCount, remoteCount int
 }
 
-var _ (rangedloop.Observer) = (*Observer)(nil)
+var _ (rangedloop.Observer) = (*SyncObserver)(nil)
+var _ (rangedloop.Partial) = (*SyncObserver)(nil)
 
 // NewSyncObserver creates a new instance of the gc rangedloop observer.
-func NewSyncObserver(log *zap.Logger, config Config, overlay overlay.DB) *SyncObserver {
+func NewSyncObserver(log *zap.Logger, config Config, overlay Overlay) *SyncObserver {
 	return &SyncObserver{
 		log:     log,
 		overlay: overlay,
@@ -52,11 +57,9 @@ func NewSyncObserver(log *zap.Logger, config Config, overlay overlay.DB) *SyncOb
 // Start is called at the beginning of each segment loop.
 func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	switch {
-	case obs.config.AccessGrant == "":
-		return errs.New("Access Grant is not set")
-	case obs.config.Bucket == "":
-		return errs.New("Bucket is not set")
+
+	if err := obs.upload.CheckConfig(); err != nil {
+		return err
 	}
 
 	// load last piece counts from overlay db
@@ -66,12 +69,12 @@ func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err er
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int64)
+		lastPieceCounts = make(map[storxnetwork.NodeID]int64)
 	}
 
 	obs.startTime = startTime
 	obs.lastPieceCounts = lastPieceCounts
-	obs.retainInfos = make(map[storj.NodeID]*RetainInfo, len(lastPieceCounts))
+	obs.retainInfos = nodeidmap.MakeSized[*RetainInfo](len(lastPieceCounts))
 	obs.latestCreationTime = time.Time{}
 	obs.seed = bloomfilter.GenerateSeed()
 	return nil
@@ -97,19 +100,36 @@ func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
 	return nil
 }
 
+// TestingRetainInfos returns retain infos collected by observer.
+func (obs *SyncObserver) TestingRetainInfos() MinimalRetainInfoMap {
+	return obs.retainInfos
+}
+
+// TestingForceTableSize sets a fixed size for tables. Used for testing.
+func (obs *SyncObserver) TestingForceTableSize(size int) {
+	obs.forcedTableSize = size
+}
+
 // Process adds pieces to the bloom filter from remote segments.
 func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	latestCreationTime := time.Time{}
 	for _, segment := range segments {
 		if segment.Inline() {
+			obs.mu.Lock()
+			obs.inlineCount++
+			obs.mu.Unlock()
 			continue
 		}
 
+		obs.mu.Lock()
+		obs.remoteCount++
+		obs.mu.Unlock()
+
 		// sanity check to detect if loop is not running against live database
 		if segment.CreatedAt.After(obs.startTime) {
-			obs.log.Error("segment created after loop started", zap.Stringer("StreamID", segment.StreamID),
-				zap.Time("loop started", obs.startTime),
-				zap.Time("segment created", segment.CreatedAt))
+			obs.log.Error("segment created after loop started", zap.Stringer("stream_id", segment.StreamID),
+				zap.Time("loop_started", obs.startTime),
+				zap.Time("segment_created", segment.CreatedAt))
 			return errs.New("segment created after loop started")
 		}
 
@@ -135,11 +155,11 @@ func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segm
 }
 
 // add adds a pieceID to the relevant node's RetainInfo.
-func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
+func (obs *SyncObserver) add(nodeID storxnetwork.NodeID, pieceID storxnetwork.PieceID) {
 	obs.mu.Lock()
 	defer obs.mu.Unlock()
 
-	info, ok := obs.retainInfos[nodeID]
+	info, ok := obs.retainInfos.Load(nodeID)
 	if !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
 		numPieces := obs.config.InitialPieces
@@ -155,11 +175,14 @@ func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 
 		hashCount, tableSize := bloomfilter.OptimalParameters(numPieces, obs.config.FalsePositiveRate, obs.config.MaxBloomFilterSize)
 		// limit size of bloom filter to ensure we are under the limit for RPC
+		if obs.forcedTableSize > 0 {
+			tableSize = obs.forcedTableSize
+		}
 		filter := bloomfilter.NewExplicit(obs.seed, hashCount, tableSize)
 		info = &RetainInfo{
 			Filter: filter,
 		}
-		obs.retainInfos[nodeID] = info
+		obs.retainInfos.Store(nodeID, info)
 	}
 
 	info.Filter.Add(pieceID)

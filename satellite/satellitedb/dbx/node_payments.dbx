@@ -11,7 +11,7 @@ model storagenode_paystub (
 
 	// period is YYYY-MM encoded month, which this paystub refers to. e.g. ""2020-02".
 	field period     text
-	// node_id is the storagenode storj.NodeID.
+	// node_id is the storagenode storxnetwork.NodeID.
 	field node_id    blob
 	// created_at is when this paystub was created.
 	field created_at timestamp ( autoinsert )
@@ -84,7 +84,7 @@ model storagenode_payment (
 	field id         serial64
 	// created_at is the time this payment information was added.
 	field created_at timestamp ( autoinsert )
-	// node_id is the storagenode storj.NodeID.
+	// node_id is the storagenode storxnetwork.NodeID.
 	field node_id    blob
 	// period is YYYY-MM encoded month, which this paystub refers to. e.g. ""2020-02".
 	field period     text

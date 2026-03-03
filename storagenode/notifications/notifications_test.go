@@ -9,22 +9,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestNotificationsDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		notificationsdb := db.Notifications()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
-		satellite2 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion()).ID
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion()).ID
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storxnetwork.LatestIDVersion()).ID
+		satellite2 := testidentity.MustPregeneratedSignedIdentity(2, storxnetwork.LatestIDVersion()).ID
 
 		expectedNotification0 := notifications.NewNotification{
 			SenderID: satellite0,

@@ -6,7 +6,7 @@ package reputation
 import (
 	"time"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // AuditWindow contains audit count for particular time frame.
@@ -31,15 +31,15 @@ type Audit struct {
 
 // Stats encapsulates node reputation data.
 type Stats struct {
-	NodeID               storj.NodeID `json:"nodeId"`
-	NodeName             string       `json:"nodeName"`
-	Audit                Audit        `json:"audit"`
-	OnlineScore          float64      `json:"onlineScore"`
-	DisqualifiedAt       *time.Time   `json:"disqualifiedAt"`
-	SuspendedAt          *time.Time   `json:"suspendedAt"`
-	OfflineSuspendedAt   *time.Time   `json:"offlineSuspendedAt"`
-	OfflineUnderReviewAt *time.Time   `json:"offlineUnderReviewAt"`
-	VettedAt             *time.Time   `json:"vettedAt"`
-	UpdatedAt            time.Time    `json:"updatedAt"`
-	JoinedAt             time.Time    `json:"joinedAt"`
+	NodeID               storxnetwork.NodeID `json:"nodeId"`
+	NodeName             string              `json:"nodeName"`
+	Audit                Audit               `json:"audit"`
+	OnlineScore          float64             `json:"onlineScore"`
+	DisqualifiedAt       *time.Time          `json:"disqualifiedAt"`
+	SuspendedAt          *time.Time          `json:"suspendedAt"`
+	OfflineSuspendedAt   *time.Time          `json:"offlineSuspendedAt"`
+	OfflineUnderReviewAt *time.Time          `json:"offlineUnderReviewAt"`
+	VettedAt             *time.Time          `json:"vettedAt"`
+	UpdatedAt            time.Time           `json:"updatedAt"`
+	JoinedAt             time.Time           `json:"joinedAt"`
 }

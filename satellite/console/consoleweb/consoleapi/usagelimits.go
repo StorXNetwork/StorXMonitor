@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -145,7 +145,17 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	usage, err := ul.service.GetUsageReport(ctx, since, before, projectID)
+	includeCost := r.URL.Query().Get("cost") == "true"
+	groupByProject := r.URL.Query().Get("project-summary") == "true"
+
+	param := console.GetUsageReportParam{
+		ProjectID:      projectID,
+		Since:          since,
+		Before:         before,
+		IncludeCost:    includeCost,
+		GroupByProject: groupByProject,
+	}
+	usage, err := ul.service.GetUsageReport(ctx, param)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -157,15 +167,25 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dateFormat := "2006-01-02"
-	fileName := "storj-report-" + idParam + "-" + since.Format(dateFormat) + "-to-" + before.Format(dateFormat) + ".csv"
+	fileName := "storxnetwork-report-" + idParam + "-" + since.Format(dateFormat) + "-to-" + before.Format(dateFormat) + ".csv"
 
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment;filename="+fileName)
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 
 	wr := csv.NewWriter(w)
 
-	csvHeaders := []string{"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Egress GB", "ObjectCount objects-hour", "SegmentCount segments-hour", "Since", "Before"}
+	disclaimerRow, csvHeaders := ul.service.GetUsageReportHeaders(param)
 
+	if len(disclaimerRow) > 0 {
+		err = wr.Write(disclaimerRow)
+		if err != nil {
+			ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
+			return
+		}
+	}
 	err = wr.Write(csvHeaders)
 	if err != nil {
 		ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
@@ -173,7 +193,7 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, u := range usage {
-		err = wr.Write(u.ToStringSlice())
+		err = wr.Write(ul.service.GetReportRow(param, u))
 		if err != nil {
 			ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
 			return

@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -14,8 +15,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -29,23 +31,21 @@ var (
 	ErrPermissionDenied = errs.Class("permission denied")
 	// ErrMethodNotAllowed general error when operation is not allowed.
 	ErrMethodNotAllowed = errs.Class("method not allowed")
+	// ErrUnimplemented is used to indicate an option was not implemented.
+	ErrUnimplemented = errs.Class("not implemented")
 )
 
 // Common constants for segment keys.
 const (
-	Delimiter        = '/'
+	Delimiter = "/"
+	// DelimiterNext is the string that comes immediately after Delimiter="/".
+	DelimiterNext    = "0"
 	LastSegmentName  = "l"
 	LastSegmentIndex = uint32(math.MaxUint32)
 )
 
 // ListLimit is the maximum number of items the client can request for listing.
 const ListLimit = intLimitRange(1000)
-
-// MoveSegmentLimit is the maximum number of segments that can be moved.
-const MoveSegmentLimit = int64(10000)
-
-// CopySegmentLimit is the maximum number of segments that can be copied.
-const CopySegmentLimit = int64(10000)
 
 // batchsizeLimit specifies up to how many items fetch from the storage layer at
 // a time.
@@ -64,7 +64,7 @@ type BucketPrefix string
 // BucketLocation defines a bucket that belongs to a project.
 type BucketLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 }
 
 // ParseBucketPrefix parses BucketPrefix.
@@ -81,7 +81,7 @@ func ParseBucketPrefix(prefix BucketPrefix) (BucketLocation, error) {
 
 	return BucketLocation{
 		ProjectID:  projectID,
-		BucketName: elements[1],
+		BucketName: BucketName(elements[1]),
 	}, nil
 }
 
@@ -104,13 +104,13 @@ func ParseCompactBucketPrefix(compactPrefix []byte) (BucketLocation, error) {
 
 	var loc BucketLocation
 	copy(loc.ProjectID[:], compactPrefix)
-	loc.BucketName = string(compactPrefix[len(loc.ProjectID):])
+	loc.BucketName = BucketName(compactPrefix[len(loc.ProjectID):])
 	return loc, nil
 }
 
 // Prefix converts bucket location into bucket prefix.
 func (loc BucketLocation) Prefix() BucketPrefix {
-	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName)
+	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName.String())
 }
 
 // CompactPrefix converts bucket location into bucket prefix with compact project ID.
@@ -119,6 +119,57 @@ func (loc BucketLocation) CompactPrefix() []byte {
 	xs = append(xs, loc.ProjectID[:]...)
 	xs = append(xs, []byte(loc.BucketName)...)
 	return xs
+}
+
+// Compare compares this BucketLocation with another.
+func (loc BucketLocation) Compare(other BucketLocation) int {
+	cmp := loc.ProjectID.Compare(other.ProjectID)
+	if cmp != 0 {
+		return cmp
+	}
+	return loc.BucketName.Compare(other.BucketName)
+}
+
+// BucketName is a plain-text string, however we should treat it as unsafe bytes to
+// avoid issues with any encoding.
+type BucketName string
+
+// String implements stringer func.
+func (b BucketName) String() string { return string(b) }
+
+// Compare implements comparison for bucket names.
+func (b BucketName) Compare(x BucketName) int {
+	return strings.Compare(b.String(), x.String())
+}
+
+// Value converts a BucketName to a database field.
+func (b BucketName) Value() (driver.Value, error) {
+	return []byte(b), nil
+}
+
+// Scan extracts a BucketName from a database field.
+func (b *BucketName) Scan(value interface{}) error {
+	switch value := value.(type) {
+	case []byte:
+		*b = BucketName(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into BucketName", value)
+	}
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (b BucketName) EncodeSpanner() (any, error) {
+	return string(b), nil
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (b *BucketName) DecodeSpanner(value any) error {
+	if x, ok := value.(string); ok {
+		*b = BucketName(x)
+		return nil
+	}
+	return Error.New("unable to scan %T into BucketName", value)
 }
 
 // ObjectKey is an encrypted object key encoded using Path Component Encoding.
@@ -141,10 +192,28 @@ func (o *ObjectKey) Scan(value interface{}) error {
 	}
 }
 
+// EncodeSpanner implements spanner.Encoder.
+func (o ObjectKey) EncodeSpanner() (any, error) {
+	return o.Value()
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (o *ObjectKey) DecodeSpanner(value any) error {
+	if base64Val, ok := value.(string); ok {
+		bytesVal, err := base64.StdEncoding.DecodeString(base64Val)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		*o = ObjectKey(bytesVal)
+		return nil
+	}
+	return Error.New("unable to scan %T into ObjectKey", value)
+}
+
 // ObjectLocation is decoded object key information.
 type ObjectLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 }
 
@@ -175,7 +244,7 @@ type SegmentKey []byte
 // SegmentLocation is decoded segment key information.
 type SegmentLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	Position   SegmentPosition
 }
@@ -226,7 +295,7 @@ func ParseSegmentKey(encoded SegmentKey) (SegmentLocation, error) {
 
 	return SegmentLocation{
 		ProjectID:  projectID,
-		BucketName: elements[2],
+		BucketName: BucketName(elements[2]),
 		Position:   position,
 		ObjectKey:  ObjectKey(elements[3]),
 	}, nil
@@ -238,10 +307,10 @@ func (seg SegmentLocation) Encode() SegmentKey {
 	if seg.Position.Index != LastSegmentIndex {
 		segment = "s" + strconv.FormatUint(seg.Position.Encode(), 10)
 	}
-	return SegmentKey(storj.JoinPaths(
+	return SegmentKey(storxnetwork.JoinPaths(
 		seg.ProjectID.String(),
 		segment,
-		seg.BucketName,
+		seg.BucketName.String(),
 		string(seg.ObjectKey),
 	))
 }
@@ -262,7 +331,7 @@ func (seg SegmentLocation) Verify() error {
 // ObjectStream uniquely defines an object and stream.
 type ObjectStream struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	Version    Version
 	StreamID   uuid.UUID
@@ -313,8 +382,6 @@ func (obj *ObjectStream) Verify() error {
 		return ErrInvalidRequest.New("BucketName missing")
 	case len(obj.ObjectKey) == 0:
 		return ErrInvalidRequest.New("ObjectKey missing")
-	case obj.Version < 0:
-		return ErrInvalidRequest.New("Version invalid: %v", obj.Version)
 	case obj.StreamID.IsZero():
 		return ErrInvalidRequest.New("StreamID missing")
 	}
@@ -330,10 +397,15 @@ func (obj *ObjectStream) Location() ObjectLocation {
 	}
 }
 
+// StreamIDSuffix returns the object's stream ID suffix.
+func (obj *ObjectStream) StreamIDSuffix() StreamIDSuffix {
+	return StreamIDSuffix(obj.StreamID[8:])
+}
+
 // PendingObjectStream uniquely defines an pending object and stream.
 type PendingObjectStream struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	StreamID   uuid.UUID
 }
@@ -373,6 +445,28 @@ func (pos SegmentPosition) Encode() uint64 { return uint64(pos.Part)<<32 | uint6
 // Less returns whether pos should before b.
 func (pos SegmentPosition) Less(b SegmentPosition) bool { return pos.Encode() < b.Encode() }
 
+// DecodeSpanner implements spanner.Decoder.
+func (pos *SegmentPosition) DecodeSpanner(val any) (err error) {
+	switch value := val.(type) {
+	case int64:
+		*pos = SegmentPositionFromEncoded(uint64(value))
+	case string:
+		parsedValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return Error.New("unable to scan %T into SegmentPosition: %v", val, err)
+		}
+		*pos = SegmentPositionFromEncoded(uint64(parsedValue))
+	default:
+		return Error.New("unable to scan %T into SegmentPosition", val)
+	}
+	return nil
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (pos SegmentPosition) EncodeSpanner() (any, error) {
+	return int64(pos.Encode()), nil
+}
+
 // Version is used to uniquely identify objects with the same key.
 type Version int64
 
@@ -382,14 +476,66 @@ const NextVersion = Version(0)
 // DefaultVersion represents default version 1.
 const DefaultVersion = Version(1)
 
-// PendingVersion represents version that is used for pending objects (with UsePendingObjects).
-const PendingVersion = Version(0)
-
 // MaxVersion represents maximum version.
 // Version in DB is represented as INT8.
 //
 // It uses `MaxInt64 - 64` to avoid issues with `-MaxVersion`.
 const MaxVersion = Version(math.MaxInt64 - 64)
+
+// NullableVersion represents a nullable Version type.
+// TODO: replace with sql.Null[Version] when we can use Go 1.22+
+type NullableVersion struct {
+	Version Version
+	Valid   bool
+}
+
+// Scan implements sql.Scanner interface.
+func (v *NullableVersion) Scan(val any) error {
+	if val == nil {
+		v.Version, v.Valid = 0, false
+		return nil
+	}
+	v.Valid = true
+	return v.Version.Scan(val)
+}
+
+// Scan implements sql.Scanner interface.
+func (v *Version) Scan(val any) error {
+	switch value := val.(type) {
+	case int64:
+		*v = Version(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into Version", value)
+	}
+}
+
+// Value converts a Version to a database field.
+func (v Version) Value() (driver.Value, error) {
+	return int64(v), nil
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (v Version) EncodeSpanner() (any, error) {
+	return v.Value()
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (v *Version) DecodeSpanner(val any) error {
+	switch value := val.(type) {
+	case int64:
+		*v = Version(value)
+	case string:
+		parsedValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return Error.New("unable to scan %T into Version: %v", val, err)
+		}
+		*v = Version(parsedValue)
+	default:
+		return Error.New("unable to scan %T into Version", val)
+	}
+	return nil
+}
 
 // StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
 // First 8 bytes represents Version and rest are object StreamID suffix.
@@ -398,14 +544,28 @@ const MaxVersion = Version(math.MaxInt64 - 64)
 // avoid confusion.
 type StreamVersionID uuid.UUID
 
+// StreamIDSuffix is the last 8 bytes of an object's stream ID. It's used together with
+// an object's internal version ID to produce a version ID for the public API.
+type StreamIDSuffix [8]byte
+
+// IsZero returns whether all bytes in the StreamIDSuffix are 0.
+func (s StreamIDSuffix) IsZero() bool {
+	return s == StreamIDSuffix{}
+}
+
 // Version returns Version encoded into stream version id.
 func (s StreamVersionID) Version() Version {
 	return Version(binary.BigEndian.Uint64(s[:8]))
 }
 
 // StreamIDSuffix returns StreamID suffix encoded into stream version id.
-func (s StreamVersionID) StreamIDSuffix() []byte {
-	return s[8:]
+func (s StreamVersionID) StreamIDSuffix() StreamIDSuffix {
+	return StreamIDSuffix(s[8:])
+}
+
+// SetStreamID encodes the provided stream ID into the stream version ID.
+func (s *StreamVersionID) SetStreamID(streamID uuid.UUID) {
+	copy(s[8:], streamID[8:])
 }
 
 // Bytes returnes stream version id bytes.
@@ -413,7 +573,13 @@ func (s StreamVersionID) Bytes() []byte {
 	return s[:]
 }
 
-func newStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
+// IsZero returns whether all bytes in the StreamVersionID are 0.
+func (s StreamVersionID) IsZero() bool {
+	return s == StreamVersionID{}
+}
+
+// NewStreamVersionID returns a new stream version id.
+func NewStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
 	var sv StreamVersionID
 	binary.BigEndian.PutUint64(sv[:8], uint64(version))
 	copy(sv[8:], streamID[8:])
@@ -467,6 +633,7 @@ const (
 	Prefix = ObjectStatus(7)
 
 	// Constants that can be used while constructing SQL queries.
+
 	statusPending                 = "1"
 	statusCommittedUnversioned    = "3"
 	statusCommittedVersioned      = "4"
@@ -475,6 +642,11 @@ const (
 	statusDeleteMarkerUnversioned = "6"
 	statusesDeleteMarker          = "(" + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
 	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
+	statusesVersioned             = "(" + statusCommittedVersioned + "," + statusDeleteMarkerVersioned + ")"
+	statusesVisible               = "(" + statusCommittedUnversioned + "," + statusCommittedVersioned + "," + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
+
+	// DefaultStatus is the default status for new objects.
+	DefaultStatus = Pending
 )
 
 func committedWhereVersioned(versioned bool) ObjectStatus {
@@ -484,9 +656,24 @@ func committedWhereVersioned(versioned bool) ObjectStatus {
 	return CommittedUnversioned
 }
 
+// IsPending returns whether the status is pending.
+func (status ObjectStatus) IsPending() bool {
+	return status == Pending
+}
+
 // IsDeleteMarker return whether the status is a delete marker.
 func (status ObjectStatus) IsDeleteMarker() bool {
 	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned
+}
+
+// IsUnversioned returns whether the status indicates that an object is unversioned.
+func (status ObjectStatus) IsUnversioned() bool {
+	return status == DeleteMarkerUnversioned || status == CommittedUnversioned
+}
+
+// IsCommitted returns whether the status indicates that an object is committed.
+func (status ObjectStatus) IsCommitted() bool {
+	return status == CommittedUnversioned || status == CommittedVersioned
 }
 
 // String returns textual representation of status.
@@ -511,13 +698,54 @@ func (status ObjectStatus) String() string {
 	}
 }
 
+// NullableObjectStatus represents a nullable ObjectStatus type.
+// TODO: replace with sql.Null[ObjectStatus] when we can use Go 1.22+
+type NullableObjectStatus struct {
+	ObjectStatus ObjectStatus
+	Valid        bool
+}
+
+// Scan implements sql.Scanner interface.
+func (v *NullableObjectStatus) Scan(val any) error {
+	if val == nil {
+		v.ObjectStatus, v.Valid = 0, false
+		return nil
+	}
+	v.Valid = true
+	return v.ObjectStatus.Scan(val)
+}
+
+// Scan implements sql.Scanner interface.
+func (status *ObjectStatus) Scan(val any) error {
+	switch value := val.(type) {
+	case int64:
+		if int64(ObjectStatus(value)) != value {
+			return Error.New("value out of bounds for ObjectStatus: %d", value)
+		}
+		*status = ObjectStatus(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into ObjectStatus", value)
+	}
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (status ObjectStatus) EncodeSpanner() (any, error) {
+	return int64(status), nil
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (status *ObjectStatus) DecodeSpanner(val any) (err error) {
+	return spannerutil.Int(status).DecodeSpanner(val)
+}
+
 // Pieces defines information for pieces.
 type Pieces []Piece
 
 // Piece defines information for a segment piece.
 type Piece struct {
 	Number      uint16
-	StorageNode storj.NodeID
+	StorageNode storxnetwork.NodeID
 }
 
 // Verify verifies pieces.
@@ -527,7 +755,7 @@ func (p Pieces) Verify() error {
 	}
 
 	currentPiece := p[0]
-	if currentPiece.StorageNode == (storj.NodeID{}) {
+	if currentPiece.StorageNode == (storxnetwork.NodeID{}) {
 		return ErrInvalidRequest.New("piece number %d is missing storage node id", currentPiece.Number)
 	}
 
@@ -537,7 +765,7 @@ func (p Pieces) Verify() error {
 			return ErrInvalidRequest.New("duplicated piece number %d", piece.Number)
 		case piece.Number < currentPiece.Number:
 			return ErrInvalidRequest.New("pieces should be ordered")
-		case piece.StorageNode == (storj.NodeID{}):
+		case piece.StorageNode == (storxnetwork.NodeID{}):
 			return ErrInvalidRequest.New("piece number %d is missing storage node id", piece.Number)
 		}
 		currentPiece = piece
@@ -655,4 +883,34 @@ func (p Pieces) FindByNum(pieceNum int) (_ Piece, found bool) {
 		}
 	}
 	return Piece{}, false
+}
+
+// IfNoneMatch is an option for conditional writes.
+//
+// Currently it only supports a single value of "*" (all), which means the
+// commit should only succeed if the object doesn't exist, or is a delete marker.
+//
+// In future we may support other values like ETag.
+type IfNoneMatch []string
+
+// Verify verifies IfNoneMatch is correct.
+//
+// S3 returns unimplemented errors if requesting any value other than "*" or
+// empty for uploads, so we do the same here.
+func (i IfNoneMatch) Verify() error {
+	if len(i) == 0 {
+		return nil
+	}
+	if len(i) > 1 || i[0] != "*" {
+		return ErrUnimplemented.New("IfNoneMatch only supports a single value of '*'")
+	}
+	return nil
+}
+
+// All returns whether IfNoneMatch value is "*".
+func (i IfNoneMatch) All() bool {
+	if len(i) != 1 {
+		return false
+	}
+	return i[0] == "*"
 }

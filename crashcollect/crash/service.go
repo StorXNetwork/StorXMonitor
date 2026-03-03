@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Config contains configurable values for crash collect service.
@@ -37,7 +37,7 @@ func NewService(config Config) *Service {
 }
 
 // Report receives report from crash-report client and saves it into .gz file.
-func (s *Service) Report(nodeID storj.NodeID, gzippedPanic []byte) error {
+func (s *Service) Report(nodeID storxnetwork.NodeID, gzippedPanic []byte) error {
 	now := time.Now().UTC()
 
 	filename := fmt.Sprintf("%s-%s.gz", nodeID.String(), now.Format(time.RFC3339))

@@ -11,11 +11,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/storj/storagenode/iopriority"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/iopriority"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 // NewTrashFilewalkerCmd creates a new cobra command for running a trash cleanup filewalker.
@@ -78,7 +78,7 @@ func trashCmdRun(opts *RunOptions) (err error) {
 		return errs.New("DateBefore is required")
 	}
 
-	log.Info("trash-filewalker started", zap.Time("dateBefore", req.DateBefore))
+	log.Info("trash-filewalker started", zap.Time("date_before", req.DateBefore))
 
 	db, err := storagenodedb.OpenExisting(opts.Ctx, log.Named("db"), opts.config.DatabaseConfig())
 	if err != nil {
@@ -89,7 +89,7 @@ func trashCmdRun(opts *RunOptions) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo())
+	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 	bytesDeleted, keysDeleted, err := filewalker.WalkCleanupTrash(opts.Ctx, req.SatelliteID, req.DateBefore)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func trashCmdRun(opts *RunOptions) (err error) {
 		KeysDeleted:  keysDeleted,
 	}
 
-	log.Info("trash-filewalker completed", zap.Int64("bytesDeleted", bytesDeleted), zap.Int("numKeysDeleted", len(keysDeleted)))
+	log.Info("trash-filewalker completed", zap.Int64("bytes_deleted", bytesDeleted), zap.Int("num_keys_deleted", len(keysDeleted)))
 
 	// encode the response struct and write it to stdout
 	return json.NewEncoder(opts.stdout).Encode(resp)

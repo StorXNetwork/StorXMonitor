@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/version"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
 )
 
 func TestCursorEmptyChore(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/oidc"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 )
 
 func (server *Server) createOAuthClient(w http.ResponseWriter, r *http.Request) {

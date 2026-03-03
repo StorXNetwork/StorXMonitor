@@ -14,11 +14,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/storj"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/satellite/console/consoleweb"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // UI is the satellite UI process.
@@ -39,6 +41,10 @@ type UI struct {
 	Console struct {
 		Listener net.Listener
 		Server   *consoleweb.Server
+	}
+
+	CSRF struct {
+		Service *csrf.Service
 	}
 }
 
@@ -75,6 +81,13 @@ func NewUI(log *zap.Logger, full *identity.FullIdentity, config *Config, atomicL
 	{ // setup console
 		consoleConfig := config.Console
 
+		if consoleConfig.AuthTokenSecret == "" {
+			return nil, errs.New("Auth token secret required")
+		}
+
+		signer := &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)}
+		peer.CSRF.Service = csrf.NewService(signer)
+
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.FrontendAddress)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -84,7 +97,8 @@ func NewUI(log *zap.Logger, full *identity.FullIdentity, config *Config, atomicL
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Listener,
-			storj.NodeURL{ID: peer.ID(), Address: satelliteAddr},
+			storxnetwork.NodeURL{ID: peer.ID(), Address: satelliteAddr},
+			peer.CSRF.Service,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 		)
 		if err != nil {
@@ -123,4 +137,4 @@ func (peer *UI) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *UI) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *UI) ID() storxnetwork.NodeID { return peer.Identity.ID }

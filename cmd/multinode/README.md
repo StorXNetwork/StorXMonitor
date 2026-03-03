@@ -2,7 +2,7 @@
 
 ## Reference Articles
 
-[Tech Preview Forum Post](https://forum.storj.io/t/tech-preview-multinode-dashboard-binaries/14572)
+[Tech Preview Forum Post](https://forum.storxnetwork.io/t/tech-preview-multinode-dashboard-binaries/14572)
 
 ## Running the Multinode Dashboard in Docker with persistent data
 

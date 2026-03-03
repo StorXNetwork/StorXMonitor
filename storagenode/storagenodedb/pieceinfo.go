@@ -5,16 +5,15 @@ package storagenodedb
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrPieceInfo represents errors from the piece info database.
@@ -57,7 +56,7 @@ func (db *v0PieceInfoDB) Add(ctx context.Context, info *pieces.Info) (err error)
 	return ErrPieceInfo.Wrap(err)
 }
 
-func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore blobstore.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
+func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore blobstore.Blobs, satelliteID storxnetwork.NodeID) ([]v0StoredPieceAccess, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT piece_id, piece_size, piece_creation, piece_expiration
 		FROM pieceinfo_
@@ -86,11 +85,11 @@ func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore blob
 // WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored with storage
 // format V0 in the namespace of the given satellite. If walkFunc returns a non-nil error,
 // WalkSatelliteV0Pieces will stop iterating and return the error immediately. The ctx parameter
-// parameter is intended specifically to allow canceling iteration early.
+// is intended specifically to allow canceling iteration early.
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.
-func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore blobstore.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
+func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore blobstore.Blobs, satelliteID storxnetwork.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: is it worth paging this query? we hope that SNs will not yet have too many V0 pieces.
@@ -112,7 +111,7 @@ func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore bl
 }
 
 // Get gets piece information by satellite id and piece id.
-func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (_ *pieces.Info, err error) {
+func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) (_ *pieces.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 	info := &pieces.Info{}
 	info.SatelliteID = satelliteID
@@ -151,7 +150,7 @@ func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storj.NodeID, piec
 }
 
 // Delete deletes piece information.
-func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `
@@ -163,22 +162,8 @@ func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storj.NodeID, p
 	return ErrPieceInfo.Wrap(err)
 }
 
-// DeleteFailed marks piece as a failed deletion.
-func (db *v0PieceInfoDB) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = db.ExecContext(ctx, `
-		UPDATE pieceinfo_
-		SET deletion_failed_at = ?
-		WHERE satellite_id = ?
-		  AND piece_id = ?
-	`, now.UTC(), satelliteID, pieceID)
-
-	return ErrPieceInfo.Wrap(err)
-}
-
 // GetExpired gets ExpiredInfo records for pieces that are expired.
-func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
+func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time) (info []*pieces.ExpiredInfoRecords, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `
@@ -186,29 +171,50 @@ func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, li
 		FROM pieceinfo_
 		WHERE piece_expiration IS NOT NULL
 		AND piece_expiration < ?
-		AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
 		ORDER BY satellite_id
-		LIMIT ?
-	`, expiredAt.UTC(), expiredAt.UTC(), limit)
+	`, expiredAt.UTC())
 	if err != nil {
 		return nil, ErrPieceInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	expiredListsBySatelliteID := make(map[storxnetwork.NodeID]*pieces.ExpiredInfoRecords)
+	expiredLists := make([]*pieces.ExpiredInfoRecords, 0)
+
 	for rows.Next() {
-		info := pieces.ExpiredInfo{InPieceInfo: true}
-		err = rows.Scan(&info.SatelliteID, &info.PieceID)
+		expired := pieces.ExpiredInfo{InPieceInfo: true}
+		err = rows.Scan(&expired.SatelliteID, &expired.PieceID)
 		if err != nil {
-			return infos, ErrPieceInfo.Wrap(err)
+			return nil, ErrPieceInfo.Wrap(err)
 		}
-		infos = append(infos, info)
+		satRecords, ok := expiredListsBySatelliteID[expired.SatelliteID]
+		if !ok {
+			satRecords = pieces.NewExpiredInfoRecords(expired.SatelliteID, true, 1)
+			expiredLists = append(expiredLists, satRecords)
+			expiredListsBySatelliteID[expired.SatelliteID] = satRecords
+		}
+		satRecords.Append(expired.PieceID, 0)
 	}
-	return infos, rows.Err()
+
+	return expiredLists, ErrPieceInfo.Wrap(rows.Err())
+}
+
+func (db *v0PieceInfoDB) DeleteExpirations(ctx context.Context, expiredAt time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.ExecContext(ctx, `
+		DELETE FROM pieceinfo_
+		WHERE piece_expiration IS NOT NULL
+		AND piece_expiration < ?
+	`, expiredAt.UTC())
+
+	return ErrPieceInfo.Wrap(err)
 }
 
 type v0StoredPieceAccess struct {
 	blobStore      blobstore.Blobs
-	satellite      storj.NodeID
-	pieceID        storj.PieceID
+	satellite      storxnetwork.NodeID
+	pieceID        storxnetwork.PieceID
 	pieceSize      int64
 	creationTime   time.Time
 	expirationTime *time.Time
@@ -216,12 +222,12 @@ type v0StoredPieceAccess struct {
 }
 
 // PieceID returns the piece ID for the piece.
-func (v0Access *v0StoredPieceAccess) PieceID() storj.PieceID {
+func (v0Access *v0StoredPieceAccess) PieceID() storxnetwork.PieceID {
 	return v0Access.pieceID
 }
 
 // Satellite returns the satellite ID that owns the piece.
-func (v0Access *v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
+func (v0Access *v0StoredPieceAccess) Satellite() (storxnetwork.NodeID, error) {
 	return v0Access.satellite, nil
 }
 
@@ -279,7 +285,7 @@ func (v0Access *v0StoredPieceAccess) StorageFormatVersion() blobstore.FormatVers
 }
 
 // Stat does a stat on the on-disk blob file.
-func (v0Access *v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, error) {
+func (v0Access *v0StoredPieceAccess) Stat(ctx context.Context) (blobstore.FileInfo, error) {
 	if err := v0Access.fillInBlobAccess(ctx); err != nil {
 		return nil, err
 	}

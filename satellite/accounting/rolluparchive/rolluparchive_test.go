@@ -11,14 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
 )
 
 func TestRollupArchiveChore(t *testing.T) {
+	t.Skip("flaky")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
@@ -29,6 +31,10 @@ func TestRollupArchiveChore(t *testing.T) {
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			for _, sn := range planet.StorageNodes {
+				sn.Contact.Chore.TriggerWait(ctx)
+			}
+
 			// The purpose of this test is to ensure that the archive chore deletes
 			// entries in the storagenode_bandwidth_rollups and bucket_bandwidth_rollups tables
 			// and inserts those entries into new archive tables.

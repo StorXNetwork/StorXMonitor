@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/assert"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestOpenWritableUnsent(t *testing.T) {
 	type args struct {
 		unsentDir    string
-		satelliteID  storj.NodeID
+		satelliteID  storxnetwork.NodeID
 		creationTime time.Time
 	}
 	var tests []struct {
@@ -65,7 +65,7 @@ func TestGetUnsentInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tArgs := tt.args(t)
 
-			got1, err := GetUnsentInfo(tArgs.info)
+			got1, err := GetUnsentInfo(tArgs.info.Name())
 
 			assert.Equal(t, tt.want1, got1)
 
@@ -96,7 +96,7 @@ func TestGetArchivedInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tArgs := tt.args(t)
 
-			got1, err := GetArchivedInfo(tArgs.info)
+			got1, err := GetArchivedInfo(tArgs.info.Name())
 
 			assert.Equal(t, tt.want1, got1)
 
@@ -146,7 +146,7 @@ func TestMoveUnsent(t *testing.T) {
 	type args struct {
 		unsentDir     string
 		archiveDir    string
-		satelliteID   storj.NodeID
+		satelliteID   storxnetwork.NodeID
 		createdAtHour time.Time
 		archivedAt    time.Time
 		status        pb.SettlementWithWindowResponse_Status
@@ -184,7 +184,7 @@ func TestGetUnsentFileInfo(t *testing.T) {
 		name string
 		args func(t *testing.T) args
 
-		want1      storj.NodeID
+		want1      storxnetwork.NodeID
 		want2      time.Time
 		want3      Version
 		wantErr    bool
@@ -221,7 +221,7 @@ func TestGetArchivedFileInfo(t *testing.T) {
 		name string
 		args func(t *testing.T) args
 
-		want1      storj.NodeID
+		want1      storxnetwork.NodeID
 		want2      time.Time
 		want3      time.Time
 		want4      string
@@ -258,7 +258,7 @@ func TestGetArchivedFileInfo(t *testing.T) {
 
 func TestUnsentFileName(t *testing.T) {
 	type args struct {
-		satelliteID  storj.NodeID
+		satelliteID  storxnetwork.NodeID
 		creationTime time.Time
 		version      Version
 	}
@@ -282,7 +282,7 @@ func TestUnsentFileName(t *testing.T) {
 
 func TestArchiveFileName(t *testing.T) {
 	type args struct {
-		satelliteID  storj.NodeID
+		satelliteID  storxnetwork.NodeID
 		creationTime time.Time
 		archiveTime  time.Time
 		status       pb.SettlementWithWindowResponse_Status
@@ -324,31 +324,6 @@ func TestGetCreationHourString(t *testing.T) {
 			got1 := getCreationHourString(tArgs.t)
 
 			assert.Equal(t, tt.want1, got1)
-		})
-	}
-}
-
-func TestGetVersion(t *testing.T) {
-	type args struct {
-		filename string
-	}
-	var tests []struct {
-		name string
-		args func(t *testing.T) args
-
-		want1 string
-		want2 Version
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tArgs := tt.args(t)
-
-			got1, got2 := getVersion(tArgs.filename)
-
-			assert.Equal(t, tt.want1, got1)
-
-			assert.Equal(t, tt.want2, got2)
 		})
 	}
 }

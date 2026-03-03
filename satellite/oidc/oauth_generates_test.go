@@ -13,15 +13,15 @@ import (
 	"github.com/go-oauth2/oauth2/v4/models"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/oidc"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 )
 
 type mockGenerateService struct {
 	GetAPIKeyInfoFunc func(ctx context.Context, uuid uuid.UUID, name string) (*console.APIKeyInfo, error)
-	CreateAPIKeyFunc  func(ctx context.Context, uuid uuid.UUID, name string) (*console.APIKeyInfo, *macaroon.APIKey, error)
+	CreateAPIKeyFunc  func(ctx context.Context, uuid uuid.UUID, name string, version macaroon.APIKeyVersion) (*console.APIKeyInfo, *macaroon.APIKey, error)
 	GetUserFunc       func(ctx context.Context, uuid uuid.UUID) (*console.User, error)
 }
 
@@ -41,18 +41,18 @@ func (m *mockGenerateService) GetUser(ctx context.Context, id uuid.UUID) (u *con
 	return m.GetUserFunc(ctx, id)
 }
 
-func (m *mockGenerateService) CreateAPIKey(ctx context.Context, id uuid.UUID, name string) (*console.APIKeyInfo, *macaroon.APIKey, error) {
+func (m *mockGenerateService) CreateAPIKey(ctx context.Context, id uuid.UUID, name string, version macaroon.APIKeyVersion) (*console.APIKeyInfo, *macaroon.APIKey, error) {
 	if m.CreateAPIKeyFunc == nil {
 		return nil, nil, nil
 	}
 
-	return m.CreateAPIKeyFunc(ctx, id, name)
+	return m.CreateAPIKeyFunc(ctx, id, name, version)
 }
 
 var _ oidc.GenerateService = &mockGenerateService{}
 
 func TestUUIDGenerate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	generate := oidc.UUIDAuthorizeGenerate{}
 	uuid, err := generate.Token(ctx, nil)
@@ -81,13 +81,14 @@ func TestMacaroonGenerate(t *testing.T) {
 		return nil, sql.ErrNoRows
 	}
 
-	createSuccess := func(ctx context.Context, uuid uuid.UUID, name string) (*console.APIKeyInfo, *macaroon.APIKey, error) {
+	createSuccess := func(ctx context.Context, uuid uuid.UUID, name string, version macaroon.APIKeyVersion) (*console.APIKeyInfo, *macaroon.APIKey, error) {
 		return &console.APIKeyInfo{
 			ID:        uuid,
 			ProjectID: uuid,
 			Name:      name,
 			Head:      apiKey.Head(),
 			Secret:    secret,
+			Version:   version,
 		}, apiKey, nil
 	}
 
@@ -105,7 +106,7 @@ func TestMacaroonGenerate(t *testing.T) {
 		name    string
 		scope   string
 		get     func(ctx context.Context, uuid uuid.UUID, name string) (*console.APIKeyInfo, error)
-		create  func(ctx context.Context, uuid uuid.UUID, name string) (*console.APIKeyInfo, *macaroon.APIKey, error)
+		create  func(ctx context.Context, uuid uuid.UUID, name string, version macaroon.APIKeyVersion) (*console.APIKeyInfo, *macaroon.APIKey, error)
 		refresh bool
 		err     string
 	}{
@@ -117,7 +118,7 @@ func TestMacaroonGenerate(t *testing.T) {
 		{"existing secret - access and refresh", fullScope, getSuccess, nil, true, ""},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	mock := &mockGenerateService{
 		GetUserFunc: func(ctx context.Context, uuid uuid.UUID) (*console.User, error) {
 			return &console.User{

@@ -8,14 +8,14 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/common/process"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
 )
 
 func main() {
 	logger, _, _ := process.NewLogger("storagenode")
-	zap.ReplaceGlobals(logger.With(zap.String("Process", "storagenode")))
+	zap.ReplaceGlobals(logger.With(zap.String("process", "storagenode")))
 
 	process.SetHardcodedApplicationName("storagenode")
 
@@ -27,11 +27,11 @@ func main() {
 	}
 
 	loggerFunc := func(logger *zap.Logger) *zap.Logger {
-		return logger.With(zap.String("Process", rootCmd.Use))
+		return logger.With(zap.String("process", rootCmd.Use))
 	}
 
 	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{
-		InitDefaultDebugServer: allowDefaults,
+		InitDefaultDebugServer: false,
 		InitTracing:            allowDefaults,
 		InitProfiler:           allowDefaults,
 		LoggerFactory:          loggerFunc,

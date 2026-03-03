@@ -6,7 +6,7 @@ package accounting
 import (
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // BucketStorageTally holds data about a bucket tally.
@@ -19,6 +19,7 @@ type BucketStorageTally struct {
 
 	TotalSegmentCount int64
 	TotalBytes        int64
+	RemainderBytes    int64
 
 	MetadataSize int64
 }

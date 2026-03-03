@@ -9,25 +9,37 @@ import (
 	"strings"
 	"time"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Config contains configurable values for checker.
 type Config struct {
 	Interval time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s" testDefault:"$TESTINTERVAL"`
 
-	ReliabilityCacheStaleness time.Duration   `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m" testDefault:"1m"`
-	RepairOverrides           RepairOverrides `help:"[DEPRECATED] comma-separated override values for repair threshold in the format k-threshold" releaseDefault:"" devDefault:"" deprecated:"true"`
-	RepairThresholdOverrides  RepairOverrides `help:"comma-separated override values for repair threshold in the format k-threshold" releaseDefault:"29-52" devDefault:""`
-	RepairTargetOverrides     RepairOverrides `help:"comma-separated override values for repair success target in the format k-target" releaseDefault:"29-65" devDefault:""`
+	ReliabilityCacheStaleness time.Duration            `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m" testDefault:"1m"`
+	RepairOverrides           RepairOverrides          `help:"[DEPRECATED] comma-separated override values for repair threshold in the format k-threshold" default:"" deprecated:"true" hidden:"true"`
+	RepairThresholdOverrides  RepairThresholdOverrides `help:"comma-separated override values for repair threshold in the format k-threshold" default:""`
+	RepairTargetOverrides     RepairTargetOverrides    `help:"comma-separated override values for repair success target in the format k-target" default:""`
 	// Node failure rate is an estimation based on a 6 hour checker run interval (4 checker iterations per day), a network of about 9200 nodes, and about 2 nodes churning per day.
 	// This results in `2/9200/4 = 0.00005435` being the probability of any single node going down in the interval of one checker iteration.
-	NodeFailureRate            float64  `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
-	RepairQueueInsertBatchSize int      `help:"Number of damaged segments to buffer in-memory before flushing to the repair queue" default:"100" `
-	RepairExcludedCountryCodes []string `help:"list of country codes to treat node from this country as offline " default:"" hidden:"true"`
-	DoDeclumping               bool     `help:"Treat pieces on the same network as in need of repair" default:"true"`
-	DoPlacementCheck           bool     `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
+	NodeFailureRate            float64       `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
+	RepairQueueInsertBatchSize int           `help:"Number of damaged segments to buffer in-memory before flushing to the repair queue" default:"100" `
+	RepairExcludedCountryCodes []string      `help:"list of country codes to treat node from this country as offline " default:"" hidden:"true"`
+	DoDeclumping               bool          `help:"Treat pieces on the same network as in need of repair" default:"true"`
+	DoPlacementCheck           bool          `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
+	HealthScore                string        `help:"Health score to use for segment health calculation. Options: 'probability', 'normalized'. 'probability' uses the original SegmentHealth logic with node count estimation, while 'normalized' uses a normalized health calculation (healthy -k)." default:"probability" enum:"probability,normalized"`
+	OnlineWindow               time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h" testDefault:"5m"`
+}
+
+// RepairThresholdOverrides override values for repair threshold.
+type RepairThresholdOverrides struct {
+	RepairOverrides
+}
+
+// RepairTargetOverrides override values for repair success target.
+type RepairTargetOverrides struct {
+	RepairOverrides
 }
 
 // RepairOverrides is a configuration struct that contains a list of  override repair
@@ -49,7 +61,7 @@ func (ros *RepairOverrides) String() string {
 		if i > 0 {
 			s.WriteString(",")
 		}
-		fmt.Fprintf(&s, "%d-%d", k, v)
+		_, _ = fmt.Fprintf(&s, "%d-%d", k, v)
 		i++
 	}
 	return s.String()
@@ -96,6 +108,6 @@ func (ros *RepairOverrides) GetOverrideValuePB(rs *pb.RedundancyScheme) int32 {
 }
 
 // GetOverrideValue returns the override value for an RS scheme if it exists, or 0 otherwise.
-func (ros *RepairOverrides) GetOverrideValue(rs storj.RedundancyScheme) int32 {
+func (ros *RepairOverrides) GetOverrideValue(rs storxnetwork.RedundancyScheme) int32 {
 	return int32(ros.Values[int(rs.RequiredShares)])
 }

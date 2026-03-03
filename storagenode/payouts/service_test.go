@@ -13,15 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestServiceHeldAmountHistory(t *testing.T) {
@@ -64,7 +64,7 @@ func TestServiceHeldAmountHistory(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
 		// add paystubs
 		paystubs := []payouts.PayStub{
@@ -156,22 +156,22 @@ func (s *fakeSource) FetchEntries(context.Context) ([]trust.Entry, error) {
 
 type fakeIdentityResolver struct {
 	mu         sync.Mutex
-	identities map[storj.NodeURL]*identity.PeerIdentity
+	identities map[storxnetwork.NodeURL]*identity.PeerIdentity
 }
 
 func newFakeIdentityResolver() *fakeIdentityResolver {
 	return &fakeIdentityResolver{
-		identities: make(map[storj.NodeURL]*identity.PeerIdentity),
+		identities: make(map[storxnetwork.NodeURL]*identity.PeerIdentity),
 	}
 }
 
-func (resolver *fakeIdentityResolver) SetIdentity(url storj.NodeURL, identity *identity.PeerIdentity) {
+func (resolver *fakeIdentityResolver) SetIdentity(url storxnetwork.NodeURL, identity *identity.PeerIdentity) {
 	resolver.mu.Lock()
 	defer resolver.mu.Unlock()
 	resolver.identities[url] = identity
 }
 
-func (resolver *fakeIdentityResolver) ResolveIdentity(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error) {
+func (resolver *fakeIdentityResolver) ResolveIdentity(ctx context.Context, url storxnetwork.NodeURL) (*identity.PeerIdentity, error) {
 	resolver.mu.Lock()
 	defer resolver.mu.Unlock()
 

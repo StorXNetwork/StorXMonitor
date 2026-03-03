@@ -13,13 +13,13 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	segmentverify "storj.io/storj/cmd/tools/segment-verify"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	segmentverify "github.com/StorXNetwork/StorXMonitor/cmd/tools/segment-verify"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 func TestVerifier(t *testing.T) {
@@ -36,14 +36,10 @@ func TestVerifier(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
-		olderNodeVersion := "v1.68.1" // version without Exists endpoint
-		newerNodeVersion := "v1.69.2" // minimum version with Exists endpoint
-
 		config := segmentverify.VerifierConfig{
-			PerPieceTimeout:    time.Second,
+			PerPieceTimeout:    10 * time.Second,
 			OrderRetryThrottle: 500 * time.Millisecond,
 			RequestThrottle:    500 * time.Millisecond,
-			VersionWithExists:  "v1.69.2",
 		}
 
 		// create new observed logger
@@ -89,34 +85,18 @@ func TestVerifier(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("verify all", func(t *testing.T) {
-			nodeWithExistsEndpoint := planet.StorageNodes[testrand.Intn(len(planet.StorageNodes)-1)]
-
 			var g errgroup.Group
 			for _, node := range planet.StorageNodes {
 				node := node
-				nodeVersion := olderNodeVersion
-				if node == nodeWithExistsEndpoint {
-					nodeVersion = newerNodeVersion
-				}
 				alias, ok := aliasMap.Alias(node.ID())
 				require.True(t, ok)
 				g.Go(func() error {
-					_, err := verifier.Verify(ctx, alias, node.NodeURL(), nodeVersion, validSegments, true)
+					_, err := verifier.Verify(ctx, alias, node.NodeURL(), validSegments, true)
 					return err
 				})
 			}
 			require.NoError(t, g.Wait())
 			require.NotZero(t, len(observedLogs.All()))
-
-			// check that segments were verified with download method
-			fallbackLogs := observedLogs.FilterMessage("fallback to download method").All()
-			require.Equal(t, nodeCount-1, len(fallbackLogs))
-			require.Equal(t, zap.DebugLevel, fallbackLogs[0].Level)
-
-			// check that segments were verified with exists endpoint
-			existsLogs := observedLogs.FilterMessage("verify segments using Exists method").All()
-			require.Equal(t, 1, len(existsLogs))
-			require.Equal(t, zap.DebugLevel, existsLogs[0].Level)
 
 			for segNum, seg := range validSegments {
 				require.Equal(t, segmentverify.Status{Found: nodeCount, NotFound: 0, Retry: 0}, seg.Status, segNum)
@@ -149,22 +129,7 @@ func TestVerifier(t *testing.T) {
 		var count int
 		t.Run("segment not found using download method", func(t *testing.T) {
 			// for older node version
-			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), olderNodeVersion,
-				[]*segmentverify.Segment{validSegment0, missingSegment, validSegment1}, true)
-			require.NoError(t, err)
-			require.Equal(t, 3, count)
-			require.Equal(t, segmentverify.Status{Found: 1}, validSegment0.Status)
-			require.Equal(t, segmentverify.Status{NotFound: 1}, missingSegment.Status)
-			require.Equal(t, segmentverify.Status{Found: 1}, validSegment1.Status)
-		})
-
-		// reset status
-		validSegment0.Status = segmentverify.Status{Retry: 1}
-		missingSegment.Status = segmentverify.Status{Retry: 1}
-		validSegment1.Status = segmentverify.Status{Retry: 1}
-
-		t.Run("segment not found using exists method", func(t *testing.T) {
-			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), newerNodeVersion,
+			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(),
 				[]*segmentverify.Segment{validSegment0, missingSegment, validSegment1}, true)
 			require.NoError(t, err)
 			require.Equal(t, 3, count)
@@ -179,7 +144,7 @@ func TestVerifier(t *testing.T) {
 			// Test throttling
 			verifyStart := time.Now()
 			const throttleN = 5
-			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), olderNodeVersion, validSegments[:throttleN], false)
+			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments[:throttleN], false)
 			require.NoError(t, err)
 			verifyDuration := time.Since(verifyStart)
 			require.Equal(t, throttleN, count)
@@ -194,13 +159,13 @@ func TestVerifier(t *testing.T) {
 			require.NoError(t, err)
 
 			// for older node version
-			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), olderNodeVersion, validSegments, true)
+			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments, true)
 			require.Error(t, err)
 			require.Equal(t, 0, count)
 			require.True(t, segmentverify.ErrNodeOffline.Has(err))
 
 			// for node version with Exists endpoint
-			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), newerNodeVersion, validSegments, true)
+			count, err = verifier.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments, true)
 			require.Error(t, err)
 			require.Equal(t, 0, count)
 			require.True(t, segmentverify.ErrNodeOffline.Has(err))

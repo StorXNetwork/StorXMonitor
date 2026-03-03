@@ -8,13 +8,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Balances exposes needed functionality for managing customer balances.
 type Balances interface {
 	// ApplyCredit applies a credit of `amount` to the user's stripe balance with a description of `desc`.
-	ApplyCredit(ctx context.Context, userID uuid.UUID, amount int64, desc string) (*Balance, error)
+	ApplyCredit(ctx context.Context, userID uuid.UUID, amount int64, desc, idempotencyKey string) (*Balance, error)
 	// Get returns the customer balance.
 	Get(ctx context.Context, userID uuid.UUID) (Balance, error)
 	// ListTransactions returns a list of transactions on the customer's balance.

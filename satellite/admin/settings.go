@@ -6,7 +6,7 @@ package admin
 import (
 	"context"
 
-	"storj.io/storj/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
 )
 
 // Settings contains relevant settings for the consumers of this service. It may contain settings

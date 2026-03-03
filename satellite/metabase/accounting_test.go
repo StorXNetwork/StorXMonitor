@@ -4,19 +4,30 @@
 package metabase_test
 
 import (
+	"fmt"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/stretchr/testify/require"
+
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
 )
 
 func TestCollectBucketTallies(t *testing.T) {
+	t.Parallel()
+	for _, usePartitionQuery := range []bool{false, true} {
+		t.Run(fmt.Sprintf("usePartitionQuery=%v", usePartitionQuery), func(t *testing.T) {
+			testCollectBucketTallies(t, usePartitionQuery)
+		})
+	}
+}
+
+func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("empty from", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -27,6 +38,7 @@ func TestCollectBucketTallies(t *testing.T) {
 						ProjectID:  testrand.UUID(),
 						BucketName: "name does not exist 2",
 					},
+					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -42,6 +54,7 @@ func TestCollectBucketTallies(t *testing.T) {
 						ProjectID:  testrand.UUID(),
 						BucketName: "name does not exist",
 					},
+					UsePartitionQuery: usePartitionQuery,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "project ID To is before project ID From",
@@ -82,6 +95,7 @@ func TestCollectBucketTallies(t *testing.T) {
 						ProjectID:  randStream.ProjectID,
 						BucketName: randStream.BucketName,
 					},
+					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -93,8 +107,9 @@ func TestCollectBucketTallies(t *testing.T) {
 
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
-					From: metabase.BucketLocation{},
-					To:   metabase.BucketLocation{},
+					From:              metabase.BucketLocation{},
+					To:                metabase.BucketLocation{},
+					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -117,6 +132,7 @@ func TestCollectBucketTallies(t *testing.T) {
 						ProjectID:  projectB,
 						BucketName: "b\\",
 					},
+					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -131,17 +147,13 @@ func TestCollectBucketTallies(t *testing.T) {
 			committed.ProjectID = pending.ProjectID
 			committed.BucketName = pending.BucketName + "q"
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream:                  pending,
-					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					ObjectStream:      pending,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -157,7 +169,10 @@ func TestCollectBucketTallies(t *testing.T) {
 					PendingObjectCount: 1,
 					TotalSegments:      0,
 					TotalBytes:         0,
-					MetadataSize:       1024,
+					MetadataSize:       int64(len(userData.EncryptedMetadata) + len(userData.EncryptedETag)),
+					BytesByRemainder: map[int64]int64{
+						0: 0,
+					},
 				},
 				{
 					BucketLocation: metabase.BucketLocation{
@@ -169,6 +184,9 @@ func TestCollectBucketTallies(t *testing.T) {
 					TotalSegments:      1,
 					TotalBytes:         1024,
 					MetadataSize:       0,
+					BytesByRemainder: map[int64]int64{
+						0: 1024,
+					},
 				},
 			}
 
@@ -182,6 +200,7 @@ func TestCollectBucketTallies(t *testing.T) {
 						ProjectID:  committed.ProjectID,
 						BucketName: committed.BucketName,
 					},
+					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -196,7 +215,8 @@ func TestCollectBucketTallies(t *testing.T) {
 						ProjectID:  committed.ProjectID,
 						BucketName: committed.BucketName,
 					},
-					AsOfSystemTime: time.Now(),
+					AsOfSystemInterval: time.Millisecond,
+					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -211,7 +231,7 @@ func TestCollectBucketTallies(t *testing.T) {
 				p[0] = byte(i)
 				projects = append(projects, p)
 			}
-			bucketNames := strings.Split("abcde", "")
+			bucketNames := []metabase.BucketName{"a", "b", "c", "d", "e"}
 			bucketLocations := make([]metabase.BucketLocation, 0, len(projects)*len(bucketNames))
 
 			expected := make([]metabase.BucketTally, 0, len(projects)*len(bucketNames))
@@ -231,44 +251,49 @@ func TestCollectBucketTallies(t *testing.T) {
 
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
-					From: bucketLocations[0],
-					To:   bucketLocations[len(bucketLocations)-1],
+					From:              bucketLocations[0],
+					To:                bucketLocations[len(bucketLocations)-1],
+					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
-					From:           bucketLocations[0],
-					To:             bucketLocations[len(bucketLocations)-1],
-					AsOfSystemTime: time.Now(),
+					From:               bucketLocations[0],
+					To:                 bucketLocations[len(bucketLocations)-1],
+					AsOfSystemInterval: time.Millisecond,
+					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
-					From:           bucketLocations[0],
-					To:             bucketLocations[15],
-					AsOfSystemTime: time.Now(),
+					From:               bucketLocations[0],
+					To:                 bucketLocations[15],
+					AsOfSystemInterval: time.Millisecond,
+					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected[0:16],
 			}.Check(ctx, t, db)
 
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
-					From:           bucketLocations[16],
-					To:             bucketLocations[34],
-					AsOfSystemTime: time.Now(),
+					From:               bucketLocations[16],
+					To:                 bucketLocations[34],
+					AsOfSystemInterval: time.Millisecond,
+					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected[16:35],
 			}.Check(ctx, t, db)
 
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
-					From:           bucketLocations[30],
-					To:             bucketLocations[10],
-					AsOfSystemTime: time.Now(),
+					From:               bucketLocations[30],
+					To:                 bucketLocations[10],
+					AsOfSystemInterval: time.Millisecond,
+					UsePartitionQuery:  usePartitionQuery,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "project ID To is before project ID From",
@@ -286,7 +311,10 @@ func bucketTallyFromRaw(m metabase.RawObject) metabase.BucketTally {
 		ObjectCount:   1,
 		TotalSegments: int64(m.SegmentCount),
 		TotalBytes:    m.TotalEncryptedSize,
-		MetadataSize:  int64(len(m.EncryptedMetadata)),
+		MetadataSize:  int64(len(m.EncryptedMetadata) + len(m.EncryptedETag)),
+		BytesByRemainder: map[int64]int64{
+			0: m.TotalEncryptedSize,
+		},
 	}
 }
 
@@ -296,5 +324,209 @@ func sortBucketLocations(bc []metabase.BucketLocation) {
 			return bc[i].BucketName < bc[j].BucketName
 		}
 		return bc[i].ProjectID.Less(bc[j].ProjectID)
+	})
+}
+
+func TestCollectBucketTallies_WithRemainder(t *testing.T) {
+	t.Parallel()
+	for _, usePartitionQuery := range []bool{false, true} {
+		t.Run(fmt.Sprintf("usePartitionQuery=%v", usePartitionQuery), func(t *testing.T) {
+			testCollectBucketTalliesWithRemainder(t, usePartitionQuery)
+		})
+	}
+}
+
+func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		projectID := testrand.UUID()
+		bucketName := metabase.BucketName("test-bucket")
+
+		// Create objects of various sizes.
+		// Each segment in CreateObject is 1024 bytes (1KB) encrypted size.
+		smallObj := metabasetest.RandObjectStream()
+		smallObj.ProjectID = projectID
+		smallObj.BucketName = bucketName
+		smallObj.ObjectKey = "small-1kb"
+
+		mediumObj := metabasetest.RandObjectStream()
+		mediumObj.ProjectID = projectID
+		mediumObj.BucketName = bucketName
+		mediumObj.ObjectKey = "medium-5kb"
+
+		largeObj := metabasetest.RandObjectStream()
+		largeObj.ProjectID = projectID
+		largeObj.BucketName = bucketName
+		largeObj.ObjectKey = "large-100kb"
+
+		// Create objects: 1 segment (1KB), 5 segments (5KB), 100 segments (100KB).
+		obj1 := metabasetest.CreateObject(ctx, t, db, smallObj, 1)
+		obj2 := metabasetest.CreateObject(ctx, t, db, mediumObj, 5)
+		obj3 := metabasetest.CreateObject(ctx, t, db, largeObj, 100)
+
+		// Verify actual object sizes.
+		require.EqualValues(t, 1024, obj1.TotalEncryptedSize)   // 1KB
+		require.EqualValues(t, 5120, obj2.TotalEncryptedSize)   // 5KB
+		require.EqualValues(t, 102400, obj3.TotalEncryptedSize) // 100KB
+
+		// Actual total bytes: 1KB + 5KB + 100KB = 108544 bytes.
+		actualTotalBytes := int64(108544)
+
+		t.Run("nil remainders (default to 0)", func(t *testing.T) {
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: nil, // Should default to []int64{0}.
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// Should have actual bytes (no remainder applied).
+			require.Equal(t, actualTotalBytes, tally.BytesByRemainder[0], "BytesByRemainder[0] should equal actual bytes")
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (first remainder)")
+			require.EqualValues(t, 3, tally.ObjectCount, "should have 3 objects")
+			require.EqualValues(t, 106, tally.TotalSegments, "should have 106 total segments")
+		})
+
+		t.Run("explicit remainder 0", func(t *testing.T) {
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: []int64{0},
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// Should have actual bytes (no remainder applied).
+			require.Equal(t, actualTotalBytes, tally.BytesByRemainder[0], "BytesByRemainder[0] should equal actual bytes")
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes")
+		})
+
+		t.Run("single non-zero remainder", func(t *testing.T) {
+			remainder := int64(51200) // 50KB
+
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: []int64{remainder},
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// With remainder of 50KB:
+			// - Small object (1KB) → counted as 50KB (remainder applies)
+			// - Medium object (5KB) → counted as 50KB (remainder applies)
+			// - Large object (100KB) → counted as 100KB (already larger than remainder)
+			// Total = 50KB + 50KB + 100KB = 204800 bytes
+			expectedBytes := int64(204800)
+
+			require.Equal(t, expectedBytes, tally.BytesByRemainder[remainder], "BytesByRemainder[51200] should equal 200KB")
+
+			// TotalBytes should equal actual bytes (remainder=0 is always auto-added)
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (always includes remainder=0)")
+		})
+
+		t.Run("multiple remainders including 0", func(t *testing.T) {
+			remainder50KB := int64(51200)   // 50KB
+			remainder100KB := int64(102400) // 100KB
+
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: []int64{0, remainder50KB, remainder100KB},
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// With remainder=0: actual bytes.
+			require.Equal(t, actualTotalBytes, tally.BytesByRemainder[0], "BytesByRemainder[0] should equal actual bytes")
+
+			// With remainder=50KB: 50KB + 50KB + 100KB = 200KB.
+			expectedBytes50KB := int64(204800)
+			require.Equal(t, expectedBytes50KB, tally.BytesByRemainder[remainder50KB], "BytesByRemainder[51200] should equal 200KB")
+
+			// With remainder=100KB: 100KB + 100KB + 100KB = 300KB.
+			expectedBytes100KB := int64(307200)
+			require.Equal(t, expectedBytes100KB, tally.BytesByRemainder[remainder100KB], "BytesByRemainder[102400] should equal 300KB")
+
+			// TotalBytes should be the first remainder value (remainder=0).
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (first remainder)")
+		})
+
+		t.Run("multiple remainders without 0", func(t *testing.T) {
+			remainder50KB := int64(51200)   // 50KB
+			remainder100KB := int64(102400) // 100KB
+
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: []int64{remainder50KB, remainder100KB},
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// BytesByRemainder SHOULD have 0 key (auto-added for backward compatibility).
+			require.Equal(t, actualTotalBytes, tally.BytesByRemainder[0], "BytesByRemainder[0] should equal actual bytes (auto-added)")
+
+			// With remainder=50KB: 50KB + 50KB + 100KB = 200KB
+			expectedBytes50KB := int64(204800)
+			require.Equal(t, expectedBytes50KB, tally.BytesByRemainder[remainder50KB], "BytesByRemainder[51200] should equal 200KB")
+
+			// With remainder=100KB: 100KB + 100KB + 100KB = 300KB
+			expectedBytes100KB := int64(307200)
+			require.Equal(t, expectedBytes100KB, tally.BytesByRemainder[remainder100KB], "BytesByRemainder[102400] should equal 300KB")
+
+			// TotalBytes should always equal actual bytes (remainder=0 is always included)
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (always includes remainder=0)")
+		})
 	})
 }

@@ -10,10 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestState_SelectNonDistinct(t *testing.T) {
@@ -35,13 +36,13 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	require.NoError(t, err)
 
 	{ // select 5 non-distinct subnet reputable nodes
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 		const selectCount = 5
-		selected, err := state.Select(0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
 	}
@@ -49,12 +50,12 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	{ // select 6 non-distinct subnet reputable and new nodes (50%)
 		const selectCount = 6
 		const newFraction = 0.5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0.5, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
-		selected, err := state.Select(0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
 		require.Len(t, intersectLists(selected, reputableNodes), selectCount*(1-newFraction))
@@ -64,19 +65,63 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	{ // select 10 distinct subnet reputable and new nodes (100%), falling back to 5 reputable
 		const selectCount = 10
 		const newFraction = 1.0
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(newFraction, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 
-		selected, err := state.Select(0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 
 		require.Len(t, selected, selectCount)
 		require.Len(t, intersectLists(selected, reputableNodes), 5)
 		require.Len(t, intersectLists(selected, newNodes), 5)
 	}
+}
+
+func TestState_UploadFilter(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	nodes := func() []*nodeselection.SelectedNode {
+		nodes := joinNodes(
+			createRandomNodes(3, "1.0.1", true, true),
+			createRandomNodes(3, "1.0.2", true, true),
+			createRandomNodes(3, "1.0.3", true, true),
+		)
+		for i := 0; i < 3; i++ {
+			nodes[i].CountryCode = location.Germany
+			nodes[i+3].CountryCode = location.Austria
+			nodes[i+6].CountryCode = location.UnitedStates
+		}
+		return nodes
+	}()
+
+	deFilter, err := nodeselection.FilterFromString("country(\"DE\")", nil)
+	require.NoError(t, err)
+
+	euFilter, err := nodeselection.FilterFromString("country(\"EU\")", nil)
+	require.NoError(t, err)
+
+	state := nodeselection.InitState(ctx, nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
+		0: {
+			Selector:     nodeselection.RandomSelector(),
+			NodeFilter:   euFilter,
+			UploadFilter: nodeselection.NewExcludeFilter(deFilter),
+		},
+	})
+
+	for i := 0; i < 10; i++ {
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, 3, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 3)
+		for i := 0; i < len(selected); i++ {
+			// Germany is excluded by upload filter, US is not included in the normal filter
+			require.Equal(t, location.Austria, selected[i].CountryCode)
+		}
+	}
+
 }
 
 func TestState_SelectDistinct(t *testing.T) {
@@ -96,48 +141,48 @@ func TestState_SelectDistinct(t *testing.T) {
 	lastNet, err := nodeselection.CreateNodeAttribute("last_net")
 	require.NoError(t, err)
 
-	{ // select 2 distinct subnet reputable nodes
+	t.Run("select 2 distinct subnet reputable nodes", func(t *testing.T) {
 		const selectCount = 2
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 
-		selected, err := state.Select(0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 
 		require.Len(t, selected, selectCount)
-	}
+	})
 
-	{ // try to select 5 distinct subnet reputable nodes, but there are only two 2 in the state
+	t.Run("try to select 5 distinct subnet reputable nodes, but there are only two 2 in the state", func(t *testing.T) {
 		const selectCount = 5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 
-		selected, err := state.Select(0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
 		require.Error(t, err)
 		require.Len(t, selected, 2)
-	}
-	//
-	{ // select 4 distinct subnet reputable and new nodes (50%)
+	})
+
+	t.Run("select 4 distinct subnet reputable and new nodes (50%)", func(t *testing.T) {
 		const selectCount = 4
 		const newFraction = 0.5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(newFraction, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 
-		selected, err := state.Select(0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount, nil)
 		require.Len(t, intersectLists(selected, reputableNodes), selectCount*(1-newFraction))
 		require.Len(t, intersectLists(selected, newNodes), selectCount*newFraction)
-	}
+	})
 }
 
 func TestState_Select_Concurrent(t *testing.T) {
@@ -155,7 +200,7 @@ func TestState_Select_Concurrent(t *testing.T) {
 
 	nodes := joinNodes(reputableNodes, newNodes)
 
-	state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+	state := nodeselection.InitState(ctx, nodes, map[storxnetwork.PlacementConstraint]nodeselection.Placement{
 		0: {
 			Selector: nodeselection.UnvettedSelector(0.5, nodeselection.RandomSelector()),
 		},
@@ -164,14 +209,14 @@ func TestState_Select_Concurrent(t *testing.T) {
 	var group errgroup.Group
 	group.Go(func() error {
 		const selectCount = 5
-		nodes, err := state.Select(0, selectCount, nil, nil)
+		nodes, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
 		require.Len(t, nodes, selectCount)
 		return err
 	})
 
 	group.Go(func() error {
 		const selectCount = 4
-		nodes, err := state.Select(0, selectCount, nil, nil)
+		nodes, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
 		require.Len(t, nodes, selectCount)
 		return err
 	})

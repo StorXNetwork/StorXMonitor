@@ -15,8 +15,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/txutil"
-	"storj.io/common/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/spannerutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 var (
@@ -153,9 +154,10 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	}
 
 	initialSetup := false
-	for i, step := range migration.Steps {
-		step := step
+	latestVersionCache := map[tagsql.DB]int{}
+	versionsTableEnsured := map[tagsql.DB]bool{}
 
+	for i, step := range migration.Steps {
 		if step.CreateDB != nil {
 			if err := step.CreateDB(ctx, log); err != nil {
 				return Error.Wrap(err)
@@ -166,15 +168,27 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 		if db == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
-
-		err = migration.ensureVersionTable(ctx, db)
-		if err != nil {
-			return Error.New("creating version table failed: %w", err)
+		if db.Name() == "spanner" {
+			db = &spannerutil.MultiExecDBWrapper{DB: db}
 		}
 
-		version, err := migration.getLatestVersion(ctx, db)
-		if err != nil {
-			return Error.Wrap(err)
+		if !versionsTableEnsured[db] {
+			versionsTableEnsured[db] = true
+			err = migration.ensureVersionTable(ctx, log, db)
+			if err != nil {
+				return Error.New("creating version table failed: %w", err)
+			}
+		}
+
+		var version int
+		if v, ok := latestVersionCache[db]; ok {
+			version = v
+		} else {
+			version, err = migration.getLatestVersion(ctx, db)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			latestVersionCache[db] = version
 		}
 		if i == 0 && version < 0 {
 			initialSetup = true
@@ -189,8 +203,13 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			stepLog.Info(step.Description)
 		}
 
-		err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-			err = step.Action.Run(ctx, stepLog, db, tx)
+		err = withDDLTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			runTx := tx
+			if db.Name() == "spanner" {
+				// we can't do DDL in a transaction
+				runTx = nil
+			}
+			err = step.Action.Run(ctx, stepLog, db, runTx)
 			if err != nil {
 				return err
 			}
@@ -204,6 +223,8 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 		if err != nil {
 			return Error.New("v%d: %w", step.Version, err)
 		}
+
+		latestVersionCache[db] = step.Version
 	}
 
 	if len(migration.Steps) > 0 {
@@ -220,16 +241,108 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	return nil
 }
 
+func withDDLTx(ctx context.Context, db tagsql.DB, opts *sql.TxOptions, fn func(context.Context, tagsql.Tx) error) error {
+	txRunner := txutil.WithTx
+	if db.Name() == tagsql.SpannerName {
+		// We can't use a transaction for each step because some DBs don't support
+		// DDL in transactions. In this case, however, we can batch DDL statements
+		// together instead.
+		txRunner = ddlBatcher
+	}
+	return txRunner(ctx, db, opts, fn)
+}
+
+func ddlBatcher(ctx context.Context, db tagsql.DB, _ *sql.TxOptions, fn func(context.Context, tagsql.Tx) error) (err error) {
+	conn, err := db.Conn(ctx)
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	_, err = conn.ExecContext(ctx, "START BATCH DDL")
+	if err != nil {
+		return errs.New("failed to start batch DDL: %w", err)
+	}
+	err = fn(ctx, ddlBatchTx{conn})
+	if err != nil {
+		return errs.New("failure executing batch DDL: %w", err)
+	}
+	_, err = conn.ExecContext(ctx, "RUN BATCH")
+	if err != nil {
+		return errs.New("failed to run batch DDL: %w", err)
+	}
+	return nil
+}
+
+type ddlBatchTx struct {
+	tagsql.Conn
+}
+
+func (tx ddlBatchTx) Commit() error {
+	return errs.New("this should not be called from inside the DDL transaction function")
+}
+
+func (tx ddlBatchTx) Rollback() error {
+	return errs.New("this should not be called from inside the DDL transaction function")
+}
+
+// These are deprecated and not provided by tagsql.Conn, but we need to implement them for now
+// to satisfy the tagsql.Tx interface.
+
+func (tx ddlBatchTx) Prepare(ctx context.Context, query string) (tagsql.Stmt, error) {
+	return tx.Conn.PrepareContext(ctx, query)
+}
+
+func (tx ddlBatchTx) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	return tx.Conn.ExecContext(ctx, query, args...)
+}
+
+func (tx ddlBatchTx) Query(ctx context.Context, query string, args ...interface{}) (tagsql.Rows, error) {
+	return tx.Conn.QueryContext(ctx, query, args...)
+}
+
+func (tx ddlBatchTx) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return tx.Conn.QueryRowContext(ctx, query, args...)
+}
+
 // ensureVersionTable creates migration.Table table if not exists.
-func (migration *Migration) ensureVersionTable(ctx context.Context, db tagsql.DB) error {
+func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) (err error) {
 	if err := migration.ValidTableName(); err != nil {
 		return Error.Wrap(err)
 	}
 
-	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		_, err := tx.Exec(ctx, rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
-		return err
-	})
+	createTableSQL := `CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version int, commited_at text)` //nolint:misspell
+	// allow for differences in CREATE TABLE syntax between databases
+	if db.Name() == tagsql.SpannerName {
+		// schema checks are slow in Spanner. check if the table exists using schema info
+		r, err := db.QueryContext(ctx, `
+			SELECT count(1)
+			FROM information_schema.tables AS t
+			WHERE
+				t.table_catalog = ''
+				AND t.table_schema = ''
+				AND t.table_name = ?
+			LIMIT 1
+		`, migration.Table)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		defer func() {
+			err = errs.Combine(err, r.Close())
+		}()
+
+		for r.Next() {
+			var count int
+			if err := r.Scan(&count); err != nil {
+				return Error.Wrap(err)
+			}
+			if count == 1 {
+				return nil
+			}
+		}
+
+		createTableSQL = `CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version INT64, commited_at STRING(MAX)) PRIMARY KEY (version)` //nolint:misspell
+	}
+	_, err = db.ExecContext(ctx, createTableSQL)
 	return Error.Wrap(err)
 }
 
@@ -242,16 +355,13 @@ func (migration *Migration) getLatestVersion(ctx context.Context, db tagsql.DB) 
 	}
 
 	var version sql.NullInt64
-	err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		/* #nosec G202 */ // Table name is white listed by the ValidTableName method
-		// executed at the beginning of the function
-		err := tx.QueryRow(ctx, rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
-		if errors.Is(err, sql.ErrNoRows) || !version.Valid {
-			version.Int64 = -1
-			return nil
-		}
-		return err
-	})
+	/* #nosec G202 */ // Table name is white listed by the ValidTableName method
+	// executed at the beginning of the function
+	err = db.QueryRowContext(ctx, `SELECT MAX(version) FROM `+migration.Table).Scan(&version)
+	if errors.Is(err, sql.ErrNoRows) || !version.Valid {
+		version.Int64 = -1
+		err = nil
+	}
 
 	return int(version.Int64), Error.Wrap(err)
 }
@@ -265,7 +375,7 @@ func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tag
 
 	/* #nosec G202 */ // Table name is white listed by the ValidTableName method
 	// executed at the beginning of the function
-	_, err = tx.Exec(ctx, rebind(db, `
+	_, err = tx.ExecContext(ctx, rebind(db, `
 		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
 	)
@@ -274,7 +384,7 @@ func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tag
 
 // CurrentVersion finds the latest version for the db.
 func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
-	err := migration.ensureVersionTable(ctx, db)
+	err := migration.ensureVersionTable(ctx, log, db)
 	if err != nil {
 		return -1, Error.Wrap(err)
 	}
@@ -287,7 +397,11 @@ type SQL []string
 // Run runs the SQL statements.
 func (sql SQL) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) (err error) {
 	for _, query := range sql {
-		_, err := tx.Exec(ctx, rebind(db, query))
+		if tx == nil {
+			_, err = db.ExecContext(ctx, rebind(db, query))
+		} else {
+			_, err = tx.ExecContext(ctx, rebind(db, query))
+		}
 		if err != nil {
 			return errs.Wrap(err)
 		}

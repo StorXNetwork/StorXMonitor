@@ -9,9 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"storj.io/common/currency"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // StorjTokens defines all payments STORJ token related functionality.
@@ -110,7 +110,7 @@ const (
 	PaymentStatusPending = "pending"
 )
 
-// WalletPayment holds storj token payment data.
+// WalletPayment holds storxnetwork token payment data.
 type WalletPayment struct {
 	ChainID     int64              `json:"chainID"`
 	From        blockchain.Address `json:"from"`
@@ -125,7 +125,7 @@ type WalletPayment struct {
 	Timestamp   time.Time          `json:"timestamp"`
 }
 
-// WalletPaymentWithConfirmations holds storj token payment data with confirmations count.
+// WalletPaymentWithConfirmations holds storxnetwork token payment data with confirmations count.
 type WalletPaymentWithConfirmations struct {
 	ChainID       int64           `json:"chainID"`
 	From          string          `json:"from"`

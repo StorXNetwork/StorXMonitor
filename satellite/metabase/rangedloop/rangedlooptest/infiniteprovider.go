@@ -6,7 +6,7 @@ package rangedlooptest
 import (
 	"context"
 
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 var _ rangedloop.RangeSplitter = (*InfiniteSegmentProvider)(nil)
@@ -17,7 +17,7 @@ type InfiniteSegmentProvider struct {
 }
 
 // CreateRanges splits the segments into equal ranges.
-func (m *InfiniteSegmentProvider) CreateRanges(nRanges int, batchSize int) (segmentsProviders []rangedloop.SegmentProvider, err error) {
+func (m *InfiniteSegmentProvider) CreateRanges(ctx context.Context, nRanges int, batchSize int) (segmentsProviders []rangedloop.SegmentProvider, err error) {
 	for i := 0; i < nRanges; i++ {
 		segmentsProviders = append(segmentsProviders, &InfiniteSegmentProvider{})
 	}

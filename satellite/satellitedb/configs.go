@@ -12,9 +12,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console/configs"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // ensures that configsDB implements configs.DB.
@@ -122,7 +122,7 @@ func (c *configsDB) ListConfigs(ctx context.Context, filters configs.ListConfigF
 
 		query += ` ORDER BY created_at DESC`
 
-		rows, err := c.db.Query(ctx, query, args...)
+		rows, err := c.db.QueryContext(ctx, query, args...)
 		if err != nil {
 			if errs.Is(err, sql.ErrNoRows) {
 				return []configs.Config{}, nil

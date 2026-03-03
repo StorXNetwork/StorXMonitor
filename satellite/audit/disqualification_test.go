@@ -11,17 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 // TestDisqualificationTooManyFailedAudits does the following:
@@ -30,11 +30,12 @@ import (
 //     disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	var (
-		auditDQCutOff = 0.4
+		auditDQCutOff = 0.96
 	)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, Reconfigure: testplanet.Reconfigure{
+		SatelliteCount: 1, StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.AuditLambda = 1
 				config.Reputation.AuditWeight = 1
@@ -59,7 +60,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		require.Nil(t, dossier.Disqualified)
 
 		satellitePeer.Audit.Reporter.RecordAudits(ctx, audit.Report{
-			Successes: storj.NodeIDList{nodeID},
+			Successes: storxnetwork.NodeIDList{nodeID},
 		})
 
 		reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
@@ -140,7 +141,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err = satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode, overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0, 0)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, uplinkPeer.Identity.PeerIdentity(), bucket, segment, 0, 0)
 		require.NoError(t, err)
 
 		notNilLimits := []*pb.AddressedOrderLimit{}
@@ -240,7 +241,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 	})
 }
 
-func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.Satellite, nodeID storj.NodeID) bool {
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.Satellite, nodeID storxnetwork.NodeID) bool {
 	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
 	require.NoError(t, err)
 

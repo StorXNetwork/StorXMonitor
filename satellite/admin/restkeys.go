@@ -4,10 +4,7 @@
 package admin
 
 import (
-	"database/sql"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -20,26 +17,6 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	vars := mux.Vars(r)
-	userEmail, ok := vars["useremail"]
-	if !ok {
-		sendJSONError(w, "user-email missing",
-			"", http.StatusBadRequest)
-		return
-	}
-
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
-	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
-			"", http.StatusNotFound)
-		return
-	}
-	if err != nil {
-		sendJSONError(w, "failed to get user",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "failed to read body",
@@ -49,6 +26,7 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 
 	var input struct {
 		Expiration string `json:"expiration"`
+		Name       string `json:"name"`
 	}
 
 	err = json.Unmarshal(body, &input)
@@ -81,7 +59,7 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	apiKey, expiresAt, err := server.restKeys.Create(ctx, user.ID, expiration)
+	apiKey, expiresAt, err := server.restKeys.Create(ctx, input.Name, &expiration)
 	if err != nil {
 		sendJSONError(w, "api key creation failed",
 			err.Error(), http.StatusInternalServerError)
@@ -94,7 +72,7 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output.APIKey = apiKey
-	output.ExpiresAt = expiresAt
+	output.ExpiresAt = *expiresAt
 
 	data, err := json.Marshal(output)
 	if err != nil {

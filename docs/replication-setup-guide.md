@@ -113,14 +113,14 @@ GRANT CONNECT ON DATABASE your_database TO replication_user;
 
 ```bash
 # Create config directory and files
-./replication-service setup --config-dir /etc/storj/replication
+./replication-service setup --config-dir /etc/storxnetwork/replication
 
-# This creates: /etc/storj/replication/config.yaml
+# This creates: /etc/storxnetwork/replication/config.yaml
 ```
 
 #### Option B: Manual Configuration
 
-Create config file: `/etc/storj/replication/config.yaml`
+Create config file: `/etc/storxnetwork/replication/config.yaml`
 
 ```yaml
 database: "postgresql://user:password@localhost:5432/storj_satellite_db?sslmode=disable"
@@ -131,7 +131,7 @@ replication:
   publication-name: "backuptools_pub"
   
   webhook-url: "https://backup-tools.example.com/api/webhook"
-  webhook-public-key: "/etc/storj/replication/webhook_public_key.pem"
+  webhook-public-key: "/etc/storxnetwork/replication/webhook_public_key.pem"
   
   max-retries: 3
   retry-delay: 5s
@@ -157,12 +157,12 @@ replication:
 chmod +x replication-service
 
 # Set config file permissions (readable by service user)
-chmod 600 /etc/storj/replication/config.yaml
-chmod 644 /etc/storj/replication/webhook_public_key.pem
+chmod 600 /etc/storxnetwork/replication/config.yaml
+chmod 644 /etc/storxnetwork/replication/webhook_public_key.pem
 
 # Create service user (optional, recommended)
-sudo useradd -r -s /bin/false storj-replication
-sudo chown -R storj-replication:storj-replication /etc/storj/replication
+sudo useradd -r -s /bin/false storxnetwork-replication
+sudo chown -R storxnetwork-replication:storxnetwork-replication /etc/storxnetwork/replication
 ```
 
 ### Step 7: Test the Service
@@ -170,10 +170,10 @@ sudo chown -R storj-replication:storj-replication /etc/storj/replication
 ```bash
 # Test with verbose output
 ./replication-service run \
-  --config-dir /etc/storj/replication \
+  --config-dir /etc/storxnetwork/replication \
   --database "postgresql://user:password@localhost:5432/storj_satellite_db" \
   --replication.webhook-url "https://backup-tools.example.com/api/webhook" \
-  --replication.webhook-public-key "/etc/storj/replication/webhook_public_key.pem"
+  --replication.webhook-public-key "/etc/storxnetwork/replication/webhook_public_key.pem"
 
 # Check logs for:
 # - "created replication slot" or "replication slot already exists"
@@ -183,7 +183,7 @@ sudo chown -R storj-replication:storj-replication /etc/storj/replication
 
 ### Step 8: Create Systemd Service (Linux)
 
-Create `/etc/systemd/system/storj-replication.service`:
+Create `/etc/systemd/system/storxnetwork-replication.service`:
 
 ```ini
 [Unit]
@@ -193,10 +193,10 @@ Requires=postgresql.service
 
 [Service]
 Type=simple
-User=storj-replication
-Group=storj-replication
-WorkingDirectory=/opt/storj/replication
-ExecStart=/opt/storj/replication/replication-service run --config-dir /etc/storj/replication
+User=storxnetwork-replication
+Group=storxnetwork-replication
+WorkingDirectory=/opt/storxnetwork/replication
+ExecStart=/opt/storxnetwork/replication/replication-service run --config-dir /etc/storxnetwork/replication
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -220,16 +220,16 @@ Enable and start:
 sudo systemctl daemon-reload
 
 # Enable service (start on boot)
-sudo systemctl enable storj-replication
+sudo systemctl enable storxnetwork-replication
 
 # Start service
-sudo systemctl start storj-replication
+sudo systemctl start storxnetwork-replication
 
 # Check status
-sudo systemctl status storj-replication
+sudo systemctl status storxnetwork-replication
 
 # View logs
-sudo journalctl -u storj-replication -f
+sudo journalctl -u storxnetwork-replication -f
 ```
 
 ---
@@ -242,7 +242,7 @@ sudo journalctl -u storj-replication -f
 |-----------|-------------|---------|
 | `database` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` |
 | `replication.webhook-url` | Backup-Tools webhook endpoint | `https://backup-tools.example.com/api/webhook` |
-| `replication.webhook-public-key` | Path to RSA public key | `/etc/storj/replication/webhook_public_key.pem` |
+| `replication.webhook-public-key` | Path to RSA public key | `/etc/storxnetwork/replication/webhook_public_key.pem` |
 
 ### Optional Parameters (with defaults)
 
@@ -300,13 +300,13 @@ VALUES (...);
 
 ```bash
 # Real-time logs
-sudo journalctl -u storj-replication -f
+sudo journalctl -u storxnetwork-replication -f
 
 # Check for errors
-sudo journalctl -u storj-replication | grep -i error
+sudo journalctl -u storxnetwork-replication | grep -i error
 
 # Check webhook sends
-sudo journalctl -u storj-replication | grep "webhook sent successfully"
+sudo journalctl -u storxnetwork-replication | grep "webhook sent successfully"
 ```
 
 ---
@@ -373,7 +373,7 @@ sudo systemctl restart postgresql
 2. **Service Health**
    ```bash
    # Check if service is running
-   sudo systemctl status storj-replication
+   sudo systemctl status storxnetwork-replication
    
    # Check process
    ps aux | grep replication-service
@@ -408,7 +408,7 @@ sudo systemctl restart postgresql
 
 4. **Service User**
    - Run service as non-root user
-   - Use dedicated user (`storj-replication`)
+   - Use dedicated user (`storxnetwork-replication`)
    - Limit file system access
 
 ---
@@ -420,19 +420,19 @@ sudo systemctl restart postgresql
 go build -o replication-service ./cmd/replication
 
 # 2. Setup config
-./replication-service setup --config-dir /etc/storj/replication
+./replication-service setup --config-dir /etc/storxnetwork/replication
 
 # 3. Edit config
-nano /etc/storj/replication/config.yaml
+nano /etc/storxnetwork/replication/config.yaml
 
 # 4. Test run
-./replication-service run --config-dir /etc/storj/replication
+./replication-service run --config-dir /etc/storxnetwork/replication
 
 # 5. Install as service
-sudo cp replication-service /opt/storj/replication/
-sudo cp storj-replication.service /etc/systemd/system/
-sudo systemctl enable storj-replication
-sudo systemctl start storj-replication
+sudo cp replication-service /opt/storxnetwork/replication/
+sudo cp storxnetwork-replication.service /etc/systemd/system/
+sudo systemctl enable storxnetwork-replication
+sudo systemctl start storxnetwork-replication
 ```
 
 ---
@@ -459,7 +459,7 @@ sudo systemctl start storj-replication
 
 If you encounter issues:
 
-1. Check service logs: `sudo journalctl -u storj-replication -f`
+1. Check service logs: `sudo journalctl -u storxnetwork-replication -f`
 2. Check PostgreSQL logs: `/var/log/postgresql/postgresql-*.log`
 3. Verify configuration: `./replication-service run --config-dir /path/to/config --help`
 4. Test webhook endpoint manually with curl

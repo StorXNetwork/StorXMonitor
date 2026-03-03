@@ -14,7 +14,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
 )
 
 var (
@@ -73,7 +74,7 @@ type Endpoint struct {
 // Validate validates the endpoint fields values are correct according to the documented constraints.
 func (e *Endpoint) Validate() error {
 	newErr := func(m string, a ...any) error {
-		e := fmt.Sprintf(". Endpoint: %s", e.Name)
+		e := ". Endpoint: " + e.Name
 		m += e
 		return errsEndpoint.New(m, a...)
 	}
@@ -265,6 +266,32 @@ func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
 	eg.endpoints = append(eg.endpoints, ep)
 }
 
+// UseCORS adds CORS middleware to the endpoint group.
+// This is a convenience method that appends a CORS middleware to the group.
+func (eg *EndpointGroup) UseCORS() {
+	eg.Middleware = append(eg.Middleware, corsMiddleware{})
+}
+
+// corsMiddleware is a standard CORS middleware implementation.
+type corsMiddleware struct {
+	//lint:ignore U1000 this field is used by the API generator to expose in the handler.
+	cors api.CORS
+}
+
+// Generate satisfies the apigen.Middleware interface.
+func (c corsMiddleware) Generate(_ *API, _ *EndpointGroup, _ *FullEndpoint) string {
+	return `isPreflight := h.cors.Handle(w, r)
+	if isPreflight {
+		return
+	}
+	`
+}
+
+// ExtraServiceParams satisfies the apigen.Middleware interface.
+func (c corsMiddleware) ExtraServiceParams(_ *API, _ *EndpointGroup, _ *FullEndpoint) []Param {
+	return nil
+}
+
 // Param represents string interpretation of param's name and type.
 type Param struct {
 	Name string
@@ -280,7 +307,7 @@ func NewParam(name string, instance interface{}) Param {
 	case reflect.TypeOf(uuid.UUID{}), reflect.TypeOf(time.Time{}):
 	default:
 		switch k := t.Kind(); k {
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String, reflect.Pointer:
 		default:
 			panic(
 				fmt.Sprintf(
@@ -328,7 +355,7 @@ type Middleware interface {
 	//
 	// type middlewareImpl struct {
 	// 	 log  *zap.Logger // Import path: "go.uber.org/zap"
-	//   auth api.Auth   // Import path: "storj.io/storj/private/api"
+	//   auth api.Auth   // Import path: "github.com/StorXNetwork/StorXMonitor/private/api"
 	// }
 	//
 	// The generated code can access to log and auth through h.log and h.auth.
@@ -338,6 +365,9 @@ type Middleware interface {
 	// Make sure to not declare variable with those names in the generated code unless that's wrapped
 	// in a scope.
 	Generate(api *API, group *EndpointGroup, ep *FullEndpoint) string
+	// ExtraServiceParams returns additional parameters that should be passed to the service method.
+	// This allows middleware to inject parameters based on the endpoint context.
+	ExtraServiceParams(api *API, group *EndpointGroup, ep *FullEndpoint) []Param
 }
 
 func middlewareImports(m any) []string {

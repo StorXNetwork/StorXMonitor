@@ -1,30 +1,56 @@
-
 name: Build Storj Sim
 
 on:
   workflow_dispatch:
+    inputs:
+      run_go_mod_tidy:
+        description: 'Run go mod tidy'
+        required: false
+        default: false
+        type: boolean
 
 env:
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
 
 jobs:
-  build-storj-sim:
+  build-storxnetwork-sim:
     runs-on: [self-hosted, windows, production]
     environment: production
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-        
-    - name: Fast build storj-sim.exe
+      with:
+        fetch-depth: 1
+        clean: true
+
+    - name: Setup Git Auth for Private Go Modules
+      shell: powershell
+      env:
+        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: |
+        git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+        go env -w GOPRIVATE=github.com/StorXNetwork/*
+        go env -w GONOSUMDB=github.com/StorXNetwork/*
+        go env -w GONOPROXY=github.com/StorXNetwork/*
+        $gomodcache = if ($env:RUNNER_TEMP) { "$env:RUNNER_TEMP\go-mod-cache" } else { "$env:GITHUB_WORKSPACE\.go-mod-cache" }
+        New-Item -ItemType Directory -Force -Path $gomodcache | Out-Null
+        go env -w GOMODCACHE=$gomodcache
+
+    - name: Go mod tidy
+      if: github.event_name == 'workflow_dispatch' && inputs.run_go_mod_tidy == true
+      shell: powershell
+      run: go mod tidy
+
+    - name: Fast build storxnetwork-sim.exe
       run: |
         $buildStart = Get-Date
-        Write-Host "Building storj-sim.exe with optimizations..."
+        Write-Host "Building storxnetwork-sim.exe with optimizations..."
         
         # Use Go build cache and skip tests for faster build
         $env:GOFLAGS = "-buildvcs=false"
         
-        $buildCmd = "go build -ldflags `"-s -w`" -o `"$env:TEMP_PATH\storj-sim.exe`" ./cmd/storj-sim"
+        $buildCmd = "go build -ldflags `"-s -w`" -o `"$env:TEMP_PATH\storxnetwork-sim.exe`" ./cmd/storxnetwork-sim"
         Write-Host "Build command: $buildCmd"
         
         Invoke-Expression $buildCmd
@@ -32,11 +58,11 @@ jobs:
         $buildTime = (Get-Date) - $buildStart
         Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
         
-        if (Test-Path "$env:TEMP_PATH\storj-sim.exe") {
-          $size = (Get-Item "$env:TEMP_PATH\storj-sim.exe").Length
-          Write-Host "storj-sim.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
+        if (Test-Path "$env:TEMP_PATH\storxnetwork-sim.exe") {
+          $size = (Get-Item "$env:TEMP_PATH\storxnetwork-sim.exe").Length
+          Write-Host "storxnetwork-sim.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
         } else {
-          Write-Error "Build failed - storj-sim.exe not found"
+          Write-Error "Build failed - storxnetwork-sim.exe not found"
           exit 1
         }
         
@@ -52,11 +78,11 @@ jobs:
     - name: Quick file replacement
       run: |
         # Minimal file operations
-        if (Test-Path "$env:BIN_PATH\storj-sim.exe") {
-          Remove-Item "$env:BIN_PATH\storj-sim.exe" -Force -ErrorAction SilentlyContinue
+        if (Test-Path "$env:BIN_PATH\storxnetwork-sim.exe") {
+          Remove-Item "$env:BIN_PATH\storxnetwork-sim.exe" -Force -ErrorAction SilentlyContinue
         }
-        Move-Item "$env:TEMP_PATH\storj-sim.exe" "$env:BIN_PATH\storj-sim.exe" -Force
-        Write-Host "storj-sim.exe replaced"
+        Move-Item "$env:TEMP_PATH\storxnetwork-sim.exe" "$env:BIN_PATH\storxnetwork-sim.exe" -Force
+        Write-Host "storxnetwork-sim.exe replaced"
         
     - name: Quick service start
       run: |

@@ -10,8 +10,9 @@
 //
 // It does require setting two variables for the databases:
 //
-//	STORJ_TEST_POSTGRES=postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable
+//	STORJ_TEST_POSTGRES=postgres://storxnetwork:storxnetwork-pass@test-postgres/teststorj?sslmode=disable
 //	STORJ_TEST_COCKROACH=cockroach://root@localhost:26257/master?sslmode=disable
+//	STORJ_TEST_SPANNER=spanner://localhost:9010?emulator
 //
 // When you wish to entirely omit either of them from the test output, it's possible to use:
 //

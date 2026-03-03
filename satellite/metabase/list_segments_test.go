@@ -7,17 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestListSegments(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-		now := time.Now()
 
 		t.Run("StreamID missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -63,6 +62,8 @@ func TestListSegments(t *testing.T) {
 		t.Run("segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			expectedObject := metabasetest.CreateObject(ctx, t, db, obj, 10)
 
 			expectedSegment := metabase.Segment{
@@ -71,13 +72,13 @@ func TestListSegments(t *testing.T) {
 					Index: 0,
 				},
 				CreatedAt:         now,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
@@ -163,6 +164,8 @@ func TestListSegments(t *testing.T) {
 		t.Run("unordered parts", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			var testCases = []struct {
 				segments []metabase.SegmentPosition
 			}{
@@ -189,13 +192,13 @@ func TestListSegments(t *testing.T) {
 			expectedSegment := metabase.Segment{
 				StreamID:          obj.StreamID,
 				CreatedAt:         now,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
@@ -214,7 +217,7 @@ func TestListSegments(t *testing.T) {
 						Opts: metabase.BeginSegment{
 							ObjectStream: obj,
 							Position:     segmentPosition,
-							RootPieceID:  storj.PieceID{byte(i + 1)},
+							RootPieceID:  storxnetwork.PieceID{byte(i + 1)},
 							Pieces: []metabase.Piece{{
 								Number:      1,
 								StorageNode: testrand.NodeID(),
@@ -226,8 +229,8 @@ func TestListSegments(t *testing.T) {
 						Opts: metabase.CommitSegment{
 							ObjectStream: obj,
 							Position:     segmentPosition,
-							RootPieceID:  storj.PieceID{1},
-							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+							RootPieceID:  storxnetwork.PieceID{1},
+							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 							EncryptedKey:      []byte{3},
 							EncryptedKeyNonce: []byte{4},
@@ -394,13 +397,13 @@ func TestListStreamPositions(t *testing.T) {
 					Index: 0,
 				},
 				CreatedAt:         now,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
@@ -519,13 +522,13 @@ func TestListStreamPositions(t *testing.T) {
 
 			expectedSegment := metabase.Segment{
 				StreamID:          obj.StreamID,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
@@ -544,7 +547,7 @@ func TestListStreamPositions(t *testing.T) {
 						Opts: metabase.BeginSegment{
 							ObjectStream: obj,
 							Position:     segmentPosition,
-							RootPieceID:  storj.PieceID{byte(i + 1)},
+							RootPieceID:  storxnetwork.PieceID{byte(i + 1)},
 							Pieces: []metabase.Piece{{
 								Number:      1,
 								StorageNode: testrand.NodeID(),
@@ -556,8 +559,8 @@ func TestListStreamPositions(t *testing.T) {
 						Opts: metabase.CommitSegment{
 							ObjectStream: obj,
 							Position:     segmentPosition,
-							RootPieceID:  storj.PieceID{1},
-							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+							RootPieceID:  storxnetwork.PieceID{1},
+							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 							EncryptedKey:      []byte{3},
 							EncryptedKeyNonce: []byte{4},
@@ -614,13 +617,13 @@ func TestListStreamPositions(t *testing.T) {
 
 			expectedSegment := metabase.Segment{
 				StreamID:          obj.StreamID,
-				RootPieceID:       storj.PieceID{1},
+				RootPieceID:       storxnetwork.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         segmentSize,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
@@ -643,7 +646,7 @@ func TestListStreamPositions(t *testing.T) {
 					Opts: metabase.BeginSegment{
 						ObjectStream: obj,
 						Position:     segmentPosition,
-						RootPieceID:  storj.PieceID{byte(i + 1)},
+						RootPieceID:  storxnetwork.PieceID{byte(i + 1)},
 						Pieces: []metabase.Piece{{
 							Number:      1,
 							StorageNode: testrand.NodeID(),
@@ -655,8 +658,8 @@ func TestListStreamPositions(t *testing.T) {
 					Opts: metabase.CommitSegment{
 						ObjectStream: obj,
 						Position:     segmentPosition,
-						RootPieceID:  storj.PieceID{1},
-						Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						RootPieceID:  storxnetwork.PieceID{1},
+						Pieces:       metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},

@@ -10,13 +10,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // Endpoint implements private inspector for Graceful Exit.
@@ -70,7 +70,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *internalpb.
 		// get domain name
 		nodeurl, err := e.trust.GetNodeURL(ctx, trusted)
 		if err != nil {
-			e.log.Error("graceful exit: get satellite address", zap.Stringer("Satellite ID", trusted), zap.Error(err))
+			e.log.Error("graceful exit: get satellite address", zap.Stringer("satellite_id", trusted), zap.Error(err))
 			continue
 		}
 		// get space usage by satellites

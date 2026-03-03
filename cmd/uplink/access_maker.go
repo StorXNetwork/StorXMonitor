@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/uplink"
 )
 
 type accessMaker struct {
@@ -39,6 +39,11 @@ func (am *accessMaker) Setup(params clingy.Parameters, ex ulext.External) {
 
 func (am *accessMaker) Execute(ctx context.Context, name string, access *uplink.Access) (_ *uplink.Access, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	accessInfoFile, err := am.ex.AccessInfoFile()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
 
 	defaultName, accesses, err := am.ex.GetAccessInfo(false)
 	if err != nil {
@@ -71,7 +76,7 @@ func (am *accessMaker) Execute(ctx context.Context, name string, access *uplink.
 			return nil, errs.Wrap(err)
 		}
 
-		fmt.Fprintf(clingy.Stdout(ctx), "Imported access %q to %q\n", name, am.ex.AccessInfoFile())
+		_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Imported access %q to %q\n", name, accessInfoFile)
 	}
 
 	return access, nil

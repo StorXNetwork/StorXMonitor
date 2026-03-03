@@ -10,21 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSigner_EncryptedMetadata(t *testing.T) {
 	ekeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
-		Key: storj.Key{1},
+		Key: storxnetwork.Key{1},
 	})
 	require.NoError(t, err)
 
@@ -42,13 +42,13 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 
 		project, err := uplink.GetProject(ctx, satellite)
 		require.NoError(t, err)
-		bucketName := "123456789012345678901234567890123456789012345678901234567890123"
+		bucketName := metabase.BucketName("123456789012345678901234567890123456789012345678901234567890123")
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  uplink.Projects[0].ID,
 			BucketName: bucketName,
 		}
 
-		_, err = project.EnsureBucket(ctx, bucketLocation.BucketName)
+		_, err = project.EnsureBucket(ctx, bucketLocation.BucketName.String())
 		require.NoError(t, err)
 
 		root := testrand.PieceID()
@@ -87,7 +87,7 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 func TestSigner_EncryptedMetadata_UploadDownload(t *testing.T) {
 	ekeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
-		Key: storj.Key{1},
+		Key: storxnetwork.Key{1},
 	})
 	require.NoError(t, err)
 

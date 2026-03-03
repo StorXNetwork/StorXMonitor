@@ -14,26 +14,24 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Config defines nodestats cache configuration.
 type Config struct {
 	MaxSleep       time.Duration `help:"maximum duration to wait before requesting data" releaseDefault:"300s" devDefault:"1s"`
-	ReputationSync time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m"`
+	ReputationSync time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m" deprecated:"use --reputation.interval" hidden:"true"`
 	StorageSync    time.Duration `help:"how often to sync storage" releaseDefault:"12h" devDefault:"2m"`
 }
 
 // CacheStorage encapsulates cache DBs.
 type CacheStorage struct {
-	Reputation   reputation.DB
 	StorageUsage storageusage.DB
 	Payout       payouts.DB
 	Pricing      pricing.DB
@@ -45,33 +43,29 @@ type CacheStorage struct {
 type Cache struct {
 	log *zap.Logger
 
-	db                CacheStorage
-	service           *Service
-	payoutEndpoint    *payouts.Endpoint
-	reputationService *reputation.Service
-	trust             *trust.Pool
+	db             CacheStorage
+	service        *Service
+	payoutEndpoint *payouts.Endpoint
+	trust          *trust.Pool
 
-	maxSleep   time.Duration
-	Reputation *sync2.Cycle
-	Storage    *sync2.Cycle
+	maxSleep time.Duration
+	Storage  *sync2.Cycle
 
 	UsageStat *UsageStat
 }
 
 // NewCache creates new caching service instance.
 func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
-	payoutEndpoint *payouts.Endpoint, reputationService *reputation.Service, trust *trust.Pool) *Cache {
+	payoutEndpoint *payouts.Endpoint, trust *trust.Pool) *Cache {
 
 	cache := &Cache{
-		log:               log,
-		db:                db,
-		service:           service,
-		payoutEndpoint:    payoutEndpoint,
-		reputationService: reputationService,
-		trust:             trust,
-		maxSleep:          config.MaxSleep,
-		Reputation:        sync2.NewCycle(config.ReputationSync),
-		Storage:           sync2.NewCycle(config.StorageSync),
+		log:            log,
+		db:             db,
+		service:        service,
+		payoutEndpoint: payoutEndpoint,
+		trust:          trust,
+		maxSleep:       config.MaxSleep,
+		Storage:        sync2.NewCycle(config.StorageSync),
 
 		UsageStat: NewUsageStat(),
 	}
@@ -83,7 +77,7 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
-	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
+	err := cache.satelliteLoop(ctx, func(satelliteID storxnetwork.NodeID) error {
 		stubHistory, err := cache.payoutEndpoint.GetAllPaystubs(ctx, satelliteID)
 		if err != nil {
 			return err
@@ -118,18 +112,6 @@ func (cache *Cache) Run(ctx context.Context) error {
 		cache.log.Error("Get pricing-model/join date failed", zap.Error(err))
 	}
 
-	cache.Reputation.Start(ctx, &group, func(ctx context.Context) error {
-		if err := cache.sleep(ctx); err != nil {
-			return err
-		}
-
-		err := cache.CacheReputationStats(ctx)
-		if err != nil {
-			cache.log.Error("Get stats query failed", zap.Error(err))
-		}
-
-		return nil
-	})
 	cache.Storage.Start(ctx, &group, func(ctx context.Context) error {
 		if err := cache.sleep(ctx); err != nil {
 			return err
@@ -151,36 +133,16 @@ func (cache *Cache) Run(ctx context.Context) error {
 	return group.Wait()
 }
 
-// CacheReputationStats queries node stats from all the satellites
-// known to the storagenode and stores information into db.
-func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
-		stats, err := cache.service.GetReputationStats(ctx, satellite)
-		if err != nil {
-			return err
-		}
-
-		if err = cache.reputationService.Store(ctx, *stats, satellite); err != nil {
-			cache.log.Error("failed to store reputation", zap.Error(err))
-			return err
-		}
-
-		return nil
-	})
-}
-
 // UsageStat caches last space usage value for each satellite, to make it available for monkit.
 type UsageStat struct {
 	mu        sync.Mutex
-	usedBytes map[storj.NodeID]float64
+	usedBytes map[storxnetwork.NodeID]float64
 }
 
 // NewUsageStat initializes a UsageState.
 func NewUsageStat() *UsageStat {
 	return &UsageStat{
-		usedBytes: make(map[storj.NodeID]float64),
+		usedBytes: make(map[storxnetwork.NodeID]float64),
 	}
 }
 
@@ -194,7 +156,7 @@ func (u *UsageStat) Stats(cb func(key monkit.SeriesKey, field string, val float6
 }
 
 // Update updates the cached value.
-func (u *UsageStat) Update(satellite storj.NodeID, usedSpace float64) {
+func (u *UsageStat) Update(satellite storxnetwork.NodeID, usedSpace float64) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.usedBytes[satellite] = usedSpace
@@ -212,7 +174,7 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 	// start from last day of previous month
 	startDate = startDate.AddDate(0, 0, -1)
 
-	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
+	return cache.satelliteLoop(ctx, func(satellite storxnetwork.NodeID) error {
 		spaceUsages, err := cache.service.GetDailyStorageUsage(ctx, satellite, startDate, endDate)
 		if err != nil {
 			return err
@@ -238,7 +200,7 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
+	return cache.satelliteLoop(ctx, func(satellite storxnetwork.NodeID) error {
 		now := time.Now().String()
 		yearAndMonth, err := date.PeriodToTime(now)
 		if err != nil {
@@ -294,7 +256,7 @@ func (cache *Cache) sleep(ctx context.Context) error {
 
 // satelliteLoop loops over all satellites from trust pool executing provided fn, caching errors if occurred,
 // on each step checks if context has been cancelled.
-func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) error) error {
+func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storxnetwork.NodeID) error) error {
 	var groupErr errs.Group
 	for _, satellite := range cache.trust.GetSatellites(ctx) {
 		select {
@@ -312,7 +274,6 @@ func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) 
 // Close closes underlying cycles.
 func (cache *Cache) Close() error {
 	defer mon.Task()(nil)(nil)
-	cache.Reputation.Close()
 	cache.Storage.Close()
 	return nil
 }

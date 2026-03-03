@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // MockNotifier implements the Notifier interface.
@@ -30,7 +30,7 @@ func (m *MockNotifier) Notify(ctx context.Context, satellite string, events []No
 	if len(events) == 0 {
 		return nil
 	}
-	seen := make(map[storj.NodeID]struct{})
+	seen := make(map[storxnetwork.NodeID]struct{})
 	for _, e := range events {
 		if _, ok := seen[e.NodeID]; !ok {
 			seen[e.NodeID] = struct{}{}
@@ -43,6 +43,6 @@ func (m *MockNotifier) Notify(ctx context.Context, satellite string, events []No
 	if err != nil {
 		return err
 	}
-	m.log.Info("node operator notified", zap.String("email", events[0].Email), zap.String("event", name), zap.String("node IDs", nodeIDs))
+	m.log.Info("node operator notified", zap.String("email", events[0].Email), zap.String("event", name), zap.String("node_ids", nodeIDs))
 	return nil
 }

@@ -7,14 +7,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 func TestEmailChoreUpdatesVerificationReminders(t *testing.T) {
@@ -193,8 +195,8 @@ func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
 			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
-		paidTier := true
-		require.NoError(t, users.Update(ctx, id1, console.UpdateUserRequest{PaidTier: &paidTier}))
+		kind := console.PaidUser
+		require.NoError(t, users.Update(ctx, id1, console.UpdateUserRequest{Kind: &kind}))
 
 		now := time.Now()
 		tomorrow := now.Add(24 * time.Hour)
@@ -231,20 +233,20 @@ func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
 
 		user1, err := users.Get(ctx, id1)
 		require.NoError(t, err)
-		require.True(t, user1.PaidTier)
+		require.Equal(t, console.PaidUser, user1.Kind)
 		require.Nil(t, user1.TrialExpiration)
 		require.Equal(t, int(console.NoTrialNotification), user1.TrialNotifications)
 
 		user2, err := users.Get(ctx, id2)
 		require.NoError(t, err)
-		require.False(t, user2.PaidTier)
-		require.Equal(t, tomorrow.Truncate(time.Millisecond), user2.TrialExpiration.Truncate(time.Millisecond))
+		require.Equal(t, console.FreeUser, user2.Kind)
+		require.Zero(t, cmp.Diff(user2.TrialExpiration.Truncate(time.Millisecond), tomorrow.Truncate(time.Millisecond), cmpopts.EquateApproxTime(0)))
 		require.Equal(t, int(console.NoTrialNotification), user2.TrialNotifications)
 
 		user3, err := users.Get(ctx, id3)
 		require.NoError(t, err)
-		require.False(t, user3.PaidTier)
-		require.Equal(t, yesterday.Truncate(time.Millisecond), user3.TrialExpiration.Truncate(time.Millisecond))
+		require.Equal(t, console.FreeUser, user3.Kind)
+		require.Zero(t, cmp.Diff(user3.TrialExpiration.Truncate(time.Millisecond), yesterday.Truncate(time.Millisecond), cmpopts.EquateApproxTime(0)))
 		require.Equal(t, int(console.TrialExpirationReminder), user3.TrialNotifications)
 
 		chore.Loop.TriggerWait()

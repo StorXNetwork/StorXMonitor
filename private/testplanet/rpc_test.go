@@ -13,29 +13,29 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/quic"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/quic"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestDialNodeURL(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 0, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
+		whitelistPath, err := planet.WriteWhitelist(storxnetwork.LatestIDVersion())
 		require.NoError(t, err)
 
-		unsignedIdent, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+		unsignedIdent, err := testidentity.PregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 		require.NoError(t, err)
 
-		signedIdent, err := testidentity.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		signedIdent, err := testidentity.PregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
 		require.NoError(t, err)
 
 		tlsOptions, err := tlsopts.NewOptions(signedIdent, tlsopts.Config{
@@ -60,17 +60,17 @@ func TestDialNodeURL(t *testing.T) {
 
 		test := func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, dialer rpc.Dialer, unsignedDialer rpc.Dialer) {
 			t.Run("DialNodeURL with invalid targets", func(t *testing.T) {
-				targets := []storj.NodeURL{
+				targets := []storxnetwork.NodeURL{
 					{
-						ID:      storj.NodeID{},
+						ID:      storxnetwork.NodeID{},
 						Address: "",
 					},
 					{
-						ID:      storj.NodeID{123},
+						ID:      storxnetwork.NodeID{123},
 						Address: "127.0.0.1:100",
 					},
 					{
-						ID:      storj.NodeID{},
+						ID:      storxnetwork.NodeID{},
 						Address: planet.StorageNodes[1].Addr(),
 					},
 				}
@@ -151,16 +151,16 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.Server.UsePeerCAWhitelist = false
 			},
-			Identities: func(log *zap.Logger, version storj.IDVersion) *testidentity.Identities {
+			Identities: func(log *zap.Logger, version storxnetwork.IDVersion) *testidentity.Identities {
 				return testidentity.NewPregeneratedIdentities(version)
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-		whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
+		whitelistPath, err := planet.WriteWhitelist(storxnetwork.LatestIDVersion())
 		require.NoError(t, err)
 
-		ident, err := testidentity.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		ident, err := testidentity.PregeneratedSignedIdentity(0, storxnetwork.LatestIDVersion())
 		require.NoError(t, err)
 
 		tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{

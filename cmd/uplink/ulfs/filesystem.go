@@ -8,8 +8,8 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/cmd/uplink/ulloc"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/uplink"
 )
 
 // CreateOptions contains extra options to create an object.
@@ -21,17 +21,22 @@ type CreateOptions struct {
 
 // ListOptions describes options to the List command.
 type ListOptions struct {
-	Recursive bool
-	Pending   bool
-	Expanded  bool
+	Recursive   bool
+	Pending     bool
+	Expanded    bool
+	AllVersions bool
 }
 
 func (lo *ListOptions) isRecursive() bool { return lo != nil && lo.Recursive }
 func (lo *ListOptions) isPending() bool   { return lo != nil && lo.Pending }
+func (lo *ListOptions) isExpanded() bool  { return lo != nil && lo.Expanded }
+func (lo *ListOptions) allVersions() bool { return lo != nil && lo.AllVersions }
 
 // RemoveOptions describes options to the Remove command.
 type RemoveOptions struct {
-	Pending bool
+	Version                   []byte
+	BypassGovernanceRetention bool
+	Pending                   bool
 }
 
 func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
@@ -80,12 +85,14 @@ type FilesystemRemote interface {
 // ObjectInfo is a simpler *uplink.Object that contains the minimal information the
 // uplink command needs that multiple types can be converted to.
 type ObjectInfo struct {
-	Loc           ulloc.Location
-	IsPrefix      bool
-	Created       time.Time
-	ContentLength int64
-	Expires       time.Time
-	Metadata      uplink.CustomMetadata
+	Loc            ulloc.Location
+	Version        []byte
+	IsPrefix       bool
+	IsDeleteMarker bool
+	Created        time.Time
+	ContentLength  int64
+	Expires        time.Time
+	Metadata       uplink.CustomMetadata
 }
 
 // uplinkObjectToObjectInfo returns an objectInfo converted from an *uplink.Object.

@@ -12,9 +12,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 type peerIdentities struct {
@@ -22,7 +22,7 @@ type peerIdentities struct {
 }
 
 // Set adds a peer identity entry.
-func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, ident *identity.PeerIdentity) (err error) {
+func (idents *peerIdentities) Set(ctx context.Context, nodeID storxnetwork.NodeID, ident *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if ident == nil {
@@ -56,7 +56,7 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, iden
 }
 
 // Get gets the peer identity based on the certificate's nodeID.
-func (idents *peerIdentities) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
+func (idents *peerIdentities) Get(ctx context.Context, nodeID storxnetwork.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxIdent, err := idents.db.Get_PeerIdentity_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 	if err != nil {
@@ -71,7 +71,7 @@ func (idents *peerIdentities) Get(ctx context.Context, nodeID storj.NodeID) (_ *
 }
 
 // BatchGet gets the peer idenities based on the certificate's nodeID.
-func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
+func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storxnetwork.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeIDs) == 0 {
 		return nil, nil
@@ -84,7 +84,7 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 
 	// TODO: optimize using arrays like overlay
 
-	rows, err := idents.db.Query(ctx, idents.db.Rebind(`
+	rows, err := idents.db.QueryContext(ctx, idents.db.Rebind(`
 		SELECT chain
 		FROM peer_identities
 		WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)

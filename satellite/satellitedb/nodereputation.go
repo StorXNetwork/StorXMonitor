@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 // VerifyRetryInterval = 4 * time.Hour
 )
 
-// nodeReputation implements storj.io/storj/satellite/audit.NodeReputation.
+// nodeReputation implements github.com/StorXNetwork/StorXMonitor/satellite/audit.NodeReputation.
 type nodeReputation struct {
 	db *satelliteDB
 }
@@ -30,7 +30,7 @@ var _ audit.NodeReputation = (*nodeReputation)(nil)
 func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeReputationEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := nr.db.Query(ctx, `SELECT n.id, n.wallet, n.disqualified, n.exit_initiated_at, n.exit_finished_at,
+	rows, err := nr.db.QueryContext(ctx, `SELECT n.id, n.wallet, n.disqualified, n.exit_initiated_at, n.exit_finished_at,
 										n.exit_success, n.under_review, n.inactive, r.audit_reputation_alpha, r.disqualified,
 										n.piece_count, n.last_contact_success
                                     FROM reputations r
@@ -77,7 +77,7 @@ func (nr *nodeReputation) NodeSmartContractStatus(ctx context.Context, wallet, m
 }
 
 // ActivateNode activates a node in the database.
-func (nr *nodeReputation) ActivateNode(ctx context.Context, nodeID storj.NodeID) error {
+func (nr *nodeReputation) ActivateNode(ctx context.Context, nodeID storxnetwork.NodeID) error {
 	_, err := nr.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID[:]), dbx.Node_Update_Fields{
 		Inactive: dbx.Node_Inactive(false),
 	})

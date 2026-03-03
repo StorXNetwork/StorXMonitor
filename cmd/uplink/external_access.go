@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/uplink"
-	"storj.io/uplink/private/access"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/access"
 )
 
 func (ex *external) loadAccesses() error {
@@ -24,7 +24,12 @@ func (ex *external) loadAccesses() error {
 		return nil
 	}
 
-	fh, err := os.Open(ex.AccessInfoFile())
+	accessInfoFile, err := ex.AccessInfoFile()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	fh, err := os.Open(accessInfoFile)
 	if os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
@@ -122,7 +127,12 @@ func (ex *external) GetAccessInfo(required bool) (string, map[string]string, err
 func (ex *external) SaveAccessInfo(defaultName string, accesses map[string]string) error {
 	// TODO(jeff): write it atomically
 
-	accessFh, err := os.OpenFile(ex.AccessInfoFile(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	accessInfoFile, err := ex.AccessInfoFile()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	accessFh, err := os.OpenFile(accessInfoFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -200,6 +210,6 @@ func (ex *external) ExportAccess(ctx context.Context, access *uplink.Access, fil
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), "Exported access to:", filename)
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), "Exported access to:", filename)
 	return nil
 }

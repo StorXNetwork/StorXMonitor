@@ -12,11 +12,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io.Writer) (err error) {
@@ -51,7 +51,7 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		return err
 	}
 
-	periodUsageByNode := make(map[storj.NodeID]accounting.StorageNodePeriodUsage, len(periodUsage))
+	periodUsageByNode := make(map[storxnetwork.NodeID]accounting.StorageNodePeriodUsage, len(periodUsage))
 	for _, usage := range periodUsage {
 		periodUsageByNode[usage.NodeID] = usage
 	}

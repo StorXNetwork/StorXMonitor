@@ -4,14 +4,18 @@
 package main
 
 import (
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {
@@ -34,23 +38,32 @@ func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
-	peer, err := satellite.NewRangedLoop(log, db, metabaseDB, &runCfg.Config, process.AtomicLevel(cmd))
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		return errs.New("Error loading identity: %+v", err)
+	}
+
+	var repairQueue queue.RepairQueue
+	if !runCfg.JobQueue.ServerNodeURL.IsZero() {
+		repairQueue, err = jobq.OpenJobQueue(ctx, identity, runCfg.JobQueue)
+		if err != nil {
+			return errs.New("Error opening repair queue: %+v", err)
+		}
+	} else {
+		repairQueue = db.RepairQueue()
+	}
+
+	peer, err := satellite.NewRangedLoop(log, db, metabaseDB, repairQueue, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
 
-	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
+	if err := process.InitMetrics(ctx, log, monkit.Default, process.MetricsIDFromHostname(log), eventkitbq.BQDestination); err != nil {
 		log.Warn("Failed to initialize telemetry on satellite rangedloop", zap.Error(err))
 	}
 
-	if err := metabaseDB.CheckVersion(ctx); err != nil {
-		log.Error("Failed metabase database version check.", zap.Error(err))
-		return errs.New("failed metabase version check: %+v", err)
-	}
-
-	if err := db.CheckVersion(ctx); err != nil {
-		log.Error("Failed satellite database version check.", zap.Error(err))
-		return errs.New("Error checking version for satellitedb: %+v", err)
+	if err := checkDBVersions(ctx, log, runCfg, db, metabaseDB); err != nil {
+		return err
 	}
 
 	runError := peer.Run(ctx)

@@ -1,6 +1,7 @@
 def lastStage = ''
 node('node') {
   properties([disableConcurrentBuilds()])
+  timeout(time: 60, unit: 'MINUTES') {
   try {
     currentBuild.result = "SUCCESS"
 
@@ -11,86 +12,74 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Postgres Run Rolling Upgrade Test') {
-        lastStage = env.STAGE_NAME
-        try {
-          echo "Running Postgres Rolling Upgrade test"
-
-          env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
-          env.STORJ_SIM_REDIS = 'redis:6379'
-          env.STORJ_MIGRATION_DB = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable&options=--search_path=satellite/0/meta'
-
-          echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
-          echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-          echo "STORJ_MIGRATION_DB: $STORJ_MIGRATION_DB"
-          sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-$BUILD_NUMBER postgres:12.3'
-          sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
-
-          sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
-                do printf '.'
-                sleep 5
-                done
-            '''
-          sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
-          // fetch the remote main branch
-          sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/testsuite/rolling-upgrade/start-sim.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e STORJ_MIGRATION_DB --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres storjlabs/golang:1.21.3'
-        }
-        catch(err){
-            throw err
-        }
-        finally {
-          sh 'docker stop postgres-$BUILD_NUMBER || true'
-          sh 'docker rm postgres-$BUILD_NUMBER || true'
-          sh 'docker stop redis-$BUILD_NUMBER || true'
-          sh 'docker rm redis-$BUILD_NUMBER || true'
-        }
-    }
-    
     stage('CRDB Run Rolling Upgrade Test') {
+        // Check if changes exist in satellite/satellitedb or satellite/metabase
+        def dbChanges = sh(
+            script: 'git diff --name-only HEAD^ HEAD | grep -E "^satellite/(satellitedb|metabase)/" || echo "no-changes"',
+            returnStdout: true
+        ).trim()
+
+        if (dbChanges == "no-changes") {
+            echo "Skipping CRDB Rolling Upgrade test (no changes in satellite/satellitedb or satellite/metabase)"
+            return
+        }
+
         lastStage = env.STAGE_NAME
-        try {
-          echo "Running CRDB Rolling Upgrade test"
+        echo "Running CRDB Rolling Upgrade test (database changes detected)"
+        sh 'make test/rolling-upgrade/cockroach'
+    }
 
-          env.STORJ_SIM_POSTGRES='cockroach://root@cockroach:26257/master?sslmode=disable'
-          env.STORJ_SIM_REDIS='redis:6379'
-          env.STORJ_MIGRATION_DB='cockroach://root@cockroach:26257/master?sslmode=disable'
-          env.STORJ_SKIP_FIX_LAST_NETS=true
+    def imageBuildType = ''
+    if (env.BRANCH_NAME == 'main') {
+        imageBuildType = ' -f docker-bake-main.hcl '
+    }
 
-          echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
-          echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-          echo "STORJ_MIGRATION_DB: $STORJ_MIGRATION_DB"
-          sh 'docker run --rm -d --name cockroach-$BUILD_NUMBER cockroachdb/cockroach:v23.1.12 start-single-node --insecure'
-          sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
-          sleep 1
-          sh '''until $(docker exec cockroach-$BUILD_NUMBER cockroach sql --insecure -e "select * from now();" > /dev/null)
-                do printf '.'
-                sleep 1
-                done
-            '''
+    stage('Setup Buildx') {
+      lastStage = env.STAGE_NAME
+      env.DOCKER_BUILDKIT = '1'
+      env.BUILDX_BUILDER = 'multiplatform-builder'
+      sh 'docker buildx create --name $BUILDX_BUILDER --driver docker-container --bootstrap --use || docker buildx use $BUILDX_BUILDER'
 
-          // fetch the remote main branch
-          sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/testsuite/rolling-upgrade/start-sim.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e STORJ_MIGRATION_DB -e STORJ_SKIP_FIX_LAST_NETS --link redis-$BUILD_NUMBER:redis --link cockroach-$BUILD_NUMBER:cockroach storjlabs/golang:1.21.3'
-        }
-        catch(err){
-            throw err
-        }
-        finally {
-          sh 'docker stop cockroach-$BUILD_NUMBER || true'
-          sh 'docker rm cockroach-$BUILD_NUMBER || true'
-          sh 'docker stop redis-$BUILD_NUMBER || true'
-          sh 'docker rm redis-$BUILD_NUMBER || true'
-        }
+      echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Build Binaries') {
       lastStage = env.STAGE_NAME
-      sh 'make binaries'
+
+      sh 'make release/info'
+      sh 'make release/binaries/build'
+      // Check that we created release binaries.
+      sh 'make release/binaries/check-release'
 
       stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
 
       echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Build Images') {
+      lastStage = env.STAGE_NAME
+      sh 'make release/images/build'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Push Images') {
+      lastStage = env.STAGE_NAME
+      sh 'make release/images/push'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Publish Modular Satellite Images') {
+          lastStage = env.STAGE_NAME
+          env.MODULE="SATELLITE"
+          sh './scripts/bake.sh -f docker-bake.hcl ' + imageBuildType + ' satellite-modular --push'
+    }
+
+    stage('Publish Modular Storagenode Images') {
+          lastStage = env.STAGE_NAME
+          env.MODULE="STORAGENODE"
+          sh './scripts/bake.sh -f docker-bake.hcl ' + imageBuildType + ' storagenode-modular --push'
     }
 
     stage('Build Windows Installer') {
@@ -108,44 +97,39 @@ node('node') {
       }
     }
 
-    stage('Sign Windows Installer') {
+    stage('Sign Installers') {
       lastStage = env.STAGE_NAME
       unstash "storagenode-installer"
 
-      sh 'make sign-windows-installer'
+      sh 'make release/binaries/sign-installers'
 
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Build Images') {
+    stage('Compress binaries') {
       lastStage = env.STAGE_NAME
-      sh 'make images'
+
+      sh 'make release/binaries/compress'
 
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Push Images') {
+    stage('Upload Binaries To Google Storage') {
       lastStage = env.STAGE_NAME
-      sh 'make push-images'
+
+      sh 'make release/binaries/upload-to-google-storage'
 
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Upload') {
-      lastStage = env.STAGE_NAME
-      sh 'make binaries-upload'
-
-      echo "Current build result: ${currentBuild.result}"
-    }
-    stage('Draft Release') {
+    stage('Publish Release To Github') {
       withCredentials([string(credentialsId: 'GITHUB_RELEASE_TOKEN', variable: 'GITHUB_TOKEN')]) {
         lastStage = env.STAGE_NAME
-        sh 'make draft-release'
+        sh 'make release/binaries/publish-to-github'
 
         echo "Current build result: ${currentBuild.result}"
       }
     }
-
   }
   catch (err) {
     echo "Caught errors! ${err}"
@@ -155,13 +139,13 @@ node('node') {
     slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
     throw err
-
   }
   finally {
     stage('Cleanup') {
-      sh 'make clean-images'
+      sh 'make release/images/clean'
+      sh '[ -n "$BUILDX_BUILDER" ] && docker buildx rm --keep-state $BUILDX_BUILDER || true'
       deleteDir()
     }
-
+  }
   }
 }

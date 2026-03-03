@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metainfo
+package metainfo_test
 
 import (
 	"testing"
@@ -10,11 +10,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
 )
 
 func TestEndpoint_ConvertMetabaseErr(t *testing.T) {
-	endpoint := &Endpoint{log: zaptest.NewLogger(t)}
+	endpoint := metainfo.TestingNewAPIKeysEndpoint(zaptest.NewLogger(t), nil)
 
 	type test struct {
 		err    error
@@ -29,7 +30,7 @@ func TestEndpoint_ConvertMetabaseErr(t *testing.T) {
 		{err: metabase.ErrSegmentNotFound.New("sql"), expect: "segment not found: sql"},
 		{err: wrapClass.Wrap(metabase.ErrSegmentNotFound.New("sql")), expect: "segment not found: wrap: segment not found: sql"},
 	} {
-		out := endpoint.convertMetabaseErr(tc.err)
+		out := endpoint.ConvertMetabaseErr(tc.err)
 		assert.Equal(t, tc.expect, out.Error())
 	}
 }

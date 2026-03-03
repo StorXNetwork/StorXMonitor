@@ -14,10 +14,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/tagsql"
-	"storj.io/common/testcontext"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 // TestSnapshot tests if the snapshot migration (used for faster testplanet) is the same as the prod migration.

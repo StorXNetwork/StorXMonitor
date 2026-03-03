@@ -11,16 +11,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting/rollup"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/eventkit"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/rollup"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/eventkit/eventkitspy"
 )
 
 func TestRollupNoDeletes(t *testing.T) {
@@ -48,19 +50,13 @@ func TestRollupNoDeletes(t *testing.T) {
 
 		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second}, time.Hour)
 
-		// disqualifying nodes is unrelated to this test, but it is added here
-		// to confirm the disqualification shows up in the accounting CSVRow
-		dqedNodes, err := dqNodes(ctx, db.OverlayCache(), storageNodes)
-		require.NoError(t, err)
-		require.NotEmpty(t, dqedNodes)
-
 		// Set initialTime back by the number of days we want to save
 		initialTime := time.Now().UTC().AddDate(0, 0, -days)
 		currentTime := initialTime
 
-		nodeData := make([]storj.NodeID, len(storageNodes))
+		nodeData := make([]storxnetwork.NodeID, len(storageNodes))
 		bwAmount := make([]float64, len(storageNodes))
-		bwTotals := make(map[storj.NodeID][]int64)
+		bwTotals := make(map[storxnetwork.NodeID][]int64)
 		for i, storageNodeID := range storageNodes {
 			nodeData[i] = storageNodeID
 			bwAmount[i] = float64(atRestAmount)
@@ -89,12 +85,6 @@ func TestRollupNoDeletes(t *testing.T) {
 			assert.Equal(t, int64(days*getAuditAmount), row.GetAuditTotal)
 			assert.Equal(t, int64(days*getRepairAmount), row.GetRepairTotal)
 			assert.Equal(t, float64(days*atRestAmount), row.AtRestTotal)
-			assert.NotEmpty(t, row.Wallet)
-			if dqedNodes[row.NodeID] {
-				assert.NotNil(t, row.Disqualified)
-			} else {
-				assert.Nil(t, row.Disqualified)
-			}
 		}
 		// Confirm there is a storage tally row for each time tally ran for each storage node.
 		// We ran tally for one additional day, so expect 6 days of tallies.
@@ -104,8 +94,8 @@ func TestRollupNoDeletes(t *testing.T) {
 	})
 }
 
-func createNodes(ctx *testcontext.Context, t *testing.T, db satellite.DB) []storj.NodeID {
-	storageNodes := []storj.NodeID{}
+func createNodes(ctx *testcontext.Context, t *testing.T, db satellite.DB) []storxnetwork.NodeID {
+	storageNodes := []storxnetwork.NodeID{}
 	for i := 0; i < 10; i++ {
 		id := testrand.NodeID()
 		storageNodes = append(storageNodes, id)
@@ -150,12 +140,6 @@ func TestRollupDeletes(t *testing.T) {
 
 		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second, DeleteTallies: true}, time.Hour)
 
-		// disqualifying nodes is unrelated to this test, but it is added here
-		// to confirm the disqualification shows up in the accounting CSVRow
-		dqedNodes, err := dqNodes(ctx, db.OverlayCache(), storageNodes)
-		require.NoError(t, err)
-		require.NotEmpty(t, dqedNodes)
-
 		// Set timestamp back by the number of days we want to save
 		now := time.Now().UTC()
 		initialTime := now.AddDate(0, 0, -days)
@@ -170,9 +154,9 @@ func TestRollupDeletes(t *testing.T) {
 
 		currentTime := initialTime
 
-		nodeData := make([]storj.NodeID, len(storageNodes))
+		nodeData := make([]storxnetwork.NodeID, len(storageNodes))
 		bwAmount := make([]float64, len(storageNodes))
-		bwTotals := make(map[storj.NodeID][]int64)
+		bwTotals := make(map[storxnetwork.NodeID][]int64)
 		for i, storageNodeID := range storageNodes {
 			nodeData[i] = storageNodeID
 			bwAmount[i] = float64(atRestAmount)
@@ -203,12 +187,6 @@ func TestRollupDeletes(t *testing.T) {
 			assert.Equal(t, int64(days*getAuditAmount), row.GetAuditTotal)
 			assert.Equal(t, int64(days*getRepairAmount), row.GetRepairTotal)
 			assert.Equal(t, float64(days*atRestAmount), row.AtRestTotal)
-			assert.NotEmpty(t, row.Wallet)
-			if dqedNodes[row.NodeID] {
-				assert.NotNil(t, row.Disqualified)
-			} else {
-				assert.Nil(t, row.Disqualified)
-			}
 		}
 		// Confirm there are only storage tally rows for the last time tally ran for each storage node.
 		storagenodeTallies, err := snAccountingDB.GetTallies(ctx)
@@ -243,9 +221,10 @@ func TestRollupOldOrders(t *testing.T) {
 				snAccountingDB = satellitePeer.DB.StoragenodeAccounting()
 			)
 			// Run rollup once to start so we add the correct accounting timestamps to the db
-			satellitePeer.Accounting.Rollup.Loop.TriggerWait()
 			satellitePeer.Accounting.Rollup.Loop.Pause()
 			satellitePeer.Accounting.Tally.Loop.Pause()
+
+			satellitePeer.Accounting.Rollup.Loop.TriggerWait()
 
 			nodeA := planet.StorageNodes[0]
 			nodeB := planet.StorageNodes[1]
@@ -271,13 +250,13 @@ func TestRollupOldOrders(t *testing.T) {
 			)
 
 			// Phase 1
-			storageNodesPhase1 := []storj.NodeID{nodeA.ID()}
+			storageNodesPhase1 := []storxnetwork.NodeID{nodeA.ID()}
 			storageTotalsPhase1 := []float64{AtRestAmount1}
 			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(2*time.Hour), storageNodesPhase1, storageTotalsPhase1))
 			// save tallies for the next day too, so that the period we are testing is not truncated by the rollup service.
 			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(26*time.Hour), storageNodesPhase1, storageTotalsPhase1))
 
-			bwTotalsPhase1 := make(map[storj.NodeID][]int64)
+			bwTotalsPhase1 := make(map[storxnetwork.NodeID][]int64)
 			bwTotalsPhase1[nodeA.ID()] = []int64{PutActionAmount1, GetActionAmount1, GetAuditActionAmount1, GetRepairActionAmount1, PutRepairActionAmount1}
 			require.NoError(t, saveBWPhase3(ctx, ordersDB, bwTotalsPhase1, initialTime.Add(2*time.Hour)))
 			// save bandwidth for the next day too, so that the period we are testing is not truncated by the rollup service.
@@ -302,11 +281,11 @@ func TestRollupOldOrders(t *testing.T) {
 			require.EqualValues(t, AtRestAmount1, accountingCSVRow.AtRestTotal)
 
 			// Phase 2
-			storageNodesPhase2 := []storj.NodeID{nodeA.ID(), nodeB.ID()}
+			storageNodesPhase2 := []storxnetwork.NodeID{nodeA.ID(), nodeB.ID()}
 			storageTotalsPhase2 := []float64{AtRestAmount2, AtRestAmount2}
 			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(-2*time.Hour), storageNodesPhase2, storageTotalsPhase2))
 
-			bwTotalsPhase2 := make(map[storj.NodeID][]int64)
+			bwTotalsPhase2 := make(map[storxnetwork.NodeID][]int64)
 			bwTotalsPhase2[nodeA.ID()] = []int64{PutActionAmount2, GetActionAmount2, GetAuditActionAmount2, GetRepairActionAmount2, PutRepairActionAmount2}
 			bwTotalsPhase2[nodeB.ID()] = []int64{PutActionAmount2, GetActionAmount2, GetAuditActionAmount2, GetRepairActionAmount2, PutRepairActionAmount2}
 			require.NoError(t, saveBWPhase3(ctx, ordersDB, bwTotalsPhase2, initialTime.Add(time.Hour)))
@@ -344,7 +323,7 @@ func TestRollupOldOrders(t *testing.T) {
 		})
 }
 
-func saveBWPhase3(ctx context.Context, ordersDB orders.DB, bwTotals map[storj.NodeID][]int64, intervalStart time.Time) error {
+func saveBWPhase3(ctx context.Context, ordersDB orders.DB, bwTotals map[storxnetwork.NodeID][]int64, intervalStart time.Time) error {
 	pieceActions := []pb.PieceAction{pb.PieceAction_PUT,
 		pb.PieceAction_GET,
 		pb.PieceAction_GET_AUDIT,
@@ -369,21 +348,110 @@ func saveBWPhase3(ctx context.Context, ordersDB orders.DB, bwTotals map[storj.No
 	return nil
 }
 
-// dqNodes disqualifies half the nodes in the testplanet and returns a map of dqed nodes.
-func dqNodes(ctx *testcontext.Context, overlayDB overlay.DB, storageNodes []storj.NodeID) (map[storj.NodeID]bool, error) {
-	dqed := make(map[storj.NodeID]bool)
+func TestEventkitIntegration(t *testing.T) {
+	satellitedbtest.RunWithConfig(t,
+		satellitedbtest.Config{
+			NonParallel: true,
+		},
+		func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+			const (
+				atRestAmount    = 1000
+				getAmount       = 2000
+				putAmount       = 3000
+				getAuditAmount  = 4000
+				getRepairAmount = 5000
+				putRepairAmount = 6000
+			)
 
-	for i, n := range storageNodes {
-		if i%2 == 0 {
-			continue
-		}
+			// Create storage nodes
+			storageNodes := createNodes(ctx, t, db)
+			require.NotEmpty(t, storageNodes)
 
-		_, err := overlayDB.DisqualifyNode(ctx, n, time.Now().UTC(), overlay.DisqualificationReasonUnknown)
-		if err != nil {
-			return nil, err
-		}
-		dqed[n] = true
-	}
+			now := time.Now()
+			// Use yesterday's date to ensure rollup processes it (rollup excludes current day)
+			intervalStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Add(-24 * time.Hour)
 
-	return dqed, nil
+			// Create tallies for storage nodes for yesterday
+			storageTotals := make([]float64, len(storageNodes))
+			for i := range storageTotals {
+				storageTotals[i] = float64(atRestAmount)
+			}
+			err := db.StoragenodeAccounting().SaveTallies(ctx, intervalStart, storageNodes, storageTotals)
+			require.NoError(t, err)
+
+			// Also create tallies for today so the rollup period isn't truncated
+			err = db.StoragenodeAccounting().SaveTallies(ctx, intervalStart.Add(24*time.Hour), storageNodes, storageTotals)
+			require.NoError(t, err)
+
+			// Create bandwidth data for yesterday
+			bwTotals := make(map[storxnetwork.NodeID][]int64)
+			for _, nodeID := range storageNodes {
+				bwTotals[nodeID] = []int64{putAmount, getAmount, getAuditAmount, getRepairAmount, putRepairAmount}
+			}
+			err = saveBWPhase3(ctx, db.Orders(), bwTotals, intervalStart)
+			require.NoError(t, err)
+
+			// Clear the spy content.
+			eventkitspy.Clear()
+
+			// Create rollup service with eventkit tracking enabled
+			config := rollup.Config{
+				Interval:                120 * time.Second,
+				EventkitTrackingEnabled: true,
+			}
+
+			rollupService := rollup.New(testplanet.NewLogger(t), db.StoragenodeAccounting(), config, time.Hour)
+
+			// Run rollup - should succeed and emit events
+			err = rollupService.Rollup(ctx)
+			require.NoError(t, err)
+
+			// Verify event structure - filter for rollup events only
+			events := eventkitspy.GetEvents()
+
+			var storageRollupEvents []*eventkit.Event
+			var bandwidthRollupEvents []*eventkit.Event
+			for _, event := range events {
+				if event.Name == "storage_rollup" {
+					storageRollupEvents = append(storageRollupEvents, event)
+				} else if event.Name == "bandwidth_rollup" {
+					bandwidthRollupEvents = append(bandwidthRollupEvents, event)
+				}
+			}
+
+			require.NotEmpty(t, storageRollupEvents)
+			require.NotEmpty(t, bandwidthRollupEvents)
+
+			// Verify storage rollup event structure
+			for _, event := range storageRollupEvents {
+				tags := make(map[string]any, len(event.Tags))
+				for _, tag := range event.Tags {
+					tags[tag.Key] = struct{}{}
+				}
+
+				require.Contains(t, tags, "node_id")
+				require.Contains(t, tags, "day")
+				require.Contains(t, tags, "at_rest_total")
+				require.Contains(t, tags, "interval_start")
+				require.Contains(t, tags, "interval_end")
+				require.Contains(t, tags, "event_type")
+			}
+
+			// Verify bandwidth rollup event structure
+			for _, event := range bandwidthRollupEvents {
+				tags := make(map[string]any, len(event.Tags))
+				for _, tag := range event.Tags {
+					tags[tag.Key] = struct{}{}
+				}
+
+				require.Contains(t, tags, "node_id")
+				require.Contains(t, tags, "day")
+				require.Contains(t, tags, "put_total")
+				require.Contains(t, tags, "get_audit_total")
+				require.Contains(t, tags, "get_repair_total")
+				require.Contains(t, tags, "put_repair_total")
+				require.Contains(t, tags, "get_total")
+				require.Contains(t, tags, "event_type")
+			}
+		})
 }

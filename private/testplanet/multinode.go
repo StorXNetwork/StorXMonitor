@@ -6,6 +6,7 @@ package testplanet
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
@@ -14,11 +15,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/debug"
-	"storj.io/common/storj"
-	"storj.io/storj/multinode"
-	"storj.io/storj/multinode/console/server"
-	"storj.io/storj/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/multinode"
+	"github.com/StorXNetwork/StorXMonitor/multinode/console/server"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Multinode contains all the processes needed to run a full multinode setup.
@@ -29,7 +30,7 @@ type Multinode struct {
 }
 
 // ID returns multinode id.
-func (system *Multinode) ID() storj.NodeID { return system.Identity.ID }
+func (system *Multinode) ID() storxnetwork.NodeID { return system.Identity.ID }
 
 // Addr returns the public address.
 func (system *Multinode) Addr() string { return system.Console.Listener.Addr().String() }
@@ -40,9 +41,9 @@ func (system *Multinode) Label() string { return system.Name }
 // URL returns the NodeURL as a string.
 func (system *Multinode) URL() string { return system.NodeURL().String() }
 
-// NodeURL returns the storj.NodeURL.
-func (system *Multinode) NodeURL() storj.NodeURL {
-	return storj.NodeURL{ID: system.ID(), Address: system.Addr()}
+// NodeURL returns the storxnetwork.NodeURL.
+func (system *Multinode) NodeURL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: system.ID(), Address: system.Addr()}
 }
 
 // ConsoleURL returns the console URL.
@@ -93,7 +94,7 @@ func (planet *Planet) newMultinode(ctx context.Context, prefix string, index int
 			Addr: "",
 		},
 		Console: server.Config{
-			Address:   "127.0.0.1:0",
+			Address:   net.JoinHostPort(planet.config.Host, "0"),
 			StaticDir: filepath.Join(developmentRoot, "web/multinode/"),
 		},
 	}

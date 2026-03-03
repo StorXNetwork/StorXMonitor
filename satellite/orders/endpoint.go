@@ -15,15 +15,18 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/date"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeapiversion"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeapiversion"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/trust"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/eventkit"
 )
 
 // DB implements saving order after receiving from storage node.
@@ -40,14 +43,15 @@ type DB interface {
 	UpdateBandwidthBatch(ctx context.Context, rollups []BucketBandwidthRollup) error
 
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
-	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storxnetwork.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateStoragenodeBandwidthSettleWithWindow updates 'settled' bandwidth for given storage node
-	UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error)
+	UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storxnetwork.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error)
 
-	// GetBucketBandwidth gets total bucket bandwidth from period of time
-	GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error)
 	// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
-	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
+	GetStorageNodeBandwidth(ctx context.Context, nodeID storxnetwork.NodeID, from, to time.Time) (int64, error)
+
+	// TestGetBucketBandwidth gets total bucket bandwidth (allocated,inline,settled)
+	TestGetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, int64, int64, error)
 }
 
 type noopDB struct {
@@ -69,19 +73,19 @@ func (noopDB) UpdateBandwidthBatch(ctx context.Context, rollups []BucketBandwidt
 	return nil
 }
 
-func (noopDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (noopDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storxnetwork.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	return nil
 }
 
-func (noopDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
+func (noopDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storxnetwork.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
 	return pb.SettlementWithWindowResponse_ACCEPTED, false, nil
 }
 
-func (noopDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error) {
-	return 0, nil
+func (noopDB) TestGetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, int64, int64, error) {
+	return 0, 0, 0, nil
 }
 
-func (noopDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error) {
+func (noopDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storxnetwork.NodeID, from, to time.Time) (int64, error) {
 	return 0, nil
 }
 
@@ -97,18 +101,18 @@ type SerialDeleteOptions struct {
 
 // ConsumedSerial is a serial that has been consumed and its bandwidth recorded.
 type ConsumedSerial struct {
-	NodeID       storj.NodeID
-	SerialNumber storj.SerialNumber
+	NodeID       storxnetwork.NodeID
+	SerialNumber storxnetwork.SerialNumber
 	ExpiresAt    time.Time
 }
 
 // PendingSerial is a serial number reported by a storagenode waiting to be
 // settled.
 type PendingSerial struct {
-	NodeID       storj.NodeID
+	NodeID       storxnetwork.NodeID
 	BucketID     []byte
 	Action       uint
-	SerialNumber storj.SerialNumber
+	SerialNumber storxnetwork.SerialNumber
 	ExpiresAt    time.Time
 	Settled      uint64
 }
@@ -120,7 +124,14 @@ var (
 	ErrUsingSerialNumber = errs.Class("serial number")
 
 	mon = monkit.Package()
+	ek  = eventkit.Package()
 )
+
+// bandwidthAmount tracks settled and dead bandwidth.
+type bandwidthAmount struct {
+	Settled int64
+	Dead    int64
+}
 
 // BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup.
 type BucketBandwidthRollup struct {
@@ -136,7 +147,7 @@ type BucketBandwidthRollup struct {
 
 // StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup.
 type StoragenodeBandwidthRollup struct {
-	NodeID    storj.NodeID
+	NodeID    storxnetwork.NodeID
 	Action    pb.PieceAction
 	Allocated int64
 	Settled   int64
@@ -167,31 +178,24 @@ func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 type Endpoint struct {
 	pb.DRPCOrdersUnimplementedServer
 	log              *zap.Logger
+	config           Config
 	satelliteSignee  signing.Signee
 	DB               DB
 	nodeAPIVersionDB nodeapiversion.DB
-	ordersSemaphore  chan struct{}
 	ordersService    *Service
+	overlay          *overlay.Service
 }
 
 // NewEndpoint new orders receiving endpoint.
-//
-// ordersSemaphoreSize controls the number of concurrent clients allowed to submit orders at once.
-// A value of zero means unlimited.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB,
-	ordersSemaphoreSize int, ordersService *Service) *Endpoint {
-	var ordersSemaphore chan struct{}
-	if ordersSemaphoreSize > 0 {
-		ordersSemaphore = make(chan struct{}, ordersSemaphoreSize)
-	}
-
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, config Config, overlay *overlay.Service) *Endpoint {
 	return &Endpoint{
 		log:              log,
+		config:           config,
 		satelliteSignee:  satelliteSignee,
 		DB:               db,
 		nodeAPIVersionDB: nodeAPIVersionDB,
-		ordersSemaphore:  ordersSemaphore,
 		ordersService:    ordersService,
+		overlay:          overlay,
 	}
 }
 
@@ -226,6 +230,10 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
+	if !endpoint.config.AcceptOrders {
+		return rpcstatus.Error(rpcstatus.Unavailable, "orders endpoint is unavailable. try again later.")
+	}
+
 	var alreadyProcessed bool
 	var status pb.SettlementWithWindowResponse_Status
 	defer trackFinalStatus(status)
@@ -235,6 +243,16 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		endpoint.log.Warn("err peer identity from context", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+
+	skipSignatures := false
+	if endpoint.config.TrustedOrders {
+		if node, err := endpoint.overlay.CachedGet(ctx, peer.ID); err == nil {
+			if tag, err := node.Tags.FindBySignerAndName(trust.TrustedOperatorSigner, "trusted_orders"); err == nil {
+				skipSignatures = string(tag.Value) == "true"
+			}
+		}
+	}
+	mon.BoolVal("skip_signatures").Observe(skipSignatures)
 
 	versionAtLeast, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
 	if err != nil {
@@ -250,14 +268,9 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 	log := endpoint.log.Named(peer.ID.String())
 
-	type bandwidthAmount struct {
-		Settled int64
-		Dead    int64
-	}
-
 	storagenodeSettled := map[int32]int64{}
 	bucketSettled := map[bucketIDAction]bandwidthAmount{}
-	seenSerials := map[storj.SerialNumber]struct{}{}
+	seenSerials := map[storxnetwork.SerialNumber]struct{}{}
 
 	var window int64
 	var request *pb.SettlementRequest
@@ -289,7 +302,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		serialNum := order.SerialNumber
 
 		// don't process orders that aren't valid
-		if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window) {
+		if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window, skipSignatures) {
 			continue
 		}
 
@@ -343,8 +356,8 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		// without bucket name and project ID because segments loop doesn't have access to it
 		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
 			log.Warn("decrypt order: bucketName or projectID not set",
-				zap.String("bucketName", bucketInfo.BucketName),
-				zap.String("projectID", bucketInfo.ProjectID.String()),
+				zap.Stringer("bucket_name", bucketInfo.BucketName),
+				zap.String("project_id", bucketInfo.ProjectID.String()),
 			)
 			mon.Event("bucketinfo_from_orders_metadata_error_3")
 			continue
@@ -352,7 +365,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		currentBucketIDAction := bucketIDAction{
 			projectID:  bucketInfo.ProjectID,
-			bucketname: bucketInfo.BucketName,
+			bucketname: string(bucketInfo.BucketName),
 			action:     orderLimit.Action,
 		}
 		bucketSettled[currentBucketIDAction] = bandwidthAmount{
@@ -392,6 +405,10 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 				log.Info("err updating bucket bandwidth settle", zap.Error(err))
 			}
 		}
+
+		if endpoint.config.EventkitTrackingEnabled {
+			endpoint.emitSettlementEvents(peer.ID, bucketSettled, time.Unix(0, window))
+		}
 	} else {
 		mon.Event("orders_already_processed")
 	}
@@ -406,7 +423,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 }
 
 func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order,
-	orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
+	orderLimit *pb.OrderLimit, peerID storxnetwork.NodeID, window int64, skipSignatures bool) bool {
 	if orderLimit.StorageNodeId != peerID {
 		log.Warn("storage node id mismatch")
 		mon.Event("order_not_valid_storagenodeid")
@@ -419,17 +436,19 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 		mon.Event("order_not_valid_expired")
 		return false
 	}
-	// satellite verifies that it signed the order limit
-	if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
-		log.Warn("invalid settlement: unable to verify order limit")
-		mon.Event("order_not_valid_satellite_signature")
-		return false
-	}
-	// satellite verifies that the order signature matches pub key in order limit
-	if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
-		log.Warn("invalid settlement: unable to verify order")
-		mon.Event("order_not_valid_uplink_signature")
-		return false
+	if !skipSignatures {
+		// satellite verifies that it signed the order limit
+		if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
+			log.Debug("invalid settlement: unable to verify order limit")
+			mon.Event("order_not_valid_satellite_signature")
+			return false
+		}
+		// satellite verifies that the order signature matches pub key in order limit
+		if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+			log.Debug("invalid settlement: unable to verify order")
+			mon.Event("order_not_valid_uplink_signature")
+			return false
+		}
 	}
 	if orderLimit.SerialNumber != order.SerialNumber {
 		log.Warn("invalid settlement: invalid serial number")
@@ -448,4 +467,31 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 		return false
 	}
 	return true
+}
+
+// emitSettlementEvents emits eventkit events for order settlement.
+func (endpoint *Endpoint) emitSettlementEvents(nodeID storxnetwork.NodeID, bucketSettled map[bucketIDAction]bandwidthAmount, window time.Time) {
+	now := time.Now()
+	for action, bwAmount := range bucketSettled {
+		// Map action to string
+		actionStr := pb.PieceAction_name[int32(action.action)]
+
+		ek.Event("order_settlement",
+			eventkit.Bytes("node_id", nodeID.Bytes()),
+			eventkit.Bytes("project_id", action.projectID.Bytes()),
+			eventkit.String("bucket_name", action.bucketname),
+			eventkit.String("tenant_id", ""), // Reserved for future use
+			eventkit.String("action", actionStr),
+			eventkit.Int64("settled_bytes", bwAmount.Settled),
+			eventkit.Int64("dead_bytes", bwAmount.Dead),
+			eventkit.Timestamp("window", window),
+			eventkit.Timestamp("timestamp", now),
+			eventkit.String("event_type", "instantaneous"),
+		)
+	}
+}
+
+// TestingSetAcceptOrdersValid sets endpoint acceptOrders to the provided value. Used only for testing.
+func (endpoint *Endpoint) TestingSetAcceptOrdersValid(acceptOrders bool) {
+	endpoint.config.AcceptOrders = acceptOrders
 }

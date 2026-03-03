@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -72,7 +72,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 			node.LastNet = kv[1]
 		case "tag":
 			tkv := strings.SplitN(kv[1], "/", 3)
-			signer, err := storj.NodeIDFromString(tkv[0])
+			signer, err := storxnetwork.NodeIDFromString(tkv[0])
 			if err != nil {
 				return err
 			}
@@ -89,7 +89,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 
 	}
 
-	placement, err := config.Placement.Parse(nil)
+	placement, err := config.Placement.Parse(nil, nil)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -104,7 +104,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 
 	for _, placementNum := range placement.SupportedPlacements() {
 		fmt.Printf("\n--------- Evaluating placement rule %d ---------\n", placementNum)
-		filter := placement.CreateFilters(placementNum)
+		filter, _ := placement.CreateFilters(placementNum)
 
 		fmt.Printf("Placement: %s\n", filter)
 		result := filter.Match(node)

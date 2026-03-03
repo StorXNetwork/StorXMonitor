@@ -22,7 +22,7 @@ CUSTOMTAG ?=
 # Allow the private key to be passed in, but default to a non-functional value.
 # This avoids build failures when the key is not provided.
 WEB3_AUTH_PRIVATE_KEY ?= "BUILD_TIME_PRIVATE_KEY_NOT_SET"
-LDFLAGS = -ldflags "-X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=$(WEB3_AUTH_PRIVATE_KEY)'"
+LDFLAGS = -ldflags "-X 'github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants.Web3AuthPrivateKey=$(WEB3_AUTH_PRIVATE_KEY)'"
 
 FILEEXT :=
 ifeq (${GOOS},windows)
@@ -39,9 +39,9 @@ DOCKER_BUILDX := docker buildx build
 help:
 	@awk 'BEGIN { \
 		FS = ":.*##"; \
-		printf "\nUsage:\n  make \033[36m<target>\033[0m\n"\
+		printf "Usage:\n  make \033[36m<target>\033[0m\n"\
 	} \
-	/^[a-zA-Z_-]+:.*?##/ { \
+	/^[^: \t]+:.*?##/ { \
 		printf "  \033[36m%-17s\033[0m %s\n", $$1, $$2 \
 	} \
 	/^##@/ { \
@@ -58,11 +58,11 @@ build-dev-deps: ## Install dependencies for builds
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
-	goimports -w -local storj.io $$(find . -type f -name '*.go' -not -path "*/vendor/*")
+	goimports -w -local storxnetwork.io $$(find . -type f -name '*.go' -not -path "*/vendor/*")
 
 .PHONY: goimports-st
 goimports-st: ## Applies goimports to every go file in `git status` (ignores untracked files)
-	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
+	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storxnetwork.io {}
 
 .PHONY: build-packages
 build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm build-multinode-npm build-satellite-admin-npm ## Test docker images locally
@@ -92,7 +92,7 @@ endif
 # dummy commit to trigger a build
 .PHONY: build-satellite-window
 build-satellite-window: ## build satellite for windows (amd64)
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -v -race -o satellite.exe storj.io/storj/cmd/satellite
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -v -race -o satellite.exe github.com/StorXNetwork/StorXMonitor/cmd/satellite
 
 # Define a reusable command for installing simulator binaries
 define INSTALL_COMMAND
@@ -101,27 +101,27 @@ define INSTALL_COMMAND
 # $(3) contains build tags, if any
 	@echo "Running ${@} for OS=$(or $(word 1,$(subst =, ,$(1))),$(GOOS)) ARCH=$(or $(word 2,$(subst =, ,$(1))),$(GOARCH))"
 	$(1) go install $(2) -v $(3) \
-		storj.io/storj/cmd/storagenode \
-		storj.io/storj/cmd/storj-sim \
-		storj.io/storj/cmd/versioncontrol \
-		storj.io/storj/cmd/uplink \
-		storj.io/storj/cmd/identity \
-		storj.io/storj/cmd/certificates \
-		storj.io/storj/cmd/multinode
+		github.com/StorXNetwork/StorXMonitor/cmd/storagenode \
+		github.com/StorXNetwork/StorXMonitor/cmd/storxnetwork-sim \
+		github.com/StorXNetwork/StorXMonitor/cmd/versioncontrol \
+		github.com/StorXNetwork/StorXMonitor/cmd/uplink \
+		github.com/StorXNetwork/StorXMonitor/cmd/identity \
+		github.com/StorXNetwork/StorXMonitor/cmd/certificates \
+		github.com/StorXNetwork/StorXMonitor/cmd/multinode
 
 	# Install the satellite binary with the injected private key
-	$(1) go install $(2) -v $(LDFLAGS) $(3) storj.io/storj/cmd/satellite
+	$(1) go install $(2) -v $(LDFLAGS) $(3) github.com/StorXNetwork/StorXMonitor/cmd/satellite
 
 	# Install the latest stable version of Gateway-ST
-	$(1) go install $(2) -v $(3) storj.io/gateway@latest
+	$(1) go install $(2) -v $(3) github.com/StorXNetwork/gateway-st@latest
 endef
 
 .PHONY: install-sim
-install-sim: ## install storj-sim
+install-sim: ## install storxnetwork-sim
 	$(call INSTALL_COMMAND,, -race)
 
 .PHONY: install-sim-window
-install-sim-window: ## install storj-sim for windows (amd64)
+install-sim-window: ## install storxnetwork-sim for windows (amd64)
 	$(call INSTALL_COMMAND, CGO_ENABLED=1 GOOS=windows GOARCH=amd64 GOBIN= CC=x86_64-w64-mingw32-gcc)
 
 ##@ Lint
@@ -151,8 +151,8 @@ LINT_TARGET="./..."
 lint:
 	docker run --rm -it \
 		-v ${GOPATH}/pkg:/go/pkg \
-		-v ${PWD}:/storj \
-		-w /storj \
+		-v ${PWD}:/storxnetwork \
+		-w /storxnetwork \
 		storjlabs/ci:slim \
 		make .lint LINT_TARGET="$(LINT_TARGET)"
 
@@ -222,12 +222,12 @@ test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 	@echo done
 
 .PHONY: test-sim
-test-sim: ## Test source with storj-sim (jenkins)
+test-sim: ## Test source with storxnetwork-sim (jenkins)
 	@echo "Running ${@}"
 	@./testsuite/basic/start-sim.sh
 
 .PHONY: test-sim-redis-unavailability
-test-sim-redis-unavailability: ## Test source with Redis availability with storj-sim (jenkins)
+test-sim-redis-unavailability: ## Test source with Redis availability with storxnetwork-sim (jenkins)
 	@echo "Running ${@}"
 	@./testsuite/redis/start-sim.sh
 
@@ -262,7 +262,7 @@ test-satellite-ui: ## Run playwright ui tests
 check-monitoring: ## Check for locked monkit calls that have changed
 	@echo "Running ${@}"
 	@check-monitoring ./... | diff -U0 ./monkit.lock - \
-	|| (echo "Locked monkit metrics have been changed. **Notify #team-data** and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
+	|| (echo "Locked monkit metrics have been changed. **Notify #team-data** and run \`go run github.com/storxnetwork/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
 	&& exit 1)
 
 .PHONY: test-wasm-size
@@ -278,8 +278,8 @@ storagenode-console:
 	rm -rf web/storagenode/dist
 	# install npm dependencies and build the binaries
 	docker run --rm -i \
-		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
-		-w /go/src/storj.io/storj/web/storagenode \
+		--mount type=bind,src="${PWD}",dst=/go/src/github.com/StorXNetwork/StorXMonitor \
+		-w /go/src/github.com/StorXNetwork/StorXMonitor/web/storagenode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
@@ -291,8 +291,8 @@ multinode-console:
 	rm -rf web/multinode/dist
 	# install npm dependencies and build the binaries
 	docker run --rm -i \
-		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
-		-w /go/src/storj.io/storj/web/multinode \
+		--mount type=bind,src="${PWD}",dst=/go/src/github.com/StorXNetwork/StorXMonitor \
+		-w /go/src/github.com/StorXNetwork/StorXMonitor/web/multinode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
@@ -302,16 +302,16 @@ multinode-console:
 satellite-admin-ui:
 	# install npm dependencies for being embedded by Go embed.
 	docker run --rm -i \
-		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
-		-w /go/src/storj.io/storj/satellite/admin/ui \
+		--mount type=bind,src="${PWD}",dst=/go/src/github.com/StorXNetwork/StorXMonitor \
+		-w /go/src/github.com/StorXNetwork/StorXMonitor/satellite/admin/ui \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
 	# Temporary until the new back-office replaces the current admin API & UI
 	docker run --rm -i \
-		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
-		-w /go/src/storj.io/storj/satellite/admin/back-office/ui \
+		--mount type=bind,src="${PWD}",dst=/go/src/github.com/StorXNetwork/StorXMonitor \
+		-w /go/src/github.com/StorXNetwork/StorXMonitor/satellite/admin/back-office/ui \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
@@ -319,10 +319,10 @@ satellite-admin-ui:
 
 .PHONY: satellite-wasm
 satellite-wasm:
-	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
+	docker run --rm -i -v "${PWD}":/go/src/github.com/StorXNetwork/StorXMonitor -e GO111MODULE=on \
 	-e GOOS=js -e GOARCH=wasm -e GOARM=6 -e CGO_ENABLED=1 \
 	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
-	-w /go/src/storj.io/storj -e GOPROXY -e TAG=${TAG} -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
+	-w /go/src/github.com/StorXNetwork/StorXMonitor -e GOPROXY -e TAG=${TAG} -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
@@ -352,10 +352,10 @@ uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build up
 		-f cmd/uplink/Dockerfile .
 
 # THIS IS NOT THE PRODUCTION STORAGENODE!!! Only for testing.
-# See https://github.com/storj/storagenode-docker for the prod image.
+# See https://github.com/storxnetwork/storagenode-docker for the prod image.
 .PHONY: storagenode-image
 storagenode-image: storagenode_linux_amd64 identity_linux_amd64
-	${DOCKER_BUILD} --pull=true -t img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64 \
+	${DOCKER_BUILD} --pull=true -t img.dev.storxnetwork.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/storagenode/Dockerfile.dev .
 
 .PHONY: satellite-image
@@ -401,12 +401,12 @@ binary:
         -product-version "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}' || echo "dev" )" \
         -special-build "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$2} END {print v}' )" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
-	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
+	docker run --rm -i -v "${PWD}":/go/src/github.com/StorXNetwork/StorXMonitor -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
 	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
-	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
+	-w /go/src/github.com/StorXNetwork/StorXMonitor -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
-	storj.io/storj/cmd/${COMPONENT}
+	github.com/StorXNetwork/StorXMonitor/cmd/${COMPONENT}
 
 	if [ "${COMPONENT}" = "satellite" ] && [ "${GOOS}" = "linux" ] && [ "${GOARCH}" = "amd64" ]; \
 	then \
@@ -415,7 +415,7 @@ binary:
 	fi
 
 	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
-	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
+	[ "${FILEEXT}" = ".exe" ] && storxnetwork-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
 
 .PHONY: binary-check
@@ -468,7 +468,7 @@ binaries: ${BINARIES} ## Build certificates, identity, multinode, satellite, sto
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
-	storj-sign release/${TAG}/storagenode_windows_amd64.msi
+	storxnetwork-sign release/${TAG}/storagenode_windows_amd64.msi
 
 ##@ Deploy
 
@@ -490,7 +490,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
-	docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+	docker push img.dev.storxnetwork.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
@@ -507,7 +507,7 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	; done
 	cd "release/${TAG}" \
 		&& sha256sum *.zip > sha256sums \
-		&& gsutil -m cp -r *.zip sha256sums "gs://storj-v3-alpha-builds/${TAG}/"
+		&& gsutil -m cp -r *.zip sha256sums "gs://storxnetwork-v3-alpha-builds/${TAG}/"
 
 .PHONY: draft-release
 draft-release:
@@ -528,35 +528,35 @@ clean-images:
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+	-docker rmi img.dev.storxnetwork.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 ##@ Tooling
 
 .PHONY: diagrams
 diagrams:
-	archview -root "storj.io/storj/satellite.Core"     -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ ./satellite/... | dot -T svg -o satellite-core.svg
-	archview -root "storj.io/storj/satellite.API"      -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ ./satellite/... | dot -T svg -o satellite-api.svg
-	archview -root "storj.io/storj/satellite.Repairer" -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ ./satellite/... | dot -T svg -o satellite-repair.svg
-	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   ./satellite/...   | dot -T svg -o satellite.svg
-	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ ./storagenode/... | dot -T svg -o storage-node.svg
+	archview -root "github.com/StorXNetwork/StorXMonitor/satellite.Core"     -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/satellite/ ./satellite/... | dot -T svg -o satellite-core.svg
+	archview -root "github.com/StorXNetwork/StorXMonitor/satellite.API"      -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/satellite/ ./satellite/... | dot -T svg -o satellite-api.svg
+	archview -root "github.com/StorXNetwork/StorXMonitor/satellite.Repairer" -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/satellite/ ./satellite/... | dot -T svg -o satellite-repair.svg
+	archview -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/satellite/   ./satellite/...   | dot -T svg -o satellite.svg
+	archview -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/storagenode/ ./storagenode/... | dot -T svg -o storage-node.svg
 
 .PHONY: diagrams-graphml
 diagrams-graphml:
-	archview -root "storj.io/storj/satellite.Core"     -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ -out satellite-core.graphml   ./satellite/...
-	archview -root "storj.io/storj/satellite.API"      -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ -out satellite-api.graphml    ./satellite/...
-	archview -root "storj.io/storj/satellite.Repairer" -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ -out satellite-repair.graphml ./satellite/...
-	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   -out satellite.graphml    ./satellite/...
-	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ -out storage-node.graphml ./storagenode/...
+	archview -root "github.com/StorXNetwork/StorXMonitor/satellite.Core"     -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/satellite/ -out satellite-core.graphml   ./satellite/...
+	archview -root "github.com/StorXNetwork/StorXMonitor/satellite.API"      -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/satellite/ -out satellite-api.graphml    ./satellite/...
+	archview -root "github.com/StorXNetwork/StorXMonitor/satellite.Repairer" -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/satellite/ -out satellite-repair.graphml ./satellite/...
+	archview -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/satellite/   -out satellite.graphml    ./satellite/...
+	archview -skip-class "Peer,Master Database" -trim-prefix github.com/StorXNetwork/StorXMonitor/storagenode/ -out storage-node.graphml ./storagenode/...
 
 .PHONY: bump-dependencies
 bump-dependencies:
-	go get storj.io/common@main storj.io/uplink@main
+	go get github.com/StorXNetwork/common@main github.com/StorXNetwork/uplink@main
 	go mod tidy
 	cd testsuite/playwright-ui;\
-		go get storj.io/common@main storj.io/uplink@main;\
+		go get github.com/StorXNetwork/common@main github.com/StorXNetwork/uplink@main;\
 		go mod tidy;
 	cd testsuite/storjscan;\
-		go get storj.io/common@main storj.io/uplink@main;\
+		go get github.com/StorXNetwork/common@main github.com/StorXNetwork/uplink@main;\
 		go mod tidy;
 
 update-proto-lock:

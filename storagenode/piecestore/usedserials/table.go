@@ -4,17 +4,16 @@
 package usedserials
 
 import (
+	"context"
 	"encoding/binary"
-	"math/rand"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -23,14 +22,17 @@ var (
 	// ErrSerialAlreadyExists defines an error class for duplicate usedserials.
 	ErrSerialAlreadyExists = errs.Class("used serial already exists in store")
 
-	mon = monkit.Package()
+	mon                   = monkit.Package()
+	monAdd                = mon.Task()
+	monDeleteExpired      = mon.Task()
+	monDeleteRandomSerial = mon.Task()
 )
 
 const (
 	// PartialSize is the size of a partial serial number.
 	PartialSize = memory.Size(len(Partial{}))
 	// FullSize is the size of a full serial number.
-	FullSize = memory.Size(len(storj.SerialNumber{}))
+	FullSize = memory.Size(len(storxnetwork.SerialNumber{}))
 )
 
 // Partial represents the last 8 bytes of a serial number. It is used when the first 8 are based on the expiration date.
@@ -42,7 +44,7 @@ func (a Partial) Less(b Partial) bool {
 }
 
 // Full is a copy of the SerialNumber type. It is necessary so we can define a Less function on it.
-type Full storj.SerialNumber
+type Full storxnetwork.SerialNumber
 
 // Less returns true if partial serial a is less than partial serial b and false otherwise.
 func (a Full) Less(b Full) bool {
@@ -54,8 +56,8 @@ func (a Full) Less(b Full) bool {
 // For serials where expiration time is the first 8 bytes, it uses partialSerials.
 // It uses fullSerials otherwise.
 type serialsList struct {
-	partialSerials []Partial
-	fullSerials    []storj.SerialNumber
+	partialSerials map[Partial]struct{}
+	fullSerials    map[storxnetwork.SerialNumber]struct{}
 }
 
 // Table is an in-memory store for serial numbers.
@@ -63,7 +65,7 @@ type Table struct {
 	mu sync.Mutex
 
 	// key 1: satellite ID, key 2: expiration hour (in unix time), value: a list of serial numbers
-	serials map[storj.NodeID]map[int64]serialsList
+	serials map[storxnetwork.NodeID]map[int64]serialsList
 
 	maxMemory  memory.Size
 	memoryUsed memory.Size
@@ -75,14 +77,16 @@ func NewTable(maxMemory memory.Size) *Table {
 		panic("max memory for usedserials store is 0")
 	}
 	return &Table{
-		serials:   make(map[storj.NodeID]map[int64]serialsList),
+		serials:   make(map[storxnetwork.NodeID]map[int64]serialsList),
 		maxMemory: maxMemory,
 	}
 }
 
 // Add adds a serial to the store, or returns an error if the serial number was already added.
 // It randomly deletes items from the store if the set maxMemory is exceeded.
-func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) error {
+func (table *Table) Add(ctx context.Context, satelliteID storxnetwork.NodeID, serialNumber storxnetwork.SerialNumber, expiration time.Time) (err error) {
+	defer monAdd(&ctx)(&err)
+
 	table.mu.Lock()
 	defer table.mu.Unlock()
 
@@ -103,23 +107,26 @@ func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumbe
 	partialSerial, usePartial := tryTruncate(serialNumber, expiration)
 
 	if usePartial {
-		partialList := list.partialSerials
-		partialList, err := insertPartial(partialList, partialSerial)
+		if list.partialSerials == nil {
+			list.partialSerials = map[Partial]struct{}{}
+		}
+
+		err = insertPartial(list.partialSerials, partialSerial)
 		if err != nil {
 			return err
 		}
 
-		list.partialSerials = partialList
 		table.serials[satelliteID][expirationHour] = list
 		table.memoryUsed += PartialSize
 	} else {
-		fullList := list.fullSerials
-		fullList, err := insertSerial(fullList, serialNumber)
+		if list.fullSerials == nil {
+			list.fullSerials = map[storxnetwork.SerialNumber]struct{}{}
+		}
+		err = insertSerial(list.fullSerials, serialNumber)
 		if err != nil {
 			return err
 		}
 
-		list.fullSerials = fullList
 		table.serials[satelliteID][expirationHour] = list
 		table.memoryUsed += FullSize
 	}
@@ -127,7 +134,7 @@ func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumbe
 	// Check to see if the structure exceeds the max allowed size.
 	// If so, delete random items until there is enough space.
 	for table.memoryUsed > table.maxMemory {
-		err := table.deleteRandomSerial()
+		err = table.deleteRandomSerial(ctx)
 		if err != nil {
 			return err
 		}
@@ -137,7 +144,9 @@ func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumbe
 }
 
 // DeleteExpired deletes expired serial numbers if their expiration hour has passed.
-func (table *Table) DeleteExpired(now time.Time) {
+func (table *Table) DeleteExpired(ctx context.Context, now time.Time) {
+	defer monDeleteExpired(&ctx)(nil)
+
 	table.mu.Lock()
 	defer table.mu.Unlock()
 
@@ -159,7 +168,7 @@ func (table *Table) DeleteExpired(now time.Time) {
 }
 
 // Exists determines whether a serial number exists in the table.
-func (table *Table) Exists(satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) bool {
+func (table *Table) Exists(satelliteID storxnetwork.NodeID, serialNumber storxnetwork.SerialNumber, expiration time.Time) bool {
 	table.mu.Lock()
 	defer table.mu.Unlock()
 
@@ -168,19 +177,12 @@ func (table *Table) Exists(satelliteID storj.NodeID, serialNumber storj.SerialNu
 
 	partial, usePartial := tryTruncate(serialNumber, expiration)
 	if usePartial {
-		for _, serial := range serialsList.partialSerials {
-			if serial == partial {
-				return true
-			}
-		}
+		_, exists := serialsList.partialSerials[partial]
+		return exists
 	} else {
-		for _, serial := range serialsList.fullSerials {
-			if serial == serialNumber {
-				return true
-			}
-		}
+		_, exists := serialsList.fullSerials[serialNumber]
+		return exists
 	}
-	return false
 }
 
 // Count iterates over all the items in the table and returns the number.
@@ -201,27 +203,26 @@ func (table *Table) Count() int {
 
 // deleteRandomSerial deletes a random item.
 // It expects the mutex to be locked before being called.
-func (table *Table) deleteRandomSerial() error {
-	mon.Meter("delete_random_serial").Mark(1) //mon:locked
+func (table *Table) deleteRandomSerial(ctx context.Context) (err error) {
+	defer monDeleteRandomSerial(&ctx)(&err)
+
+	mon.Meter("delete_random_serial").Mark(1)
+
 	for _, satMap := range table.serials {
-		for expirationHour, serialList := range satMap {
+		for _, serialList := range satMap {
 			if len(serialList.partialSerials) > 0 {
-				i := rand.Intn(len(serialList.partialSerials))
-				// shift all elements after i once, to overwrite i
-				copy(serialList.partialSerials[i:], serialList.partialSerials[i+1:])
-				// truncate to get rid of last item
-				serialList.partialSerials = serialList.partialSerials[:len(serialList.partialSerials)-1]
-				satMap[expirationHour] = serialList
-				table.memoryUsed -= PartialSize
+				for k := range serialList.partialSerials {
+					delete(serialList.partialSerials, k)
+					table.memoryUsed -= PartialSize
+					break
+				}
 				return nil
 			} else if len(serialList.fullSerials) > 0 {
-				i := rand.Intn(len(serialList.fullSerials))
-				// shift all elements after i once, to overwrite i
-				copy(serialList.fullSerials[i:], serialList.fullSerials[i+1:])
-				// truncate to get rid of last item
-				serialList.fullSerials = serialList.fullSerials[:len(serialList.fullSerials)-1]
-				satMap[expirationHour] = serialList
-				table.memoryUsed -= FullSize
+				for k := range serialList.fullSerials {
+					delete(serialList.fullSerials, k)
+					table.memoryUsed -= FullSize
+					break
+				}
 				return nil
 			}
 		}
@@ -232,49 +233,27 @@ func (table *Table) deleteRandomSerial() error {
 
 // insertPartial inserts a partial serial in the correct position in a sorted list,
 // or returns an error if it is already in the list.
-func insertPartial(list []Partial, serial Partial) ([]Partial, error) {
-	i := sort.Search(len(list), func(h int) bool {
-		return serial.Less(list[h])
-	})
-	// if serial is already in the list, it will be at index i-1
-	if i > 0 && list[i-1] == serial {
-		return nil, ErrSerialAlreadyExists.New("")
+func insertPartial(list map[Partial]struct{}, serial Partial) error {
+	_, ok := list[serial]
+	if ok {
+		return ErrSerialAlreadyExists.New("")
 	}
-
-	// insert new serial at index i and shift everything up
-	// 1. grow the slice by one element.
-	list = append(list, Partial{})
-	// 2. move the upper part of the slice out of the way and open a hole.
-	copy(list[i+1:], list[i:])
-	// 3. store the new value.
-	list[i] = serial
-
-	return list, nil
+	list[serial] = struct{}{}
+	return nil
 }
 
 // insertSerial inserts a serial in the correct position in a sorted list,
 // or returns an error if it is already in the list.
-func insertSerial(list []storj.SerialNumber, serial storj.SerialNumber) ([]storj.SerialNumber, error) {
-	i := sort.Search(len(list), func(h int) bool {
-		return serial.Less(list[h])
-	})
-	// if serial is already in the list, it will be at index i-1
-	if i > 0 && list[i-1] == serial {
-		return nil, ErrSerialAlreadyExists.New("")
+func insertSerial(list map[storxnetwork.SerialNumber]struct{}, serial storxnetwork.SerialNumber) error {
+	_, ok := list[serial]
+	if ok {
+		return ErrSerialAlreadyExists.New("")
 	}
-
-	// insert new serial at index i and shift everything up
-	// 1. grow the slice by one element.
-	list = append(list, storj.SerialNumber{})
-	// 2. move the upper part of the slice out of the way and open a hole.
-	copy(list[i+1:], list[i:])
-	// 3. store the new value.
-	list[i] = serial
-
-	return list, nil
+	list[serial] = struct{}{}
+	return nil
 }
 
-func tryTruncate(serial storj.SerialNumber, expiration time.Time) (partial Partial, succeeded bool) {
+func tryTruncate(serial storxnetwork.SerialNumber, expiration time.Time) (partial Partial, succeeded bool) {
 	// If the first 8 bytes of the serial number are based on the expiration date
 	// then we can use a partial serial number with the last 8 bytes.
 	// Otherwise, we need to use the full serial number.

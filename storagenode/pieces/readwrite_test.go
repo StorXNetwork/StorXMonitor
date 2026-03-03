@@ -14,15 +14,50 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
+
+func TestStore_SmallBlobReadsDontCreateData(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	sat := testrand.NodeID()
+
+	dir, err := filestore.NewDir(zap.NewNop(), ctx.Dir("pieces"))
+	require.NoError(t, err)
+	blobs := filestore.New(zap.NewNop(), dir, filestore.DefaultConfig)
+	defer ctx.Check(blobs.Close)
+
+	store := pieces.StoreForTest{
+		Store: pieces.NewStore(zap.NewNop(), pieces.NewFileWalker(zap.NewNop(), blobs, nil, nil, nil), nil, blobs, nil, nil, pieces.DefaultConfig),
+	}
+
+	for _, format := range []blobstore.FormatVersion{filestore.FormatV0, filestore.FormatV1} {
+		func() {
+			id := testrand.PieceID()
+			w, err := store.WriterForFormatVersion(ctx, sat, id, format, pb.PieceHashAlgorithm_BLAKE3)
+			require.NoError(t, err)
+			_, err = w.Write([]byte("0123456789"))
+			require.NoError(t, err)
+			require.NoError(t, w.Commit(ctx, &pb.PieceHeader{}))
+
+			r, err := store.Reader(ctx, sat, id)
+			require.NoError(t, err)
+			defer func() { _ = r.Close() }()
+			got, err := io.ReadAll(r)
+			require.NoError(t, err)
+			require.NoError(t, r.Close())
+			require.Equal(t, got, []byte("0123456789"))
+		}()
+	}
+}
 
 func BenchmarkReadWrite(b *testing.B) {
 	ctx := testcontext.New(b)
@@ -32,7 +67,7 @@ func BenchmarkReadWrite(b *testing.B) {
 	require.NoError(b, err)
 	blobs := filestore.New(zap.NewNop(), dir, filestore.DefaultConfig)
 	defer ctx.Check(blobs.Close)
-	store := pieces.NewStore(zap.NewNop(), pieces.NewFileWalker(zap.NewNop(), blobs, nil), nil, blobs, nil, nil, nil, pieces.DefaultConfig)
+	store := pieces.NewStore(zap.NewNop(), pieces.NewFileWalker(zap.NewNop(), blobs, nil, nil, nil), nil, blobs, nil, nil, pieces.DefaultConfig)
 
 	// setup test parameters
 	const blockSize = int(256 * memory.KiB)
@@ -60,7 +95,7 @@ func BenchmarkReadWrite(b *testing.B) {
 		}
 	})
 
-	testPieceID := storj.PieceID{1}
+	testPieceID := storxnetwork.PieceID{1}
 	{ // write a test piece
 		writer, err := store.Writer(ctx, satelliteID, testPieceID, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(b, err)
@@ -100,7 +135,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	blobs := filestore.New(log, dir, filestore.DefaultConfig)
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(log, pieces.NewFileWalker(log, blobs, nil), nil, blobs, nil, nil, nil, pieces.DefaultConfig)
+	store := pieces.NewStore(log, pieces.NewFileWalker(log, blobs, nil, nil, nil), nil, blobs, nil, nil, pieces.DefaultConfig)
 
 	// test parameters
 	satelliteID := testrand.NodeID()

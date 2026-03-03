@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,11 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/grant"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 )
 
 // Projects is an api controller that exposes projects related functionality.
@@ -45,11 +46,12 @@ type ProjectMembersPage struct {
 
 // Member is a project member in a ProjectMembersPage.
 type Member struct {
-	ID        uuid.UUID `json:"id"`
-	FullName  string    `json:"fullName"`
-	ShortName string    `json:"shortName"`
-	Email     string    `json:"email"`
-	JoinedAt  time.Time `json:"joinedAt"`
+	ID        uuid.UUID                 `json:"id"`
+	FullName  string                    `json:"fullName"`
+	ShortName string                    `json:"shortName"`
+	Email     string                    `json:"email"`
+	Role      console.ProjectMemberRole `json:"role"`
+	JoinedAt  time.Time                 `json:"joinedAt"`
 }
 
 // Invitation is a project invitation in a ProjectMembersPage.
@@ -97,79 +99,6 @@ func (p *Projects) GetUserProjects(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetPagedProjects returns paged projects for a user.
-func (p *Projects) GetPagedProjects(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	query := r.URL.Query()
-
-	limitParam := query.Get("limit")
-	if limitParam == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'limit' is required"))
-		return
-	}
-
-	limit, err := strconv.ParseUint(limitParam, 10, 32)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
-		return
-	}
-
-	pageParam := query.Get("page")
-	if pageParam == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'page' is required"))
-		return
-	}
-
-	page, err := strconv.ParseUint(pageParam, 10, 32)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
-		return
-	}
-
-	if page == 0 {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'page' can not be 0"))
-		return
-	}
-
-	cursor := console.ProjectsCursor{
-		Limit: int(limit),
-		Page:  int(page),
-	}
-
-	projectsPage, err := p.service.GetUsersOwnedProjectsPage(ctx, cursor)
-	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
-			return
-		}
-
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-
-	pageToSend := console.ProjectInfoPage{
-		Limit:       projectsPage.Limit,
-		Offset:      projectsPage.Offset,
-		PageCount:   projectsPage.PageCount,
-		CurrentPage: projectsPage.CurrentPage,
-		TotalCount:  projectsPage.TotalCount,
-	}
-
-	for _, project := range projectsPage.Projects {
-		pageToSend.Projects = append(pageToSend.Projects, p.service.GetMinimalProject(&project))
-	}
-
-	err = json.NewEncoder(w).Encode(pageToSend)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-	}
-}
-
 // UpdateProject handles updating projects.
 func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -205,7 +134,106 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if console.ErrInvalidProjectLimit.Has(err) {
+		if console.ErrInvalidProjectLimit.Has(err) || console.ErrValidation.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// DeleteProject handles deleting projects.
+func (p *Projects) DeleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var data AccountActionData
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if data.Step < console.DeleteProjectInit || data.Step > console.DeleteProjectStep {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, console.ErrValidation.New("step value is out of range"))
+		return
+	}
+
+	if data.Step > console.DeleteProjectInit && data.Step != console.DeleteProjectStep && data.Data == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, console.ErrValidation.New("data value can't be empty"))
+		return
+	}
+
+	resp, err := p.service.DeleteProject(ctx, id, data.Step, data.Data)
+	if err != nil {
+		if resp != nil {
+			w.WriteHeader(http.StatusConflict)
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				p.log.Error("could not encode project deletion response", zap.Error(ErrAuthAPI.Wrap(err)))
+			}
+			return
+		}
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// UpdateUserSpecifiedLimits is a method for updating project user specified limits.
+func (p *Projects) UpdateUserSpecifiedLimits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var payload console.UpdateLimitsInfo
+
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = p.service.UpdateUserSpecifiedLimits(ctx, id, payload)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrInvalidProjectLimit.Has(err) || console.ErrValidation.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
@@ -280,11 +308,6 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.Name == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("project name cannot be empty"))
-		return
-	}
-
 	project, err := p.service.CreateProject(ctx, payload)
 	if err != nil {
 		if console.ErrBotUser.Has(err) {
@@ -294,6 +317,11 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrValidation.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -415,6 +443,7 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 			FullName:  user.FullName,
 			ShortName: user.ShortName,
 			Email:     user.Email,
+			Role:      m.Role,
 			JoinedAt:  m.CreatedAt,
 		}
 		memberPage.Members = append(memberPage.Members, member)
@@ -428,6 +457,158 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 		memberPage.Invitations = append(memberPage.Invitations, invitee)
 	}
 	err = json.NewEncoder(w).Encode(memberPage)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// UpdateMemberRole updates project member role.
+func (p *Projects) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(projectIDParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	memberIDParam, ok := mux.Vars(r)["memberID"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing member id route param"))
+		return
+	}
+
+	memberID, err := uuid.FromString(memberIDParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	newRoleBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	newRoleInt, err := strconv.Atoi(string(newRoleBytes))
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var newRole console.ProjectMemberRole
+	switch newRoleInt {
+	case int(console.RoleAdmin), int(console.RoleMember):
+		newRole = console.ProjectMemberRole(newRoleInt)
+	default:
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid role value"))
+		return
+	}
+
+	updatedMember, err := p.service.UpdateProjectMemberRole(ctx, memberID, publicID, newRole)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrForbidden.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+		if console.ErrConflict.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	user, err := p.service.GetUser(ctx, updatedMember.MemberID)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	member := Member{
+		ID:        user.ID,
+		FullName:  user.FullName,
+		ShortName: user.ShortName,
+		Email:     user.Email,
+		Role:      updatedMember.Role,
+		JoinedAt:  updatedMember.CreatedAt,
+	}
+
+	err = json.NewEncoder(w).Encode(member)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// GetMember returns project member.
+func (p *Projects) GetMember(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(projectIDParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	memberIDParam, ok := mux.Vars(r)["memberID"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing member id route param"))
+		return
+	}
+
+	memberID, err := uuid.FromString(memberIDParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	member, err := p.service.GetProjectMember(ctx, memberID, publicID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	var returnedMember struct {
+		ID              uuid.UUID                 `json:"id"`
+		PublicProjectID uuid.UUID                 `json:"projectID"`
+		Role            console.ProjectMemberRole `json:"role"`
+		JoinedAt        time.Time                 `json:"joinedAt"`
+	}
+
+	returnedMember.ID = member.MemberID
+	returnedMember.PublicProjectID = publicID
+	returnedMember.Role = member.Role
+	returnedMember.JoinedAt = member.CreatedAt
+
+	err = json.NewEncoder(w).Encode(returnedMember)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
@@ -519,6 +700,7 @@ func (p *Projects) GetConfig(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.FromString(idParam)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
 	}
 
 	config, err := p.service.GetProjectConfig(ctx, id)
@@ -534,6 +716,41 @@ func (p *Projects) GetConfig(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(config)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// MigratePricing migrates classic project to use new storage tiers.
+func (p *Projects) MigratePricing(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+	}
+
+	err = p.service.MigrateProjectPricing(ctx, id)
+	if err != nil {
+		status := http.StatusInternalServerError
+
+		switch {
+		case console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err):
+			status = http.StatusUnauthorized
+		case console.ErrConflict.Has(err):
+			status = http.StatusConflict
+		case console.ErrForbidden.Has(err):
+			status = http.StatusForbidden
+		}
+		p.serveJSONError(ctx, w, status, err)
 	}
 }
 
@@ -625,6 +842,7 @@ func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
 	idParam, ok := mux.Vars(r)["id"]
 	if !ok {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
@@ -643,6 +861,15 @@ func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 
 	link, err := p.service.GetInviteLink(ctx, id, email)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrForbidden.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 
@@ -742,6 +969,8 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		status := http.StatusInternalServerError
 		switch {
+		case console.ErrUnauthorized.Has(err):
+			status = http.StatusUnauthorized
 		case console.ErrAlreadyMember.Has(err):
 			status = http.StatusConflict
 		case console.ErrProjectInviteInvalid.Has(err):
@@ -774,15 +1003,14 @@ func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Re
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 	}
 
-	emailsStr := r.URL.Query().Get("emails")
-	if emailsStr == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing emails parameter"))
+	var payload console.DeleteMembersAndInvitationsRequest
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
-	emails := strings.Split(emailsStr, ",")
-
-	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, emails)
+	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, payload)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)

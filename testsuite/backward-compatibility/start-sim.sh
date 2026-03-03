@@ -31,7 +31,7 @@ test() {
     DIR=$1
     shift
 
-    PATH="$DIR"/bin:"$PATH" storj-sim -x --storage-nodes="$STORJ_NUM_NODES" --host="$STORJ_NETWORK_HOST4" network test -- bash "$SCRIPTDIR"/steps.sh "$@"
+    PATH="$DIR"/bin:"$PATH" storxnetwork-sim -x --storage-nodes="$STORJ_NUM_NODES" --host="$STORJ_NETWORK_HOST4" network test -- bash "$SCRIPTDIR"/steps.sh "$@"
 }
 
 test_release() {
@@ -46,16 +46,16 @@ install_sim_noquic(){
     local bin_dir="$1"
     mkdir -p ${bin_dir}
 
-    go build -race -tags noquic -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+    go build -race -tags noquic -o ${bin_dir}/storagenode github.com/StorXNetwork/StorXMonitor/cmd/storagenode 2>&1
+    go build -race -tags noquic -o ${bin_dir}/satellite github.com/StorXNetwork/StorXMonitor/cmd/satellite 2>&1
+    go build -race -tags noquic -o ${bin_dir}/storxnetwork-sim github.com/StorXNetwork/StorXMonitor/cmd/storxnetwork-sim 2>&1
+    go build -race -tags noquic -o ${bin_dir}/versioncontrol github.com/StorXNetwork/StorXMonitor/cmd/versioncontrol 2>&1
 
-    go build -race -tags noquic -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -tags noquic -o ${bin_dir}/uplink github.com/StorXNetwork/StorXMonitor/cmd/uplink 2>&1
+    go build -race -tags noquic -o ${bin_dir}/identity github.com/StorXNetwork/StorXMonitor/cmd/identity 2>&1
+    go build -race -tags noquic -o ${bin_dir}/certificates github.com/StorXNetwork/StorXMonitor/cmd/certificates 2>&1
 
-    GOBIN=${bin_dir} go install -race -tags noquic storj.io/gateway@latest
+    GOBIN=${bin_dir} go install -race -tags noquic github.com/StorXNetwork/gateway-st@latest
 }
 
 ##
@@ -93,14 +93,14 @@ GOBIN="$BRANCH_DIR"/bin  make -C "$BRANCH_DIR" install-sim
 
 echo "Overriding default max segment size to 6MiB"
 pushd $RELEASE_DIR
-    GOBIN=$RELEASE_DIR/bin go install -tags noquic -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
+    GOBIN=$RELEASE_DIR/bin go install -tags noquic -v -ldflags "-X 'github.com/StorXNetwork/uplink.maxSegmentSize=6MiB'" github.com/StorXNetwork/StorXMonitor/cmd/uplink
 popd
 pushd $BRANCH_DIR
-    GOBIN=$BRANCH_DIR/bin go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
+    GOBIN=$BRANCH_DIR/bin go install -v -ldflags "-X 'github.com/StorXNetwork/uplink.maxSegmentSize=6MiB'" github.com/StorXNetwork/StorXMonitor/cmd/uplink
 popd
 
 # setup the network using the release
-PATH="$RELEASE_DIR"/bin:"$PATH" storj-sim -x --host "$STORJ_NETWORK_HOST4" network --postgres="$STORJ_SIM_POSTGRES" setup
+PATH="$RELEASE_DIR"/bin:"$PATH" storxnetwork-sim -x --host "$STORJ_NETWORK_HOST4" network --postgres="$STORJ_SIM_POSTGRES" setup
 
 ##
 ## Run some basic tests on the release branch, creating data for later tests.
@@ -116,7 +116,7 @@ test_release -b release-network-release-uplink download
 ## Change a bunch of settings to run on the current branch
 ##
 
-SATELLITE_CONFIG="$(storj-sim network env SATELLITE_0_DIR)"/config.yaml
+SATELLITE_CONFIG="$(storxnetwork-sim network env SATELLITE_0_DIR)"/config.yaml
 
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' "$SATELLITE_CONFIG"
@@ -130,7 +130,7 @@ if ! grep -q "admin.address" "$SATELLITE_CONFIG"; then
 fi
 
 # create redis config if it's missing
-REDIS_CONFIG=$(storj-sim network env REDIS_0_DIR)/redis.conf
+REDIS_CONFIG=$(storxnetwork-sim network env REDIS_0_DIR)/redis.conf
 if [ ! -f "$REDIS_CONFIG" ] ; then
     {
         echo "daemonize no"
@@ -144,26 +144,26 @@ if [ ! -f "$REDIS_CONFIG" ] ; then
 fi
 
 # setup multinode if config is missing
-MULTINODE_DIR=$(storj-sim network env MULTINODE_0_DIR)
+MULTINODE_DIR=$(storxnetwork-sim network env MULTINODE_0_DIR)
 if [ ! -f "$MULTINODE_DIR/config.yaml" ]; then
-    multinode $(storj-sim --host "$STORJ_NETWORK_HOST4" network env MULTINODE_0_SETUP_ARGS)
+    multinode $(storxnetwork-sim --host "$STORJ_NETWORK_HOST4" network env MULTINODE_0_SETUP_ARGS)
 fi
 
 # keep half of the storage nodes on the old version
-ln "$RELEASE_DIR"/bin/storagenode "$(storj-sim network env STORAGENODE_0_DIR)"/storagenode
-ln "$RELEASE_DIR"/bin/storagenode "$(storj-sim network env STORAGENODE_1_DIR)"/storagenode
-ln "$RELEASE_DIR"/bin/storagenode "$(storj-sim network env STORAGENODE_2_DIR)"/storagenode
-ln "$RELEASE_DIR"/bin/storagenode "$(storj-sim network env STORAGENODE_3_DIR)"/storagenode
-ln "$RELEASE_DIR"/bin/storagenode "$(storj-sim network env STORAGENODE_4_DIR)"/storagenode
+ln "$RELEASE_DIR"/bin/storagenode "$(storxnetwork-sim network env STORAGENODE_0_DIR)"/storagenode
+ln "$RELEASE_DIR"/bin/storagenode "$(storxnetwork-sim network env STORAGENODE_1_DIR)"/storagenode
+ln "$RELEASE_DIR"/bin/storagenode "$(storxnetwork-sim network env STORAGENODE_2_DIR)"/storagenode
+ln "$RELEASE_DIR"/bin/storagenode "$(storxnetwork-sim network env STORAGENODE_3_DIR)"/storagenode
+ln "$RELEASE_DIR"/bin/storagenode "$(storxnetwork-sim network env STORAGENODE_4_DIR)"/storagenode
 
 # upgrade the trust configuration on the other half as the old configuration is
 # most certainly not being used outside of test environments and is not
 # backwards compatible (i.e. ignored)
-sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-sim network env STORAGENODE_5_DIR)"/config.yaml
-sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-sim network env STORAGENODE_6_DIR)"/config.yaml
-sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-sim network env STORAGENODE_7_DIR)"/config.yaml
-sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-sim network env STORAGENODE_8_DIR)"/config.yaml
-sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-sim network env STORAGENODE_9_DIR)"/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storxnetwork-sim network env STORAGENODE_5_DIR)"/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storxnetwork-sim network env STORAGENODE_6_DIR)"/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storxnetwork-sim network env STORAGENODE_7_DIR)"/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storxnetwork-sim network env STORAGENODE_8_DIR)"/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storxnetwork-sim network env STORAGENODE_9_DIR)"/config.yaml
 
 # For cases where the release predates changeset I0e7e92498c3da768df5b4d5fb213dcd2d4862924,
 # adjust all last_net values for future compatibility. this migration step is only necessary for

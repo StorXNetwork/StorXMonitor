@@ -14,11 +14,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestHeldAmountApi(t *testing.T) {
@@ -37,7 +37,7 @@ func TestHeldAmountApi(t *testing.T) {
 			baseURL := fmt.Sprintf("http://%s/api/heldamount", console.Listener.Addr())
 
 			// pause nodestats reputation cache because later tests assert a specific joinedat.
-			sno.NodeStats.Cache.Reputation.Pause()
+			sno.Reputation.Chore.Loop.Pause()
 
 			period := "2020-03"
 			paystub := payouts.PayStub{
@@ -119,7 +119,7 @@ func TestHeldAmountApi(t *testing.T) {
 			})
 
 			paystub2 := payouts.PayStub{
-				SatelliteID:    storj.NodeID{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 0},
+				SatelliteID:    storxnetwork.NodeID{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 0},
 				Period:         period,
 				Created:        time.Now().UTC(),
 				Codes:          "qwe",
@@ -356,7 +356,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 			t.Run("HeldbackHistory", func(t *testing.T) {
 				date := time.Now().UTC().AddDate(0, -2, 0).Round(time.Minute)
-				err = reputationDB.Store(context.Background(), reputation.Stats{
+				err = reputationDB.Store(t.Context(), reputation.Stats{
 					SatelliteID: satellite.ID(),
 					JoinedAt:    date,
 				})
@@ -366,7 +366,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NoError(t, err)
 
 				// should return all heldback history inserted earlier
-				url := fmt.Sprintf("%s/held-history", baseURL)
+				url := baseURL + "/held-history"
 				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
@@ -399,7 +399,7 @@ func TestHeldAmountApi(t *testing.T) {
 			})
 
 			t.Run("Periods", func(t *testing.T) {
-				url := fmt.Sprintf("%s/periods", baseURL)
+				url := baseURL + "/periods"
 				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)

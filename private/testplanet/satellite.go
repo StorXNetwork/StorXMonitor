@@ -10,53 +10,60 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"strconv"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/common/version"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/testredis"
-	versionchecker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/accounting/projectbwcleanup"
-	"storj.io/storj/satellite/accounting/rollup"
-	"storj.io/storj/satellite/accounting/rolluparchive"
-	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb"
-	"storj.io/storj/satellite/console/userinfo"
-	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc/sender"
-	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/zombiedeletion"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodestats"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/overlay/offlinenodes"
-	"storj.io/storj/satellite/overlay/straynodes"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/testredis"
+	versionchecker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/projectbwcleanup"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/rollup"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/rolluparchive"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/tally"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/userinfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/contact"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/sender"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gracefulexit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/jobq"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/zombiedeletion"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo/expireddeletion"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodestats"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay/offlinenodes"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay/straynodes"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Satellite contains all the processes needed to run a full Satellite setup.
@@ -66,6 +73,7 @@ type Satellite struct {
 
 	Core       *satellite.Core
 	API        *satellite.API
+	ConsoleAPI *satellite.ConsoleAPI
 	UI         *satellite.UI
 	Repairer   *satellite.Repairer
 	Auditor    *satellite.Auditor
@@ -102,8 +110,6 @@ type Satellite struct {
 	}
 
 	Metainfo struct {
-		// TODO remove when uplink will be adjusted to use Metabase.DB
-		Metabase *metabase.DB
 		Endpoint *metainfo.Endpoint
 	}
 
@@ -124,6 +130,7 @@ type Satellite struct {
 
 	Repair struct {
 		Repairer *repairer.Service
+		Queue    queue.RepairQueue
 	}
 
 	Audit struct {
@@ -169,12 +176,6 @@ type Satellite struct {
 		Service *mailservice.Service
 	}
 
-	ConsoleBackend struct {
-		Listener net.Listener
-		Service  *console.Service
-		Endpoint *consoleweb.Server
-	}
-
 	ConsoleFrontend struct {
 		Listener net.Listener
 		Endpoint *consoleweb.Server
@@ -193,7 +194,7 @@ type Satellite struct {
 func (system *Satellite) Label() string { return system.Name }
 
 // ID returns the ID of the Satellite system.
-func (system *Satellite) ID() storj.NodeID { return system.API.Identity.ID }
+func (system *Satellite) ID() storxnetwork.NodeID { return system.API.Identity.ID }
 
 // Addr returns the public address from the Satellite system API.
 func (system *Satellite) Addr() string { return system.API.Server.Addr().String() }
@@ -203,12 +204,16 @@ func (system *Satellite) URL() string { return system.NodeURL().String() }
 
 // ConsoleURL returns the console URL.
 func (system *Satellite) ConsoleURL() string {
-	return "http://" + system.API.Console.Listener.Addr().String()
+	if system.Config.DisableConsoleFromSatelliteAPI {
+		return "http://" + system.ConsoleAPI.Console.Listener.Addr().String()
+	} else {
+		return "http://" + system.API.Console.Listener.Addr().String()
+	}
 }
 
-// NodeURL returns the storj.NodeURL from the Satellite system API.
-func (system *Satellite) NodeURL() storj.NodeURL {
-	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
+// NodeURL returns the storxnetwork.NodeURL from the Satellite system API.
+func (system *Satellite) NodeURL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
 }
 
 // AddUser adds user to a satellite. Password from newUser will be always overridden by FullName to have
@@ -216,32 +221,37 @@ func (system *Satellite) NodeURL() storj.NodeURL {
 func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser, maxNumberOfProjects int) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	regToken, err := system.API.Console.Service.CreateRegToken(ctx, maxNumberOfProjects)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	var service *console.Service
+	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
+		service = system.ConsoleAPI.Console.Service
+	} else {
+		service = system.API.Console.Service
+	}
+
+	var regTokenSecret console.RegistrationSecret
+	if !system.Config.Console.OpenRegistrationEnabled {
+		regToken, err := service.CreateRegToken(ctx, maxNumberOfProjects)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		regTokenSecret = regToken.Secret
 	}
 
 	newUser.Password = newUser.FullName
-	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret, false)
+	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regTokenSecret, false)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	activationToken, err := system.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
-	if err != nil {
+	if err = service.SetAccountActive(ctx, user); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	_, err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
+	userCtx := console.WithUser(ctx, user)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-
-	userCtx, err := system.UserContext(ctx, user.ID)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	_, err = system.API.Console.Service.Payments().SetupAccount(userCtx)
+	_, err = service.Payments().SetupAccount(userCtx)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -250,27 +260,74 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 }
 
 // AddProject adds project to a satellite and makes specified user an owner.
-func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (_ *console.Project, err error) {
+// This method only mimics the behavior of the console API. It's simplified to
+// be faster for tests.
+func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (project *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ctx, err = system.UserContext(ctx, ownerID)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	project, err := system.API.Console.Service.CreateProject(ctx, console.UpsertProjectInfo{
-		Name: name,
+	project, err = system.DB.Console().Projects().Insert(ctx, &console.Project{
+		ID:             testrand.UUID(),
+		PublicID:       testrand.UUID(),
+		Name:           name,
+		OwnerID:        ownerID,
+		StorageLimit:   &system.Config.Console.UsageLimits.Storage.Free,
+		BandwidthLimit: &system.Config.Console.UsageLimits.Bandwidth.Free,
+		SegmentLimit:   &system.Config.Console.UsageLimits.Segment.Free,
 	})
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
+	_, err = system.DB.Console().ProjectMembers().Insert(ctx, ownerID, project.ID, console.RoleAdmin)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
 	return project, nil
+}
+
+// CreateAPIKey creates an API key for the specified project and user with the given version.
+// This method only mimics the behavior of the console API. It's simplified to
+// be faster for tests.
+func (system *Satellite) CreateAPIKey(ctx context.Context, projectID uuid.UUID, userID uuid.UUID, version macaroon.APIKeyVersion) (_ *macaroon.APIKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	secret, err := macaroon.NewSecret()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	key, err := macaroon.NewAPIKey(secret)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	apikey := console.APIKeyInfo{
+		Name:      "root",
+		ProjectID: projectID,
+		CreatedBy: userID,
+		Secret:    secret,
+		Version:   version,
+	}
+
+	_, err = system.DB.Console().APIKeys().Create(ctx, key.Head(), apikey)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return key, nil
 }
 
 // UserContext creates context with user.
 func (system *Satellite) UserContext(ctx context.Context, userID uuid.UUID) (_ context.Context, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := system.API.Console.Service.GetUser(ctx, userID)
+	var user *console.User
+	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
+		user, err = system.ConsoleAPI.Console.Service.GetUser(ctx, userID)
+	} else {
+		user, err = system.API.Console.Service.GetUser(ctx, userID)
+	}
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -279,8 +336,8 @@ func (system *Satellite) UserContext(ctx context.Context, userID uuid.UUID) (_ c
 }
 
 // Close closes all the subsystems in the Satellite system.
-func (system *Satellite) Close() error {
-	return errs.Combine(
+func (system *Satellite) Close() (err error) {
+	err = errs.Combine(
 		system.API.Close(),
 		system.Core.Close(),
 		system.Repairer.Close(),
@@ -288,6 +345,11 @@ func (system *Satellite) Close() error {
 		system.Admin.Close(),
 		system.GCBF.Close(),
 	)
+	if system.ConsoleAPI != nil {
+		err = errs.Combine(err, system.ConsoleAPI.Close())
+	}
+
+	return err
 }
 
 // Run runs all the subsystems in the Satellite system.
@@ -300,6 +362,11 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.API.Run(ctx))
 	})
+	if system.ConsoleAPI != nil {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(system.ConsoleAPI.Run(ctx))
+		})
+	}
 	if system.UI != nil {
 		group.Go(func() error {
 			return errs2.IgnoreCanceled(system.UI.Run(ctx))
@@ -367,7 +434,22 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB, applicationName)
+	defaultSatDBOptions := satellitedb.Options{
+		ApplicationName: applicationName,
+		APIKeysLRUOptions: lrucache.Options{
+			Expiration: 1 * time.Minute,
+			Capacity:   100,
+		},
+		RevocationLRUOptions: lrucache.Options{
+			Expiration: 1 * time.Minute,
+			Capacity:   100,
+		},
+	}
+	if planet.config.Reconfigure.SatelliteDBOptions != nil {
+		planet.config.Reconfigure.SatelliteDBOptions(log, index, &defaultSatDBOptions)
+	}
+
+	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB, defaultSatDBOptions)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -388,7 +470,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	encryptionKeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
-		Key: storj.Key{1},
+		Key: storxnetwork.Key{1},
 	})
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -399,7 +481,9 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		cfgstruct.UseTestDefaults(),
 		cfgstruct.ConfDir(storageDir),
 		cfgstruct.IdentityDir(storageDir),
-		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()))
+		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()),
+		cfgstruct.ConfigVar("HOST", planet.config.Host),
+	)
 
 	// TODO: these are almost certainly mistakenly set to the zero value
 	// in tests due to a prior mismatch between testplanet config and
@@ -409,7 +493,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Debug.Addr = ""
 	config.Reputation.AuditHistory.OfflineDQEnabled = false
 	config.Server.Config.Extensions.Revocation = false
-	config.Orders.OrdersSemaphoreSize = 0
 	config.Checker.NodeFailureRate = 0
 	config.Audit.MaxRetriesStatDB = 0
 	config.GarbageCollection.RetainSendTimeout = 0
@@ -431,7 +514,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Console.ProjectLimitsIncreaseRequestURL = ""
 	config.Console.GatewayCredentialsRequestURL = ""
 	config.Console.DocumentationURL = ""
-	config.Console.LinksharingURL = ""
 	config.Console.PathwayOverviewEnabled = false
 	config.Compensation.Rates.AtRestGBHours = compensation.Rate{}
 	config.Compensation.Rates.GetTB = compensation.Rate{}
@@ -466,12 +548,13 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
 
-	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB, metabase.Config{
-		ApplicationName:  "satellite-testplanet",
-		MinPartSize:      config.Metainfo.MinPartSize,
-		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
-		ServerSideCopy:   config.Metainfo.ServerSideCopy,
-	})
+	metabaseConfig := config.Metainfo.Metabase("satellite-testplanet")
+	if planet.config.Reconfigure.SatelliteMetabaseDBConfig != nil {
+		planet.config.Reconfigure.SatelliteMetabaseDBConfig(log, index, &metabaseConfig)
+	}
+
+	metabaseDB, err := satellitedbtest.CreateMetabaseDB(ctx, log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB,
+		metabaseConfig)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -493,6 +576,16 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
+	var repairQueue queue.RepairQueue
+	if !config.JobQueue.ServerNodeURL.IsZero() {
+		repairQueue, err = jobq.OpenJobQueue(ctx, nil, config.JobQueue)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	} else {
+		repairQueue = db.RepairQueue()
+	}
+
 	planet.databases = append(planet.databases, revocationDB)
 
 	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
@@ -504,7 +597,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Payments.Provider = "mock"
 	config.Payments.MockProvider = stripe.NewStripeMock(db.StripeCoinPayments().Customers(), db.Console().Users())
 
-	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, versionInfo, &config, nil)
+	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, repairQueue, liveAccounting, versionInfo, &config, nil)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -528,10 +621,25 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
+	var (
+		consoleAPI     *satellite.ConsoleAPI
+		consoleAPIAddr string
+	)
+	if config.DisableConsoleFromSatelliteAPI {
+		consoleAPI, err = planet.newConsoleAPI(ctx, index, identity, db, metabaseDB, config, versionInfo)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		consoleAPIAddr = consoleAPI.Console.Listener.Addr().String()
+	} else {
+		consoleAPIAddr = api.Console.Listener.Addr().String()
+	}
+
 	// only run if front-end endpoints on console back-end server are disabled.
 	var ui *satellite.UI
 	if !config.Console.FrontendEnable {
-		ui, err = planet.newUI(ctx, index, identity, config, api.ExternalAddress, api.Console.Listener.Addr().String())
+		ui, err = planet.newUI(ctx, index, identity, config, api.ExternalAddress, consoleAPIAddr)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
@@ -542,7 +650,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	repairerPeer, err := planet.newRepairer(ctx, index, identity, db, metabaseDB, config, versionInfo)
+	repairerPeer, err := planet.newRepairer(ctx, index, identity, db, metabaseDB, repairQueue, config, versionInfo)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -557,28 +665,29 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	rangedLoopPeer, err := planet.newRangedLoop(ctx, index, db, metabaseDB, config)
+	rangedLoopPeer, err := planet.newRangedLoop(ctx, index, db, metabaseDB, repairQueue, config)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	if config.EmailReminders.Enable {
-		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
+		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + consoleAPIAddr + "/")
 	}
 
-	return createNewSystem(prefix, log, config, peer, api, ui, repairerPeer, auditorPeer, adminPeer, gcBFPeer, rangedLoopPeer), nil
+	return createNewSystem(prefix, log, config, peer, api, consoleAPI, ui, repairerPeer, auditorPeer, adminPeer, gcBFPeer, rangedLoopPeer), nil
 }
 
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many processes.
-func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, ui *satellite.UI, repairerPeer *satellite.Repairer, auditorPeer *satellite.Auditor, adminPeer *satellite.Admin, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
+func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, consoleAPI *satellite.ConsoleAPI, ui *satellite.UI, repairerPeer *satellite.Repairer, auditorPeer *satellite.Auditor, adminPeer *satellite.Admin, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
 	system := &Satellite{
 		Name:       name,
 		Config:     config,
 		Core:       peer,
 		API:        api,
+		ConsoleAPI: consoleAPI,
 		UI:         ui,
 		Repairer:   repairerPeer,
 		Auditor:    auditorPeer,
@@ -606,9 +715,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Reputation.Service = peer.Reputation.Service
 
-	// system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Endpoint = api.Metainfo.Endpoint
-	// system.Metainfo.SegmentLoop = peer.Metainfo.SegmentLoop
 
 	system.Userinfo.Endpoint = api.Userinfo.Endpoint
 
@@ -619,6 +726,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Orders.Service = api.Orders.Service
 	system.Orders.Chore = api.Orders.Chore
 
+	system.Repair.Queue = repairerPeer.Queue
 	system.Repair.Repairer = repairerPeer.Repairer
 
 	system.Audit.VerifyQueue = auditorPeer.Audit.VerifyQueue
@@ -644,6 +752,19 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.LiveAccounting = peer.LiveAccounting
 
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
+
+	if system.Config.DisableConsoleFromSatelliteAPI {
+		system.API.Console = consoleAPI.Console
+		system.API.Mail = consoleAPI.Mail
+		system.API.OIDC = consoleAPI.OIDC
+		system.API.Analytics = consoleAPI.Analytics
+		system.API.ABTesting = consoleAPI.ABTesting
+		system.API.KeyManagement = consoleAPI.KeyManagement
+		system.API.Payments = consoleAPI.Payments
+		system.API.HealthCheck = consoleAPI.HealthCheck
+		system.API.Userinfo = consoleAPI.Userinfo
+		system.API.Accounting = consoleAPI.Accounting
+	}
 
 	return system
 }
@@ -672,6 +793,30 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	return satellite.NewAPI(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
+func (planet *Planet) newConsoleAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.ConsoleAPI, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix := "satellite-console-api" + strconv.Itoa(index)
+	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+
+	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, liveAccounting)
+
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+	return satellite.NewConsoleAPI(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
+}
+
 func (planet *Planet) newUI(ctx context.Context, index int, identity *identity.FullIdentity, config satellite.Config, satelliteAddr, consoleAPIAddr string) (_ *satellite.UI, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -696,7 +841,7 @@ func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identit
 	return satellite.NewAdmin(log, identity, db, metabaseDB, liveAccounting, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Repairer, err error) {
+func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, repairQueue queue.RepairQueue, config satellite.Config, versionInfo version.Info) (_ *satellite.Repairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	prefix := "satellite-repairer" + strconv.Itoa(index)
@@ -708,7 +853,7 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
+	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, repairQueue, db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
 }
 
 func (planet *Planet) newAuditor(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Auditor, err error) {
@@ -748,12 +893,12 @@ func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, db 
 	return satellite.NewGarbageCollectionBF(log, db, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRangedLoop(ctx context.Context, index int, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config) (_ *satellite.RangedLoop, err error) {
+func (planet *Planet) newRangedLoop(ctx context.Context, index int, db satellite.DB, metabaseDB *metabase.DB, repairQueue queue.RepairQueue, config satellite.Config) (_ *satellite.RangedLoop, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	prefix := "satellite-ranged-loop" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
-	return satellite.NewRangedLoop(log, db, metabaseDB, &config, nil)
+	return satellite.NewRangedLoop(log, db, metabaseDB, repairQueue, &config, nil)
 }
 
 // atLeastOne returns 1 if value < 1, or value otherwise.

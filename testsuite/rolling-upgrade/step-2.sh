@@ -9,7 +9,7 @@
 
 set -ueo pipefail
 
-# This script assumes that storj-sim and uplink has already been set up
+# This script assumes that storxnetwork-sim and uplink has already been set up
 main_cfg_dir=$1
 
 bucket="bucket-123"

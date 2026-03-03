@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 )
 
 var mon = monkit.Package()
@@ -47,7 +47,7 @@ type Config struct {
 	MaxUpdates  int
 }
 
-// BindFlags adds bench flags to the the flagset.
+// BindFlags adds bench flags to the flagset.
 func (config *Config) BindFlags(flag *flag.FlagSet) {
 	flag.StringVar(&config.SatelliteDB, "satellitedb", "", "connection URL for satelliteDB")
 	flag.IntVar(&config.Limit, "limit", 1000, "number of updates to perform at once")

@@ -10,14 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestReputationDBGetInsert(t *testing.T) {
@@ -185,7 +186,7 @@ func TestServiceStore(t *testing.T) {
 		notificationsDB := db.Notifications()
 		log := zaptest.NewLogger(t)
 		notificationService := notifications.NewService(log, notificationsDB)
-		reputationService := reputation.NewService(log, reputationDB, storj.NodeID{}, notificationService)
+		reputationService := reputation.NewService(log, reputationDB, rpc.Dialer{}, nil, storxnetwork.NodeID{}, notificationService)
 
 		id := testrand.NodeID()
 		now := time.Now().AddDate(0, 0, -2)

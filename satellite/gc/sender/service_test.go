@@ -13,15 +13,15 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storagenode"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/uplink"
 )
 
 func TestSendRetainFilters(t *testing.T) {
@@ -71,22 +71,21 @@ func retainTest(t *testing.T, tableSize int) {
 		if tableSize > 0 {
 			observer.TestingForceTableSize(tableSize)
 		}
-		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 			[]rangedloop.Observer{observer})
 
 		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
-		storageNode0 := planet.StorageNodes[0]
-		require.Zero(t, storageNode0.Peer.Storage2.RetainService.TestingHowManyQueued())
+		require.Zero(t, planet.StorageNodes[0].Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()))
 
 		// send to storagenode
 		err = gcsender.RunOnce(ctx)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
-			return storageNode0.Peer.Storage2.RetainService.TestingHowManyQueued() == 1
+			return !planet.StorageNodes[0].Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()).IsZero()
 		}, 10*time.Second, 50*time.Millisecond)
 
 		// check that zip was moved to sent
@@ -152,7 +151,7 @@ func TestSendRetainFiltersDisqualifiedNode(t *testing.T) {
 		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
 		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
-		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 			[]rangedloop.Observer{observer})
 
@@ -170,15 +169,11 @@ func TestSendRetainFiltersDisqualifiedNode(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			require.Zero(t, node.Peer.Storage2.RetainService.TestingHowManyQueued())
-		}
-
 		// send to storagenodes
 		require.NoError(t, gcsender.RunOnce(ctx))
 
 		for _, node := range planet.StorageNodes {
-			require.Zero(t, node.Peer.Storage2.RetainService.TestingHowManyQueued())
+			require.Zero(t, node.Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()))
 		}
 	})
 }

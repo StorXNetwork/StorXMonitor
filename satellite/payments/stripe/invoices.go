@@ -5,14 +5,15 @@ package stripe
 
 import (
 	"context"
+	"errors"
 	"time"
 
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // invoices is an implementation of payments.Invoices.
@@ -65,6 +66,10 @@ func (invoices *invoices) Pay(ctx context.Context, invoiceID, paymentMethodID st
 		PaymentMethod: stripe.String(paymentMethodID),
 	})
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
 		return nil, Error.Wrap(err)
 	}
 	return &payments.Invoice{
@@ -358,6 +363,21 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 			}
 		}
 
+		var start, end time.Time
+		if len(stripeInvoice.Lines.Data) > 0 {
+			// For an invoice created via the Stripe API, the period on the invoice itself
+			// is the date the invoice was created. See https://docs.stripe.com/stripe-data/query-billing-data#working-with-invoice-dates-and-periods
+			// So we take the period from the first line item instead.
+			line := stripeInvoice.Lines.Data[0]
+			if line.Period != nil {
+				start = time.Unix(line.Period.Start, 0)
+				end = time.Unix(line.Period.End, 0)
+			} else {
+				start = time.Unix(stripeInvoice.PeriodStart, 0)
+				end = time.Unix(stripeInvoice.PeriodEnd, 0)
+			}
+		}
+
 		page.Invoices = append(page.Invoices, payments.Invoice{
 			ID:          stripeInvoice.ID,
 			CustomerID:  stripeInvoice.Customer.ID,
@@ -365,7 +385,8 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 			Amount:      total,
 			Status:      string(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
-			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+			Start:       start,
+			End:         end,
 		})
 	}
 
@@ -526,12 +547,12 @@ func convertStatus(stripestatus stripe.InvoiceStatus) string {
 
 // isInvoiceFailed returns whether an invoice has failed.
 func (invoices *invoices) isInvoiceFailed(invoice *stripe.Invoice) bool {
-	if invoice.Status != stripe.InvoiceStatusOpen {
+	if invoice.Status != stripe.InvoiceStatusOpen || !invoice.Attempted {
 		return false
 	}
 
 	if invoice.DueDate > 0 {
-		// https://github.com/storj/storj/blob/77bf88e916a10dc898ebb594eafac667ed4426cd/satellite/payments/stripecoinpayments/service.go#L781-L787
+		// https://github.com/storxnetwork/storxnetwork/blob/77bf88e916a10dc898ebb594eafac667ed4426cd/satellite/payments/stripecoinpayments/service.go#L781-L787
 		invoices.service.log.Info("Skipping invoice marked for manual payment",
 			zap.String("id", invoice.ID),
 			zap.String("number", invoice.Number),

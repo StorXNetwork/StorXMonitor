@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testrand"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestCalculateReputationValue(t *testing.T) {

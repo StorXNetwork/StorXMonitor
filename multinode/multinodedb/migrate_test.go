@@ -15,15 +15,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/sqliteutil"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/testcontext"
-	"storj.io/storj/multinode/multinodedb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
 )
 
 func TestMigrateSQLite3(t *testing.T) {
@@ -105,10 +106,10 @@ func TestMigratePostgres(t *testing.T) {
 	defer ctx.Cleanup()
 	log := zaptest.NewLogger(t)
 
-	connStr := pgtest.PickPostgres(t)
+	connStr := dbtest.PickPostgres(t)
 
 	// create tempDB
-	tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")
+	tempDB, err := tempdb.OpenUnique(ctx, log, connStr, "migrate", nil)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, tempDB.Close())
@@ -134,7 +135,7 @@ func TestMigratePostgres(t *testing.T) {
 		scriptData, err := os.ReadFile(match)
 		require.NoError(t, err, "could not read testdata file for version %d: %v", version, err)
 
-		snapshot, err := loadSnapshotFromSQLPostgres(ctx, connStr, string(scriptData))
+		snapshot, err := loadSnapshotFromSQLPostgres(ctx, log.Named("snapshot"), connStr, string(scriptData))
 		require.NoError(t, err)
 		snapshot.Version = version
 		snapshots.List[i] = snapshot
@@ -143,7 +144,7 @@ func TestMigratePostgres(t *testing.T) {
 	snapshots.Sort()
 
 	// get latest schema
-	schema, err := loadSchemaFromSQLPostgres(ctx, connStr, db.Schema())
+	schema, err := loadSchemaFromSQLPostgres(ctx, log.Named("schema"), connStr, db.Schema())
 	require.NoError(t, err)
 
 	var finalSchema *dbschema.Schema
@@ -193,8 +194,8 @@ func parseTestdataVersion(path string, impl string) int {
 }
 
 // loadSnapshotFromSQLPostgres inserts script into connstr and loads snapshot for postgres db.
-func loadSnapshotFromSQLPostgres(ctx context.Context, connstr, script string) (_ *dbschema.Snapshot, err error) {
-	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
+func loadSnapshotFromSQLPostgres(ctx context.Context, log *zap.Logger, connstr, script string) (_ *dbschema.Snapshot, err error) {
+	db, err := tempdb.OpenUnique(ctx, log, connstr, "load-schema", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -225,15 +226,15 @@ func loadSnapshotFromSQLPostgres(ctx context.Context, connstr, script string) (_
 	return snapshot, nil
 }
 
-// loadSnapshotFromSQLPostgres inserts script into connstr and loads schema for postgres db.
-func loadSchemaFromSQLPostgres(ctx context.Context, connstr, script string) (_ *dbschema.Schema, err error) {
-	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
+// loadSchemaFromSQLPostgres inserts script into connstr and loads schema for postgres db.
+func loadSchemaFromSQLPostgres(ctx context.Context, log *zap.Logger, connstr string, script []string) (_ *dbschema.Schema, err error) {
+	db, err := tempdb.OpenUnique(ctx, log, connstr, "load-schema", nil)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.ExecContext(ctx, script)
+	_, err = db.ExecContext(ctx, strings.Join(script, ";\n"))
 	if err != nil {
 		return nil, err
 	}

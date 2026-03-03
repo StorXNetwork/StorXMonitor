@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
 )
 
 func TestMonitoredBlobWriter(t *testing.T) {
@@ -29,7 +29,7 @@ func TestMonitoredBlobWriter(t *testing.T) {
 	f1, err := blobs.Create(ctx, blobstore.BlobRef{
 		Namespace: []byte("test"),
 		Key:       []byte("key"),
-	}, 10)
+	})
 	require.NoError(t, err)
 
 	statName := "test_monitored_blob_writer"

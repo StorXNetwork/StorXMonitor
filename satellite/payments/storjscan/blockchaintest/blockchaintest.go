@@ -4,8 +4,8 @@
 package blockchaintest
 
 import (
-	"storj.io/common/testrand"
-	"storj.io/storj/private/blockchain"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
 )
 
 // NewAddress creates new blockchain address for testing.

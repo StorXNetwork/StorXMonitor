@@ -7,13 +7,14 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ObjectEntry contains information about an item in a bucket.
 type ObjectEntry struct {
 	IsPrefix bool
+	IsLatest bool
 
 	ObjectKey ObjectKey
 	Version   Version
@@ -25,20 +26,18 @@ type ObjectEntry struct {
 	Status       ObjectStatus
 	SegmentCount int32
 
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadata             []byte
-	EncryptedMetadataEncryptedKey []byte
+	EncryptedUserData
 
 	TotalPlainSize     int64
 	TotalEncryptedSize int64
 	FixedSegmentSize   int32
 
-	Encryption storj.EncryptionParameters
+	Encryption storxnetwork.EncryptionParameters
 }
 
 // StreamVersionID returns byte representation of object stream version id.
 func (entry ObjectEntry) StreamVersionID() StreamVersionID {
-	return newStreamVersionID(entry.Version, entry.StreamID)
+	return NewStreamVersionID(entry.Version, entry.StreamID)
 }
 
 // Less implements sorting on object entries.
@@ -87,15 +86,19 @@ type StreamIDCursor struct {
 
 // IterateObjectsWithStatus contains arguments necessary for listing objects in a bucket.
 type IterateObjectsWithStatus struct {
-	ProjectID             uuid.UUID
-	BucketName            string
-	Recursive             bool
-	BatchSize             int
-	Prefix                ObjectKey
-	Cursor                IterateCursor
-	Pending               bool
-	IncludeCustomMetadata bool
-	IncludeSystemMetadata bool
+	ProjectID  uuid.UUID
+	BucketName BucketName
+	Recursive  bool
+	BatchSize  int
+	Prefix     ObjectKey
+	Delimiter  ObjectKey
+	Cursor     IterateCursor
+	Pending    bool
+
+	IncludeCustomMetadata       bool
+	IncludeSystemMetadata       bool
+	IncludeETag                 bool
+	IncludeETagOrCustomMetadata bool
 }
 
 // IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.
@@ -104,7 +107,7 @@ func (db *DB) IterateObjectsAllVersionsWithStatus(ctx context.Context, opts Iter
 	if err = opts.Verify(); err != nil {
 		return err
 	}
-	return iterateAllVersionsWithStatusDescending(ctx, db, opts, fn)
+	return iterateAllVersionsWithStatusDescending(ctx, db.ChooseAdapter(opts.ProjectID), opts, fn)
 }
 
 // IterateObjectsAllVersionsWithStatusAscending iterates through all versions of all objects with specified status. Ordered from oldest to latest.
@@ -115,7 +118,7 @@ func (db *DB) IterateObjectsAllVersionsWithStatusAscending(ctx context.Context, 
 	if err = opts.Verify(); err != nil {
 		return err
 	}
-	return iterateAllVersionsWithStatusAscending(ctx, db, opts, fn)
+	return iterateAllVersionsWithStatusAscending(ctx, db.ChooseAdapter(opts.ProjectID), opts, fn)
 }
 
 // Verify verifies get object request fields.

@@ -5,161 +5,230 @@ package metabasetest
 
 import (
 	"context"
-	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/pflag"
-	"github.com/zeebo/errs"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/mud"
 )
 
+// ConfigVariation is a function that modifies metabase configuration.
+type ConfigVariation func(config *metabase.Config) (name string)
+
+// WithTimestampVersioning modifies metabase configuration to use timestamp versioning.
+func WithTimestampVersioning(config *metabase.Config) (name string) {
+	config.TestingTimestampVersioning = true
+	return "tsver"
+}
+
 // RunWithConfig runs tests with specific metabase configuration.
-func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
-	RunWithConfigAndMigration(t, config, fn, func(ctx context.Context, db *metabase.DB) error {
+func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), variations ...ConfigVariation) {
+	migration := func(ctx context.Context, db *metabase.DB) error {
 		return db.TestMigrateToLatest(ctx)
-	})
+	}
+	RunWithConfigAndMigration(t, config, fn, migration, variations...)
 }
 
 // RunWithConfigAndMigration runs tests with specific metabase configuration and migration type.
-func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error) {
-	for _, dbinfo := range satellitedbtest.Databases() {
-		dbinfo := dbinfo
+func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, variations ...ConfigVariation) {
+	t.Parallel()
+
+	if config.TestingSpannerMinOpenedSessions == nil {
+		zero := 0
+		config.TestingSpannerMinOpenedSessions = &zero
+	}
+
+	for _, dbinfo := range satellitedbtest.Databases(t) {
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := testcontext.New(t)
-			defer ctx.Cleanup()
+			testmonkit.Run(t.Context(), t, func(ctx context.Context) {
+				tctx := testcontext.NewWithContext(ctx, t)
+				defer tctx.Cleanup()
 
-			// generate unique application name to filter out full table scan queries from other tests executions
-			config := config
-			config.ApplicationName += pgutil.CreateRandomTestingSchemaName(6)
-			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				if err := db.Close(); err != nil {
-					t.Error(err)
+				db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
+				require.NoError(t, err)
+				defer tctx.Check(db.Close)
+
+				if err := migration(tctx, db); err != nil {
+					t.Fatal(err)
 				}
-			}()
 
-			if err := migration(ctx, db); err != nil {
-				t.Fatal(err)
-			}
-
-			fullScansBefore, err := fullTableScanQueries(ctx, db, config.ApplicationName)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			fn(ctx, t, db)
-
-			fullScansAfter, err := fullTableScanQueries(ctx, db, config.ApplicationName)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			diff := cmp.Diff(fullScansBefore, fullScansAfter)
-			if diff != "" {
-				t.Fatal(diff)
-			}
+				fn(tctx, t, db)
+			})
 		})
+
+		for _, variation := range variations {
+			varConfig := config
+			name := variation(&varConfig)
+			t.Run(dbinfo.Name+"-"+name, func(t *testing.T) {
+				t.Parallel()
+
+				testmonkit.Run(t.Context(), t, func(ctx context.Context) {
+					tctx := testcontext.NewWithContext(ctx, t)
+					defer tctx.Cleanup()
+
+					db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, varConfig)
+					require.NoError(t, err)
+					defer tctx.Check(db.Close)
+
+					if err := migration(tctx, db); err != nil {
+						t.Fatal(err)
+					}
+
+					fn(tctx, t, db)
+				})
+			})
+		}
 	}
 }
 
 // Run runs tests against all configured databases.
-func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
+func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), variations ...ConfigVariation) {
 	var config metainfo.Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
 		cfgstruct.UseTestDefaults(),
 	)
 
 	RunWithConfig(t, metabase.Config{
-		ApplicationName:  "satellite-metabase-test",
-		MinPartSize:      config.MinPartSize,
-		MaxNumberOfParts: config.MaxNumberOfParts,
+		ApplicationName:            "satellite-metabase-test",
+		MinPartSize:                config.MinPartSize,
+		MaxNumberOfParts:           config.MaxNumberOfParts,
+		ServerSideCopy:             config.ServerSideCopy,
+		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
+		TestingUniqueUnversioned:   true,
+		TestingTimestampVersioning: config.TestingTimestampVersioning,
+	}, fn, variations...)
+}
 
-		ServerSideCopy:         config.ServerSideCopy,
-		ServerSideCopyDisabled: config.ServerSideCopyDisabled,
+// RunWithMigration runs test with specific migration.
+func RunWithMigration(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, variations ...ConfigVariation) {
+	var config metainfo.Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
+		cfgstruct.UseTestDefaults(),
+	)
 
-		TestingUniqueUnversioned: true,
-	}, fn)
+	RunWithConfigAndMigration(t, metabase.Config{
+		ApplicationName:            "satellite-metabase-test",
+		MinPartSize:                config.MinPartSize,
+		MaxNumberOfParts:           config.MaxNumberOfParts,
+		ServerSideCopy:             config.ServerSideCopy,
+		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
+		TestingUniqueUnversioned:   true,
+		TestingTimestampVersioning: config.TestingTimestampVersioning,
+	}, fn, migration, variations...)
 }
 
 // Bench runs benchmark for all configured databases.
 func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *metabase.DB)) {
-	for _, dbinfo := range satellitedbtest.Databases() {
+	for _, dbinfo := range satellitedbtest.Databases(b) {
 		dbinfo := dbinfo
 		b.Run(dbinfo.Name, func(b *testing.B) {
-			ctx := testcontext.New(b)
-			defer ctx.Cleanup()
-			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
-				ApplicationName:  "satellite-bench",
-				MinPartSize:      5 * memory.MiB,
-				MaxNumberOfParts: 10000,
-			})
-			if err != nil {
-				b.Fatal(err)
-			}
-			defer func() {
-				if err := db.Close(); err != nil {
-					b.Error(err)
-				}
-			}()
+			tctx := testcontext.New(b)
+			defer tctx.Cleanup()
 
-			if err := db.MigrateToLatest(ctx); err != nil {
+			zero := 0
+			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
+				ApplicationName:                 "satellite-bench",
+				MinPartSize:                     5 * memory.MiB,
+				MaxNumberOfParts:                10000,
+				TestingSpannerMinOpenedSessions: &zero,
+			})
+			require.NoError(b, err)
+			defer tctx.Check(db.Close)
+
+			if err := db.TestMigrateToLatest(tctx); err != nil {
 				b.Fatal(err)
 			}
 
 			b.ResetTimer()
-			fn(ctx, b, db)
+			fn(tctx, b, db)
+
 		})
 	}
 }
 
-func fullTableScanQueries(ctx context.Context, db *metabase.DB, applicationName string) (_ map[string]int, err error) {
-	if db.Implementation().String() != "cockroach" {
-		return nil, nil
+// TestModule provides all dependencies to run metabase tests.
+func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, config metabase.Config) {
+	mud.Supply[satellitedbtest.SatelliteDatabases](ball, dbinfo)
+	switch dbinfo.MetabaseDB.Name {
+	case "Spanner":
+		mud.Provide[tempDB](ball, func(ctx context.Context, logger *zap.Logger) (tempDB, error) {
+			return metabase.NewSpannerTestDatabase(ctx, logger, dbinfo.MetabaseDB.URL, true)
+		})
+	default:
+		mud.Provide[tempDB](ball, newPgTempDB)
 	}
 
-	rows, err := db.UnderlyingTagSQL().QueryContext(ctx,
-		"SELECT key, count FROM crdb_internal.node_statement_statistics WHERE full_scan = TRUE AND application_name = $1 ORDER BY count DESC",
-		applicationName,
-	)
+	mud.Provide[*metabase.DB](ball, openTempDatabase)
+	mud.Provide[metabase.Config](ball, func() metabase.Config {
+		cfg := metabase.Config{
+			ApplicationName:  "satellite-metabase-test" + pgutil.CreateRandomTestingSchemaName(6),
+			MinPartSize:      config.MinPartSize,
+			MaxNumberOfParts: config.MaxNumberOfParts,
+
+			ServerSideCopy:         config.ServerSideCopy,
+			ServerSideCopyDisabled: config.ServerSideCopyDisabled,
+		}
+		return cfg
+	})
+	mud.RegisterImplementation[[]metabase.Adapter](ball)
+
+}
+
+type tempDB interface {
+	Close() error
+	Connection() string
+}
+
+// pgTempDB is the temporary database wrapper for cockroach and postgres.
+// DB is deleted on close.
+type pgTempDB struct {
+	*dbutil.TempDatabase
+}
+
+func (p pgTempDB) Close() error {
+	return p.TempDatabase.Close()
+}
+
+func (p pgTempDB) Connection() string {
+	return p.ConnStr
+}
+
+func newPgTempDB(ctx context.Context, log *zap.Logger, dbinfo satellitedbtest.SatelliteDatabases) (tempDB, error) {
+	tempDB, err := satellitedbtest.CreateTempDB(ctx, log, satellitedbtest.TempDBSchemaConfig{
+		Name:     "test",
+		Category: "M",
+		Index:    0,
+	}, satellitedbtest.Database{
+		Name:    dbinfo.MetabaseDB.Name,
+		URL:     dbinfo.MetabaseDB.URL,
+		Message: dbinfo.MetabaseDB.Message,
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	return pgTempDB{
+		TempDatabase: tempDB,
+	}, nil
+}
 
-	result := map[string]int{}
-	for rows.Next() {
-		var query string
-		var count int
-		err := rows.Scan(&query, &count)
-		if err != nil {
-			return nil, err
-		}
-
-		switch {
-		case strings.Contains(query, "WITH ignore_full_scan_for_test AS (SELECT _)"):
-			continue
-		case !strings.Contains(strings.ToUpper(query), "WHERE"): // find smarter way to ignore known full table scan queries
-			continue
-		}
-
-		result[query] += count
+func openTempDatabase(ctx context.Context, log *zap.Logger, tempDB tempDB, config metabase.Config) (*metabase.DB, error) {
+	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.Connection(), config)
+	if err != nil {
+		return nil, err
 	}
-
-	return result, rows.Err()
+	return db, nil
 }

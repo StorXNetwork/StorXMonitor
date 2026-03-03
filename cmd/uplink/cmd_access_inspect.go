@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/base58"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/storj/cmd/uplink/ulext"
+	"github.com/StorXNetwork/common/base58"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 )
 
 // ensures that cmdAccessInspect implements clingy.Command.
@@ -99,7 +99,7 @@ func (c *cmdAccessInspect) Execute(ctx context.Context) (err error) {
 		return err
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), string(bs))
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), string(bs))
 
 	return nil
 }

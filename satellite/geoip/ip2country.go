@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj/location"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
 )
 
 // IPToCountry defines an abstraction for resolving the ISO country code given the string representation of an IP address.

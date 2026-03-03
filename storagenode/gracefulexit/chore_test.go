@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestChore(t *testing.T) {
@@ -46,10 +46,6 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	satellite1 := planet.Satellites[0]
 	exitingNode.GracefulExit.Chore.Loop.Pause()
 
-	_, piecesContentSize, err := exitingNode.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.ID())
-	require.NoError(t, err)
-	require.NotZero(t, piecesContentSize)
-
 	exitStatus := overlay.ExitStatusRequest{
 		NodeID:          exitingNode.ID(),
 		ExitInitiatedAt: time.Now(),
@@ -62,10 +58,10 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		return time.Now().Add(timeForward)
 	})
 
-	_, err = satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+	_, err := satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
 	require.NoError(t, err)
 
-	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), piecesContentSize)
+	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), 0)
 	require.NoError(t, err)
 
 	// check that the storage node is exiting
@@ -74,8 +70,8 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	require.Len(t, exitProgress, 1)
 
 	// initiate graceful exit on satellite side by running the SN chore.
-	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 	exitingNode.GracefulExit.Chore.Loop.Pause()
+	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 
 	// jump ahead in time (the +2 is to account for things like daylight savings shifts that may
 	// be happening in the next while, since we're not using AddDate here).
@@ -84,10 +80,11 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	timeMutex.Unlock()
 
 	// check that the satellite knows the storage node is exiting.
-	exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
+	// Note we cannot use GetExitingNodes, because there's a background worker that may finish the exit before
+	// we check here.
+	exitingNodeDossier, err := satellite1.DB.OverlayCache().Get(ctx, exitingNode.ID())
 	require.NoError(t, err)
-	require.Len(t, exitingNodes, 1)
-	require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+	require.NotNil(t, exitingNodeDossier.ExitStatus.ExitInitiatedAt)
 
 	// run the SN chore again to start processing transfers.
 	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
@@ -115,7 +112,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet) (*testplanet
 		return nil, err
 	}
 
-	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
+	pieceCountMap := make(map[storxnetwork.NodeID]int, len(planet.StorageNodes))
 	for _, sn := range planet.StorageNodes {
 		pieceCountMap[sn.ID()] = 0
 	}
@@ -126,7 +123,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet) (*testplanet
 		}
 	}
 
-	var exitingNodeID storj.NodeID
+	var exitingNodeID storxnetwork.NodeID
 	maxCount := 0
 	for k, v := range pieceCountMap {
 		if exitingNodeID.IsZero() {

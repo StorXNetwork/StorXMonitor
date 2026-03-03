@@ -9,19 +9,28 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 
 // RunTests runs common kvstore.Store tests.
 func RunTests(t *testing.T, store kvstore.Store) {
-	// store = storelogger.NewTest(t, store)
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	t.Run("CRUD", func(t *testing.T) { testCRUD(t, ctx, store) })
-	t.Run("Constraints", func(t *testing.T) { testConstraints(t, ctx, store) })
-	t.Run("Range", func(t *testing.T) { testRange(t, ctx, store) })
-	t.Run("Parallel", func(t *testing.T) { testParallel(t, ctx, store) })
+	t.Run("CRUD", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		testCRUD(t, ctx, store)
+	})
+	t.Run("Constraints", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		testConstraints(t, ctx, store)
+	})
+	t.Run("Range", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		testRange(t, ctx, store)
+	})
+	t.Run("Parallel", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		testParallel(t, ctx, store)
+	})
 }
 
 func testConstraints(t *testing.T, ctx *testcontext.Context, store kvstore.Store) {

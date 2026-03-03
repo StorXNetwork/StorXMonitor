@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 // Error is the default error class for the package.
@@ -54,7 +54,10 @@ func (chore *Chore) RunOnce(ctx context.Context) error {
 
 	// override parallelism to simulate old segments loop
 	chore.Config.Loop.Parallelism = 1
-	provider := rangedloop.NewMetabaseRangeSplitter(chore.DB, 5*time.Second, 2500)
+	provider := rangedloop.NewMetabaseRangeSplitter(chore.Log, chore.DB, rangedloop.Config{
+		AsOfSystemInterval: 5 * time.Second,
+		BatchSize:          2500,
+	})
 	loop := rangedloop.NewService(chore.Log, chore.Config.Loop, provider,
 		[]rangedloop.Observer{
 			plainOffset,

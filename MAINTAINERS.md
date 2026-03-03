@@ -27,7 +27,7 @@ From the above it follows that commits with a plus sign will be included in the 
 
 the next step is to create the page on Confluence with our changelog for the release v1.3.
 Example: [Release v1.31](https://storjlabs.atlassian.net/wiki/spaces/ENG/pages/1812791357/Release%2Bv1.31)
-Here we need to post changes for each topic(storj-sim, Uplink, Sattelite, Storage Node, General etc.)
+Here we need to post changes for each topic(storxnetwork-sim, Uplink, Sattelite, Storage Node, General etc.)
 
 ## Cutting release branch
 
@@ -38,7 +38,7 @@ Also we need to cut same release branch on tardigrade-satellite-theme repo
 `git checkout -b v1.3` - will create and checkout branch v1.3
 `git push origin v1.3`- will push release branch to the repo
 
-The next step is to create tag for `storj` repo using `tag-release.sh` which is in storj/scripts folder and push it.
+The next step is to create tag for `storxnetwork` repo using `tag-release.sh` which is in storxnetwork/scripts folder and push it.
 Example:
 `./scripts/tag-release.sh v1.3.0-rc`
 `git push origin v1.3.0-rc`
@@ -64,7 +64,7 @@ and push the tag to the repo:
 Verify that the Jenkins job of the build Storj V3 for such tag has finished successfully.
 Double check that there was no change on the tardigrade branding in the meantime. Otherwise, the point release might get a broken tardigrade branding. If there are additional commits on the tardigrade branding it is better to create a release branch and revert them. You also have to update the Jenkins job to build from the release branch. Do not forget to change it back to master for the following regular release.
 ```
-git clone git@github.com:storj/tardigrade-satellite-theme
+git clone git@github.com:storxnetwork/tardigrade-satellite-theme
 git reset --hard <your commit hash>
 git checkout -b release-v1.3
 git push origin release-v1.3
@@ -80,7 +80,7 @@ Why we do use this flow but not revert from the release branch? It's to prevent 
 
 ## Where to find the release binaries
 
-After Jenkins job for this release finished it will automaticaly post this tag on [GitHub release page](https://github.com/storj/storj/releases). The status will be `Draft`.
+After Jenkins job for this release finished it will automaticaly post this tag on [GitHub release page](https://github.com/storxnetwork/storxnetwork/releases). The status will be `Draft`.
 Update this tag with changelog that you previously created.\
 For now changelog is generated automatically, but binaries for darwin not. Darwin binaries should be generated manually and added to tag.\
 Add New Contributors list to the release. To generate it: 
@@ -101,5 +101,5 @@ For an uplink the network just needs to work. Node selection is critical. If we 
 On the forum you need to highlight the most important changes for the storage node operators and describe it a little.
 
 ## Useful links
-[Deployment documentation](https://storjlabs.atlassian.net/wiki/spaces/OPS/pages/153190401/Satellite+-+post+phoenix#satellite.qa.storj.io)
+[Deployment documentation](https://storjlabs.atlassian.net/wiki/spaces/OPS/pages/153190401/Satellite+-+post+phoenix#satellite.qa.storxnetwork.io)
 [Storage node rollout process](https://storjlabs.atlassian.net/wiki/spaces/OPS/pages/138084357/Storagenode)

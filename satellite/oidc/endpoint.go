@@ -18,9 +18,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 
 // NewEndpoint constructs an OpenID identity provider.
 func NewEndpoint(
-	nodeURL storj.NodeURL, externalAddress string, log *zap.Logger,
+	nodeURL storxnetwork.NodeURL, externalAddress string, log *zap.Logger,
 	oidcService *Service, service *console.Service,
 	codeExpiry, accessTokenExpiry, refreshTokenExpiry time.Duration,
 ) *Endpoint {

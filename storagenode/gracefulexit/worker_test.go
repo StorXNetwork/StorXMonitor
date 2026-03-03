@@ -11,15 +11,15 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/errs2"
-	"storj.io/common/memory"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/gracefulexit"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/gracefulexit"
 )
 
 func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
@@ -55,9 +55,7 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 		require.NoError(t, err)
 		exitingNode.GracefulExit.Chore.Loop.Pause()
 
-		_, piecesContentSize, err := exitingNode.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
-		require.NoError(t, err)
-		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), piecesContentSize)
+		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), 0)
 		require.NoError(t, err)
 
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)

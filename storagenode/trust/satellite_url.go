@@ -13,7 +13,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 
 // SatelliteURL represents a Satellite URL.
 type SatelliteURL struct {
-	ID   storj.NodeID `json:"id"`
+	ID   storxnetwork.NodeID `json:"id"`
 	Host string       `json:"host"`
 	Port int          `json:"port"`
 }
@@ -34,8 +34,8 @@ func (u *SatelliteURL) Address() string {
 }
 
 // NodeURL returns a full Node URL to the Satellite.
-func (u *SatelliteURL) NodeURL() storj.NodeURL {
-	return storj.NodeURL{
+func (u *SatelliteURL) NodeURL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{
 		ID:      u.ID,
 		Address: u.Address(),
 	}
@@ -49,7 +49,7 @@ func (u *SatelliteURL) String() string {
 // ParseSatelliteURL parses a Satellite URL. For the purposes of the trust list,
 // the Satellite URL MUST contain both an ID and port designation.
 func ParseSatelliteURL(s string) (SatelliteURL, error) {
-	url, err := storj.ParseNodeURL(s)
+	url, err := storxnetwork.ParseNodeURL(s)
 	if err != nil {
 		return SatelliteURL{}, ErrSatelliteURL.Wrap(err)
 	}
@@ -61,7 +61,7 @@ func ParseSatelliteURL(s string) (SatelliteURL, error) {
 		return SatelliteURL{}, ErrSatelliteURL.New("must specify the host:port")
 	}
 
-	// storj.ParseNodeURL will have already verified that the address is
+	// storxnetwork.ParseNodeURL will have already verified that the address is
 	// well-formed, so if SplitHostPort fails it should be due to the address
 	// not having a port
 	host, portStr, err := net.SplitHostPort(url.Address)

@@ -6,7 +6,8 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/common/tagsql"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 // withRows ensures that rows get properly closed after the callback finishes.
@@ -18,6 +19,14 @@ func withRows(rows tagsql.Rows, err error) func(func(tagsql.Rows) error) error {
 		err := callback(rows)
 		return errs.Combine(rows.Err(), rows.Close(), err)
 	}
+}
+
+// uuidsToBytesArray converts []uuid.UUID into [][]byte.
+func uuidsToBytesArray(uuidArr []uuid.UUID) (bytesArr [][]byte) {
+	for _, v := range uuidArr {
+		bytesArr = append(bytesArr, v.Bytes())
+	}
+	return
 }
 
 // convertSlice converts xs by applying fn to each element.

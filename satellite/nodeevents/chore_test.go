@@ -12,14 +12,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 type TestNotifier struct {
@@ -60,7 +60,7 @@ func TestNodeEventsChore(t *testing.T) {
 				config.NodeEvents.SelectionWaitPeriod = 5 * time.Minute
 			},
 			StorageNode: func(index int, config *storagenode.Config) {
-				config.Operator.Email = "test@storj.test"
+				config.Operator.Email = "test@storxnetwork.test"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -172,14 +172,14 @@ func TestNodeEventsChoreInvalidEmails(t *testing.T) {
 		emails := []string{
 			"",
 			"abc",
-			"abc.storj.test",
-			"abc@def@storj.test",
-			"abc\"@storj.test",
-			"abc@storj..test",
-			"abc @storj.test",
+			"abc.storxnetwork.test",
+			"abc@def@storxnetwork.test",
+			"abc\"@storxnetwork.test",
+			"abc@storxnetwork..test",
+			"abc @storxnetwork.test",
 
 			// one valid email as a control group
-			"abc@storj.test",
+			"abc@storxnetwork.test",
 		}
 
 		validEmail := emails[len(emails)-1]
@@ -200,7 +200,7 @@ func TestNodeEventsChoreInvalidEmails(t *testing.T) {
 
 		event := nodeevents.Disqualified
 		for _, e := range emails {
-			_, err := sat.DB.NodeEvents().Insert(ctx, e, nil, teststorj.NodeIDFromString("test"), event)
+			_, err := sat.DB.NodeEvents().Insert(ctx, e, nil, testrand.NodeID(), event)
 			require.NoError(t, err)
 		}
 

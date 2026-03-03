@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
+	"github.com/StorXNetwork/common/errs2"
 )
 
 var mon = monkit.Package()
@@ -72,7 +72,7 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 			defer shutdownDeadline.Stop()
 			select {
 			case <-shutdownDeadline.C:
-				mon.Event("slow_shutdown") //mon:locked
+				mon.Event("slow_shutdown")
 				group.log.Warn("service takes long to shutdown", zap.String("name", item.Name))
 				group.logStackTrace()
 			case <-shutdownCtx.Done():
@@ -90,7 +90,7 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 				err = errs2.IgnoreCanceled(err)
 			}
 			if err != nil {
-				mon.Event("unexpected_shutdown") //mon:locked
+				mon.Event("unexpected_shutdown")
 				group.log.Error("unexpected shutdown of a runner", zap.String("name", item.Name), zap.Error(err))
 			}
 			return err
@@ -109,7 +109,7 @@ func (group *Group) logStackTrace() {
 			}
 			buf = make([]byte, 2*len(buf))
 		}
-		group.log.Info("slow shutdown", zap.String("stack", string(buf)))
+		group.log.Info("slow shutdown", zap.String("stack", string(condenseStack(buf))))
 	})
 }
 

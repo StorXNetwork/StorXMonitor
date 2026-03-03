@@ -6,23 +6,27 @@ package mailservice
 import (
 	"bytes"
 	"context"
+	"fmt"
 	htmltemplate "html/template"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
-	"storj.io/storj/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
+	"github.com/StorXNetwork/common/context2"
 )
 
 // Config defines values needed by mailservice service.
 type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:"" testDefault:"smtp.mail.test:587"`
 	TemplatePath      string `help:"path to email templates source" default:""`
-	From              string `help:"sender email address" default:"" testDefault:"Labs <storj@mail.test>"`
+	From              string `help:"sender email address" default:"" testDefault:"Labs <storxnetwork@mail.test>"`
 	AuthType          string `help:"smtp authentication type" releaseDefault:"login" devDefault:"simulate"`
 	Login             string `help:"plain/login auth user login" default:""`
 	Password          string `help:"plain/login auth user password" default:""`
@@ -30,6 +34,31 @@ type Config struct {
 	ClientID          string `help:"oauth2 app's client id" default:""`
 	ClientSecret      string `help:"oauth2 app's client secret" default:""`
 	TokenURI          string `help:"uri which is used when retrieving new access token" default:""`
+}
+
+// WhiteLabelConfig holds tenant-specific branding and SMTP configuration.
+type WhiteLabelConfig struct {
+	BrandName         string
+	LogoURL           string
+	HomepageURL       string
+	SupportURL        string
+	DocsURL           string
+	SourceCodeURL     string
+	SocialURL         string
+	PrivacyPolicyURL  string
+	TermsOfServiceURL string
+	TermsOfUseURL     string
+	BlogURL           string
+	CompanyName       string
+	AddressLine1      string
+	AddressLine2      string
+	PrimaryColor      string
+}
+
+// TenantConfig holds configuration for multiple tenants.
+type TenantConfig struct {
+	TenantSenderMap  map[string]Sender
+	WhiteLabelConfig map[string]WhiteLabelConfig
 }
 
 var (
@@ -50,12 +79,51 @@ type Message interface {
 	Subject() string
 }
 
+type emailVars struct {
+	WhiteLabelConfig
+	// Data is the message-specific data to be used in the template.
+	Data any
+}
+
+// flattenedEmailVars exposes common message fields at root so templates can use .Username, .FullName, etc.
+// instead of .Data.Username. Populated via reflection from the message for all templates.
+type flattenedEmailVars struct {
+	emailVars
+	// Message fields flattened to root for templates that use .Username, .LoginLink, etc.
+	Username              string
+	LoginLink             string
+	FullName              string
+	Email                 string
+	Password              string
+	ActivationLink        string
+	Origin                string
+	Device                string
+	Browser               string
+	Location              string
+	State                 string
+	IPAddress             string
+	LoginTime             string
+	SignInLink            string
+	ContactInfoURL        string
+	TermsAndConditionsURL string
+}
+
+// copyStringField sets dst to the string value of v.FieldByName(fieldName) if the field exists and is a string.
+func copyStringField(dst *string, v reflect.Value, fieldName string) {
+	if f := v.FieldByName(fieldName); f.IsValid() && f.Kind() == reflect.String {
+		*dst = f.String()
+	}
+}
+
 // Service sends template-backed email messages through SMTP.
 //
 // architecture: Service
 type Service struct {
 	log    *zap.Logger
 	Sender Sender
+
+	tenantConfig    TenantConfig
+	defaultBranding WhiteLabelConfig
 
 	html *htmltemplate.Template
 	// TODO(yar): prepare plain text version
@@ -65,9 +133,9 @@ type Service struct {
 }
 
 // New creates new service.
-func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) {
+func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, defaultBranding WhiteLabelConfig) (*Service, error) {
 	var err error
-	service := &Service{log: log, Sender: sender}
+	service := &Service{log: log, Sender: sender, tenantConfig: cfg, defaultBranding: defaultBranding}
 
 	// TODO(yar): prepare plain text version
 	// service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
@@ -77,7 +145,7 @@ func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) 
 
 	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return service, nil
@@ -114,18 +182,52 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 
 		if err != nil {
 			service.log.Error("fail sending email",
+				zap.String("subject", msg.Subject()),
 				zap.Strings("recipients", recipients),
 				zap.Error(err))
 		} else {
 			service.log.Info("email sent successfully",
+				zap.String("subject", msg.Subject()),
 				zap.Strings("recipients", recipients))
 		}
 	}()
 }
 
 // SendRendered renders content from htmltemplate and texttemplate templates then sends it.
+// It merges tenant-specific email variables with the message data before rendering.
 func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// Get tenant-specific email variables
+	templateVars := service.getEmailVars(ctx)
+	templateVars.Data = msg
+
+	// Expose message string fields at root so templates can use .Username, .FullName, .LoginLink, etc.
+	flatVars := flattenedEmailVars{emailVars: templateVars}
+	if v := reflect.ValueOf(msg); v.IsValid() {
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		if v.Kind() == reflect.Struct {
+			copyStringField(&flatVars.Username, v, "Username")
+			copyStringField(&flatVars.LoginLink, v, "LoginLink")
+			copyStringField(&flatVars.FullName, v, "FullName")
+			copyStringField(&flatVars.Email, v, "Email")
+			copyStringField(&flatVars.Password, v, "Password")
+			copyStringField(&flatVars.ActivationLink, v, "ActivationLink")
+			copyStringField(&flatVars.Origin, v, "Origin")
+			copyStringField(&flatVars.Device, v, "Device")
+			copyStringField(&flatVars.Browser, v, "Browser")
+			copyStringField(&flatVars.Location, v, "Location")
+			copyStringField(&flatVars.State, v, "State")
+			copyStringField(&flatVars.IPAddress, v, "IPAddress")
+			copyStringField(&flatVars.LoginTime, v, "LoginTime")
+			copyStringField(&flatVars.SignInLink, v, "SignInLink")
+			copyStringField(&flatVars.ContactInfoURL, v, "ContactInfoURL")
+			copyStringField(&flatVars.TermsAndConditionsURL, v, "TermsAndConditionsURL")
+		}
+	}
+	templateData := &flatVars
 
 	var htmlBuffer bytes.Buffer
 	var textBuffer bytes.Buffer
@@ -135,14 +237,19 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	// 	return
 	// }
 
-	if err = service.html.ExecuteTemplate(&htmlBuffer, msg.Template()+".html", msg); err != nil {
-		return
+	if err = service.html.ExecuteTemplate(&htmlBuffer, msg.Template()+".html", templateData); err != nil {
+		return err
+	}
+
+	sender, err := service.getSenderForTenant(ctx)
+	if err != nil {
+		return err
 	}
 
 	m := &post.Message{
-		From:      service.Sender.FromAddress(),
+		From:      sender.FromAddress(),
 		To:        to,
-		Subject:   msg.Subject(),
+		Subject:   fmt.Sprintf("%s - %s", templateVars.BrandName, msg.Subject()),
 		PlainText: textBuffer.String(),
 		Parts: []post.Part{
 			{
@@ -152,5 +259,58 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		},
 	}
 
-	return service.Sender.SendEmail(ctx, m)
+	err = sender.SendEmail(ctx, m)
+	if err != nil {
+		tenantID := tenancy.TenantIDFromContext(ctx)
+		if tenantID != "" {
+			err = errs.Combine(err, errs.New("error sending email for tenant ID: %s", tenantID))
+		}
+	}
+
+	return err
+}
+
+func (service *Service) getEmailVars(ctx context.Context) emailVars {
+	defer mon.Task()(&ctx)(nil)
+
+	defaultVars := emailVars{
+		WhiteLabelConfig: service.defaultBranding,
+	}
+
+	if len(service.tenantConfig.WhiteLabelConfig) == 0 {
+		// No config provider - return Storj defaults
+		return defaultVars
+	}
+
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	wlCfg := service.tenantConfig.WhiteLabelConfig[tenantID]
+	if wlCfg == (WhiteLabelConfig{}) {
+		return defaultVars
+	}
+
+	return emailVars{
+		WhiteLabelConfig: wlCfg,
+	}
+}
+
+func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if tenantID == "" {
+		return service.Sender, nil
+	}
+
+	if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
+		return sender, nil
+	}
+	return nil, errs.New("sender not found for tenant ID %s", tenantID)
+}
+
+// TestSetTenantSender sets tenant-specific sender for testing purposes.
+func (service *Service) TestSetTenantSender(tenantID string, sender Sender) {
+	if service.tenantConfig.TenantSenderMap == nil {
+		service.tenantConfig.TenantSenderMap = make(map[string]Sender)
+	}
+	service.tenantConfig.TenantSenderMap[tenantID] = sender
 }

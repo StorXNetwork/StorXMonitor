@@ -22,22 +22,22 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/experiment"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/noise"
-	"storj.io/common/rpc/quic"
-	"storj.io/common/rpc/rpctracing"
-	"storj.io/drpc"
-	"storj.io/drpc/drpcmigrate"
-	"storj.io/drpc/drpcmux"
-	"storj.io/drpc/drpcserver"
-	"storj.io/drpc/drpcstats"
-	jaeger "storj.io/monkit-jaeger"
-	"storj.io/storj/private/server/debounce"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/experiment"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/noise"
+	"github.com/StorXNetwork/common/rpc/quic"
+	"github.com/StorXNetwork/common/rpc/rpctracing"
+	"github.com/StorXNetwork/drpc"
+	"github.com/StorXNetwork/drpc/drpcmigrate"
+	"github.com/StorXNetwork/drpc/drpcmux"
+	"github.com/StorXNetwork/drpc/drpcserver"
+	"github.com/StorXNetwork/drpc/drpcstats"
+	jaeger "github.com/StorXNetwork/monkit-jaeger"
+	"github.com/StorXNetwork/StorXMonitor/private/server/debounce"
 )
 
 const (
@@ -56,8 +56,8 @@ const (
 // Config holds server specific configuration parameters.
 type Config struct {
 	tlsopts.Config
-	Address        string `user:"true" help:"public address to listen on" default:":7777"`
-	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
+	Address        string `user:"true" help:"public address to listen on" default:":7777" testDefault:"$HOST:0"`
+	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778" testDefault:""`
 	DisableQUIC    bool   `help:"disable QUIC listener on a server" hidden:"true" default:"false"`
 
 	DisableTCP      bool `help:"disable TCP listener on a server" internal:"true"`
@@ -183,11 +183,13 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 		server.addr = server.publicUDPConn.LocalAddr()
 	}
 
-	privateTCPListener, err := net.Listen("tcp", config.PrivateAddress)
-	if err != nil {
-		return nil, errs.Combine(err, server.Close())
+	if config.PrivateAddress != "" {
+		privateTCPListener, err := net.Listen("tcp", config.PrivateAddress)
+		if err != nil {
+			return nil, errs.Combine(err, server.Close())
+		}
+		server.privateTCPListener = wrapListener(privateTCPListener)
 	}
-	server.privateTCPListener = wrapListener(privateTCPListener)
 
 	return server, nil
 }
@@ -310,7 +312,6 @@ func (p *Server) AddHTTPFallback(httpHandler http.HandlerFunc) {
 // Run will run the server and all of its services.
 func (p *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	// Make sure the server isn't already closed. If it is, register
 	// ourselves in the wait group so that Close can wait on it.
 	p.mu.Lock()
@@ -390,7 +391,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		})
 	}
 
-	{
+	if p.privateTCPListener != nil {
 		privateLMux := drpcmigrate.NewListenMux(p.privateTCPListener, len(drpcmigrate.DRPCHeader))
 		privateDRPCListener = privateLMux.Route(drpcmigrate.DRPCHeader)
 		privateDefaultListener = privateLMux.Default()

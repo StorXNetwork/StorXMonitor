@@ -12,13 +12,13 @@ import (
 	"github.com/loov/hrtime"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func Benchmark(b *testing.B) {
@@ -36,7 +36,7 @@ type scenario struct {
 	segments int
 
 	// info filled in during execution.
-	redundancy   storj.RedundancyScheme
+	redundancy   storxnetwork.RedundancyScheme
 	projectID    []uuid.UUID
 	objectStream []metabase.ObjectStream
 }
@@ -56,8 +56,8 @@ func (s *scenario) name() string {
 //nolint:scopelint // This heavily uses loop variables without goroutines, avoiding these would add lots of boilerplate.
 func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
 	if s.redundancy.IsZero() {
-		s.redundancy = storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		s.redundancy = storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			RequiredShares: 29,
 			RepairShares:   50,
 			OptimalShares:  85,
@@ -69,7 +69,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		s.projectID = append(s.projectID, testrand.UUID())
 	}
 
-	nodes := make([]storj.NodeID, 10000)
+	nodes := make([]storxnetwork.NodeID, 10000)
 	for i := range nodes {
 		nodes[i] = testrand.NodeID()
 	}
@@ -119,10 +119,10 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 
 					totalUpload.Record(func() {
 						beginObject.Record(func() {
-							_, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+							_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 								ObjectStream: objectStream,
-								Encryption: storj.EncryptionParameters{
-									CipherSuite: storj.EncAESGCM,
+								Encryption: storxnetwork.EncryptionParameters{
+									CipherSuite: storxnetwork.EncAESGCM,
 									BlockSize:   256,
 								},
 							})
@@ -148,8 +148,8 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 								})
 
 								segmentSize := testrand.Intn(64*memory.MiB.Int()) + 1
-								encryptedKey := testrand.BytesInt(storj.KeySize)
-								encryptedKeyNonce := testrand.BytesInt(storj.NonceSize)
+								encryptedKey := testrand.BytesInt(storxnetwork.KeySize)
+								encryptedKeyNonce := testrand.BytesInt(storxnetwork.NonceSize)
 
 								commitRemoteSegment.Record(func() {
 									err := db.CommitSegment(ctx, metabase.CommitSegment{
@@ -172,8 +172,8 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 
 							segmentSize := testrand.Intn(4*memory.KiB.Int()) + 1
 							inlineData := testrand.BytesInt(segmentSize)
-							encryptedKey := testrand.BytesInt(storj.KeySize)
-							encryptedKeyNonce := testrand.BytesInt(storj.NonceSize)
+							encryptedKey := testrand.BytesInt(storxnetwork.KeySize)
+							encryptedKeyNonce := testrand.BytesInt(storxnetwork.NonceSize)
 
 							commitInlineSegment.Record(func() {
 								err := db.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
@@ -371,7 +371,7 @@ func (m *Metrics) Report(b *testing.B, name string) {
 }
 
 // randPieces returns randomized pieces.
-func randPieces(count int, nodes []storj.NodeID) metabase.Pieces {
+func randPieces(count int, nodes []storxnetwork.NodeID) metabase.Pieces {
 	pieces := make(metabase.Pieces, count)
 	for i := range pieces {
 		pieces[i] = metabase.Piece{

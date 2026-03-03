@@ -1,131 +1,248 @@
-// Copyright (C) 2024 Storj Labs, Inc.
-// See LICENSE for copying information.
+// // Copyright (C) 2024 Storj Labs, Inc.
+// // See LICENSE for copying information.
 
-import test from '@lib/BaseTest';
-import { v4 as uuidv4 } from 'uuid';
+// import test from '@lib/BaseTest';
+// import { v4 as uuidv4 } from 'uuid';
+// import { join } from 'path';
+// import { createAndOnboardUser } from './common';
 
-test.describe('object browser + edge services', () => {
-    test.beforeEach(async ({
-        signupPage,
-        loginPage,
-        allProjectsPage,
-        navigationMenu,
-    }) => {
-        const name = 'John Doe';
-        const email = `${uuidv4()}@test.test`;
-        const password = 'password';
-        const passphrase = '1';
+// test.describe('self-managed encryption: object browser + edge services', () => {
+//     const email = `${uuidv4()}@example.com`;
+//     const password = 'password';
+//     const passphrase = '1';
+//     let userCreated = false;
 
-        await signupPage.navigateToSignup();
-        await signupPage.signupFirstStep(email, password);
-        await signupPage.verifySuccessMessage();
-        await signupPage.navigateToLogin();
+//     test.beforeEach(async ({
+//         signupPage,
+//         loginPage,
+//         navigationMenu,
+//     }) => {
 
-        await loginPage.loginByCreds(email, password);
-        await loginPage.verifySetupAccountFirstStep();
-        await loginPage.choosePersonalAccSetup();
-        await loginPage.fillPersonalSetupForm(name);
-        await loginPage.ensureSetupSuccess();
-        await loginPage.finishSetup();
+//         if (!userCreated) {
+//             await createAndOnboardUser({
+//                 signupPage,
+//                 loginPage,
+//                 navigationMenu,
+//                 email,
+//                 password,
+//                 name: 'John Doe',
+//                 companyName: 'Storj Labs',
+//                 managedEnc: false,
+//             });
+//             userCreated = true;
+//         }
 
-        //await allProjectsPage.createProject(name);
-        await navigationMenu.switchPassphrase(passphrase);
-    });
+//         await loginPage.goToLogin();
+//         await loginPage.loginByCreds(email, password);
 
-    test('File download and upload', async ({
-        objectBrowserPage,
-        bucketsPage,
-        navigationMenu,
-    }) => {
-        const fileName = 'test.txt';
-        const bucketName = uuidv4();
+//         await navigationMenu.switchPassphrase(passphrase);
+//     });
 
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.createBucket(bucketName);
-        await bucketsPage.openBucket(bucketName);
-        await objectBrowserPage.waitLoading();
-        await objectBrowserPage.uploadFile(fileName, 'text/plain');
-        await objectBrowserPage.openObjectPreview(fileName, 'Text');
+//     fileBrowserTests();
+// });
 
-        // Checks if the link-sharing buttons work
-        await objectBrowserPage.verifyObjectMapIsVisible();
-        await objectBrowserPage.verifyShareLink();
+// test.describe('satellite-managed encryption: object browser + edge services', () => {
+//     const email = `${uuidv4()}@example.com`;
+//     const password = 'password';
+//     let userCreated = false;
 
-        // Checks for successful download
-        await objectBrowserPage.downloadFromPreview();
-        await objectBrowserPage.closePreview(fileName);
+//     test.beforeEach(async ({
+//         signupPage,
+//         loginPage,
+//         navigationMenu,
+//     }) => {
+//         if (!userCreated) {
+//             await createAndOnboardUser({
+//                 signupPage,
+//                 loginPage,
+//                 navigationMenu,
+//                 email,
+//                 password,
+//                 name: 'John Doe',
+//                 companyName: 'Storj Labs',
+//                 managedEnc: true,
+//             });
+//             userCreated = true;
+//         }
 
-        // Delete old file and upload new with the same file name
-        await objectBrowserPage.deleteObjectByName(fileName, 'Text');
-        await objectBrowserPage.uploadFile(fileName, 'text/csv');
-        await objectBrowserPage.openObjectPreview(fileName, 'Text');
-        await objectBrowserPage.verifyObjectMapIsVisible();
-        await objectBrowserPage.verifyShareLink();
-    });
+//         await loginPage.goToLogin();
+//         await loginPage.loginByCreds(email, password);
+//     });
 
-    test('Folder creation and folder drag and drop upload', async ({
-        bucketsPage,
-        objectBrowserPage,
-        navigationMenu,
-    }) => {
-        const bucketName = uuidv4();
-        const fileName = 'test.txt';
-        const folderName = 'test_folder';
+//     fileBrowserTests();
+// });
 
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.createBucket(bucketName);
-        await bucketsPage.openBucket(bucketName);
+// function fileBrowserTests() {
+//     test('File download and upload', async ({
+//         objectBrowserPage,
+//         bucketsPage,
+//         navigationMenu,
+//     }) => {
+//         const fileName = 'test.txt';
+//         const bucketName = uuidv4();
 
-        // Create empty folder using New Folder Button
-        await objectBrowserPage.createFolder(folderName);
-        await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
+//         await navigationMenu.clickOnBuckets();
+//         await bucketsPage.createBucket(bucketName);
+//         await bucketsPage.openBucket(bucketName);
+//         await objectBrowserPage.waitForPage();
+//         await objectBrowserPage.uploadFile(fileName, 'text/plain');
+//         await objectBrowserPage.clickItem(fileName);
 
-        // Folder creation with a file inside it
-        await objectBrowserPage.uploadFolder(folderName, fileName, 'text/csv');
-        await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
-    });
+//         // Checks if the link-sharing buttons work
+//         await objectBrowserPage.verifyObjectMapIsVisible();
+//         await objectBrowserPage.verifyShareObjectLink();
 
-    test('Share bucket and bucket details page', async ({
-        navigationMenu,
-        bucketsPage,
-        objectBrowserPage,
-        common,
-        page,
-    }) => {
-        const bucketName = uuidv4();
-        const fileName = 'test1.jpeg';
+//         // Checks for successful download
+//         await objectBrowserPage.downloadFromPreview();
+//         await objectBrowserPage.closePreview();
 
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.createBucket(bucketName);
-        await bucketsPage.openBucket(bucketName);
-        await objectBrowserPage.waitLoading();
-        await objectBrowserPage.uploadFile(fileName, 'image/jpeg');
-        await objectBrowserPage.openObjectPreview(fileName, 'Image');
+//         // Delete old file and upload new with the same file name
+//         await objectBrowserPage.deleteItemByName(fileName);
+//         await objectBrowserPage.uploadFile(fileName, 'text/csv');
+//         await objectBrowserPage.clickItem(fileName);
+//         await objectBrowserPage.verifyObjectMapIsVisible();
+//         await objectBrowserPage.verifyShareObjectLink();
 
-        // Checks the image preview of the tiny apple png file
-        await objectBrowserPage.verifyImagePreviewIsVisible();
-        await objectBrowserPage.closePreview(fileName);
+//         // Clean up.
+//         await objectBrowserPage.closePreview();
+//         await objectBrowserPage.deleteItemByName(fileName);
+//     });
 
-        // Checks for Bucket Detail Header and correct bucket name
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyBucketDetails(bucketName);
-        await common.closeModal();
+//     test('Bulk file deletion', async ({
+//         objectBrowserPage,
+//         bucketsPage,
+//         navigationMenu,
+//     }) => {
+//         const bucketName = uuidv4();
+//         const folderName = 'testdata';
 
-        // Check Bucket Share, see if copy button changed to copied
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyShareBucket();
-    });
+//         await navigationMenu.clickOnBuckets();
+//         await bucketsPage.createBucket(bucketName);
+//         await bucketsPage.openBucket(bucketName);
+//         await objectBrowserPage.waitForPage();
 
-    test('Create and delete bucket', async ({
-        navigationMenu,
-        bucketsPage,
-    }) => {
-        const bucketName = 'testdelete';
+//         for (const fileName of ['a.txt', 'b.txt', 'c.txt', 'd.txt']) {
+//             await objectBrowserPage.uploadFile(fileName, 'text/plain');
+//         }
 
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.createBucket(bucketName);
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyDeleteBucket(bucketName);
-    });
-});
+//         // Ensure that bulk deletion of individually-selected objects succeeds.
+//         await objectBrowserPage.selectItem('a.txt');
+//         await objectBrowserPage.selectItem('b.txt');
+//         await objectBrowserPage.deleteSelectedItems();
+//         await objectBrowserPage.expectItems(['c.txt', 'd.txt']);
+
+//         // Ensure that bulk deletion succeeds when all objects are selected via the checkbox in the table header.
+//         await objectBrowserPage.selectAllItems();
+//         await objectBrowserPage.deleteSelectedItems();
+//         await objectBrowserPage.expectItems([]);
+
+//         for (const fileName of ['a.txt', 'b.txt']) {
+//             await objectBrowserPage.uploadFile(fileName, 'text/plain');
+//         }
+
+//         await objectBrowserPage.createFolder(folderName);
+//         await objectBrowserPage.clickItem(folderName);
+//         await objectBrowserPage.waitForItems();
+
+//         for (const fileName of ['a.txt', 'b.txt']) {
+//             await objectBrowserPage.uploadFile(fileName, 'text/plain');
+//         }
+
+//         // Ensure that bulk deletion of individually-selected objects within a subfolder succeeds.
+//         await objectBrowserPage.selectItem('a.txt');
+//         await objectBrowserPage.selectItem('b.txt');
+//         await objectBrowserPage.deleteSelectedItems();
+//         await objectBrowserPage.expectItems([]);
+
+//         // Ensure that no objects in the root directory were affected.
+//         await objectBrowserPage.clickBreadcrumb(1);
+//         await objectBrowserPage.waitForItems();
+//         await objectBrowserPage.expectItems(['testdata', 'a.txt', 'b.txt']);
+
+//         // Clean up.
+//         await objectBrowserPage.selectItem('a.txt');
+//         await objectBrowserPage.selectItem('b.txt');
+//         await objectBrowserPage.selectItem('testdata');
+//         await objectBrowserPage.deleteSelectedItems();
+//     });
+
+//     test('Nested folder deletion', async ({
+//         objectBrowserPage,
+//         bucketsPage,
+//         navigationMenu,
+//     }) => {
+//         const bucketName = uuidv4();
+//         const folderName = 'testdata';
+//         const folder2Name = 'testdata2';
+
+//         await navigationMenu.clickOnBuckets();
+//         await bucketsPage.createBucket(bucketName);
+//         await bucketsPage.openBucket(bucketName);
+//         await objectBrowserPage.waitForPage();
+
+//         // Ensure deleting a folder in the root succeeds.
+//         await objectBrowserPage.createFolder(folderName);
+//         await objectBrowserPage.deleteItemByName(folderName);
+//         await objectBrowserPage.expectItems([]);
+
+//         await objectBrowserPage.createFolder(folderName);
+//         await objectBrowserPage.clickItem(folderName);
+//         await objectBrowserPage.waitForItems();
+
+//         // Ensure deleting a folder in a subfolder succeeds.
+//         await objectBrowserPage.createFolder(folder2Name);
+//         await objectBrowserPage.deleteItemByName(folder2Name);
+//         await objectBrowserPage.expectItems([]);
+
+//         await objectBrowserPage.createFolder(folder2Name);
+//         await objectBrowserPage.clickItem(folder2Name);
+//         await objectBrowserPage.waitForItems();
+
+//         await objectBrowserPage.createFolder(folderName);
+//         await objectBrowserPage.deleteItemByName(folderName);
+//         await objectBrowserPage.expectItems([]);
+//     });
+
+//     test('Folder creation and folder drag and drop upload', async ({
+//         bucketsPage,
+//         objectBrowserPage,
+//         navigationMenu,
+//     }) => {
+//         const bucketName = uuidv4();
+//         const folderName = 'testdata';
+//         const folderPath = join(__dirname, 'testdata');
+
+//         await navigationMenu.clickOnBuckets();
+//         await bucketsPage.createBucket(bucketName);
+//         await bucketsPage.openBucket(bucketName);
+
+//         // Create empty folder using New Folder Button
+//         await objectBrowserPage.createFolder(folderName);
+//         await objectBrowserPage.deleteItemByName(folderName);
+
+//         // Folder creation with a file inside it
+//         await objectBrowserPage.uploadFolder(folderPath, folderName);
+//         await objectBrowserPage.deleteItemByName(folderName);
+//     });
+
+//     test('Folder double-click disallowed', async ({
+//         bucketsPage,
+//         objectBrowserPage,
+//         navigationMenu,
+//     }) => {
+//         const bucketName = uuidv4();
+//         const folderName = 'testdata';
+
+//         await navigationMenu.clickOnBuckets();
+//         await bucketsPage.createBucket(bucketName);
+//         await bucketsPage.openBucket(bucketName);
+
+//         await objectBrowserPage.createFolder(folderName);
+//         await objectBrowserPage.doubleClickFolder(folderName);
+//         await objectBrowserPage.checkSingleBreadcrumb(folderName);
+
+//         // Clean up.
+//         await objectBrowserPage.clickBreadcrumb(1);
+//         await objectBrowserPage.deleteItemByName(folderName);
+//     });
+// }

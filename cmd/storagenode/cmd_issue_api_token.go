@@ -10,11 +10,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/process"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 type issueCfg struct {
@@ -44,7 +44,7 @@ func cmdIssue(cmd *cobra.Command, cfg *issueCfg) (err error) {
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+		zap.L().Info("Identity loaded.", zap.Stringer("node_id", ident.ID))
 	}
 
 	db, err := storagenodedb.OpenExisting(ctx, zap.L().Named("db"), cfg.DatabaseConfig())

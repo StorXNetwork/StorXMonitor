@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // BeginObjectNextVersion is for testing metabase.BeginObjectNextVersion.
@@ -30,12 +30,14 @@ type BeginObjectNextVersion struct {
 }
 
 // Check runs the test.
-func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.Object {
 	got, err := db.BeginObjectNextVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	if step.ErrClass == nil {
-		require.Equal(t, step.Version, got.Version)
+		if step.Version != 0 {
+			require.Equal(t, step.Version, got.Version)
+		}
 		require.WithinDuration(t, time.Now(), got.CreatedAt, 5*time.Second)
 
 		require.Equal(t, step.Opts.ObjectStream.ProjectID, got.ObjectStream.ProjectID)
@@ -55,6 +57,7 @@ func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB,
 		}
 		require.Equal(t, step.Opts.Encryption, got.Encryption)
 	}
+	return got
 }
 
 // BeginObjectExactVersion is for testing metabase.BeginObjectExactVersion.
@@ -66,7 +69,7 @@ type BeginObjectExactVersion struct {
 
 // Check runs the test.
 func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) metabase.Object {
-	got, err := db.TestingBeginObjectExactVersion(ctx, step.Opts)
+	got, err := db.BeginObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if step.ErrClass == nil {
 		require.Equal(t, step.Opts.Version, got.Version)
@@ -99,7 +102,10 @@ func (step CommitObject) Check(ctx *testcontext.Context, t require.TestingT, db 
 	object, err := db.CommitObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
-		if step.ExpectVersion != 0 {
+		if step.ExpectVersion == 0 {
+			// ignore the version check when not specified
+			step.Opts.ObjectStream.Version = object.Version
+		} else {
 			step.Opts.ObjectStream.Version = step.ExpectVersion
 		}
 		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
@@ -107,27 +113,27 @@ func (step CommitObject) Check(ctx *testcontext.Context, t require.TestingT, db 
 	return object
 }
 
-// CommitObjectWithSegments is for testing metabase.CommitObjectWithSegments.
-type CommitObjectWithSegments struct {
-	Opts          metabase.CommitObjectWithSegments
-	Deleted       []metabase.DeletedSegmentInfo
+// CommitInlineObject is for testing metabase.CommitInlineObject.
+type CommitInlineObject struct {
+	Opts          metabase.CommitInlineObject
 	ExpectVersion metabase.Version
-
-	ErrClass *errs.Class
-	ErrText  string
+	ErrClass      *errs.Class
+	ErrText       string
 }
 
 // Check runs the test.
-func (step CommitObjectWithSegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.Object {
-	object, deleted, err := db.CommitObjectWithSegments(ctx, step.Opts)
+func (step CommitInlineObject) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) metabase.Object {
+	object, err := db.CommitInlineObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
-		if step.ExpectVersion != 0 {
+		if step.ExpectVersion == 0 {
+			// Ignore version check when not specified.
+			step.Opts.ObjectStream.Version = object.Version
+		} else {
 			step.Opts.ObjectStream.Version = step.ExpectVersion
 		}
 		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
 	}
-	require.Equal(t, step.Deleted, deleted)
 	return object
 }
 
@@ -170,17 +176,32 @@ func (step CommitInlineSegment) Check(ctx *testcontext.Context, t testing.TB, db
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
-// DeleteBucketObjects is for testing metabase.DeleteBucketObjects.
-type DeleteBucketObjects struct {
-	Opts     metabase.DeleteBucketObjects
+// DeleteAllBucketObjects is for testing metabase.DeleteAllBucketObjects.
+type DeleteAllBucketObjects struct {
+	Opts     metabase.DeleteAllBucketObjects
 	Deleted  int64
 	ErrClass *errs.Class
 	ErrText  string
 }
 
 // Check runs the test.
-func (step DeleteBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	deleted, err := db.DeleteBucketObjects(ctx, step.Opts)
+func (step DeleteAllBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	deleted, err := db.DeleteAllBucketObjects(ctx, step.Opts)
+	require.Equal(t, step.Deleted, deleted)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+// UncoordinatedDeleteAllBucketObjects is for testing metabase.UncoordinatedDeleteAllBucketObjects.
+type UncoordinatedDeleteAllBucketObjects struct {
+	Opts     metabase.UncoordinatedDeleteAllBucketObjects
+	Deleted  int64
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step UncoordinatedDeleteAllBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	deleted, err := db.UncoordinatedDeleteAllBucketObjects(ctx, step.Opts)
 	require.Equal(t, step.Deleted, deleted)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -369,7 +390,7 @@ func (step ListStreamPositions) Check(ctx *testcontext.Context, t testing.TB, db
 // GetStreamPieceCountByNodeID is for testing metabase.GetStreamPieceCountByNodeID.
 type GetStreamPieceCountByNodeID struct {
 	Opts     metabase.GetStreamPieceCountByNodeID
-	Result   map[storj.NodeID]int64
+	Result   map[storxnetwork.NodeID]int64
 	ErrClass *errs.Class
 	ErrText  string
 }
@@ -414,7 +435,8 @@ func (step IterateLoopSegments) Check(ctx *testcontext.Context, t testing.TB, db
 		}
 		return bytes.Compare(step.Result[i].StreamID[:], step.Result[j].StreamID[:]) < 0
 	})
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	// ignore AliasPieces because we won't be always able to predict node aliases for tests
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.IgnoreFields(metabase.LoopSegmentEntry{}, "AliasPieces"))
 	require.Zero(t, diff)
 }
 
@@ -436,6 +458,13 @@ func compareDeleteObjectResult(t testing.TB, got, exp metabase.DeleteObjectResul
 		// the values are.
 		for i := range got.Markers {
 			exp.Markers[i].StreamID = got.Markers[i].StreamID
+		}
+
+		// ignore version checking if it's not provided.
+		for i := range got.Markers {
+			if exp.Markers[i].Version == 0 {
+				exp.Markers[i].Version = got.Markers[i].Version
+			}
 		}
 	}
 
@@ -464,21 +493,6 @@ type DeletePendingObject struct {
 // Check runs the test.
 func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeletePendingObject(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-	compareDeleteObjectResult(t, result, step.Result)
-}
-
-// DeleteObjectsAllVersions is for testing metabase.DeleteObjectsAllVersions.
-type DeleteObjectsAllVersions struct {
-	Opts     metabase.DeleteObjectsAllVersions
-	Result   metabase.DeleteObjectResult
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.DeleteObjectsAllVersions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	compareDeleteObjectResult(t, result, step.Result)
 }
@@ -517,20 +531,6 @@ type IterateCollector []metabase.ObjectEntry
 // Add adds object entries from iterator to the collection.
 func (coll *IterateCollector) Add(ctx context.Context, it metabase.ObjectsIterator) error {
 	var item metabase.ObjectEntry
-
-	for it.Next(ctx, &item) {
-		*coll = append(*coll, item)
-	}
-	return nil
-}
-
-// LoopIterateCollector is for testing metabase.LoopIterateCollector.
-type LoopIterateCollector []metabase.LoopObjectEntry
-
-// Add adds object entries from iterator to the collection.
-func (coll *LoopIterateCollector) Add(ctx context.Context, it metabase.LoopObjectsIterator) error {
-	var item metabase.LoopObjectEntry
-
 	for it.Next(ctx, &item) {
 		*coll = append(*coll, item)
 	}
@@ -543,7 +543,6 @@ type PendingObjectsCollector []metabase.PendingObjectEntry
 // Add adds object entries from iterator to the collection.
 func (coll *PendingObjectsCollector) Add(ctx context.Context, it metabase.PendingObjectsIterator) error {
 	var item metabase.PendingObjectEntry
-
 	for it.Next(ctx, &item) {
 		*coll = append(*coll, item)
 	}
@@ -588,7 +587,10 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	err := db.IterateObjectsAllVersionsWithStatus(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff(),
+		// Iterators don't implement IsLatest.
+		cmpopts.IgnoreFields(metabase.ObjectEntry{}, "IsLatest"),
+	)
 	require.Zero(t, diff)
 }
 
@@ -608,27 +610,10 @@ func (step IterateObjectsWithStatusAscending) Check(ctx *testcontext.Context, t 
 	err := db.IterateObjectsAllVersionsWithStatusAscending(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
-	require.Zero(t, diff)
-}
-
-// IterateLoopObjects is for testing metabase.IterateLoopObjects.
-type IterateLoopObjects struct {
-	Opts metabase.IterateLoopObjects
-
-	Result   []metabase.LoopObjectEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IterateLoopObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	var result LoopIterateCollector
-
-	err := db.IterateLoopObjects(ctx, step.Opts, result.Add)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, []metabase.LoopObjectEntry(result), DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff(),
+		// Iterators don't implement IsLatest.
+		cmpopts.IgnoreFields(metabase.ObjectEntry{}, "IsLatest"),
+	)
 	require.Zero(t, diff)
 }
 
@@ -655,6 +640,20 @@ type ListNodeAliases struct {
 // Check runs the test.
 func (step ListNodeAliases) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) []metabase.NodeAliasEntry {
 	result, err := db.ListNodeAliases(ctx)
+	checkError(t, err, step.ErrClass, step.ErrText)
+	return result
+}
+
+// GetNodeAliasEntries is for testing metabase.GetNodeAliasEntries.
+type GetNodeAliasEntries struct {
+	Opts     metabase.GetNodeAliasEntries
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetNodeAliasEntries) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) []metabase.NodeAliasEntry {
+	result, err := db.GetNodeAliasEntries(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	return result
 }
@@ -738,6 +737,11 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	result, err := db.FinishCopyObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
+	// ignore version checking if it's not provided.
+	if step.Result.Version == 0 {
+		step.Result.Version = result.Version
+	}
+
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 	return result
@@ -767,6 +771,31 @@ func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.
 	return result
 }
 
+// DeleteObjects contains options for testing the (*metabase.DB).DeleteObjects method.
+type DeleteObjects struct {
+	Opts   metabase.DeleteObjects
+	Result metabase.DeleteObjectsResult
+
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step DeleteObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.DeleteObjects(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	// Marker stream IDs and CreatedAt are internally generated, so we cannot upfront figure out what their values are.
+	for _, item := range result.Items {
+		if item.Marker != nil {
+			item.Marker.StreamVersionID.SetStreamID(uuid.UUID{})
+		}
+	}
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
+}
+
 // CollectBucketTallies is for testing metabase.CollectBucketTallies.
 type CollectBucketTallies struct {
 	Opts     metabase.CollectBucketTallies
@@ -785,4 +814,124 @@ func (step CollectBucketTallies) Check(ctx *testcontext.Context, t testing.TB, d
 
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
+}
+
+// GetObjectExactVersionLegalHold is for testing metabase.GetObjectExactVersionLegalHold.
+type GetObjectExactVersionLegalHold struct {
+	Opts     metabase.GetObjectExactVersionLegalHold
+	Result   bool
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectExactVersionLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectExactVersionLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// GetObjectLastCommittedLegalHold is for testing metabase.GetObjectLastCommittedLegalHold.
+type GetObjectLastCommittedLegalHold struct {
+	Opts     metabase.GetObjectLastCommittedLegalHold
+	Result   bool
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectLastCommittedLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectLastCommittedLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// GetObjectExactVersionRetention is for testing metabase.GetObjectExactVersionRetention.
+type GetObjectExactVersionRetention struct {
+	Opts     metabase.GetObjectExactVersionRetention
+	Result   metabase.Retention
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectExactVersionRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectExactVersionRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// GetObjectLastCommittedRetention is for testing metabase.GetObjectLastCommittedRetention.
+type GetObjectLastCommittedRetention struct {
+	Opts     metabase.GetObjectLastCommittedRetention
+	Result   metabase.Retention
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectLastCommittedRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectLastCommittedRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// SetObjectExactVersionRetention is for testing metabase.SetObjectExactVersionRetention.
+type SetObjectExactVersionRetention struct {
+	Opts     metabase.SetObjectExactVersionRetention
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectExactVersionRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectExactVersionRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+// SetObjectLastCommittedRetention is for testing metabase.SetObjectLastCommittedRetention.
+type SetObjectLastCommittedRetention struct {
+	Opts     metabase.SetObjectLastCommittedRetention
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectLastCommittedRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectLastCommittedRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+// SetObjectExactVersionLegalHold is for testing metabase.SetObjectExactVersionLegalHold.
+type SetObjectExactVersionLegalHold struct {
+	Opts     metabase.SetObjectExactVersionLegalHold
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectExactVersionLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectExactVersionLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+// SetObjectLastCommittedLegalHold is for testing metabase.SetObjectLastCommittedLegalHold.
+type SetObjectLastCommittedLegalHold struct {
+	Opts     metabase.SetObjectLastCommittedLegalHold
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectLastCommittedLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectLastCommittedLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
 }

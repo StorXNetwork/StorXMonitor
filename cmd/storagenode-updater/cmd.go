@@ -13,16 +13,16 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/errs2"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/process"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/private/version/checker"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 
 var (
 	// TODO: replace with config value of random bytes in storagenode config.
-	nodeID storj.NodeID
+	nodeID storxnetwork.NodeID
 
 	updaterBinaryPath string
 
@@ -64,7 +64,12 @@ var (
 		Version  checker.Config
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode"`
+		BinaryStoreDir string `help:"dir to backup current binaries. Use it only for setups running the storagenode docker image. Path specified must be a host filesystem mounted destination." default:""`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
+		RestartMethod  string `help:"Method used to restart services. Default is 'kill'' (good for containers). 'service' is supported on FreeBSD, to use rc.d" default:"kill"`
+
+		Standalone bool `help:"don't run the command as a service" default:"false"`
+
 		// deprecated
 		Log string `help:"deprecated, use --log.output" default:""`
 	}
@@ -75,8 +80,8 @@ var (
 
 func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
-	defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "storagenode")
+	defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "storagenode")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
 
@@ -115,8 +120,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	zap.L().Info("Running on version",
-		zap.String("Service", updaterServiceName),
-		zap.String("Version", version.Build.Version.String()),
+		zap.String("service", updaterServiceName),
+		zap.String("version", version.Build.Version.String()),
 	)
 
 	ctx, _ := process.Ctx(cmd)
@@ -126,8 +131,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = loopFunc(ctx)
 	case runCfg.Version.CheckInterval < minCheckInterval:
 		zap.L().Error("Check interval below minimum. Overriding it minimum.",
-			zap.Stringer("Check Interval", runCfg.Version.CheckInterval),
-			zap.Stringer("Minimum Check Interval", minCheckInterval),
+			zap.Stringer("check_interval", runCfg.Version.CheckInterval),
+			zap.Stringer("minimum_check_interval", minCheckInterval),
 		)
 		runCfg.Version.CheckInterval = minCheckInterval
 		fallthrough
@@ -216,6 +221,6 @@ func openLog(logPath string) error {
 		return err
 	}
 
-	zap.ReplaceGlobals(logger.With(zap.String("Process", updaterServiceName)))
+	zap.ReplaceGlobals(logger.With(zap.String("process", updaterServiceName)))
 	return nil
 }

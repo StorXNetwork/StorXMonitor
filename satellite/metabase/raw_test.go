@@ -5,12 +5,15 @@ package metabase_test
 
 import (
 	"testing"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
 )
 
 func TestTestingBatchInsertObjects_RoundTrip(t *testing.T) {
@@ -42,5 +45,28 @@ func TestTestingBatchInsertObjects_RoundTrip(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, validObjects, insertedObjects)
+	})
+}
+
+func TestTestingBatchInsertSegments(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		rawSegments := make([]metabase.RawSegment, 10)
+		for i := range rawSegments {
+			rawSegments[i] = metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{
+				Part:  1,
+				Index: uint32(i) + 1,
+			})
+		}
+
+		err := db.TestingBatchInsertSegments(ctx, rawSegments)
+		require.NoError(t, err)
+
+		insertedSegments, err := db.TestingAllSegments(ctx)
+		require.NoError(t, err)
+
+		require.Zero(t, cmp.Diff(rawSegments, metabasetest.SegmentsToRaw(insertedSegments),
+			cmpopts.EquateApproxTime(1*time.Second)))
 	})
 }

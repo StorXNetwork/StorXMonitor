@@ -9,21 +9,19 @@ import (
 	"io"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpool"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 // ErrNodeOffline is returned when it was not possible to contact a node or the node was not responding.
@@ -33,16 +31,13 @@ var ErrNodeOffline = errs.Class("node offline")
 // has the specified alias. Pieces associated with the given alias should be considered lost.
 var ErrNoSuchNode = errs.Class("no such node")
 
-var errWrongNodeVersion = errs.Class("wrong node version")
-
 // VerifierConfig contains configurations for operation.
 type VerifierConfig struct {
 	DialTimeout        time.Duration `help:"how long to wait for a successful dial" default:"2s"`
 	PerPieceTimeout    time.Duration `help:"duration to wait per piece download" default:"800ms"`
 	OrderRetryThrottle time.Duration `help:"how much to wait before retrying order creation" default:"50ms"`
 
-	RequestThrottle   time.Duration `help:"minimum interval for sending out each request" default:"150ms"`
-	VersionWithExists string        `help:"minimum storage node version with implemented Exists method" default:"v1.69.2"`
+	RequestThrottle time.Duration `help:"minimum interval for sending out each request" default:"150ms"`
 }
 
 // NodeVerifier implements segment verification by dialing nodes.
@@ -57,8 +52,6 @@ type NodeVerifier struct {
 	// this is a callback so that problematic pieces can be reported as they are found,
 	// rather than being kept in a list which might grow unreasonably large.
 	reportPiece pieceReporterFunc
-
-	versionWithExists semver.Version
 }
 
 var _ Verifier = (*NodeVerifier)(nil)
@@ -76,27 +69,17 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 		IdleExpiration: 10 * time.Minute,
 	})
 
-	version, err := semver.ParseTolerant(config.VersionWithExists)
-	if err != nil {
-		log.Warn("invalid VersionWithExists", zap.String("VersionWithExists", config.VersionWithExists), zap.Error(err))
-	}
-
 	return &NodeVerifier{
-		log:               log,
-		config:            config,
-		dialer:            configuredDialer,
-		orders:            orders,
-		versionWithExists: version,
+		log:    log,
+		config: config,
+		dialer: configuredDialer,
+		orders: orders,
 	}
 }
 
 // Verify a collection of segments by attempting to download a byte from each segment from the target node.
-func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error) {
-	verifiedCount, err = service.VerifyWithExists(ctx, alias, target, targetVersion, segments)
-	// if Exists method is unimplemented or it is wrong node version fallback to download verification
-	if !methodUnimplemented(err) && !errWrongNodeVersion.Has(err) {
-		return verifiedCount, err
-	}
+func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storxnetwork.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error) {
+	service.log.Debug("verify segments by downloading pieces")
 
 	var client *piecestore.Client
 	defer func() {
@@ -128,7 +111,7 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 			client, err = piecestore.Dial(rpcpool.WithForceDial(ctx), service.dialer, target, piecestore.DefaultConfig)
 			if err != nil {
 				service.log.Info("failed to dial node",
-					zap.Stringer("node-id", target.ID),
+					zap.Stringer("node_id", target.ID),
 					zap.Error(err))
 				client = nil
 				nextRequest, err = rateLimiter.next(ctx, nextRequest)
@@ -159,14 +142,14 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 
 // verifySegment tries to verify the segment by downloading a single byte from the piece of the segment
 // on the specified target node.
-func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecestore.Client, alias metabase.NodeAlias, target storj.NodeURL, segment *Segment) (outcome audit.Outcome, err error) {
+func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecestore.Client, alias metabase.NodeAlias, target storxnetwork.NodeURL, segment *Segment) (outcome audit.Outcome, err error) {
 	pieceNum := findPieceNum(segment, alias)
 
 	logger := service.log.With(
-		zap.Stringer("stream-id", segment.StreamID),
-		zap.Stringer("node-id", target.ID),
+		zap.Stringer("stream_id", segment.StreamID),
+		zap.Stringer("node_id", target.ID),
 		zap.Uint64("position", segment.Position.Encode()),
-		zap.Uint16("piece-num", pieceNum))
+		zap.Uint16("piece_num", pieceNum))
 
 	defer func() {
 		// report the outcome of the piece check, if required
@@ -179,7 +162,7 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 	limit, piecePrivateKey, _, err := service.orders.CreateAuditOrderLimit(ctx, target.ID, pieceNum, segment.RootPieceID, segment.Redundancy.ShareSize)
 	if err != nil {
 		logger.Error("failed to create order limit",
-			zap.Stringer("retrying in", service.config.OrderRetryThrottle),
+			zap.Stringer("retrying_in", service.config.OrderRetryThrottle),
 			zap.Error(err))
 
 		if !sync2.Sleep(ctx, service.config.OrderRetryThrottle) {
@@ -227,7 +210,7 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 		return audit.OutcomeUnknownError, nil
 	}
 
-	logger.Info("download succeeded")
+	logger.Debug("download succeeded")
 	return audit.OutcomeSuccess, nil
 }
 
@@ -238,119 +221,6 @@ func findPieceNum(segment *Segment, alias metabase.NodeAlias) uint16 {
 		}
 	}
 	panic("piece number not found")
-}
-
-// VerifyWithExists verifies that the segments exist on the specified node by calling the piecestore Exists
-// endpoint if the node version supports it.
-func (service *NodeVerifier) VerifyWithExists(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment) (verifiedCount int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if service.versionWithExists.String() == "" || targetVersion == "" {
-		return 0, errWrongNodeVersion.New("missing node version or no base version defined")
-	}
-
-	nodeVersion, err := semver.ParseTolerant(targetVersion)
-	if err != nil {
-		return 0, errWrongNodeVersion.Wrap(err)
-	}
-
-	if !nodeVersion.GE(service.versionWithExists) {
-		return 0, errWrongNodeVersion.New("too old version")
-	}
-
-	var conn *rpc.Conn
-	var client pb.DRPCPiecestoreClient
-	defer func() {
-		if conn != nil {
-			_ = conn.Close()
-		}
-	}()
-
-	const maxDials = 2
-	dialCount := 0
-
-	for client == nil {
-		dialCount++
-		if dialCount > maxDials {
-			return 0, ErrNodeOffline.New("too many redials")
-		}
-
-		conn, err := service.dialer.DialNodeURL(rpcpool.WithForceDial(ctx), target)
-		if err != nil {
-			service.log.Info("failed to dial node",
-				zap.Stringer("node-id", target.ID),
-				zap.Error(err))
-		} else {
-			client = pb.NewDRPCPiecestoreClient(conn)
-		}
-	}
-
-	// this is maybe too generous, since Exists should be faster than asking for pieces one by one,
-	// but seems like a good first try
-	ctx, cancel := context.WithTimeout(ctx, service.config.PerPieceTimeout*time.Duration(len(segments)))
-	defer cancel()
-
-	err = service.verifySegmentsWithExists(ctx, client, alias, target, segments)
-	if err != nil {
-		// we could not do the verification, for a reason that implies we won't be able
-		// to do any more
-		return 0, Error.Wrap(err)
-	}
-
-	return len(segments), nil
-}
-
-func methodUnimplemented(err error) bool {
-	return errs2.IsRPC(err, rpcstatus.Unimplemented) || errs2.IsRPC(err, rpcstatus.Unknown)
-}
-
-// verifySegmentsWithExists calls the Exists endpoint on the specified target node for each segment.
-func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, client pb.DRPCPiecestoreClient, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	pieceIds := make([]storj.PieceID, 0, len(segments))
-	pieceNums := make([]uint16, 0, len(segments))
-
-	for _, segment := range segments {
-		pieceNum := findPieceNum(segment, alias)
-		pieceNums = append(pieceNums, pieceNum)
-		pieceId := segment.RootPieceID.Derive(target.ID, int32(pieceNum))
-		pieceIds = append(pieceIds, pieceId)
-	}
-
-	response, err := client.Exists(ctx, &pb.ExistsRequest{
-		PieceIds: pieceIds,
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if len(response.Missing) == 0 {
-		for i := range segments {
-			segments[i].Status.MarkFound()
-		}
-		return nil
-	}
-
-	missing := make(map[uint32]struct{}, len(segments))
-	for _, m := range response.Missing {
-		missing[m] = struct{}{}
-	}
-
-	for i := range segments {
-		_, miss := missing[uint32(i)]
-		if miss {
-			segments[i].Status.MarkNotFound()
-			if service.reportPiece != nil {
-				reportErr := service.reportPiece(ctx, &segments[i].VerifySegment, target.ID, int(pieceNums[i]), audit.OutcomeFailure)
-				err = errs.Combine(err, reportErr)
-			}
-		} else {
-			segments[i].Status.MarkFound()
-		}
-	}
-
-	return err
 }
 
 // rateLimiter limits the rate of some type of event. It acts like a token

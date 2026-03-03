@@ -10,9 +10,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/tagsql"
-	"storj.io/storj/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/sqliteutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // StorageUsageDBName represents the database name.
@@ -34,7 +35,7 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_end_time, timestamp)
 			VALUES(?,?,?,?)`
 
-	return withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
+	return sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
 		for _, stamp := range stamps {
 			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalEndTime.UTC(), stamp.IntervalStart.UTC())
 
@@ -49,7 +50,7 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 
 // GetDaily returns daily storage usage stamps for particular satellite
 // for provided time range.
-func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
+func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// hour_interval = current row interval_end_time - previous row interval_end_time
@@ -85,7 +86,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 
 	var stamps []storageusage.Stamp
 	for rows.Next() {
-		var satellite storj.NodeID
+		var satellite storxnetwork.NodeID
 		var atRestTotal, intervalInHours sql.NullFloat64
 		var timestamp time.Time
 
@@ -211,7 +212,7 @@ func (db *storageUsageDB) Summary(ctx context.Context, from, to time.Time) (_, _
 }
 
 // SatelliteSummary returns aggregated storage usage in Bytes*hour and average usage in bytes for a particular satellite.
-func (db *storageUsageDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_, _ float64, err error) {
+func (db *storageUsageDB) SatelliteSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_, _ float64, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 	var summary, averageUsageInBytes sql.NullFloat64
 

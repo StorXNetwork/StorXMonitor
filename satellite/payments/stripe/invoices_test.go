@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/billing"
-	stripe1 "storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	stripe1 "github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func TestInvoices(t *testing.T) {
@@ -62,6 +62,9 @@ func TestInvoices(t *testing.T) {
 			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripe1.MockInvoicesPayFailure)
 			require.Error(t, err)
 			require.Nil(t, confirmedPI)
+
+			_, err = satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripe1.MockInvoicesPaySuccess)
+			require.NoError(t, err)
 		})
 		t.Run("Create and Get success", func(t *testing.T) {
 			pi, err := satellite.API.Payments.Accounts.Invoices().Create(ctx, userID, price, desc)
@@ -73,6 +76,39 @@ func TestInvoices(t *testing.T) {
 			require.Equal(t, pi.ID, pi2.ID)
 			require.Equal(t, pi.Status, pi2.Status)
 			require.Equal(t, pi.Amount, pi2.Amount)
+		})
+		t.Run("List failed", func(t *testing.T) {
+			stripeInvoices := satellite.API.Payments.StripeClient.Invoices()
+			invoices := satellite.API.Payments.Accounts.Invoices()
+
+			pi, err := invoices.Create(ctx, userID, price, desc)
+			require.NoError(t, err)
+			require.NotNil(t, pi)
+
+			_, err = stripeInvoices.FinalizeInvoice(pi.ID, &stripe.InvoiceFinalizeInvoiceParams{Params: stripe.Params{Context: ctx}})
+			require.NoError(t, err)
+
+			inv, err := stripeInvoices.Get(pi.ID, &stripe.InvoiceParams{Params: stripe.Params{Context: ctx}})
+			require.NoError(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+			require.False(t, inv.Attempted)
+
+			failed, err := invoices.ListFailed(ctx, &userID)
+			require.NoError(t, err)
+			require.Empty(t, failed)
+
+			inv, err = stripeInvoices.Pay(pi.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPayFailure),
+			})
+			require.Error(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+			require.True(t, inv.Attempted)
+
+			failed, err = invoices.ListFailed(ctx, &userID)
+			require.NoError(t, err)
+			require.Len(t, failed, 1)
+			require.Equal(t, pi.ID, failed[0].ID)
 		})
 	})
 }

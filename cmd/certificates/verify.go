@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
+	"github.com/StorXNetwork/common/identity"
 )
 
 type verifyConfig struct {

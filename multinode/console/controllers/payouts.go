@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/multinode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/multinode/payouts"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -69,7 +69,7 @@ func (controller *Payouts) NodeExpectations(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(id)
+	nodeID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -175,7 +175,7 @@ func (controller *Payouts) SummarySatellitePeriod(w http.ResponseWriter, r *http
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(id)
+	satelliteID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -208,7 +208,7 @@ func (controller *Payouts) SummarySatellite(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(id)
+	satelliteID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -241,7 +241,7 @@ func (controller *Payouts) Paystub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(nodeIDstring)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDstring)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -274,7 +274,7 @@ func (controller *Payouts) PaystubSatellite(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(id)
+	satelliteID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -286,7 +286,7 @@ func (controller *Payouts) PaystubSatellite(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(nodeIDstring)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDstring)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -319,7 +319,7 @@ func (controller *Payouts) PaystubSatellitePeriod(w http.ResponseWriter, r *http
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(id)
+	satelliteID, err := storxnetwork.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -331,7 +331,7 @@ func (controller *Payouts) PaystubSatellitePeriod(w http.ResponseWriter, r *http
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(nodeIDstring)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDstring)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -370,7 +370,7 @@ func (controller *Payouts) PaystubPeriod(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	nodeID, err := storj.NodeIDFromString(nodeIDstring)
+	nodeID, err := storxnetwork.NodeIDFromString(nodeIDstring)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
@@ -407,7 +407,7 @@ func (controller *Payouts) HeldAmountSummary(w http.ResponseWriter, r *http.Requ
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("node id segment parameter is missing"))
 		return
 	}
-	nodeID, err := storj.NodeIDFromString(idString)
+	nodeID, err := storxnetwork.NodeIDFromString(idString)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return

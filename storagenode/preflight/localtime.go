@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 )
 
 // ErrClockOutOfSyncMinor is the error class for system clock is off by more than 10m.
@@ -65,14 +65,14 @@ func (localTime *LocalTime) Check(ctx context.Context) (err error) {
 			currentLocalTime := time.Now().UTC()
 			satelliteTime, err := localTime.getSatelliteTime(ctx, satellite)
 			if err != nil {
-				localTime.log.Error("unable to get satellite system time", zap.Stringer("Satellite ID", satellite), zap.Error(err))
+				localTime.log.Error("unable to get satellite system time", zap.Stringer("satellite_id", satellite), zap.Error(err))
 				results[i] = ErrClockOutOfSyncMajor.Wrap(err)
 				return nil
 			}
 
 			err = localTime.checkSatelliteTime(ctx, satelliteTime.GetTimestamp(), currentLocalTime)
 			if err != nil {
-				localTime.log.Error("system clock is out of sync with satellite", zap.Stringer("Satellite ID", satellite), zap.Error(err))
+				localTime.log.Error("system clock is out of sync with satellite", zap.Stringer("satellite_id", satellite), zap.Error(err))
 				if ErrClockOutOfSyncMinor.Has(err) {
 					return nil
 				}
@@ -99,7 +99,7 @@ func (localTime *LocalTime) Check(ctx context.Context) (err error) {
 	return nil
 }
 
-func (localTime *LocalTime) getSatelliteTime(ctx context.Context, satelliteID storj.NodeID) (_ *pb.GetTimeResponse, err error) {
+func (localTime *LocalTime) getSatelliteTime(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *pb.GetTimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeurl, err := localTime.trust.GetNodeURL(ctx, satelliteID)

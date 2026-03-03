@@ -7,22 +7,22 @@ import (
 	"context"
 	"encoding/base64"
 	"math/rand"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var (
@@ -41,9 +41,11 @@ type Config struct {
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 
 	// Chore config values
-	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
+	Interval       time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
+	CheckInTimeout time.Duration `help:"timeout for the check-in request" releaseDefault:"10m" devDefault:"15s" testDefault:"5s"`
 
-	Tags SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
+	Tags           SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
+	SelfSignedTags []string   `help:"coma separated key=value pairs, which will be self signed and used as tags"`
 }
 
 // SignedTags represents base64 encoded signed tags.
@@ -60,7 +62,7 @@ func (u *SignedTags) String() string {
 		return ""
 	}
 	p := pb.SignedNodeTagSets(*u)
-	raw, err := proto.Marshal(&p)
+	raw, err := pb.Marshal(&p)
 	if err != nil {
 		return err.Error()
 	}
@@ -81,7 +83,7 @@ func (u *SignedTags) Set(s string) error {
 		if err != nil {
 			return errs.New("signed tag configuration #%d is not base64 encoded: %s", i+1, s)
 		}
-		err = proto.Unmarshal(raw, &p)
+		err = pb.Unmarshal(raw, &p)
 		if err != nil {
 			return errs.New("signed tag configuration #%d is not a pb.SignedNodeTagSets{}: %s", i+1, s)
 		}
@@ -94,7 +96,7 @@ var _ pflag.Value = &SignedTags{}
 
 // NodeInfo contains information necessary for introducing storagenode to satellite.
 type NodeInfo struct {
-	ID                  storj.NodeID
+	ID                  storxnetwork.NodeID
 	Address             string
 	Version             pb.NodeVersion
 	Capacity            pb.NodeCapacity
@@ -102,6 +104,8 @@ type NodeInfo struct {
 	NoiseKeyAttestation *pb.NoiseKeyAttestation
 	DebounceLimit       int
 	FastOpen            bool
+	HashstoreWriteToNew func() bool
+	HashstoreMemtbl     bool
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -110,10 +114,11 @@ type Service struct {
 	rand   *rand.Rand
 	dialer rpc.Dialer
 
-	mu   sync.Mutex
-	self NodeInfo
+	mu               sync.Mutex
+	self             NodeInfo
+	checkinCallbacks []func(context.Context, storxnetwork.NodeID, *pb.CheckInResponse) error
 
-	trust     *trust.Pool
+	trust     trust.TrustedSatelliteSource
 	quicStats *QUICStats
 
 	initialized sync2.Fence
@@ -122,7 +127,7 @@ type Service struct {
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool, quicStats *QUICStats, tags *pb.SignedNodeTagSets) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust trust.TrustedSatelliteSource, quicStats *QUICStats, tags *pb.SignedNodeTagSets) *Service {
 	return &Service{
 		log:       log,
 		rand:      rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -134,48 +139,58 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.
 	}
 }
 
+// RegisterCheckinCallback registers a checkin callback.
+func (service *Service) RegisterCheckinCallback(cb func(ctx context.Context, satellite storxnetwork.NodeID, resp *pb.CheckInResponse) error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	service.checkinCallbacks = append(service.checkinCallbacks, cb)
+}
+
 // PingSatellites attempts to ping all satellites in trusted list until backoff reaches maxInterval.
-func (service *Service) PingSatellites(ctx context.Context, maxInterval time.Duration) (err error) {
+func (service *Service) PingSatellites(ctx context.Context, maxInterval, timeout time.Duration) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	satellites := service.trust.GetSatellites(ctx)
 	var group errgroup.Group
 	for _, satellite := range satellites {
 		satellite := satellite
 		group.Go(func() error {
-			return service.pingSatellite(ctx, satellite, maxInterval)
+			return service.pingSatellite(ctx, satellite, maxInterval, timeout)
 		})
 	}
 	return group.Wait()
 }
 
-func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeID, maxInterval time.Duration) error {
+func (service *Service) pingSatellite(ctx context.Context, satellite storxnetwork.NodeID, maxInterval, timeout time.Duration) error {
 	interval := initialBackOff
 	attempts := 0
 	for {
-		mon.Meter("satellite_contact_request").Mark(1) //mon:locked
+		mon.Meter("satellite_contact_request").Mark(1)
 
-		err := service.pingSatelliteOnce(ctx, satellite)
+		err := service.pingSatelliteOnce(ctx, satellite, timeout)
 		attempts++
 		if err == nil {
 			return nil
 		}
-		service.log.Error("ping satellite failed ", zap.Stringer("Satellite ID", satellite), zap.Int("attempts", attempts), zap.Error(err))
+		service.log.Error("ping satellite failed ", zap.Stringer("satellite_id", satellite), zap.Int("attempts", attempts), zap.Error(err))
 
 		// Sleeps until interval times out, then continue. Returns if context is cancelled.
 		if !sync2.Sleep(ctx, interval) {
-			service.log.Info("context cancelled", zap.Stringer("Satellite ID", satellite))
+			service.log.Info("context cancelled", zap.Stringer("satellite_id", satellite))
 			return nil
 		}
 		interval *= 2
 		if interval >= maxInterval {
-			service.log.Info("retries timed out for this cycle", zap.Stringer("Satellite ID", satellite))
+			service.log.Info("retries timed out for this cycle", zap.Stringer("satellite_id", satellite))
 			return nil
 		}
 	}
 }
 
-func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
+func (service *Service) pingSatelliteOnce(ctx context.Context, id storxnetwork.NodeID, timeout time.Duration) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	conn, err := service.dialSatellite(ctx, id)
 	if err != nil {
@@ -188,6 +203,15 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	if self.FastOpen {
 		features |= uint64(pb.NodeAddress_TCP_FASTOPEN_ENABLED)
 	}
+	if self.HashstoreWriteToNew != nil && self.HashstoreWriteToNew() {
+		features |= uint64(pb.CheckInRequest_HASHSTORE_FOR_NEW)
+	}
+	if self.HashstoreMemtbl {
+		features |= uint64(pb.CheckInRequest_HASHSTORE_MEMTBL)
+	}
+
+	mon.IntVal("reported_capacity").Observe(self.Capacity.FreeDisk)
+
 	resp, err := pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 		Address:             self.Address,
 		Version:             &self.Version,
@@ -202,16 +226,27 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
-	if resp != nil {
-		service.quicStats.SetStatus(resp.PingNodeSuccessQuic)
+	service.quicStats.SetStatus(resp.PingNodeSuccessQuic)
 
-		if !resp.PingNodeSuccess {
-			return errPingSatellite.New("%s", resp.PingErrorMessage)
+	if !resp.PingNodeSuccess {
+		return errPingSatellite.New("%s", resp.PingErrorMessage)
+	}
+
+	if resp.PingErrorMessage != "" {
+		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("satellite_id", id), zap.String("error", resp.GetPingErrorMessage()))
+	}
+
+	service.mu.Lock()
+	checkinCallbacks := slices.Clone(service.checkinCallbacks)
+	service.mu.Unlock()
+
+	for _, cb := range checkinCallbacks {
+		err = cb(ctx, id, resp)
+		if err != nil {
+			service.log.Error("checkin callback failed", zap.Error(err))
 		}
 	}
-	if resp.PingErrorMessage != "" {
-		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("Satellite ID", id), zap.String("Error", resp.GetPingErrorMessage()))
-	}
+
 	return nil
 }
 
@@ -241,7 +276,7 @@ func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats
 		if err != nil {
 			stats.SetStatus(false)
 			// log warning and try the next trusted satellite
-			service.log.Warn("failed PingMe request to satellite", zap.Stringer("Satellite ID", satellite), zap.Error(err))
+			service.log.Warn("failed PingMe request to satellite", zap.Stringer("satellite_id", satellite), zap.Error(err))
 			continue
 		}
 
@@ -253,7 +288,7 @@ func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats
 	return stats, errPingSatellite.New("failed to ping storage node using QUIC: %q", err)
 }
 
-func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.NodeID) (err error) {
+func (service *Service) requestPingMeOnce(ctx context.Context, satellite storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx, satellite)(&err)
 
 	conn, err := service.dialSatellite(ctx, satellite)
@@ -274,7 +309,7 @@ func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.N
 	return nil
 }
 
-func (service *Service) dialSatellite(ctx context.Context, id storj.NodeID) (*rpc.Conn, error) {
+func (service *Service) dialSatellite(ctx context.Context, id storxnetwork.NodeID) (*rpc.Conn, error) {
 	nodeurl, err := service.trust.GetNodeURL(ctx, id)
 	if err != nil {
 		return nil, errPingSatellite.Wrap(err)

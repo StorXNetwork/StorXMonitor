@@ -68,7 +68,7 @@ type Config struct {
 
 ```yaml
 backup:
-  backup_dir: "/var/storj/backups"
+  backup_dir: "/var/storxnetwork/backups"
   max_concurrent_pages: 10
   page_size: 100
   chore_interval: "24h"
@@ -104,7 +104,7 @@ satellite backup list
 ### Programmatic Usage
 
 ```go
-import "storj.io/storj/satellite/backup"
+import "github.com/StorXNetwork/StorXMonitor/satellite/backup"
 
 // Create configuration
 config := &backup.Config{
@@ -418,7 +418,7 @@ go test ./satellite/backup -tags=security -v
 ### Docker Deployment
 
 ```dockerfile
-FROM storj/satellite:latest
+FROM storxnetwork/satellite:latest
 
 COPY backup-config.yaml /etc/satellite/
 COPY backup-scripts/ /usr/local/bin/
@@ -445,11 +445,11 @@ spec:
     spec:
       containers:
       - name: satellite-backup
-        image: storj/satellite:latest
+        image: storxnetwork/satellite:latest
         command: ["satellite", "run", "backup"]
         volumeMounts:
         - name: backup-storage
-          mountPath: /var/storj/backups
+          mountPath: /var/storxnetwork/backups
         - name: config
           mountPath: /etc/satellite
       volumes:
@@ -467,8 +467,8 @@ spec:
 
 1. **Clone Repository**
    ```bash
-   git clone https://github.com/storj/storj.git
-   cd storj
+   git clone https://github.com/storxnetwork/storxnetwork.git
+   cd storxnetwork
    ```
 
 2. **Install Dependencies**
@@ -510,7 +510,7 @@ This project is licensed under the Apache License 2.0. See the LICENSE file for 
 
 For support and questions:
 
-- **Documentation**: [docs.storj.io](https://docs.storj.io)
-- **GitHub Issues**: [github.com/storj/storj/issues](https://github.com/storj/storj/issues)
-- **Community**: [forum.storj.io](https://forum.storj.io)
-- **Discord**: [discord.gg/storj](https://discord.gg/storj) 
+- **Documentation**: [docs.storxnetwork.io](https://docs.storxnetwork.io)
+- **GitHub Issues**: [github.com/storxnetwork/storxnetwork/issues](https://github.com/storxnetwork/storxnetwork/issues)
+- **Community**: [forum.storxnetwork.io](https://forum.storxnetwork.io)
+- **Discord**: [discord.gg/storxnetwork](https://discord.gg/storxnetwork) 

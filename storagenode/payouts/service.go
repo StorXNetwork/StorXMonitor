@@ -15,11 +15,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 type Service struct {
 	log *zap.Logger
 
-	stefanSatellite storj.NodeID
+	stefanSatellite storxnetwork.NodeID
 
 	db           DB
 	reputationDB reputation.DB
@@ -48,7 +48,7 @@ type Service struct {
 
 // NewService creates new instance of service.
 func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, satelliteDB satellites.DB, trust *trust.Pool) (_ *Service, err error) {
-	id, err := storj.NodeIDFromString("118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW")
+	id, err := storxnetwork.NodeIDFromString("118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW")
 	if err != nil {
 		return &Service{}, err
 	}
@@ -64,7 +64,7 @@ func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, satelliteDB 
 }
 
 // SatellitePayStubMonthly retrieves held amount for particular satellite for selected month from storagenode database.
-func (service *Service) SatellitePayStubMonthly(ctx context.Context, satelliteID storj.NodeID, period string) (payStub *PayStub, err error) {
+func (service *Service) SatellitePayStubMonthly(ctx context.Context, satelliteID storxnetwork.NodeID, period string) (payStub *PayStub, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
 
 	payStub, err = service.db.GetPayStub(ctx, satelliteID, period)
@@ -98,7 +98,7 @@ func (service *Service) AllPayStubsMonthly(ctx context.Context, period string) (
 }
 
 // SatellitePayStubPeriod retrieves held amount for all satellites for selected months from storagenode database.
-func (service *Service) SatellitePayStubPeriod(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payStubs []PayStub, err error) {
+func (service *Service) SatellitePayStubPeriod(ctx context.Context, satelliteID storxnetwork.NodeID, periodStart, periodEnd string) (payStubs []PayStub, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &periodStart, &periodEnd)(&err)
 
 	periods, err := parsePeriodRange(periodStart, periodEnd)
@@ -156,7 +156,7 @@ func (service *Service) AllPayStubsPeriod(ctx context.Context, periodStart, peri
 }
 
 // SatellitePeriods retrieves all periods for concrete satellite in which we have some payouts data.
-func (service *Service) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
+func (service *Service) SatellitePeriods(ctx context.Context, satelliteID storxnetwork.NodeID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.SatellitePeriods(ctx, satelliteID)

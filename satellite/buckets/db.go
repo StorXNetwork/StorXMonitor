@@ -5,15 +5,16 @@ package buckets
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -28,22 +29,56 @@ var (
 
 	// ErrBucketAlreadyExists is used to indicate that bucket already exists.
 	ErrBucketAlreadyExists = errs.Class("bucket already exists")
+
+	// ErrConflict is used when a request conflicts with the state of a bucket.
+	ErrConflict = errs.Class("bucket operation conflict")
+
+	// ErrUnavailable is used when an operation is temporarily unavailable
+	// due to a transient issue with the database's state.
+	ErrUnavailable = errs.Class("bucket operation temporarily unavailable")
+
+	// ErrLocked is used when an operation fails because a bucket has Object Lock enabled.
+	ErrLocked = errs.Class("bucket has Object Lock enabled")
 )
 
 // Bucket contains information about a specific bucket.
 type Bucket struct {
-	ID                          uuid.UUID
-	Name                        string
-	ProjectID                   uuid.UUID
-	CreatedBy                   uuid.UUID
-	UserAgent                   []byte
-	Created                     time.Time
-	PathCipher                  storj.CipherSuite
-	DefaultSegmentsSize         int64
-	DefaultRedundancyScheme     storj.RedundancyScheme
-	DefaultEncryptionParameters storj.EncryptionParameters
-	Placement                   storj.PlacementConstraint
-	Versioning                  Versioning
+	ID                uuid.UUID
+	Name              string
+	ProjectID         uuid.UUID
+	CreatedBy         uuid.UUID
+	UserAgent         []byte
+	Created           time.Time
+	Placement         storxnetwork.PlacementConstraint
+	Versioning        Versioning
+	ObjectLock        ObjectLockSettings
+	ImmutabilityRules ImmutabilityRules
+}
+
+// UpdateBucketObjectLockParams contains the parameters for updating bucket object lock settings.
+type UpdateBucketObjectLockParams struct {
+	ProjectID             uuid.UUID
+	Name                  string
+	ObjectLockEnabled     bool
+	DefaultRetentionMode  **storxnetwork.RetentionMode
+	DefaultRetentionDays  **int
+	DefaultRetentionYears **int
+}
+
+// ObjectLockSettings contains a bucket's object lock configurations.
+type ObjectLockSettings struct {
+	Enabled               bool
+	DefaultRetentionMode  storxnetwork.RetentionMode
+	DefaultRetentionDays  int
+	DefaultRetentionYears int
+}
+
+// ImmutabilityRules represents the immutability rules of a bucket.
+// Deletion permission is based on the object's or bucket's latest file/folder created_at
+// plus RetentionPeriod, not on when these rules were updated.
+type ImmutabilityRules struct {
+	Immutability    bool `json:"immutability"`
+	RetentionPeriod int  `json:"retention_period"`
 }
 
 // ListDirection specifies listing direction.
@@ -75,10 +110,51 @@ func (v Versioning) IsUnversioned() bool {
 	return v == VersioningUnsupported || v == Unversioned
 }
 
+// IsVersioned returns true if bucket is either in a versioned or suspended state.
+func (v Versioning) IsVersioned() bool {
+	return !v.IsUnversioned()
+}
+
+// String returns the name.
+func (v Versioning) String() string {
+	switch v {
+	case VersioningUnsupported:
+		return "unsupported"
+	case Unversioned:
+		return "unversioned"
+	case VersioningEnabled:
+		return "enabled"
+	case VersioningSuspended:
+		return "suspended"
+	default:
+		return fmt.Sprintf("unknown Versioning(%d)", v)
+	}
+}
+
+// Tag represents a single bucket tag.
+type Tag struct {
+	Key   string
+	Value string
+}
+
 // MinimalBucket contains minimal bucket fields for metainfo protocol.
 type MinimalBucket struct {
-	Name      []byte
-	CreatedAt time.Time
+	Name       []byte
+	CreatedBy  uuid.UUID
+	CreatedAt  time.Time
+	Placement  storxnetwork.PlacementConstraint
+	ObjectLock ObjectLockSettings
+}
+
+// NotificationConfig contains bucket event notification configuration.
+type NotificationConfig struct {
+	ConfigID     string
+	TopicName    string
+	Events       []string
+	FilterPrefix []byte
+	FilterSuffix []byte
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // ListOptions lists objects.
@@ -116,7 +192,7 @@ type DB interface {
 	// GetBucket returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket Bucket, err error)
 	// GetBucketPlacement returns with the placement constraint identifier.
-	GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storj.PlacementConstraint, err error)
+	GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storxnetwork.PlacementConstraint, err error)
 	// GetBucketVersioningState returns with the versioning state of the bucket.
 	GetBucketVersioningState(ctx context.Context, bucketName []byte, projectID uuid.UUID) (versioningState Versioning, err error)
 	// EnableBucketVersioning enables versioning for a bucket.
@@ -131,16 +207,37 @@ type DB interface {
 	UpdateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
 	// UpdateBucketMigrationStatus updates the migration status of a bucket.
 	UpdateBucketMigrationStatus(ctx context.Context, bucketName []byte, projectID uuid.UUID, status int) error
+	// UpdateBucketImmutabilityRules updates the immutability rules of a bucket.
+	UpdateBucketImmutabilityRules(ctx context.Context, bucketName []byte, projectID uuid.UUID, rules ImmutabilityRules) error
 	// UpdateUserAgent updates buckets user agent.
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
+	// UpdateBucketObjectLockSettings updates object lock settings for a bucket without an extra database query.
+	UpdateBucketObjectLockSettings(ctx context.Context, params UpdateBucketObjectLockParams) (_ Bucket, err error)
+	// GetBucketObjectLockSettings returns a bucket's object lock settings.
+	GetBucketObjectLockSettings(ctx context.Context, bucketName []byte, projectID uuid.UUID) (settings *ObjectLockSettings, err error)
 	// DeleteBucket deletes a bucket
 	DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error)
 	// ListBuckets returns all buckets for a project
 	ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts ListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList List, err error)
 	// CountBuckets returns the number of buckets a project currently has
 	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
+	// CountObjectLockBuckets returns the number of buckets a project currently has with object lock enabled.
+	CountObjectLockBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error)
 	// IterateBucketLocations iterates through all buckets with specific page size.
 	IterateBucketLocations(ctx context.Context, pageSize int, fn func([]metabase.BucketLocation) error) (err error)
 	// DeleteAllBuckets deletes all buckets for a project
 	DeleteAllBucketsByProjectID(ctx context.Context, projectID uuid.UUID) (err error)
+	// GetBucketObjectLockEnabled returns whether a bucket has Object Lock enabled.
+	GetBucketObjectLockEnabled(ctx context.Context, bucketName []byte, projectID uuid.UUID) (enabled bool, err error)
+	// GetBucketTagging returns the set of tags placed on a bucket.
+	GetBucketTagging(ctx context.Context, bucketName []byte, projectID uuid.UUID) (tags []Tag, err error)
+	// SetBucketTagging places a set of tags on a bucket.
+	SetBucketTagging(ctx context.Context, bucketName []byte, projectID uuid.UUID, tags []Tag) (err error)
+	// UpdateBucketNotificationConfig updates the bucket notification configuration for a bucket.
+	UpdateBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID, config NotificationConfig) error
+	// GetBucketNotificationConfig retrieves the notification configuration for a bucket.
+	// Returns nil if no configuration exists.
+	GetBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (*NotificationConfig, error)
+	// DeleteBucketNotificationConfig removes the notification configuration for a bucket.
+	DeleteBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) error
 }

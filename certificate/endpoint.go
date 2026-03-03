@@ -8,12 +8,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/certificate/rpcerrs"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
+	"github.com/StorXNetwork/StorXMonitor/certificate/rpcerrs"
 )
 
 // Endpoint implements pb.CertificatesServer.
@@ -94,9 +94,9 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 		Token: *token,
 	}
 	endpoint.log.Info("certificate successfully signed",
-		zap.Stringer("Node ID", peerIdent.ID),
+		zap.Stringer("node_id", peerIdent.ID),
 		zap.Uint16("difficulty", difficulty),
-		zap.Stringer("truncated token", tokenFormatter),
+		zap.Stringer("truncated_token", tokenFormatter),
 	)
 
 	return &pb.SigningResponse{

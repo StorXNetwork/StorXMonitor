@@ -7,7 +7,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
 )
 
 // StatusMap is used to apply the correct rpc status code to error classes.
@@ -48,5 +48,5 @@ func (sanitizer *Log) Error(msg string, err error) error {
 	if sanitizer.wrapper == nil {
 		return rpcstatus.Error(rpcstatus.Internal, msg)
 	}
-	return rpcstatus.Error(rpcstatus.Internal, sanitizer.wrapper.New(msg).Error())
+	return rpcstatus.Error(rpcstatus.Internal, sanitizer.wrapper.New("%v", msg).Error())
 }

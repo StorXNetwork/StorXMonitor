@@ -11,18 +11,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RandObjectStream returns a random object stream.
 func RandObjectStream() metabase.ObjectStream {
 	return metabase.ObjectStream{
 		ProjectID:  testrand.UUID(),
-		BucketName: testrand.BucketName(),
+		BucketName: metabase.BucketName(testrand.BucketName()),
 		ObjectKey:  RandObjectKey(),
 		Version:    12345,
 		StreamID:   testrand.UUID(),
@@ -107,75 +107,133 @@ func CreateExpiredObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	return CommitObject{
 		Opts: metabase.CommitObject{
 			ObjectStream: obj,
+			ExpiresAt:    &expiresAt,
 		},
 	}.Check(ctx, t, db)
 }
 
-// CreateFullObjectsWithKeys creates multiple objects with the specified keys.
-func CreateFullObjectsWithKeys(ctx *testcontext.Context, t testing.TB, db *metabase.DB, projectID uuid.UUID, bucketName string, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.LoopObjectEntry {
-	objects := make(map[metabase.ObjectKey]metabase.LoopObjectEntry, len(keys))
-	for _, key := range keys {
-		obj := RandObjectStream()
-		obj.ProjectID = projectID
-		obj.BucketName = bucketName
-		obj.ObjectKey = key
-
-		CreateObject(ctx, t, db, obj, 0)
-
-		objects[key] = metabase.LoopObjectEntry{
-			ObjectStream: obj,
-			Status:       metabase.CommittedUnversioned,
-			CreatedAt:    time.Now(),
-		}
-	}
-
-	return objects
-}
-
 // CreateSegments creates multiple segments for the specified object.
-func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) {
-	for i := byte(0); i < numberOfSegments; i++ {
+func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) []metabase.Segment {
+	segments := make([]metabase.Segment, 0, numberOfSegments)
+	for i := range numberOfSegments {
 		BeginSegment{
 			Opts: metabase.BeginSegment{
 				ObjectStream: obj,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{i + 1},
+				RootPieceID:  storxnetwork.PieceID{i + 1},
 				Pieces: []metabase.Piece{{
 					Number:      1,
 					StorageNode: testrand.NodeID(),
 				}},
+				ObjectExistsChecked: true,
 			},
 		}.Check(ctx, t, db)
+
+		commitSegmentOpts := metabase.CommitSegment{
+			ObjectStream: obj,
+			Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+			RootPieceID:  storxnetwork.PieceID{1},
+
+			ExpiresAt: expiresAt,
+
+			Pieces: metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
+
+			EncryptedKey:      []byte{3},
+			EncryptedKeyNonce: []byte{4},
+			EncryptedETag:     []byte{5},
+
+			EncryptedSize: 1024,
+			PlainSize:     512,
+			PlainOffset:   0,
+			Redundancy:    DefaultRedundancy,
+		}
 
 		CommitSegment{
-			Opts: metabase.CommitSegment{
-				ObjectStream: obj,
-				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{1},
-
-				ExpiresAt: expiresAt,
-
-				Pieces: metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-
-				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: []byte{4},
-				EncryptedETag:     []byte{5},
-
-				EncryptedSize: 1024,
-				PlainSize:     512,
-				PlainOffset:   0,
-				Redundancy:    DefaultRedundancy,
-			},
+			Opts: commitSegmentOpts,
 		}.Check(ctx, t, db)
+
+		segments = append(segments, metabase.Segment{
+			StreamID:    obj.StreamID,
+			Position:    commitSegmentOpts.Position,
+			RootPieceID: commitSegmentOpts.RootPieceID,
+
+			CreatedAt: time.Now(),
+			ExpiresAt: expiresAt,
+
+			Pieces: commitSegmentOpts.Pieces,
+
+			EncryptedKey:      commitSegmentOpts.EncryptedKey,
+			EncryptedKeyNonce: commitSegmentOpts.EncryptedKeyNonce,
+			EncryptedETag:     commitSegmentOpts.EncryptedETag,
+
+			EncryptedSize: commitSegmentOpts.EncryptedSize,
+			PlainSize:     commitSegmentOpts.PlainSize,
+			PlainOffset:   commitSegmentOpts.PlainOffset,
+			Redundancy:    commitSegmentOpts.Redundancy,
+		})
 	}
+	return segments
+}
+
+// MakeObject creates a slice of objects for the given object stream without inserting to the database.
+func MakeObject(obj metabase.ObjectStream, status metabase.ObjectStatus, expiresAt *time.Time, numberOfSegments byte) (metabase.RawObject, []metabase.RawSegment) {
+	segments := MakeSegments(obj, expiresAt, numberOfSegments)
+
+	object := metabase.RawObject{
+		ObjectStream: obj,
+
+		CreatedAt: time.Now(),
+		ExpiresAt: expiresAt,
+
+		Status:       status,
+		SegmentCount: int32(numberOfSegments),
+
+		Encryption: DefaultEncryption,
+	}
+	for _, seg := range segments {
+		object.TotalPlainSize += int64(seg.PlainSize)
+		object.TotalEncryptedSize += int64(seg.EncryptedSize)
+	}
+
+	return object, segments
+}
+
+// MakeSegments creates a slice of segments for the given object stream without inserting to the database.
+func MakeSegments(obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) []metabase.RawSegment {
+	var segments []metabase.RawSegment
+	for i := range numberOfSegments {
+		segments = append(segments, metabase.RawSegment{
+			StreamID:    obj.StreamID,
+			Position:    metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+			RootPieceID: storxnetwork.PieceID{1},
+
+			CreatedAt: time.Now(),
+			ExpiresAt: expiresAt,
+
+			Pieces: metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
+
+			EncryptedKey:      []byte{3},
+			EncryptedKeyNonce: []byte{4},
+			EncryptedETag:     []byte{5},
+
+			EncryptedSize: 1024,
+			PlainSize:     512,
+			PlainOffset:   int64(i) * 512,
+			Redundancy:    DefaultRedundancy,
+		})
+	}
+	return segments
 }
 
 // CreateVersionedObjectsWithKeys creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to final versions.
-func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
+func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
-		for _, version := range versions {
+		for i, version := range versions {
+			if i > 0 && version <= versions[i-1] {
+				panic("versions should be in ascending order")
+			}
 			obj := RandObjectStream()
 			obj.ProjectID = projectID
 			obj.BucketName = bucketName
@@ -186,6 +244,7 @@ func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *
 			CreateObjectVersioned(ctx, t, db, obj, 0)
 
 			objects[key] = metabase.ObjectEntry{
+				IsLatest:   i+1 == len(versions),
 				ObjectKey:  obj.ObjectKey,
 				Version:    obj.Version,
 				StreamID:   obj.StreamID,
@@ -201,10 +260,14 @@ func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *
 
 // CreatePendingObjectsWithKeys creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to all versions.
-func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
+func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
-		for _, version := range versions {
+		for i, version := range versions {
+			if i > 0 && version <= versions[i-1] {
+				panic("versions should be in ascending order")
+			}
+
 			obj := RandObjectStream()
 			obj.ProjectID = projectID
 			obj.BucketName = bucketName
@@ -216,6 +279,7 @@ func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *me
 
 			k := key + ":" + metabase.ObjectKey(strconv.Itoa(int(version)))
 			objects[k] = metabase.ObjectEntry{
+				IsLatest:   false,
 				ObjectKey:  obj.ObjectKey,
 				Version:    obj.Version,
 				StreamID:   obj.StreamID,
@@ -231,11 +295,15 @@ func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *me
 
 // CreateVersionedObjectsWithKeysAll creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to a slice of all versions.
-func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version, sortDesc bool) map[metabase.ObjectKey][]metabase.ObjectEntry {
+func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version, sortDesc bool) map[metabase.ObjectKey][]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey][]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
 		items := []metabase.ObjectEntry{}
-		for _, version := range versions {
+		for i, version := range versions {
+			if i > 0 && version <= versions[i-1] {
+				panic("versions should be in ascending order")
+			}
+
 			obj := RandObjectStream()
 			obj.ProjectID = projectID
 			obj.BucketName = bucketName
@@ -246,6 +314,7 @@ func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, d
 			CreateObjectVersioned(ctx, t, db, obj, 0)
 
 			items = append(items, metabase.ObjectEntry{
+				IsLatest:   i+1 == len(versions),
 				ObjectKey:  obj.ObjectKey,
 				Version:    obj.Version,
 				StreamID:   obj.StreamID,
@@ -285,11 +354,11 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		boeOpts = *co.BeginObjectExactVersion
 	}
 
-	object, err := db.TestingBeginObjectExactVersion(ctx, boeOpts)
+	object, err := db.BeginObjectExactVersion(ctx, boeOpts)
 	require.NoError(t, err)
 
 	createdSegments := []metabase.Segment{}
-	for i := byte(0); i < numberOfSegments; i++ {
+	for i := range numberOfSegments {
 		if co.CreateSegment != nil {
 			segment := co.CreateSegment(object, int(i))
 			createdSegments = append(createdSegments, segment)
@@ -298,11 +367,12 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-					RootPieceID:  storj.PieceID{i + 1},
+					RootPieceID:  storxnetwork.PieceID{i + 1},
 					Pieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
 					}},
+					ObjectExistsChecked: true,
 				},
 			}.Check(ctx, t, db)
 
@@ -310,8 +380,8 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				ObjectStream: obj,
 				ExpiresAt:    boeOpts.ExpiresAt,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{1},
-				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				RootPieceID:  storxnetwork.PieceID{1},
+				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storxnetwork.NodeID{2}}},
 
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -327,17 +397,11 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				Opts: commitSegmentOpts,
 			}.Check(ctx, t, db)
 
-			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-				StreamID: commitSegmentOpts.StreamID,
-				Position: commitSegmentOpts.Position,
-			})
-			require.NoError(t, err)
-
 			createdSegments = append(createdSegments, metabase.Segment{
 				StreamID: obj.StreamID,
 				Position: commitSegmentOpts.Position,
 
-				CreatedAt:  segment.CreatedAt,
+				CreatedAt:  time.Now(),
 				RepairedAt: nil,
 				ExpiresAt:  nil,
 
@@ -355,7 +419,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				InlineData: nil,
 				Pieces:     commitSegmentOpts.Pieces,
 
-				Placement: segment.Placement,
+				Placement: commitSegmentOpts.Placement,
 			})
 		}
 	}
@@ -365,6 +429,10 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	}
 	if co.CommitObject != nil {
 		coOpts = *co.CommitObject
+	}
+
+	if boeOpts.ExpiresAt != nil && coOpts.ExpiresAt == nil {
+		coOpts.ExpiresAt = boeOpts.ExpiresAt
 	}
 
 	createdObject := CommitObject{
@@ -385,6 +453,9 @@ type CreateObjectCopy struct {
 
 	NewDisallowDelete bool
 	NewVersioned      bool
+
+	Retention metabase.Retention
+	LegalHold bool
 }
 
 // Run creates the copy.
@@ -435,16 +506,20 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	opts := cc.FinishObject
 	if opts == nil {
 		opts = &metabase.FinishCopyObject{
-			ObjectStream:                 cc.OriginalObject.ObjectStream,
-			NewStreamID:                  copyStream.StreamID,
-			NewBucket:                    copyStream.BucketName,
-			NewSegmentKeys:               newEncryptedKeysNonces,
-			NewEncryptedObjectKey:        copyStream.ObjectKey,
-			NewEncryptedMetadataKeyNonce: testrand.Nonce(),
-			NewEncryptedMetadataKey:      testrand.Bytes(32),
-
+			ObjectStream:          cc.OriginalObject.ObjectStream,
+			NewStreamID:           copyStream.StreamID,
+			NewBucket:             copyStream.BucketName,
+			NewSegmentKeys:        newEncryptedKeysNonces,
+			NewEncryptedObjectKey: copyStream.ObjectKey,
+			NewEncryptedUserData: metabase.EncryptedUserData{
+				EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+			},
 			NewDisallowDelete: cc.NewDisallowDelete,
 			NewVersioned:      cc.NewVersioned,
+
+			Retention: cc.Retention,
+			LegalHold: cc.LegalHold,
 		}
 	}
 
@@ -452,6 +527,43 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	require.NoError(t, err)
 
 	return copyObj, expectedOriginalSegments, expectedCopySegments
+}
+
+// CreateObjectWithRetention creates an object with an Object Lock retention configuration.
+func CreateObjectWithRetention(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, retention metabase.Retention) (metabase.Object, []metabase.Segment) {
+	BeginObjectExactVersion{
+		Opts: metabase.BeginObjectExactVersion{
+			ObjectStream: obj,
+			Encryption:   DefaultEncryption,
+			Retention:    retention,
+		},
+	}.Check(ctx, t, db)
+
+	segments := CreateSegments(ctx, t, db, obj, nil, numberOfSegments)
+
+	return CommitObject{
+		Opts: metabase.CommitObject{
+			ObjectStream: obj,
+		},
+	}.Check(ctx, t, db), segments
+}
+
+// CreateObjectWithRetentionAndLegalHold creates an object with an Object Lock retention and legal hold configurations.
+func CreateObjectWithRetentionAndLegalHold(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, retention metabase.Retention, legalHold bool) metabase.Object {
+	BeginObjectExactVersion{
+		Opts: metabase.BeginObjectExactVersion{
+			ObjectStream: obj,
+			Encryption:   DefaultEncryption,
+			Retention:    retention,
+			LegalHold:    legalHold,
+		},
+	}.Check(ctx, t, db)
+
+	return CommitObject{
+		Opts: metabase.CommitObject{
+			ObjectStream: obj,
+		},
+	}.Check(ctx, t, db)
 }
 
 // SegmentsToRaw converts a slice of Segment to a slice of RawSegment.
@@ -463,6 +575,14 @@ func SegmentsToRaw(segments []metabase.Segment) []metabase.RawSegment {
 	}
 
 	return rawSegments
+}
+
+// ObjectsToRaw converts a sequence of metabase.Object to a slice of metabase.RawObject.
+func ObjectsToRaw(objects ...metabase.Object) (rawObjects []metabase.RawObject) {
+	for _, obj := range objects {
+		rawObjects = append(rawObjects, metabase.RawObject(obj))
+	}
+	return rawObjects
 }
 
 // ObjectStreamToPending converts ObjectStream to PendingObjectStream.

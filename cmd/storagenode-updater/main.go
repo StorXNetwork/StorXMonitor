@@ -2,14 +2,13 @@
 // See LICENSE for copying information.
 
 //go:build !windows
-// +build !windows
 
 package main
 
 import (
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
+	"github.com/StorXNetwork/common/process"
 )
 
 func main() {
@@ -17,7 +16,7 @@ func main() {
 	zap.ReplaceGlobals(logger)
 
 	loggerFunc := func(logger *zap.Logger) *zap.Logger {
-		return logger.With(zap.String("Process", updaterServiceName))
+		return logger.With(zap.String("process", updaterServiceName))
 	}
 
 	process.ExecWithCustomConfigAndLogger(rootCmd, true, process.LoadConfig, loggerFunc)

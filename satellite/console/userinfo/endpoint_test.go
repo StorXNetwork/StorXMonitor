@@ -4,7 +4,6 @@
 package userinfo_test
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"testing"
@@ -12,33 +11,33 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/macaroon"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestEndpointGet(t *testing.T) {
 
 	// trusted identity
-	ident, err := testidentity.NewTestIdentity(context.TODO())
+	ident, err := testidentity.NewTestIdentity(t.Context())
 	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				url, err := storj.ParseNodeURL(ident.ID.String() + "@")
+				url, err := storxnetwork.ParseNodeURL(ident.ID.String() + "@")
 				require.NoError(t, err)
 
 				config.Userinfo.Enabled = true
-				config.Userinfo.AllowedPeers = storj.NodeURLs{url}
+				config.Userinfo.AllowedPeers = storxnetwork.NodeURLs{url}
 			},
 		},
 	},
@@ -90,7 +89,7 @@ func TestEndpointGet(t *testing.T) {
 
 				user, err := sat.AddUser(ctx, newUser, 1)
 				require.NoError(t, err)
-				require.Equal(t, false, user.PaidTier)
+				require.Equal(t, console.FreeUser, user.Kind)
 
 				project, err := sat.AddProject(ctx, user.ID, "info")
 				require.NoError(t, err)
@@ -134,6 +133,19 @@ func TestEndpointGet(t *testing.T) {
 				require.NoError(t, err)
 
 				// get user info again
+				response, err = endpoint.Get(peerCtx, &pb.GetUserInfoRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: key.SerializeRaw(),
+					},
+				})
+				require.NoError(t, err)
+				// user should now be in paid tier.
+				require.Equal(t, true, response.PaidTier)
+
+				kind := console.NFRUser
+				err = sat.API.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+
 				response, err = endpoint.Get(peerCtx, &pb.GetUserInfoRequest{
 					Header: &pb.RequestHeader{
 						ApiKey: key.SerializeRaw(),

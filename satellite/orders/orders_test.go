@@ -10,16 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSendingReceivingOrders(t *testing.T) {
@@ -141,7 +141,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+			Satellite: testplanet.ReconfigureRS(4, 4, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		now := time.Now()
@@ -169,7 +169,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		var expectedBucketBandwidth int64
-		expectedStorageBandwidth := make(map[storj.NodeID]int64)
+		expectedStorageBandwidth := make(map[storxnetwork.NodeID]int64)
 		for _, storageNode := range planet.StorageNodes {
 			infos, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
@@ -188,7 +188,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 
 		ordersDB := planet.Satellites[0].DB.Orders()
 
-		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
+		_, _, bucketBandwidth, err := ordersDB.TestGetBucketBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		assert.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 
@@ -252,17 +252,17 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 		uplink0Project := planet.Uplinks[0].Projects[0].ID
 		uplink1Project := planet.Uplinks[1].Projects[0].ID
 
-		wrongBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket1"), beforeRollup, afterRollup)
+		_, _, wrongBucketBandwidth, err := ordersDB.TestGetBucketBandwidth(ctx, uplink0Project, []byte("testbucket1"), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), wrongBucketBandwidth)
-		rightBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket0"), beforeRollup, afterRollup)
+		_, _, rightBucketBandwidth, err := ordersDB.TestGetBucketBandwidth(ctx, uplink0Project, []byte("testbucket0"), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Greater(t, rightBucketBandwidth, int64(0))
 
-		wrongBucketBandwidth, err = ordersDB.GetBucketBandwidth(ctx, uplink1Project, []byte("testbucket0"), beforeRollup, afterRollup)
+		_, _, wrongBucketBandwidth, err = ordersDB.TestGetBucketBandwidth(ctx, uplink1Project, []byte("testbucket0"), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), wrongBucketBandwidth)
-		rightBucketBandwidth, err = ordersDB.GetBucketBandwidth(ctx, uplink1Project, []byte("testbucket1"), beforeRollup, afterRollup)
+		_, _, rightBucketBandwidth, err = ordersDB.TestGetBucketBandwidth(ctx, uplink1Project, []byte("testbucket1"), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Greater(t, rightBucketBandwidth, int64(0))
 	})
@@ -274,7 +274,7 @@ func TestUpdateStoragenodeBandwidthSettleWithWindow(t *testing.T) {
 		now := time.Now().UTC()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
-		snID := storj.NodeID{1}
+		snID := storxnetwork.NodeID{1}
 		windowTime := now.AddDate(0, 0, -1)
 		actionAmounts := map[int32]int64{
 			int32(pb.PieceAction_GET):    100,
@@ -284,11 +284,11 @@ func TestUpdateStoragenodeBandwidthSettleWithWindow(t *testing.T) {
 
 		// confirm there aren't any records in the storagenodebandwidth or bucketbandwidth table
 		// at the beginning of the test
-		storagenodeID := storj.NodeID{1}
+		storagenodeID := storxnetwork.NodeID{1}
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, storagenodeID, time.Time{}, now)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), snbw)
-		bucketbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+		_, _, bucketbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), bucketbw)
 
@@ -356,9 +356,10 @@ func TestSettledAmountsMatch(t *testing.T) {
 
 func TestProjectBandwidthDailyRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
+
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+			Satellite: testplanet.ReconfigureRS(3, 3, 3, 3),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// stop any async flushes because we want to be sure when some values are

@@ -14,7 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"storj.io/storj/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 )
 
 // createCoupon handles POST /api/coupons - Create a new coupon (Admin-only).

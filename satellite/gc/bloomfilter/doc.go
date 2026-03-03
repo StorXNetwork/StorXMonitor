@@ -16,10 +16,10 @@ segments can be processed in parallel to speed up process.
 
 The bloomfilter.Observer will send that requests to the Storj bucket after a full
 ranged loop iteration. After that bloom filters will be downloaded and sent
-to the storage nodes with separate service from storj/satellite/gc/sender package.
+to the storage nodes with separate service from storxnetwork/satellite/gc/sender package.
 
 This bloom filter service should be run only against immutable database snapshot.
 
-See storj/docs/design/garbage-collection.md for more info.
+See storxnetwork/docs/design/garbage-collection.md for more info.
 */
 package bloomfilter

@@ -8,9 +8,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/errs2"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
 )
 
 // PieceAudit is piece audit status.

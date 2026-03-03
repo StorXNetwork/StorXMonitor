@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Chore is the contact chore for nodes announcing themselves to their trusted satellites.
@@ -22,20 +22,22 @@ type Chore struct {
 	log     *zap.Logger
 	service *Service
 
-	mu       sync.Mutex
-	cycles   map[storj.NodeID]*sync2.Cycle
-	started  sync2.Fence
-	interval time.Duration
+	mu      sync.Mutex
+	cycles  map[storxnetwork.NodeID]*sync2.Cycle
+	started sync2.Fence
+
+	interval, timeout time.Duration
 }
 
 // NewChore creates a new contact chore.
-func NewChore(log *zap.Logger, interval time.Duration, service *Service) *Chore {
+func NewChore(log *zap.Logger, interval, timeout time.Duration, service *Service) *Chore {
 	return &Chore{
 		log:     log,
 		service: service,
 
-		cycles:   make(map[storj.NodeID]*sync2.Cycle),
+		cycles:   make(map[storxnetwork.NodeID]*sync2.Cycle),
 		interval: interval,
+		timeout:  timeout,
 	}
 }
 
@@ -64,11 +66,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, satellites []storj.NodeID) {
+func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, satellites []storxnetwork.NodeID) {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 
-	trustedIDs := make(map[storj.NodeID]struct{})
+	trustedIDs := make(map[storxnetwork.NodeID]struct{})
 
 	for _, satellite := range satellites {
 		satellite := satellite // alias the loop var since it is captured below
@@ -83,7 +85,7 @@ func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, sat
 		cycle := sync2.NewCycle(chore.interval)
 		chore.cycles[satellite] = cycle
 		cycle.Start(ctx, group, func(ctx context.Context) error {
-			return chore.service.pingSatellite(ctx, satellite, chore.interval)
+			return chore.service.pingSatellite(ctx, satellite, chore.interval, chore.timeout)
 		})
 	}
 
@@ -103,6 +105,16 @@ func (chore *Chore) Pause(ctx context.Context) {
 	defer chore.mu.Unlock()
 	for _, cycle := range chore.cycles {
 		cycle.Pause()
+	}
+}
+
+// Restart restarts all the cycles in the contact chore.
+func (chore *Chore) Restart(ctx context.Context) {
+	chore.started.Wait(ctx)
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	for _, cycle := range chore.cycles {
+		cycle.Restart()
 	}
 }
 

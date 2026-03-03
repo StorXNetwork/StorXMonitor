@@ -11,13 +11,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Service exposes methods to manage GE progress.
@@ -46,7 +46,7 @@ func NewService(log *zap.Logger, store *pieces.Store, trust *trust.Pool, satelli
 // ExitingSatellite encapsulates a node address with its graceful exit progress.
 type ExitingSatellite struct {
 	satellites.ExitProgress
-	NodeURL storj.NodeURL
+	NodeURL storxnetwork.NodeURL
 }
 
 // ListPendingExits returns a slice with one record for every satellite
@@ -67,7 +67,7 @@ func (c *Service) ListPendingExits(ctx context.Context) (_ []ExitingSatellite, e
 		}
 		nodeURL, err := c.trust.GetNodeURL(ctx, sat.SatelliteID)
 		if err != nil {
-			c.log.Error("failed to get satellite address", zap.Stringer("Satellite ID", sat.SatelliteID), zap.Error(err))
+			c.log.Error("failed to get satellite address", zap.Stringer("satellite_id", sat.SatelliteID), zap.Error(err))
 			continue
 		}
 		exitingSatellites = append(exitingSatellites, ExitingSatellite{ExitProgress: sat, NodeURL: nodeURL})
@@ -78,7 +78,7 @@ func (c *Service) ListPendingExits(ctx context.Context) (_ []ExitingSatellite, e
 // DeleteSatelliteData deletes all pieces and blobs stored for a satellite.
 //
 // Note: this should only ever be called after exit has finished.
-func (c *Service) DeleteSatelliteData(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (c *Service) DeleteSatelliteData(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// delete all remaining pieces
@@ -93,11 +93,11 @@ func (c *Service) DeleteSatelliteData(ctx context.Context, satelliteID storj.Nod
 
 // deleteSatellitePieces deletes all pieces stored for a satellite, and updates
 // the deleted byte count for the corresponding graceful exit operation.
-func (c *Service) deleteSatellitePieces(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (c *Service) deleteSatellitePieces(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var totalDeleted int64
-	logger := c.log.With(zap.Stringer("Satellite ID", satelliteID), zap.String("action", "delete all pieces"))
+	logger := c.log.With(zap.Stringer("satellite_id", satelliteID), zap.String("action", "delete all pieces"))
 	err = c.store.WalkSatellitePieces(ctx, satelliteID, func(piece pieces.StoredPieceAccess) error {
 		err := c.store.Delete(ctx, satelliteID, piece.PieceID())
 		if err != nil {
@@ -105,13 +105,13 @@ func (c *Service) deleteSatellitePieces(ctx context.Context, satelliteID storj.N
 				return nil
 			}
 			logger.Error("failed to delete piece",
-				zap.Stringer("Piece ID", piece.PieceID()), zap.Error(err))
+				zap.Stringer("piece_id", piece.PieceID()), zap.Error(err))
 			// but continue
 		}
 		_, size, err := piece.Size(ctx)
 		if err != nil {
 			logger.Warn("failed to get piece size",
-				zap.Stringer("Piece ID", piece.PieceID()), zap.Error(err))
+				zap.Stringer("piece_id", piece.PieceID()), zap.Error(err))
 			return nil
 		}
 		totalDeleted += size
@@ -125,13 +125,13 @@ func (c *Service) deleteSatellitePieces(ctx context.Context, satelliteID storj.N
 }
 
 // ExitFailed updates the database when a graceful exit has failed.
-func (c *Service) ExitFailed(ctx context.Context, satelliteID storj.NodeID, reason pb.ExitFailed_Reason, exitFailedBytes []byte) (err error) {
+func (c *Service) ExitFailed(ctx context.Context, satelliteID storxnetwork.NodeID, reason pb.ExitFailed_Reason, exitFailedBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return errs.Wrap(c.satelliteDB.CompleteGracefulExit(ctx, satelliteID, c.nowFunc(), satellites.ExitFailed, exitFailedBytes))
 }
 
 // ExitCompleted updates the database when a graceful exit is completed.
-func (c *Service) ExitCompleted(ctx context.Context, satelliteID storj.NodeID, completionReceipt []byte) (err error) {
+func (c *Service) ExitCompleted(ctx context.Context, satelliteID storxnetwork.NodeID, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return errs.Wrap(c.satelliteDB.CompleteGracefulExit(ctx, satelliteID, c.nowFunc(), satellites.ExitSucceeded, completionReceipt))
 }
@@ -139,7 +139,7 @@ func (c *Service) ExitCompleted(ctx context.Context, satelliteID storj.NodeID, c
 // ExitNotPossible deletes the entry for the corresponding graceful exit operation.
 // This is intended to be called when a graceful exit operation was initiated but
 // the satellite rejected it.
-func (c *Service) ExitNotPossible(ctx context.Context, satelliteID storj.NodeID) (err error) {
+func (c *Service) ExitNotPossible(ctx context.Context, satelliteID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return c.satelliteDB.CancelGracefulExit(ctx, satelliteID)

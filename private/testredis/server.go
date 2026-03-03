@@ -23,7 +23,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 
-	"storj.io/common/processgroup"
+	"github.com/StorXNetwork/StorXMonitor/shared/processgroup"
 )
 
 const (
@@ -70,7 +70,7 @@ func Start(ctx context.Context) (Server, error) {
 
 // Process starts a redis-server test process.
 func Process(ctx context.Context) (Server, error) {
-	tmpdir, err := os.MkdirTemp("", "storj-redis")
+	tmpdir, err := os.MkdirTemp("", "storxnetwork-redis")
 	if err != nil {
 		return nil, err
 	}

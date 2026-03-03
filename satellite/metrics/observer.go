@@ -11,9 +11,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -65,19 +65,19 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) error
 
 // Finish emits the aggregated metrics.
 func (obs *Observer) Finish(ctx context.Context) error {
-	obs.metrics.Read(func(p storj.PlacementConstraint, m Metrics) {
+	obs.metrics.Read(func(p storxnetwork.PlacementConstraint, m Metrics) {
 		tag := monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(p), 10))
 
 		mon.IntVal("remote_dependent_object_count", tag).Observe(m.RemoteObjects)
 		mon.IntVal("inline_object_count", tag).Observe(m.InlineObjects)
 
-		mon.IntVal("total_inline_bytes", tag).Observe(m.TotalInlineBytes) //mon:locked
-		mon.IntVal("total_remote_bytes", tag).Observe(m.TotalRemoteBytes) //mon:locked
+		mon.IntVal("total_inline_bytes", tag).Observe(m.TotalInlineBytes)
+		mon.IntVal("total_remote_bytes", tag).Observe(m.TotalRemoteBytes)
 
-		mon.IntVal("total_inline_segments", tag).Observe(m.TotalInlineSegments) //mon:locked
-		mon.IntVal("total_remote_segments", tag).Observe(m.TotalRemoteSegments) //mon:locked
+		mon.IntVal("total_inline_segments", tag).Observe(m.TotalInlineSegments)
+		mon.IntVal("total_remote_segments", tag).Observe(m.TotalRemoteSegments)
 
-		mon.IntVal("total_segments_with_expires_at", tag).Observe(m.TotalSegmentsWithExpiresAt) //mon:locked
+		mon.IntVal("total_segments_with_expires_at", tag).Observe(m.TotalSegmentsWithExpiresAt)
 	})
 
 	return nil
@@ -93,7 +93,7 @@ type observerFork struct {
 	totals          PlacementsMetrics
 	stream          streamMetrics
 	streamID        uuid.UUID
-	streamPlacement storj.PlacementConstraint
+	streamPlacement storxnetwork.PlacementConstraint
 }
 
 // Process aggregates metrics about a range of metrics provided by the

@@ -7,7 +7,9 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/metabase"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Segment contains information about segment metadata which will be received by observers.
@@ -15,7 +17,7 @@ type Segment metabase.LoopSegmentEntry
 
 // Inline returns true if segment is inline.
 func (s Segment) Inline() bool {
-	return s.Redundancy.IsZero() && len(s.Pieces) == 0
+	return (s.Redundancy.IsZero() && len(s.Pieces) == 0) || s.RootPieceID.IsZero()
 }
 
 // Expired checks if segment expired relative to now.
@@ -26,6 +28,14 @@ func (s *Segment) Expired(now time.Time) bool {
 // PieceSize returns calculated piece size for segment.
 func (s Segment) PieceSize() int64 {
 	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler.
+func (s Segment) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("StreamID", s.StreamID.String())
+	enc.AddUint64("Position", s.Position.Encode())
+	enc.AddUint16("Placement", uint16(s.Placement))
+	return nil
 }
 
 // Observer subscribes to the parallel segment loop.

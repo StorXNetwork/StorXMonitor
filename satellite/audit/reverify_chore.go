@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // ContainmentSyncChore is a chore to update the set of contained nodes in the
@@ -64,6 +64,6 @@ func (rc *ContainmentSyncChore) syncContainedStatus(ctx context.Context) (err er
 		return nil
 	}
 	rc.log.Info("updated containment status of all nodes as necessary",
-		zap.Int("num contained nodes", len(containedSet)))
+		zap.Int("num_contained_nodes", len(containedSet)))
 	return nil
 }

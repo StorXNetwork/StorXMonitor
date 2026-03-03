@@ -14,14 +14,14 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/testcontext"
-	"storj.io/storj/multinode"
-	"storj.io/storj/multinode/multinodedb"
-	"storj.io/storj/multinode/multinodedb/dbx"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/multinode"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
 )
 
 // Database describes a test database.
@@ -47,10 +47,6 @@ func (db *tempMasterDB) TestDBAccess() *dbx.DB {
 	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 }
 
-type ignoreSkip struct{}
-
-func (ignoreSkip) Skip(...interface{}) {}
-
 // SchemaSuffix returns a suffix for schemas.
 func SchemaSuffix() string {
 	return pgutil.CreateRandomTestingSchemaName(6)
@@ -64,7 +60,7 @@ func SchemaName(testname, category string, index int, schemaSuffix string) strin
 
 	indexStr := strconv.Itoa(index)
 
-	var maxTestNameLen = 64 - len(category) - len(indexStr) - len(schemaSuffix) - 2
+	maxTestNameLen := 64 - len(category) - len(indexStr) - len(schemaSuffix) - 2
 	if len(testname) > maxTestNameLen {
 		testname = testname[:maxTestNameLen]
 	}
@@ -85,7 +81,7 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 	schemaSuffix := SchemaSuffix()
 	schema := SchemaName(name, category, index, schemaSuffix)
 
-	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
+	tempDB, err := tempdb.OpenUnique(ctx, log, dbInfo.URL, schema, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -103,11 +99,13 @@ func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db multinode.DB)) {
+	t.Parallel()
+
 	databases := []Database{
 		{
 			Name:    "Postgres",
-			URL:     pgtest.PickPostgres(ignoreSkip{}),
-			Message: "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
+			URL:     dbtest.PickPostgresNoSkip(),
+			Message: "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
 		},
 		{
 			Name: "Sqlite3",

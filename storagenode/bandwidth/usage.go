@@ -7,18 +7,24 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
+
+// Writer is just enough methods to update used bandwidth.
+type Writer interface {
+	Add(ctx context.Context, satelliteID storxnetwork.NodeID, action pb.PieceAction, amount int64, created time.Time) error
+	AddBatch(ctx context.Context, usages map[CacheKey]*Usage) (err error)
+}
 
 // DB contains information about bandwidth usage.
 //
 // architecture: Database
 type DB interface {
-	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
+	Writer
 	// MonthSummary returns summary of the current months bandwidth usages.
 	MonthSummary(ctx context.Context, now time.Time) (int64, error)
-	Rollup(ctx context.Context) (err error)
+
 	// Summary returns summary of bandwidth usages.
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
 	// EgressSummary returns summary of egress bandwidth usages.
@@ -26,18 +32,18 @@ type DB interface {
 	// IngressSummary returns summary of ingress bandwidth usages.
 	IngressSummary(ctx context.Context, from, to time.Time) (*Usage, error)
 	// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
-	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
+	SatelliteSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error)
 	// SatelliteEgressSummary returns egress bandwidth usage for a particular satellite.
-	SatelliteEgressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
+	SatelliteEgressSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error)
 	// SatelliteIngressSummary returns ingress bandwidth usage for a particular satellite.
-	SatelliteIngressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
-	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
+	SatelliteIngressSummary(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (*Usage, error)
+	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storxnetwork.NodeID]*Usage, error)
 	// GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
 	// sorted in ascending order.
 	GetDailyRollups(ctx context.Context, from, to time.Time) ([]UsageRollup, error)
 	// GetDailySatelliteRollups returns slice of daily bandwidth usage for provided time range,
 	// sorted in ascending order for a particular satellite.
-	GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]UsageRollup, error)
+	GetDailySatelliteRollups(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) ([]UsageRollup, error)
 }
 
 // Usage contains bandwidth usage information based on the type.
@@ -60,10 +66,23 @@ type Egress struct {
 	Usage  int64 `json:"usage"`
 }
 
+// Add adds another egress to this one.
+func (egress *Egress) Add(b Egress) {
+	egress.Repair += b.Repair
+	egress.Audit += b.Audit
+	egress.Usage += b.Usage
+}
+
 // Ingress stores info about storage node ingress usage.
 type Ingress struct {
 	Repair int64 `json:"repair"`
 	Usage  int64 `json:"usage"`
+}
+
+// Add adds another ingress to this one.
+func (ingress *Ingress) Add(b Ingress) {
+	ingress.Repair += b.Repair
+	ingress.Usage += b.Usage
 }
 
 // UsageRollup contains rolluped bandwidth usage.
@@ -108,6 +127,40 @@ func (usage *Usage) Add(b *Usage) {
 	usage.Delete += b.Delete
 }
 
+// Egress returns egress bandwidth usage.
+func (usage *Usage) Egress() *Usage {
+	return &Usage{
+		Get:       usage.Get,
+		GetAudit:  usage.GetAudit,
+		GetRepair: usage.GetRepair,
+	}
+}
+
+// Ingress returns ingress bandwidth usage.
+func (usage *Usage) Ingress() *Usage {
+	return &Usage{
+		Put:       usage.Put,
+		PutRepair: usage.PutRepair,
+	}
+}
+
+// ToEgress converts Usage to Egress.
+func (usage *Usage) ToEgress() Egress {
+	return Egress{
+		Repair: usage.GetRepair,
+		Audit:  usage.GetAudit,
+		Usage:  usage.Get,
+	}
+}
+
+// ToIngress converts Usage to Ingress.
+func (usage *Usage) ToIngress() Ingress {
+	return Ingress{
+		Repair: usage.PutRepair,
+		Usage:  usage.Put,
+	}
+}
+
 // Total sums all type of bandwidths.
 func (usage *Usage) Total() int64 {
 	return usage.Invalid +
@@ -118,6 +171,23 @@ func (usage *Usage) Total() int64 {
 		usage.GetRepair +
 		usage.PutRepair +
 		usage.Delete
+}
+
+// Rollup returns rolluped bandwidth usage.
+func (usage *Usage) Rollup(intervalStart time.Time) *UsageRollup {
+	return &UsageRollup{
+		Egress: Egress{
+			Repair: usage.GetRepair,
+			Audit:  usage.GetAudit,
+			Usage:  usage.Get,
+		},
+		Ingress: Ingress{
+			Repair: usage.PutRepair,
+			Usage:  usage.Put,
+		},
+		Delete:        usage.Delete,
+		IntervalStart: intervalStart,
+	}
 }
 
 // TotalMonthlySummary returns total bandwidth usage for current month.

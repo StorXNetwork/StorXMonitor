@@ -4,19 +4,21 @@
 package console
 
 import (
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Placement contains placement info.
 type Placement struct {
-	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
-	Location         string                    `json:"location"`
+	DefaultPlacement storxnetwork.PlacementConstraint `json:"defaultPlacement"`
+	Location         string                           `json:"location"`
 }
 
 // BucketMetadata contains bucket name, versioning and placement info.
 type BucketMetadata struct {
-	Name       string             `json:"name"`
-	Versioning buckets.Versioning `json:"versioning"`
-	Placement  Placement          `json:"placement"`
+	Name              string                    `json:"name"`
+	Versioning        buckets.Versioning        `json:"versioning"`
+	Placement         Placement                 `json:"placement"`
+	ObjectLockEnabled bool                      `json:"objectLockEnabled"`
+	ImmutabilityRules buckets.ImmutabilityRules `json:"immutabilityRules"`
 }

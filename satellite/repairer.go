@@ -14,25 +14,26 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	version_checker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	version_checker "github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpool"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // Repairer is the repairer process.
@@ -69,6 +70,7 @@ type Repairer struct {
 
 	EcRepairer      *repairer.ECRepairer
 	SegmentRepairer *repairer.SegmentRepairer
+	Queue           queue.RepairQueue
 	Repairer        *repairer.Service
 }
 
@@ -113,10 +115,10 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 
 	{
 		peer.Log.Info("Version info",
-			zap.Stringer("Version", versionInfo.Version.Version),
-			zap.String("Commit Hash", versionInfo.CommitHash),
-			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
-			zap.Bool("Release Build", versionInfo.Release),
+			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("commit_hash", versionInfo.CommitHash),
+			zap.Stringer("build_timestamp", versionInfo.Timestamp),
+			zap.Bool("release_build", versionInfo.Release),
 		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
@@ -136,11 +138,21 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
+		if config.Repairer.ConnectionPool.Capacity > 0 {
+			peer.Dialer.Pool = rpcpool.New(rpcpool.Options{
+				Capacity:       config.Repairer.ConnectionPool.Capacity,
+				KeyCapacity:    config.Repairer.ConnectionPool.KeyCapacity,
+				IdleExpiration: config.Repairer.ConnectionPool.IdleExpiration,
+				MaxLifetime:    config.Repairer.ConnectionPool.MaxLifetime,
+				Name:           "repairer",
+			})
+		}
+
 		peer.Dialer.DialTimeout = config.Repairer.DialTimeout
 	}
 
 	{ // setup overlay
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +190,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup orders
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -206,31 +218,30 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Overlay,
 			metabaseDB,
 			containmentDB,
-			config.Audit.MaxRetriesStatDB,
-			int32(config.Audit.MaxReverifyCount))
+			config.Audit)
 	}
 
 	{ // setup repairer
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
 
 		peer.EcRepairer = repairer.NewECRepairer(
-			log.Named("ec-repair"),
 			peer.Dialer,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 			config.Repairer.DialTimeout,
 			config.Repairer.DownloadTimeout,
 			config.Repairer.InMemoryRepair,
 			config.Repairer.InMemoryUpload,
+			config.Repairer.DownloadLongTail,
 		)
 
 		if len(config.Repairer.RepairExcludedCountryCodes) == 0 {
 			config.Repairer.RepairExcludedCountryCodes = config.Overlay.RepairExcludedCountryCodes
 		}
 
-		peer.SegmentRepairer = repairer.NewSegmentRepairer(
+		peer.SegmentRepairer, err = repairer.NewSegmentRepairer(
 			log.Named("segment-repair"),
 			metabaseDB,
 			peer.Orders.Service,
@@ -238,10 +249,20 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
 			placement,
-			config.Checker.RepairTargetOverrides,
+			config.Checker.RepairThresholdOverrides,
 			config.Checker.RepairTargetOverrides,
 			config.Repairer,
 		)
+		if err != nil {
+			return nil, err
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "segment-repair",
+			Run:   peer.SegmentRepairer.Run,
+			Close: peer.Repairer.Close,
+		})
+
+		peer.Queue = repairQueue
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 
 		peer.Services.Add(lifecycle.Item{
@@ -283,4 +304,4 @@ func (peer *Repairer) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Repairer) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Repairer) ID() storxnetwork.NodeID { return peer.Identity.ID }

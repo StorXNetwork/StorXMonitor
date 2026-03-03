@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/payments"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 )
 
 // ChoreErr is storjscan chore err class.
@@ -84,7 +84,13 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					} else {
 						status = payments.PaymentStatusPending
 					}
-
+					chore.log.Debug("received new payments from storjscan",
+						zap.Int64("chain_id", payment.ChainID),
+						zap.String("block_hash", payment.BlockHash.Hex()),
+						zap.String("transaction_hash", payment.Transaction.Hex()),
+						zap.Int64("block_number", payment.BlockNumber),
+						zap.Int("log_index", payment.LogIndex),
+						zap.String("usd_value", payment.USDValue.AsDecimal().String()))
 					cachedPayments = append(cachedPayments, CachedPayment{
 						ChainID:     payment.ChainID,
 						From:        payment.From,

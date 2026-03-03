@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/structs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestPlacementList(t *testing.T) {
@@ -24,5 +24,5 @@ func TestPlacementList(t *testing.T) {
 	require.Len(t, decode.Missing, 0)
 	require.Len(t, decode.Used, 1)
 
-	require.Equal(t, []storj.PlacementConstraint{1, 3, 5, 6}, pl.ExcludedPlacements.Placements)
+	require.Equal(t, []storxnetwork.PlacementConstraint{1, 3, 5, 6}, pl.ExcludedPlacements.Placements)
 }

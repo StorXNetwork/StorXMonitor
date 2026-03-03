@@ -17,12 +17,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/storj/private/web"
-	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/console/consoleapi"
-	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/payouts"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/console/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/notifications"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts"
+	"github.com/StorXNetwork/common/errs2"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 
 // Config contains configuration for storagenode console web server.
 type Config struct {
-	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
+	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002" testDefault:"$HOST:0"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 

@@ -12,23 +12,24 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/multinode"
-	"storj.io/storj/multinode/multinodedb"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodeauth"
+	"github.com/StorXNetwork/StorXMonitor/multinode"
+	"github.com/StorXNetwork/StorXMonitor/multinode/multinodedb"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodeauth"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // Config defines multinode configuration.
@@ -94,7 +95,7 @@ func main() {
 }
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "multinode")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "multinode")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for multinode configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", "", "main directory for multinode identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
@@ -141,6 +142,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		log.Error("failed to load identity", zap.Error(err))
 		return errs.New("failed to load identity: %+v", err)
+	}
+
+	if err := process.InitMetrics(ctx, log, monkit.Default, process.MetricsIDFromHostname(log), process.UDPDestination); err != nil {
+		log.Warn("Failed to initialize telemetry", zap.Error(err))
 	}
 
 	db, err := multinodedb.Open(ctx, log.Named("db"), runCfg.Database)
@@ -199,7 +204,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if hasRequiredFlags {
-		nodeID, err := storj.NodeIDFromString(addCfg.NodeID)
+		nodeID, err := storxnetwork.NodeIDFromString(addCfg.NodeID)
 		if err != nil {
 			return err
 		}

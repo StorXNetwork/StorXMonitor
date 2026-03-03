@@ -15,19 +15,19 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 // Satellite defines satellite configuration.
@@ -90,8 +90,8 @@ var (
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "satellite")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "satellite")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "satellite")
+	defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "satellite")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
@@ -205,7 +205,7 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	placements, err := satelliteCfg.Placement.Parse(satelliteCfg.Overlay.Node.CreateDefaultPlacement)
+	placements, err := satelliteCfg.Placement.Parse(satelliteCfg.Overlay.Node.CreateDefaultPlacement, nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -236,9 +236,7 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 	case "buckets":
 		verifyConfig = bucketsCfg.Verify
 		serviceConfig = bucketsCfg.Service
-		commandFunc = func(ctx context.Context, service *Service) error {
-			return verifySegmentsBuckets(ctx, service, bucketsCfg)
-		}
+		commandFunc = verifySegmentsBuckets
 	case "read-csv":
 		verifyConfig = readCSVCfg.Verify
 		serviceConfig = readCSVCfg.Service
@@ -283,7 +281,7 @@ func verifySegmentsRange(ctx context.Context, service *Service, rangeCfg RangeCo
 	return service.ProcessRange(ctx, low, high)
 }
 
-func verifySegmentsBuckets(ctx context.Context, service *Service, bucketCfg BucketConfig) error {
+func verifySegmentsBuckets(ctx context.Context, service *Service) error {
 	if bucketsCfg.BucketsCSV == "" {
 		return Error.New("bucket list file path not provided")
 	}
@@ -341,7 +339,7 @@ func (service *Service) ParseBucketFile(path string) (_ BucketList, err error) {
 		if err != nil {
 			return BucketList{}, Error.New("unable to parse buckets file: %w", err)
 		}
-		bucketList.Add(projectId, strings.TrimSpace(entry[1]))
+		bucketList.Add(projectId, metabase.BucketName(strings.TrimSpace(entry[1])))
 	}
 	return bucketList, nil
 }

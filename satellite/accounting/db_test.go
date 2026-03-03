@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestSaveBucketTallies(t *testing.T) {
@@ -56,7 +56,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		nodeID := testrand.NodeID()
 		startDate := now.Add(time.Hour * 24 * -days)
 
-		var nodes storj.NodeIDList
+		var nodes storxnetwork.NodeIDList
 		nodes = append(nodes, nodeID, testrand.NodeID(), testrand.NodeID(), testrand.NodeID())
 
 		rollups, tallies, lastDate := makeRollupsAndStorageNodeStorageTallies(nodes, startDate, days)
@@ -151,8 +151,8 @@ func TestStorageNodeUsage_TwoRollupsInADay(t *testing.T) {
 		t2 := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
 		rollups := make(accounting.RollupStats)
 
-		rollups[t1] = make(map[storj.NodeID]*accounting.Rollup)
-		rollups[t2] = make(map[storj.NodeID]*accounting.Rollup)
+		rollups[t1] = make(map[storxnetwork.NodeID]*accounting.Rollup)
+		rollups[t2] = make(map[storxnetwork.NodeID]*accounting.Rollup)
 
 		rollups[t1][nodeID] = &accounting.Rollup{
 			NodeID:          nodeID,
@@ -220,7 +220,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
-		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
+		bucketName := metabase.BucketName(fmt.Sprintf("%s%d", "testbucket", i))
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketName,
@@ -232,10 +232,11 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 				ProjectID:  projectID,
 				BucketName: bucketName,
 			},
-			ObjectCount:   int64(1),
-			TotalSegments: int64(2),
-			TotalBytes:    int64(2),
-			MetadataSize:  int64(1),
+			ObjectCount:    int64(1),
+			TotalSegments:  int64(2),
+			TotalBytes:     int64(2),
+			RemainderBytes: int64(i),
+			MetadataSize:   int64(1),
 		}
 		bucketTallies[bucketLocation] = &tally
 		expectedTallies = append(expectedTallies, tally)
@@ -245,12 +246,12 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 }
 
 type nodesAndTallies struct {
-	nodeIDs []storj.NodeID
+	nodeIDs []storxnetwork.NodeID
 	totals  []float64
 }
 
 // make rollups and tallies for specified nodes and date range.
-func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Time, days int) (accounting.RollupStats, map[time.Time]nodesAndTallies, time.Time) {
+func makeRollupsAndStorageNodeStorageTallies(nodes []storxnetwork.NodeID, start time.Time, days int) (accounting.RollupStats, map[time.Time]nodesAndTallies, time.Time) {
 	rollups := make(accounting.RollupStats)
 	tallies := make(map[time.Time]nodesAndTallies)
 
@@ -261,13 +262,13 @@ func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Ti
 	for i := 0; i < days; i++ {
 		startDay := time.Date(start.Year(), start.Month(), start.Day()+i, 0, 0, 0, 0, start.Location())
 		if rollups[startDay] == nil {
-			rollups[startDay] = make(map[storj.NodeID]*accounting.Rollup)
+			rollups[startDay] = make(map[storxnetwork.NodeID]*accounting.Rollup)
 		}
 
 		for h := 0; h < hours; h++ {
 			intervalEndTime := startDay.Add(time.Hour * time.Duration(h))
 			tallies[intervalEndTime] = nodesAndTallies{
-				nodeIDs: make([]storj.NodeID, len(nodes)),
+				nodeIDs: make([]storxnetwork.NodeID, len(nodes)),
 				totals:  make([]float64, len(nodes)),
 			}
 		}

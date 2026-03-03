@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/testcontext"
-	"storj.io/storj/certificate/rpcerrs"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/certificate/rpcerrs"
 )
 
 func TestLoggingSanitizer_Error(t *testing.T) {
@@ -112,7 +112,7 @@ func TestLoggingSanitizer_Error(t *testing.T) {
 			if s.wrapper == nil {
 				require.Contains(t, sanitizedErr.Error(), msg)
 			} else {
-				require.Equal(t, wrapper.New(msg).Error(), sanitizedErr.Error())
+				require.Equal(t, wrapper.New("%v", msg).Error(), sanitizedErr.Error())
 			}
 
 			if s.log != nil {

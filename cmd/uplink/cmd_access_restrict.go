@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 )
 
 type cmdAccessRestrict struct {
@@ -59,6 +59,6 @@ func (c *cmdAccessRestrict) Execute(ctx context.Context) (err error) {
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), serialized)
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), serialized)
 	return nil
 }

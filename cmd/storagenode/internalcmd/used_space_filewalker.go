@@ -9,13 +9,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/storj/storagenode/iopriority"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/iopriority"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 // NewUsedSpaceFilewalkerCmd creates a new cobra command for running used-space calculation filewalker.
@@ -84,16 +83,12 @@ func usedSpaceCmdRun(opts *RunOptions) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	log.Info("used-space-filewalker started")
-
-	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo())
-	total, contentSize, err := filewalker.WalkAndComputeSpaceUsedBySatellite(opts.Ctx, req.SatelliteID)
+	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), nil, db.UsedSpacePerPrefix())
+	total, contentSize, pieceCount, err := filewalker.WalkAndComputeSpaceUsedBySatellite(opts.Ctx, req.SatelliteID)
 	if err != nil {
 		return err
 	}
-	resp := lazyfilewalker.UsedSpaceResponse{PiecesTotal: total, PiecesContentSize: contentSize}
-
-	log.Info("used-space-filewalker completed", zap.Int64("piecesTotal", total), zap.Int64("piecesContentSize", contentSize))
+	resp := lazyfilewalker.UsedSpaceResponse{PiecesTotal: total, PiecesContentSize: contentSize, PieceCount: pieceCount}
 
 	// encode the response struct and write it to stdout
 	return json.NewEncoder(opts.stdout).Encode(resp)

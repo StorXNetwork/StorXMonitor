@@ -12,12 +12,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 )
 
 func verifySegmentsNodeCheck(cmd *cobra.Command, args []string) error {
@@ -218,7 +218,7 @@ func (service *NodeCheckService) ProcessAll(ctx context.Context) (err error) {
 		for _, segment := range segments {
 			if err := service.Verify(ctx, segment); err != nil {
 				service.log.Warn("found",
-					zap.Stringer("stream-id", segment.StreamID),
+					zap.Stringer("stream_id", segment.StreamID),
 					zap.Uint64("position", segment.Position.Encode()),
 					zap.Error(err))
 			}

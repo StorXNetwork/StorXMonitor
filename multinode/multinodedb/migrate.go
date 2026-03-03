@@ -4,7 +4,7 @@
 package multinodedb
 
 import (
-	"storj.io/storj/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
 )
 
 // SQLite3Migration returns steps needed for migrating sqlite3 database.

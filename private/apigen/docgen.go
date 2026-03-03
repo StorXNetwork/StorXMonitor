@@ -14,8 +14,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // MustWriteDocs generates API documentation and writes it to the specified file path.

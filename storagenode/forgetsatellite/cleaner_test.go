@@ -4,21 +4,21 @@
 package forgetsatellite_test
 
 import (
-	"os"
+	"io/fs"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/satellites"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
 )
 
 func TestCleaner(t *testing.T) {
@@ -31,19 +31,15 @@ func TestCleaner(t *testing.T) {
 		// pause the chore
 		storagenode.ForgetSatellite.Chore.Loop.Pause()
 
-		store := planet.StorageNodes[0].Storage2.BlobsCache
-		defer ctx.Check(store.Close)
+		// TODO(clement): remove this once I figure out why it's flaky
+		planet.StorageNodes[0].Reputation.Chore.Loop.Pause()
 
-		blobSize := memory.KB
-		blobRef := blobstore.BlobRef{
-			Namespace: cleanupSatellite.ID().Bytes(),
-			Key:       testrand.PieceID().Bytes(),
-		}
-		w, err := store.Create(ctx, blobRef, -1)
+		pieceID := testrand.PieceID()
+		w, err := planet.StorageNodes[0].Storage2.PieceBackend.Writer(ctx, cleanupSatellite.ID(), pieceID, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
 		require.NoError(t, err)
-		_, err = w.Write(testrand.Bytes(blobSize))
+		_, err = w.Write(testrand.Bytes(1 * memory.KB))
 		require.NoError(t, err)
-		require.NoError(t, w.Commit(ctx))
+		require.NoError(t, w.Commit(ctx, &pb.PieceHeader{}))
 
 		// create a new satellite reputation
 		timestamp := time.Now().UTC()
@@ -97,10 +93,9 @@ func TestCleaner(t *testing.T) {
 		require.Equal(t, satellites.CleanupSucceeded, satellite.Status)
 
 		// check that the blob was deleted
-		blobInfo, err := store.Stat(ctx, blobRef)
+		_, err = planet.StorageNodes[0].Storage2.PieceBackend.Reader(ctx, cleanupSatellite.ID(), pieceID)
 		require.Error(t, err)
-		require.True(t, errs.Is(err, os.ErrNotExist))
-		require.Nil(t, blobInfo)
+		require.True(t, errs.Is(err, fs.ErrNotExist))
 
 		// check that the reputation was deleted
 		rstats, err = reputationDB.Get(ctx, cleanupSatellite.ID())

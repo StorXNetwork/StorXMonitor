@@ -13,13 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/clingy"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 // Commands is an alias to refer to a function that builds clingy commands.
 type Commands = func(clingy.Commands, ulext.External)
+
+// PromptResponder represents a function that provides a response to a prompt.
+type PromptResponder = func(ctx context.Context, prompt string) (response string, err error)
 
 // Setup returns some State that can be run multiple times with different command
 // line arguments.
@@ -64,7 +67,7 @@ func (st State) Run(t *testing.T, args ...string) Result {
 	var stdin bytes.Buffer
 	var ran bool
 
-	ctx := context.Background()
+	ctx := t.Context()
 	lfs := ulfs.NewLocal(ulfs.NewLocalBackendMem())
 	rfs := newRemoteFilesystem()
 	fs := ulfs.NewMixed(lfs, rfs)
@@ -72,6 +75,12 @@ func (st State) Run(t *testing.T, args ...string) Result {
 	cs := &callbackState{
 		fs:  fs,
 		rfs: rfs,
+	}
+	for _, opt := range st.opts {
+		opt.fn(t, ctx, cs)
+	}
+	if len(cs.stdin) > 0 {
+		_, _ = stdin.WriteString(cs.stdin)
 	}
 
 	ok, err := clingy.Environment{
@@ -83,19 +92,11 @@ func (st State) Run(t *testing.T, args ...string) Result {
 		Stderr: &stderr,
 
 		Wrap: func(ctx context.Context, cmd clingy.Command) error {
-			for _, opt := range st.opts {
-				opt.fn(t, ctx, cs)
-			}
-
-			if len(cs.stdin) > 0 {
-				_, _ = stdin.WriteString(cs.stdin)
-			}
-
 			ran = true
 			return cmd.Execute(ctx)
 		},
 	}.Run(ctx, func(cmds clingy.Commands) {
-		st.cmds(cmds, newExternal(fs, nil))
+		st.cmds(cmds, newExternal(fs, nil, cs.promptResponder))
 	})
 
 	if ok && err == nil {
@@ -157,9 +158,10 @@ func collectIterator(ctx context.Context, t *testing.T, fs ulfs.FilesystemLocal,
 }
 
 type callbackState struct {
-	stdin string
-	fs    ulfs.Filesystem
-	rfs   *remoteFilesystem
+	stdin           string
+	promptResponder PromptResponder
+	fs              ulfs.Filesystem
+	rfs             *remoteFilesystem
 }
 
 // ExecuteOption allows one to control the environment that a command executes in.
@@ -188,18 +190,35 @@ func WithStdin(stdin string) ExecuteOption {
 	}}
 }
 
-// WithFile sets the command to execute with a file created at the given location.
+// WithPromptResponder sets the function that provides responses to prompts.
+func WithPromptResponder(responder PromptResponder) ExecuteOption {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
+		cs.promptResponder = responder
+	}}
+}
+
+// WithFile sets the command to execute with a file created at the provided location.
+// If no file contents are provided, the file will contain the location. The behavior
+// when a file already exists depends on the location's type. If the location is local,
+// then the preexisting file will be replaced. Otherwise, if the location is remote,
+// a new version of the file will be created with the provided contents.
 func WithFile(location string, contents ...string) ExecuteOption {
 	contents = append([]string(nil), contents...)
 	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
 		loc, err := ulloc.Parse(location)
 		require.NoError(t, err)
 
-		if bucket, _, ok := loc.RemoteParts(); ok {
+		var mwh ulfs.MultiWriteHandle
+
+		if bucket, key, ok := loc.RemoteParts(); ok {
 			cs.rfs.ensureBucket(bucket)
+			mwh, err = cs.rfs.create(ctx, bucket, key, createOpts{
+				versioned: true,
+			})
+		} else {
+			mwh, err = cs.fs.Create(ctx, loc, nil)
 		}
 
-		mwh, err := cs.fs.Create(ctx, loc, nil)
 		require.NoError(t, err)
 		defer func() { _ = mwh.Abort(ctx) }()
 
@@ -236,5 +255,58 @@ func WithPendingFile(location string) ExecuteOption {
 
 		_, err = cs.fs.Create(ctx, loc, nil)
 		require.NoError(t, err)
+	}}
+}
+
+// WithDeleteMarker sets the command to execute with a delete marker at the
+// provided location.
+func WithDeleteMarker(location string) ExecuteOption {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
+		loc, err := ulloc.Parse(location)
+		require.NoError(t, err)
+
+		if bucket, key, ok := loc.RemoteParts(); ok {
+			cs.rfs.ensureBucket(bucket)
+			cs.rfs.createDeleteMarker(ctx, bucket, key)
+			return
+		}
+
+		t.Fatalf("Invalid remote location: %s", loc)
+	}}
+}
+
+// WithGovernanceLockedFile sets the command to execute with a file locked by
+// Object Lock governance-mode retention settings at the provided location.
+func WithGovernanceLockedFile(location string) ExecuteOption {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
+		loc, err := ulloc.Parse(location)
+		require.NoError(t, err)
+
+		var (
+			bucket, key string
+			ok          bool
+		)
+		if bucket, key, ok = loc.RemoteParts(); !ok {
+			t.Fatalf("Invalid remote location: %s", loc)
+		}
+
+		cs.rfs.ensureBucket(bucket)
+		mwh, err := cs.rfs.create(ctx, bucket, key, createOpts{
+			versioned:        true,
+			governanceLocked: true,
+		})
+
+		require.NoError(t, err)
+		defer func() { _ = mwh.Abort(ctx) }()
+
+		wh, err := mwh.NextPart(ctx, -1)
+		require.NoError(t, err)
+		defer func() { _ = wh.Abort() }()
+
+		_, err = wh.Write([]byte(location))
+		require.NoError(t, err)
+
+		require.NoError(t, wh.Commit())
+		require.NoError(t, mwh.Commit(ctx))
 	}}
 }

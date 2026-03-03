@@ -3,13 +3,19 @@ name: Build Satellite on staging server
 on:
   push:
     branches:
-      - main    
+      - main
   workflow_dispatch:
-    
+    inputs:
+      run_go_mod_tidy:
+        description: 'Run go mod tidy'
+        required: false
+        default: false
+        type: boolean
+
 env:
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
-  SERVICES: 'StorjSatellite'
+  SERVICES: 'storxnetworksatellite'
 
 jobs:
   build-satellite:
@@ -21,35 +27,57 @@ jobs:
       with:
         fetch-depth: 1
         clean: true
-        
+
+    - name: Setup Git Auth for Private Go Modules
+      shell: powershell
+      env:
+        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: |
+        git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+        go env -w GOPRIVATE=github.com/StorXNetwork/*
+        go env -w GONOSUMDB=github.com/StorXNetwork/*
+        go env -w GONOPROXY=github.com/StorXNetwork/*
+        $gomodcache = if ($env:RUNNER_TEMP) { "$env:RUNNER_TEMP\go-mod-cache" } else { "$env:GITHUB_WORKSPACE\.go-mod-cache" }
+        New-Item -ItemType Directory -Force -Path $gomodcache | Out-Null
+        go env -w GOMODCACHE=$gomodcache
+
+    - name: Go mod tidy
+      if: github.event_name == 'workflow_dispatch' && inputs.run_go_mod_tidy == true
+      shell: powershell
+      run: go mod tidy
+
     - name: Build satellite.exe
       env:
         WEB3_AUTH_PRIVATE_KEY: ${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
       run: |
-        go build -ldflags "-s -w -X 'storj.io/storj/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'" -o "$env:TEMP_PATH\satellite.exe" ./cmd/satellite
+        go build -ldflags "-s -w -X 'github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'" -o "$env:TEMP_PATH\satellite.exe" ./cmd/satellite
         
     - name: Quick service stop
       run: |
         Set-Location $env:BIN_PATH
-        $status = (Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue).Status
+        $status = (Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue).Status
         if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-          & ".\nssm.exe" stop StorjSatellite 2>&1 | Out-Null
+          & ".\nssm.exe" stop storxnetworksatellite 2>&1 | Out-Null
           Start-Sleep -Seconds 2  # Reduced wait time
         }
         
     - name: Quick file replacement
+      shell: powershell
       run: |
-        # Minimal file operations
-        if (Test-Path "$env:BIN_PATH\satellite.exe") {
-          Remove-Item "$env:BIN_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
+        $dest = "$env:BIN_PATH\satellite.exe"
+        $src = "$env:TEMP_PATH\satellite.exe"
+        if (Test-Path $dest) {
+          Remove-Item $dest -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 1
         }
-        Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        Copy-Item -Path $src -Destination $dest -Force
+        Remove-Item $src -Force -ErrorAction SilentlyContinue
         Write-Host "satellite.exe replaced"
         
     - name: Quick service start
       run: |
         Set-Location $env:BIN_PATH
-        $service = Get-Service -Name StorjSatellite -ErrorAction SilentlyContinue
+        $service = Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue
         if (-not $service) {
           Write-Host "Service not found"
           exit 0
@@ -65,7 +93,7 @@ jobs:
         
         if ($service.Status -eq "Stopped") {
           $ErrorActionPreference = "Continue"
-          $result = & cmd /c ".\nssm.exe" start StorjSatellite 2>&1 | Out-String
+          $result = & cmd /c ".\nssm.exe" start storxnetworksatellite 2>&1 | Out-String
           $ErrorActionPreference = "Stop"
           Start-Sleep -Seconds 3
           $service.Refresh()

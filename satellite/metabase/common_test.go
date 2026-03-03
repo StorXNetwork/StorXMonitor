@@ -9,13 +9,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/testrand"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/uplink/private/eestream"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
 func TestParseBucketPrefixInvalid(t *testing.T) {
@@ -42,7 +43,7 @@ func TestParseBucketPrefixValid(t *testing.T) {
 		name               string
 		project            string
 		bucketName         string
-		expectedBucketName string
+		expectedBucketName metabase.BucketName
 	}{
 		{"valid, no bucket, no objects", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "", ""},
 		{"valid, with bucket", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "testbucket", "testbucket"},
@@ -737,30 +738,61 @@ func TestStreamVersionID(t *testing.T) {
 	streamVersionID, err := metabase.StreamVersionIDFromBytes(encodedVersion)
 	require.NoError(t, err)
 	require.Equal(t, expectedVersion, streamVersionID.Version())
-	require.Equal(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
+	require.EqualValues(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
 
-	expectedVersion = metabase.Version(testrand.Int63n(math.MaxInt64))
-	expectedStreamID = testrand.UUID()
+	for expectedValue := range []int64{
+		testrand.Int63n(math.MaxInt64),
+		-1 * testrand.Int63n(math.MaxInt64), // negative version
+	} {
+		expectedVersion = metabase.Version(expectedValue)
+		expectedStreamID = testrand.UUID()
 
-	object = metabase.Object{
-		ObjectStream: metabase.ObjectStream{
-			Version:  expectedVersion,
-			StreamID: expectedStreamID,
-		},
+		object = metabase.Object{
+			ObjectStream: metabase.ObjectStream{
+				Version:  expectedVersion,
+				StreamID: expectedStreamID,
+			},
+		}
+		encodedVersion = object.StreamVersionID().Bytes()
+
+		streamVersionID, err = metabase.StreamVersionIDFromBytes(encodedVersion)
+		require.NoError(t, err)
+		require.Equal(t, expectedVersion, streamVersionID.Version())
+		require.EqualValues(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
 	}
-	encodedVersion = object.StreamVersionID().Bytes()
+}
 
-	streamVersionID, err = metabase.StreamVersionIDFromBytes(encodedVersion)
-	require.NoError(t, err)
-	require.Equal(t, expectedVersion, streamVersionID.Version())
-	require.Equal(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
+func TestIfNoneMatchVerify(t *testing.T) {
+	var testCases = []struct {
+		name     string
+		input    []string
+		errClass *errs.Class
+	}{
+		{"empty", []string{}, nil},
+		{"match all", []string{"*"}, nil},
+		{"match all with invalid value", []string{"*", "something"}, &metabase.ErrUnimplemented},
+		{"match all with invalid values", []string{"*", "something", "else"}, &metabase.ErrUnimplemented},
+		{"invalid value", []string{"something"}, &metabase.ErrUnimplemented},
+		{"invalue values", []string{"something", "else"}, &metabase.ErrUnimplemented},
+	}
+	for _, tt := range testCases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			inm := metabase.IfNoneMatch(tt.input)
+			if tt.errClass != nil {
+				require.True(t, tt.errClass.Has(inm.Verify()))
+			} else {
+				require.NoError(t, inm.Verify())
+			}
+		})
+	}
 }
 
 func BenchmarkSegmentPieceSize(b *testing.B) {
 	segment := metabase.Segment{
 		EncryptedSize: 64 * memory.MiB.Int32(),
-		Redundancy: storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
+		Redundancy: storxnetwork.RedundancyScheme{
+			Algorithm:      storxnetwork.ReedSolomon,
 			RequiredShares: 29,
 			RepairShares:   35,
 			OptimalShares:  80,
@@ -771,7 +803,7 @@ func BenchmarkSegmentPieceSize(b *testing.B) {
 
 	b.Run("eestream.CalcPieceSize", func(b *testing.B) {
 		for k := 0; k < b.N; k++ {
-			redundancyScheme, _ := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+			redundancyScheme, _ := eestream.NewRedundancyStrategyFromStorrXNetwork(segment.Redundancy)
 			_ = eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancyScheme)
 		}
 	})

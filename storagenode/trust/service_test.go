@@ -15,14 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/satellites"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestPoolRequiresCachePath(t *testing.T) {
@@ -38,7 +38,7 @@ func TestPoolVerifySatelliteID(t *testing.T) {
 		id := testrand.NodeID()
 
 		// Assert the ID is not trusted
-		err := pool.VerifySatelliteID(context.Background(), id)
+		err := pool.VerifySatelliteID(t.Context(), id)
 		require.ErrorIs(t, err, trust.ErrUntrusted)
 
 		// Refresh the pool with the new trust entry
@@ -51,18 +51,18 @@ func TestPoolVerifySatelliteID(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
 		// Assert the ID is now trusted
-		err = pool.VerifySatelliteID(context.Background(), id)
+		err = pool.VerifySatelliteID(t.Context(), id)
 		require.NoError(t, err)
 
 		// Refresh the pool after removing the trusted satellite
 		source.entries = nil
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
 		// Assert the ID is no longer trusted
-		err = pool.VerifySatelliteID(context.Background(), id)
+		err = pool.VerifySatelliteID(t.Context(), id)
 		require.ErrorIs(t, err, trust.ErrUntrusted)
 	})
 }
@@ -79,15 +79,15 @@ func TestPoolGetSignee(t *testing.T) {
 		pool, source, resolver := newPoolTest(ctx, t, db)
 
 		// ID is untrusted
-		_, err := pool.GetSignee(context.Background(), id)
+		_, err := pool.GetSignee(t.Context(), id)
 		require.ErrorIs(t, err, trust.ErrUntrusted)
 
 		// Refresh the pool with the new trust entry
 		source.entries = []trust.Entry{{SatelliteURL: url}}
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
 		// Identity is uncached and resolving fails
-		_, err = pool.GetSignee(context.Background(), id)
+		_, err = pool.GetSignee(t.Context(), id)
 		require.EqualError(t, err, "trust: no identity")
 
 		// Now make resolving succeed
@@ -96,14 +96,14 @@ func TestPoolGetSignee(t *testing.T) {
 			Leaf: &x509.Certificate{},
 		}
 		resolver.SetIdentity(url.NodeURL(), identity)
-		signee, err := pool.GetSignee(context.Background(), id)
+		signee, err := pool.GetSignee(t.Context(), id)
 		require.NoError(t, err)
 		assert.Equal(t, id, signee.ID())
 
 		// Now make resolving fail but ensure we can still get the signee since
 		// the identity is cached.
 		resolver.SetIdentity(url.NodeURL(), nil)
-		signee, err = pool.GetSignee(context.Background(), id)
+		signee, err = pool.GetSignee(t.Context(), id)
 		require.NoError(t, err)
 		assert.Equal(t, id, signee.ID())
 
@@ -112,8 +112,8 @@ func TestPoolGetSignee(t *testing.T) {
 		// hampered the resolver)
 		url.Host = "bar.test"
 		source.entries = []trust.Entry{{SatelliteURL: url}}
-		require.NoError(t, pool.Refresh(context.Background()))
-		_, err = pool.GetSignee(context.Background(), id)
+		require.NoError(t, pool.Refresh(t.Context()))
+		_, err = pool.GetSignee(t.Context(), id)
 		require.EqualError(t, err, "trust: no identity")
 	})
 }
@@ -142,10 +142,10 @@ func TestPoolGetSatellites(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
-		expected := []storj.NodeID{id1, id2}
-		actual := pool.GetSatellites(context.Background())
+		expected := []storxnetwork.NodeID{id1, id2}
+		actual := pool.GetSatellites(t.Context())
 		assert.ElementsMatch(t, expected, actual)
 	})
 }
@@ -187,7 +187,7 @@ func TestPool_SatelliteDB_Status(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
 		sats, err := db.Satellites().GetSatellites(ctx)
 		require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestPool_SatelliteDB_Status(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 		sats, err = db.Satellites().GetSatellites(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(sats))
@@ -221,8 +221,8 @@ func TestPool_SatelliteDB_Status(t *testing.T) {
 			}
 		}
 
-		expected := []storj.NodeID{id2}
-		actual := pool.GetSatellites(context.Background())
+		expected := []storxnetwork.NodeID{id2}
+		actual := pool.GetSatellites(t.Context())
 		assert.ElementsMatch(t, expected, actual)
 
 		// test cases when the untrusted satellite is now trusted
@@ -243,15 +243,15 @@ func TestPool_SatelliteDB_Status(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 		sats, err = db.Satellites().GetSatellites(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(sats))
 		require.Equal(t, satellites.Normal, sats[0].Status)
 		require.Equal(t, satellites.Normal, sats[1].Status)
 
-		expected = []storj.NodeID{id1, id2}
-		actual = pool.GetSatellites(context.Background())
+		expected = []storxnetwork.NodeID{id1, id2}
+		actual = pool.GetSatellites(t.Context())
 		assert.ElementsMatch(t, expected, actual)
 	})
 }
@@ -263,7 +263,7 @@ func TestPoolGetAddress(t *testing.T) {
 		id := testrand.NodeID()
 
 		// Assert the ID is not trusted
-		nodeurl, err := pool.GetNodeURL(context.Background(), id)
+		nodeurl, err := pool.GetNodeURL(t.Context(), id)
 		require.ErrorIs(t, err, trust.ErrUntrusted)
 		require.Empty(t, nodeurl)
 
@@ -277,10 +277,10 @@ func TestPoolGetAddress(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
 		// Assert the ID is now trusted and the correct address is returned
-		nodeurl, err = pool.GetNodeURL(context.Background(), id)
+		nodeurl, err = pool.GetNodeURL(t.Context(), id)
 		require.NoError(t, err)
 		require.Equal(t, id, nodeurl.ID)
 		require.Equal(t, "foo.test:7777", nodeurl.Address)
@@ -295,10 +295,10 @@ func TestPoolGetAddress(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
 		// Assert the ID is now trusted and the correct address is returned
-		nodeurl, err = pool.GetNodeURL(context.Background(), id)
+		nodeurl, err = pool.GetNodeURL(t.Context(), id)
 		require.NoError(t, err)
 		require.Equal(t, id, nodeurl.ID)
 		require.Equal(t, "bar.test:7777", nodeurl.Address)
@@ -325,22 +325,22 @@ func newPoolTest(ctx *testcontext.Context, t *testing.T, db storagenode.DB) (*tr
 
 type fakeIdentityResolver struct {
 	mu         sync.Mutex
-	identities map[storj.NodeURL]*identity.PeerIdentity
+	identities map[storxnetwork.NodeURL]*identity.PeerIdentity
 }
 
 func newFakeIdentityResolver() *fakeIdentityResolver {
 	return &fakeIdentityResolver{
-		identities: make(map[storj.NodeURL]*identity.PeerIdentity),
+		identities: make(map[storxnetwork.NodeURL]*identity.PeerIdentity),
 	}
 }
 
-func (resolver *fakeIdentityResolver) SetIdentity(url storj.NodeURL, identity *identity.PeerIdentity) {
+func (resolver *fakeIdentityResolver) SetIdentity(url storxnetwork.NodeURL, identity *identity.PeerIdentity) {
 	resolver.mu.Lock()
 	defer resolver.mu.Unlock()
 	resolver.identities[url] = identity
 }
 
-func (resolver *fakeIdentityResolver) ResolveIdentity(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error) {
+func (resolver *fakeIdentityResolver) ResolveIdentity(ctx context.Context, url storxnetwork.NodeURL) (*identity.PeerIdentity, error) {
 	resolver.mu.Lock()
 	defer resolver.mu.Unlock()
 

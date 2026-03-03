@@ -82,7 +82,7 @@
              so it appears as an App Shortcut with icon in the Windows Start Menu. In contrast, InternetShortcut does
              not support icons in the Start Menu. -->
         <Shortcut Id="DashboardShortcut"  Name="Storage Node Dashboard" Description="Open the dashboard for the storage node" Directory="StorageNodeStartMenuFolder" Target="[System64Folder]cmd.exe" Arguments="/C &quot;start http://localhost:14002&quot;">
-          <Icon Id="DashboardIco" SourceFile="storj.ico"/>
+          <Icon Id="DashboardIco" SourceFile="storxnetwork.ico"/>
         </Shortcut>
         <RemoveFolder Id="RemoveStorageNodeMenuFolder" Directory="StorageNodeStartMenuFolder" On="uninstall" />
         <RemoveFolder Id="RemoveStorjMenuFolder" Directory="StorjStartMenuFolder" On="uninstall" />
@@ -108,8 +108,8 @@
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
 
-    <Icon Id="storj.ico" SourceFile="storj.ico"/>
-    <Property Id="ARPPRODUCTICON" Value="storj.ico" />
+    <Icon Id="storxnetwork.ico" SourceFile="storxnetwork.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="storxnetwork.ico" />
     <WixVariable Id="WixUILicenseRtf" Value="agpl-3.0.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="dialog.png" />

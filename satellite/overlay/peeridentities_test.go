@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestPeerIdentities(t *testing.T) {
@@ -59,13 +59,13 @@ func TestPeerIdentities(t *testing.T) {
 		}
 
 		{ // get multiple with invalid
-			list := make(map[storj.NodeID]*identity.PeerIdentity)
-			ids := storj.NodeIDList{}
-			savedIDs := make(map[storj.NodeID]bool)
-			unsavedIDs := make(map[storj.NodeID]bool)
+			list := make(map[storxnetwork.NodeID]*identity.PeerIdentity)
+			ids := storxnetwork.NodeIDList{}
+			savedIDs := make(map[storxnetwork.NodeID]bool)
+			unsavedIDs := make(map[storxnetwork.NodeID]bool)
 
 			for i := 0; i < 10; i++ {
-				ident := testidentity.MustPregeneratedSignedIdentity(i, storj.LatestIDVersion())
+				ident := testidentity.MustPregeneratedSignedIdentity(i, storxnetwork.LatestIDVersion())
 				list[ident.ID] = ident.PeerIdentity()
 				ids = append(ids, ident.ID)
 

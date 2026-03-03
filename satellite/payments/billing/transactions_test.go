@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/currency"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
 )
 
 func TestTransactionsDBList(t *testing.T) {
@@ -237,6 +237,9 @@ func TestUpdateTransactions(t *testing.T) {
 
 	t.Run("update metadata", func(t *testing.T) {
 		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+			credit10TX := credit10TX
+			debit10TX := debit10TX
+
 			_, err := db.Billing().Insert(ctx, credit10TX)
 			require.NoError(t, err)
 			txIDs, err := db.Billing().Insert(ctx, debit10TX)
@@ -262,6 +265,8 @@ func TestUpdateTransactions(t *testing.T) {
 
 	t.Run("confirm new token deposit", func(t *testing.T) {
 		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+			credit10TX := credit10TX
+
 			_, err := db.Billing().Insert(ctx, credit10TX)
 			require.NoError(t, err)
 			credit10TX.Status = payments.PaymentStatusConfirmed

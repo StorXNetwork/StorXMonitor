@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // CustomerioConfig handles customer.io credentials info.
@@ -72,7 +72,7 @@ func (c *CustomerioNotifier) Notify(ctx context.Context, satellite string, event
 	}
 
 	var nodeIDs, ipPorts string
-	seen := make(map[storj.NodeID]struct{})
+	seen := make(map[storxnetwork.NodeID]struct{})
 	for _, e := range events {
 		if _, ok := seen[e.NodeID]; !ok {
 			seen[e.NodeID] = struct{}{}
@@ -119,7 +119,7 @@ func (c *CustomerioNotifier) Notify(ctx context.Context, satellite string, event
 	}
 	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
-	c.log.Info("batch sent to customer.io", zap.String("email", email), zap.String("event", eventName), zap.String("node IDs", nodeIDs))
+	c.log.Info("batch sent to customer.io", zap.String("email", email), zap.String("event", eventName), zap.String("node_ids", nodeIDs))
 
 	if resp.StatusCode != http.StatusOK {
 		return errs.New("unexpected status code: %d", resp.StatusCode)

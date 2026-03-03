@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build windows && !unittest
-// +build windows,!unittest
 
 package main
 
@@ -14,13 +13,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/version"
-	"storj.io/storj/private/version/checker"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
 )
 
 // loopFunc is func that is run by the update cycle.
 func loopFunc(ctx context.Context) error {
-	zap.L().Info("Downloading versions.", zap.String("Server Address", runCfg.Version.ServerAddress))
+	zap.L().Info("Downloading versions.", zap.String("server_address", runCfg.Version.ServerAddress))
 
 	all, err := checker.New(runCfg.Version.ClientConfig).All(ctx)
 	if err != nil {
@@ -28,14 +27,14 @@ func loopFunc(ctx context.Context) error {
 		return nil
 	}
 
-	if err := update(ctx, runCfg.ServiceName, runCfg.BinaryLocation, all.Processes.Storagenode); err != nil {
+	if err := update(ctx, runCfg.Standalone, runCfg.RestartMethod, runCfg.ServiceName, runCfg.BinaryLocation, "", all.Processes.Storagenode); err != nil {
 		// don't finish loop in case of error just wait for another execution
-		zap.L().Error("Error updating service.", zap.String("Service", runCfg.ServiceName), zap.Error(err))
+		zap.L().Error("Error updating service.", zap.String("service", runCfg.ServiceName), zap.Error(err))
 	}
 
 	if err := updateSelf(ctx, updaterBinaryPath, all.Processes.StoragenodeUpdater); err != nil {
 		// don't finish loop in case of error just wait for another execution
-		zap.L().Error("Error updating service.", zap.String("Service", updaterServiceName), zap.Error(err))
+		zap.L().Error("Error updating service.", zap.String("service", updaterServiceName), zap.Error(err))
 	}
 
 	return nil
@@ -48,8 +47,8 @@ func updateSelf(ctx context.Context, binaryLocation string, ver version.Process)
 	}
 
 	zap.L().Info("Current binary version",
-		zap.String("Service", updaterServiceName),
-		zap.String("Version", currentVersion.String()),
+		zap.String("service", updaterServiceName),
+		zap.String("version", currentVersion.String()),
 	)
 
 	// should update
@@ -58,7 +57,7 @@ func updateSelf(ctx context.Context, binaryLocation string, ver version.Process)
 		return errs.Wrap(err)
 	}
 	if newVersion.IsZero() {
-		zap.L().Info(reason, zap.String("Service", updaterServiceName))
+		zap.L().Info(reason, zap.String("service", updaterServiceName))
 		return nil
 	}
 
@@ -83,7 +82,7 @@ func updateSelf(ctx context.Context, binaryLocation string, ver version.Process)
 		return errs.Combine(err, os.Remove(newVersionPath))
 	}
 
-	zap.L().Info("Restarting service.", zap.String("Service", updaterServiceName))
+	zap.L().Info("Restarting service.", zap.String("service", updaterServiceName))
 	return restartSelf(binaryLocation, newVersionPath)
 }
 

@@ -4,24 +4,25 @@
 package main
 
 import (
-	"strings"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
-	"storj.io/common/process"
-	"storj.io/common/process/eventkitbq"
-	"storj.io/common/version"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/satellitedb"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/live"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
+	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
 )
 
 func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
@@ -34,10 +35,22 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Failed to load identity: %+v", err)
 	}
 
+	var recorder *flightrecorder.Box
+	if runCfg.FlightRecorder.Enabled {
+		recorder = flightrecorder.NewBox(log.Named("flightrecorder"), runCfg.FlightRecorder)
+	}
+
+	var maxCommitDelay *time.Duration
+	if runCfg.Orders.MaxCommitDelay > 0 {
+		maxCommitDelay = &runCfg.Orders.MaxCommitDelay
+	}
+
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
 		ApplicationName:      "satellite-api",
 		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
 		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
+		FlightRecorder:       recorder,
+		MaxCommitDelay:       maxCommitDelay,
 	})
 	if err != nil {
 		return errs.New("Error starting master database on satellite api: %+v", err)
@@ -46,33 +59,15 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	for _, migration := range strings.Split(runCfg.DatabaseOptions.MigrationUnsafe, ",") {
-		switch migration {
-		case fullMigration:
-			err = db.MigrateToLatest(ctx)
-			if err != nil {
-				return err
-			}
-		case snapshotMigration:
-			log.Info("MigrationUnsafe using latest snapshot. It's not for production", zap.String("db", "master"))
-			err = db.Testing().TestMigrateToLatest(ctx)
-			if err != nil {
-				return err
-			}
-		case testDataCreation:
-			err := createTestData(ctx, db)
-			if err != nil {
-				return err
-			}
-		case noMigration:
-		// noop
-		default:
-			return errs.New("unsupported migration type: %s, please try one of the: %s", migration, strings.Join(migrationTypes, ","))
-		}
+	err = satellitedb.MigrateSatelliteDB(ctx, log, db, runCfg.DatabaseOptions.MigrationUnsafe)
+	if err != nil {
+		return err
 	}
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL,
-		runCfg.Config.Metainfo.Metabase("satellite-api"))
+	metabaseCfg := runCfg.Config.Metainfo.Metabase("satellite-api")
+	metabaseCfg.FlightRecorder = recorder
+
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL, metabaseCfg)
 	if err != nil {
 		return errs.New("Error creating metabase connection on satellite api: %+v", err)
 	}
@@ -80,24 +75,9 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
-	for _, migration := range strings.Split(runCfg.DatabaseOptions.MigrationUnsafe, ",") {
-		switch migration {
-		case fullMigration:
-			err = metabaseDB.MigrateToLatest(ctx)
-			if err != nil {
-				return err
-			}
-		case snapshotMigration:
-			log.Info("MigrationUnsafe using latest snapshot. It's not for production", zap.String("db", "master"))
-			err = metabaseDB.TestMigrateToLatest(ctx)
-			if err != nil {
-				return err
-			}
-		case noMigration, testDataCreation:
-		// noop
-		default:
-			return errs.New("unsupported migration type: %s, please try one of the: %s", migration, strings.Join(migrationTypes, ","))
-		}
+	err = metabase.MigrateMetainfoDB(ctx, log, metabaseDB, runCfg.DatabaseOptions.MigrationUnsafe)
+	if err != nil {
+		return err
 	}
 
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Config.Server.Config)
@@ -143,16 +123,8 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 
 	monkit.Package().Chain(peer.Server)
 
-	err = metabaseDB.CheckVersion(ctx)
-	if err != nil {
-		log.Error("Failed metabase database version check.", zap.Error(err))
-		return errs.New("failed metabase version check: %+v", err)
-	}
-
-	err = db.CheckVersion(ctx)
-	if err != nil {
-		log.Error("Failed satellite database version check.", zap.Error(err))
-		return errs.New("Error checking version for satellitedb: %+v", err)
+	if err := checkDBVersions(ctx, log, runCfg, db, metabaseDB); err != nil {
+		return err
 	}
 
 	runError := peer.Run(ctx)

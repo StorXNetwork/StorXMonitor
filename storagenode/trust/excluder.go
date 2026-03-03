@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -63,11 +63,11 @@ func (excluder *URLExcluder) String() string {
 
 // IDExcluder excludes URLs matching a given URL.
 type IDExcluder struct {
-	id storj.NodeID
+	id storxnetwork.NodeID
 }
 
 // NewIDExcluder returns a new IDExcluder.
-func NewIDExcluder(id storj.NodeID) *IDExcluder {
+func NewIDExcluder(id storxnetwork.NodeID) *IDExcluder {
 	return &IDExcluder{
 		id: id,
 	}
@@ -129,7 +129,7 @@ func (excluder *HostExcluder) String() string {
 // - Satellite host
 // - Full Satellite URL (i.e. id@host:port).
 func parseExcluderConfig(s string) (SatelliteURL, error) {
-	url, err := storj.ParseNodeURL(s)
+	url, err := storxnetwork.ParseNodeURL(s)
 	if err != nil {
 		return SatelliteURL{}, ErrExclusion.Wrap(err)
 	}
@@ -151,7 +151,7 @@ func parseExcluderConfig(s string) (SatelliteURL, error) {
 		}, nil
 	}
 
-	// storj.ParseNodeURL will have already verified that the address is
+	// storxnetwork.ParseNodeURL will have already verified that the address is
 	// well-formed, so if SplitHostPort fails it should be due to the address
 	// not having a port.
 	host, portStr, err := net.SplitHostPort(url.Address)

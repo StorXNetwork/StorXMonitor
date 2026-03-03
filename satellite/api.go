@@ -8,58 +8,75 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"runtime/pprof"
 	"strings"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/nodetag"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/server"
-	"storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/abtesting"
-	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consoleweb"
-	consoleapi "storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/console/pushnotifications"
-	"storj.io/storj/satellite/console/restkeys"
-	"storj.io/storj/satellite/console/secretconstants"
-	"storj.io/storj/satellite/console/userinfo"
-	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/developer"
-	"storj.io/storj/satellite/emission"
-	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/nodestats"
-	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/satellite/smartcontract"
-	"storj.io/storj/satellite/snopayouts"
-	"storj.io/storj/satellite/userworker"
+	"github.com/StorXNetwork/StorXMonitor/private/healthcheck"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/abtesting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb"
+	consoleapi "github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restkeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/userinfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/valdi/valdiclient"
+	"github.com/StorXNetwork/StorXMonitor/satellite/contact"
+	"github.com/StorXNetwork/StorXMonitor/satellite/developer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/emission"
+	"github.com/StorXNetwork/StorXMonitor/satellite/entitlements"
+	"github.com/StorXNetwork/StorXMonitor/satellite/eventing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gracefulexit"
+	"github.com/StorXNetwork/StorXMonitor/satellite/kms"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice/hubspotmails"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metainfo"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection/tracker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodestats"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
+	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
+	"github.com/StorXNetwork/StorXMonitor/satellite/trust"
+	"github.com/StorXNetwork/StorXMonitor/satellite/userworker"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
 
 // API is the satellite API process.
@@ -130,7 +147,8 @@ type API struct {
 	}
 
 	Mail struct {
-		Service *mailservice.Service
+		Service        *mailservice.Service
+		HubspotService *hubspotmails.Service
 	}
 
 	PushNotification struct {
@@ -149,15 +167,26 @@ type API struct {
 		EmailWebhook  *consoleapi.EmailWebhook
 	}
 
-	REST struct {
-		Keys *restkeys.Service
+	Console struct {
+		Listener       net.Listener
+		Service        *console.Service
+		ConsoleService *consoleservice.Service // this is a duplicate of Service, but should replace it in the future.
+		RestKeys       restapikeys.Service
+		Endpoint       *consoleweb.Server
+		AuthTokens     *consoleauth.Service
 	}
 
-	Console struct {
-		Listener   net.Listener
-		Service    *console.Service
-		Endpoint   *consoleweb.Server
-		AuthTokens *consoleauth.Service
+	Entitlements struct {
+		Service *entitlements.Service
+	}
+
+	Valdi struct {
+		Service *valdi.Service
+		Client  *valdiclient.Client
+	}
+
+	REST struct {
+		Keys restapikeys.Service
 	}
 
 	NodeStats struct {
@@ -190,7 +219,27 @@ type API struct {
 		Service *buckets.Service
 	}
 
-	EmailWebhook *consoleapi.EmailWebhook
+	EmailWebhook  *consoleapi.EmailWebhook
+	KeyManagement struct {
+		Service *kms.Service
+	}
+
+	SSO struct {
+		Service *sso.Service
+	}
+
+	CSRF struct {
+		Service *csrf.Service
+	}
+
+	HealthCheck struct {
+		Server *healthcheck.Server
+	}
+
+	SuccessTrackers *metainfo.SuccessTrackers
+	FailureTracker  metainfo.SuccessTracker
+	TrustedUplinks  *trust.TrustedPeersList
+	TrackerMonitor  *metainfo.SuccessTrackerMonitor
 }
 
 // NewAPI creates a new satellite API process.
@@ -209,8 +258,106 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup buckets service
-		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
+		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB, db.Attribution())
 	}
+
+	var trackerInfo *metainfo.TrackerInfo
+	var successTrackerUplinks []storxnetwork.NodeID
+	{
+		successTrackerTrustedUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerTrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.Error(err))
+			return nil, err
+		}
+
+		successTrackerUplinks, err = parseNodeIDs(config.Metainfo.SuccessTrackerUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the success trackers", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice, err := parseNodeIDs(config.Metainfo.TrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the trusted uplinks", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice = append(trustedUplinkSlice, successTrackerTrustedUplinks...)
+		successTrackerUplinks = append(successTrackerUplinks, successTrackerTrustedUplinks...)
+
+		peer.TrackerMonitor, err = metainfo.NewSuccessTrackerMonitor(log, db.OverlayCache(), config.Metainfo)
+		if err != nil {
+			return nil, err
+		}
+		newTracker, ok := metainfo.GetNewSuccessTracker(config.Metainfo.SuccessTrackerKind)
+		if !ok {
+			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
+		}
+		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, func(uplink storxnetwork.NodeID) metainfo.SuccessTracker {
+			tracker := newTracker()
+			peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("success_tracker").WithTag("uplink", uplink.String()), tracker)
+			return tracker
+		})
+		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
+
+		peer.FailureTracker = metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
+		peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("failure_tracker"), peer.FailureTracker)
+
+		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
+
+		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "tracker_monitor",
+			Run:  peer.TrackerMonitor.Run,
+		})
+
+	}
+
+	var prometheusTracker *tracker.PrometheusTracker
+	environment := nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker)
+	environment.AddPrometheusTracker(func() nodeselection.ScoreNode {
+		return prometheusTracker
+	})
+
+	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, environment)
+	if err != nil {
+		return nil, err
+	}
+
+	{ // setup overlay
+		peer.Overlay.DB = peer.DB.OverlayCache()
+
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "overlay",
+			Run:   peer.Overlay.Service.Run,
+			Close: peer.Overlay.Service.Close,
+		})
+	}
+
+	trackerInfo = metainfo.NewTrackerInfo(peer.SuccessTrackers, peer.FailureTracker, successTrackerUplinks, peer.Overlay.DB)
+
+	nodeSelectionStats := metainfo.NewNodeSelectionStats()
+
+	if config.PrometheusTracker.URL != "" {
+		var err error
+		prometheusTracker, err = tracker.NewPrometheusTracker(log.Named("prometheus-tracker"), peer.Overlay.DB, config.PrometheusTracker)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name: "prometheus-tracker",
+			Run:  prometheusTracker.Run,
+		})
+		environment.AddPrometheusTracker(prometheusTracker)
+		trackerInfo = trackerInfo.WithPrometheusTracker(prometheusTracker)
+	}
+
+	migrationModeFlag := metainfo.NewMigrationModeFlagExtension(config.Metainfo)
 
 	{ // setup debug
 		var err error
@@ -223,7 +370,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "API"
-		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
+
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default,
+			debugConfig, atomicLogLevel, migrationModeFlag, trackerInfo, nodeSelectionStats)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -231,14 +380,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	var err error
-
 	{
 		peer.Log.Info("Version info",
-			zap.Stringer("Version", versionInfo.Version.Version),
-			zap.String("Commit Hash", versionInfo.CommitHash),
-			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
-			zap.Bool("Release Build", versionInfo.Release),
+			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("commit_hash", versionInfo.CommitHash),
+			zap.Stringer("build_timestamp", versionInfo.Timestamp),
+			zap.Bool("release_build", versionInfo.Release),
 		)
 
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
@@ -275,42 +422,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run: func(ctx context.Context) error {
 				// Don't change the format of this comment, it is used to figure out the node id.
 				peer.Log.Info(fmt.Sprintf("Node %s started", peer.Identity.ID))
-				peer.Log.Info(fmt.Sprintf("Public server started on %s", peer.Addr()))
-				peer.Log.Info(fmt.Sprintf("Private server started on %s", peer.PrivateAddr()))
+				peer.Log.Info("Public server started on " + peer.Addr())
+				peer.Log.Info("Private server started on " + peer.PrivateAddr())
 				return peer.Server.Run(ctx)
 			},
 			Close: peer.Server.Close,
-		})
-	}
-
-	{ // setup mailservice
-		peer.Mail.Service, err = setupMailService(peer.Log, *config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "mail:service",
-			Close: peer.Mail.Service.Close,
-		})
-	}
-
-	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
-	if err != nil {
-		return nil, err
-	}
-
-	{ // setup overlay
-		peer.Overlay.DB = peer.DB.OverlayCache()
-
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Services.Add(lifecycle.Item{
-			Name:  "overlay",
-			Run:   peer.Overlay.Service.Run,
-			Close: peer.Overlay.Service.Close,
 		})
 	}
 
@@ -341,7 +457,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup contact service
-		authority, err := loadAuthorities(full.PeerIdentity(), config.TagAuthorities)
+		authority, err := LoadAuthorities(full.PeerIdentity(), config.TagAuthorities)
 		if err != nil {
 			return nil, err
 		}
@@ -364,6 +480,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup accounting project usage
 		peer.Accounting.ProjectUsage = accounting.NewService(
+			log.Named("accounting:projectusage-service"),
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			*metabaseDB,
@@ -373,15 +490,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Console.Config.UsageLimits.Segment.Free,
 			config.LiveAccounting.AsOfSystemInterval,
 		)
-	}
-
-	{ // setup oidc
-		peer.OIDC.Service = oidc.NewService(db.OIDC())
-	}
-
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
-	if err != nil {
-		return nil, err
 	}
 
 	{ // setup orders
@@ -400,7 +508,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			placement.CreateFilters,
+			placements.CreateFilters,
 			config.Orders,
 		)
 		if err != nil {
@@ -413,8 +521,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			satelliteSignee,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
-			config.Orders.OrdersSemaphoreSize,
 			peer.Orders.Service,
+			config.Orders,
+			peer.Overlay.Service,
 		)
 
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
@@ -422,26 +531,38 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup analytics service
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "analytics:service",
-			Run:   peer.Analytics.Service.Run,
-			Close: peer.Analytics.Service.Close,
-		})
-	}
-
-	{ // setup AB test service
-		peer.ABTesting.Service = abtesting.NewService(peer.Log.Named("abtesting:service"), config.Console.ABTesting)
-
-		peer.Services.Add(lifecycle.Item{
-			Name: "abtesting:service",
-		})
+	{ // setup entitlements
+		peer.Entitlements.Service = entitlements.NewService(
+			peer.Log.Named("entitlements:service"),
+			db.Console().Entitlements(),
+		)
 	}
 
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
+		config.Metainfo.SelfServePlacementSelectEnabled = config.Console.Placement.SelfServeEnabled
+
+		// Initialize bucket notification cache
+		var bucketEventingCache *eventing.ConfigCache
+		if config.BucketEventing.Cache.Address != "" {
+			bucketEventingCache, err = eventing.NewConfigCache(
+				peer.Log.Named("bucket-eventing-cache"),
+				peer.DB.Buckets(),
+				config.BucketEventing,
+			)
+			if err != nil {
+				peer.Log.Warn("Failed to initialize bucket notification cache, will continue without caching", zap.Error(err))
+				bucketEventingCache = nil
+			} else {
+				peer.Services.Add(lifecycle.Item{
+					Name: "bucket-eventing-cache",
+					Run:  bucketEventingCache.Ping,
+					Close: func() error {
+						return bucketEventingCache.Close()
+					},
+				})
+			}
+		}
 
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -452,11 +573,26 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Attribution(),
 			peer.DB.PeerIdentities(),
 			peer.DB.Console().APIKeys(),
+			peer.DB.Console().APIKeyTails(),
 			peer.Accounting.ProjectUsage,
 			peer.DB.Console().Projects(),
+			peer.DB.Console().ProjectMembers(),
+			peer.DB.Console().Users(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
+			peer.SuccessTrackers,
+			peer.FailureTracker,
+			peer.TrustedUplinks,
 			config.Metainfo,
+			migrationModeFlag,
+			placements,
+			config.Console,
+			config.Orders,
+			nodeSelectionStats,
+			config.BucketEventing,
+			bucketEventingCache,
+			peer.Entitlements.Service,
+			config.Entitlements,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -468,13 +604,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:endpoint",
+			Run:   peer.Metainfo.Endpoint.Run,
 			Close: peer.Metainfo.Endpoint.Close,
 		})
 	}
 
 	{ // setup userinfo.
 		if config.Userinfo.Enabled {
-
 			peer.Userinfo.Endpoint, err = userinfo.NewEndpoint(
 				peer.Log.Named("userinfo:endpoint"),
 				peer.DB.Console().Users(),
@@ -519,12 +655,23 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
 
-		prices, err := pc.UsagePrice.ToModel()
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
+		productPrices, err := pc.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		placementOverrideMap := pc.PlacementPriceOverrides.ToMap()
+		if err := paymentsconfig.ValidatePlacementOverrideMap(placementOverrideMap, productPrices, placements); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		prices, err := pc.UsagePrice.ToModel()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -532,19 +679,33 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Payments.StripeService, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
+			stripe.ServiceDependencies{
+				DB:           peer.DB.StripeCoinPayments(),
+				WalletsDB:    peer.DB.Wallets(),
+				BillingDB:    peer.DB.Billing(),
+				ProjectsDB:   peer.DB.Console().Projects(),
+				UsersDB:      peer.DB.Console().Users(),
+				UsageDB:      peer.DB.ProjectAccounting(),
+				Analytics:    peer.Analytics.Service,
+				Emission:     emissionService,
+				Entitlements: peer.Entitlements.Service,
+			},
+			stripe.ServiceConfig{
+				DeleteAccountEnabled:       config.Console.SelfServeAccountDeleteEnabled,
+				DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+				EntitlementsEnabled:        config.Entitlements.Enabled,
+			},
 			pc.StripeCoinPayments,
-			peer.DB.StripeCoinPayments(),
-			peer.DB.Wallets(),
-			peer.DB.Billing(),
-			peer.DB.Console().Projects(),
-			peer.DB.Console().Users(),
-			peer.DB.ProjectAccounting(),
-			prices,
-			priceOverrides,
-			pc.PackagePlans.Packages,
-			pc.BonusRate,
-			peer.Analytics.Service,
-			emissionService,
+			stripe.PricingConfig{
+				UsagePrices:         prices,
+				UsagePriceOverrides: priceOverrides,
+				ProductPriceMap:     productPrices,
+				PlacementProductMap: placementOverrideMap,
+				PackagePlans:        pc.PackagePlans.Packages,
+				BonusRate:           pc.BonusRate,
+				MinimumChargeAmount: pc.MinimumCharge.Amount,
+				MinimumChargeDate:   minimumChargeDate,
+			},
 		)
 
 		if err != nil {
@@ -570,10 +731,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup account management api keys
-		peer.REST.Keys = restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.RESTKeys)
+		peer.REST.Keys = restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.RESTKeys.DefaultExpiration)
 	}
 
 	{ // setup console
+		// OIDC service must be set before NewServer, which uses it for the OAuth/OIDC endpoint.
+		peer.OIDC.Service = oidc.NewService(db.OIDC())
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
@@ -595,7 +758,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+		signer := &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)}
+		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, signer)
 
 		externalAddress := consoleConfig.ExternalAddress
 		if externalAddress == "" {
@@ -610,34 +774,91 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.AccountFreeze,
 		)
 
+		loginURL, err := consoleConfig.LoginURL()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		supportURL := consoleConfig.SupportURL()
+
+		pc := config.Payments
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		productModels, err := pc.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
+			peer.DB.Console().RestApiKeys(),
 			peer.REST.Keys,
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
 			peer.Buckets.Service,
+			peer.DB.Attribution(),
 			peer.Payments.Accounts,
 			peer.Payments.DepositWallets,
 			peer.DB.Billing(),
 			peer.Analytics.Service,
 			peer.Console.AuthTokens,
 			peer.Mail.Service,
+			peer.Mail.HubspotService,
 			accountFreezeService,
 			emissionService,
+			peer.KeyManagement.Service,
+			peer.Valdi.Service,
+			peer.SSO.Service,
 			externalAddress,
-			consoleConfig.SatelliteName,
 			peer.URL().String(),
+			consoleConfig.SatelliteName,
+			consoleConfig.WhiteLabel,
 			config.Metainfo.ProjectLimits.MaxBuckets,
-			placement,
+			config.SSO.Enabled,
+			placements,
 			console.VersioningConfig{
-				UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
-				UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
+				UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
 			},
 			consoleConfig.Config,
-			web3AuthSocialShareHelper,
+			pc.StripeCoinPayments.SkuEnabled,
+			loginURL,
+			supportURL,
+			config.BucketEventing,
+			peer.Entitlements.Service,
+			config.Entitlements,
+			pc.PlacementPriceOverrides.ToMap(),
+			productModels,
+			pc.MinimumCharge.Amount,
+			minimumChargeDate,
+			pc.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
+			web3AuthSocialShareHelper,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.ConsoleService, err = consoleservice.NewService(
+			peer.Log.Named("console:service"),
+			consoleservice.ServiceDependencies{
+				ConsoleDB:            peer.DB.Console(),
+				AccountFreezeService: accountFreezeService,
+			},
+			consoleConfig.Config,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.CSRF.Service = csrf.NewService(signer)
+
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		priceSummaries, err := consoleweb.CreateProductPriceSummaries(config.Payments.Products)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -660,20 +881,29 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Service,
+			peer.Console.ConsoleService,
 			peer.OIDC.Service,
 			peer.Mail.Service,
-			peer.PushNotification.Service,
+			peer.Mail.HubspotService,
 			peer.Analytics.Service,
 			peer.ABTesting.Service,
 			accountFreezeService,
+			peer.SSO.Service,
+			peer.CSRF.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			config.Payments.Storjscan.Confirmations,
 			peer.URL(),
 			config.Analytics,
+			peer.PushNotification.Service,
 			config.Payments.PackagePlans,
 			peer.Payments.StripeService,
 			developerService,
+			config.Payments.MinimumCharge,
+			prices,
+			priceSummaries,
+			config.Entitlements.Enabled,
+			config.SSO.Enabled,
 		)
 
 		peer.Servers.Add(lifecycle.Item{
@@ -733,10 +963,403 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
+	if !config.DisableConsoleFromSatelliteAPI {
+		{ // setup analytics service
+			peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "analytics:service",
+				Run:   peer.Analytics.Service.Run,
+				Close: peer.Analytics.Service.Close,
+			})
+		}
+
+		{ // setup legacy and hubspot mail services
+			peer.Mail.Service, err = setupMailService(peer.Log, config.Mail, config.Console)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "mail:service",
+				Close: peer.Mail.Service.Close,
+			})
+
+			peer.Mail.HubspotService = hubspotmails.NewService(peer.Log.Named("mail:hubspotservice"), peer.Analytics.Service, config.HubspotMails)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "hubspotmails:service",
+				Close: peer.Mail.HubspotService.Close,
+			})
+		}
+
+		{ // setup AB test service
+			peer.ABTesting.Service = abtesting.NewService(peer.Log.Named("abtesting:service"), config.Console.ABTesting)
+
+			peer.Services.Add(lifecycle.Item{
+				Name: "abtesting:service",
+			})
+		}
+
+		{ // setup kms
+			if len(config.KeyManagement.KeyInfos.Values) > 0 {
+				peer.KeyManagement.Service = kms.NewService(config.KeyManagement)
+
+				peer.Services.Add(lifecycle.Item{
+					Name: "kms:service",
+					Run:  peer.KeyManagement.Service.Initialize,
+				})
+			}
+		}
+
+		emissionService := emission.NewService(config.Emission)
+
+		{ // setup payments
+			pc := config.Payments
+
+			var stripeClient stripe.Client
+			switch pc.Provider {
+			case "": // just new mock, only used in testing binaries
+				stripeClient = stripe.NewStripeMock(
+					peer.DB.StripeCoinPayments().Customers(),
+					peer.DB.Console().Users(),
+				)
+			case "mock":
+				stripeClient = pc.MockProvider
+			case "stripecoinpayments":
+				stripeClient = stripe.NewStripeClient(log, pc.StripeCoinPayments)
+			default:
+				return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
+			}
+
+			prices, err := pc.UsagePrice.ToModel()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			productPrices, err := pc.Products.ToModels()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			placementOverrideMap := pc.PlacementPriceOverrides.ToMap()
+			err = paymentsconfig.ValidatePlacementOverrideMap(placementOverrideMap, productPrices, placements)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Payments.StripeService, err = stripe.NewService(
+				peer.Log.Named("payments.stripe:service"),
+				stripeClient,
+				stripe.ServiceDependencies{
+					DB:           peer.DB.StripeCoinPayments(),
+					WalletsDB:    peer.DB.Wallets(),
+					BillingDB:    peer.DB.Billing(),
+					ProjectsDB:   peer.DB.Console().Projects(),
+					UsersDB:      peer.DB.Console().Users(),
+					UsageDB:      peer.DB.ProjectAccounting(),
+					Analytics:    peer.Analytics.Service,
+					Emission:     emissionService,
+					Entitlements: peer.Entitlements.Service,
+				},
+				stripe.ServiceConfig{
+					DeleteAccountEnabled:       config.Console.SelfServeAccountDeleteEnabled,
+					DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+					EntitlementsEnabled:        config.Entitlements.Enabled,
+				},
+				pc.StripeCoinPayments,
+				stripe.PricingConfig{
+					UsagePrices:         prices,
+					UsagePriceOverrides: priceOverrides,
+					ProductPriceMap:     productPrices,
+					PlacementProductMap: placementOverrideMap,
+					PackagePlans:        pc.PackagePlans.Packages,
+					BonusRate:           pc.BonusRate,
+					MinimumChargeAmount: pc.MinimumCharge.Amount,
+					MinimumChargeDate:   minimumChargeDate,
+				},
+			)
+
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Payments.StripeClient = stripeClient
+			peer.Payments.Accounts = peer.Payments.StripeService.Accounts()
+
+			peer.Payments.StorjscanClient = storjscan.NewClient(
+				pc.Storjscan.Endpoint,
+				pc.Storjscan.Auth.Identifier,
+				pc.Storjscan.Auth.Secret)
+
+			peer.Payments.StorjscanService = storjscan.NewService(log.Named("storjscan-service"),
+				peer.DB.Wallets(),
+				peer.DB.StorjscanPayments(),
+				peer.Payments.StorjscanClient,
+				pc.Storjscan.Confirmations,
+				pc.BonusRate)
+
+			peer.Payments.DepositWallets = peer.Payments.StorjscanService
+		}
+
+		{ // setup console
+			consoleConfig := config.Console
+			// Reuse listener if already created earlier in NewAPI (avoid binding same address twice).
+			if peer.Console.Listener == nil {
+				peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+			}
+			if consoleConfig.AuthTokenSecret == "" {
+				return nil, errs.New("Auth token secret required")
+			}
+
+			signer := &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)}
+			peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, signer)
+
+			externalAddress := consoleConfig.ExternalAddress
+			if externalAddress == "" {
+				externalAddress = "http://" + peer.Console.Listener.Addr().String()
+			}
+
+			if config.SSO.Enabled {
+				// setup sso
+				peer.SSO.Service = sso.NewService(
+					externalAddress,
+					peer.Console.AuthTokens,
+					config.SSO,
+				)
+
+				peer.Services.Add(lifecycle.Item{
+					Name: "sso:service",
+					Run:  peer.SSO.Service.Initialize,
+				})
+			}
+
+			accountFreezeService := console.NewAccountFreezeService(
+				db.Console(),
+				peer.Analytics.Service,
+				consoleConfig.AccountFreeze,
+			)
+
+			if config.Console.CloudGpusEnabled {
+				peer.Valdi.Client, err = valdiclient.New(peer.Log.Named("valdi:client"), http.DefaultClient, config.Valdi.Config)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+
+				peer.Valdi.Service, err = valdi.NewService(peer.Log.Named("valdi:service"), config.Valdi, peer.Valdi.Client)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+			}
+
+			minimumChargeDate, err := config.Payments.MinimumCharge.GetEffectiveDate()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			if consoleConfig.NewPricingStartDate != "" {
+				_, err = time.Parse("2006-01-02", consoleConfig.NewPricingStartDate)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+			}
+
+			productModels, err := config.Payments.Products.ToModels()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			loginURL, err := config.Console.LoginURL()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			supportURL := config.Console.SupportURL()
+
+			// Web3 social share helper: create when configured so get_social_share does not panic
+			var web3AuthSocialShareHelper smartcontract.SocialShareHelper
+			if secretconstants.Web3AuthPrivateKey != "" {
+				web3AuthSocialShareHelper, err = smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
+					NetworkRPC:   consoleConfig.Web3AuthNetworkRPC,
+					ContractAddr: consoleConfig.Web3AuthContractAddress,
+					Address:      consoleConfig.Web3AuthAddress,
+				}, secretconstants.Web3AuthPrivateKey)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+			}
+
+			peer.Console.Service, err = console.NewService(
+				peer.Log.Named("console:service"),
+				peer.DB.Console(),
+				peer.DB.Console().RestApiKeys(),
+				restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.Console.RestAPIKeys.DefaultExpiration),
+				peer.DB.ProjectAccounting(),
+				peer.Accounting.ProjectUsage,
+				peer.Buckets.Service,
+				peer.DB.Attribution(),
+				peer.Payments.Accounts,
+				peer.Payments.DepositWallets,
+				peer.DB.Billing(),
+				peer.Analytics.Service,
+				peer.Console.AuthTokens,
+				peer.Mail.Service,
+				peer.Mail.HubspotService,
+				accountFreezeService,
+				emissionService,
+				peer.KeyManagement.Service,
+				peer.Valdi.Service,
+				peer.SSO.Service,
+				externalAddress,
+				peer.URL().String(),
+				consoleConfig.SatelliteName,
+				consoleConfig.WhiteLabel,
+				config.Metainfo.ProjectLimits.MaxBuckets,
+				config.SSO.Enabled,
+				placements,
+				console.VersioningConfig{
+					UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
+				},
+				consoleConfig.Config,
+				config.Payments.StripeCoinPayments.SkuEnabled,
+				loginURL, supportURL,
+				config.BucketEventing,
+				peer.Entitlements.Service,
+				config.Entitlements,
+				config.Payments.PlacementPriceOverrides.ToMap(),
+				productModels,
+				config.Payments.MinimumCharge.Amount,
+				minimumChargeDate,
+				config.Payments.PackagePlans.Packages,
+				consoleConfig.BackupToolsURL,
+				web3AuthSocialShareHelper,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Console.ConsoleService, err = consoleservice.NewService(
+				peer.Log.Named("console:service"),
+				consoleservice.ServiceDependencies{
+					ConsoleDB:            peer.DB.Console(),
+					AccountFreezeService: accountFreezeService,
+				},
+				consoleConfig.Config,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.CSRF.Service = csrf.NewService(signer)
+			// setup account management api keys
+			peer.Console.RestKeys = peer.Console.Service
+
+			prices, err := config.Payments.UsagePrice.ToModel()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			priceSummaries, err := consoleweb.CreateProductPriceSummaries(config.Payments.Products)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			pushNotificationService, err := pushnotifications.NewService(
+				peer.Log.Named("pushnotifications"),
+				peer.Console.Service.GetFCMTokens(),
+				peer.Console.Service.GetPushNotifications(),
+				consoleConfig.Config.PushNotifications,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			regTokenChecker := developer.NewConsoleServiceAdapter(peer.DB.Console(), consoleConfig.Config)
+			developerService, err := developer.NewService(
+				peer.Log.Named("developerservice"),
+				peer.DB.Console(),
+				peer.Analytics.Service,
+				peer.Console.AuthTokens,
+				consoleConfig.Config,
+				regTokenChecker,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Console.Endpoint = consoleweb.NewServer(
+				peer.Log.Named("console:endpoint"),
+				consoleConfig,
+				peer.Console.Service,
+				peer.Console.ConsoleService,
+				peer.OIDC.Service,
+				peer.Mail.Service,
+				peer.Mail.HubspotService,
+				peer.Analytics.Service,
+				peer.ABTesting.Service,
+				accountFreezeService,
+				peer.SSO.Service,
+				peer.CSRF.Service,
+				peer.Console.Listener,
+				config.Payments.StripeCoinPayments.StripePublicKey,
+				config.Payments.Storjscan.Confirmations,
+				peer.URL(),
+				config.Analytics,
+				pushNotificationService,
+				config.Payments.PackagePlans,
+				peer.Payments.StripeService,
+				developerService,
+				config.Payments.MinimumCharge,
+				prices,
+				priceSummaries,
+				config.Entitlements.Enabled,
+				config.SSO.Enabled,
+			)
+
+			peer.Servers.Add(lifecycle.Item{
+				Name:  "console:endpoint",
+				Run:   peer.Console.Endpoint.Run,
+				Close: peer.Console.Endpoint.Close,
+			})
+		}
+
+		{ // setup health check
+			if config.HealthCheck.Enabled {
+				listener, err := net.Listen("tcp", config.HealthCheck.Address)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+
+				srv := healthcheck.NewServer(peer.Log.Named("healthcheck:server"), listener, peer.Payments.StripeService)
+				peer.HealthCheck.Server = srv
+
+				peer.Servers.Add(lifecycle.Item{
+					Name:  "healthcheck",
+					Run:   srv.Run,
+					Close: srv.Close,
+				})
+			}
+		}
+	}
+
 	return peer, nil
 }
 
-func loadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations string) (nodetag.Authority, error) {
+// LoadAuthorities loads the authorities from the specified locations.
+func LoadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations string) (nodetag.Authority, error) {
 	var authority nodetag.Authority
 	authority = append(authority, signing.SigneeFromPeerIdentity(peerIdentity))
 	for _, cert := range strings.Split(authorityLocations, ",") {
@@ -784,17 +1407,29 @@ func (peer *API) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *API) ID() storxnetwork.NodeID { return peer.Identity.ID }
 
 // Addr returns the public address.
 func (peer *API) Addr() string {
 	return peer.ExternalAddress
 }
 
-// URL returns the storj.NodeURL.
-func (peer *API) URL() storj.NodeURL {
-	return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()}
+// URL returns the storxnetwork.NodeURL.
+func (peer *API) URL() storxnetwork.NodeURL {
+	return storxnetwork.NodeURL{ID: peer.ID(), Address: peer.Addr()}
 }
 
 // PrivateAddr returns the private address.
 func (peer *API) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
+
+func parseNodeIDs(nodeIDs []string) ([]storxnetwork.NodeID, error) {
+	rv := make([]storxnetwork.NodeID, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		parsedID, err := storxnetwork.NodeIDFromString(nodeID)
+		if err != nil {
+			return nil, err
+		}
+		rv = append(rv, parsedID)
+	}
+	return rv, nil
+}

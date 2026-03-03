@@ -12,7 +12,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/useragent"
+	"github.com/StorXNetwork/common/useragent"
 )
 
 const uplinkProduct = "uplink"
@@ -24,7 +24,7 @@ const download = transfer("download")
 
 var knownUserAgents = []string{
 	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli", "transfer-sh", "filezilla", "duplicati",
-	"comet", "orbiter", "uplink-php", "nextcloud", "aws-cli", "ipfs-go-ds-storj", "storj-downloader",
+	"comet", "orbiter", "uplink-php", "nextcloud", "aws-cli", "ipfs-go-ds-storxnetwork", "storxnetwork-downloader",
 }
 
 type versionOccurrence struct {

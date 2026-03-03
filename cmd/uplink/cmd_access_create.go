@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
 )
 
 type cmdAccessCreate struct {
@@ -130,7 +130,7 @@ func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), serialized)
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), serialized)
 
 	return nil
 }

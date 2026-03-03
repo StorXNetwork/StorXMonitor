@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 )
 
 var _ billing.Observer = (*InvoiceTokenPaymentObserver)(nil)
@@ -40,7 +40,7 @@ func (o *InvoiceTokenPaymentObserver) Process(ctx context.Context, transaction b
 		return err
 	}
 
-	if !user.PaidTier {
+	if user.IsBillingExempt() {
 		return nil
 	}
 

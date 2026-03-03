@@ -1,12 +1,13 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package main_test
 
 import (
 	"testing"
 
-	"storj.io/storj/cmd/uplink/ultest"
+	uplinkcli "github.com/StorXNetwork/StorXMonitor/cmd/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ultest"
 )
 
 func TestAccessInspect(t *testing.T) {
@@ -46,7 +47,7 @@ func TestAccessInspect(t *testing.T) {
 	}`
 	accessValue := "12edqrJX1V243n5fWtUrwpMQXL8gKdY2wbyqRPSG3rsA1tzmZiQjtCyF896egifN2C2qdY6g5S1t6e8iDhMUon9Pb7HdecBFheAcvmN8652mqu8hRx5zcTUaRTWfFCKS2S6DHmTeqPUHJLEp6cJGXNHcdqegcKfeahVZGP4rTagHvFGEraXjYRJ3knAcWDGW6BxACqogEWez6r274JiUBfs4yRSbRNRqUEURd28CwDXMSHLRKKA7TEDKEdQ"
 
-	state := ultest.Setup(commands)
+	state := ultest.Setup(uplinkcli.Commands)
 
 	t.Run("get first valid access by name", func(t *testing.T) {
 		state.Succeed(t, "access", "inspect", "TestAccessA").RequireStdout(t, parsedAccessA)

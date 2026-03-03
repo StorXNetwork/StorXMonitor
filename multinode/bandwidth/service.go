@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/multinode/nodes"
-	"storj.io/storj/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/multinode/nodes"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -54,13 +54,11 @@ func (service *Service) Monthly(ctx context.Context) (_ Monthly, err error) {
 	cache := make(UsageRollupDailyCache)
 
 	for _, node := range listNodes {
+
 		monthly, err := service.getMonthly(ctx, node)
 		if err != nil {
-			if nodes.ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return Monthly{}, Error.Wrap(err)
+			service.log.Error("Failed to fetch the monthly bandwidth summary of the node:", zap.Error(err))
+			continue
 		}
 		totalMonthly.IngressSummary += monthly.IngressSummary
 		totalMonthly.EgressSummary += monthly.EgressSummary
@@ -76,7 +74,7 @@ func (service *Service) Monthly(ctx context.Context) (_ Monthly, err error) {
 }
 
 // MonthlyNode returns monthly bandwidth summary for single node.
-func (service *Service) MonthlyNode(ctx context.Context, nodeID storj.NodeID) (_ Monthly, err error) {
+func (service *Service) MonthlyNode(ctx context.Context, nodeID storxnetwork.NodeID) (_ Monthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -93,7 +91,7 @@ func (service *Service) MonthlyNode(ctx context.Context, nodeID storj.NodeID) (_
 }
 
 // MonthlySatellite returns monthly bandwidth summary for specific satellite.
-func (service *Service) MonthlySatellite(ctx context.Context, satelliteID storj.NodeID) (_ Monthly, err error) {
+func (service *Service) MonthlySatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (_ Monthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var totalMonthly Monthly
 
@@ -105,13 +103,11 @@ func (service *Service) MonthlySatellite(ctx context.Context, satelliteID storj.
 	cache := make(UsageRollupDailyCache)
 
 	for _, node := range listNodes {
+
 		monthly, err := service.getMonthlySatellite(ctx, node, satelliteID)
 		if err != nil {
-			if nodes.ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return Monthly{}, Error.Wrap(err)
+			service.log.Error("Failed to fetch monthly bandwidth summary for the node and specific satellite", zap.Error(err))
+			continue
 		}
 
 		totalMonthly.IngressSummary += monthly.IngressSummary
@@ -128,7 +124,7 @@ func (service *Service) MonthlySatellite(ctx context.Context, satelliteID storj.
 }
 
 // MonthlySatelliteNode returns monthly bandwidth summary for single node and specific satellites.
-func (service *Service) MonthlySatelliteNode(ctx context.Context, satelliteID, nodeID storj.NodeID) (_ Monthly, err error) {
+func (service *Service) MonthlySatelliteNode(ctx context.Context, satelliteID, nodeID storxnetwork.NodeID) (_ Monthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
@@ -145,10 +141,10 @@ func (service *Service) MonthlySatelliteNode(ctx context.Context, satelliteID, n
 }
 
 // getMonthlySatellite returns monthly bandwidth summary for single node and specific satellite.
-func (service *Service) getMonthlySatellite(ctx context.Context, node nodes.Node, satelliteID storj.NodeID) (_ Monthly, err error) {
+func (service *Service) getMonthlySatellite(ctx context.Context, node nodes.Node, satelliteID storxnetwork.NodeID) (_ Monthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -226,7 +222,7 @@ func (service *Service) getMonthlySatellite(ctx context.Context, node nodes.Node
 func (service *Service) getMonthly(ctx context.Context, node nodes.Node) (_ Monthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})

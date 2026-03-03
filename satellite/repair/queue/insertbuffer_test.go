@@ -8,18 +8,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairqueuetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestInsertBufferNoCallback(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		repairQueue := db.RepairQueue()
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
 		insertBuffer := queue.NewInsertBuffer(repairQueue, 2)
 
 		segment1 := createInjuredSegment()
@@ -53,8 +51,8 @@ func TestInsertBufferNoCallback(t *testing.T) {
 }
 
 func TestInsertBufferSingleUniqueObject(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		insertBuffer := queue.NewInsertBuffer(db.RepairQueue(), 1)
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
+		insertBuffer := queue.NewInsertBuffer(repairQueue, 1)
 
 		numUnique := 0
 		inc := func() {
@@ -78,8 +76,8 @@ func TestInsertBufferSingleUniqueObject(t *testing.T) {
 }
 
 func TestInsertBufferTwoUniqueObjects(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		insertBuffer := queue.NewInsertBuffer(db.RepairQueue(), 1)
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
+		insertBuffer := queue.NewInsertBuffer(repairQueue, 1)
 
 		numUnique := 0
 		inc := func() {
@@ -108,6 +106,6 @@ func createInjuredSegment() *queue.InjuredSegment {
 			Index: index,
 		},
 		SegmentHealth: 10,
-		Placement:     storj.PlacementConstraint(index % 3),
+		Placement:     storxnetwork.PlacementConstraint(index % 3),
 	}
 }

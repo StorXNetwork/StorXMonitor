@@ -6,14 +6,14 @@ package admin
 import (
 	"context"
 
-	"storj.io/common/storj"
-	"storj.io/storj/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // PlacementInfo contains the ID and location of a placement rule.
 type PlacementInfo struct {
-	ID       storj.PlacementConstraint `json:"id"`
-	Location string                    `json:"location"`
+	ID       storxnetwork.PlacementConstraint `json:"id"`
+	Location string                           `json:"location"`
 }
 
 // GetPlacements returns IDs and locations of placement rules.

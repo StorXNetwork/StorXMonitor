@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 var mon = monkit.Package()
@@ -20,7 +20,7 @@ var mon = monkit.Package()
 // Config is a configuration struct for the Chore.
 type Config struct {
 	Interval     time.Duration `help:"how often to remove unused project bandwidth rollups" default:"24h" testDefault:"$TESTINTERVAL"`
-	RetainMonths int           `help:"number of months of project bandwidth rollups to retain, not including the current month" default:"2"`
+	RetainMonths int           `help:"number of months of project bandwidth rollups to retain, not including the current month" default:"11"`
 }
 
 // Chore to remove unused project bandwidth rollups.

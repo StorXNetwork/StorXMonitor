@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // DeveloperOAuthClient represents the OAuth client entity for a developer.

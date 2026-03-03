@@ -14,15 +14,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/uplink"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var (
@@ -139,7 +139,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, retainInfo)
 				if err != nil {
-					service.log.Warn("Error sending retain filter", zap.Error(err))
+					service.log.Warn("Error sending retain filter", zap.Stringer("node_id", retainInfo.StorageNodeId), zap.Error(err))
 				}
 			})
 			return nil
@@ -174,7 +174,7 @@ func (service *Service) sendRetainRequest(ctx context.Context, retainInfo *inter
 		defer cancel()
 	}
 
-	nodeurl := storj.NodeURL{
+	nodeurl := storxnetwork.NodeURL{
 		ID:      retainInfo.StorageNodeId,
 		Address: dossier.Address.Address,
 	}

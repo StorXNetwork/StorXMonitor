@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
+	"github.com/StorXNetwork/common/pb"
 )
 
 var (
@@ -31,3 +31,34 @@ type Containment interface {
 	Delete(ctx context.Context, job *PieceLocator) (wasDeleted, nodeStillContained bool, err error)
 	GetAllContainedNodes(ctx context.Context) ([]pb.NodeID, error)
 }
+
+// WrappedContainment is a typed Containment, helping mud to manage implementations.
+type WrappedContainment struct {
+	Containment
+}
+
+// NoContainment is a Containment implementation that does nothing.
+type NoContainment struct {
+}
+
+// Get implements Containment.
+func (n NoContainment) Get(ctx context.Context, nodeID pb.NodeID) (*ReverificationJob, error) {
+	return nil, nil
+}
+
+// Insert implements Containment.
+func (n NoContainment) Insert(ctx context.Context, job *PieceLocator) error {
+	return nil
+}
+
+// Delete implements Containment.
+func (n NoContainment) Delete(ctx context.Context, job *PieceLocator) (wasDeleted, nodeStillContained bool, err error) {
+	return false, false, nil
+}
+
+// GetAllContainedNodes implements Containment.
+func (n NoContainment) GetAllContainedNodes(ctx context.Context) ([]pb.NodeID, error) {
+	return []pb.NodeID{}, nil
+}
+
+var _ Containment = &NoContainment{}

@@ -12,26 +12,26 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestSuccess(t *testing.T) {
 	const steps = 5
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -147,7 +147,7 @@ func TestExitDisabled(t *testing.T) {
 func TestIneligibleNodeAge(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 5,
+		StorageNodeCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// Set the required node age to 1 month.
@@ -195,7 +195,7 @@ func TestIneligibleNodeAgeOld(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
+		nodeFullIDs := make(map[storxnetwork.NodeID]*identity.FullIdentity)
 		for _, node := range planet.StorageNodes {
 			nodeFullIDs[node.ID()] = node.Identity
 		}
@@ -239,7 +239,7 @@ func TestIneligibleNodeAgeOld(t *testing.T) {
 func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
 
-	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
+	pieceCountMap := make(map[storxnetwork.NodeID]int, len(planet.StorageNodes))
 	for _, node := range planet.StorageNodes {
 		pieceCountMap[node.ID()] = 0
 	}
@@ -254,7 +254,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 		}
 	}
 
-	var exitingNodeID storj.NodeID
+	var exitingNodeID storxnetwork.NodeID
 	maxCount := 0
 	for k, v := range pieceCountMap {
 		if exitingNodeID.IsZero() {
@@ -274,7 +274,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 func TestNodeAlreadyExited(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -318,7 +318,7 @@ func TestNodeAlreadyExited(t *testing.T) {
 func TestNodeSuspended(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -378,16 +378,14 @@ func TestManyNodesGracefullyExiting(t *testing.T) {
 		// we expect ~78% of segments to be in the repair queue (the chance that a
 		// segment still has at least 3 pieces in not-exiting nodes). but since things
 		// will fluctuate, let's just expect half
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, count, numObjects/2)
 
 		// perform the repairs, which should get every piece so that it will still be
 		// reconstructable without the exiting nodes.
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.WaitForPendingRepairs()
+		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// turn off the exiting nodes entirely
 		for i := 0; i < len(planet.StorageNodes)/2; i++ {
@@ -407,14 +405,14 @@ func TestManyNodesGracefullyExiting(t *testing.T) {
 func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.AuditHistory.WindowSize = 24 * time.Hour
 				config.Reputation.AuditHistory.TrackingPeriod = 3 * 24 * time.Hour
 				config.Reputation.FlushInterval = 0
 				config.GracefulExit.MinimumOnlineScore = 0.6
-				config.GracefulExit.GracefulExitDurationInDays = 30
+				config.GracefulExit.GracefulExitDurationInDays = 4
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -483,7 +481,7 @@ func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
 func TestSuspendedNodesFailGracefulExit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.FlushInterval = 0

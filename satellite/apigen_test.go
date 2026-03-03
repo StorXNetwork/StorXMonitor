@@ -17,8 +17,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/apigen"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen"
 )
 
 // TestGeneratedAPIs checks whether the generated APIs are up-to-date.
@@ -32,7 +32,8 @@ func TestGeneratedAPIs(t *testing.T) {
 
 	for _, genPath := range []string{
 		"satellite/console/consoleweb/consoleapi/gen",
-		"satellite/admin/back-office/gen",
+		"satellite/console/consoleweb/consoleapi/privateapi/gen",
+		"satellite/admin/gen",
 		"private/apigen/example",
 	} {
 		// generate files to test directory

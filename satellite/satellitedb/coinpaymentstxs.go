@@ -10,11 +10,12 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/currency"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/private/slices2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.
@@ -24,7 +25,7 @@ var _ stripe.TransactionsDB = (*coinPaymentsTransactions)(nil)
 //
 // architecture: Database
 type coinPaymentsTransactions struct {
-	db *satelliteDB
+	db dbx.Methods
 }
 
 // GetLockedRate returns locked conversion rate for transaction or error if non exists.
@@ -53,7 +54,7 @@ func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid
 		return nil, err
 	}
 
-	txs, err := convertSlice(dbxTXs, fromDBXCoinpaymentsTransaction)
+	txs, err := slices2.Convert(dbxTXs, fromDBXCoinpaymentsTransaction)
 	return txs, Error.Wrap(err)
 }
 
@@ -131,8 +132,8 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (strip
 		ID:        coinpayments.TransactionID(dbxCPTX.Id),
 		AccountID: userID,
 		Address:   dbxCPTX.Address,
-		Amount:    currency.AmountFromBaseUnits(dbxCPTX.AmountNumeric, currency.StorjToken),
-		Received:  currency.AmountFromBaseUnits(dbxCPTX.ReceivedNumeric, currency.StorjToken),
+		Amount:    currency.AmountFromBaseUnits(dbxCPTX.AmountNumeric, currency.StorxToken),
+		Received:  currency.AmountFromBaseUnits(dbxCPTX.ReceivedNumeric, currency.StorxToken),
 		Status:    coinpayments.Status(dbxCPTX.Status),
 		Key:       dbxCPTX.Key,
 		Timeout:   time.Second * time.Duration(dbxCPTX.Timeout),

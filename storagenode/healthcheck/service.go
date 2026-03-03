@@ -10,8 +10,8 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -47,7 +47,7 @@ type Health struct {
 // SatelliteHealthStatus is the health status reported by one satellite.
 type SatelliteHealthStatus struct {
 	OnlineScore    float64
-	SatelliteID    storj.NodeID
+	SatelliteID    storxnetwork.NodeID
 	DisqualifiedAt *time.Time
 	SuspendedAt    *time.Time
 }

@@ -9,7 +9,8 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 var (
@@ -20,17 +21,19 @@ var (
 )
 
 // NewService converts the provided db and metabase calls into a single DB interface.
-func NewService(bucketsDB DB, metabase *metabase.DB) *Service {
+func NewService(bucketsDB DB, metabase *metabase.DB, attribution attribution.DB) *Service {
 	return &Service{
-		DB:       bucketsDB,
-		metabase: metabase,
+		DB:          bucketsDB,
+		metabase:    metabase,
+		attribution: attribution,
 	}
 }
 
 // Service encapsulates operations around buckets.
 type Service struct {
 	DB
-	metabase *metabase.DB
+	metabase    *metabase.DB
+	attribution attribution.DB
 }
 
 // UpdateBucket overrides the default UpdateBucket behaviour by adding a check against MetabaseDB to ensure the bucket
@@ -48,7 +51,7 @@ func (buckets *Service) UpdateBucket(ctx context.Context, bucket Bucket) (Bucket
 	if current.Placement != bucket.Placement {
 		ok, err := buckets.metabase.BucketEmpty(ctx, metabase.BucketEmpty{
 			ProjectID:  bucket.ProjectID,
-			BucketName: bucket.Name,
+			BucketName: metabase.BucketName(bucket.Name),
 		})
 
 		switch {
@@ -59,5 +62,10 @@ func (buckets *Service) UpdateBucket(ctx context.Context, bucket Bucket) (Bucket
 		}
 	}
 
-	return buckets.DB.UpdateBucket(ctx, bucket)
+	updatedBucket, err := buckets.DB.UpdateBucket(ctx, bucket)
+	if err != nil {
+		return Bucket{}, err
+	}
+
+	return updatedBucket, buckets.attribution.UpdatePlacement(ctx, updatedBucket.ProjectID, updatedBucket.Name, &updatedBucket.Placement)
 }

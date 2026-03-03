@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/common/telemetry"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/telemetry"
 )
 
 var (

@@ -22,13 +22,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/storj/private/emptyfs"
-	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/analytics"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
-	"storj.io/storj/satellite/mailservice"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/StorXMonitor/private/emptyfs"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
+	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 )
 
 // Note: Error and mon are defined in service.go
@@ -117,6 +117,12 @@ func NewServer(
 	// Initialize cookie auth (following console pattern)
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_developer_tokenKey",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "developer_sso_state",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "developer_sso_email_token",
 		Path: "/",
 	}, "") // AuthCookieDomain - can be set from config if needed
 

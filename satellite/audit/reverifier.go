@@ -12,16 +12,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 // PieceLocator specifies all information necessary to look up a particular piece
@@ -29,7 +29,7 @@ import (
 type PieceLocator struct {
 	StreamID uuid.UUID
 	Position metabase.SegmentPosition
-	NodeID   storj.NodeID
+	NodeID   storxnetwork.NodeID
 	PieceNum int
 }
 
@@ -39,7 +39,7 @@ type ReverificationJob struct {
 	Locator       PieceLocator
 	InsertedAt    time.Time
 	ReverifyCount int
-	LastAttempt   time.Time
+	LastAttempt   *time.Time
 }
 
 // Reverifier pulls jobs from the reverification queue and fulfills them
@@ -132,11 +132,11 @@ func (reverifier *Reverifier) ReverifyPiece(ctx context.Context, logger *zap.Log
 	case OutcomeUnknownError:
 		unknown++
 	}
-	mon.Meter("reverify_successes_global").Mark(successes) //mon:locked
-	mon.Meter("reverify_offlines_global").Mark(offlines)   //mon:locked
-	mon.Meter("reverify_fails_global").Mark(fails)         //mon:locked
-	mon.Meter("reverify_contained_global").Mark(pending)   //mon:locked
-	mon.Meter("reverify_unknown_global").Mark(unknown)     //mon:locked
+	mon.Meter("reverify_successes_global").Mark(successes)
+	mon.Meter("reverify_offlines_global").Mark(offlines)
+	mon.Meter("reverify_fails_global").Mark(fails)
+	mon.Meter("reverify_contained_global").Mark(pending)
+	mon.Meter("reverify_unknown_global").Mark(unknown)
 
 	return outcome, reputation
 }
@@ -147,7 +147,7 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	defer mon.Task()(&ctx)(&err)
 
 	// First, we must ensure that the specified node still holds the indicated piece.
-	segment, err := reverifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segment, err := reverifier.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 		StreamID: locator.StreamID,
 		Position: locator.Position,
 	})
@@ -234,7 +234,7 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	}
 	// check for the correct size
 	if int64(len(pieceData)) != pieceSize {
-		logger.Info("ReverifyPiece: audit failure; downloaded piece has incorrect size", zap.Int64("expected-size", pieceSize), zap.Int("received-size", len(pieceData)))
+		logger.Info("ReverifyPiece: audit failure; downloaded piece has incorrect size", zap.Int64("expected_size", pieceSize), zap.Int("received_size", len(pieceData)))
 		outcome = OutcomeFailure
 		// continue to run, so we can check if the piece was legitimately changed before
 		// blaming the node
@@ -283,7 +283,7 @@ func hashWithAlgo(algo pb.PieceHashAlgorithm, data []byte) []byte {
 
 // GetPiece uses the piecestore client to download a piece (and the associated
 // original OrderLimit and PieceHash) from a node.
-func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPAndPort string, pieceSize int32) (pieceData []byte, hash *pb.PieceHash, origLimit *pb.OrderLimit, err error) {
+func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storxnetwork.PiecePrivateKey, cachedIPAndPort string, pieceSize int32) (pieceData []byte, hash *pb.PieceHash, origLimit *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// determines number of seconds allotted for receiving data from a storage node
@@ -299,12 +299,12 @@ func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedO
 	}
 
 	targetNodeID := limit.GetLimit().StorageNodeId
-	log := reverifier.log.With(zap.Stringer("node-id", targetNodeID), zap.Stringer("piece-id", limit.GetLimit().PieceId))
+	log := reverifier.log.With(zap.Stringer("node_id", targetNodeID), zap.Stringer("piece_id", limit.GetLimit().PieceId))
 	var ps *piecestore.Client
 
 	// if cached IP is given, try connecting there first
 	if cachedIPAndPort != "" {
-		nodeAddr := storj.NodeURL{
+		nodeAddr := storxnetwork.NodeURL{
 			ID:      targetNodeID,
 			Address: cachedIPAndPort,
 		}
@@ -316,7 +316,7 @@ func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedO
 
 	// if no cached IP was given, or connecting to cached IP failed, use node address
 	if ps == nil {
-		nodeAddr := storj.NodeURL{
+		nodeAddr := storxnetwork.NodeURL{
 			ID:      targetNodeID,
 			Address: limit.GetStorageNodeAddress().Address,
 		}

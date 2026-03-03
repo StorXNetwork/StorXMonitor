@@ -4,6 +4,7 @@
 package metainfo_test
 
 import (
+	"bytes"
 	"context"
 	"strconv"
 	"testing"
@@ -12,26 +13,28 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/errs2"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/rpc/rpctest"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/uplink/private/metaclient"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/rpc/rpctest"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/uplink/private/metaclient"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 func TestExpirationTimeSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		bucket := createTestBucket(ctx, t, planet)
+		bucketName := testrand.BucketName()
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 		metainfoClient := createMetainfoClient(ctx, t, planet)
 
 		for i, r := range []struct {
@@ -56,11 +59,11 @@ func TestExpirationTimeSegment(t *testing.T) {
 			},
 		} {
 			_, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
-				Bucket:             []byte(bucket.Name),
+				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte("path" + strconv.Itoa(i)),
 				ExpiresAt:          r.expirationDate,
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -88,22 +91,23 @@ func TestInlineSegment(t *testing.T) {
 		// * download segments
 		// * delete segments and object
 
-		bucket := createTestBucket(ctx, t, planet)
+		bucketName := testrand.BucketName()
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 		metainfoClient := createMetainfoClient(ctx, t, planet)
 
 		params := metaclient.BeginObjectParams{
-			Bucket:             []byte(bucket.Name),
+			Bucket:             []byte(bucketName),
 			EncryptedObjectKey: []byte("encrypted-path"),
-			Redundancy: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
+			Redundancy: storxnetwork.RedundancyScheme{
+				Algorithm:      storxnetwork.ReedSolomon,
 				ShareSize:      256,
 				RequiredShares: 1,
 				RepairShares:   1,
 				OptimalShares:  3,
 				TotalShares:    4,
 			},
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 
@@ -135,15 +139,17 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:                      beginObjectResp.StreamID,
-			EncryptedMetadata:             metadata,
-			EncryptedMetadataNonce:        testrand.Nonce(),
-			EncryptedMetadataEncryptedKey: randomEncryptedKey,
+			StreamID: beginObjectResp.StreamID,
+			EncryptedUserData: metaclient.EncryptedUserData{
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
+			},
 		})
 		require.NoError(t, err)
 
 		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:                []byte(bucket.Name),
+			Bucket:                []byte(bucketName),
 			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
@@ -161,10 +167,10 @@ func TestInlineSegment(t *testing.T) {
 
 		{ // Confirm data larger than our configured max inline segment size of 4 KiB cannot be inlined
 			beginObjectResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
-				Bucket:             []byte(bucket.Name),
+				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte("too-large-inline-segment"),
-				EncryptionParameters: storj.EncryptionParameters{
-					CipherSuite: storj.EncAESGCM,
+				EncryptionParameters: storxnetwork.EncryptionParameters{
+					CipherSuite: storxnetwork.EncAESGCM,
 					BlockSize:   256,
 				},
 			})
@@ -395,14 +401,15 @@ func TestCommitSegment_Validation(t *testing.T) {
 			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		bucket := createTestBucket(ctx, t, planet)
+		bucketName := testrand.BucketName()
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 		client := createMetainfoClient(ctx, t, planet)
 
 		beginObjectResponse, err := client.BeginObject(ctx, metaclient.BeginObjectParams{
-			Bucket:             []byte(bucket.Name),
+			Bucket:             []byte(bucketName),
 			EncryptedObjectKey: []byte("a/b/testobject"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 		})
@@ -566,14 +573,15 @@ func TestRetryBeginSegmentPieces(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		bucket := createTestBucket(ctx, t, planet)
+		bucketName := testrand.BucketName()
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 		metainfoClient := createMetainfoClient(ctx, t, planet)
 
 		params := metaclient.BeginObjectParams{
-			Bucket:             []byte(bucket.Name),
+			Bucket:             []byte(bucketName),
 			EncryptedObjectKey: []byte("encrypted-path"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 		}
@@ -657,14 +665,15 @@ func TestRetryBeginSegmentPieces_Validation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		bucket := createTestBucket(ctx, t, planet)
+		bucketName := testrand.BucketName()
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 		metainfoClient := createMetainfoClient(ctx, t, planet)
 
 		params := metaclient.BeginObjectParams{
-			Bucket:             []byte(bucket.Name),
+			Bucket:             []byte(bucketName),
 			EncryptedObjectKey: []byte("encrypted-path"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 		}
@@ -731,14 +740,15 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		bucket := createTestBucket(ctx, t, planet)
+		bucketName := testrand.BucketName()
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 		metainfoClient := createMetainfoClient(ctx, t, planet)
 
 		params := metaclient.BeginObjectParams{
-			Bucket:             []byte(bucket.Name),
+			Bucket:             []byte(bucketName),
 			EncryptedObjectKey: []byte("encrypted-path"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
 				BlockSize:   256,
 			},
 		}
@@ -816,7 +826,7 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 		// now we need to make sure that what just happened only used 6 pieces. it would be nice if
 		// we had an API that was more direct than this:
 		resp, err := metainfoClient.GetObjectIPs(ctx, metaclient.GetObjectIPsParams{
-			Bucket:             []byte(bucket.Name),
+			Bucket:             []byte(bucketName),
 			EncryptedObjectKey: []byte("encrypted-path"),
 		})
 		require.NoError(t, err)
@@ -866,8 +876,7 @@ func TestSegmentPlacementConstraints(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		err = satellite.Metabase.DB.UnderlyingTagSQL().QueryRowContext(ctx,
-			`UPDATE segments SET placement = 1`).Err()
+		err = satellite.Metabase.DB.TestingSetPlacementAllSegments(ctx, 1)
 		require.NoError(t, err)
 
 		{ // download should fail because non-zero placement and nodes have no country codes
@@ -880,13 +889,78 @@ func TestSegmentPlacementConstraints(t *testing.T) {
 	})
 }
 
-func createTestBucket(ctx context.Context, tb testing.TB, planet *testplanet.Planet) buckets.Bucket {
-	bucket, err := planet.Satellites[0].API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
-		Name:      "test",
-		ProjectID: planet.Uplinks[0].Projects[0].ID,
+func TestRetryBeginSegmentPieces_EndToEnd(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		metainfoClient := createMetainfoClient(ctx, t, planet)
+
+		data := testrand.Bytes(512)
+
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test")
+		require.NoError(t, err)
+
+		beginObjectResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
+			Bucket:             []byte("test"),
+			EncryptedObjectKey: []byte("test"),
+			EncryptionParameters: storxnetwork.EncryptionParameters{
+				CipherSuite: storxnetwork.EncAESGCM,
+			},
+		})
+		require.NoError(t, err)
+
+		beginSegmentResp, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
+			StreamID:      beginObjectResp.StreamID,
+			Position:      metaclient.SegmentPosition{},
+			MaxOrderLimit: 1024,
+		})
+		require.NoError(t, err)
+
+		retryResponse, err := metainfoClient.RetryBeginSegmentPieces(ctx, metaclient.RetryBeginSegmentPiecesParams{
+			SegmentID:         beginSegmentResp.SegmentID,
+			RetryPieceNumbers: []int{1, 3},
+		})
+		require.NoError(t, err)
+
+		// try to use limits from RetryBeginSegmentPieces and upload data
+		limits := retryResponse.Limits
+		for i, orderLimit := range limits {
+			require.NotNil(t, orderLimit.Limit)
+			require.NotNil(t, orderLimit.StorageNodeAddress)
+
+			func() {
+				nodeURL := (&pb.Node{
+					Id:      orderLimit.GetLimit().StorageNodeId,
+					Address: orderLimit.GetStorageNodeAddress(),
+				}).NodeURL()
+				client, err := piecestore.DialReplaySafe(ctx, planet.Uplinks[0].Dialer, nodeURL, piecestore.DefaultConfig)
+				require.NoError(t, err)
+				defer ctx.Check(client.Close)
+
+				_, err = client.UploadReader(ctx, orderLimit.Limit, beginSegmentResp.PiecePrivateKey, bytes.NewReader(data))
+				require.NoError(t, err, "%v", i)
+			}()
+		}
+
+		// send all oder limits to verify satellite can decode them
+		for _, node := range planet.StorageNodes {
+			node.Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+
+			unsent, err := node.DB.Orders().ListUnsent(ctx, 100)
+			require.NoError(t, err)
+			require.Empty(t, unsent)
+		}
+
+		now := time.Now()
+		err = planet.Satellites[0].DB.StoragenodeAccounting().GetBandwidthSince(ctx, now.Add(-time.Hour), func(ctx context.Context, sbr *accounting.StoragenodeBandwidthRollup) error {
+			require.NotZero(t, sbr.Settled)
+			return nil
+		})
+		require.NoError(t, err)
 	})
-	require.NoError(tb, err)
-	return bucket
 }
 
 func createMetainfoClient(ctx *testcontext.Context, tb testing.TB, planet *testplanet.Planet) *metaclient.Client {

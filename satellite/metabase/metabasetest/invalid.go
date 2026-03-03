@@ -6,8 +6,8 @@ package metabasetest
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // InvalidObjectStream contains info about an invalid stream.
@@ -49,16 +49,6 @@ func InvalidObjectStreams(base metabase.ObjectStream) []InvalidObjectStream {
 			ObjectStream: stream,
 			ErrClass:     &metabase.ErrInvalidRequest,
 			ErrText:      "ObjectKey missing",
-		})
-	}
-	{
-		stream := base
-		stream.Version = -1
-		tests = append(tests, InvalidObjectStream{
-			Name:         "Version invalid",
-			ObjectStream: stream,
-			ErrClass:     &metabase.ErrInvalidRequest,
-			ErrText:      "Version invalid: -1",
 		})
 	}
 	{

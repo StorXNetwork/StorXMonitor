@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 )
 
 // DB defines a collection of resources that fall under the scope of OIDC and OAuth operations.
@@ -67,6 +67,11 @@ func (o OAuthClient) GetDomain() string {
 // GetUserID returns the owners' user id.
 func (o OAuthClient) GetUserID() string {
 	return o.UserID.String()
+}
+
+// IsPublic returns whether the client is a public client (no secret).
+func (o OAuthClient) IsPublic() bool {
+	return len(o.Secret) == 0
 }
 
 // OAuthCodes defines a set of operations allowed to be performed against oauth codes.

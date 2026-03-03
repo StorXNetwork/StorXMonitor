@@ -12,13 +12,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/checker"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestReliabilityCache_Concurrent(t *testing.T) {
@@ -36,12 +36,12 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx.Go(func() error { return overlayCache.Run(cacheCtx) })
 	defer ctx.Check(overlayCache.Close)
 
-	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond)
+	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond, 5*time.Minute)
 	var group errgroup.Group
 	for i := 0; i < 10; i++ {
 		group.Go(func() error {
 			for i := 0; i < 10000; i++ {
-				nodeIDs := []storj.NodeID{testrand.NodeID()}
+				nodeIDs := []storxnetwork.NodeID{testrand.NodeID()}
 				_, err := cache.GetNodes(ctx, time.Now(), nodeIDs, make([]nodeselection.SelectedNode, len(nodeIDs)))
 				if err != nil {
 					return err
@@ -56,7 +56,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 type fakeOverlayDB struct{ overlay.DB }
 type fakeNodeEvents struct{ nodeevents.DB }
 
-func (fakeOverlayDB) GetParticipatingNodes(context.Context, time.Duration, time.Duration) ([]nodeselection.SelectedNode, error) {
+func (fakeOverlayDB) GetAllParticipatingNodes(context.Context, time.Duration, time.Duration) ([]nodeselection.SelectedNode, error) {
 	return []nodeselection.SelectedNode{
 		{ID: testrand.NodeID(), Online: true},
 		{ID: testrand.NodeID(), Online: true},

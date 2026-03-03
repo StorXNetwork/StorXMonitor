@@ -4,22 +4,48 @@
 package contact
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/nodetag"
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/quic"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/quic"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/version"
 )
+
+// HashstoreRolloutSettings are a flag config struct for use with rolling out
+// Hashstore settings to nodes connected to this satellite.
+type HashstoreRolloutSettings struct {
+	ActiveMigrate  bool `default:"false"`
+	PassiveMigrate bool `default:"false"`
+	WriteToNew     bool `default:"false"`
+	ReadNewFirst   bool `default:"false"`
+	TTLToNew       bool `default:"false"`
+}
+
+// ToProto converts this to the protocol buffer form.
+func (settings HashstoreRolloutSettings) ToProto() *pb.HashstoreSettings {
+	return &pb.HashstoreSettings{
+		ActiveMigrate:  settings.ActiveMigrate,
+		PassiveMigrate: settings.PassiveMigrate,
+		WriteToNew:     settings.WriteToNew,
+		ReadNewFirst:   settings.ReadNewFirst,
+		TtlToNew:       settings.TTLToNew,
+	}
+}
 
 // Config contains configurable values for contact service.
 type Config struct {
@@ -30,6 +56,13 @@ type Config struct {
 	RateLimitInterval  time.Duration `help:"the amount of time that should happen between contact attempts usually" releaseDefault:"10m0s" devDefault:"1ns"`
 	RateLimitBurst     int           `help:"the maximum burst size for the contact rate limit token bucket" releaseDefault:"2" devDefault:"1000"`
 	RateLimitCacheSize int           `help:"the number of nodes or addresses to keep token buckets for" default:"1000"`
+
+	HashstoreRollout struct {
+		Seed    string  `help:"the hashstore rollout seed" default:""`
+		Cursor  float64 `help:"the hashstore rollout cursor (between 0 and 1)" default:"0"`
+		Current HashstoreRolloutSettings
+		Next    HashstoreRolloutSettings
+	}
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -49,6 +82,7 @@ type Service struct {
 	allowPrivateIP bool
 
 	nodeTagAuthority nodetag.Authority
+	config           Config
 }
 
 // NewService creates a new contact service.
@@ -62,6 +96,7 @@ func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerI
 		idLimiter:        NewRateLimiter(config.RateLimitInterval, config.RateLimitBurst, config.RateLimitCacheSize),
 		allowPrivateIP:   config.AllowPrivateIP,
 		nodeTagAuthority: authority,
+		config:           config,
 	}
 }
 
@@ -69,7 +104,7 @@ func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerI
 func (service *Service) Close() error { return nil }
 
 // PingBack pings the node to test connectivity.
-func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ bool, _ bool, _ string, err error) {
+func (service *Service) PingBack(ctx context.Context, nodeurl storxnetwork.NodeURL) (_ bool, _ bool, _ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if service.timeout > 0 {
@@ -87,7 +122,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 		// If there is an error from trying to dial and ping the node, return that error as
 		// pingErrorMessage and not as the err. We want to use this info to update
 		// node contact info and do not want to terminate execution by returning an err
-		mon.Event("failed_dial") //mon:locked
+		mon.Event("failed_dial")
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q",
 			nodeurl.ID, nodeurl.Address, err,
@@ -101,7 +136,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 
 	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
 	if err != nil {
-		mon.Event("failed_ping_node") //mon:locked
+		mon.Event("failed_ping_node")
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
 		service.log.Warn("pingBack pingNode error",
@@ -124,7 +159,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 	return pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, nil
 }
 
-func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storj.NodeURL) error {
+func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storxnetwork.NodeURL) error {
 	udpDialer := service.dialer
 	udpDialer.Connector = quic.NewDefaultConnector(nil)
 	udpClient, err := dialNodeURL(ctx, udpDialer, nodeurl)
@@ -145,13 +180,13 @@ func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storj.NodeURL)
 	return nil
 }
 
-func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID, req *pb.SignedNodeTagSets) error {
+func (service *Service) processNodeTags(ctx context.Context, nodeID storxnetwork.NodeID, self signing.Signee, req *pb.SignedNodeTagSets) error {
 	if req != nil {
 		tags := nodeselection.NodeTags{}
 		for _, t := range req.Tags {
-			verifiedTags, signerID, err := verifyTags(ctx, service.nodeTagAuthority, nodeID, t)
+			verifiedTags, signerID, err := verifyTags(ctx, append(service.nodeTagAuthority, self), nodeID, t)
 			if err != nil {
-				service.log.Info("Failed to verify tags.", zap.Error(err), zap.Stringer("NodeID", nodeID))
+				service.log.Info("Failed to verify tags.", zap.Error(err), zap.Stringer("node_id", nodeID))
 				continue
 			}
 
@@ -176,8 +211,24 @@ func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID
 	return nil
 }
 
-func verifyTags(ctx context.Context, authority nodetag.Authority, nodeID storj.NodeID, t *pb.SignedNodeTagSet) (*pb.NodeTagSet, storj.NodeID, error) {
-	signerID, err := storj.NodeIDFromBytes(t.SignerNodeId)
+func (service *Service) getHashstoreSettings(ctx context.Context, nodeID storxnetwork.NodeID) (settings *pb.HashstoreSettings, err error) {
+	rollout := version.PercentageToCursorF(service.config.HashstoreRollout.Cursor)
+
+	hash := hmac.New(sha256.New, []byte(service.config.HashstoreRollout.Seed))
+	_, err = hash.Write(nodeID[:])
+	if err != nil {
+		return nil, err
+	}
+
+	if bytes.Compare(hash.Sum(nil), rollout[:]) <= 0 {
+		return service.config.HashstoreRollout.Next.ToProto(), nil
+	}
+
+	return service.config.HashstoreRollout.Current.ToProto(), nil
+}
+
+func verifyTags(ctx context.Context, authority nodetag.Authority, nodeID storxnetwork.NodeID, t *pb.SignedNodeTagSet) (*pb.NodeTagSet, storxnetwork.NodeID, error) {
+	signerID, err := storxnetwork.NodeIDFromBytes(t.SignerNodeId)
 	if err != nil {
 		return nil, signerID, errs.New("failed to parse signerNodeID from verifiedTags: '%x', %s", t.SignerNodeId, err.Error())
 	}
@@ -187,7 +238,7 @@ func verifyTags(ctx context.Context, authority nodetag.Authority, nodeID storj.N
 		return nil, signerID, errs.New("received node tags with wrong/unknown signature: '%x', %s", t.Signature, err.Error())
 	}
 
-	signedNodeID, err := storj.NodeIDFromBytes(verifiedTags.NodeId)
+	signedNodeID, err := storxnetwork.NodeIDFromBytes(verifiedTags.NodeId)
 	if err != nil {
 		return nil, signerID, errs.New("failed to parse nodeID from verifiedTags: '%x', %s", verifiedTags.NodeId, err.Error())
 	}

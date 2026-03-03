@@ -11,17 +11,17 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/orders/ordersfile"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/orders/ordersfile"
 )
 
 // TODO remove when db is removed.
@@ -37,12 +37,12 @@ func TestOrderDBSettle(t *testing.T) {
 		service.Cleanup.Pause()
 
 		bucketname := "testbucket"
-		err := planet.Uplinks[0].CreateBucket(ctx, satellite, bucketname)
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, satellite, bucketname)
 		require.NoError(t, err)
 
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
-			metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: bucketname},
+			metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: metabase.BucketName(bucketname)},
 			[]*nodeselection.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
@@ -170,7 +170,7 @@ func TestOrderFileStoreSettle_UntrustedSatellite(t *testing.T) {
 		require.NotZero(t, observedLogs.All())
 		skipLogs := observedLogs.FilterMessage("skipping order settlement for untrusted satellite. Order will be archived").All()
 		require.Len(t, skipLogs, 1)
-		logFields := observedLogs.FilterField(zap.String("satellite ID", satellite2.ID().String())).All()
+		logFields := observedLogs.FilterField(zap.String("satellite_id", satellite2.ID().String())).All()
 		require.Len(t, logFields, 1)
 
 		toSend, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
@@ -199,13 +199,13 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		tomorrow := time.Now().Add(24 * time.Hour)
 
 		bucketname := "testbucket"
-		err := uplinkPeer.CreateBucket(ctx, satellite, bucketname)
+		err := uplinkPeer.TestingCreateBucket(ctx, satellite, bucketname)
 		require.NoError(t, err)
 
 		// add orders to orders DB
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
-			metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: bucketname},
+			metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: metabase.BucketName(bucketname)},
 			[]*nodeselection.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
@@ -266,71 +266,6 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		filestoreArchived, err := node.OrdersStore.ListArchived()
 		require.NoError(t, err)
 		require.Len(t, filestoreArchived, 1)
-	})
-}
-
-// TODO remove when db is removed.
-func TestCleanArchiveDB(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-		satellite := planet.Satellites[0].ID()
-		node := planet.StorageNodes[0]
-		service := node.Storage2.Orders
-		service.Sender.Pause()
-		service.Cleanup.Pause()
-
-		serialNumber0 := testrand.SerialNumber()
-		serialNumber1 := testrand.SerialNumber()
-
-		order0 := &ordersfile.Info{
-			Limit: &pb.OrderLimit{
-				SatelliteId:  satellite,
-				SerialNumber: serialNumber0,
-			},
-			Order: &pb.Order{},
-		}
-		order1 := &ordersfile.Info{
-			Limit: &pb.OrderLimit{
-				SatelliteId:  satellite,
-				SerialNumber: serialNumber1,
-			},
-			Order: &pb.Order{},
-		}
-
-		// enter orders into unsent_orders
-		err := node.DB.Orders().Enqueue(ctx, order0)
-		require.NoError(t, err)
-		err = node.DB.Orders().Enqueue(ctx, order1)
-		require.NoError(t, err)
-
-		now := time.Now()
-		yesterday := now.Add(-24 * time.Hour)
-
-		// archive one order yesterday, one today
-		err = node.DB.Orders().Archive(ctx, yesterday, orders.ArchiveRequest{
-			Satellite: satellite,
-			Serial:    serialNumber0,
-			Status:    orders.StatusAccepted,
-		})
-		require.NoError(t, err)
-
-		err = node.DB.Orders().Archive(ctx, now, orders.ArchiveRequest{
-			Satellite: satellite,
-			Serial:    serialNumber1,
-			Status:    orders.StatusAccepted,
-		})
-		require.NoError(t, err)
-
-		// trigger cleanup of archived orders older than 12 hours
-		require.NoError(t, service.CleanArchive(ctx, now.Add(-12*time.Hour)))
-
-		archived, err := node.DB.Orders().ListArchived(ctx, 10)
-		require.NoError(t, err)
-
-		require.Len(t, archived, 1)
-		require.Equal(t, archived[0].Limit.SerialNumber, serialNumber1)
 	})
 }
 

@@ -5,16 +5,19 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 var _ nodeevents.DB = (*nodeEvents)(nil)
@@ -24,7 +27,7 @@ type nodeEvents struct {
 }
 
 // Insert a node event into the node events table.
-func (ne *nodeEvents) Insert(ctx context.Context, email string, lastIPPort *string, nodeID storj.NodeID, eventType nodeevents.Type) (nodeEvent nodeevents.NodeEvent, err error) {
+func (ne *nodeEvents) Insert(ctx context.Context, email string, lastIPPort *string, nodeID storxnetwork.NodeID, eventType nodeevents.Type) (nodeEvent nodeevents.NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	id, err := uuid.New()
@@ -46,7 +49,7 @@ func (ne *nodeEvents) Insert(ctx context.Context, email string, lastIPPort *stri
 		return nodeEvent, err
 	}
 
-	ne.db.log.Info("node event inserted", zap.String("name", name), zap.String("email", email), zap.String("node ID", nodeID.String()))
+	ne.db.log.Info("node event inserted", zap.String("name", name), zap.String("email", email), zap.String("node_id", nodeID.String()))
 
 	return fromDBX(entry)
 }
@@ -57,8 +60,12 @@ func (ne *nodeEvents) GetLatestByEmailAndEvent(ctx context.Context, email string
 
 	dbxNE, err := ne.db.First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx, dbx.NodeEvent_Email(email), dbx.NodeEvent_Event(int(event)))
 	if err != nil {
-		return nodeEvent, err
+		return nodeEvent, Error.Wrap(err)
 	}
+	if dbxNE == nil {
+		return nodeEvent, Error.Wrap(sql.ErrNoRows)
+	}
+
 	return fromDBX(dbxNE)
 }
 
@@ -80,7 +87,10 @@ func (ne *nodeEvents) GetByID(ctx context.Context, id uuid.UUID) (nodeEvent node
 func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Time) (events []nodeevents.NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := ne.db.QueryContext(ctx, `
+	var rows tagsql.Rows
+	switch ne.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		rows, err = ne.db.QueryContext(ctx, `
 		SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event
 		FROM node_events
 		INNER JOIN (
@@ -95,6 +105,28 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 			AND node_events.event = t.event
 		WHERE node_events.email_sent IS NULL
 	`, firstSeenBefore)
+	case dbutil.Spanner:
+
+		// Spanner does not support "NULLS FIRST" in query but it is by default nulls first in asc sort
+		rows, err = ne.db.QueryContext(ctx, `
+		SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event
+		FROM node_events
+		INNER JOIN (
+			SELECT email, event
+			FROM node_events
+			WHERE created_at < ?
+				AND email_sent is NULL
+			ORDER BY last_attempted ASC, created_at ASC
+			LIMIT 1
+		) as t
+		ON node_events.email = t.email
+			AND node_events.event = t.event
+		WHERE node_events.email_sent IS NULL
+	`, firstSeenBefore)
+	default:
+		return nil, Error.New("error: Unsupported implementation")
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +146,7 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 		if err != nil {
 			return nil, err
 		}
-		nodeID, err := storj.NodeIDFromBytes(nodeIDBytes)
+		nodeID, err := storxnetwork.NodeIDFromBytes(nodeIDBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +167,7 @@ func fromDBX(dbxNE *dbx.NodeEvent) (event nodeevents.NodeEvent, err error) {
 	if err != nil {
 		return event, err
 	}
-	nodeID, err := storj.NodeIDFromBytes(dbxNE.NodeId)
+	nodeID, err := storxnetwork.NodeIDFromBytes(dbxNE.NodeId)
 	if err != nil {
 		return event, err
 	}
@@ -155,10 +187,20 @@ func fromDBX(dbxNE *dbx.NodeEvent) (event nodeevents.NodeEvent, err error) {
 func (ne *nodeEvents) UpdateEmailSent(ctx context.Context, ids []uuid.UUID, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = ne.db.ExecContext(ctx, `
-		UPDATE node_events SET email_sent = $1
-		WHERE id = ANY($2::bytea[])
-	`, timestamp, pgutil.UUIDArray(ids))
+	switch ne.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		_, err = ne.db.ExecContext(ctx, `
+			UPDATE node_events SET email_sent = $1
+			WHERE id = ANY($2::bytea[])
+		`, timestamp, pgutil.UUIDArray(ids))
+	case dbutil.Spanner:
+		_, err = ne.db.ExecContext(ctx, `
+			UPDATE node_events SET email_sent = ?
+			WHERE id IN UNNEST (?)
+		`, timestamp, uuidsToBytesArray(ids))
+	default:
+		return Error.New("unsupported implementation")
+	}
 	return err
 }
 
@@ -166,9 +208,20 @@ func (ne *nodeEvents) UpdateEmailSent(ctx context.Context, ids []uuid.UUID, time
 func (ne *nodeEvents) UpdateLastAttempted(ctx context.Context, ids []uuid.UUID, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = ne.db.ExecContext(ctx, `
-		UPDATE node_events SET last_attempted = $1
-		WHERE id = ANY($2::bytea[])
-	`, timestamp, pgutil.UUIDArray(ids))
+	switch ne.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		_, err = ne.db.ExecContext(ctx, `
+			UPDATE node_events SET last_attempted = $1
+			WHERE id = ANY($2::bytea[])
+		`, timestamp, pgutil.UUIDArray(ids))
+	case dbutil.Spanner:
+		_, err = ne.db.ExecContext(ctx, `
+			UPDATE node_events SET last_attempted = ?
+			WHERE id IN UNNEST (?)
+		`, timestamp, uuidsToBytesArray(ids))
+	default:
+		return Error.New("unsupported implementation")
+	}
+
 	return err
 }

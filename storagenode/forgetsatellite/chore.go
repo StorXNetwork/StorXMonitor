@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 // Config defines the config for the forget satellite chore.
@@ -59,7 +59,7 @@ func (chore *Chore) RunOnce(ctx context.Context) (err error) {
 	}
 
 	for _, satellite := range sats {
-		worker := NewWorker(chore.log.With(zap.Stringer("satelliteID", satellite)), chore.cleaner, satellite)
+		worker := NewWorker(chore.log.With(zap.Stringer("satellite_id", satellite)), chore.cleaner, satellite)
 		if _, ok := chore.satelliteMap.LoadOrStore(satellite, worker); ok {
 			continue
 		}

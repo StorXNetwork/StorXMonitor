@@ -20,16 +20,16 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 var mon = monkit.Package()
@@ -40,10 +40,10 @@ const defaultInterval = 15 * time.Second
 type Peer interface {
 	Label() string
 
-	ID() storj.NodeID
+	ID() storxnetwork.NodeID
 	Addr() string
 	URL() string
-	NodeURL() storj.NodeURL
+	NodeURL() storxnetwork.NodeURL
 
 	Run(context.Context) error
 	Close() error
@@ -56,7 +56,7 @@ type Config struct {
 	UplinkCount      int
 	MultinodeCount   int
 
-	IdentityVersion *storj.IDVersion
+	IdentityVersion *storxnetwork.IDVersion
 	LastNetFunc     overlay.LastNetFunc
 	Reconfigure     Reconfigure
 
@@ -66,6 +66,11 @@ type Config struct {
 	Timeout     time.Duration
 
 	applicationName string
+
+	// SkipSpanner is a flag used to tell tests to skip Spanner tests.
+	SkipSpanner bool
+	// ExerciseJobq is a flag used to tell tests to exercise the jobq implementation of the repair queue.
+	ExerciseJobq bool
 }
 
 // DatabaseConfig defines connection strings for database.
@@ -73,7 +78,7 @@ type DatabaseConfig struct {
 	SatelliteDB string
 }
 
-// Planet is a full storj system setup.
+// Planet is a full storxnetwork system setup.
 type Planet struct {
 	ctx       *testcontext.Context
 	id        string
@@ -134,7 +139,7 @@ func (peer *closablePeer) Close() error {
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
 	if config.IdentityVersion == nil {
-		version := storj.LatestIDVersion()
+		version := storxnetwork.LatestIDVersion()
 		config.IdentityVersion = &version
 	}
 
@@ -193,7 +198,7 @@ func (planet *Planet) createPeers(ctx context.Context, satelliteDatabases satell
 		return errs.Wrap(err)
 	}
 
-	whitelistedSatellites := make(storj.NodeURLs, 0, len(planet.Satellites))
+	whitelistedSatellites := make(storxnetwork.NodeURLs, 0, len(planet.Satellites))
 	for _, satellite := range planet.Satellites {
 		whitelistedSatellites = append(whitelistedSatellites, satellite.NodeURL())
 	}
@@ -213,11 +218,51 @@ func (planet *Planet) createPeers(ctx context.Context, satelliteDatabases satell
 		return errs.Wrap(err)
 	}
 
+	for _, satellite := range planet.Satellites {
+		for _, node := range planet.StorageNodes {
+			if err := checkInManually(ctx, satellite, node); err != nil {
+				return errs.Wrap(err)
+			}
+		}
+	}
+
 	return nil
 }
 
+func checkInManually(ctx context.Context, satellite *Satellite, node *StorageNode) error {
+	err := satellite.DB.PeerIdentities().Set(ctx, node.ID(), node.Identity.PeerIdentity())
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	_, _, lastNet, err := satellite.Overlay.Service.ResolveIPAndNetwork(ctx, node.Addr())
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	availableSpace, err := node.Storage2.Monitor.AvailableSpace(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	self := node.Contact.Service.Local()
+	return satellite.DB.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+		NodeID:     node.ID(),
+		Address:    &pb.NodeAddress{Address: node.Addr()},
+		IsUp:       true,
+		Version:    &self.Version,
+		LastNet:    lastNet,
+		LastIPPort: node.Addr(),
+		Capacity: &pb.NodeCapacity{
+			FreeDisk: availableSpace,
+		},
+		Operator: &pb.NodeOperator{
+			Email:  node.Config.Operator.Email,
+			Wallet: node.Config.Operator.Wallet,
+		},
+	}, time.Now(), satellite.Config.Overlay.Node)
+}
+
 // Start starts all the nodes.
-func (planet *Planet) Start(ctx context.Context) {
+func (planet *Planet) Start(ctx context.Context) error {
 	defer mon.Task()(&ctx)(nil)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -248,15 +293,17 @@ func (planet *Planet) Start(ctx context.Context) {
 		pprof.Do(ctx, pprof.Labels("peer", peer.Label(), "startup", "contact"), func(ctx context.Context) {
 			group.Go(func() error {
 				peer.Storage2.Monitor.Loop.TriggerWait()
-				peer.Contact.Chore.TriggerWait(ctx)
 				return nil
 			})
 		})
 	}
 
-	_ = group.Wait()
+	if err := group.Wait(); err != nil {
+		return err
+	}
 
 	planet.started = true
+	return nil
 }
 
 // StopPeer stops a single peer in the planet.
@@ -306,7 +353,7 @@ func (planet *Planet) StopNodeAndUpdate(ctx context.Context, node *StorageNode) 
 func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // FindNode is a helper to retrieve a storage node record by its node ID.
-func (planet *Planet) FindNode(nodeID storj.NodeID) *StorageNode {
+func (planet *Planet) FindNode(nodeID storxnetwork.NodeID) *StorageNode {
 	for _, node := range planet.StorageNodes {
 		if node.ID() == nodeID {
 			return node
@@ -365,12 +412,23 @@ func (planet *Planet) Shutdown() error {
 
 	errlist.Add(os.RemoveAll(planet.directory))
 
-	// workaround for not being able to catch context.Canceled error from net package
-	err := errlist.Err()
-	if err != nil && strings.Contains(err.Error(), "operation was canceled") {
-		return nil
+	var filtered errs.Group
+	for _, err := range errlist {
+		errmsg := err.Error()
+		// workaround for not being able to catch context.Canceled error from net package
+		if strings.Contains(errmsg, "operation was canceled") {
+			continue
+		}
+		// workaround for not being able to catch context.Canceled from Spanner
+		//
+		// TODO(spanner): figure out why it's not possible to catch this earlier
+		if strings.Contains(errmsg, "context canceled") {
+			continue
+		}
+		filtered.Add(err)
 	}
-	return err
+
+	return filtered.Err()
 }
 
 // Identities returns the identity provider for this planet.
@@ -394,7 +452,7 @@ func (planet *Planet) NewListener() (net.Listener, error) {
 }
 
 // WriteWhitelist writes the pregenerated signer's CA cert to a "CA whitelist", PEM-encoded.
-func (planet *Planet) WriteWhitelist(version storj.IDVersion) (string, error) {
+func (planet *Planet) WriteWhitelist(version storxnetwork.IDVersion) (string, error) {
 	whitelistPath := filepath.Join(planet.directory, "whitelist.pem")
 	signer := testidentity.NewPregeneratedSigner(version)
 	err := identity.PeerCAConfig{

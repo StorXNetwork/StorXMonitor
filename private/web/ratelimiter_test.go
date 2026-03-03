@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/web"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/web"
 )
 
 func TestNewIPRateLimiter(t *testing.T) {
@@ -53,7 +53,7 @@ func TestNewIPRateLimiter(t *testing.T) {
 
 func testWithAddress(ctx context.Context, t *testing.T, remoteAddress string, burst int, handler http.Handler) {
 	// create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "", nil)
 	require.NoError(t, err)
 	req.RemoteAddr = remoteAddress
 

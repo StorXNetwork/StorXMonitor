@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
-	"storj.io/storj/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -52,7 +52,7 @@ func (service *Service) Add(ctx context.Context, node Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// trying to connect to node to check its availability.
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
@@ -93,13 +93,13 @@ func (service *Service) List(ctx context.Context) (_ []Node, err error) {
 }
 
 // UpdateName will update name of the specified node.
-func (service *Service) UpdateName(ctx context.Context, id storj.NodeID, name string) (err error) {
+func (service *Service) UpdateName(ctx context.Context, id storxnetwork.NodeID, name string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return Error.Wrap(service.nodes.UpdateName(ctx, id, name))
 }
 
 // Get retrieves node by id.
-func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err error) {
+func (service *Service) Get(ctx context.Context, id storxnetwork.NodeID) (_ Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, id)
@@ -111,7 +111,7 @@ func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err e
 }
 
 // Remove removes node from the system.
-func (service *Service) Remove(ctx context.Context, id storj.NodeID) (err error) {
+func (service *Service) Remove(ctx context.Context, id storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return Error.Wrap(service.nodes.Remove(ctx, id))
 }
@@ -135,12 +135,13 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				ID:   node.ID,
 				Name: node.Name,
 			}
-			conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+			conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
-			if err != nil {
-				nodeInfo.Status = StatusNotReachable
+			nodeStatus, nodeVersion, lastContact := service.FetchNodeMeta(ctx, node)
+			if nodeStatus != StatusOnline {
+				nodeInfo.Status = nodeStatus
 				return nodeInfo
 			}
 
@@ -148,32 +149,12 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				err = errs.Combine(err, conn.Close())
 			}()
 
-			nodeClient := multinodepb.NewDRPCNodeClient(conn)
 			storageClient := multinodepb.NewDRPCStorageClient(conn)
 			bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
 			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret[:],
-			}
-
-			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
-			if err != nil {
-				if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
-					nodeInfo.Status = StatusUnauthorized
-					return nodeInfo
-				}
-
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
-			}
-
-			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
-			if err != nil {
-				// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
-				// only if new apikey was issued during ListInfos method call.
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
 			}
 
 			diskSpace, err := storageClient.DiskSpace(ctx, &multinodepb.DiskSpaceRequest{Header: header})
@@ -203,7 +184,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 			nodeInfo.DiskSpaceLeft = diskSpace.GetAvailable()
 			nodeInfo.BandwidthUsed = bandwidthSummary.GetUsed()
 			nodeInfo.TotalEarned = earned.Total
-			nodeInfo.Status = nodeStatus(lastContact.LastContact)
+			nodeInfo.Status = nodeStatus
 
 			return nodeInfo
 		}()
@@ -215,7 +196,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 }
 
 // ListInfosSatellite queries node satellite specific info from all nodes via rpc.
-func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID storj.NodeID) (_ []NodeInfoSatellite, err error) {
+func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID storxnetwork.NodeID) (_ []NodeInfoSatellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodes, err := service.nodes.List(ctx)
@@ -233,12 +214,14 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				ID:   node.ID,
 				Name: node.Name,
 			}
-			conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+			conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
-			if err != nil {
-				nodeInfoSatellite.Status = StatusNotReachable
+
+			nodeStatus, nodeVersion, lastContact := service.FetchNodeMeta(ctx, node)
+			if nodeStatus != StatusOnline {
+				nodeInfoSatellite.Status = nodeStatus
 				return nodeInfoSatellite
 			}
 
@@ -251,25 +234,6 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret[:],
-			}
-
-			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
-			if err != nil {
-				if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
-					nodeInfoSatellite.Status = StatusUnauthorized
-					return nodeInfoSatellite
-				}
-
-				nodeInfoSatellite.Status = StatusStorageNodeInternalError
-				return nodeInfoSatellite
-			}
-
-			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
-			if err != nil {
-				// TODO: since rpcstatus.Unauthenticated was checked in Version this sort of error can be caused
-				// only if new apikey was issued during ListInfosSatellite method call.
-				nodeInfoSatellite.Status = StatusStorageNodeInternalError
-				return nodeInfoSatellite
 			}
 
 			rep, err := nodeClient.Reputation(ctx, &multinodepb.ReputationRequest{
@@ -293,7 +257,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 			nodeInfoSatellite.AuditScore = rep.Audit.Score
 			nodeInfoSatellite.SuspensionScore = rep.Audit.SuspensionScore
 			nodeInfoSatellite.TotalEarned = earned.Total
-			nodeInfoSatellite.Status = nodeStatus(lastContact.LastContact)
+			nodeInfoSatellite.Status = nodeStatus
 
 			return nodeInfoSatellite
 		}()
@@ -305,7 +269,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 }
 
 // TrustedSatellites returns list of unique trusted satellites node urls.
-func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs, err error) {
+func (service *Service) TrustedSatellites(ctx context.Context) (_ storxnetwork.NodeURLs, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	listNodes, err := service.nodes.List(ctx)
@@ -313,15 +277,16 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 		return nil, Error.Wrap(err)
 	}
 
-	var trustedSatellites storj.NodeURLs
+	var trustedSatellites storxnetwork.NodeURLs
 	for _, node := range listNodes {
+		nodeStatus, _, _ := service.FetchNodeMeta(ctx, node)
+		if nodeStatus != StatusOnline {
+			continue
+		}
 		nodeURLs, err := service.trustedSatellites(ctx, node)
 		if err != nil {
-			if ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return nil, Error.Wrap(err)
+			service.log.Error("Failed to fetch satellite", zap.Error(err))
+			continue
 		}
 
 		trustedSatellites = appendUniqueNodeURLs(trustedSatellites, nodeURLs)
@@ -331,15 +296,15 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 }
 
 // trustedSatellites retrieves list of trusted satellites node urls for a node.
-func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ storj.NodeURLs, err error) {
+func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ storxnetwork.NodeURLs, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return storj.NodeURLs{}, ErrNodeNotReachable.Wrap(err)
+		return storxnetwork.NodeURLs{}, ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -357,9 +322,9 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 		return nil, Error.Wrap(err)
 	}
 
-	var nodeURLs storj.NodeURLs
+	var nodeURLs storxnetwork.NodeURLs
 	for _, url := range resp.TrustedSatellites {
-		nodeURLs = append(nodeURLs, storj.NodeURL{
+		nodeURLs = append(nodeURLs, storxnetwork.NodeURL{
 			ID:      url.NodeId,
 			Address: url.GetAddress(),
 		})
@@ -368,19 +333,56 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 	return nodeURLs, nil
 }
 
-// nodeStatus chooses node status offline or online depends on LastContact.
-func nodeStatus(lastContact time.Time) Status {
-	now := time.Now().UTC()
-
-	if now.Sub(lastContact) < time.Hour*3 {
-		return StatusOnline
+// FetchNodeMeta information about a node status, version, and last contact.
+func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status, _ *multinodepb.VersionResponse, _ *multinodepb.LastContactResponse) {
+	conn, err := service.dialer.DialNodeURL(ctx, storxnetwork.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		service.log.Error("Failed to dial the node URL:", zap.Error(err))
+		return StatusNotReachable, nil, nil
 	}
 
-	return StatusOffline
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	nodeClient := multinodepb.NewDRPCNodeClient(conn)
+
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret[:],
+	}
+
+	nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
+	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
+			return StatusUnauthorized, nil, nil
+		}
+
+		service.log.Error("Could not fetch the version of the node:", zap.Error(err))
+		return StatusStorageNodeInternalError, nil, nil
+	}
+
+	lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
+	if err != nil {
+		// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
+		// only if new apikey was issued during ListInfos method call.
+		service.log.Error("Could not fetch the lastcontact with the node:", zap.Error(err))
+		return StatusStorageNodeInternalError, nodeVersion, nil
+	}
+
+	now := time.Now().UTC()
+
+	if now.Sub(lastContact.LastContact) < time.Hour*3 {
+		return StatusOnline, nodeVersion, lastContact
+	}
+
+	return StatusOffline, nodeVersion, lastContact
 }
 
 // appendUniqueNodeURLs appends unique node urls from incoming slice.
-func appendUniqueNodeURLs(slice storj.NodeURLs, nodeURLs storj.NodeURLs) storj.NodeURLs {
+func appendUniqueNodeURLs(slice storxnetwork.NodeURLs, nodeURLs storxnetwork.NodeURLs) storxnetwork.NodeURLs {
 	for _, nodeURL := range nodeURLs {
 		slice = appendUniqueNodeURL(slice, nodeURL)
 	}
@@ -389,7 +391,7 @@ func appendUniqueNodeURLs(slice storj.NodeURLs, nodeURLs storj.NodeURLs) storj.N
 }
 
 // appendUniqueNodeURL appends node url if it is unique.
-func appendUniqueNodeURL(slice storj.NodeURLs, nodeURL storj.NodeURL) storj.NodeURLs {
+func appendUniqueNodeURL(slice storxnetwork.NodeURLs, nodeURL storxnetwork.NodeURL) storxnetwork.NodeURLs {
 	for _, existing := range slice {
 		if bytes.Equal(existing.ID.Bytes(), nodeURL.ID.Bytes()) {
 			return slice

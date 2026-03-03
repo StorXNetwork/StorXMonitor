@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"strconv"
@@ -13,20 +14,22 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulfs"
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulfs"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 type cmdRm struct {
 	ex ulext.External
 
-	access      string
-	recursive   bool
-	parallelism int
-	encrypted   bool
-	pending     bool
+	access           string
+	recursive        bool
+	parallelism      int
+	encrypted        bool
+	pending          bool
+	version          []byte
+	bypassGovernance bool
 
 	location ulloc.Location
 }
@@ -57,6 +60,12 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 	c.pending = params.Flag("pending", "Remove pending object uploads instead", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
+	c.version = params.Flag("version-id", "Version ID to remove (if the location is an object path)", nil,
+		clingy.Transform(hex.DecodeString),
+	).([]byte)
+	c.bypassGovernance = params.Flag("bypass-governance-retention", "Bypass Object Lock governance mode restrictions", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 
 	c.location = params.Arg("location", "Location to remove (sj://BUCKET[/KEY])",
 		clingy.Transform(ulloc.Parse),
@@ -70,6 +79,15 @@ func (c *cmdRm) Execute(ctx context.Context) (err error) {
 		return errs.New("remove %v skipped: local delete", c.location)
 	}
 
+	if c.version != nil {
+		if c.recursive {
+			return errs.New("a version ID must not be provided when deleting recursively")
+		}
+		if c.pending {
+			return errs.New("a version ID must not be provided when deleting pending uploads")
+		}
+	}
+
 	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
@@ -78,13 +96,20 @@ func (c *cmdRm) Execute(ctx context.Context) (err error) {
 
 	if !c.recursive {
 		err := fs.Remove(ctx, c.location, &ulfs.RemoveOptions{
-			Pending: c.pending,
+			Pending:                   c.pending,
+			Version:                   c.version,
+			BypassGovernanceRetention: c.bypassGovernance,
 		})
 		if err != nil {
 			return err
 		}
 
-		fmt.Fprintln(clingy.Stdout(ctx), "removed", c.location)
+		locStr := c.location.String()
+		if c.version != nil {
+			locStr += " version " + hex.EncodeToString(c.version)
+		}
+
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), "removed", locStr)
 		return nil
 	}
 
@@ -106,7 +131,7 @@ func (c *cmdRm) Execute(ctx context.Context) (err error) {
 		mu.Lock()
 		defer mu.Unlock()
 
-		fmt.Fprintln(w, args...)
+		_, _ = fmt.Fprintln(w, args...)
 	}
 
 	addError := func(err error) {

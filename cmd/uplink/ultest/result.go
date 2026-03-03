@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/cmd/uplink/ulloc"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulloc"
 )
 
 // Result captures all the output of running a command for inspection.
@@ -213,6 +213,7 @@ func globMatchLine(pattern, line string) bool {
 // File represents a file existing either locally or remotely.
 type File struct {
 	Loc      string
+	Version  int64
 	Contents string
 	Metadata map[string]string
 }
@@ -220,5 +221,8 @@ type File struct {
 func (f File) less(g File) bool {
 	fl, _ := ulloc.Parse(f.Loc)
 	gl, _ := ulloc.Parse(g.Loc)
+	if fl == gl {
+		return f.Version < g.Version
+	}
 	return fl.Less(gl)
 }

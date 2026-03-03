@@ -11,9 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ReliabilityCache caches known nodes for the specified staleness duration
@@ -21,23 +20,27 @@ import (
 //
 // architecture: Service
 type ReliabilityCache struct {
-	overlay   *overlay.Service
-	staleness time.Duration
-	mu        sync.Mutex
-	state     atomic.Value // contains immutable *reliabilityState
+	overlay      Overlay
+	staleness    time.Duration
+	onlineWindow time.Duration
+	mu           sync.Mutex
+	state        atomic.Value // contains immutable *reliabilityState
 }
 
 // reliabilityState.
 type reliabilityState struct {
-	nodeByID map[storj.NodeID]nodeselection.SelectedNode
+	nodeByID map[storxnetwork.NodeID]nodeselection.SelectedNode
 	created  time.Time
 }
 
 // NewReliabilityCache creates a new reliability checking cache.
-func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration) *ReliabilityCache {
+// onlineWindow is used to determine if storage nodes are considered online based on their last
+// successful contact.
+func NewReliabilityCache(overlay Overlay, staleness time.Duration, onlineWindow time.Duration) *ReliabilityCache {
 	return &ReliabilityCache{
-		overlay:   overlay,
-		staleness: staleness,
+		overlay:      overlay,
+		staleness:    staleness,
+		onlineWindow: onlineWindow,
 	}
 }
 
@@ -71,7 +74,7 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 // for the index corresponding to that node ID.
 // Slice selectedNodes will be filled with results nodes and returned. It's length must be
 // equal to nodeIDs slice.
-func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storj.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error) {
+func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storxnetwork.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -131,18 +134,27 @@ func (cache *ReliabilityCache) Refresh(ctx context.Context) (err error) {
 func (cache *ReliabilityCache) refreshLocked(ctx context.Context) (_ *reliabilityState, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	selectedNodes, err := cache.overlay.GetParticipatingNodes(ctx)
+	selectedNodes, err := cache.overlay.GetAllParticipatingNodesForRepair(ctx, cache.onlineWindow)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	state := &reliabilityState{
 		created:  time.Now(),
-		nodeByID: make(map[storj.NodeID]nodeselection.SelectedNode, len(selectedNodes)),
+		nodeByID: make(map[storxnetwork.NodeID]nodeselection.SelectedNode, len(selectedNodes)),
 	}
+
+	var online int64
 	for _, node := range selectedNodes {
 		state.nodeByID[node.ID] = node
+
+		if node.Online {
+			online++
+		}
 	}
+
+	mon.IntVal("checker_online_nodes").Observe(online)
+	mon.IntVal("checker_offline_nodes").Observe(int64(len(selectedNodes)) - online)
 
 	cache.state.Store(state)
 	return state, nil

@@ -7,7 +7,7 @@ import (
 	"math"
 	"time"
 
-	"storj.io/storj/private/date"
+	"github.com/StorXNetwork/StorXMonitor/private/date"
 )
 
 // EstimatedPayout contains usage and estimated payouts data for current and previous months.

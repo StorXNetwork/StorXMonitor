@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/testrand"
-	"storj.io/storj/private/currency"
-	"storj.io/storj/satellite/compensation"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/currency"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
 )
 
 // D returns a MicroUnit representing the amount in dollars. It is in general not

@@ -12,13 +12,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/process"
-	"storj.io/storj/crashcollect"
+	"github.com/StorXNetwork/StorXMonitor/crashcollect"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/process"
 )
 
-// Config defines storj crash collect service configuration.
+// Config defines storxnetwork crash collect service configuration.
 type Config struct {
 	crashcollect.Config
 }
@@ -37,10 +37,10 @@ func main() {
 	var confDir string
 	var identityDir string
 
-	defaultConfDir := fpath.ApplicationDir("storj", "crashcollect")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "crashcollect")
-	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storj crash collect service configuration")
-	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storj crash collect service identity credentials")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "crashcollect")
+	defaultIdentityDir := fpath.ApplicationDir("storxnetwork", "identity", "crashcollect")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storxnetwork crash collect service configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storxnetwork crash collect service identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	runCmd := RunCommand(&runCfg)
@@ -58,7 +58,7 @@ func main() {
 func RunCommand(runCfg *Config) *cobra.Command {
 	runCmd := &cobra.Command{
 		Use:   "run",
-		Short: "Run the storj crash collect service",
+		Short: "Run the storxnetwork crash collect service",
 	}
 
 	runCmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -100,7 +100,7 @@ func SetupCommand(confDir string) *cobra.Command {
 
 		valid, _ := fpath.IsValidSetupDir(setupDir)
 		if !valid {
-			return fmt.Errorf("storj crash collect service configuration already exists (%v)", setupDir)
+			return fmt.Errorf("storxnetwork crash collect service configuration already exists (%v)", setupDir)
 		}
 
 		err = os.MkdirAll(setupDir, 0700)

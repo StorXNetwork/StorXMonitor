@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
-option go_package = "storj.io/storj/satellite/internalpb";
+option go_package = "github.com/StorXNetwork/StorXMonitor/satellite/internalpb";
 
 package satellite.ordersmeta;
 
@@ -12,4 +12,5 @@ message OrderLimitMetadata {
     bytes bucket_id = 1;
     bytes project_bucket_prefix = 2;
     bytes compact_project_bucket_prefix = 3;
+    int32 product_id = 4;
 }

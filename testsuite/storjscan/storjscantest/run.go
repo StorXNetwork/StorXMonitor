@@ -1,219 +1,223 @@
-// Copyright (C) 2022 Storj Labs, Inc.
-// See LICENSE for copying information.
+// // Copyright (C) 2022 Storj Labs, Inc.
+// // See LICENSE for copying information.
 
-package storjscantest
+// package storjscantest
 
-import (
-	"context"
-	"runtime/pprof"
-	"testing"
-	"time"
+// import (
+// 	"context"
+// 	"runtime/pprof"
+// 	"testing"
+// 	"time"
 
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
+// 	"github.com/zeebo/errs"
+// 	"go.uber.org/zap"
+// 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/grant"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/testmonkit"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storjscan"
-	"storj.io/storjscan/private/testeth"
-	"storj.io/storjscan/storjscandb/storjscandbtest"
-	"storj.io/uplink"
-)
+// 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+// 	"github.com/StorXNetwork/StorXMonitor/private/testmonkit"
+// 	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite"
+// 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+// 	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+// 	"github.com/StorXNetwork/common/grant"
+// 	"github.com/StorXNetwork/common/storxnetwork"
+// 	"github.com/StorXNetwork/common/testcontext"
+// 	"github.com/StorXNetwork/storjscan"
+// 	"github.com/StorXNetwork/storjscan/private/testeth"
+// 	"github.com/StorXNetwork/storjscan/storjscandb/storjscandbtest"
+// 	"github.com/StorXNetwork/uplink"
+// )
 
-// Stack contains references to storjscan app and eth test network.
-type Stack struct {
-	Log      *zap.Logger
-	App      *storjscan.App
-	StartApp func() error
-	CloseApp func() error
-	Network  *testeth.Network
-	Token    blockchain.Address
-}
+// // Stack contains references to storjscan app and eth test network.
+// type Stack struct {
+// 	Log      *zap.Logger
+// 	App      *storjscan.App
+// 	StartApp func() error
+// 	CloseApp func() error
+// 	Network  *testeth.Network
+// 	Token    blockchain.Address
+// }
 
-// Test defines common services for storjscan tests.
-type Test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, stack *Stack)
+// // Test defines common services for storjscan tests.
+// type Test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, stack *Stack)
 
-// Run runs testplanet and storjscan and executes test function.
-func Run(t *testing.T, test Test) {
-	databases := satellitedbtest.Databases()
-	if len(databases) == 0 {
-		t.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach)
-	}
+// // Run runs testplanet and storjscan and executes test function.
+// func Run(t *testing.T, test Test) {
+// 	t.Parallel()
 
-	config := testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		NonParallel: true,
-	}
+// 	databases := satellitedbtest.Databases(t)
+// 	if len(databases) == 0 {
+// 		t.Fatal("Databases flag missing, set at least one:\n" +
+// 			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+// 			"-cockroach-test-db=" + dbtest.DefaultCockroach)
+// 	}
 
-	for _, satelliteDB := range databases {
-		satelliteDB := satelliteDB
-		t.Run(satelliteDB.Name, func(t *testing.T) {
-			parallel := !config.NonParallel
-			if parallel {
-				t.Parallel()
-			}
+// 	config := testplanet.Config{
+// 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+// 		NonParallel: true,
+// 	}
 
-			if satelliteDB.MasterDB.URL == "" {
-				t.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)
-			}
-			planetConfig := config
-			if planetConfig.Name == "" {
-				planetConfig.Name = t.Name()
-			}
+// 	for _, satelliteDB := range databases {
+// 		satelliteDB := satelliteDB
+// 		t.Run(satelliteDB.Name, func(t *testing.T) {
+// 			parallel := !config.NonParallel
+// 			if parallel {
+// 				t.Parallel()
+// 			}
 
-			log := testplanet.NewLogger(t)
+// 			if satelliteDB.MasterDB.URL == "" {
+// 				t.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)
+// 			}
+// 			planetConfig := config
+// 			if planetConfig.Name == "" {
+// 				planetConfig.Name = t.Name()
+// 			}
 
-			testmonkit.Run(context.Background(), t, func(parent context.Context) {
-				defer pprof.SetGoroutineLabels(parent)
-				parent = pprof.WithLabels(parent, pprof.Labels("test", t.Name()))
+// 			log := testplanet.NewLogger(t)
 
-				timeout := config.Timeout
-				if timeout == 0 {
-					timeout = testcontext.DefaultTimeout
-				}
-				ctx := testcontext.NewWithContextAndTimeout(parent, t, timeout)
-				defer ctx.Cleanup()
+// 			testmonkit.Run(context.Background(), t, func(parent context.Context) {
+// 				defer pprof.SetGoroutineLabels(parent)
+// 				parent = pprof.WithLabels(parent, pprof.Labels("test", t.Name()))
 
-				// storjscan ---------
-				stack := Stack{
-					Log: log.Named("storjscan"),
-				}
+// 				timeout := config.Timeout
+// 				if timeout == 0 {
+// 					timeout = testcontext.DefaultTimeout
+// 				}
+// 				ctx := testcontext.NewWithContextAndTimeout(parent, t, timeout)
+// 				defer ctx.Cleanup()
 
-				storjscanDB, err := storjscandbtest.OpenDB(ctx, stack.Log.Named("db"), satelliteDB.MasterDB.URL, "storjscandb-"+t.Name(), "S")
-				if err != nil {
-					t.Fatalf("%+v", err)
-				}
-				defer ctx.Check(storjscanDB.Close)
+// 				// storjscan ---------
+// 				stack := Stack{
+// 					Log: log.Named("storjscan"),
+// 				}
 
-				if err = storjscanDB.MigrateToLatest(ctx); err != nil {
-					t.Fatalf("%+v", err)
-				}
+// 				storjscanDB, err := storjscandbtest.OpenDB(ctx, stack.Log.Named("db"), satelliteDB.MasterDB.URL, "storjscandb-"+t.Name(), "S")
+// 				if err != nil {
+// 					t.Fatalf("%+v", err)
+// 				}
+// 				defer ctx.Check(storjscanDB.Close)
 
-				stack.Network, err = testeth.NewNetwork()
-				if err != nil {
-					t.Fatalf("%+v", err)
-				}
-				if err = stack.Network.Start(); err != nil {
-					t.Fatalf("%+v", err)
-				}
-				defer ctx.Check(stack.Network.Close)
+// 				if err = storjscanDB.MigrateToLatest(ctx); err != nil {
+// 					t.Fatalf("%+v", err)
+// 				}
 
-				token, err := testeth.DeployToken(ctx, stack.Network, 1000000)
-				if err != nil {
-					t.Fatalf("%+v", err)
-				}
-				stack.Token = blockchain.Address(token)
+// 				stack.Network, err = testeth.NewNetwork()
+// 				if err != nil {
+// 					t.Fatalf("%+v", err)
+// 				}
+// 				if err = stack.Network.Start(); err != nil {
+// 					t.Fatalf("%+v", err)
+// 				}
+// 				defer ctx.Check(stack.Network.Close)
 
-				var storjscanConfig storjscan.Config
-				storjscanConfig.API.Address = "127.0.0.1:0"
-				storjscanConfig.API.Keys = []string{"eu:eusecret"}
-				storjscanConfig.Tokens.Endpoint = stack.Network.HTTPEndpoint()
-				storjscanConfig.Tokens.Contract = stack.Token.Hex()
-				storjscanConfig.TokenPrice.PriceWindow = time.Minute
-				storjscanConfig.TokenPrice.Interval = time.Minute
-				storjscanConfig.TokenPrice.UseTestPrices = true
+// 				token, err := testeth.DeployToken(ctx, stack.Network, 1000000)
+// 				if err != nil {
+// 					t.Fatalf("%+v", err)
+// 				}
+// 				stack.Token = blockchain.Address(token)
 
-				stack.App, err = storjscan.NewApp(stack.Log.Named("app"), storjscanConfig, storjscanDB)
-				if err != nil {
-					t.Fatalf("%+v", err)
-				}
+// 				var storjscanConfig storjscan.Config
+// 				storjscanConfig.API.Address = "127.0.0.1:0"
+// 				storjscanConfig.API.Keys = []string{"eu:eusecret"}
+// 				storjscanConfig.Tokens.Endpoint = stack.Network.HTTPEndpoint()
+// 				storjscanConfig.Tokens.Contract = stack.Token.Hex()
+// 				storjscanConfig.TokenPrice.PriceWindow = time.Minute
+// 				storjscanConfig.TokenPrice.Interval = time.Minute
+// 				storjscanConfig.TokenPrice.UseTestPrices = true
 
-				var run errgroup.Group
-				runCtx, runCancel := context.WithCancel(ctx)
+// 				stack.App, err = storjscan.NewApp(stack.Log.Named("app"), storjscanConfig, storjscanDB)
+// 				if err != nil {
+// 					t.Fatalf("%+v", err)
+// 				}
 
-				stack.StartApp = func() error {
-					storjscanConfig.API.Address = stack.App.API.Listener.Addr().String()
+// 				var run errgroup.Group
+// 				runCtx, runCancel := context.WithCancel(ctx)
 
-					stack.App, err = storjscan.NewApp(stack.Log.Named("app"), storjscanConfig, storjscanDB)
-					if err != nil {
-						return err
-					}
+// 				stack.StartApp = func() error {
+// 					storjscanConfig.API.Address = stack.App.API.Listener.Addr().String()
 
-					runCtx, runCancel = context.WithCancel(ctx)
+// 					stack.App, err = storjscan.NewApp(stack.Log.Named("app"), storjscanConfig, storjscanDB)
+// 					if err != nil {
+// 						return err
+// 					}
 
-					run = errgroup.Group{}
-					run.Go(func() error {
-						err := stack.App.Run(runCtx)
-						return err
-					})
+// 					runCtx, runCancel = context.WithCancel(ctx)
 
-					return nil
-				}
-				stack.CloseApp = func() error {
-					runCancel()
+// 					run = errgroup.Group{}
+// 					run.Go(func() error {
+// 						err := stack.App.Run(runCtx)
+// 						return err
+// 					})
 
-					var errlist errs.Group
-					errlist.Add(run.Wait())
-					errlist.Add(stack.App.Close())
-					return errlist.Err()
-				}
+// 					return nil
+// 				}
+// 				stack.CloseApp = func() error {
+// 					runCancel()
 
-				run.Go(func() error {
-					err := stack.App.Run(runCtx)
-					return err
-				})
-				defer ctx.Check(stack.CloseApp)
-				// ------------
+// 					var errlist errs.Group
+// 					errlist.Add(run.Wait())
+// 					errlist.Add(stack.App.Close())
+// 					return errlist.Err()
+// 				}
 
-				planetConfig.Reconfigure = testplanet.Reconfigure{Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Payments.Storjscan.Auth.Identifier = "eu"
-					config.Payments.Storjscan.Auth.Secret = "eusecret"
-					config.Payments.Storjscan.Endpoint = "http://" + stack.App.API.Listener.Addr().String()
-					config.Payments.Storjscan.Confirmations = 1
-					config.Payments.Storjscan.DisableLoop = false
-				}}
+// 				run.Go(func() error {
+// 					err := stack.App.Run(runCtx)
+// 					return err
+// 				})
+// 				defer ctx.Check(stack.CloseApp)
+// 				// ------------
 
-				planet, err := testplanet.NewCustom(ctx, log, planetConfig, satelliteDB)
-				if err != nil {
-					t.Fatalf("%+v", err)
-				}
-				defer ctx.Check(planet.Shutdown)
+// 				planetConfig.Reconfigure = testplanet.Reconfigure{Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+// 					config.Payments.Storjscan.Auth.Identifier = "eu"
+// 					config.Payments.Storjscan.Auth.Secret = "eusecret"
+// 					config.Payments.Storjscan.Endpoint = "http://" + stack.App.API.Listener.Addr().String()
+// 					config.Payments.Storjscan.Confirmations = 1
+// 					config.Payments.Storjscan.DisableLoop = false
+// 				}}
 
-				planet.Start(ctx)
-				provisionUplinks(ctx, t, planet)
+// 				planet, err := testplanet.NewCustom(ctx, log, planetConfig, satelliteDB)
+// 				if err != nil {
+// 					t.Fatalf("%+v", err)
+// 				}
+// 				defer ctx.Check(planet.Shutdown)
 
-				test(t, ctx, planet, &stack)
-			})
-		})
-	}
-}
+// 				if err = planet.Start(ctx); err != nil {
+// 					t.Fatalf("%+v", err)
+// 				}
+// 				provisionUplinks(ctx, t, planet)
 
-func provisionUplinks(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
-	for _, planetUplink := range planet.Uplinks {
-		for _, satellite := range planet.Satellites {
-			apiKey := planetUplink.APIKey[satellite.ID()]
+// 				test(t, ctx, planet, &stack)
+// 			})
+// 		})
+// 	}
+// }
 
-			// create access grant manually to avoid dialing satellite for
-			// project id and deriving key with argon2.IDKey method
-			encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
-			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+// func provisionUplinks(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+// 	for _, planetUplink := range planet.Uplinks {
+// 		for _, satellite := range planet.Satellites {
+// 			apiKey := planetUplink.APIKey[satellite.ID()]
 
-			grantAccess := grant.Access{
-				SatelliteAddress: satellite.URL(),
-				APIKey:           apiKey,
-				EncAccess:        encAccess,
-			}
+// 			// create access grant manually to avoid dialing satellite for
+// 			// project id and deriving key with argon2.IDKey method
+// 			encAccess := grant.NewEncryptionAccessWithDefaultKey(&storxnetwork.Key{})
+// 			encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
 
-			serializedAccess, err := grantAccess.Serialize()
-			if err != nil {
-				t.Fatalf("%+v", err)
-			}
-			access, err := uplink.ParseAccess(serializedAccess)
-			if err != nil {
-				t.Fatalf("%+v", err)
-			}
+// 			grantAccess := grant.Access{
+// 				SatelliteAddress: satellite.URL(),
+// 				APIKey:           apiKey,
+// 				EncAccess:        encAccess,
+// 			}
 
-			planetUplink.Access[satellite.ID()] = access
-		}
-	}
-}
+// 			serializedAccess, err := grantAccess.Serialize()
+// 			if err != nil {
+// 				t.Fatalf("%+v", err)
+// 			}
+// 			access, err := uplink.ParseAccess(serializedAccess)
+// 			if err != nil {
+// 				t.Fatalf("%+v", err)
+// 			}
+
+// 			planetUplink.Access[satellite.ID()] = access
+// 		}
+// 	}
+// }

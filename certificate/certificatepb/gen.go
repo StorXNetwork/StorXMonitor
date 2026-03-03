@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 //go:build ignore
-// +build ignore
 
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	mainpkg = flag.String("pkg", "storj.io/storj/certificate/certificatepb", "main package name")
+	mainpkg = flag.String("pkg", "github.com/StorXNetwork/StorXMonitor/certificate/certificatepb", "main package name")
 	protoc  = flag.String("protoc", "protoc", "protoc compiler")
 )
 
@@ -37,10 +37,11 @@ func ignore(files []string) []string {
 // Programs needed for code generation:
 //
 // github.com/ckaznocha/protoc-gen-lint
-// storj.io/drpc/cmd/protoc-gen-drpc
+// github.com/StorXNetwork/drpc/cmd/protoc-gen-drpc
 // github.com/nilslice/protolock/cmd/protolock
 
 func main() {
+	ctx := context.Background()
 	flag.Parse()
 
 	// TODO: protolock
@@ -73,7 +74,7 @@ func main() {
 		args = append(args, protofiles...)
 
 		// generate new code
-		cmd := exec.Command(*protoc, args...)
+		cmd := exec.CommandContext(ctx, *protoc, args...)
 		fmt.Println(strings.Join(cmd.Args, " "))
 		out, err := cmd.CombinedOutput()
 		if len(out) > 0 {
@@ -92,7 +93,7 @@ func main() {
 
 	{
 		// format code to get rid of extra imports
-		out, err := exec.Command("goimports", "-local", "storj.io", "-w", ".").CombinedOutput()
+		out, err := exec.Command("goimports", "-local", "storxnetwork.io", "-w", ".").CombinedOutput()
 		if len(out) > 0 {
 			fmt.Println(string(out))
 		}

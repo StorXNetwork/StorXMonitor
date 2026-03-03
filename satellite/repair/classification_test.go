@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func TestClassifySegmentPieces(t *testing.T) {
@@ -59,7 +59,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: `10:country("GB")`,
-		}.Parse(nil)
+		}.Parse(nil, nil)
 		require.NoError(t, err)
 
 		pieces := createPieces(selectedNodes, 1, 2, 3, 4, 7, 8)
@@ -82,7 +82,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: `10:country("GB")`,
-		}.Parse(nil)
+		}.Parse(nil, nil)
 		require.NoError(t, err)
 
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -131,7 +131,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: fmt.Sprintf(`10:annotated(country("GB"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF),
-		}.Parse(nil)
+		}.Parse(nil, nil)
 		require.NoError(t, err)
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
@@ -153,7 +153,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 func generateNodes(num int, isOnline func(i int) bool, config func(ix int, node *nodeselection.SelectedNode)) (selectedNodes []nodeselection.SelectedNode) {
 	for i := 0; i < num; i++ {
 		node := nodeselection.SelectedNode{
-			ID:     testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			ID:     testidentity.MustPregeneratedIdentity(i, storxnetwork.LatestIDVersion()).ID,
 			Online: isOnline(i),
 		}
 		config(i, &node)

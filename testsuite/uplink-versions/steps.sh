@@ -55,11 +55,11 @@ wait_for_all_background_jobs_to_finish(){
     done
 }
 
-echo "Begin uplink-versions/steps.sh, storj-sim config directory:" ${main_cfg_dir}
+echo "Begin uplink-versions/steps.sh, storxnetwork-sim config directory:" ${main_cfg_dir}
 
-echo "which storj-sim: $(which storj-sim)"
-echo "Shasum for storj-sim:"
-shasum $(which storj-sim)
+echo "which storxnetwork-sim: $(which storxnetwork-sim)"
+echo "Shasum for storxnetwork-sim:"
+shasum $(which storxnetwork-sim)
 
 echo -e "\nConfig directory for uplink:"
 echo "${main_cfg_dir}/uplink"
@@ -72,8 +72,8 @@ export UPLINK_LEGACY_CONFIG_DIR="${main_cfg_dir}/uplink"
 
 if [ ! -d ${main_cfg_dir}/uplink ]; then
     mkdir -p ${main_cfg_dir}/uplink
-    access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
-    new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
+    access=$(storxnetwork-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
+    new_access=$(go run $update_access_script_path $(storxnetwork-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
     echo "access: ${new_access}" > "${main_cfg_dir}/uplink/config.yaml"
 fi
 

@@ -1,49 +1,46 @@
-ARG DOCKER_ARCH
-# Satellite UI static asset generation
-FROM node:20.10.0 as ui
-WORKDIR /app
-COPY web/satellite/ /app
-# Need to clean up (or ignore) local folders like node_modules, etc...
-RUN npm install
-RUN npm run build
+# syntax=docker/dockerfile:1.4-labs
+ARG GO_VERSION="1.25.6"
+ARG NODE_VERSION="24.11.1"
 
-# Fetch ca-certificates file for arch independent builds below
-FROM debian:buster-slim as ca-cert
+# ca-cert downloads certificates in a separate stage to
+# avoid needing to download it for different target platforms.
+# Similarly, it avoids the apt cache.
+FROM --platform=$BUILDPLATFORM debian:trixie-slim AS ca-cert
+
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN update-ca-certificates
 
-# Install storj-up helper (for local/dev runs)
-FROM --platform=$TARGETPLATFORM golang:1.19 AS storjup
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod  \
-    go install storj.io/storj-up@latest
+# test identities for quick-start (pinned to amd64 as base image lacks arm/v7)
+FROM --platform=linux/amd64 img.dev.github.com/StorXNetwork/StorXMonitorup/base:20230607-1 AS identities
 
-# Install dlv (for local/dev runs)
-FROM --platform=$TARGETPLATFORM golang:1.19 AS dlv
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod  \
-    go install github.com/go-delve/delve/cmd/dlv@latest
+FROM debian:trixie-slim
 
-FROM ${DOCKER_ARCH:-amd64}/debian:buster-slim
-ARG TAG
-ARG GOARCH
-ENV GOARCH ${GOARCH}
-ENV CONF_PATH=/root/.local/share/storj/satellite \
+ARG TARGETOS
+ARG TARGETARCH
+
+ENV CONF_PATH=/root/.local/share/storxnetwork/satellite \
     STORJ_CONSOLE_STATIC_DIR=/app \
     STORJ_MAIL_TEMPLATE_PATH=/app/static/emails \
     STORJ_CONSOLE_ADDRESS=0.0.0.0:10100
 ENV PATH=$PATH:/app
+
 EXPOSE 7777
 EXPOSE 10100
+
 WORKDIR /app
-COPY --from=ui /app/static /app/static
-COPY --from=ui /app/dist /app/dist
+
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY release/${TAG}/wasm /app/static/wasm
-COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite
-COPY --from=storjup /go/bin/storj-up /usr/local/bin/storj-up
-COPY --from=dlv /go/bin/dlv /usr/local/bin/dlv
-# test identities for quick-start
-COPY --from=img.dev.storj.io/storjup/base:20230607-1 /var/lib/storj/identities /var/lib/storj/identities
-COPY cmd/satellite/entrypoint /entrypoint
-ENTRYPOINT ["/entrypoint"]
+
+COPY --from=storxnetwork-up /${TARGETOS}_${TARGETARCH}/storxnetwork-up /usr/local/bin/storxnetwork-up
+COPY --from=delve    /${TARGETOS}_${TARGETARCH}/dlv      /usr/local/bin/dlv
+
+COPY --from=identities /var/lib/storxnetwork/identities /var/lib/storxnetwork/identities
+
+COPY --from=binaries /${TARGETOS}_${TARGETARCH}/satellite /app/satellite
+
+COPY --from=ui /dist   /app/dist
+COPY --from=ui /static /app/static
+
+COPY cmd/satellite/entrypoint   /app/entrypoint
+
+ENTRYPOINT ["/app/entrypoint"]

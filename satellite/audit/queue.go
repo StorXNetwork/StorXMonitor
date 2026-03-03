@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // ErrEmptyQueue is used to indicate that the queue is empty.
@@ -33,8 +33,8 @@ type ReverifyQueue interface {
 	Insert(ctx context.Context, piece *PieceLocator) (err error)
 	GetNextJob(ctx context.Context, retryInterval time.Duration) (job *ReverificationJob, err error)
 	Remove(ctx context.Context, piece *PieceLocator) (wasDeleted bool, err error)
-	GetByNodeID(ctx context.Context, nodeID storj.NodeID) (audit *ReverificationJob, err error)
-	GetAllContainedNodes(ctx context.Context) ([]storj.NodeID, error)
+	GetByNodeID(ctx context.Context, nodeID storxnetwork.NodeID) (audit *ReverificationJob, err error)
+	GetAllContainedNodes(ctx context.Context) ([]storxnetwork.NodeID, error)
 }
 
 // ByStreamIDAndPosition allows sorting of a slice of segments by stream ID and position.

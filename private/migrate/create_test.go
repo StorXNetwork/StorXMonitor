@@ -11,19 +11,20 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/tagsql"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/migrate"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/private/migrate"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/tempdb"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 func TestCreate_Sqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,8 +48,8 @@ func TestCreate_Sqlite(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	pgtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "create-")
+	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
+		db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, "create-", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +79,10 @@ type sqliteDB struct {
 }
 
 func (db *sqliteDB) Rebind(s string) string { return s }
-func (db *sqliteDB) Schema() string         { return db.schema }
+
+func (db *sqliteDB) Schema() []string {
+	return []string{db.schema}
+}
 
 type postgresDB struct {
 	tagsql.DB
@@ -103,4 +107,7 @@ func (db *postgresDB) Rebind(sql string) string {
 
 	return string(out)
 }
-func (db *postgresDB) Schema() string { return db.schema }
+
+func (db *postgresDB) Schema() []string {
+	return []string{db.schema}
+}

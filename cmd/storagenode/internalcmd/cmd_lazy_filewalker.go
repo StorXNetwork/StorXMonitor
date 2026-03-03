@@ -15,10 +15,10 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/process"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces/lazyfilewalker/execwrapper"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 // FilewalkerCfg is the config structure for the lazyfilewalker commands.
@@ -35,6 +35,7 @@ func (config *FilewalkerCfg) DatabaseConfig() storagenodedb.Config {
 		Pieces:    config.Pieces,
 		Filestore: config.Filestore,
 		Driver:    config.Driver,
+		Cache:     config.Cache,
 	}
 }
 
@@ -193,7 +194,7 @@ func (r *RunOptions) tryCreateNewLogger() {
 	}
 
 	// create a new logger with the writer as the output path.
-	path := fmt.Sprintf("%s:subprocess", writerkey)
+	path := writerkey + ":subprocess"
 	logger, err := process.NewLoggerWithOutputPaths("lazyfilewalker", path)
 	if err != nil {
 		r.Logger.Error("failed to create logger", zap.Error(err))

@@ -9,11 +9,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/private/multinodepb"
-	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/storageusage"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/StorXMonitor/private/multinodepb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/apikeys"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
 )
 
 var _ multinodepb.DRPCStorageServer = (*StorageEndpoint)(nil)
@@ -55,12 +55,14 @@ func (storage *StorageEndpoint) DiskSpace(ctx context.Context, req *multinodepb.
 	}
 
 	return &multinodepb.DiskSpaceResponse{
-		Allocated:  diskSpace.Allocated,
-		UsedPieces: diskSpace.UsedForPieces,
-		UsedTrash:  diskSpace.UsedForTrash,
-		Free:       diskSpace.Free,
-		Available:  diskSpace.Available,
-		Overused:   diskSpace.Overused,
+		Allocated:       diskSpace.Allocated,
+		Used:            diskSpace.Used,
+		UsedPieces:      diskSpace.UsedForPieces,
+		UsedReclaimable: diskSpace.UsedReclaimable,
+		UsedTrash:       diskSpace.UsedForTrash,
+		Free:            diskSpace.Free,
+		Available:       diskSpace.Available,
+		Overused:        diskSpace.Overused,
 	}, nil
 }
 

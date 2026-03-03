@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"storj.io/storj/satellite/smartcontract"
+	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
 )
 
 func main() {

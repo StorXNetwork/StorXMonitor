@@ -4,7 +4,7 @@ pipeline {
             label 'main'
             image 'storjlabs/ci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
+            args '-u root:root --cap-add SYS_PTRACE -v "/cache/gomod":/go/pkg/mod -v /cache/golangci-lint:/root/.cache/golangci-lint -v /cache/gobuild:/root/.cache/go-build -v /cache/gobenchmarks:/root/.cache/go-build-benchmarks -v "/cache/npm":/npm'
         }
     }
     options {
@@ -28,6 +28,7 @@ pipeline {
                 checkout scm
 
                 sh 'mkdir -p .build'
+                sh 'git restore-mtime'
 
                 // download dependencies
                 sh 'go mod download'
@@ -43,18 +44,13 @@ pipeline {
                 }
             }
         }
-        stage('Build Web') {
+
+       stage('Build Web') {
             // The build code depends on the following assets being loaded.
             parallel {
                 stage('web/satellite') {
                     steps {
                         sh './web/satellite/build.sh'
-                    }
-                }
-
-                stage('wasm') {
-                    steps {
-                        sh './testsuite/wasm/start.sh'
                     }
                 }
 
@@ -70,9 +66,9 @@ pipeline {
                     }
                 }
 
-                stage('satellite/admin/ui') {
+                stage('satellite/admin/legacy/ui') {
                     steps {
-                        sh './satellite/admin/ui/build.sh'
+                        sh './satellite/admin/legacy/ui/build.sh'
                     }
                 }
             }
@@ -80,32 +76,23 @@ pipeline {
 
         stage('Build') {
             parallel {
-                stage('go') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
-                    }
-                }
                 stage('go -race') {
                     steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
-
-                        // install storj-sim
-                        sh 'go install -race -v storj.io/storj/cmd/satellite '+
-                                'storj.io/storj/cmd/storagenode ' +
-                                'storj.io/storj/cmd/storj-sim ' +
-                                'storj.io/storj/cmd/versioncontrol ' +
-                                'storj.io/storj/cmd/uplink ' +
-                                'storj.io/storj/cmd/identity ' +
-                                'storj.io/storj/cmd/certificates ' +
-                                'storj.io/storj/cmd/multinode'
+                        // install storxnetwork-sim
+                        sh 'go install -race -v github.com/StorXNetwork/StorXMonitor/cmd/satellite '+
+                                'github.com/StorXNetwork/StorXMonitor/cmd/storagenode ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/storxnetwork-sim ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/versioncontrol ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/uplink ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/identity ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/certificates ' +
+                                'github.com/StorXNetwork/StorXMonitor/cmd/multinode'
                     }
                 }
                 stage('go -race gateway') {
                     steps {
-                        // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@latest'
+                        // install gateway for storxnetwork-sim
+                        sh 'go install -race -v github.com/StorXNetwork/gateway-st@latest'
                     }
                 }
 
@@ -113,40 +100,39 @@ pipeline {
                     steps {
                         sh 'service postgresql start'
                         dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
                         }
                     }
                 }
-            }
-        }
 
-        stage('Cross Compile') {
-            steps {
-                // verify most of the commands, we cannot check everything since some of them
-                // have a C dependency and we don't have cross-compilation in storj/ci image
-                sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
-            }
-        }
+                stage('Cross Compile') {
+                    steps {
+                        // verify most of the commands, we cannot check everything since some of them
+                        // have a C dependency and we don't have cross-compilation in storxnetwork/ci image
+                        sh 'check-cross-compile github.com/StorXNetwork/StorXMonitor/cmd/uplink github.com/StorXNetwork/StorXMonitor/cmd/satellite github.com/StorXNetwork/StorXMonitor/cmd/storagenode-updater github.com/StorXNetwork/StorXMonitor/cmd/storxnetwork-sim'
+                    }
+                }
 
-        stage('Lint') {
-            steps {
-                // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
-                sh 'go-licenses check --ignore "storj.io/storj" ./...'
+                stage('Lint') {
+                    steps {
+                        // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `github.com/StorXNetwork/StorXMonitor`.
+                        // note: json-iterator is replaced by our stub, it should be ignored as github.com/StorXNetwork/StorXMonitor.
+                        sh 'go-licenses check --ignore "github.com/StorXNetwork/StorXMonitor" --ignore "github.com/json-iterator/go" ./...'
+                    }
+                }
             }
         }
 
         stage('Check Benchmark') {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                GOCACHE = '/root/.cache/go-build-benchmarks'
             }
             steps {
                 sh 'psql -U postgres -c \'create database benchstorj;\''
-                sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+                sh 'go test -parallel 1 -p 16 -vet=off -timeout 60m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
             }
         }
 
@@ -195,6 +181,8 @@ pipeline {
 
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
                         STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
+
+                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
                     }
 
                     steps {
@@ -210,6 +198,8 @@ pipeline {
 
                         STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
                         STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
+
+                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
                     }
 
                     steps {
@@ -239,13 +229,9 @@ pipeline {
 
         stage('Test Web') {
             parallel {
-                stage('wasm npm') {
+                stage('wasm') {
                     steps {
-                        dir(".build") {
-                            sh 'cp -r ../satellite/console/wasm/tests/ .'
-                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
-                            sh 'cd tests && npm install && npm run test'
-                        }
+                        sh './web/satellite/wasm/run-tests.sh'
                     }
                 }
 
@@ -279,17 +265,17 @@ pipeline {
                     }
                 }
 
-                stage('satellite/admin/ui') {
+                stage('satellite/admin/legacy/ui') {
                     steps {
-                        dir("satellite/admin/ui") {
+                        dir("satellite/admin/legacy/ui") {
                             sh script: 'npm audit', returnStatus: true
                         }
                     }
                 }
 
-                stage('satellite/admin/back-office/ui') {
+                stage('satellite/admin/ui') {
                     steps {
-                        dir("satellite/admin/back-office/ui") {
+                        dir("satellite/admin/ui") {
                             sh 'npm install --prefer-offline --no-audit --loglevel verbose'
                             sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true

@@ -14,35 +14,34 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
+	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairqueuetest"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestStatChore(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		_, err := db.RepairQueue().InsertBatch(ctx, []*queue.InjuredSegment{
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
+		_, err := repairQueue.InsertBatch(ctx, []*queue.InjuredSegment{
 			{
 				StreamID:  testrand.UUID(),
-				Placement: storj.PlacementConstraint(1),
+				Placement: storxnetwork.PlacementConstraint(1),
 			},
 			{
 				StreamID:  testrand.UUID(),
-				Placement: storj.PlacementConstraint(2),
+				Placement: storxnetwork.PlacementConstraint(2),
 			},
 			{
 				StreamID:  testrand.UUID(),
-				Placement: storj.PlacementConstraint(2),
+				Placement: storxnetwork.PlacementConstraint(2),
 			},
 		})
 		require.NoError(t, err)
 
 		registry := monkit.NewRegistry()
-		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, []storj.PlacementConstraint{0, 1, 2}, db.RepairQueue(), 100*time.Hour)
+		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, []storxnetwork.PlacementConstraint{0, 1, 2}, repairQueue, 100*time.Hour)
 
 		collectMonkitStat := func() map[string]float64 {
 			monkitValues := map[string]float64{}
@@ -70,13 +69,13 @@ func TestStatChore(t *testing.T) {
 		}
 
 		stat := collectMonkitStat()
-		require.Zero(t, stat["attempted=false,placement=1,scope=storj.io/storj/satellite/repair/repairer count"])
+		require.Zero(t, stat["attempted=false,placement=1,scope=github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer count"])
 
 		chore.RunOnce(ctx)
 		stat = collectMonkitStat()
 
-		require.Equal(t, float64(0), stat["attempted=false,placement=0,scope=storj.io/storj/satellite/repair/repairer count"])
-		require.Equal(t, float64(1), stat["attempted=false,placement=1,scope=storj.io/storj/satellite/repair/repairer count"])
-		require.Equal(t, float64(2), stat["attempted=false,placement=2,scope=storj.io/storj/satellite/repair/repairer count"])
+		require.Equal(t, float64(0), stat["attempted=false,placement=0,scope=github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer count"])
+		require.Equal(t, float64(1), stat["attempted=false,placement=1,scope=github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer count"])
+		require.Equal(t, float64(2), stat["attempted=false,placement=2,scope=github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer count"])
 	})
 }

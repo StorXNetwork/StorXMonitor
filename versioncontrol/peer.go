@@ -21,9 +21,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/sync2"
-	"storj.io/common/version"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/version"
 )
 
 // seedLength is the number of bytes in a rollout seed.
@@ -38,7 +38,7 @@ var (
 
 // Config is all the configuration parameters for a Version Control Server.
 type Config struct {
-	Address       string        `user:"true" help:"public address to listen on" default:":8080"`
+	Address       string        `user:"true" help:"public address to listen on" default:":8080" testDefault:"$HOST:0"`
 	SafeRate      float64       `user:"true" help:"the safe daily fractional increase for a rollout (a value of .5 means 0 to 50% in 24 hours). 0 means immediate rollout." default:".2"`
 	RegenInterval time.Duration `user:"true" help:"how long to go between recalculating the current cursors. 0 means on demand." default:"5m"`
 
@@ -83,7 +83,7 @@ type VersionConfig struct {
 
 // RolloutConfig represents the state of a version rollout configuration of a process.
 type RolloutConfig struct {
-	Seed           string `user:"true" help:"random 32 byte, hex-encoded string"`
+	Seed           string `user:"true" help:"random 32 byte, hex-encoded string" default:"" testDefault:"000102030405060708090a0b0c0d0e0ff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"`
 	PreviousCursor int    `user:"true" help:"prior configuration's cursor value. if 100%, will be capped at the current cursor." default:"100"`
 	Cursor         int    `user:"true" help:"percentage of nodes which should roll-out to the suggested version" default:"0"`
 }
@@ -181,32 +181,6 @@ func (peer *Peer) updateResponse() (err error) {
 
 func (config *Config) generateResponse(initTime time.Time) (rv *response, err error) {
 	rv = &response{}
-
-	// Convert each Service's VersionConfig String to SemVer
-	rv.versions.Satellite, err = version.NewOldSemVer(config.Versions.Satellite)
-	if err != nil {
-		return nil, err
-	}
-
-	rv.versions.Storagenode, err = version.NewOldSemVer(config.Versions.Storagenode)
-	if err != nil {
-		return nil, err
-	}
-
-	rv.versions.Uplink, err = version.NewOldSemVer(config.Versions.Uplink)
-	if err != nil {
-		return nil, err
-	}
-
-	rv.versions.Gateway, err = version.NewOldSemVer(config.Versions.Gateway)
-	if err != nil {
-		return nil, err
-	}
-
-	rv.versions.Identity, err = version.NewOldSemVer(config.Versions.Identity)
-	if err != nil {
-		return nil, err
-	}
 
 	rv.versions.Processes.Satellite, err = config.configToProcess(initTime, config.Binary.Satellite)
 	if err != nil {
@@ -334,7 +308,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		peer.Log.Info("Versioning server started.", zap.String("Address", peer.Addr()))
+		peer.Log.Info("Versioning server started.", zap.String("address", peer.Addr()))
 		err := peer.Server.Endpoint.Serve(peer.Server.Listener)
 		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
 			err = nil
@@ -368,7 +342,7 @@ func (versions ProcessesConfig) ValidateRollouts(log *zap.Logger) error {
 	for i := 0; i < fieldCount; i++ {
 		binary, ok := value.Field(i).Interface().(ProcessConfig)
 		if !ok {
-			log.Warn("non-binary field in versions config struct", zap.String("field name", value.Type().Field(i).Name))
+			log.Warn("non-binary field in versions config struct", zap.String("field_name", value.Type().Field(i).Name))
 			continue
 		}
 		if err := binary.Rollout.Validate(); err != nil {
@@ -419,7 +393,7 @@ func (config *Config) configToProcess(initTime time.Time, binary ProcessConfig) 
 			URL:     binary.Suggested.URL,
 		},
 		Rollout: version.Rollout{
-			Cursor: version.PercentageToCursor(int(currentPercent)),
+			Cursor: version.PercentageToCursorF(currentPercent),
 		},
 	}
 

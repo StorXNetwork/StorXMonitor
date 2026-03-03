@@ -17,9 +17,9 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -193,7 +193,7 @@ func checkFile(fileName string) (report string, realFilename string, err error) 
 	return "valid-looking sj1 blob with hash mismatch", realFilename, nil
 }
 
-func v1FilenameFor(satelliteID storj.NodeID, pieceID storj.PieceID) string {
+func v1FilenameFor(satelliteID storxnetwork.NodeID, pieceID storxnetwork.PieceID) string {
 	pieceIDEncoded := pathEncoding.EncodeToString(pieceID[:])
 	satelliteIDEncoded := pathEncoding.EncodeToString(satelliteID[:])
 	return fmt.Sprintf("%s/%s/%s.sj1", satelliteIDEncoded, pieceIDEncoded[0:2], pieceIDEncoded[2:])

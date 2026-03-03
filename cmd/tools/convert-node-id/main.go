@@ -9,22 +9,24 @@ import (
 	"fmt"
 	"os"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/blobstore/filestore"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: %s <nodeid>\n", os.Args[0])
+	_, _ = fmt.Fprintf(os.Stderr, "usage: %s <nodeid>\n", os.Args[0])
 	os.Exit(1)
 }
 
-func output(id storj.NodeID) {
+func output(id storxnetwork.NodeID) {
 	fmt.Printf("base58 id: %s\n", id.String())
 	fmt.Printf("hex id: %x\n", id.Bytes())
+	fmt.Printf("blob id: %s\n", filestore.PathEncoding.EncodeToString(id.Bytes()))
 	fmt.Printf("version: %d\n", id.Version().Number)
 	diff, err := id.Difficulty()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error getting difficulty: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "error getting difficulty: %v\n", err)
 	} else {
 		fmt.Printf("difficulty: %d\n", diff)
 	}
@@ -35,7 +37,7 @@ func main() {
 		usage()
 	}
 
-	id, err := storj.NodeIDFromString(os.Args[1])
+	id, err := storxnetwork.NodeIDFromString(os.Args[1])
 	if err == nil {
 		output(id)
 		return
@@ -43,7 +45,16 @@ func main() {
 
 	idBytes, err := hex.DecodeString(os.Args[1])
 	if err == nil {
-		id, err := storj.NodeIDFromBytes(idBytes)
+		id, err := storxnetwork.NodeIDFromBytes(idBytes)
+		if err == nil {
+			output(id)
+			return
+		}
+	}
+
+	idBytes, err = filestore.PathEncoding.DecodeString(os.Args[1])
+	if err == nil {
+		id, err := storxnetwork.NodeIDFromBytes(idBytes)
 		if err == nil {
 			output(id)
 			return
@@ -61,6 +72,6 @@ func main() {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "unknown argument: %q", os.Args[1])
+	_, _ = fmt.Fprintf(os.Stderr, "unknown argument: %q", os.Args[1])
 	usage()
 }

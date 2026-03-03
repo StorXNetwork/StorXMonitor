@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/accounting"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 )
 
 // Error is a standard error class for this package.
@@ -23,10 +23,10 @@ var (
 
 // Config contains configurable values for rollup archiver.
 type Config struct {
+	Enabled    bool          `help:"whether or not the rollup archive is enabled." default:"true"`
 	Interval   time.Duration `help:"how frequently rollup archiver should run" releaseDefault:"24h" devDefault:"120s" testDefault:"$TESTINTERVAL"`
 	ArchiveAge time.Duration `help:"age at which a rollup is archived" default:"2160h" testDefault:"24h"`
-	BatchSize  int           `help:"number of records to delete per delete execution. Used only for crdb which is slow without limit." default:"500" testDefault:"1000"`
-	Enabled    bool          `help:"whether or not the rollup archive is enabled." default:"true"`
+	BatchSize  int           `help:"number of records to delete per delete execution." default:"100" testDefault:"1000"`
 }
 
 // Chore archives bucket and storagenode rollups at a given interval.
@@ -35,8 +35,7 @@ type Config struct {
 type Chore struct {
 	log               *zap.Logger
 	Loop              *sync2.Cycle
-	archiveAge        time.Duration
-	batchSize         int
+	config            Config
 	nodeAccounting    accounting.StoragenodeAccounting
 	projectAccounting accounting.ProjectAccounting
 }
@@ -46,8 +45,7 @@ func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.P
 	return &Chore{
 		log:               log,
 		Loop:              sync2.NewCycle(config.Interval),
-		archiveAge:        config.ArchiveAge,
-		batchSize:         config.BatchSize,
+		config:            config,
 		nodeAccounting:    sdb,
 		projectAccounting: pdb,
 	}
@@ -56,12 +54,12 @@ func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.P
 // Run starts the archiver chore.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if chore.archiveAge < 0 {
+	if chore.config.ArchiveAge < 0 {
 		return Error.New("archive age can't be less than 0")
 	}
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		cutoff := time.Now().UTC().Add(-chore.archiveAge)
-		err := chore.ArchiveRollups(ctx, cutoff, chore.batchSize)
+		cutoff := time.Now().UTC().Add(-chore.config.ArchiveAge)
+		err := chore.ArchiveRollups(ctx, cutoff, chore.config.BatchSize)
 		if err != nil {
 			chore.log.Error("error archiving SN and bucket bandwidth rollups", zap.Error(err))
 		}
@@ -80,12 +78,12 @@ func (chore *Chore) ArchiveRollups(ctx context.Context, cutoff time.Time, batchS
 	defer mon.Task()(&ctx)(&err)
 	nodeRollupsArchived, err := chore.nodeAccounting.ArchiveRollupsBefore(ctx, cutoff, batchSize)
 	if err != nil {
-		chore.log.Error("archiving bandwidth rollups", zap.Int("node rollups archived", nodeRollupsArchived), zap.Error(err))
+		chore.log.Error("archiving node bandwidth rollups", zap.Int("rollups_archived", nodeRollupsArchived), zap.Error(err))
 		return Error.Wrap(err)
 	}
 	bucketRollupsArchived, err := chore.projectAccounting.ArchiveRollupsBefore(ctx, cutoff, batchSize)
 	if err != nil {
-		chore.log.Error("archiving bandwidth rollups", zap.Int("bucket rollups archived", bucketRollupsArchived), zap.Error(err))
+		chore.log.Error("archiving bucket bandwidth rollups", zap.Int("rollups_archived", bucketRollupsArchived), zap.Error(err))
 		return Error.Wrap(err)
 	}
 	return nil

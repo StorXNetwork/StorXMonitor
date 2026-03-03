@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/mail"
 
-	"storj.io/storj/private/post"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
 )
 
 // NoMail doesn't send out any mail.
@@ -21,6 +21,6 @@ func (n NoMail) SendEmail(ctx context.Context, msg *post.Message) error {
 
 // FromAddress implements func from mailservice.Sender.
 func (n NoMail) FromAddress() post.Address {
-	addr, _ := mail.ParseAddress("nosuchmail@storj.io")
+	addr, _ := mail.ParseAddress("nosuchmail@storxnetwork.io")
 	return *addr
 }

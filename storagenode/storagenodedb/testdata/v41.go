@@ -4,7 +4,7 @@
 package testdata
 
 import (
-	"storj.io/storj/storagenode/storagenodedb"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb"
 )
 
 var v41 = MultiDBState{

@@ -1,12 +1,12 @@
 # Contributing to Storj
 
-[license]: https://github.com/storj/storj/tree/main/LICENSE
+[license]: https://github.com/storxnetwork/storxnetwork/tree/main/LICENSE
 [cla]: https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform
-[contributing]: https://github.com/storj/storj/tree/main/CONTRIBUTING.md
-[white paper]: https://storj.io/whitepaper
-[code of conduct]: https://github.com/storj/storj/tree/main/CODE_OF_CONDUCT.md
-[writing tests]: https://github.com/storj/storj/wiki/Testing
-[storj-up]: https://github.com/storj/up
+[contributing]: https://github.com/storxnetwork/storxnetwork/tree/main/CONTRIBUTING.md
+[white paper]: https://storxnetwork.io/whitepaper
+[code of conduct]: https://github.com/storxnetwork/storxnetwork/tree/main/CODE_OF_CONDUCT.md
+[writing tests]: https://github.com/storxnetwork/storxnetwork/wiki/Testing
+[storxnetwork-up]: https://github.com/storxnetwork/up
 
 Hi! Thanks for your interest in contributing to the Storj Network!
 
@@ -22,7 +22,7 @@ under a less restrictive license, like Apache v2, if that would help the adoptio
 * [Resources](#resources)
 
 ## Reporting security issues
-If you believe you've found a security vulnerability, please send your report to security-reports@storj.io.
+If you believe you've found a security vulnerability, please send your report to security-reports@storxnetwork.io.
 
 We greatly value security, and we may publicly thank you for your report, although we keep your name confidential if you request it.
 
@@ -49,7 +49,7 @@ Please do:
 * Open an issue to propose a significant change.
 * open an issue to propose a feature
 * Open a pull request to fix a bug.
-* Open a pull request for an issue with the [`Help Wanted`](https://github.com/storj/storj/labels/Help%20Wanted) or [`Good first issue`](https://github.com/storj/storj/labels/Good%20First%20Issue) label and leave a comment claiming it.
+* Open a pull request for an issue with the [`Help Wanted`](https://github.com/storxnetwork/storxnetwork/labels/Help%20Wanted) or [`Good first issue`](https://github.com/storxnetwork/storxnetwork/labels/Good%20First%20Issue) label and leave a comment claiming it.
 
 Please avoid:
 
@@ -78,7 +78,7 @@ See our guide for [writing tests][writing tests].
 
 ### Commit Messages
 
-Our guide on good commits can be found at https://github.com/storj/storj/wiki/Git.
+Our guide on good commits can be found at https://github.com/storxnetwork/storxnetwork/wiki/Git.
 
 ### Push up a pull request
 
@@ -94,6 +94,6 @@ Use GitHub to open a pull request!
 ## Resources
 
 - [Storj White paper v3][white paper]
-- [Wiki Page](https://github.com/storj/storj/wiki)
+- [Wiki Page](https://github.com/storxnetwork/storxnetwork/wiki)
 - [How to Contribute to Open Source](https://opensource.guide/how-to-contribute/)
 - [Using Pull Requests](https://help.github.com/articles/about-pull-requests/)

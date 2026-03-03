@@ -14,16 +14,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/storagenode/payouts/estimatedpayouts"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/payouts/estimatedpayouts"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/reputation"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storagenodedb/storagenodedbtest"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 var (
@@ -71,14 +71,14 @@ func TestStorageNodeApi(t *testing.T) {
 			baseURL := fmt.Sprintf("http://%s/api/sno", console.Listener.Addr())
 
 			// pause node stats reputation cache because later tests assert a specific join date.
-			sno.NodeStats.Cache.Reputation.Pause()
+			sno.Reputation.Chore.Loop.Pause()
 			startingPoint := time.Now().UTC().Add(-2 * time.Hour)
 
 			for _, action := range actions {
 				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, startingPoint)
 				require.NoError(t, err)
 			}
-			var satellites []storj.NodeID
+			var satellites []storxnetwork.NodeID
 
 			satellites = append(satellites, satellite.ID())
 			stamps := storagenodedbtest.MakeStorageUsageStamps(satellites, 30, time.Now().UTC())
@@ -105,7 +105,7 @@ func TestStorageNodeApi(t *testing.T) {
 
 			t.Run("EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/estimated-payout", baseURL), nil)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/estimated-payout", nil)
 				require.NoError(t, err)
 
 				// setting now here to cache closest to api all timestamp, so service call

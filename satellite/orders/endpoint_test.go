@@ -8,15 +8,21 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/StorXMonitor/shared/modular/eventkit/eventkitspy"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/eventkit"
 )
 
 func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
@@ -28,7 +34,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 		now := time.Now()
 		projectID := testrand.UUID()
-		bucketname := "testbucket"
+		bucketname := metabase.BucketName("testbucket")
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketname,
@@ -43,7 +49,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), snbw)
-		bucketbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+		_, _, bucketbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), bucketbw)
 
@@ -78,7 +84,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+				piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 				require.NoError(t, err)
 
 				// create signed orderlimit or order to test with
@@ -87,7 +93,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 					SatelliteId:            satellite.ID(),
 					UplinkPublicKey:        piecePublicKey,
 					StorageNodeId:          storagenode.ID(),
-					PieceId:                storj.NewPieceID(),
+					PieceId:                storxnetwork.NewPieceID(),
 					Action:                 pb.PieceAction_PUT,
 					Limit:                  1000,
 					PieceExpiration:        time.Time{},
@@ -110,7 +116,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 					SatelliteId:            satellite.ID(),
 					UplinkPublicKey:        piecePublicKey,
 					StorageNodeId:          storagenode.ID(),
-					PieceId:                storj.NewPieceID(),
+					PieceId:                storxnetwork.NewPieceID(),
 					Action:                 pb.PieceAction_PUT,
 					Limit:                  1000,
 					PieceExpiration:        time.Time{},
@@ -129,7 +135,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				require.NoError(t, err)
 
 				// create connection between storagenode and satellite
-				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storxnetwork.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
 				require.NoError(t, err)
 				defer ctx.Check(conn.Close)
 
@@ -164,7 +170,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				require.NoError(t, err)
 				require.EqualValues(t, tt.settledAmt, snbw)
 
-				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, tt.orderCreation)
+				_, _, newBbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, tt.orderCreation)
 				require.NoError(t, err)
 				require.EqualValues(t, tt.settledAmt, newBbw)
 			}()
@@ -182,7 +188,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 		now := time.Now()
 		projectID := testrand.UUID()
-		bucketname := "testbucket"
+		bucketname := metabase.BucketName("testbucket")
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketname,
@@ -198,7 +204,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 0, snbw)
 
-		bucketbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+		_, _, bucketbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bucketbw)
 
@@ -212,7 +218,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+		piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
 		require.NoError(t, err)
 
 		testCases := []struct {
@@ -233,7 +239,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 					SatelliteId:            satellite.ID(),
 					UplinkPublicKey:        piecePublicKey,
 					StorageNodeId:          storagenode.ID(),
-					PieceId:                storj.NewPieceID(),
+					PieceId:                storxnetwork.NewPieceID(),
 					Action:                 pb.PieceAction_PUT,
 					Limit:                  1000,
 					PieceExpiration:        time.Time{},
@@ -252,7 +258,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 				require.NoError(t, err)
 
 				// create connection between storagenode and satellite
-				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storxnetwork.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
 				require.NoError(t, err)
 				defer ctx.Check(conn.Close)
 
@@ -288,7 +294,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, dataAmount, snbw)
 
-				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+				_, _, newBbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 				require.NoError(t, err)
 				require.Equal(t, dataAmount, newBbw)
 			}()
@@ -305,7 +311,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 		now := time.Now()
 		projectID := testrand.UUID()
-		bucketname := "testbucket"
+		bucketname := metabase.BucketName("testbucket")
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketname,
@@ -320,14 +326,14 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 0, snbw)
 
-		bucketbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+		_, _, bucketbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bucketbw)
 
-		piecePublicKey1, piecePrivateKey1, err := storj.NewPieceKey()
+		piecePublicKey1, piecePrivateKey1, err := storxnetwork.NewPieceKey()
 		require.NoError(t, err)
 
-		_, piecePrivateKey2, err := storj.NewPieceKey()
+		_, piecePrivateKey2, err := storxnetwork.NewPieceKey()
 		require.NoError(t, err)
 
 		serialNumber1 := testrand.SerialNumber()
@@ -345,7 +351,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 			SatelliteId:            satellite.ID(),
 			UplinkPublicKey:        piecePublicKey1,
 			StorageNodeId:          storagenode.ID(),
-			PieceId:                storj.NewPieceID(),
+			PieceId:                storxnetwork.NewPieceID(),
 			Action:                 pb.PieceAction_PUT,
 			Limit:                  1000,
 			PieceExpiration:        time.Time{},
@@ -390,7 +396,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		for _, tt := range testCases {
 			tt := tt
 			t.Run(tt.name, func(t *testing.T) {
-				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storxnetwork.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
 				require.NoError(t, err)
 				defer ctx.Check(conn.Close)
 
@@ -419,10 +425,104 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 				require.NoError(t, err)
 				require.EqualValues(t, 0, snbw)
 
-				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+				_, _, newBbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 				require.NoError(t, err)
 				require.EqualValues(t, 0, newBbw)
 			})
+		}
+	})
+}
+
+func TestSettlementWithWindowFinal_TrustedOrders(t *testing.T) {
+	// test checks if trusted node will be able to send orders without any issue
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Orders.TrustedOrders = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].DB.OverlayCache().UpdateNodeTags(ctx, nodeselection.NodeTags{
+			nodeselection.NodeTag{
+				NodeID:   planet.StorageNodes[0].ID(),
+				SignedAt: time.Now(),
+				Signer:   storxnetwork.NodeID{30: 1},
+				Name:     "trusted_orders",
+				Value:    []byte("true"),
+			},
+		})
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		planet.StorageNodes[0].Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+
+		result, err := planet.StorageNodes[0].OrdersStore.ListUnsentBySatellite(ctx, time.Now().Add(24*time.Hour))
+		require.NoError(t, err)
+		require.Empty(t, result)
+	})
+}
+
+func TestOrderSettlementEventkitIntegration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Orders.EventkitTrackingEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		node := planet.StorageNodes[0]
+		uplink := planet.Uplinks[0]
+
+		// Stop the async flush to control when values are written
+		sat.Orders.Chore.Loop.Pause()
+
+		// Create mock destination to capture events
+		eventkitspy.Clear()
+
+		// Upload data to generate orders
+		err := uplink.Upload(ctx, sat, "eventkit-bucket", "eventkit-object", testrand.Bytes(10*memory.KiB))
+		require.NoError(t, err)
+
+		// Wait for storage node endpoints
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		// Send orders
+		node.Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+
+		// Verify event structure - filter for order_settlement events only
+		events := eventkitspy.GetEvents()
+		var settlementEvents []*eventkit.Event
+		for _, event := range events {
+			if event.Name == "order_settlement" {
+				settlementEvents = append(settlementEvents, event)
+			}
+		}
+
+		require.NotEmpty(t, settlementEvents)
+
+		// Verify event structure
+		for _, event := range settlementEvents {
+			tags := make(map[string]any, len(event.Tags))
+			for _, tag := range event.Tags {
+				tags[tag.Key] = struct{}{}
+			}
+
+			require.Contains(t, tags, "node_id")
+			require.Contains(t, tags, "project_id")
+			require.Contains(t, tags, "bucket_name")
+			require.Contains(t, tags, "action")
+			require.Contains(t, tags, "timestamp")
+			require.Contains(t, tags, "settled_bytes")
+			require.Contains(t, tags, "dead_bytes")
+			require.Contains(t, tags, "window")
+			require.Contains(t, tags, "event_type")
 		}
 	})
 }

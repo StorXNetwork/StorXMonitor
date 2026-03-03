@@ -11,17 +11,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/dbschema"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 )
 
 func TestMigration(t *testing.T) {
-	for _, dbinfo := range satellitedbtest.Databases() {
+	for _, dbinfo := range satellitedbtest.Databases(t) {
+		if dbinfo.Name == "Spanner" {
+			t.Skip("Spanner not supported yet for testing snapshots and querying schema")
+		}
 		t.Run(dbinfo.Name, func(t *testing.T) {
-
 			ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 			defer ctx.Cleanup()
 
@@ -43,6 +47,10 @@ func TestMigration(t *testing.T) {
 	}
 }
 
+type tagSqlDB interface {
+	UnderlyingDB() tagsql.DB
+}
+
 func schemaFromMigration(t *testing.T, ctx *testcontext.Context, dbinfo satellitedbtest.Database, migration func(ctx context.Context, db *metabase.DB) error) (scheme *dbschema.Snapshot) {
 	db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo, metabase.Config{
 		ApplicationName: "migration",
@@ -54,7 +62,11 @@ func schemaFromMigration(t *testing.T, ctx *testcontext.Context, dbinfo satellit
 	err = migration(ctx, db)
 	require.NoError(t, err)
 
-	scheme, err = pgutil.QuerySnapshot(ctx, db.UnderlyingTagSQL())
+	adapter := db.ChooseAdapter(uuid.UUID{})
+	pgAdapter, ok := adapter.(tagSqlDB)
+	require.True(t, ok, "Spanner not supported yet for testing snapshots and querying schema")
+
+	scheme, err = pgutil.QuerySnapshot(ctx, pgAdapter.UnderlyingDB())
 	require.NoError(t, err)
 
 	return scheme

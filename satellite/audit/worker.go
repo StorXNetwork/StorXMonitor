@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Error is the default audit errs class.
@@ -20,12 +20,12 @@ var Error = errs.Class("audit")
 
 // Config contains configurable values for audit chore and workers.
 type Config struct {
+	NodeFilter         string        `help:"restrict audit only to the filtered nodes" default:""`
 	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"150kB" testDefault:"1.00 KB"`
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"15s" testDefault:"5s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 
-	ChoreInterval             time.Duration `help:"how often to run the reservoir chore" releaseDefault:"24h" devDefault:"1m" testDefault:"$TESTINTERVAL"`
 	QueueInterval             time.Duration `help:"how often to recheck an empty audit queue" releaseDefault:"1h" devDefault:"1m" testDefault:"$TESTINTERVAL"`
 	Slots                     int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
 	VerificationPushBatchSize int           `help:"number of audit jobs to push at once to the verification queue" devDefault:"10" releaseDefault:"4096"`
@@ -108,8 +108,8 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 			err := worker.work(ctx, segment)
 			if err != nil {
 				worker.log.Error("error(s) during audit",
-					zap.String("Segment StreamID", segment.StreamID.String()),
-					zap.Uint64("Segment Position", segment.Position.Encode()),
+					zap.String("segment_stream_id", segment.StreamID.String()),
+					zap.Uint64("segment_position", segment.Position.Encode()),
 					zap.Error(err))
 			}
 		})

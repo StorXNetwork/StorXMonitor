@@ -10,8 +10,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
 )
 
 type segmentState struct {
@@ -74,8 +74,8 @@ func (verify *SegmentSizes) advanceSegment(seg rangedloop.Segment) error {
 			zap.Any("stream_id", seg.StreamID.String()),
 			zap.Any("position", seg.Position),
 
-			zap.Int32("plain size", seg.PlainSize),
-			zap.Int32("encrypted size", seg.EncryptedSize))
+			zap.Int32("plain_size", seg.PlainSize),
+			zap.Int32("encrypted_size", seg.EncryptedSize))
 	}
 
 	if verify.ExpectedOffset != seg.PlainOffset {

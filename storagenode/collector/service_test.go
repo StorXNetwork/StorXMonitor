@@ -1,178 +1,140 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package collector_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 
-	"storj.io/common/memory"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/collector"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pieces"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/piecestore"
 )
 
 func TestCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
+		StorageNodeCount: 4, SatelliteCount: 1, UplinkCount: 1, MultinodeCount: 0,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(1, 1, 2, 2),
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Collector.Interval = -1
+			},
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		for _, storageNode := range planet.StorageNodes {
-			// stop collector, so we can run it manually
-			storageNode.Collector.Loop.Pause()
-			// stop order sender because we will stop satellite later
-			storageNode.Storage2.Orders.Sender.Pause()
-		}
+		// disableMigrationBackend disables the migration backend for
+		// this test to ensure that pieces with TTL are not moved to the
+		// hashstore, allowing the test to focus on the collection of
+		// expired pieces in the old store. This is necessary because
+		// the test is specifically designed to verify the functionality
+		// of the old collector.
+		disableMigrationBackend(ctx, planet)
 
-		expectedData := testrand.Bytes(100 * memory.KiB)
-
-		// upload some data to exactly 2 nodes that expires in 8 days
-		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData, time.Now().Add(8*24*time.Hour))
+		// check that the collector runs without error when there are no expired pieces
+		err := planet.StorageNodes[1].StorageOld.Collector.Collect(ctx, time.Now())
 		require.NoError(t, err)
 
-		// stop satellite to prevent audits
-		require.NoError(t, planet.StopPeer(planet.Satellites[0]))
+		uplink := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
 
-		collections := 0
-		serialsPresent := 0
+		data := testrand.Bytes(1 * memory.MiB)
+		err = uplink.UploadWithExpiration(ctx, satellite, "testbucket", "test", data, time.Now().Add(1*time.Hour))
+		require.NoError(t, err)
 
-		// imagine we are 30 minutes in the future
-		for _, storageNode := range planet.StorageNodes {
-			pieceStore := storageNode.DB.Pieces()
-			usedSerials := storageNode.UsedSerials
-
-			// verify that we actually have some data on storage nodes
-			used, err := pieceStore.SpaceUsedForBlobs(ctx)
+		// get expired pieces
+		checkExpired := func(expireAt time.Time, count int) {
+			expired, err := planet.StorageNodes[1].StorageOld.Store.GetExpiredBatchSkipV0(ctx, expireAt, pieces.DefaultExpirationOptions())
 			require.NoError(t, err)
-			if used == 0 {
-				// this storage node didn't get picked for storing data
-				continue
-			}
-
-			// collect all the data
-			err = storageNode.Collector.Collect(ctx, time.Now().Add(30*time.Minute))
-			require.NoError(t, err)
-
-			serialsPresent += usedSerials.Count()
-
-			collections++
+			require.Len(t, expired, count)
 		}
+		checkExpired(time.Now().Add(2*time.Hour), 1)
 
-		require.NotZero(t, collections)
-		// ensure we haven't deleted used serials
-		require.Equal(t, 2, serialsPresent)
+		// run collector again but pieces are not expired yet
+		err = planet.StorageNodes[1].StorageOld.Collector.Collect(ctx, time.Now())
+		require.NoError(t, err)
+		checkExpired(time.Now().Add(2*time.Hour), 1)
 
-		serialsPresent = 0
-
-		// imagine we are 2 hours in the future
-		for _, storageNode := range planet.StorageNodes {
-			usedSerials := storageNode.UsedSerials
-
-			// collect all the data
-			err = storageNode.Collector.Collect(ctx, time.Now().Add(2*time.Hour))
-			require.NoError(t, err)
-
-			serialsPresent += usedSerials.Count()
-
-			collections++
-		}
-
-		// ensure we have deleted used serials
-		require.Equal(t, 0, serialsPresent)
-
-		// imagine we are 10 days in the future
-		for _, storageNode := range planet.StorageNodes {
-			pieceStore := storageNode.DB.Pieces()
-			usedSerials := storageNode.UsedSerials
-
-			// collect all the data
-			err = storageNode.Collector.Collect(ctx, time.Now().Add(10*24*time.Hour))
-			require.NoError(t, err)
-
-			// verify that we deleted everything
-			used, err := pieceStore.SpaceUsedForBlobs(ctx)
-			require.NoError(t, err)
-			require.Equal(t, int64(0), used)
-
-			serialsPresent += usedSerials.Count()
-
-			collections++
-		}
-
-		// ensure we have deleted used serials
-		require.Equal(t, 0, serialsPresent)
+		// run collector again but pieces are expired
+		err = planet.StorageNodes[1].StorageOld.Collector.Collect(ctx, time.Now().Add(2*time.Hour))
+		require.NoError(t, err)
+		checkExpired(time.Now().Add(2*time.Hour), 0)
 	})
 }
 
-func TestCollector_fileNotFound(t *testing.T) {
+func TestCollector_oldDB(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
+		StorageNodeCount: 4, SatelliteCount: 1, UplinkCount: 1, MultinodeCount: 0,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(1, 1, 2, 2),
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Collector.Interval = -1
+				// disable flat file store
+				config.Pieces.EnableFlatExpirationStore = false
+			},
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		for _, storageNode := range planet.StorageNodes {
-			// stop collector, so we can start a new service manually
-			storageNode.Collector.Loop.Stop()
-			// stop order sender because we will stop satellite later
-			storageNode.Storage2.Orders.Sender.Pause()
-		}
+		// disableMigrationBackend disables the migration backend for
+		// this test to ensure that pieces with TTL are not moved to the
+		// hashstore, allowing the test to focus on the collection of
+		// expired pieces in the old store. This is necessary because
+		// the test is specifically designed to verify the functionality
+		// of the old collector.
+		disableMigrationBackend(ctx, planet)
 
-		expectedData := testrand.Bytes(5 * memory.KiB)
-
-		// upload some data to exactly 2 nodes that expires in 1 day
-		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData, time.Now().Add(1*24*time.Hour))
+		// check that the collector runs without error when there are no expired pieces
+		err := planet.StorageNodes[1].StorageOld.Collector.Collect(ctx, time.Now())
 		require.NoError(t, err)
 
-		// stop satellite to prevent audits
-		require.NoError(t, planet.StopPeer(planet.Satellites[0]))
+		uplink := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
 
-		collections := 0
+		data := testrand.Bytes(1 * memory.MiB)
+		err = uplink.UploadWithExpiration(ctx, satellite, "testbucket", "test", data, time.Now().Add(1*time.Hour))
+		require.NoError(t, err)
 
-		// assume we are 2 days in the future
-		for _, storageNode := range planet.StorageNodes {
-			pieceStore := storageNode.DB.Pieces()
-
-			// verify that we actually have some data on storage nodes
-			used, err := pieceStore.SpaceUsedForBlobs(ctx)
+		// get expired pieces
+		checkExpired := func(expireAt time.Time, count int) {
+			expired, err := planet.StorageNodes[1].DB.PieceExpirationDB().GetExpired(ctx, expireAt, pieces.DefaultExpirationOptions())
 			require.NoError(t, err)
-			if used == 0 {
-				// this storage node didn't get picked for storing data
-				continue
-			}
-
-			// delete file before collector service runs
-			err = pieceStore.DeleteNamespace(ctx, planet.Satellites[0].Identity.ID.Bytes())
-			require.NoError(t, err)
-
-			// create new observed logger
-			observedZapCore, observedLogs := observer.New(zap.InfoLevel)
-			observedLogger := zap.New(observedZapCore)
-			// start new collector service
-			collectorService := collector.NewService(observedLogger, storageNode.Storage2.Store, storageNode.UsedSerials, storageNode.Config.Collector)
-			// collect all the data
-			err = collectorService.Collect(ctx, time.Now().Add(2*24*time.Hour))
-			require.NoError(t, err)
-			require.Equal(t, 2, observedLogs.Len())
-			// check "file does not exist" log
-			require.Equal(t, observedLogs.All()[0].Level, zapcore.WarnLevel)
-			require.Equal(t, observedLogs.All()[0].Message, "file does not exist")
-			// check piece info deleted from db log
-			require.Equal(t, observedLogs.All()[1].Level, zapcore.InfoLevel)
-			require.Equal(t, observedLogs.All()[1].Message, "deleted expired piece info from DB")
-
-			collections++
+			require.Len(t, expired, count)
 		}
+		checkExpired(time.Now().Add(2*time.Hour), 1)
 
-		require.NotZero(t, collections)
+		// run collector again but pieces are not expired yet
+		err = planet.StorageNodes[1].StorageOld.Collector.Collect(ctx, time.Now())
+		require.NoError(t, err)
+		checkExpired(time.Now().Add(2*time.Hour), 1)
+
+		// run collector again but pieces are expired
+		err = planet.StorageNodes[1].StorageOld.Collector.Collect(ctx, time.Now().Add(2*time.Hour))
+		require.NoError(t, err)
+
+		// check that pieces are deleted
+		checkExpired(time.Now().Add(2*time.Hour), 0)
 	})
+}
+
+func disableMigrationBackend(ctx context.Context, planet *testplanet.Planet) {
+	for _, sn := range planet.StorageNodes {
+		for _, sat := range planet.Satellites {
+			sn.Storage2.MigratingBackend.UpdateState(ctx, sat.ID(), func(state *piecestore.MigrationState) {
+				state.PassiveMigrate = false
+				state.WriteToNew = false
+				state.ReadNewFirst = false
+				state.TTLToNew = false
+			})
+			sn.Storage2.MigrationChore.SetMigrate(sat.ID(), false, false)
+		}
+	}
 }

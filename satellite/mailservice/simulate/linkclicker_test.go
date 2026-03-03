@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/satellite/mailservice/simulate"
+	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice/simulate"
 )
 
 func TestFindLinks(t *testing.T) {

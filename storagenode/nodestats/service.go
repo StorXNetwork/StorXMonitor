@@ -11,13 +11,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/trust"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/pricing"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/storageusage"
+	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 var (
@@ -59,57 +58,8 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, trust *trust.Pool) *Service 
 	}
 }
 
-// GetReputationStats retrieves reputation stats from particular satellite.
-func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	client, err := s.dial(ctx, satelliteID)
-	if err != nil {
-		return nil, NodeStatsServiceErr.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
-
-	resp, err := client.GetStats(ctx, &pb.GetStatsRequest{})
-	if err != nil {
-		return nil, NodeStatsServiceErr.Wrap(err)
-	}
-
-	audit := resp.GetAuditCheck()
-
-	satelliteIDSeriesTag := monkit.NewSeriesTag("satellite_id", satelliteID.String())
-
-	mon.IntVal("audit_success_count", satelliteIDSeriesTag).Observe(audit.GetSuccessCount())
-	mon.IntVal("audit_total_count", satelliteIDSeriesTag).Observe(audit.GetTotalCount())
-	mon.FloatVal("audit_reputation_score", satelliteIDSeriesTag).Observe(audit.GetReputationScore())
-	mon.FloatVal("suspension_score", satelliteIDSeriesTag).Observe(audit.GetUnknownReputationScore())
-	mon.FloatVal("online_score", satelliteIDSeriesTag).Observe(resp.GetOnlineScore())
-
-	return &reputation.Stats{
-		SatelliteID: satelliteID,
-		Audit: reputation.Metric{
-			TotalCount:   audit.GetTotalCount(),
-			SuccessCount: audit.GetSuccessCount(),
-			Alpha:        audit.GetReputationAlpha(),
-			Beta:         audit.GetReputationBeta(),
-			Score:        audit.GetReputationScore(),
-			UnknownAlpha: audit.GetUnknownReputationAlpha(),
-			UnknownBeta:  audit.GetUnknownReputationBeta(),
-			UnknownScore: audit.GetUnknownReputationScore(),
-		},
-		OnlineScore:          resp.OnlineScore,
-		DisqualifiedAt:       resp.GetDisqualified(),
-		SuspendedAt:          resp.GetSuspended(),
-		OfflineSuspendedAt:   resp.GetOfflineSuspended(),
-		OfflineUnderReviewAt: resp.GetOfflineUnderReview(),
-		VettedAt:             resp.GetVettedAt(),
-		AuditHistory:         resp.GetAuditHistory(),
-		UpdatedAt:            time.Now(),
-		JoinedAt:             resp.JoinedAt,
-	}, nil
-}
-
 // GetDailyStorageUsage returns daily storage usage over a period of time for a particular satellite.
-func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
+func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storxnetwork.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.dial(ctx, satelliteID)
@@ -127,7 +77,7 @@ func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.No
 }
 
 // GetPricingModel returns pricing model of specific satellite.
-func (s *Service) GetPricingModel(ctx context.Context, satelliteID storj.NodeID) (_ *pricing.Pricing, err error) {
+func (s *Service) GetPricingModel(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *pricing.Pricing, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.dial(ctx, satelliteID)
@@ -151,7 +101,7 @@ func (s *Service) GetPricingModel(ctx context.Context, satelliteID storj.NodeID)
 }
 
 // dial dials the NodeStats client for the satellite by id.
-func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
+func (s *Service) dial(ctx context.Context, satelliteID storxnetwork.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeurl, err := s.trust.GetNodeURL(ctx, satelliteID)
@@ -171,7 +121,7 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 }
 
 // fromSpaceUsageResponse get DiskSpaceUsage slice from pb.SpaceUsageResponse.
-func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []storageusage.Stamp {
+func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storxnetwork.NodeID) []storageusage.Stamp {
 	var stamps []storageusage.Stamp
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {

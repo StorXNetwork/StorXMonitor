@@ -18,7 +18,7 @@ curl  -i -L \
     -H "Accept: application/json" \
     -H 'Authorization: Bearer <key>' \
     -X GET \
-    "https://satellite.qa.storj.io/api/v0/projects/"
+    "https://satellite.qa.storxnetwork.io/api/v0/projects/"
 ```
 
 ## Successful responses

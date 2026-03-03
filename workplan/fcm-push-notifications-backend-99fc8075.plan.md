@@ -125,7 +125,7 @@ package pushnotifications
 
 import (
     "context"
-    "storj.io/common/uuid"
+    "github.com/StorXNetwork/common/uuid"
 )
 
 // DB defines database operations for FCM tokens
@@ -171,7 +171,7 @@ import (
     "context"
     "firebase.google.com/go/v4/messaging"
     "go.uber.org/zap"
-    "storj.io/common/uuid"
+    "github.com/StorXNetwork/common/uuid"
 )
 
 // Config contains FCM configuration
@@ -253,7 +253,7 @@ package consoleapi
 import (
     "net/http"
     "go.uber.org/zap"
-    "storj.io/storj/satellite/console"
+    "github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // PushNotifications is an API controller for FCM token management

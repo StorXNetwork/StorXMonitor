@@ -11,16 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storagenode"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/satellitedbtest"
+	"github.com/StorXNetwork/StorXMonitor/storagenode"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
 )
 
 func TestDQNodesLastSeenBefore(t *testing.T) {
@@ -114,7 +113,7 @@ func TestDQStrayNodesFailedPingback(t *testing.T) {
 		sat.Overlay.DQStrayNodes.Loop.Pause()
 		oc := sat.DB.OverlayCache()
 
-		testID := teststorj.NodeIDFromString("test")
+		testID := testrand.NodeID()
 		checkIn := overlay.NodeCheckInInfo{
 			NodeID: testID,
 			IsUp:   false,
@@ -177,7 +176,7 @@ func TestDBDisqualifyNode(t *testing.T) {
 
 		cases := []struct {
 			Name           string
-			NodeID         storj.NodeID
+			NodeID         storxnetwork.NodeID
 			DisqualifiedAt time.Time
 			Reason         overlay.DisqualificationReason
 		}{

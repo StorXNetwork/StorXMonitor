@@ -13,17 +13,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/peertls"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/testpeertls"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/private/kvstore"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/private/testrevocation"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/private/testrevocation"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/peertls"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/peertls/testpeertls"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -31,7 +31,7 @@ func TestNewOptions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	fi, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	fi, err := testidentity.PregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 	require.NoError(t, err)
 
 	whitelistPath := ctx.File("whitelist.pem")
@@ -127,7 +127,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, _ *identity.FullIdentity) {
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storxnetwork.IDVersion, _ *identity.FullIdentity) {
 		keys, originalChain, err := testpeertls.NewCertChain(2, version.Number)
 		assert.NoError(t, err)
 

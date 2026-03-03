@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
-option go_package = "storj.io/storj/certificate/certificatepb";
+option go_package = "github.com/StorXNetwork/StorXMonitor/certificate/certificatepb";
 
 package node;
 

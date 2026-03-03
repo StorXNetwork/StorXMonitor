@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
-	"storj.io/storj/private/apigen/example/myapi"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/api"
+	"github.com/StorXNetwork/StorXMonitor/private/apigen/example/myapi"
 )
 
 const dateLayout = "2006-01-02T15:04:05.999Z"
@@ -126,7 +126,7 @@ func (h *DocumentsHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Warn("failed to write json Get response", zap.Error(ErrDocsAPI.Wrap(err)))
+		h.log.Debug("failed to write json Get response", zap.Error(ErrDocsAPI.Wrap(err)))
 	}
 }
 
@@ -158,7 +158,7 @@ func (h *DocumentsHandler) handleGetOne(w http.ResponseWriter, r *http.Request) 
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Warn("failed to write json GetOne response", zap.Error(ErrDocsAPI.Wrap(err)))
+		h.log.Debug("failed to write json GetOne response", zap.Error(ErrDocsAPI.Wrap(err)))
 	}
 }
 
@@ -196,7 +196,7 @@ func (h *DocumentsHandler) handleGetTag(w http.ResponseWriter, r *http.Request) 
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Warn("failed to write json GetTag response", zap.Error(ErrDocsAPI.Wrap(err)))
+		h.log.Debug("failed to write json GetTag response", zap.Error(ErrDocsAPI.Wrap(err)))
 	}
 }
 
@@ -228,7 +228,7 @@ func (h *DocumentsHandler) handleGetVersions(w http.ResponseWriter, r *http.Requ
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Warn("failed to write json GetVersions response", zap.Error(ErrDocsAPI.Wrap(err)))
+		h.log.Debug("failed to write json GetVersions response", zap.Error(ErrDocsAPI.Wrap(err)))
 	}
 }
 
@@ -290,7 +290,7 @@ func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Re
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Warn("failed to write json UpdateContent response", zap.Error(ErrDocsAPI.Wrap(err)))
+		h.log.Debug("failed to write json UpdateContent response", zap.Error(ErrDocsAPI.Wrap(err)))
 	}
 }
 
@@ -309,7 +309,7 @@ func (h *UsersHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Warn("failed to write json Get response", zap.Error(ErrUsersAPI.Wrap(err)))
+		h.log.Debug("failed to write json Get response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 
@@ -347,7 +347,7 @@ func (h *UsersHandler) handleGetAge(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Warn("failed to write json GetAge response", zap.Error(ErrUsersAPI.Wrap(err)))
+		h.log.Debug("failed to write json GetAge response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 
@@ -372,6 +372,6 @@ func (h *ProjectsHandler) handleCreateProject(w http.ResponseWriter, r *http.Req
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Warn("failed to write json CreateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+		h.log.Debug("failed to write json CreateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }

@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/billing"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 )
 
 // ErrService is storjscan service error class.
@@ -80,7 +80,7 @@ func (service *Service) Claim(ctx context.Context, userID uuid.UUID) (_ blockcha
 	}
 	service.log.Info("STORJ token wallet claimed",
 		zap.String("userid", userID.String()),
-		zap.String("wallet address", address.Hex()))
+		zap.String("wallet_address", address.Hex()))
 
 	return address, nil
 }
@@ -197,7 +197,7 @@ func (service *Service) GetNewTransactions(ctx context.Context, source string, _
 	for _, payment := range newCachedPayments {
 		userID, err := service.walletsDB.GetUser(ctx, payment.To)
 		if err != nil {
-			service.log.Error("error retrieving user ID associated with wallet", zap.String("Wallet Address", payment.To.Hex()))
+			service.log.Error("error retrieving user ID associated with wallet", zap.String("wallet_address", payment.To.Hex()))
 			return nil, err
 		}
 
@@ -209,7 +209,7 @@ func (service *Service) GetNewTransactions(ctx context.Context, source string, _
 			LogIndex:    payment.LogIndex,
 		})
 		if err != nil {
-			service.log.Error("error populating metadata", zap.String("Reference ID", payment.Transaction.Hex()), zap.String("Wallet", payment.To.Hex()))
+			service.log.Error("error populating metadata", zap.String("reference_id", payment.Transaction.Hex()), zap.String("wallet", payment.To.Hex()))
 			return nil, err
 		}
 

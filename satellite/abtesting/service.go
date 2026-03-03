@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 // Error - console ab testing error type.
@@ -64,7 +64,7 @@ func (s *Service) GetABValues(ctx context.Context, user console.User) (values ma
 	// We're getting all AB test campaigns for a user.
 	// see: https://docs.developers.flagship.io/docs/decision-api#campaigns.
 	path := fmt.Sprintf("%s/%s/campaigns", s.Config.FlagshipURL, s.Config.EnvId)
-	req, err := http.NewRequestWithContext(ctx, "POST", path, bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, path, bytes.NewReader(reqBody))
 	if err != nil {
 		err = Error.Wrap(err)
 		s.log.Error("flagship: failed to communicate with API", zap.Error(err))
@@ -88,7 +88,7 @@ func (s *Service) GetABValues(ctx context.Context, user console.User) (values ma
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		s.log.Error("flagship: hit request response is not OK", zap.String("Status", resp.Status))
+		s.log.Error("flagship: hit request response is not OK", zap.String("status", resp.Status))
 		return nil, err
 	}
 
@@ -133,7 +133,7 @@ func (s *Service) SendHit(ctx context.Context, user console.User, action string)
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.Config.HitTrackingURL, bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Config.HitTrackingURL, bytes.NewReader(reqBody))
 	if err != nil {
 		s.log.Error("flagship: failed to send hit", zap.Error(Error.Wrap(err)))
 		return
@@ -153,7 +153,7 @@ func (s *Service) SendHit(ctx context.Context, user console.User, action string)
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		s.log.Error("flagship: hit request response is not OK", zap.String("Status", resp.Status))
+		s.log.Error("flagship: hit request response is not OK", zap.String("status", resp.Status))
 		return
 	}
 }

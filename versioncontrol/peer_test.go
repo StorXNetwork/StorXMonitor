@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
 )
 
 var rolloutErrScenarios = []struct {
@@ -199,7 +199,7 @@ func TestPeerEndpoint(t *testing.T) {
 			query, url := query, url
 
 			t.Run(query, func(t *testing.T) {
-				req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/"+query, nil)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/"+query, nil)
 				require.NoError(t, err)
 				resp, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)

@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/uplink"
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/uplink"
 )
 
 type cmdAccessSetup struct {
@@ -102,7 +102,7 @@ func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
 		}
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Switched default access to %q\n", name)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Switched default access to %q\n", name)
 
 	answer, err := c.ex.PromptInput(ctx, "Would you like S3 backwards-compatible Gateway credentials? (y/N):")
 	if err != nil {
@@ -114,7 +114,18 @@ func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
 		return nil
 	}
 
-	credentials, err := RegisterAccess(ctx, access, c.authService, false, "")
+	info, err := c.ex.GetEdgeUrlOverrides(ctx, access)
+	if err != nil {
+		return errs.New("could not get project info: %w", err)
+	}
+
+	authService := c.authService
+
+	if info.AuthService != "" {
+		authService = info.AuthService
+	}
+
+	credentials, err := RegisterAccess(ctx, access, authService, false, "")
 	if err != nil {
 		return errs.Wrap(err)
 	}

@@ -6,7 +6,7 @@ package main
 import (
 	"time"
 
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // NodeAliasSet is a set containing node aliases.

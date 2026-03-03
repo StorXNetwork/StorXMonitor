@@ -14,26 +14,26 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/pkcrypto"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/storj/certificate"
-	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/private/server"
+	"github.com/StorXNetwork/StorXMonitor/certificate"
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
+	"github.com/StorXNetwork/StorXMonitor/certificate/certificateclient"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/pkcrypto"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/rpc/rpcpeer"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 // TODO: test sad path.
 func TestCertificateSigner_Sign_E2E(t *testing.T) {
-	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, signer *identity.FullCertificateAuthority) {
-		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, serverIdent *identity.FullIdentity) {
-			testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, clientIdent *identity.FullIdentity) {
+	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storxnetwork.IDVersion, signer *identity.FullCertificateAuthority) {
+		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storxnetwork.IDVersion, serverIdent *identity.FullIdentity) {
+			testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storxnetwork.IDVersion, clientIdent *identity.FullIdentity) {
 				ctx := testcontext.New(t)
 				defer ctx.Cleanup()
 
@@ -143,8 +143,8 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 }
 
 func TestCertificateSigner_Sign(t *testing.T) {
-	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, ca *identity.FullCertificateAuthority) {
-		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, ident *identity.FullIdentity) {
+	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storxnetwork.IDVersion, ca *identity.FullCertificateAuthority) {
+		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storxnetwork.IDVersion, ident *identity.FullIdentity) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 

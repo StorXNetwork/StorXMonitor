@@ -8,20 +8,21 @@ import (
 	"errors"
 	"net"
 	"runtime/pprof"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/version"
-	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/common/version"
+	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
+	"github.com/StorXNetwork/StorXMonitor/satellite/gc/bloomfilter"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/rangedloop"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 )
 
 // GarbageCollectionBF is the satellite garbage collection process which collects bloom filters.
@@ -92,22 +93,41 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 
 		var observer rangedloop.Observer
 		if peer.GarbageCollection.Config.UseSyncObserver {
-			observer = bloomfilter.NewSyncObserver(log.Named("gc-bf"),
+			observer = bloomfilter.NewSyncObserver(
+				log.Named("gc-bf"),
+				peer.GarbageCollection.Config,
+				peer.Overlay.DB,
+			)
+		} else if peer.GarbageCollection.Config.UseSyncObserverV2 {
+			observer = bloomfilter.NewSyncObserverV2(
+				log.Named("gc-bf"),
 				peer.GarbageCollection.Config,
 				peer.Overlay.DB,
 			)
 		} else {
-			observer = bloomfilter.NewObserver(log.Named("gc-bf"),
+			observer = bloomfilter.NewObserver(
+				log.Named("gc-bf"),
 				peer.GarbageCollection.Config,
 				peer.Overlay.DB,
 			)
 		}
 
-		provider := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, provider, []rangedloop.Observer{
+		observers := []rangedloop.Observer{
 			rangedloop.NewLiveCountObserver(metabaseDB, config.RangedLoop.SuspiciousProcessedRatio, config.RangedLoop.AsOfSystemInterval),
 			observer,
-		})
+		}
+
+		spannerReadTimestamp := time.Time{}
+		// this observer will work correctly only when GC is executed in RunOnce mode.
+		if peer.GarbageCollection.Config.RunOnce && config.RangedLoop.SpannerStaleInterval > 0 {
+			spannerReadTimestamp = time.Now().Add(-config.RangedLoop.SpannerStaleInterval)
+
+			observers = append(observers, rangedloop.NewSegmentsCountValidation(log.Named("rangedloop"), metabaseDB, spannerReadTimestamp))
+		}
+
+		provider := rangedloop.NewMetabaseRangeSplitterWithReadTimestamp(log.Named("rangedloop-metabase-range-splitter"),
+			metabaseDB, config.RangedLoop, spannerReadTimestamp)
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, provider, observers)
 
 		if !peer.GarbageCollection.Config.RunOnce {
 			peer.Services.Add(lifecycle.Item{

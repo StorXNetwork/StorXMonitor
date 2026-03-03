@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source $(dirname $0)/utils.sh
-basepath=$HOME/.storj/local-network
+basepath=$HOME/.storxnetwork/local-network
 alpha_config=$basepath/config-alpha.yaml
 unauthorized_config=$basepath/config-unauthorized.yaml
 ca_whitelist=$basepath/ca-alpha-whitelist.cert
@@ -21,8 +21,8 @@ case $1 in
 		echo "usage: $(basename $0) [setup|alpha|unauthorized]"
 	;;
 	setup)
-		temp_build "storj-sim" identity
-		echo "setting up storj-sim"
+		temp_build "storxnetwork-sim" identity
+		echo "setting up storxnetwork-sim"
 		${storj_sim} network setup
 		echo "clearing whitelist"
 		echo > ${ca_whitelist}
@@ -64,11 +64,11 @@ case $1 in
 		cat ${basepath}/config.yaml | sed -E "s,peer-ca-whitelist-path: \"\",peer-ca-whitelist-path: $ca_whitelist,g" >"$unauthorized_config"
 	;;
 	alpha)
-		build "storj-sim"
+		build "storxnetwork-sim"
 		${storj_sim} network run --config ${alpha_config}
 	;;
 	unauthorized)
-		build "storj-sim"
+		build "storxnetwork-sim"
 		${storj_sim} network run --config ${unauthorized_config}
 	;;
 	run)

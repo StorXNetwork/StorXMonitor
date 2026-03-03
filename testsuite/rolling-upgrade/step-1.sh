@@ -7,7 +7,7 @@
 
 set -ueo pipefail
 
-# This script assumes that storj-sim and uplink has already been set up and initial files have been
+# This script assumes that storxnetwork-sim and uplink has already been set up and initial files have been
 # uploaded via /uplink-versions/steps.sh
 main_cfg_dir=$1
 existing_bucket_name_suffixes=$2
@@ -18,16 +18,16 @@ test_files_dir="${main_cfg_dir}/testfiles"
 stage1_dst_dir="${main_cfg_dir}/stage1"
 stage2_dst_dir="${main_cfg_dir}/stage2"
 
-echo "Begin rolling-upgrade/step-1.sh, storj-sim config directory:" ${main_cfg_dir}
+echo "Begin rolling-upgrade/step-1.sh, storxnetwork-sim config directory:" ${main_cfg_dir}
 
-echo "which storj-sim: $(which storj-sim)"
-echo "Shasum for storj-sim:"
-shasum $(which storj-sim)
+echo "which storxnetwork-sim: $(which storxnetwork-sim)"
+echo "Shasum for storxnetwork-sim:"
+shasum $(which storxnetwork-sim)
 
 if [ ! -d ${main_cfg_dir}/uplink-old-api ]; then
     mkdir -p ${main_cfg_dir}/uplink-old-api
-    access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
-    new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
+    access=$(storxnetwork-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
+    new_access=$(go run $update_access_script_path $(storxnetwork-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
     echo "access: ${new_access}" > "${main_cfg_dir}/uplink-old-api/config.yaml"
 fi
 

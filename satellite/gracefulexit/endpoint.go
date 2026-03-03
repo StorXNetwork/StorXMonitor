@@ -10,15 +10,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/reputation"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/rpc/rpcstatus"
+	"github.com/StorXNetwork/common/signing"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 )
 
 // millis for the transfer queue building ticker.
@@ -86,7 +86,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 	return endpoint.processTimeBased(ctx, stream, peer.ID)
 }
 
-func (endpoint *Endpoint) processTimeBased(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, nodeID storj.NodeID) (err error) {
+func (endpoint *Endpoint) processTimeBased(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
@@ -155,14 +155,14 @@ func (endpoint *Endpoint) handleSuspendedNode(nodeInfo *overlay.NodeDossier) (is
 	return false
 }
 
-func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time, success bool, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
+func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storxnetwork.NodeID, finishedAt time.Time, success bool, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
 	if success {
 		return endpoint.getFinishedSuccessMessage(ctx, nodeID, finishedAt)
 	}
 	return endpoint.getFinishedFailureMessage(ctx, nodeID, finishedAt, reason)
 }
 
-func (endpoint *Endpoint) getFinishedSuccessMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time) (message *pb.SatelliteMessage, err error) {
+func (endpoint *Endpoint) getFinishedSuccessMessage(ctx context.Context, nodeID storxnetwork.NodeID, finishedAt time.Time) (message *pb.SatelliteMessage, err error) {
 	unsigned := &pb.ExitCompleted{
 		SatelliteId: endpoint.signer.ID(),
 		NodeId:      nodeID,
@@ -177,7 +177,7 @@ func (endpoint *Endpoint) getFinishedSuccessMessage(ctx context.Context, nodeID 
 	}}, nil
 }
 
-func (endpoint *Endpoint) getFinishedFailureMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
+func (endpoint *Endpoint) getFinishedFailureMessage(ctx context.Context, nodeID storxnetwork.NodeID, finishedAt time.Time, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
 	unsigned := &pb.ExitFailed{
 		SatelliteId: endpoint.signer.ID(),
 		NodeId:      nodeID,
@@ -225,10 +225,10 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeInfo *overlay
 
 		// graceful exit initiation metrics
 		age := endpoint.nowFunc().Sub(node.CreatedAt)
-		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                          //mon:locked
-		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount) //mon:locked
-		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)     //mon:locked
-		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                          //mon:locked
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount)
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)
 	} else {
 		// the node has already initiated GE and hasn't finished yet... or has it?!?!
 		geDoneDate := nodeInfo.ExitStatus.ExitInitiatedAt.AddDate(0, 0, endpoint.config.GracefulExitDurationInDays)
@@ -263,16 +263,16 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeInfo *overlay
 				reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
 			}
 			endpoint.log.Info("node completed graceful exit",
-				zap.Float64("online score", reputationInfo.OnlineScore),
+				zap.Float64("online_score", reputationInfo.OnlineScore),
 				zap.Bool("suspended", reputationInfo.UnknownAuditSuspended != nil),
 				zap.Bool("success", request.ExitSuccess),
-				zap.Stringer("node ID", nodeInfo.Id))
+				zap.Stringer("node_id", nodeInfo.Id))
 			updatedNode, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
 			if request.ExitSuccess {
-				mon.Meter("graceful_exit_success").Mark(1) //mon:locked
+				mon.Meter("graceful_exit_success").Mark(1)
 				return endpoint.getFinishedSuccessMessage(ctx, updatedNode.Id, *updatedNode.ExitStatus.ExitFinishedAt)
 			}
 			mon.Meter("graceful_exit_failure").Mark(1)
@@ -297,7 +297,7 @@ func (endpoint *Endpoint) GracefulExitFeasibility(ctx context.Context, req *pb.G
 
 	nodeDossier, err := endpoint.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node ID", peer.ID))
+		endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node_id", peer.ID))
 		return nil, Error.Wrap(err)
 	}
 

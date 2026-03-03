@@ -7,34 +7,42 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeevents"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 // DB is an interface for storing reputation data.
 type DB interface {
 	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *Info, err error)
-	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
+	Get(ctx context.Context, nodeID storxnetwork.NodeID) (*Info, error)
 	// ApplyUpdates applies multiple updates (defined by the updates
 	// parameter) to a node's reputations record.
-	ApplyUpdates(ctx context.Context, nodeID storj.NodeID, updates Mutations, reputationConfig Config, now time.Time) (_ *Info, err error)
+	ApplyUpdates(ctx context.Context, nodeID storxnetwork.NodeID, updates Mutations, reputationConfig Config, now time.Time) (_ *Info, err error)
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
+	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error)
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error)
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	SuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error)
+}
+
+// DirectDB is used only for mud, to differentiate between the interface (reputation.DB) and the two implementation (reputation.CachingDB and reputation.DirectDB).
+// as the satellitedb.Reputation() doesn't return with any concrete type.
+type DirectDB interface {
+	DB
 }
 
 // Info contains all reputation data to be stored in DB.
 type Info struct {
 	AuditSuccessCount           int64
 	TotalAuditCount             int64
+	CreatedAt                   *time.Time
 	VettedAt                    *time.Time
 	UnknownAuditSuspended       *time.Time
 	OfflineSuspended            *time.Time
@@ -52,6 +60,7 @@ type Info struct {
 // Copy creates a deep copy of the Info object.
 func (i *Info) Copy() *Info {
 	i2 := *i
+	i2.CreatedAt = cloneTime(i.CreatedAt)
 	i2.VettedAt = cloneTime(i.VettedAt)
 	i2.UnknownAuditSuspended = cloneTime(i.UnknownAuditSuspended)
 	i2.OfflineSuspended = cloneTime(i.OfflineSuspended)
@@ -102,7 +111,7 @@ func NewService(log *zap.Logger, overlay *overlay.Service, db DB, config Config)
 }
 
 // ApplyAudit receives an audit result and applies it to the relevant node in DB.
-func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, reputation overlay.ReputationStatus, result AuditType) (err error) {
+func (service *Service) ApplyAudit(ctx context.Context, nodeID storxnetwork.NodeID, reputation overlay.ReputationStatus, result AuditType) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// There are some cases where the caller did not get updated reputation-status information.
@@ -134,13 +143,9 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 		return err
 	}
 
-	// only update node if its health status has changed, or it's a newly vetted
-	// node.
-	// this prevents the need to require caller of ApplyAudit() to always know
-	// the previous VettedAt time for a node.
-	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
-	// for the VettedAt status is done using time values that are truncated to second precision.
-	changed, repChanges := hasReputationChanged(*statusUpdate, reputation, now)
+	// Only update node if its health status has changed, or the vetted information
+	// is not set in the nodes table yet.
+	changed, repChanges := hasReputationChanged(*statusUpdate, reputation)
 	if changed {
 		reputationUpdate := &overlay.ReputationUpdate{
 			Disqualified:           statusUpdate.Disqualified,
@@ -151,16 +156,16 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 		}
 		err = service.overlay.UpdateReputation(ctx, nodeID, reputation.Email, *reputationUpdate, repChanges)
 		if err != nil {
-			return err
+			return errs.New("'nodes' table reputation updated failed: %+v. %w", reputationUpdate, err)
 		}
 	}
 
-	return err
+	return nil
 }
 
 // Get returns a node's reputation info from DB.
 // If a node is not found in the DB, default reputation information is returned.
-func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Info, err error) {
+func (service *Service) Get(ctx context.Context, nodeID storxnetwork.NodeID) (info *Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	info, err = service.db.Get(ctx, nodeID)
@@ -185,7 +190,7 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Inf
 }
 
 // TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
-func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = service.db.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
 	if err != nil {
@@ -210,7 +215,7 @@ func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID 
 }
 
 // TestDisqualifyNode disqualifies a storage node.
-func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason overlay.DisqualificationReason) (err error) {
+func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storxnetwork.NodeID, reason overlay.DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	disqualifiedAt := time.Now()
 
@@ -223,7 +228,7 @@ func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.Nod
 }
 
 // TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = service.db.UnsuspendNodeUnknownAudit(ctx, nodeID)
@@ -262,7 +267,7 @@ func (service *Service) TestFlushAllNodeInfo(ctx context.Context) (err error) {
 
 // FlushNodeInfo flushes any cached information about the specified node to
 // the backing store, if the attached reputationDB does any caching at all.
-func (service *Service) FlushNodeInfo(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (service *Service) FlushNodeInfo(ctx context.Context, nodeID storxnetwork.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if db, ok := service.db.(*CachingDB); ok {
@@ -276,7 +281,7 @@ func (service *Service) Close() error { return nil }
 
 // hasReputationChanged determines if the current node reputation is different from the newly updated reputation. This
 // function will only consider the Disqualified, UnknownAudiSuspended and OfflineSuspended statuses for changes.
-func hasReputationChanged(updated Info, current overlay.ReputationStatus, now time.Time) (changed bool, repChanges []nodeevents.Type) {
+func hasReputationChanged(updated Info, current overlay.ReputationStatus) (changed bool, repChanges []nodeevents.Type) {
 	// there is no unDQ, so only update if changed from nil to not nil
 	if current.Disqualified == nil && updated.Disqualified != nil {
 		repChanges = append(repChanges, nodeevents.Disqualified)
@@ -299,10 +304,7 @@ func hasReputationChanged(updated Info, current overlay.ReputationStatus, now ti
 		changed = true
 	}
 
-	// check for newly vetted nodes.
-	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
-	// for the VettedAt status is done using time values that are truncated to second precision.
-	if updated.VettedAt != nil && updated.VettedAt.Truncate(time.Second).Equal(now.Truncate(time.Second)) {
+	if updated.VettedAt != nil && current.VettedAt == nil {
 		changed = true
 	}
 	return changed, repChanges

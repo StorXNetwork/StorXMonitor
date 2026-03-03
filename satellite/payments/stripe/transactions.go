@@ -9,9 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"storj.io/common/currency"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/coinpayments"
+	"github.com/StorXNetwork/common/currency"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/coinpayments"
 )
 
 // TransactionsDB is an interface which defines functionality

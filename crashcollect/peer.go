@@ -11,15 +11,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/debug"
-	"storj.io/common/identity"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/storj/crashcollect/crash"
-	"storj.io/storj/private/crashreportpb"
-	"storj.io/storj/private/server"
+	"github.com/StorXNetwork/StorXMonitor/crashcollect/crash"
+	"github.com/StorXNetwork/StorXMonitor/private/crashreportpb"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
+	"github.com/StorXNetwork/common/debug"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
 )
 
-// Config is the global configuration for storj crash collect service.
+// Config is the global configuration for storxnetwork crash collect service.
 type Config struct {
 	Debug    debug.Config
 	Server   server.Config
@@ -27,7 +27,7 @@ type Config struct {
 	Identity identity.Config
 }
 
-// Peer is the representation of a storj crash collect service.
+// Peer is the representation of a storxnetwork crash collect service.
 //
 // architecture: Peer
 type Peer struct {
@@ -42,7 +42,7 @@ type Peer struct {
 	}
 }
 
-// New is a constructor for storj crash collect Peer.
+// New is a constructor for storxnetwork crash collect Peer.
 func New(log *zap.Logger, full *identity.FullIdentity, config Config) (peer *Peer, err error) {
 	peer = &Peer{
 		Log:      log,
@@ -73,16 +73,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config) (peer *Pee
 		return nil, err
 	}
 
-	peer.Log.Info("id = ", zap.Any("", full.ID.String()))
+	peer.Log.Info("id = " + full.ID.String())
 
 	return peer, nil
 }
 
-// Run runs storj crash collect Peer api until it's either closed or it errors.
+// Run runs storxnetwork crash collect Peer api until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
-	// start storj crash collect web api drpc server as a separate goroutine.
+	// start storxnetwork crash collect web api drpc server as a separate goroutine.
 	group.Go(func() error {
 		return ignoreCancel(peer.Server.Run(ctx))
 	})

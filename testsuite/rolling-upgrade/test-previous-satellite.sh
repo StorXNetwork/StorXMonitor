@@ -11,21 +11,21 @@ test_src_dir="${test_dir}/src"
 test_dst_dir="${test_dir}/dst"
 test_upl_dir="${test_dir}/uplink"
 
-echo "Begin rolling-upgrade/test-previous-satellite.sh, storj-sim config directory: ${main_cfg_dir}/local-network"
+echo "Begin rolling-upgrade/test-previous-satellite.sh, storxnetwork-sim config directory: ${main_cfg_dir}/local-network"
 
 export PATH="${main_cfg_dir}/bin:$PATH"
 
-echo "Which storj-sim: $(which storj-sim)"
-echo "Shasum for storj-sim:"
-shasum $(which storj-sim)
+echo "Which storxnetwork-sim: $(which storxnetwork-sim)"
+echo "Shasum for storxnetwork-sim:"
+shasum $(which storxnetwork-sim)
 
 echo -e "\nConfig directory for uplink: ${main_cfg_dir}/uplink"
 echo "Which uplink: $(which uplink)"
 echo "Shasum for uplink:"
 shasum $(which uplink)
 
-access=$(storj-sim --config-dir="$main_cfg_dir/local-network" network env GATEWAY_0_ACCESS)
-new_access=$(go run "${update_access_script_path}" -a "127.0.0.1:30000" $(storj-sim --config-dir=$main_cfg_dir/local-network network env SATELLITE_0_DIR) "${access}")
+access=$(storxnetwork-sim --config-dir="$main_cfg_dir/local-network" network env GATEWAY_0_ACCESS)
+new_access=$(go run "${update_access_script_path}" -a "127.0.0.1:30000" $(storxnetwork-sim --config-dir=$main_cfg_dir/local-network network env SATELLITE_0_DIR) "${access}")
 echo "Access: ${new_access}"
 
 mkdir -p "${test_src_dir}" "${test_dst_dir}" "${test_upl_dir}"

@@ -16,8 +16,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/common/fpath"
-	"storj.io/common/testcontext"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/testcontext"
 )
 
 //go:generate go test -run TestConfigLock -generate-config-lock
@@ -30,7 +30,7 @@ func TestConfigLock(t *testing.T) {
 
 	// run the satellite executable to create a config file
 	tempDir := ctx.Dir("", "satellite-cfg-lock-")
-	satelliteExe := ctx.Compile("storj.io/storj/cmd/satellite")
+	satelliteExe := ctx.Compile("github.com/StorXNetwork/StorXMonitor/cmd/satellite")
 	satelliteCmd := exec.Command(satelliteExe, "--config-dir", tempDir, "--defaults", "release", "setup")
 	out, err := satelliteCmd.CombinedOutput()
 	assert.NoErrorf(t, err, "Error running satellite", string(out))
@@ -66,7 +66,7 @@ func readLines(t *testing.T, filePath string) []string {
 	return strings.Split(strings.ReplaceAll(string(file), "\r\n", "\n"), "\n")
 }
 
-// normalizeConfig replace platform specific storj paths as if they ran as Linux root.
+// normalizeConfig replace platform specific storxnetwork paths as if they ran as Linux root.
 func normalizeConfig(t *testing.T, configIn, configOut, tempDir string) {
 	in, err := os.Open(configIn)
 	assert.NoErrorf(t, err, "Error opening %s", in)

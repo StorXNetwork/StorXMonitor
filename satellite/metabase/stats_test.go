@@ -9,14 +9,19 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase/metabasetest"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
 )
 
 func TestGetTableStats(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement for spanner.
+			t.Skip("not correct implementation for spanner")
+		}
+
 		t.Run("no data", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -92,7 +97,7 @@ func TestGetTableStats(t *testing.T) {
 				obj1 := metabasetest.RandObjectStream()
 				metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 4)
 
-				_, err := db.UnderlyingTagSQL().ExecContext(ctx, "CREATE STATISTICS test FROM segments")
+				err := db.UpdateTableStats(ctx)
 				require.NoError(t, err)
 
 				// add some segments after creating statistics to know that results are taken
@@ -108,5 +113,23 @@ func TestGetTableStats(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 		}
+	})
+}
+
+func TestCountSegments(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() != dbutil.Spanner {
+			t.Skip("implemented only for spanner")
+		}
+
+		metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 4)
+
+		now, err := db.Now(ctx)
+		require.NoError(t, err)
+
+		result, err := db.CountSegments(ctx, now)
+		require.NoError(t, err)
+		require.EqualValues(t, 4, result.SegmentCount)
+		require.EqualValues(t, []int64{4}, result.PerAdapterSegmentCount)
 	})
 }

@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments/stripe"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 )
 
 func TestCoupons(t *testing.T) {
@@ -51,7 +51,7 @@ func TestCoupons(t *testing.T) {
 			require.Equal(t, id, coupon.ID)
 		})
 		t.Run("ApplyFreeTierCoupon succeeds", func(t *testing.T) {
-			id := satellite.API.Payments.StripeService.StripeFreeTierCouponID
+			id := satellite.Config.Payments.StripeCoinPayments.StripeFreeTierCouponID
 			coupon, err := c.ApplyFreeTierCoupon(ctx, userID)
 			require.NoError(t, err)
 			require.NotNil(t, coupon)

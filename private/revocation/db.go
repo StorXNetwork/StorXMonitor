@@ -11,10 +11,10 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/identity"
-	"storj.io/common/peertls"
-	"storj.io/common/peertls/extensions"
-	"storj.io/storj/private/kvstore"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/peertls"
+	"github.com/StorXNetwork/common/peertls/extensions"
+	"github.com/StorXNetwork/StorXMonitor/private/kvstore"
 )
 
 var (

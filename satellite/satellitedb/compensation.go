@@ -6,10 +6,10 @@ package satellitedb
 import (
 	"context"
 
-	"storj.io/common/storj"
-	"storj.io/storj/private/currency"
-	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/StorXMonitor/private/currency"
+	"github.com/StorXNetwork/StorXMonitor/satellite/compensation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/storxnetwork"
 )
 
 type compensationDB struct {
@@ -17,7 +17,7 @@ type compensationDB struct {
 }
 
 // QueryTotalAmounts returns withheld data for the given node.
-func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID) (_ compensation.TotalAmounts, err error) {
+func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storxnetwork.NodeID) (_ compensation.TotalAmounts, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stmt := comp.db.Rebind(`
@@ -33,7 +33,7 @@ func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.
 	`)
 
 	var totalHeld, totalDisposed, totalPaid, totalDistributed int64
-	if err := comp.db.DB.QueryRow(ctx, stmt, nodeID).Scan(&totalHeld, &totalDisposed, &totalPaid, &totalDistributed); err != nil {
+	if err := comp.db.DB.QueryRowContext(ctx, stmt, nodeID).Scan(&totalHeld, &totalDisposed, &totalPaid, &totalDistributed); err != nil {
 		return compensation.TotalAmounts{}, Error.Wrap(err)
 	}
 

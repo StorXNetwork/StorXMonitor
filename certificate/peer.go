@@ -12,13 +12,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/private/revocation"
-	"storj.io/storj/private/server"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/StorXMonitor/certificate/authorization"
+	"github.com/StorXNetwork/StorXMonitor/private/revocation"
+	"github.com/StorXNetwork/StorXMonitor/private/server"
 )
 
 var (
@@ -35,7 +35,7 @@ type Config struct {
 
 	Signer            identity.FullCAConfig
 	AuthorizationDB   authorization.DBConfig
-	AuthorizationAddr string `default:"127.0.0.1:9000" help:"address for authorization http proxy to listen on"`
+	AuthorizationAddr string `default:"127.0.0.1:9000" testDefault:"$HOST:0" help:"address for authorization http proxy to listen on"`
 
 	MinDifficulty uint `default:"36" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 }

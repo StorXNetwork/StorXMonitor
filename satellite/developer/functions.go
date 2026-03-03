@@ -17,11 +17,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"storj.io/common/http/requestid"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/post"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
+	"github.com/StorXNetwork/StorXMonitor/private/post"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
+	"github.com/StorXNetwork/common/http/requestid"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // CreateUserFromDeveloper creates User without password and active state.
@@ -228,7 +228,7 @@ func (s *Service) SetAccountActiveDeveloper(ctx context.Context, developer *cons
 	}
 
 	s.auditLog(ctx, "activate account", &developer.ID, developer.Email)
-	s.analytics.TrackAccountVerified(developer.ID, developer.Email)
+	s.analytics.TrackAccountVerified(developer.ID, developer.Email, nil, nil)
 
 	return nil
 }
@@ -1644,7 +1644,7 @@ func (s *Service) DeleteDeveloperAdmin(ctx context.Context, developerEmail strin
 
 	// Soft delete: Update developer status to Deleted and anonymize email
 	emptyName := ""
-	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", developer.ID.String())
+	deactivatedEmail := fmt.Sprintf("deactivated+%s@storxnetwork.io", developer.ID.String())
 	status := console.Deleted
 
 	err = s.store.Developers().Update(ctx, developer.ID, console.UpdateDeveloperRequest{

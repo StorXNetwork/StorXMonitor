@@ -5,26 +5,21 @@ package metabase_test
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 
-	"storj.io/storj/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // NaiveObjectsDB implements a slow reference ListObjects implementation.
 type NaiveObjectsDB struct {
-	VersionAsc  []naiveObjectEntry
-	VersionDesc []naiveObjectEntry
-}
-
-type naiveObjectEntry struct {
-	IsLatest bool
-	metabase.ObjectEntry
+	VersionAsc  []metabase.ObjectEntry
+	VersionDesc []metabase.ObjectEntry
 }
 
 // NewNaiveObjectsDB returns a new NaiveObjectsDB.
@@ -34,15 +29,15 @@ func NewNaiveObjectsDB(rawentries []metabase.ObjectEntry) *NaiveObjectsDB {
 		return versiondesc[i].Less(versiondesc[k])
 	})
 
-	entries := make([]naiveObjectEntry, 0, len(rawentries))
+	entries := make([]metabase.ObjectEntry, 0, len(rawentries))
 
 	lastEntry := metabase.ObjectKey("")
 	for _, entry := range versiondesc {
-		entries = append(entries, naiveObjectEntry{
-			IsLatest:    entry.ObjectKey != lastEntry,
-			ObjectEntry: entry,
-		})
-		lastEntry = entry.ObjectKey
+		if entry.Status != metabase.Pending {
+			entry.IsLatest = entry.ObjectKey != lastEntry
+			lastEntry = entry.ObjectKey
+		}
+		entries = append(entries, entry)
 	}
 
 	db := &NaiveObjectsDB{
@@ -51,7 +46,7 @@ func NewNaiveObjectsDB(rawentries []metabase.ObjectEntry) *NaiveObjectsDB {
 	}
 
 	sort.Slice(db.VersionAsc, func(i, k int) bool {
-		return db.VersionAsc[i].LessVersionAsc(db.VersionAsc[k].ObjectEntry)
+		return db.VersionAsc[i].LessVersionAsc(db.VersionAsc[k])
 	})
 	return db
 }
@@ -59,6 +54,9 @@ func NewNaiveObjectsDB(rawentries []metabase.ObjectEntry) *NaiveObjectsDB {
 // ListObjects lists objects.
 func (db *NaiveObjectsDB) ListObjects(ctx context.Context, opts metabase.ListObjects) (result metabase.ListObjectsResult, err error) {
 	metabase.ListLimit.Ensure(&opts.Limit)
+	if opts.Delimiter == "" {
+		opts.Delimiter = metabase.Delimiter
+	}
 
 	entries := db.VersionDesc
 	if opts.Pending {
@@ -114,7 +112,7 @@ func (db *NaiveObjectsDB) ListObjects(ctx context.Context, opts metabase.ListObj
 			scoped.IsPrefix = true
 			scoped.Status = metabase.Prefix
 		} else {
-			scoped = entry.ObjectEntry
+			scoped = *entry
 			scoped.ObjectKey = entryKey
 			clearEntryMetadata(&opts, &scoped)
 		}
@@ -150,12 +148,12 @@ func entryExcludedByCursor(opts *metabase.ListObjects, entryKeyWithPrefix metaba
 	return entryKeyWithPrefix <= opts.Cursor.Key
 }
 
-func calculateEntryKey(opts *metabase.ListObjects, entry *naiveObjectEntry) (entryKeyWithPrefix, entryKey metabase.ObjectKey, entryVersion metabase.Version, isPrefix bool) {
+func calculateEntryKey(opts *metabase.ListObjects, entry *metabase.ObjectEntry) (entryKeyWithPrefix, entryKey metabase.ObjectKey, entryVersion metabase.Version, isPrefix bool) {
 	entryKey = entry.ObjectKey[len(opts.Prefix):]
 
 	if !opts.Recursive {
-		if i := strings.IndexByte(string(entryKey), '/'); i >= 0 {
-			return entry.ObjectKey[:len(opts.Prefix)+i+1], entryKey[:i+1], 0, true
+		if i := strings.Index(string(entryKey), string(opts.Delimiter)); i >= 0 {
+			return entry.ObjectKey[:len(opts.Prefix)+i+len(opts.Delimiter)], entryKey[:i+len(opts.Delimiter)], 0, true
 		}
 	}
 
@@ -176,18 +174,33 @@ func clearEntryMetadata(opts *metabase.ListObjects, entry *metabase.ObjectEntry)
 		entry.FixedSegmentSize = 0
 	}
 
-	if !opts.IncludeCustomMetadata {
+	if !opts.IncludeCustomMetadata && !opts.IncludeETag && !opts.IncludeETagOrCustomMetadata {
 		entry.EncryptedMetadataNonce = nil
-		entry.EncryptedMetadata = nil
 		entry.EncryptedMetadataEncryptedKey = nil
 	}
+
+	if opts.IncludeETagOrCustomMetadata {
+		if len(entry.EncryptedETag) > 0 {
+			if !opts.IncludeCustomMetadata {
+				entry.EncryptedMetadata = nil
+			}
+		}
+	} else {
+		if !opts.IncludeCustomMetadata {
+			entry.EncryptedMetadata = nil
+		}
+		if !opts.IncludeETag {
+			entry.EncryptedETag = nil
+		}
+	}
+
 }
 
 func TestNaiveObjectsDB_Basic(t *testing.T) {
 	check := func(entries []metabase.ObjectEntry, opts metabase.ListObjects, expected []metabase.ObjectEntry) {
 		t.Helper()
 		naive := NewNaiveObjectsDB(entries)
-		result, err := naive.ListObjects(context.Background(), opts)
+		result, err := naive.ListObjects(t.Context(), opts)
 		require.NoError(t, err)
 		require.Equal(t, expected, result.Objects)
 	}
@@ -207,7 +220,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 			Cursor:      metabase.ListObjectsCursor{Key: "a/", Version: 0},
 		},
 		[]metabase.ObjectEntry{
-			{ObjectKey: "b", Version: 1, Status: metabase.CommittedVersioned},
+			{ObjectKey: "b", Version: 1, Status: metabase.CommittedVersioned, IsLatest: true},
 		},
 	)
 
@@ -225,7 +238,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 			Cursor:      metabase.ListObjectsCursor{Key: "\x00", Version: 0},
 		},
 		[]metabase.ObjectEntry{
-			{ObjectKey: "\x00\x00", Version: 1, Status: metabase.CommittedVersioned},
+			{ObjectKey: "\x00\x00", Version: 1, Status: metabase.CommittedVersioned, IsLatest: true},
 		},
 	)
 
@@ -243,7 +256,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 			Cursor:      metabase.ListObjectsCursor{Key: "\x00/", Version: 0},
 		},
 		[]metabase.ObjectEntry{
-			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned},
+			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned, IsLatest: true},
 		},
 	)
 
@@ -261,7 +274,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 			Cursor:      metabase.ListObjectsCursor{Key: "\x00/", Version: metabase.MaxVersion},
 		},
 		[]metabase.ObjectEntry{
-			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned},
+			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned, IsLatest: true},
 		},
 	)
 
@@ -280,7 +293,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 		},
 		[]metabase.ObjectEntry{
 			{ObjectKey: "\x00/", Version: 0, Status: metabase.Prefix, IsPrefix: true},
-			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned},
+			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned, IsLatest: true},
 		},
 	)
 }

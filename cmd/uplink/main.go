@@ -13,10 +13,10 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 
-	"storj.io/common/pb"
-	_ "storj.io/common/rpc/quic" // include quic connector
-	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/uplink/private/piecestore"
+	"github.com/StorXNetwork/common/pb"
+	_ "github.com/StorXNetwork/common/rpc/quic" // include quic connector
+	"github.com/StorXNetwork/StorXMonitor/cmd/uplink/ulext"
+	"github.com/StorXNetwork/uplink/private/piecestore"
 )
 
 var mon = monkit.Package()
@@ -35,10 +35,10 @@ func main() {
 	}.Run(ctx, func(cmds clingy.Commands) {
 		ex.Setup(cmds) // setup ex first so that stdlib flags can consult config
 		newStdlibFlags(flag.CommandLine).Setup(cmds)
-		commands(cmds, ex)
+		Commands(cmds, ex)
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "%+v\n", err)
 	}
 	if !ok || err != nil {
 		os.Exit(1)
@@ -61,7 +61,8 @@ func withPieceHashAlgorithm(ctx context.Context) context.Context {
 	return ctx
 }
 
-func commands(cmds clingy.Commands, ex ulext.External) {
+// Commands registers Uplink CLI commands.
+func Commands(cmds clingy.Commands, ex ulext.External) {
 	cmds.Group("access", "Access related commands", func() {
 		cmds.New("create", "Create an access from the satellite UI", newCmdAccessCreate(ex))
 		cmds.New("export", "Export an access to a file", newCmdAccessExport(ex))
@@ -84,6 +85,9 @@ func commands(cmds clingy.Commands, ex ulext.External) {
 	cmds.New("rm", "Remove an object", newCmdRm(ex))
 	cmds.Group("meta", "Object metadata related commands", func() {
 		cmds.New("get", "Get an object's metadata", newCmdMetaGet(ex))
+	})
+	cmds.Group("debug", "Debug commands", func() {
+		cmds.New("decrypt-path", "decrypt encrypted path", newCmdDebugDecryptPath(ex))
 	})
 	cmds.New("share", "Shares restricted accesses to objects", newCmdShare(ex))
 	cmds.New("version", "Prints version information", newCmdVersion())

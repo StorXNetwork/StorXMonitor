@@ -13,8 +13,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/oidc"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 )
 
 var mon = monkit.Package()
@@ -39,35 +40,44 @@ type Config struct {
 
 // Service handles operations regarding rest keys.
 type Service struct {
-	db     oidc.OAuthTokens
-	config Config
+	db                oidc.OAuthTokens
+	defaultExpiration time.Duration
 }
 
 // NewService creates a new rest keys service.
-func NewService(db oidc.OAuthTokens, config Config) *Service {
+func NewService(db oidc.OAuthTokens, defaultExpiration time.Duration) *Service {
 	return &Service{
-		db:     db,
-		config: config,
+		db:                db,
+		defaultExpiration: defaultExpiration,
 	}
 }
 
-// Create creates and inserts an rest key into the db.
-func (s *Service) Create(ctx context.Context, userID uuid.UUID, expiration time.Duration) (apiKey string, expiresAt time.Time, err error) {
+// CreateNoAuth creates and inserts a rest key into the db for a user.
+func (s *Service) CreateNoAuth(ctx context.Context, userID uuid.UUID, expiration *time.Duration) (apiKey string, expiresAt *time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if expiration == nil {
+		expiration = &s.defaultExpiration
+	}
 
 	apiKey, hash, err := s.GenerateNewKey(ctx)
 	if err != nil {
-		return "", time.Time{}, Error.Wrap(err)
+		return "", nil, Error.Wrap(err)
 	}
-	expiresAt, err = s.InsertIntoDB(ctx, oidc.OAuthToken{
+	e, err := s.InsertIntoDB(ctx, oidc.OAuthToken{
 		UserID: userID,
 		Kind:   oidc.KindRESTTokenV0,
 		Token:  hash,
-	}, time.Now(), expiration)
+	}, time.Now(), *expiration)
 	if err != nil {
-		return "", time.Time{}, Error.Wrap(err)
+		return "", nil, Error.Wrap(err)
 	}
-	return apiKey, expiresAt, nil
+	return apiKey, &e, nil
+}
+
+// Create creates and inserts a rest key into the db.
+func (s *Service) Create(ctx context.Context, name string, expiration *time.Duration) (apiKey string, expiresAt *time.Time, err error) {
+	return "", nil, Error.New("Use CreateNoAuth instead")
 }
 
 // GenerateNewKey generates a new account management api key.
@@ -121,9 +131,8 @@ func (s *Service) InsertIntoDB(ctx context.Context, oAuthToken oidc.OAuthToken, 
 	}
 
 	if expiration <= 0 {
-		expiration = s.config.DefaultExpiration
+		expiration = s.defaultExpiration
 	}
-
 	expiresAt = now.Add(expiration)
 
 	oAuthToken.CreatedAt = now
@@ -172,4 +181,20 @@ func (s *Service) Revoke(ctx context.Context, apiKey string) (err error) {
 		return Error.Wrap(err)
 	}
 	return nil
+}
+
+// RevokeByKeyNoAuth revokes an account management api key
+// this is meant for Admin use.
+func (s *Service) RevokeByKeyNoAuth(ctx context.Context, apiKey string) (err error) {
+	return s.Revoke(ctx, apiKey)
+}
+
+// RevokeByIDs revokes an account management api key by ID.
+func (s *Service) RevokeByIDs(ctx context.Context, ids []uuid.UUID) (err error) {
+	return Error.New("RevokeByIDs is not implemented")
+}
+
+// GetAll gets a list of REST keys for the user in context.
+func (s *Service) GetAll(ctx context.Context) ([]restapikeys.Key, error) {
+	return nil, Error.New("GetAll is not implemented")
 }

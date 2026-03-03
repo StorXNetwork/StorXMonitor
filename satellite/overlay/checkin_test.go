@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/storj/location"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/overlay"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/StorXMonitor/private/testplanet"
+	"github.com/StorXNetwork/StorXMonitor/satellite"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/shared/location"
 )
 
 // TestCheckIn ensures that redundant node check-ins aren't sent to the database.
@@ -61,7 +61,8 @@ func TestCheckIn(t *testing.T) {
 		// infoCheck sends a node check-in and gets the node's info.
 		// The last contact timestamp is compared to the expected timestamp.
 		infoCheck := func(testName string, checkTime time.Time, expectedLastSuccess time.Time, expectedLastFailure time.Time) {
-			require.NoErrorf(t, sat.Overlay.Service.UpdateCheckIn(ctx, nodeInfo, checkTime), testName)
+			_, err := sat.Overlay.Service.UpdateCheckIn(ctx, nodeInfo, checkTime)
+			require.NoErrorf(t, err, testName)
 
 			oldInfo, err := sat.Overlay.Service.Get(ctx, nodeID)
 			require.NoErrorf(t, err, testName)

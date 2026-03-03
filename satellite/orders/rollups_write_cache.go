@@ -10,10 +10,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
-	"storj.io/common/pb"
-	"storj.io/common/sync2"
-	"storj.io/common/uuid"
+	"github.com/StorXNetwork/common/context2"
+	"github.com/StorXNetwork/common/pb"
+	"github.com/StorXNetwork/common/sync2"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // CacheData stores the amount of inline and allocated data
@@ -200,11 +200,11 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 	if !ok && len(cache.pendingRollups) >= cache.batchSize {
 		mon.Event("rollups_write_cache_update_lost")
 		cache.log.Error("MONEY LOST! Flushing too slow to keep up with demand",
-			zap.Stringer("ProjectID", projectID),
-			zap.Stringer("Action", action),
-			zap.Int64("Allocated", allocated),
-			zap.Int64("Inline", inline),
-			zap.Int64("Settled", settled),
+			zap.Stringer("project_id", projectID),
+			zap.Stringer("action", action),
+			zap.Int64("allocated", allocated),
+			zap.Int64("inline", inline),
+			zap.Int64("settled", settled),
 		)
 	} else {
 

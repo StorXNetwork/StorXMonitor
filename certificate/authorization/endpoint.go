@@ -6,7 +6,6 @@ package authorization
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"path"
@@ -15,7 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
+	"github.com/StorXNetwork/common/errs2"
 )
 
 // ErrEndpoint is the default error class for the authorization endpoint.
@@ -81,7 +80,7 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 	defer mon.Task()(&ctx)(&err)
 
 	if httpReq.Method != http.MethodPut {
-		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)
+		msg := "unsupported HTTP method: " + httpReq.Method
 		// NB: err set for `mon.Task` call.
 		err = ErrEndpoint.New("%s", msg)
 		http.Error(writer, msg, http.StatusMethodNotAllowed)

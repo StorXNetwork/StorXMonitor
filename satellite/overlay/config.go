@@ -9,8 +9,8 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
-	"storj.io/storj/satellite/nodeselection"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 )
 
 var (
@@ -25,7 +25,7 @@ type Config struct {
 	NodeSelectionCache              UploadSelectionCacheConfig
 	GeoIP                           GeoIPConfig
 	UpdateStatsBatchSize            int           `help:"number of update requests to process per transaction" default:"100"`
-	NodeCheckInWaitPeriod           time.Duration `help:"the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)" default:"2h" testDefault:"30s"`
+	NodeCheckInWaitPeriod           time.Duration `help:"the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)" default:"1h10m" testDefault:"30s"`
 	NodeSoftwareUpdateEmailCooldown time.Duration `help:"the amount of time to wait between sending Node Software Update emails" default:"168h"`
 	RepairExcludedCountryCodes      []string      `help:"list of country codes to exclude nodes from target repair selection" default:"" testDefault:"FR,BE"`
 	SendNodeEmails                  bool          `help:"whether to send emails to nodes" default:"false"`
@@ -45,11 +45,11 @@ type AsOfSystemTimeConfig struct {
 type NodeSelectionConfig struct {
 	NewNodeFraction   float64       `help:"the fraction of new nodes allowed per request (DEPRECATED: use placement definition instead)" releaseDefault:"0.01" devDefault:"1"`
 	MinimumVersion    string        `help:"the minimum node software version for node selection queries" default:""`
-	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h" testDefault:"1m"`
+	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h" testDefault:"5m"`
 	DistinctIP        bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
 	NetworkPrefixIPv4 int           `help:"the prefix to use in determining 'network' for IPv4 addresses" default:"24" hidden:"true"`
 	NetworkPrefixIPv6 int           `help:"the prefix to use in determining 'network' for IPv6 addresses" default:"64" hidden:"true"`
-	MinimumDiskSpace  memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB" testDefault:"100.00MB"`
+	MinimumDiskSpace  memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"5.00GB" testDefault:"100.00MB"`
 
 	AsOfSystemTime AsOfSystemTimeConfig
 
@@ -87,16 +87,17 @@ func (aost *AsOfSystemTimeConfig) Interval() time.Duration {
 // This is used only if no placement is configured, but we need a 0 placement rule.
 func (c NodeSelectionConfig) CreateDefaultPlacement() (nodeselection.Placement, error) {
 	placement := nodeselection.Placement{
-		NodeFilter: nodeselection.AnyFilter{},
-		Selector:   nodeselection.UnvettedSelector(c.NewNodeFraction, nodeselection.AttributeGroupSelector(nodeselection.LastNetAttribute)),
-		Invariant:  nodeselection.ClumpingByAttribute(nodeselection.LastNetAttribute, 1),
+		NodeFilter:       nodeselection.AnyFilter{},
+		Selector:         nodeselection.UnvettedSelector(c.NewNodeFraction, nodeselection.AttributeGroupSelector(nodeselection.LastNetAttribute)),
+		Invariant:        nodeselection.ClumpingByAttribute(nodeselection.LastNetAttribute, 1),
+		DownloadSelector: nodeselection.DefaultDownloadSelector,
 	}
 	if len(c.UploadExcludedCountryCodes) > 0 {
 		countryFilter, err := nodeselection.NewCountryFilterFromString(c.UploadExcludedCountryCodes)
 		if err != nil {
 			return nodeselection.Placement{}, err
 		}
-		placement.Selector = nodeselection.FilteredSelector(nodeselection.NewExcludeFilter(countryFilter), placement.Selector)
+		placement.UploadFilter = nodeselection.NewExcludeFilter(countryFilter)
 	}
 
 	return placement, nil

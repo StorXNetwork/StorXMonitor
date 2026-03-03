@@ -11,11 +11,11 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/common/cfgstruct"
-	"storj.io/common/fpath"
-	"storj.io/common/process"
-	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/versioncontrol"
+	_ "github.com/StorXNetwork/StorXMonitor/private/version" // This attaches version information during release builds.
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
+	"github.com/StorXNetwork/common/cfgstruct"
+	"github.com/StorXNetwork/common/fpath"
+	"github.com/StorXNetwork/common/process"
 )
 
 var (
@@ -46,7 +46,7 @@ const (
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "versioncontrol")
+	defaultConfDir := fpath.ApplicationDir("storxnetwork", "versioncontrol")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for versioncontrol configuration")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)

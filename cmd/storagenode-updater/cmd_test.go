@@ -8,6 +8,7 @@ import (
 	"compress/flate"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,13 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
-	"storj.io/common/version"
-	"storj.io/storj/versioncontrol"
+	"github.com/StorXNetwork/StorXMonitor/versioncontrol"
+	"github.com/StorXNetwork/common/identity"
+	"github.com/StorXNetwork/common/identity/testidentity"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/testcontext"
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/version"
 )
 
 const (
@@ -55,7 +56,7 @@ func TestAutoUpdater(t *testing.T) {
 	}
 
 	// build real bin with old version, will be used for both storagenode and updater
-	oldBin := CompileWithVersion(ctx, "storj.io/storj/cmd/storagenode-updater", oldInfo)
+	oldBin := CompileWithVersion(ctx, "github.com/StorXNetwork/StorXMonitor/cmd/storagenode-updater", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
 	copyBin(ctx, t, oldBin, storagenodePath)
 
@@ -69,7 +70,7 @@ func TestAutoUpdater(t *testing.T) {
 		Version:    newSemVer,
 		Release:    false,
 	}
-	newBin := CompileWithVersion(ctx, "storj.io/storj/cmd/storagenode-updater", newInfo)
+	newBin := CompileWithVersion(ctx, "github.com/StorXNetwork/StorXMonitor/cmd/storagenode-updater", newInfo)
 
 	updateBins := map[string]string{
 		"storagenode":         newBin,
@@ -85,11 +86,15 @@ func TestAutoUpdater(t *testing.T) {
 	// write identity files to disk for use in rollout calculation
 	identConfig := testIdentityFiles(ctx, t)
 
+	fakeStoreDir := ctx.Dir("fake-store")
+
 	// run updater (update)
 	args := []string{"run",
+		"--standalone",
 		"--config-dir", ctx.Dir(),
 		"--version.server-address", "http://" + versionControlPeer.Addr(),
 		"--binary-location", storagenodePath,
+		"--binary-store-dir", fakeStoreDir,
 		"--version.check-interval", "0s",
 		"--identity.cert-path", identConfig.CertPath,
 		"--identity.key-path", identConfig.KeyPath,
@@ -103,10 +108,17 @@ func TestAutoUpdater(t *testing.T) {
 	if assert.NoError(t, logErr) {
 		logStr := string(logData)
 		t.Log(logStr)
-		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Process": "storagenode-updater", "Service": "storagenode"}`) {
+		if !assert.Contains(t, logStr, `Service restarted successfully.	{"process": "storagenode-updater", "service": "storagenode"}`) {
 			t.Log(logStr)
 		}
-		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Process": "storagenode-updater", "Service": "storagenode-updater"}`) {
+		if !assert.Contains(t, logStr, `Service restarted successfully.	{"process": "storagenode-updater", "service": "storagenode-updater"}`) {
+			t.Log(logStr)
+		}
+		// check that backup binary was deleted
+		if !assert.Contains(t, logStr, `Cleaning up old binary.	{"process": "storagenode-updater", "service": "storagenode-updater", "path": "`+ctx.File("fake", "storagenode-updater.old.exe")+`"}`) {
+			t.Log(logStr)
+		}
+		if !assert.Contains(t, logStr, `Cleaning up old binary.	{"process": "storagenode-updater", "service": "storagenode", "path": "`+ctx.File("fake", "storagenode"+".old."+oldVersion+".exe")+`"}`) {
 			t.Log(logStr)
 		}
 	} else {
@@ -118,25 +130,31 @@ func TestAutoUpdater(t *testing.T) {
 
 	oldStoragenode := ctx.File("fake", "storagenode"+".old."+oldVersion+".exe")
 	oldStoragenodeInfo, err := os.Stat(oldStoragenode)
-	require.NoError(t, err)
-	require.NotNil(t, oldStoragenodeInfo)
-	require.NotZero(t, oldStoragenodeInfo.Size())
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	require.Nil(t, oldStoragenodeInfo)
 
 	backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
 	backupUpdaterInfo, err := os.Stat(backupUpdater)
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	require.Nil(t, backupUpdaterInfo)
+
+	// check that the new binary is in the store
+	newStoragenode := filepath.Join(fakeStoreDir, "storagenode.exe")
+	newStoragenodeInfo, err := os.Stat(newStoragenode)
 	require.NoError(t, err)
-	require.NotNil(t, backupUpdaterInfo)
-	require.NotZero(t, backupUpdaterInfo.Size())
+	require.NotNil(t, newStoragenodeInfo)
 }
 
 // CompileWithVersion compiles the specified package with the version variables set
 // to the passed version info values and returns the executable name.
 func CompileWithVersion(ctx *testcontext.Context, pkg string, info version.Info) string {
 	ldFlagsX := map[string]string{
-		"storj.io/common/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
-		"storj.io/common/version.buildCommitHash": info.CommitHash,
-		"storj.io/common/version.buildVersion":    info.Version.String(),
-		"storj.io/common/version.buildRelease":    strconv.FormatBool(info.Release),
+		"github.com/StorXNetwork/common/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
+		"github.com/StorXNetwork/common/version.buildCommitHash": info.CommitHash,
+		"github.com/StorXNetwork/common/version.buildVersion":    info.Version.String(),
+		"github.com/StorXNetwork/common/version.buildRelease":    strconv.FormatBool(info.Release),
 	}
 	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)
 }
@@ -162,7 +180,7 @@ func copyBin(ctx *testcontext.Context, t *testing.T, src, dst string) {
 func testIdentityFiles(ctx *testcontext.Context, t *testing.T) identity.Config {
 	t.Helper()
 
-	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	ident, err := testidentity.PregeneratedIdentity(0, storxnetwork.LatestIDVersion())
 	require.NoError(t, err)
 
 	identConfig := identity.Config{
