@@ -724,23 +724,26 @@ func (b *Buckets) formatMessageWithStorageLimitAndBandwidthThreshold(msg string,
 	return fmt.Sprintf(msg, bandwidthUsagePercent, b.bandwidthWarningThreshold, b.storageWarningThreshold)
 }
 
-// formatMessageWithBandwidthLimitAndStorageThreshold formats message with bandwidth limit (100%), storage usage percentage, and storage threshold.
-func (b *Buckets) formatMessageWithBandwidthLimitAndStorageThreshold(msg string, storageUsagePercent float64) string {
+// formatMessageWithBandwidthLimitAndStorageThreshold formats message with bandwidth usage %, storage usage %, and storage threshold.
+func (b *Buckets) formatMessageWithBandwidthLimitAndStorageThreshold(msg string, storageUsagePercent, bandwidthUsagePercent float64) string {
 	if msg == "" {
 		return ""
 	}
-	return fmt.Sprintf(msg, storageUsagePercent, b.storageWarningThreshold)
+	return fmt.Sprintf(msg, bandwidthUsagePercent, storageUsagePercent, b.storageWarningThreshold)
 }
 
 // determinePopupMessage determines popup and message based on operation and limits.
 func (b *Buckets) determinePopupMessage(operation string, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold bool, storageUsagePercent, bandwidthUsagePercent float64, popupMessages PopupMessagesResponse) (bool, string) {
 	switch operation {
 	case "login":
+		if storageAtLimit && bandwidthAtLimit {
+			return true, popupMessages.Login.StorageAndBandwidthLimit
+		}
 		if storageAtLimit && bandwidthAtThreshold {
 			return true, b.formatMessageWithStorageLimitAndBandwidthThreshold(popupMessages.Login.StorageLimitAndBandwidthThreshold, bandwidthUsagePercent)
 		}
 		if bandwidthAtLimit && storageAtThreshold {
-			return true, b.formatMessageWithBandwidthLimitAndStorageThreshold(popupMessages.Login.BandwidthLimitAndStorageThreshold, storageUsagePercent)
+			return true, b.formatMessageWithBandwidthLimitAndStorageThreshold(popupMessages.Login.BandwidthLimitAndStorageThreshold, storageUsagePercent, bandwidthUsagePercent)
 		}
 		if storageAtThreshold && bandwidthAtThreshold {
 			return true, b.formatMessageWithBoth(popupMessages.Login.StorageAndBandwidthThreshold, storageUsagePercent, bandwidthUsagePercent)
@@ -809,6 +812,7 @@ func (b *Buckets) sendResponse(w http.ResponseWriter, totalSpace, remainingSpace
 // PopupMessagesResponse represents popup messages configuration from database.
 type PopupMessagesResponse struct {
 	Login struct {
+		StorageAndBandwidthLimit          string `json:"storage_and_bandwidth_limit"`
 		StorageAndBandwidthThreshold      string `json:"storage_and_bandwidth_threshold"`
 		StorageThreshold                  string `json:"storage_threshold"`
 		BandwidthThreshold                string `json:"bandwidth_threshold"`
