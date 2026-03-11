@@ -100,7 +100,10 @@ func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.P
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	service.log.Info("accounting tally loop started", zap.Duration("interval", service.config.Interval))
+
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
+		service.log.Debug("tally cycle started")
 		if err := service.Tally(ctx); err != nil {
 			service.log.Error("tally failed", zap.Error(err))
 
@@ -112,6 +115,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 			mon.Event("bucket_tally_purge_error")
 		}
+		service.log.Debug("tally cycle completed")
 		return nil
 	})
 }
@@ -219,8 +223,11 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	if len(collector.Bucket) == 0 {
+		service.log.Debug("tally collected no buckets (no buckets or all empty)")
 		return nil
 	}
+
+	service.log.Debug("tally collected bucket usage", zap.Int("bucket_count", len(collector.Bucket)))
 
 	// save the new results
 	var errAtRest errs.Group
@@ -243,6 +250,9 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	errAtRest.Add(service.flushTallies(ctx, intervalStart, buffer))
+	if errAtRest.Err() == nil {
+		service.log.Debug("tally saved to database", zap.Int("bucket_count", len(collector.Bucket)), zap.Time("interval_start", intervalStart))
+	}
 
 	updateLiveAccountingTotals(projectTotalsFromBuckets(collector.Bucket))
 
@@ -273,6 +283,14 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	monAccounting.IntVal("total_pending_objects").Observe(total.PendingObjectCount)
 	monAccounting.IntVal("total_metadata_size").Observe(total.MetadataSize)
 
+	if errAtRest.Err() == nil {
+		service.log.Info("tally completed",
+			zap.Int("buckets", len(collector.Bucket)),
+			zap.Int64("total_objects", total.ObjectCount),
+			zap.Int64("total_segments", total.Segments()),
+			zap.Int64("total_bytes", total.Bytes()),
+			zap.Time("interval_start", intervalStart))
+	}
 	return errAtRest.Err()
 }
 
@@ -281,6 +299,7 @@ func (service *Service) Purge(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if service.config.RetentionDays == 0 {
+		service.log.Debug("tally purge skipped (retention disabled)")
 		return nil
 	}
 
@@ -291,7 +310,9 @@ func (service *Service) Purge(ctx context.Context) (err error) {
 	}
 	monAccounting.IntVal("bucket_tallies_purged").Observe(count)
 	if count > 0 {
-		service.log.Info("Purged old bucket storage tallies", zap.Time("older_than", olderThan), zap.Int64("count_estimation", count))
+		service.log.Info("purged old bucket storage tallies", zap.Time("older_than", olderThan), zap.Int64("count_estimation", count), zap.Int("retention_days", service.config.RetentionDays))
+	} else {
+		service.log.Debug("tally purge found no old tallies to delete", zap.Time("older_than", olderThan))
 	}
 	return nil
 }
