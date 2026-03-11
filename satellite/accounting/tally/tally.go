@@ -5,6 +5,7 @@ package tally
 
 import (
 	"context"
+	"runtime/debug"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -103,6 +104,14 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	service.log.Info("accounting tally loop started", zap.Duration("interval", service.config.Interval))
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
+		defer func() {
+			if r := recover(); r != nil {
+				service.log.Error("storage tally panic recovered",
+					zap.Any("panic", r),
+					zap.String("stack", string(debug.Stack())))
+				panic(r)
+			}
+		}()
 		service.log.Info("storage tally cycle started")
 		if err := service.Tally(ctx); err != nil {
 			service.log.Error("storage tally failed", zap.Error(err))
@@ -152,6 +161,14 @@ func (service *Service) SetNow(now func() time.Time) {
 // metainfo totals and 50% of the deltas.
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer func() {
+		if r := recover(); r != nil {
+			service.log.Error("storage tally panic recovered in Tally",
+				zap.Any("panic", r),
+				zap.String("stack", string(debug.Stack())))
+			panic(r)
+		}
+	}()
 	service.log.Debug("storage tally: Tally run started")
 
 	// No-op unless that there isn't an error getting the
@@ -417,6 +434,14 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 // fillBucketTallies collects all bucket tallies and fills observer's buckets map with results.
 func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer func() {
+		if r := recover(); r != nil {
+			observer.Log.Error("storage tally collector panic recovered in fillBucketTallies",
+				zap.Any("panic", r),
+				zap.String("stack", string(debug.Stack())))
+			panic(r)
+		}
+	}()
 	observer.Log.Debug("storage tally collector: fillBucketTallies started")
 
 	startTime := time.Time{}
