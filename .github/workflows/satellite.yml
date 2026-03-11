@@ -93,11 +93,14 @@ jobs:
         
     - name: Quick file replacement
       run: |
-        # Minimal file operations
+        # Allow service to release file handle after stop
+        Start-Sleep -Seconds 3
         if (Test-Path "$env:BIN_PATH\satellite.exe") {
           Remove-Item "$env:BIN_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
         }
-        Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        # Copy over (overwrites if destination exists); then remove source. Avoids Move-Item "file already exists" on Windows.
+        Copy-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        Remove-Item "$env:TEMP_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
         Write-Host "satellite.exe replaced"
         
     - name: Parallel service start
