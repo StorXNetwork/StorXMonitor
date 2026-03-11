@@ -559,6 +559,8 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 		} else {
 			var placementByLocation map[metabase.BucketLocation]storxnetwork.PlacementConstraint
 			if observer.config.EventkitTrackingEnabled {
+				observer.Log.Info("storage tally collector: calling GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange",
+					zap.Int("page", pageNum))
 				placementByLocation, err = observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
 				if err != nil {
 					observer.Log.Error("storage tally collector: GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange failed",
@@ -566,6 +568,9 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 						zap.Error(err))
 					return err
 				}
+				observer.Log.Info("storage tally collector: GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange done",
+					zap.Int("page", pageNum),
+					zap.Int("count", len(placementByLocation)))
 
 				for location, p := range placementByLocation {
 					observer.Bucket[location] = &accounting.BucketTally{
@@ -574,6 +579,8 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 					}
 				}
 			} else {
+				observer.Log.Info("storage tally collector: calling GetPreviouslyNonEmptyTallyBucketsInRange",
+					zap.Int("page", pageNum))
 				locs, err := observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
 				if err != nil {
 					observer.Log.Error("storage tally collector: GetPreviouslyNonEmptyTallyBucketsInRange failed",
@@ -581,11 +588,16 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 						zap.Error(err))
 					return err
 				}
+				observer.Log.Info("storage tally collector: GetPreviouslyNonEmptyTallyBucketsInRange done",
+					zap.Int("page", pageNum),
+					zap.Int("count", len(locs)))
 				for _, loc := range locs {
 					observer.Bucket[loc] = &accounting.BucketTally{BucketLocation: loc}
 				}
 			}
 
+			observer.Log.Info("storage tally collector: calling CollectBucketTallies",
+				zap.Int("page", pageNum))
 			tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
 				From:               fromBucket,
 				To:                 toBucket,
@@ -600,6 +612,9 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 					zap.Error(err))
 				return err
 			}
+			observer.Log.Info("storage tally collector: CollectBucketTallies done",
+				zap.Int("page", pageNum),
+				zap.Int("tallies_count", len(tallies)))
 
 			for _, tally := range tallies {
 				bucket := observer.ensureBucket(tally.BucketLocation)
@@ -654,11 +669,13 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 // It uses a single query that calculates all remainder values simultaneously.
 func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx context.Context, fromBucket, toBucket metabase.BucketLocation, startTime time.Time) error {
 	// Get ALL buckets in range (both with and without previous tallies) along with their placement/entitlements.
+	observer.Log.Info("storage tally collector: calling GetBucketsWithEntitlementsInRange")
 	bucketsWithEntitlements, err := observer.projectAccountingDB.GetBucketsWithEntitlementsInRange(ctx, fromBucket, toBucket, entitlements.ProjectScopePrefix)
 	if err != nil {
 		observer.Log.Error("storage tally collector: GetBucketsWithEntitlementsInRange failed", zap.Error(err))
 		return err
 	}
+	observer.Log.Info("storage tally collector: GetBucketsWithEntitlementsInRange done", zap.Int("count", len(bucketsWithEntitlements)))
 
 	// Map each bucket to its remainder value based on placement and entitlements.
 	bucketToRemainder := make(map[metabase.BucketLocation]int64)
@@ -707,6 +724,7 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 
 	// Call CollectBucketTallies once with all remainder values.
 	// This calculates all remainder variants in a single query.
+	observer.Log.Info("storage tally collector: calling CollectBucketTallies (remainder)", zap.Int("remainders_count", len(remainders)))
 	tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
 		From:               fromBucket,
 		To:                 toBucket,
@@ -720,6 +738,7 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 		observer.Log.Error("storage tally collector: CollectBucketTallies (remainder) failed", zap.Error(err))
 		return err
 	}
+	observer.Log.Info("storage tally collector: CollectBucketTallies (remainder) done", zap.Int("tallies_count", len(tallies)))
 
 	// Apply the correct remainder value to each bucket.
 	for _, tally := range tallies {
