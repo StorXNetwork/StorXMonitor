@@ -71,24 +71,30 @@ func (r *Service) Close() error {
 // Rollup aggregates storage and bandwidth amounts for the time interval.
 func (r *Service) Rollup(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	r.logger.Info("storage rollup: cycle started")
+
 	// only Rollup new things - get LastRollup
 	lastRollup, err := r.sdb.LastTimestamp(ctx, accounting.LastRollup)
 	if err != nil {
+		r.logger.Error("storage rollup: failed to get LastTimestamp", zap.Error(err))
 		return Error.Wrap(err)
 	}
 	// unexpired orders with created at times before the last rollup timestamp could still have been added later
 	if !lastRollup.IsZero() {
 		lastRollup = lastRollup.Add(-r.OrderExpiration)
 	}
+	r.logger.Debug("storage rollup: last rollup timestamp", zap.Time("last_rollup", lastRollup))
 
 	rollupStats := make(accounting.RollupStats)
 	latestTally, err := r.RollupStorage(ctx, lastRollup, rollupStats)
 	if err != nil {
+		r.logger.Error("storage rollup: RollupStorage failed", zap.Error(err))
 		return Error.Wrap(err)
 	}
 
 	err = r.RollupBW(ctx, lastRollup, rollupStats)
 	if err != nil {
+		r.logger.Error("storage rollup: RollupBW failed", zap.Error(err))
 		return Error.Wrap(err)
 	}
 
@@ -96,14 +102,18 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
 	delete(rollupStats, latestTally)
 	if len(rollupStats) == 0 {
-		r.logger.Info("RollupStats is empty")
+		r.logger.Info("storage rollup: RollupStats is empty, skipping insert and delete")
 		return nil
 	}
 
+	daysCount := len(rollupStats)
+	r.logger.Info("storage rollup insert: saving rollup to DB", zap.Int("days", daysCount), zap.Time("latest_tally", latestTally))
 	err = r.sdb.SaveRollup(ctx, latestTally, rollupStats)
 	if err != nil {
+		r.logger.Error("storage rollup insert: SaveRollup failed", zap.Error(err))
 		return Error.Wrap(err)
 	}
+	r.logger.Info("storage rollup insert: SaveRollup completed successfully", zap.Int("days", daysCount))
 
 	// Emit eventkit events for storage and bandwidth rollup if enabled
 	if r.eventkitTrackingEnabled {
@@ -112,27 +122,38 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 
 	if r.deleteTallies {
 		// Delete already rolled up tallies
-		latestTally = latestTally.Add(-r.OrderExpiration)
-		err = r.sdb.DeleteTalliesBefore(ctx, latestTally, r.deleteTalliesBatchSize)
+		deleteBefore := latestTally.Add(-r.OrderExpiration)
+		r.logger.Info("storage rollup delete: calling DeleteTalliesBefore",
+			zap.Time("before", deleteBefore),
+			zap.Int("batch_size", r.deleteTalliesBatchSize))
+		err = r.sdb.DeleteTalliesBefore(ctx, deleteBefore, r.deleteTalliesBatchSize)
 		if err != nil {
+			r.logger.Error("storage rollup delete: DeleteTalliesBefore failed", zap.Error(err))
 			return Error.Wrap(err)
 		}
+		r.logger.Info("storage rollup delete: DeleteTalliesBefore completed")
+	} else {
+		r.logger.Debug("storage rollup delete: skipped (delete tallies disabled)")
 	}
 
+	r.logger.Info("storage rollup: cycle completed")
 	return nil
 }
 
 // RollupStorage rolls up storage tally, modifies rollupStats map.
 func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (latestTally time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
+	r.logger.Debug("storage rollup: GetTalliesSince started", zap.Time("since", lastRollup))
 	tallies, err := r.sdb.GetTalliesSince(ctx, lastRollup)
 	if err != nil {
+		r.logger.Error("storage rollup: GetTalliesSince failed", zap.Error(err))
 		return lastRollup, Error.Wrap(err)
 	}
 	if len(tallies) == 0 {
-		r.logger.Info("Rollup found no new tallies")
+		r.logger.Info("storage rollup: found no new storagenode tallies to roll up")
 		return lastRollup, nil
 	}
+	r.logger.Debug("storage rollup: read storagenode tallies", zap.Int("tally_count", len(tallies)), zap.Time("since", lastRollup))
 	// loop through tallies and build Rollup
 	for _, tallyRow := range tallies {
 		node := tallyRow.NodeID
