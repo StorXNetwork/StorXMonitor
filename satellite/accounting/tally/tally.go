@@ -240,6 +240,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		service.log.Error("storage tally: bucket collection failed", zap.Error(err))
 		return Error.Wrap(err)
 	}
+	service.log.Info("storage tally: bucket collection finished successfully", zap.Int("bucket_count", len(collector.Bucket)))
 
 	if len(collector.Bucket) == 0 {
 		service.log.Debug("storage tally: collected no buckets (no buckets or all empty), skipping insert")
@@ -427,8 +428,20 @@ func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bu
 // Run runs collecting bucket tallies.
 func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	return observer.fillBucketTallies(ctx)
+	defer func() {
+		if r := recover(); r != nil {
+			observer.Log.Error("storage tally collector panic recovered in Run",
+				zap.Any("panic", r),
+				zap.String("stack", string(debug.Stack())))
+			panic(r)
+		}
+	}()
+	err = observer.fillBucketTallies(ctx)
+	if err != nil {
+		observer.Log.Error("storage tally collector: fillBucketTallies returned error", zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // fillBucketTallies collects all bucket tallies and fills observer's buckets map with results.
@@ -506,8 +519,24 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 		BucketName: "",
 	}
 
+	pageNum := 0
 	// this is the function for handling a bucket page
 	bucketPageHandler := func(bucketLocations []metabase.BucketLocation) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				observer.Log.Error("storage tally collector panic recovered in bucketPageHandler",
+					zap.Any("panic", r),
+					zap.Int("page", pageNum),
+					zap.Int("locations_in_page", len(bucketLocations)),
+					zap.String("stack", string(debug.Stack())))
+				panic(r)
+			}
+		}()
+		pageNum++
+		observer.Log.Debug("storage tally collector: bucket page handler called",
+			zap.Int("page", pageNum),
+			zap.Int("locations_count", len(bucketLocations)))
+
 		fromBucket := maxBucketSoFar
 		toBucket := bucketLocations[len(bucketLocations)-1]
 		maxBucketSoFar = toBucket
@@ -522,6 +551,9 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 		if observer.config.SmallObjectRemainder {
 			err = observer.fillTalliesWithStorageRemainder(ctx, fromBucket, toBucket, startTime)
 			if err != nil {
+				observer.Log.Error("storage tally collector: fillTalliesWithStorageRemainder failed",
+					zap.Int("page", pageNum),
+					zap.Error(err))
 				return err
 			}
 		} else {
@@ -529,6 +561,9 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 			if observer.config.EventkitTrackingEnabled {
 				placementByLocation, err = observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
 				if err != nil {
+					observer.Log.Error("storage tally collector: GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange failed",
+						zap.Int("page", pageNum),
+						zap.Error(err))
 					return err
 				}
 
@@ -541,6 +576,9 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 			} else {
 				locs, err := observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
 				if err != nil {
+					observer.Log.Error("storage tally collector: GetPreviouslyNonEmptyTallyBucketsInRange failed",
+						zap.Int("page", pageNum),
+						zap.Error(err))
 					return err
 				}
 				for _, loc := range locs {
@@ -557,6 +595,9 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 				UsePartitionQuery:  observer.config.UsePartitionQuery,
 			})
 			if err != nil {
+				observer.Log.Error("storage tally collector: CollectBucketTallies failed",
+					zap.Int("page", pageNum),
+					zap.Error(err))
 				return err
 			}
 
@@ -580,12 +621,19 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 	}
 
 	// iterate through all live bucket pages
+	observer.Log.Info("storage tally collector: starting IterateBucketLocations",
+		zap.Int("list_limit", observer.config.ListLimit))
 	err = observer.bucketsDB.IterateBucketLocations(ctx, observer.config.ListLimit, bucketPageHandler)
 	if err != nil {
+		observer.Log.Error("storage tally collector: IterateBucketLocations failed",
+			zap.Int("pages_processed", pageNum),
+			zap.Error(err))
 		return err
 	}
+	observer.Log.Debug("storage tally collector: IterateBucketLocations done", zap.Int("pages_processed", pageNum))
+
 	// now go from the last bucket to the end of the keyspace
-	return bucketPageHandler([]metabase.BucketLocation{
+	err = bucketPageHandler([]metabase.BucketLocation{
 		maxBucketSoFar,
 		{
 			ProjectID: uuid.Max(),
@@ -594,6 +642,12 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 			// keyspace.
 			BucketName: "",
 		}})
+	if err != nil {
+		observer.Log.Error("storage tally collector: final bucket page handler failed", zap.Error(err))
+		return err
+	}
+	observer.Log.Info("storage tally collector: fillBucketTallies completed", zap.Int("total_buckets", len(observer.Bucket)), zap.Int("pages_processed", pageNum))
+	return nil
 }
 
 // fillTalliesWithStorageRemainder collects bucket tallies with storage remainder accounting.
@@ -602,6 +656,7 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 	// Get ALL buckets in range (both with and without previous tallies) along with their placement/entitlements.
 	bucketsWithEntitlements, err := observer.projectAccountingDB.GetBucketsWithEntitlementsInRange(ctx, fromBucket, toBucket, entitlements.ProjectScopePrefix)
 	if err != nil {
+		observer.Log.Error("storage tally collector: GetBucketsWithEntitlementsInRange failed", zap.Error(err))
 		return err
 	}
 
@@ -662,6 +717,7 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 		StorageRemainders:  remainders,
 	})
 	if err != nil {
+		observer.Log.Error("storage tally collector: CollectBucketTallies (remainder) failed", zap.Error(err))
 		return err
 	}
 
