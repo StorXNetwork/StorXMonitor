@@ -114,13 +114,17 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		}()
 		service.log.Info("storage tally cycle started")
 		if err := service.Tally(ctx); err != nil {
-			service.log.Error("storage tally failed", zap.Error(err))
+			service.log.Error("storage tally failed",
+				zap.String("error_detail", err.Error()),
+				zap.Error(err))
 			mon.Event("bucket_tally_error")
 		}
 
 		service.log.Debug("storage tally cycle finished, starting purge of old tallies")
 		if err := service.Purge(ctx); err != nil {
-			service.log.Error("storage tally purge failed", zap.Error(err))
+			service.log.Error("storage tally purge failed",
+				zap.String("error_detail", err.Error()),
+				zap.Error(err))
 			mon.Event("bucket_tally_purge_error")
 		}
 		service.log.Info("storage tally cycle completed")
@@ -237,7 +241,9 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.bucketsDB, service.projectAccountingDB, service.productPrices, service.globalPlacementMap, service.config)
 	err = collector.Run(ctx)
 	if err != nil {
-		service.log.Error("storage tally: bucket collection failed", zap.Error(err))
+		service.log.Error("storage tally: bucket collection failed",
+			zap.String("error_detail", err.Error()),
+			zap.Error(err))
 		return Error.Wrap(err)
 	}
 	service.log.Info("storage tally: bucket collection finished successfully", zap.Int("bucket_count", len(collector.Bucket)))
@@ -287,7 +293,9 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			zap.Int("bucket_count", len(collector.Bucket)),
 			zap.Time("interval_start", intervalStart))
 	} else {
-		service.log.Error("storage tally insert: save had errors", zap.Error(errAtRest.Err()))
+		service.log.Error("storage tally insert: save had errors",
+			zap.String("error_detail", errAtRest.Err().Error()),
+			zap.Error(errAtRest.Err()))
 	}
 
 	updateLiveAccountingTotals(projectTotalsFromBuckets(collector.Bucket))
@@ -347,7 +355,9 @@ func (service *Service) Purge(ctx context.Context) (err error) {
 
 	count, err := service.projectAccountingDB.DeleteTalliesBefore(ctx, olderThan)
 	if err != nil {
-		service.log.Error("storage tally delete: DeleteTalliesBefore failed", zap.Error(err))
+		service.log.Error("storage tally delete: DeleteTalliesBefore failed",
+			zap.String("error_detail", err.Error()),
+			zap.Error(err))
 		return Error.New("ProjectAccounting.DeleteTalliesOlderThan failed: %v", err)
 	}
 	monAccounting.IntVal("bucket_tallies_purged").Observe(count)
@@ -368,7 +378,10 @@ func (service *Service) flushTallies(ctx context.Context, intervalStart time.Tim
 	}
 	service.log.Debug("storage tally insert: SaveTallies called", zap.Int("tally_count", len(tallies)), zap.Time("interval_start", intervalStart))
 	if err := service.projectAccountingDB.SaveTallies(ctx, intervalStart, tallies); err != nil {
-		service.log.Error("storage tally insert: SaveTallies failed", zap.Int("tally_count", len(tallies)), zap.Error(err))
+		service.log.Error("storage tally insert: SaveTallies failed",
+			zap.Int("tally_count", len(tallies)),
+			zap.String("error_detail", err.Error()),
+			zap.Error(err))
 		return Error.New("ProjectAccounting.SaveTallies failed: %v", err)
 	}
 	service.log.Debug("storage tally insert: SaveTallies completed", zap.Int("tally_count", len(tallies)))
@@ -438,7 +451,9 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	}()
 	err = observer.fillBucketTallies(ctx)
 	if err != nil {
-		observer.Log.Error("storage tally collector: fillBucketTallies returned error", zap.Error(err))
+		observer.Log.Error("storage tally collector: fillBucketTallies returned error",
+			zap.String("error_detail", err.Error()),
+			zap.Error(err))
 		return err
 	}
 	return nil
@@ -553,6 +568,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 			if err != nil {
 				observer.Log.Error("storage tally collector: fillTalliesWithStorageRemainder failed",
 					zap.Int("page", pageNum),
+					zap.String("error_detail", err.Error()),
 					zap.Error(err))
 				return err
 			}
@@ -565,6 +581,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 				if err != nil {
 					observer.Log.Error("storage tally collector: GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange failed",
 						zap.Int("page", pageNum),
+						zap.String("error_detail", err.Error()),
 						zap.Error(err))
 					return err
 				}
@@ -585,6 +602,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 				if err != nil {
 					observer.Log.Error("storage tally collector: GetPreviouslyNonEmptyTallyBucketsInRange failed",
 						zap.Int("page", pageNum),
+						zap.String("error_detail", err.Error()),
 						zap.Error(err))
 					return err
 				}
@@ -609,6 +627,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 			if err != nil {
 				observer.Log.Error("storage tally collector: CollectBucketTallies failed",
 					zap.Int("page", pageNum),
+					zap.String("error_detail", err.Error()),
 					zap.Error(err))
 				return err
 			}
@@ -642,6 +661,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 	if err != nil {
 		observer.Log.Error("storage tally collector: IterateBucketLocations failed",
 			zap.Int("pages_processed", pageNum),
+			zap.String("error_detail", err.Error()),
 			zap.Error(err))
 		return err
 	}
@@ -658,7 +678,9 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 			BucketName: "",
 		}})
 	if err != nil {
-		observer.Log.Error("storage tally collector: final bucket page handler failed", zap.Error(err))
+		observer.Log.Error("storage tally collector: final bucket page handler failed",
+			zap.String("error_detail", err.Error()),
+			zap.Error(err))
 		return err
 	}
 	observer.Log.Info("storage tally collector: fillBucketTallies completed", zap.Int("total_buckets", len(observer.Bucket)), zap.Int("pages_processed", pageNum))
@@ -672,7 +694,9 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 	observer.Log.Info("storage tally collector: calling GetBucketsWithEntitlementsInRange")
 	bucketsWithEntitlements, err := observer.projectAccountingDB.GetBucketsWithEntitlementsInRange(ctx, fromBucket, toBucket, entitlements.ProjectScopePrefix)
 	if err != nil {
-		observer.Log.Error("storage tally collector: GetBucketsWithEntitlementsInRange failed", zap.Error(err))
+		observer.Log.Error("storage tally collector: GetBucketsWithEntitlementsInRange failed",
+			zap.String("error_detail", err.Error()),
+			zap.Error(err))
 		return err
 	}
 	observer.Log.Info("storage tally collector: GetBucketsWithEntitlementsInRange done", zap.Int("count", len(bucketsWithEntitlements)))
@@ -735,7 +759,9 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 		StorageRemainders:  remainders,
 	})
 	if err != nil {
-		observer.Log.Error("storage tally collector: CollectBucketTallies (remainder) failed", zap.Error(err))
+		observer.Log.Error("storage tally collector: CollectBucketTallies (remainder) failed",
+			zap.String("error_detail", err.Error()),
+			zap.Error(err))
 		return err
 	}
 	observer.Log.Info("storage tally collector: CollectBucketTallies (remainder) done", zap.Int("tallies_count", len(tallies)))
