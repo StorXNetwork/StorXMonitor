@@ -6,11 +6,18 @@ package newrelic
 import (
 	"encoding/json"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
 	"go.uber.org/zap/zapcore"
 )
+
+// callerPattern matches zap ShortCaller format: path/to/file.go:123 or file.go:123:0
+var callerPattern = regexp.MustCompile(`\.go:\d+`)
+
+// levelStrings used to avoid treating a log level as the message when layout is ambiguous
+var levelStrings = map[string]bool{"debug": true, "info": true, "warn": true, "warning": true, "error": true, "panic": true, "fatal": true}
 
 // LogInterceptor intercepts zap logs and sends them to New Relic
 type LogInterceptor struct {
@@ -85,21 +92,42 @@ func (li *LogInterceptor) InterceptLog(entry zapcore.Entry) {
 	li.sender.SendLog(jsonData)
 }
 
-// parseLog parses Storj's structured log format: LEVEL\tLOGGER\tCALLER\tMESSAGE\t{JSON}
 func (li *LogInterceptor) parseLog(entry zapcore.Entry) (zapcore.Entry, map[string]interface{}) {
 	parts := strings.Split(entry.Message, "\t")
 	if len(parts) < 4 {
 		return entry, make(map[string]interface{})
 	}
 
-	// Parse log components
-	loggerName, caller, message := parts[1], parts[2], parts[3]
+	if len(parts) >= 5 {
+		jsonFields := parseJSONFields(parts[5:])
+		return zapcore.Entry{
+			Level:      entry.Level,
+			Time:       entry.Time,
+			Message:    parts[4],
+			Caller:     zapcore.NewEntryCaller(0, parts[3], 0, parts[3] != ""),
+			LoggerName: parts[2],
+			Stack:      entry.Stack,
+		}, jsonFields
+	}
 
-	// Parse optional JSON fields
-	jsonFields := make(map[string]interface{})
-	if len(parts) > 4 {
-		jsonStr := strings.Join(parts[4:], "\t")
-		_ = json.Unmarshal([]byte(jsonStr), &jsonFields)
+	jsonFields := parseJSONFields(parts[4:])
+
+	part2IsCaller := callerPattern.MatchString(parts[2])
+	part3IsCaller := callerPattern.MatchString(parts[3])
+	part1IsLevel := levelStrings[strings.ToLower(strings.TrimSpace(parts[1]))]
+
+	var loggerName, caller, message string
+	if part2IsCaller && !part3IsCaller {
+		loggerName, caller, message = parts[1], parts[2], parts[3]
+	} else if part3IsCaller && !part2IsCaller {
+		// Alternate order: LEVEL, MESSAGE, LOGGER, CALLER — but if "message" is a level token, use standard order
+		if part1IsLevel {
+			loggerName, caller, message = parts[1], parts[2], parts[3]
+		} else {
+			message, loggerName, caller = parts[1], parts[2], parts[3]
+		}
+	} else {
+		loggerName, caller, message = parts[1], parts[2], parts[3]
 	}
 
 	return zapcore.Entry{
@@ -110,6 +138,15 @@ func (li *LogInterceptor) parseLog(entry zapcore.Entry) (zapcore.Entry, map[stri
 		LoggerName: loggerName,
 		Stack:      entry.Stack,
 	}, jsonFields
+}
+
+func parseJSONFields(parts []string) map[string]interface{} {
+	if len(parts) == 0 {
+		return make(map[string]interface{})
+	}
+	out := make(map[string]interface{})
+	_ = json.Unmarshal([]byte(strings.Join(parts, "\t")), &out)
+	return out
 }
 
 // Close closes the interceptor and flushes remaining logs
