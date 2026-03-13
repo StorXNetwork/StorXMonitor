@@ -92,18 +92,12 @@ func (li *LogInterceptor) InterceptLog(entry zapcore.Entry) {
 	li.sender.SendLog(jsonData)
 }
 
-// parseLog parses Storj's structured log format. Zap console encoder outputs:
-//   - LEVEL\tLOGGER\tCALLER\tMESSAGE\t{JSON}  (4 parts; standard)
-//   - LEVEL\tLEVEL\tLOGGER\tCALLER\tMESSAGE\t{JSON}  (5+ parts; level repeated, message in 5th)
-//
-// We detect caller (file.go:line) vs logger (e.g. "accounting:tally") and avoid using a level token as message.
 func (li *LogInterceptor) parseLog(entry zapcore.Entry) (zapcore.Entry, map[string]interface{}) {
 	parts := strings.Split(entry.Message, "\t")
 	if len(parts) < 4 {
 		return entry, make(map[string]interface{})
 	}
 
-	// When 5+ parts: order is LEVEL, LEVEL?, LOGGER, CALLER, MESSAGE, [JSON...]
 	if len(parts) >= 5 {
 		jsonFields := parseJSONFields(parts[5:])
 		return zapcore.Entry{
@@ -116,7 +110,6 @@ func (li *LogInterceptor) parseLog(entry zapcore.Entry) (zapcore.Entry, map[stri
 		}, jsonFields
 	}
 
-	// 4 parts: LEVEL, LOGGER, CALLER, MESSAGE (optional MESSAGE\t{JSON} means 4+ parts with JSON from parts[4:])
 	jsonFields := parseJSONFields(parts[4:])
 
 	part2IsCaller := callerPattern.MatchString(parts[2])
