@@ -8,13 +8,18 @@ COPY storagenodeweb /app
 RUN npm install
 RUN npm run build
 
-
 # Install storagenode helper (for local/dev runs)
 FROM --platform=amd64 golang:latest AS storx-node-setup
 WORKDIR /app
+ARG GITHUB_TOKEN=""
+ENV GOPRIVATE=github.com/StorXNetwork/*
 COPY . .
 COPY --from=ui /app/dist /app/storagenodeweb/dist
-RUN go build -o /go/bin/storagenode ./cmd/storagenode
+RUN if [ -n "$GITHUB_TOKEN" ]; then \
+      git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"; \
+    fi; \
+    go build -o /go/bin/storagenode ./cmd/storagenode; \
+    rm -f /root/.gitconfig
 
 
 FROM --platform=amd64 debian:bookworm-slim
