@@ -12,13 +12,12 @@ RUN npm run build
 FROM --platform=amd64 golang:latest AS storx-node-setup
 WORKDIR /app
 ARG GITHUB_TOKEN=""
+RUN test -n "$GITHUB_TOKEN" || (echo "ERROR: GITHUB_TOKEN is required. Pass: docker build --build-arg GITHUB_TOKEN=... (or use a local go.mod replace for github.com/StorXNetwork/common)" >&2; exit 1)
 ENV GOPRIVATE=github.com/StorXNetwork/*
 COPY . .
 COPY --from=ui /app/dist /app/storagenodeweb/dist
-RUN if [ -n "$GITHUB_TOKEN" ]; then \
-      git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"; \
-    fi; \
-    go build -o /go/bin/storagenode ./cmd/storagenode; \
+RUN git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/" && \
+    go build -o /go/bin/storagenode ./cmd/storagenode && \
     rm -f /root/.gitconfig
 
 
