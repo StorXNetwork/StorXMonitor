@@ -10,8 +10,8 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/sync2"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/sync2"
 )
 
 var mon = monkit.Package()
@@ -57,10 +57,19 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			chore.log.Error("Error deleting unverified users", zap.Error(err))
 		}
 
-		err = chore.db.WebappSessions().DeleteExpired(ctx, time.Now(), chore.config.AsOfSystemTimeInterval, chore.config.PageSize)
-		if err != nil {
-			chore.log.Error("Error deleting expired webapp sessions", zap.Error(err))
-		}
+		// -------------------------------------------------------------------------
+		// EXPIRED WEBAPP SESSION DELETION — intentionally COMMENTED OUT (disabled).
+		//
+		// The block below would bulk-delete rows from webapp_sessions where expires_at < now.
+		// We keep it commented so session rows remain for admin/history (e.g. last session
+		// reporting). To re-enable automatic pruning of expired sessions, uncomment the lines.
+		//
+		// Trade-off: webapp_sessions can grow; monitor table size and consider retention policy.
+		// -------------------------------------------------------------------------
+		// err = chore.db.WebappSessions().DeleteExpired(ctx, time.Now(), chore.config.AsOfSystemTimeInterval, chore.config.PageSize)
+		// if err != nil {
+		// 	chore.log.Error("Error deleting expired webapp sessions", zap.Error(err))
+		// }
 
 		err = chore.db.APIKeys().DeleteExpiredByNamePrefix(ctx, chore.consoleConfig.ObjectBrowserKeyLifetime, chore.consoleConfig.ObjectBrowserKeyNamePrefix, chore.config.AsOfSystemTimeInterval, chore.config.PageSize)
 		if err != nil {

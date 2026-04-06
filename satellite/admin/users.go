@@ -1703,8 +1703,7 @@ type User struct {
 	UtmCampaign           string     `json:"utmCampaign"`
 	UtmTerm               string     `json:"utmTerm"`
 	UtmContent            string     `json:"utmContent"`
-	LastSessionExpiry     *time.Time `json:"lastSessionExpiry"`
-	FirstSessionExpiry    *time.Time `json:"firstSessionExpiry"`
+	LastLogin             *time.Time `json:"lastLogin"`
 	TotalSessionCount     int        `json:"totalSessionCount"`
 
 	ProjectCount int    `json:"projectCount"`
@@ -1929,7 +1928,7 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Single optimized query with all filters and pagination applied in SQL
-	allUsers, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, projectCounts, totalCount, err := server.db.Console().Users().GetAllUsersOptimized(
+	allUsers, lastLoginTimes, totalSessionCounts, projectCounts, totalCount, err := server.db.Console().Users().GetAllUsersOptimized(
 		ctx,
 		actualLimit,
 		actualOffset,
@@ -1959,14 +1958,11 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 	for i, user := range allUsers {
 		user.PasswordHash = nil
 
-		// Get session data from query results (already fetched in SQL)
-		var lastExp, firstExp *time.Time
+		// Session aggregates from SQL (lastLogin = MAX(webapp_sessions.created_at) for this user)
+		var lastLog *time.Time
 		var sessionCount, projectCount int
-		if i < len(lastSessionExpiry) {
-			lastExp = lastSessionExpiry[i]
-		}
-		if i < len(firstSessionExpiry) {
-			firstExp = firstSessionExpiry[i]
+		if i < len(lastLoginTimes) {
+			lastLog = lastLoginTimes[i]
 		}
 		if i < len(totalSessionCounts) {
 			sessionCount = totalSessionCounts[i]
@@ -1996,8 +1992,7 @@ func (server *Server) getAllUsers(w http.ResponseWriter, r *http.Request) {
 			UtmCampaign:           user.UtmCampaign,
 			UtmTerm:               user.UtmTerm,
 			UtmContent:            user.UtmContent,
-			LastSessionExpiry:     lastExp,
-			FirstSessionExpiry:    firstExp,
+			LastLogin:             lastLog,
 			TotalSessionCount:     sessionCount,
 
 			ProjectCount: projectCount,
@@ -2086,7 +2081,7 @@ func (server *Server) exportUsersData(w http.ResponseWriter, users []User, searc
 			// "Bandwidth Used", "Segment Used",
 			"Project Count", "Source",
 			"UTM Source", "UTM Medium", "UTM Campaign", "UTM Term", "UTM Content",
-			"Last Session Expiry", "First Session Expiry", "Total Sessions",
+			"Last Login", "Total Sessions",
 		}
 		csvWriter.Write(headers)
 
@@ -2109,8 +2104,7 @@ func (server *Server) exportUsersData(w http.ResponseWriter, users []User, searc
 				user.UtmCampaign,
 				user.UtmTerm,
 				user.UtmContent,
-				formatTime(user.LastSessionExpiry),
-				formatTime(user.FirstSessionExpiry),
+				formatTime(user.LastLogin),
 				fmt.Sprintf("%d", user.TotalSessionCount),
 			}
 			csvWriter.Write(row)
