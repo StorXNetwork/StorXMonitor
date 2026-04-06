@@ -106,6 +106,8 @@ type flattenedEmailVars struct {
 	SignInLink            string
 	ContactInfoURL        string
 	TermsAndConditionsURL string
+	Name                  string
+	Message               string
 }
 
 // copyStringField sets dst to the string value of v.FieldByName(fieldName) if the field exists and is a string.
@@ -225,6 +227,8 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 			copyStringField(&flatVars.SignInLink, v, "SignInLink")
 			copyStringField(&flatVars.ContactInfoURL, v, "ContactInfoURL")
 			copyStringField(&flatVars.TermsAndConditionsURL, v, "TermsAndConditionsURL")
+			copyStringField(&flatVars.Name, v, "Name")
+			copyStringField(&flatVars.Message, v, "Message")
 		}
 	}
 	templateData := &flatVars
