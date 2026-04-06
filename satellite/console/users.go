@@ -55,8 +55,9 @@ type Users interface {
 	GetUserStats(ctx context.Context) (total, active, inactive, deleted, pendingDeletion, legalHold, pendingBotVerification, pro, free int, err error)
 	//boris: GetAllUsers is a method for querying all users from the database.
 	GetAllUsers(ctx context.Context) ([]*User, error)
-	// GetAllUsersOptimized retrieves users with all filters, session data, and project count in a single optimized query
-	GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, kindFilter *int, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (users []*User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error)
+	// GetAllUsersOptimized retrieves users with all filters, session data, and project count in a single optimized query.
+	// lastLogin holds MAX(webapp_sessions.created_at) per user (most recent session start).
+	GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, kindFilter *int, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (users []*User, lastLogin []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error)
 	// GetUsersCountOptimized returns total count with all filters applied
 	GetUsersCountOptimized(ctx context.Context, statusFilter *int, createdAfter, createdBefore *time.Time, search string, kindFilter *int, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int) (count int, err error)
 	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID, now time.Time) error

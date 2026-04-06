@@ -423,16 +423,17 @@ func (users *users) GetEmailsForDeletion(ctx context.Context, statusUpdatedBefor
 
 // GetAllUsersOptimized retrieves users with all filters, session data, and project count in a single optimized query
 // This is a production-ready method that applies all filters in SQL for maximum performance
-func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, kindFilter *int, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (usersList []*console.User, lastSessionExpiry, firstSessionExpiry []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error) {
+func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int, statusFilter *int, createdAfter, createdBefore *time.Time, search string, kindFilter *int, sourceFilter string, hasActiveSession *bool, lastSessionAfter, lastSessionBefore *time.Time, sessionCountMin, sessionCountMax *int, sortColumn, sortOrder string) (usersList []*console.User, lastLogin []*time.Time, totalSessionCounts, projectCounts []int, totalCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Build comprehensive query with CTEs for session stats and project counts
+	// last_login = MAX(created_at): latest session row start time per user.
+	// latest_session_expires_at = MAX(expires_at): for hasActiveSession filter only.
 	query := `
 		WITH session_stats AS (
 			SELECT 
 				user_id, 
-				MAX(expires_at) AS last_session_expiry,
-				MIN(expires_at) AS first_session_expiry,
+				MAX(created_at) AS last_login,
+				MAX(expires_at) AS latest_session_expires_at,
 				COUNT(*) AS total_session_count
 			FROM "satellite/0".webapp_sessions
 			GROUP BY user_id
@@ -448,7 +449,7 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 			u.id, u.full_name, u.email, u.status, u.created_at, u.source,
 			u.utm_source, u.utm_medium, u.utm_campaign, u.utm_term, u.utm_content,
 			u.kind, u.project_storage_limit, u.project_bandwidth_limit,
-			s.last_session_expiry, s.first_session_expiry, s.total_session_count,
+			s.last_login, s.total_session_count,
 			COALESCE(p.project_count, 0) AS project_count
 		FROM "satellite/0".users u
 		LEFT JOIN session_stats s ON s.user_id = u.id
@@ -500,20 +501,20 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 	// Session filters
 	if hasActiveSession != nil {
 		if *hasActiveSession {
-			whereConditions = append(whereConditions, "s.last_session_expiry > NOW()")
+			whereConditions = append(whereConditions, "(s.latest_session_expires_at IS NOT NULL AND s.latest_session_expires_at > NOW())")
 		} else {
-			whereConditions = append(whereConditions, "(s.last_session_expiry IS NULL OR s.last_session_expiry <= NOW())")
+			whereConditions = append(whereConditions, "(s.latest_session_expires_at IS NULL OR s.latest_session_expires_at <= NOW())")
 		}
 	}
 
 	if lastSessionAfter != nil {
-		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry >= $%d", argIndex))
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_login >= $%d", argIndex))
 		args = append(args, *lastSessionAfter)
 		argIndex++
 	}
 
 	if lastSessionBefore != nil {
-		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry <= $%d", argIndex))
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_login <= $%d", argIndex))
 		args = append(args, *lastSessionBefore)
 		argIndex++
 	}
@@ -553,7 +554,7 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 
 	rows, err := users.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, nil, nil, nil, nil, 0, err
+		return nil, nil, nil, nil, 0, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -564,14 +565,13 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 		capacity = 1000 // Default capacity for "fetch all" scenario
 	}
 	usersList = make([]*console.User, 0, capacity)
-	lastSessionExpiry = make([]*time.Time, 0, capacity)
-	firstSessionExpiry = make([]*time.Time, 0, capacity)
+	lastLogin = make([]*time.Time, 0, capacity)
 	totalSessionCounts = make([]int, 0, capacity)
 	projectCounts = make([]int, 0, capacity)
 
 	for rows.Next() {
 		var user console.User
-		var lastExp, firstExp *time.Time
+		var lastLog *time.Time
 		var totalCount sql.NullInt32
 		var projectCount int
 		var source, utmSource, utmMedium, utmCampaign, utmTerm, utmContent sql.NullString
@@ -580,11 +580,11 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 			&user.ID, &user.FullName, &user.Email, &user.Status, &user.CreatedAt, &source,
 			&utmSource, &utmMedium, &utmCampaign, &utmTerm, &utmContent,
 			&user.Kind, &user.ProjectStorageLimit, &user.ProjectBandwidthLimit,
-			&lastExp, &firstExp, &totalCount,
+			&lastLog, &totalCount,
 			&projectCount,
 		)
 		if err != nil {
-			return nil, nil, nil, nil, nil, 0, err
+			return nil, nil, nil, nil, 0, err
 		}
 
 		if source.Valid {
@@ -607,8 +607,7 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 		}
 
 		usersList = append(usersList, &user)
-		lastSessionExpiry = append(lastSessionExpiry, lastExp)
-		firstSessionExpiry = append(firstSessionExpiry, firstExp)
+		lastLogin = append(lastLogin, lastLog)
 		if totalCount.Valid {
 			totalSessionCounts = append(totalSessionCounts, int(totalCount.Int32))
 		} else {
@@ -620,10 +619,10 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 	// Get total count with same filters
 	totalCount, err = users.GetUsersCountOptimized(ctx, statusFilter, createdAfter, createdBefore, search, kindFilter, sourceFilter, hasActiveSession, lastSessionAfter, lastSessionBefore, sessionCountMin, sessionCountMax)
 	if err != nil {
-		return nil, nil, nil, nil, nil, 0, err
+		return nil, nil, nil, nil, 0, err
 	}
 
-	return usersList, lastSessionExpiry, firstSessionExpiry, totalSessionCounts, projectCounts, totalCount, rows.Err()
+	return usersList, lastLogin, totalSessionCounts, projectCounts, totalCount, rows.Err()
 }
 
 // buildOrderByClause builds the ORDER BY clause based on sort column and order
@@ -631,7 +630,7 @@ func (users *users) GetAllUsersOptimized(ctx context.Context, limit, offset int,
 func buildOrderByClause(sortColumn, sortOrder string) string {
 	// Default sorting if no column specified
 	if sortColumn == "" {
-		return "s.last_session_expiry DESC NULLS LAST, u.created_at DESC"
+		return "s.last_login DESC NULLS LAST, u.created_at DESC"
 	}
 
 	// Normalize sort order
@@ -657,8 +656,9 @@ func buildOrderByClause(sortColumn, sortOrder string) string {
 		"utmCampaign":           "u.utm_campaign",
 		"utmTerm":               "u.utm_term",
 		"utmContent":            "u.utm_content",
-		"lastSessionExpiry":     "s.last_session_expiry",
-		"firstSessionExpiry":    "s.first_session_expiry",
+		"lastLogin":             "s.last_login",
+		"lastSessionExpiry":     "s.last_login",
+		"firstSessionExpiry":    "s.last_login",
 		"totalSessionCount":     "s.total_session_count",
 		"projectCount":          "p.project_count",
 	}
@@ -674,12 +674,12 @@ func buildOrderByClause(sortColumn, sortOrder string) string {
 
 	// If column not found, use default
 	if sqlColumn == "" {
-		return "s.last_session_expiry DESC NULLS LAST, u.created_at DESC"
+		return "s.last_login DESC NULLS LAST, u.created_at DESC"
 	}
 
 	// Handle NULLS for nullable columns
 	nullsClause := ""
-	if sqlColumn == "s.last_session_expiry" || sqlColumn == "s.first_session_expiry" {
+	if sqlColumn == "s.last_login" {
 		if order == "DESC" {
 			nullsClause = " NULLS LAST"
 		} else {
@@ -698,7 +698,8 @@ func (users *users) GetUsersCountOptimized(ctx context.Context, statusFilter *in
 		WITH session_stats AS (
 			SELECT 
 				user_id,
-				MAX(expires_at) AS last_session_expiry,
+				MAX(created_at) AS last_login,
+				MAX(expires_at) AS latest_session_expires_at,
 				COUNT(*) AS total_session_count
 			FROM "satellite/0".webapp_sessions
 			GROUP BY user_id
@@ -751,20 +752,20 @@ func (users *users) GetUsersCountOptimized(ctx context.Context, statusFilter *in
 
 	if hasActiveSession != nil {
 		if *hasActiveSession {
-			whereConditions = append(whereConditions, "s.last_session_expiry > NOW()")
+			whereConditions = append(whereConditions, "(s.latest_session_expires_at IS NOT NULL AND s.latest_session_expires_at > NOW())")
 		} else {
-			whereConditions = append(whereConditions, "(s.last_session_expiry IS NULL OR s.last_session_expiry <= NOW())")
+			whereConditions = append(whereConditions, "(s.latest_session_expires_at IS NULL OR s.latest_session_expires_at <= NOW())")
 		}
 	}
 
 	if lastSessionAfter != nil {
-		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry >= $%d", argIndex))
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_login >= $%d", argIndex))
 		args = append(args, *lastSessionAfter)
 		argIndex++
 	}
 
 	if lastSessionBefore != nil {
-		whereConditions = append(whereConditions, fmt.Sprintf("s.last_session_expiry <= $%d", argIndex))
+		whereConditions = append(whereConditions, fmt.Sprintf("s.last_login <= $%d", argIndex))
 		args = append(args, *lastSessionBefore)
 		argIndex++
 	}

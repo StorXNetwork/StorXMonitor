@@ -518,17 +518,20 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	sessionID, err := a.getSessionID(r)
+	_, err := a.getSessionID(r)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	err = a.service.DeleteSession(ctx, sessionID)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
+	// DeleteSession is skipped to keep webapp_sessions rows for admin/history. The cookie is still
+	// cleared so this browser stops sending the token; the DB row remains until expiry or other cleanup.
+	// Security note: anyone who already copied the session token can use it until expires_at.
+	// err = a.service.DeleteSession(ctx, sessionID)
+	// if err != nil {
+	// 	a.serveJSONError(ctx, w, err)
+	// 	return
+	// }
 
 	a.cookieAuth.RemoveTokenCookie(w)
 }
