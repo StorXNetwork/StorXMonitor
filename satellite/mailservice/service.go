@@ -104,6 +104,9 @@ type flattenedEmailVars struct {
 	IPAddress             string
 	LoginTime             string
 	SignInLink            string
+	ResetPasswordLink     string
+	CreateAccountLink     string
+	SatelliteName         string
 	ContactInfoURL        string
 	TermsAndConditionsURL string
 	Name                  string
@@ -225,6 +228,9 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 			copyStringField(&flatVars.IPAddress, v, "IPAddress")
 			copyStringField(&flatVars.LoginTime, v, "LoginTime")
 			copyStringField(&flatVars.SignInLink, v, "SignInLink")
+			copyStringField(&flatVars.ResetPasswordLink, v, "ResetPasswordLink")
+			copyStringField(&flatVars.CreateAccountLink, v, "CreateAccountLink")
+			copyStringField(&flatVars.SatelliteName, v, "SatelliteName")
 			copyStringField(&flatVars.ContactInfoURL, v, "ContactInfoURL")
 			copyStringField(&flatVars.TermsAndConditionsURL, v, "TermsAndConditionsURL")
 			copyStringField(&flatVars.Name, v, "Name")

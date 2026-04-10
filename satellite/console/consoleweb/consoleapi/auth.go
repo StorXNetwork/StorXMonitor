@@ -573,7 +573,6 @@ type UserInfo struct {
 
 func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	a.log.Debug("RegisterGoogleForApp: route entered")
 
 	var body struct {
 		AccessToken string `json:"access_token"`
@@ -616,19 +615,14 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting user details from system!", http.StatusTemporaryRedirect)
 		return
 	}
-	a.log.Info("verified", zap.Any("verified", verified))
-	a.log.Info("unverified", zap.Any("unverified", unverified))
 
 	var user *console.User
 	if verified != nil {
-		a.log.Debug("RegisterGoogleForApp: verified path", zap.String("email", googleuser.Email))
-		a.log.Info("User already registered", zap.String("email", googleuser.Email))
 		satelliteAddress := a.getExternalAddress(ctx)
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
 		if a.mailService != nil {
-			a.log.Debug("RegisterGoogleForApp: mailService present, sending AccountAlreadyExistsEmail", zap.String("email", verified.Email))
 			a.mailService.SendRenderedAsync(
 				ctx,
 				[]post.Address{{Address: verified.Email}},
@@ -640,24 +634,16 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 					CreateAccountLink: satelliteAddress + "signup",
 				},
 			)
-		} else {
-			a.log.Debug("RegisterGoogleForApp: mailService is nil, skipping AccountAlreadyExistsEmail", zap.String("email", verified.Email))
-			a.log.Warn("mailService is nil; skipping AccountAlreadyExistsEmail", zap.String("email", verified.Email))
 		}
 		a.SendResponse(w, r, "You are already registered!", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		// http.Redirect(w, r, fmt.Sprint(socialmedia.GetConfig().ClientOrigin, loginPageURL)+"?error=You are already registerted!", http.StatusTemporaryRedirect)
 		return
 	} else {
-		a.log.Debug("RegisterGoogleForApp: unverified/new user path", zap.String("email", googleuser.Email))
-		a.log.Info("User not registered", zap.String("email", googleuser.Email))
 		if len(unverified) > 0 {
 			user = &unverified[0]
 		} else {
-			a.log.Info("User not registered", zap.String("email", googleuser.Email))
-			a.log.Info("Creating user", zap.String("email", googleuser.Email))
 			secret, err := console.RegistrationSecretFromBase64("")
 			if err != nil {
-				a.log.Error("Error creating secret!", zap.Error(err))
 				a.SendResponse(w, r, "Error creating secret!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error creating secret!", http.StatusTemporaryRedirect)
 				return
@@ -665,7 +651,6 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 
 			ip, err := web.GetRequestIP(r)
 			if err != nil {
-				a.log.Error("Error getting IP!", zap.Error(err))
 				a.SendResponse(w, r, "Error getting IP!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 				// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Error getting IP!", http.StatusTemporaryRedirect)
 				return
@@ -681,7 +666,6 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 					UtmCampaign: verifier.UTMCampaign,
 				}
 			}
-			a.log.Info("Creating user", zap.String("email", googleuser.Email))
 			user, err = a.service.CreateUser(ctx,
 				console.CreateUser{
 					FullName:  googleuser.Name,
@@ -694,7 +678,6 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 				},
 				secret, true,
 			)
-			a.log.Info("User created", zap.String("email", googleuser.Email))
 			if err != nil {
 				a.log.Error("Error updating user!", zap.Error(err))
 				a.SendResponse(w, r, "Error updating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
@@ -731,13 +714,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 				trackCreateUserFields.JobTitle = user.Position
 				trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 			}
-			if a.analytics != nil {
-				a.log.Debug("RegisterGoogleForApp: analytics present, calling TrackCreateUser", zap.String("email", user.Email), zap.Any("userID", user.ID))
-				a.analytics.TrackCreateUser(trackCreateUserFields)
-			} else {
-				a.log.Debug("RegisterGoogleForApp: analytics is nil, skipping TrackCreateUser", zap.String("email", user.Email))
-				a.log.Warn("analytics is nil; skipping TrackCreateUser", zap.String("email", user.Email))
-			}
+			a.analytics.TrackCreateUser(trackCreateUserFields)
 		}
 	}
 
@@ -746,7 +723,6 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 
 	a.log.Info("Sending registration welcome email to user: " + user.Email)
 	if a.mailService != nil {
-		a.log.Debug("RegisterGoogleForApp: mailService present, sending RegistrationWelcomeEmail", zap.String("email", user.Email))
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email}},
@@ -756,7 +732,6 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 	} else {
-		a.log.Debug("RegisterGoogleForApp: mailService is nil, skipping RegistrationWelcomeEmail", zap.String("email", user.Email))
 		a.log.Warn("mailService is nil; skipping RegistrationWelcomeEmail", zap.String("email", user.Email))
 	}
 
@@ -774,7 +749,6 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.log.Info("Default Project Name: " + project.Name)
-	a.log.Debug("RegisterGoogleForApp: success, sending response", zap.String("email", user.Email))
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 	// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupSuccessURL), http.StatusTemporaryRedirect)
 }
