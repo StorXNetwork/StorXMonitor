@@ -637,6 +637,16 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	emissionService := emission.NewService(config.Emission)
 
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
 	{ // setup payments
 		pc := config.Payments
 
@@ -906,11 +916,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.SSO.Enabled,
 		)
 
-		peer.Servers.Add(lifecycle.Item{
-			Name:  "console:endpoint",
-			Run:   peer.Console.Endpoint.Run,
-			Close: peer.Console.Endpoint.Close,
-		})
+		if config.DisableConsoleFromSatelliteAPI {
+			peer.Servers.Add(lifecycle.Item{
+				Name:  "console:endpoint",
+				Run:   peer.Console.Endpoint.Run,
+				Close: peer.Console.Endpoint.Close,
+			})
+		}
 	}
 
 	{ // setup node stats endpoint
@@ -964,16 +976,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	if !config.DisableConsoleFromSatelliteAPI {
-		{ // setup analytics service
-			peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
-
-			peer.Services.Add(lifecycle.Item{
-				Name:  "analytics:service",
-				Run:   peer.Analytics.Service.Run,
-				Close: peer.Analytics.Service.Close,
-			})
-		}
-
 		{ // setup legacy and hubspot mail services
 			peer.Mail.Service, err = setupMailService(peer.Log, config.Mail, config.Console)
 			if err != nil {
