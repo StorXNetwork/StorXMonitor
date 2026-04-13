@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StorX Corporate Mail Backup Guide</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@100..900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: "Geologica", sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .sec-terms-condition {
+            padding: 60px 0;
+        }
+
+        .sec-terms-condition h3 {
+            font-size: 22px;
+            line-height: 32px;
+            margin: 20px 0 10px;
+            font-weight: 600;
+        }
+
+        .sec-terms-condition p {
+            font-size: 14px;
+            line-height: 24px;
+            color: #606060;
+            margin-bottom: 20px;
+        }
+
+        .sec-terms-condition ul {
+            padding-left: 18px;
+            margin-bottom: 20px;
+        }
+
+        .sec-terms-condition ul li {
+            font-size: 14px;
+            line-height: 24px;
+            color: #606060;
+            margin-bottom: 10px;
+        }
+
+        .img-wrapper {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .img-wrapper img {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        a {
+            color: #044AFB;
+            text-decoration: underline;
+        }
+
+        .scope-table {
+            width: 100%;
+            max-width: 720px;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: 14px;
+        }
+
+        .scope-table th,
+        .scope-table td {
+            border: 1px solid #ddd;
+            padding: 10px 12px;
+            text-align: left;
+            color: #606060;
+        }
+
+        .scope-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+
+        hr.doc-sep {
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            margin: 36px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="sec-terms-condition">
+        <div class="container">
+            <div class="terms-condition-wrapper">
+
+                <h3>Corporate mail backup</h3>
+
+                <h3>Navigational Steps to Update Domain-Wide Delegation in Google Admin</h3>
+
+                <p>
+                    To enable auto-sync and allow scheduled mail backups, you must configure Domain-Wide Delegation in
+                    your Google Admin account.
+                </p>
+
+                <p>
+                    Follow the steps below from the Super Admin account connected to your Google Workspace.
+                </p>
+
+                <p><strong>Step 1 — Open Google Admin Console</strong></p>
+                <p>
+                    Go to: <a href="https://admin.google.com/" target="_blank"
+                        rel="noopener noreferrer">https://admin.google.com/</a> and sign in with your Super Admin
+                    account.
+                </p>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image2.png"
+                        alt="Google Admin Console sign-in">
+                </div>
+
+                <p><strong>Step 2 — Navigate to Domain-Wide Delegation</strong></p>
+                <ul>
+                    <li>From the Admin Console dashboard, go to: Security → API Controls</li>
+                    <li>Click on Domain-wide Delegation</li>
+                </ul>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image3.png"
+                        alt="Security API Controls and Domain-wide Delegation">
+                </div>
+
+                <p><strong>Step 3 — Add a New API Client</strong></p>
+                <ul>
+                    <li>Click Add new</li>
+                    <li>Enter the following details:</li>
+                </ul>
+
+                <table class="scope-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Client ID</td>
+                            <td>104716855463175471781</td>
+                        </tr>
+                        <tr>
+                            <td>OAuth Scopes</td>
+                            <td>https://www.googleapis.com/auth/gmail.readonly</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <ul>
+                    <li>Click Authorize</li>
+                </ul>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image4.png"
+                        alt="Add new API client for domain-wide delegation">
+                </div>
+
+                <p><strong>Step 4 — Verification</strong></p>
+                <p>
+                    Once authorized, the client ID will appear in the Domain-wide Delegation list. This confirms the
+                    configuration is complete.
+                </p>
+
+                <hr class="doc-sep">
+
+                <h3>Navigational Steps to Sync and Back Up Corporate Gmail in StorX</h3>
+
+                <p>
+                    Follow these steps to connect your corporate Gmail account and configure scheduled auto-sync backups
+                    in StorX.
+                </p>
+
+                <p><strong>Step 1 — Log in to StorX</strong></p>
+                <p>
+                    Sign in to your StorX account:
+                    <a href="https://storx.io/login" target="_blank" rel="noopener noreferrer">https://storx.io/login</a>
+                </p>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image1.png"
+                        alt="StorX login">
+                </div>
+
+                <p><strong>Step 2 — Start the Auto-Sync Connection</strong></p>
+                <p>
+                    On the dashboard, locate the Auto-Sync card and click Connect.
+                </p>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image5.png"
+                        alt="Auto-Sync card Connect">
+                </div>
+
+                <p><strong>Step 3 — Choose the Service</strong></p>
+                <p>
+                    Select Gmail as the service and continue to sign in with your Google account.
+                </p>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image9.png"
+                        alt="Select Gmail service">
+                </div>
+
+                <p><strong>Step 4 — Complete Google Authentication</strong></p>
+                <p>
+                    You will be redirected to the Google authentication screen.
+                </p>
+                <ul>
+                    <li>Click Advanced</li>
+                    <li>Click Go to StorX (unsafe)</li>
+                    <li>Proceed with the sign-in process</li>
+                </ul>
+
+                <p>
+                    This message appears because the app uses custom domain-wide permissions for backup. It is expected
+                    during this setup.
+                </p>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image7.png"
+                        alt="Google authentication Advanced and Go to StorX">
+                </div>
+
+                <p><strong>Step 5 — Grant Required Permissions</strong></p>
+                <p>
+                    Allow the requested permissions so StorX can access Gmail data for backup purposes.
+                </p>
+
+                <p><strong>Step 6 — Select the Account to Back Up</strong></p>
+                <p>
+                    After authentication, you will see the list of connected accounts.
+                </p>
+                <ul>
+                    <li>Choose the account you want to back up</li>
+                    <li>Click Continue</li>
+                </ul>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image6.png"
+                        alt="Select account to back up">
+                </div>
+
+                <p><strong>Step 7 — Configure the Backup Schedule</strong></p>
+                <p>Select your preferred schedule:</p>
+                <ul>
+                    <li>Daily</li>
+                    <li>Weekly</li>
+                    <li>Monthly</li>
+                </ul>
+                <p>
+                    Click Proceed to finalize the setup.
+                </p>
+
+                <div class="img-wrapper">
+                    <img src="/static/static/images/documentation/corporatemails/image8.png"
+                        alt="Backup schedule and Proceed">
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

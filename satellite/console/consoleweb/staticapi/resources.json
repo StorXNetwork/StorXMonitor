@@ -24,6 +24,12 @@
     "link": "/guides?type=microsoft-backup"
   },
   {
+    "name": "Corporate Mail Backup Guide",
+    "desc": "Guide to corporate mail backup with StorX",
+    "type": "url",
+    "link": "/guides?type=corporate-mail-backup"
+  },
+  {
     "name": "Signup Guide",
     "desc": "Step-by-step guide to sign up on StorX",
     "type": "url",
