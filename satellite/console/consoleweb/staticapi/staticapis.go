@@ -26,6 +26,9 @@ var googleBackupGuide []byte
 //go:embed microsoft-backup-guide.html
 var microsoftBackupGuide []byte
 
+//go:embed corporate-mail-backup-guide.html
+var corporateMailBackupGuide []byte
+
 //go:embed signup-guide.html
 var signupGuide []byte
 
@@ -67,6 +70,9 @@ func HandleGuides(w http.ResponseWriter, r *http.Request) {
 
 	case "microsoft-backup":
 		w.Write(microsoftBackupGuide)
+
+	case "corporate-mail-backup":
+		w.Write(corporateMailBackupGuide)
 
 	case "signup":
 		w.Write(signupGuide)
