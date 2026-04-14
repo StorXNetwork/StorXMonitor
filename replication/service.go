@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -530,6 +531,14 @@ func (s *Service) getCurrentLSN(ctx context.Context) (pglogrepl.LSN, error) {
 
 func (s *Service) runBatchIngress() {
 	defer s.ingressWg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("panic in batch ingress",
+				zap.Any("panic", r),
+				zap.ByteString("stack", debug.Stack()),
+			)
+		}
+	}()
 
 	batchSize := s.config.WebhookBatchSize
 	flushInterval := s.config.WebhookBatchFlushInterval
@@ -615,6 +624,14 @@ func (s *Service) flushAllWebhookBuckets(buckets map[string]*batchBucket) {
 
 func (s *Service) sendWebhookBatch(sender *WebhookSender, events []TableChangeEvent) {
 	defer s.workerWg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("panic in webhook batch sender",
+				zap.Any("panic", r),
+				zap.ByteString("stack", debug.Stack()),
+			)
+		}
+	}()
 	s.sendSem <- struct{}{}
 	defer func() { <-s.sendSem }()
 
