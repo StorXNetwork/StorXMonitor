@@ -17,6 +17,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -25,7 +26,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// WebhookSender sends webhook events to Backuptools with retry logic.
 type WebhookSender struct {
 	client     *http.Client
 	url        string
@@ -35,7 +35,6 @@ type WebhookSender struct {
 	retryDelay time.Duration
 }
 
-// NewWebhookSender creates a new webhook sender with RSA public key encryption.
 func NewWebhookSender(log *zap.Logger, url, publicKeyPath string, maxRetries int, retryDelay, timeout time.Duration) (*WebhookSender, error) {
 	publicKey, err := loadPublicKey(publicKeyPath)
 	if err != nil {
@@ -43,9 +42,7 @@ func NewWebhookSender(log *zap.Logger, url, publicKeyPath string, maxRetries int
 	}
 
 	return &WebhookSender{
-		client: &http.Client{
-			Timeout: timeout,
-		},
+		client:     newWebhookHTTPClient(timeout),
 		url:        url,
 		publicKey:  publicKey,
 		log:        log,
@@ -54,7 +51,24 @@ func NewWebhookSender(log *zap.Logger, url, publicKeyPath string, maxRetries int
 	}, nil
 }
 
-// loadPublicKey loads an RSA public key from a PEM file.
+func newWebhookHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          1000,
+			MaxIdleConnsPerHost:   500,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
+}
+
 func loadPublicKey(path string) (*rsa.PublicKey, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -86,7 +100,6 @@ func loadPublicKey(path string) (*rsa.PublicKey, error) {
 	return rsaPub, nil
 }
 
-// encryptPayload encrypts the payload using hybrid encryption (RSA + AES).
 func (w *WebhookSender) encryptPayload(plaintext []byte) ([]byte, error) {
 	aesKey := make([]byte, 32)
 	if _, err := rand.Read(aesKey); err != nil {
@@ -129,9 +142,30 @@ func (w *WebhookSender) encryptPayload(plaintext []byte) ([]byte, error) {
 	return []byte(result), nil
 }
 
-// SendEvent sends an event to the webhook endpoint with retry logic.
+func marshalWebhookPayload(events []TableChangeEvent) ([]byte, error) {
+	switch len(events) {
+	case 0:
+		return nil, Error.New("empty webhook event batch")
+	case 1:
+		return json.Marshal(events[0])
+	default:
+		return json.Marshal(events)
+	}
+}
+
+// SendEvent sends a single event. Prefer SendEvents when sending multiple changes.
 func (w *WebhookSender) SendEvent(ctx context.Context, event TableChangeEvent) error {
-	plaintext, err := json.Marshal(event)
+	return w.SendEvents(ctx, []TableChangeEvent{event})
+}
+
+// SendEvents encrypts and POSTs one or more events. A single event is encoded as a JSON object;
+// multiple events are encoded as a JSON array (same TableChangeEvent shape per element).
+func (w *WebhookSender) SendEvents(ctx context.Context, events []TableChangeEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	plaintext, err := marshalWebhookPayload(events)
 	if err != nil {
 		mon.Counter("replication_webhook_marshal_error").Inc(1)
 		return Error.Wrap(err)
@@ -143,6 +177,7 @@ func (w *WebhookSender) SendEvent(ctx context.Context, event TableChangeEvent) e
 		return Error.Wrap(err)
 	}
 
+	first := events[0]
 	var lastErr error
 	for attempt := 0; attempt < w.maxRetries; attempt++ {
 		if attempt > 0 {
@@ -157,12 +192,13 @@ func (w *WebhookSender) SendEvent(ctx context.Context, event TableChangeEvent) e
 		err := w.sendRequest(ctx, encryptedPayload)
 		if err == nil {
 			mon.Counter("replication_webhook_sent_total",
-				monkit.NewSeriesTag("operation", event.Operation),
-				monkit.NewSeriesTag("table", event.Table),
-			).Inc(1)
+				monkit.NewSeriesTag("operation", first.Operation),
+				monkit.NewSeriesTag("table", first.Table),
+			).Inc(int64(len(events)))
 			w.log.Info("webhook sent successfully",
-				zap.String("operation", event.Operation),
-				zap.String("table", event.Table),
+				zap.String("operation", first.Operation),
+				zap.String("table", first.Table),
+				zap.Int("batch_size", len(events)),
 				zap.Int("attempt", attempt+1),
 			)
 			return nil
@@ -170,7 +206,7 @@ func (w *WebhookSender) SendEvent(ctx context.Context, event TableChangeEvent) e
 
 		lastErr = err
 		mon.Counter("replication_webhook_retry_total",
-			monkit.NewSeriesTag("operation", event.Operation),
+			monkit.NewSeriesTag("operation", first.Operation),
 			monkit.NewSeriesTag("attempt", fmt.Sprintf("%d", attempt+1)),
 		).Inc(1)
 
@@ -178,19 +214,19 @@ func (w *WebhookSender) SendEvent(ctx context.Context, event TableChangeEvent) e
 			zap.Error(err),
 			zap.Int("attempt", attempt+1),
 			zap.Int("max_retries", w.maxRetries),
-			zap.String("operation", event.Operation),
+			zap.String("operation", first.Operation),
+			zap.Int("batch_size", len(events)),
 		)
 	}
 
 	mon.Counter("replication_webhook_failed_total",
-		monkit.NewSeriesTag("operation", event.Operation),
-		monkit.NewSeriesTag("table", event.Table),
+		monkit.NewSeriesTag("operation", first.Operation),
+		monkit.NewSeriesTag("table", first.Table),
 	).Inc(1)
 
 	return ErrWebhookFailed.Wrap(fmt.Errorf("failed after %d retries: %w", w.maxRetries, lastErr))
 }
 
-// sendRequest sends a single HTTP request with encrypted payload.
 func (w *WebhookSender) sendRequest(ctx context.Context, encryptedPayload []byte) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, w.url, bytes.NewReader(encryptedPayload))
 	if err != nil {

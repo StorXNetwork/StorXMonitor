@@ -64,29 +64,22 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	// Validate database connection
 	if runCfg.Database == "" || runCfg.Database == "postgres://" {
 		log.Error("Database connection string is not properly configured")
 		return errs.New("Database connection string is not properly configured. Please set the --database flag or configure it in your config file.")
 	}
 
-	// Build replication config from binding config
 	replicationConfig := runCfg.Replication
 
-	// Load tables from YAML config file (for YAML config support, cfgstruct handles JSON flags)
 	tables, err := loadTablesFromConfig(confDir)
 	if err != nil {
 		log.Warn("Failed to load tables from config, continuing without table-specific config", zap.Error(err))
 	} else if len(tables) > 0 {
-		// Only override if YAML has tables configured (don't override empty JSON flag)
 		replicationConfig.Tables = replication.TableConfigs(tables)
 	}
 
-	// Use main database connection string for replication
-	// Add replication=database parameter if not present
 	if replicationConfig.SourceDB == "" {
 		replicationConfig.SourceDB = runCfg.Database
-		// Ensure replication parameter is set
 		if !strings.Contains(replicationConfig.SourceDB, "replication=") {
 			if strings.Contains(replicationConfig.SourceDB, "?") {
 				replicationConfig.SourceDB += "&replication=database"
@@ -102,13 +95,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("WebhookPublicKey is not configured. Please set the --replication.webhook-public-key flag or configure it in your config file.")
 	}
 
-	// Validate configuration (this will check webhook URLs)
 	if err := replicationConfig.Validate(); err != nil {
 		log.Error("Invalid replication configuration", zap.Error(err))
 		return errs.New("Invalid replication configuration: %+v", err)
 	}
 
-	// Create replication service
 	replicationService, err := replication.NewService(log.Named("replication"), replicationConfig)
 	if err != nil {
 		log.Error("Failed to create replication service", zap.Error(err))
@@ -118,7 +109,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, replicationService.Close())
 	}()
 
-	// Log configuration
 	tableNames := replicationConfig.GetTableNames()
 	log.Info("Starting replication service",
 		zap.String("slot", replicationConfig.SlotName),
@@ -128,7 +118,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.Int("table_count", len(replicationConfig.Tables)),
 	)
 
-	// Run replication service
 	runError := replicationService.Run(ctx)
 	return errs2.IgnoreCanceled(runError)
 }
@@ -147,22 +136,18 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"))
 }
 
-// loadTablesFromConfig loads table configurations from the YAML config file.
 func loadTablesFromConfig(confDir string) ([]replication.TableConfig, error) {
 	configPath := filepath.Join(confDir, "config.yaml")
 
-	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return nil, nil // No config file, return empty slice
+		return nil, nil
 	}
 
-	// Read YAML file
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	// Parse YAML
 	var yamlConfig struct {
 		Replication struct {
 			Tables []replication.TableConfig `yaml:"tables"`

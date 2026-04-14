@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// TableChangeEvent represents a database change event sent to Backuptools.
 type TableChangeEvent struct {
 	Operation string `json:"operation"`
 
@@ -18,4 +17,6 @@ type TableChangeEvent struct {
 	Data map[string]interface{} `json:"data,omitempty"`
 
 	OldData map[string]interface{} `json:"old_data,omitempty"`
+
+	TableOptions map[string]string `json:"table_options,omitempty"`
 }

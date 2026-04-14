@@ -11,11 +11,13 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// TableConfig holds configuration for a specific table to replicate.
 type TableConfig struct {
-	Table      string   `yaml:"table" json:"table"`
-	Events     []string `yaml:"events" json:"events"`
-	WebhookURL string   `yaml:"webhook_url" json:"webhook_url"`
+	Table                string            `yaml:"table" json:"table"`
+	Events               []string          `yaml:"events" json:"events"`
+	WebhookURL           string            `yaml:"webhook_url" json:"webhook_url"`
+	ReplicaIdentity      string            `yaml:"replica_identity,omitempty" json:"replica_identity,omitempty"`
+	ReplicaIdentityIndex string            `yaml:"replica_identity_index,omitempty" json:"replica_identity_index,omitempty"`
+	Options              map[string]string `yaml:"options,omitempty" json:"options,omitempty"`
 }
 
 type TableConfigs []TableConfig
@@ -49,7 +51,6 @@ func (tc *TableConfigs) Set(s string) error {
 	return nil
 }
 
-// Config holds configuration for the replication service.
 type Config struct {
 	SourceDB string `help:"PostgreSQL connection string for replication (optional, uses main database if not set)"`
 
@@ -71,13 +72,25 @@ type Config struct {
 
 	WebhookTimeout time.Duration `help:"timeout for webhook HTTP requests" default:"30s"`
 
-	WorkerPoolSize int `help:"number of worker goroutines for processing webhooks" default:"10"`
+	WorkerPoolSize int `help:"max concurrent workers sending webhook batches" default:"50"`
 
-	EventChannelBuffer int `help:"buffer size for event channel (backpressure control)" default:"1000"`
+	EventChannelBuffer int `help:"buffer size for event channel (backpressure control)" default:"500"`
+
+	WebhookBatchSize int `help:"max events per webhook HTTP request (batching reduces requests under load)" default:"300"`
+
+	WebhookBatchFlushInterval time.Duration `help:"max time to wait before sending a partial batch" default:"10ms"`
+
+	DefaultReplicaIdentity string `help:"replica identity for replica-identity-tables: default|full|nothing" default:"full"`
+
+	ReplicaIdentityTables []string `help:"tables for startup REPLICA IDENTITY DDL (e.g. objects or schema.table)"`
+
+	ReplicaIdentityFullTables []string `help:"deprecated: use replica-identity-tables"`
 }
 
-// Validate validates the configuration.
 func (c *Config) Validate() error {
+	c.normalizeReplicaIdentityDefaults()
+	c.normalizeWebhookPerformanceDefaults()
+
 	if c.SlotName == "" {
 		return ErrInvalidConfig.New("SlotName is required")
 	}
@@ -138,10 +151,52 @@ func (c *Config) Validate() error {
 	if c.EventChannelBuffer < 1 {
 		return ErrInvalidConfig.New("EventChannelBuffer must be at least 1")
 	}
+	if c.WebhookBatchSize > 10000 {
+		return ErrInvalidConfig.New("WebhookBatchSize must be at most 10000")
+	}
+
+	if _, err := collectReplicaIdentityAlters(c); err != nil {
+		return ErrInvalidConfig.Wrap(err)
+	}
+
 	return nil
 }
 
-// GetTableNames returns a list of all table names configured for replication.
+func (c *Config) normalizeReplicaIdentityDefaults() {
+	if strings.TrimSpace(c.DefaultReplicaIdentity) == "" {
+		c.DefaultReplicaIdentity = "full"
+	}
+}
+
+func (c *Config) normalizeWebhookPerformanceDefaults() {
+	if c.WebhookBatchSize < 1 {
+		c.WebhookBatchSize = 300
+	}
+	if c.WebhookBatchFlushInterval <= 0 {
+		c.WebhookBatchFlushInterval = 10 * time.Millisecond
+	}
+}
+
+func (c *Config) LookupTableConfigForReplica(qualifiedOrShort string) *TableConfig {
+	if tc := c.GetTableConfig(qualifiedOrShort); tc != nil {
+		return tc
+	}
+	base := baseTableName(qualifiedOrShort)
+	if base != qualifiedOrShort {
+		return c.GetTableConfig(base)
+	}
+	return nil
+}
+
+func baseTableName(qualified string) string {
+	qualified = strings.TrimSpace(qualified)
+	i := strings.LastIndex(qualified, ".")
+	if i < 0 || i == len(qualified)-1 {
+		return qualified
+	}
+	return qualified[i+1:]
+}
+
 func (c *Config) GetTableNames() []string {
 	if len(c.Tables) == 0 {
 		return nil
@@ -153,7 +208,6 @@ func (c *Config) GetTableNames() []string {
 	return names
 }
 
-// GetTableConfig returns the configuration for a specific table, or nil if not found.
 func (c *Config) GetTableConfig(tableName string) *TableConfig {
 	for i := range c.Tables {
 		if c.Tables[i].Table == tableName {
@@ -163,7 +217,6 @@ func (c *Config) GetTableConfig(tableName string) *TableConfig {
 	return nil
 }
 
-// ShouldReplicateEvent checks if an event should be replicated for a given table.
 func (c *Config) ShouldReplicateEvent(tableName, operation string) bool {
 	tableConfig := c.GetTableConfig(tableName)
 	if tableConfig == nil {
@@ -184,7 +237,6 @@ func (c *Config) ShouldReplicateEvent(tableName, operation string) bool {
 	return false
 }
 
-// GetWebhookURL returns the webhook URL for a specific table.
 func (c *Config) GetWebhookURL(tableName string) string {
 	tableConfig := c.GetTableConfig(tableName)
 	if tableConfig != nil && tableConfig.WebhookURL != "" {
