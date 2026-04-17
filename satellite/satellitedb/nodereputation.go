@@ -31,7 +31,7 @@ func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeR
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := nr.db.QueryContext(ctx, `SELECT n.id, n.wallet, n.disqualified, n.exit_initiated_at, n.exit_finished_at,
-										n.exit_success, n.under_review, n.inactive, r.audit_reputation_alpha, r.disqualified,
+										n.exit_success, n.under_review, n.inactive, r.audit_reputation_alpha,
 										n.piece_count, n.last_contact_success
                                     FROM reputations r
                                     INNER JOIN nodes n on n.id = r.id;`)
@@ -45,7 +45,7 @@ func (nr *nodeReputation) GetAll(ctx context.Context) (reputations []audit.NodeR
 		err = rows.Scan(&reputation.NodeID, &reputation.Wallet, &reputation.Disqualified,
 			&reputation.ExitInitiatedAt, &reputation.ExitFinishedAt, &reputation.ExitSuccess,
 			&reputation.UnderReview, &reputation.Inactive, &reputation.AuditReputationAlpha,
-			&reputation.Disqualified, &reputation.PieceCount, &reputation.LastContactSuccess)
+			&reputation.PieceCount, &reputation.LastContactSuccess)
 		if err != nil {
 			return nil, err
 		}
