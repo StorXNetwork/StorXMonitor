@@ -180,7 +180,7 @@ func (worker *ReputationPushWorker) calculateReputationValue(ctx context.Context
 	// Nodes that stopped contacting for over 30 days should be pushed with a minimum score.
 	if worker.isNodeOlderThan30Days(reputation) {
 		worker.log.Info("node last contact older than 30 days, forcing reputation to 5", zap.String("wallet", reputation.Wallet))
-		return 5
+		// return 5 //for now, we are not forcing the reputation to 5 (we are keeping the default reputation)
 	}
 
 	return reputationVal
