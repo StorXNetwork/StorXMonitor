@@ -177,6 +177,12 @@ func (worker *ReputationPushWorker) calculateReputationValue(ctx context.Context
 		worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", "node is inactive because: "+string(reputationJson))
 	}
 
+	// Nodes that stopped contacting for over 30 days should be pushed with a minimum score.
+	if worker.isNodeOlderThan30Days(reputation) {
+		worker.log.Info("node last contact older than 30 days, forcing reputation to 5", zap.String("wallet", reputation.Wallet))
+		return 5
+	}
+
 	return reputationVal
 }
 
@@ -192,7 +198,12 @@ func (worker *ReputationPushWorker) isNodeDisqualified(reputation NodeReputation
 // isNodeInactive checks if a node is considered inactive.
 func (worker *ReputationPushWorker) isNodeInactive(reputation NodeReputationEntry) bool {
 	return reputation.LastContactSuccess == nil ||
-		reputation.PieceCount == 0 ||
+		reputation.PieceCount == 0
+}
+
+// isNodeOlderThan30Days checks if last successful contact is older than 30 days.
+func (worker *ReputationPushWorker) isNodeOlderThan30Days(reputation NodeReputationEntry) bool {
+	return reputation.LastContactSuccess != nil &&
 		reputation.LastContactSuccess.Before(time.Now().Add(-time.Hour*24*30))
 }
 
