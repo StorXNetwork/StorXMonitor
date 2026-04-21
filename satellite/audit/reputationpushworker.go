@@ -139,22 +139,14 @@ func (worker *ReputationPushWorker) aggregateReputationsByWallet(reputations []N
 		}
 		key := strings.ToLower(rep.Wallet)
 
-		existing, exists := walletMap[key]
+		_, exists := walletMap[key]
 		if !exists {
 			walletMap[key] = rep
 			continue
 		}
 
-		existingDQ := worker.isNodeDisqualified(existing)
 		currentDQ := worker.isNodeDisqualified(rep)
-		if existingDQ != currentDQ {
-			if !currentDQ {
-				walletMap[key] = rep
-			}
-			continue
-		}
-
-		if rep.UpdatedAt.After(existing.UpdatedAt) {
+		if !currentDQ {
 			walletMap[key] = rep
 		}
 	}
