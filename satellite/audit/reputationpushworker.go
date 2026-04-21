@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/StorXNetwork/common/storxnetwork"
@@ -35,6 +37,7 @@ type NodeReputationEntry struct {
 	AuditReputationAlpha float64
 	PieceCount           int64
 	Inactive             bool
+	UpdatedAt            time.Time
 }
 
 // ReputationPushWorker fetch reputation from node database and push that in smart contract.
@@ -100,6 +103,8 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 
 	mon.IntVal("reputation_push_worker_total_nodes").Observe(int64(len(reputations))) //mon:locked
 	mon.Counter("reputation_push_worker_get_all_successes").Inc(1)                    //mon:locked
+	reputations = worker.aggregateReputationsByWallet(reputations)
+	mon.IntVal("reputation_push_worker_unique_wallets").Observe(int64(len(reputations))) //mon:locked
 
 	var smartContractErr errs.Group
 	for _, reputation := range reputations {
@@ -123,6 +128,40 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 	}
 
 	return smartContractErr.Err()
+}
+
+// aggregateReputationsByWallet chooses one row per wallet.
+func (worker *ReputationPushWorker) aggregateReputationsByWallet(reputations []NodeReputationEntry) []NodeReputationEntry {
+	walletMap := make(map[string]NodeReputationEntry, len(reputations))
+	for _, rep := range reputations {
+		if rep.Wallet == "" {
+			continue
+		}
+		key := strings.ToLower(rep.Wallet)
+
+		_, exists := walletMap[key]
+		if !exists {
+			walletMap[key] = rep
+			continue
+		}
+
+		currentDQ := worker.isNodeDisqualified(rep)
+		if !currentDQ {
+			walletMap[key] = rep
+		}
+	}
+
+	wallets := make([]string, 0, len(walletMap))
+	for wallet := range walletMap {
+		wallets = append(wallets, wallet)
+	}
+	sort.Strings(wallets)
+
+	result := make([]NodeReputationEntry, 0, len(wallets))
+	for _, wallet := range wallets {
+		result = append(result, walletMap[wallet])
+	}
+	return result
 }
 
 // processReputation processes a single reputation entry and pushes it to the smart contract.
