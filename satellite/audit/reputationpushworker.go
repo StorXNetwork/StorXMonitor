@@ -217,9 +217,9 @@ func (worker *ReputationPushWorker) calculateReputationValue(ctx context.Context
 	}
 
 	// Nodes that stopped contacting for over 30 days should be pushed with a minimum score.
-	if worker.isNodeOlderThan30Days(reputation) {
-		worker.log.Info("node last contact older than 30 days, forcing reputation to 5", zap.String("wallet", reputation.Wallet))
-		// return 5 //for now, we are not forcing the reputation to 5 (we are keeping the default reputation)
+	if worker.isNodeOlderThan24Hours(reputation) {
+		worker.log.Info("node last contact older than 24 hours, forcing reputation to 5", zap.String("wallet", reputation.Wallet))
+		return 5
 	}
 
 	return reputationVal
@@ -241,9 +241,9 @@ func (worker *ReputationPushWorker) isNodeInactive(reputation NodeReputationEntr
 }
 
 // isNodeOlderThan30Days checks if last successful contact is older than 30 days.
-func (worker *ReputationPushWorker) isNodeOlderThan30Days(reputation NodeReputationEntry) bool {
+func (worker *ReputationPushWorker) isNodeOlderThan24Hours(reputation NodeReputationEntry) bool {
 	return reputation.LastContactSuccess != nil &&
-		reputation.LastContactSuccess.Before(time.Now().Add(-time.Hour*24*30))
+		reputation.LastContactSuccess.Before(time.Now().Add(-time.Hour*24))
 }
 
 // handleInactiveNode handles inactive nodes by checking if they're stakers, adding them if needed, and activating them.
