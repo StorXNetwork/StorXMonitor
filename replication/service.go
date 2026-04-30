@@ -6,6 +6,8 @@ package replication
 import (
 	"context"
 	"fmt"
+	"maps"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +21,12 @@ import (
 
 var mon = monkit.Package()
 
-// Service implements PostgreSQL logical replication to send database changes to Backuptools.
+type batchBucket struct {
+	sender    *WebhookSender
+	events    []TableChangeEvent
+	firstTime time.Time
+}
+
 type Service struct {
 	config           Config
 	log              *zap.Logger
@@ -29,14 +36,16 @@ type Service struct {
 	defaultSender    *WebhookSender
 	relationCache    map[uint32]*pglogrepl.RelationMessage
 	replicatedTables map[string]bool
+	tableOptions     map[string]map[string]string
 
 	eventChan      chan TableChangeEvent
+	sendSem        chan struct{}
+	ingressWg      sync.WaitGroup
 	workerWg       sync.WaitGroup
 	shutdownCtx    context.Context
 	shutdownCancel context.CancelFunc
 }
 
-// NewService creates a new replication service.
 func NewService(log *zap.Logger, config Config) (*Service, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
@@ -121,19 +130,23 @@ func NewService(log *zap.Logger, config Config) (*Service, error) {
 	}
 
 	replicatedTables := make(map[string]bool)
+	tableOptions := make(map[string]map[string]string)
 	for _, tableConfig := range config.Tables {
 		replicatedTables[tableConfig.Table] = true
+		if len(tableConfig.Options) > 0 {
+			tableOptions[tableConfig.Table] = maps.Clone(tableConfig.Options)
+		}
 	}
 
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 
 	workerPoolSize := config.WorkerPoolSize
 	if workerPoolSize < 1 {
-		workerPoolSize = 10
+		workerPoolSize = 50
 	}
 	channelBuffer := config.EventChannelBuffer
 	if channelBuffer < 1 {
-		channelBuffer = 1000
+		channelBuffer = 500
 	}
 
 	service := &Service{
@@ -145,20 +158,19 @@ func NewService(log *zap.Logger, config Config) (*Service, error) {
 		defaultSender:    defaultSender,
 		relationCache:    make(map[uint32]*pglogrepl.RelationMessage),
 		replicatedTables: replicatedTables,
+		tableOptions:     tableOptions,
 		eventChan:        make(chan TableChangeEvent, channelBuffer),
+		sendSem:          make(chan struct{}, workerPoolSize),
 		shutdownCtx:      shutdownCtx,
 		shutdownCancel:   shutdownCancel,
 	}
 
-	for i := 0; i < workerPoolSize; i++ {
-		service.workerWg.Add(1)
-		go service.webhookWorker(i)
-	}
+	service.ingressWg.Add(1)
+	go service.runBatchIngress()
 
 	return service, nil
 }
 
-// Run starts the replication service and processes WAL changes.
 func (s *Service) Run(ctx context.Context) error {
 	defer mon.Task()(&ctx)(nil)
 
@@ -175,6 +187,10 @@ func (s *Service) Run(ctx context.Context) error {
 
 	err = s.createPublication(ctx)
 	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err := s.ensureReplicaIdentity(ctx); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -270,7 +286,6 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 }
 
-// handleMessage handles a logical replication message.
 func (s *Service) handleMessage(ctx context.Context, msg pglogrepl.Message) error {
 	switch msg := msg.(type) {
 	case *pglogrepl.RelationMessage:
@@ -297,22 +312,18 @@ func (s *Service) handleMessage(ctx context.Context, msg pglogrepl.Message) erro
 	}
 }
 
-// handleInsert handles an INSERT message.
 func (s *Service) handleInsert(ctx context.Context, msg *pglogrepl.InsertMessage) error {
 	return s.handleChange(ctx, msg.RelationID, "INSERT", msg.Tuple, nil)
 }
 
-// handleUpdate handles an UPDATE message.
 func (s *Service) handleUpdate(ctx context.Context, msg *pglogrepl.UpdateMessage) error {
 	return s.handleChange(ctx, msg.RelationID, "UPDATE", msg.NewTuple, msg.OldTuple)
 }
 
-// handleDelete handles a DELETE message.
 func (s *Service) handleDelete(ctx context.Context, msg *pglogrepl.DeleteMessage) error {
 	return s.handleChange(ctx, msg.RelationID, "DELETE", nil, msg.OldTuple)
 }
 
-// handleChange processes a database change and sends webhook.
 func (s *Service) handleChange(ctx context.Context, relationID uint32, operation string, newTuple, oldTuple *pglogrepl.TupleData) error {
 	rel, ok := s.relationCache[relationID]
 	if !ok {
@@ -346,12 +357,21 @@ func (s *Service) handleChange(ctx context.Context, relationID uint32, operation
 		}
 	}
 
+	if operation == "DELETE" && tableOptionSkipPendingCleanup(s.tableOptions[tableName]) {
+		if shouldSkipPendingCleanupDelete(rel, oldTuple, oldData) {
+			return nil
+		}
+	}
+
 	event := TableChangeEvent{
 		Operation: operation,
 		Table:     tableName,
 		Timestamp: time.Now(),
 		Data:      data,
 		OldData:   oldData,
+	}
+	if opts := s.tableOptions[tableName]; len(opts) > 0 {
+		event.TableOptions = opts
 	}
 
 	select {
@@ -361,16 +381,9 @@ func (s *Service) handleChange(ctx context.Context, relationID uint32, operation
 		return ctx.Err()
 	case <-s.shutdownCtx.Done():
 		return s.shutdownCtx.Err()
-	default:
-		s.log.Warn("event channel full, dropping event",
-			zap.String("table", tableName),
-			zap.String("operation", operation),
-		)
-		return Error.New("event channel full, backpressure")
 	}
 }
 
-// getWebhookSender returns the webhook sender for a specific table.
 func (s *Service) getWebhookSender(tableName string) *WebhookSender {
 	if sender, ok := s.webhookSenders[tableName]; ok {
 		return sender
@@ -378,7 +391,6 @@ func (s *Service) getWebhookSender(tableName string) *WebhookSender {
 	return s.defaultSender
 }
 
-// isTableReplicated checks if a table is in the replication list.
 func (s *Service) isTableReplicated(tableName string) bool {
 	if len(s.replicatedTables) == 0 {
 		return true
@@ -386,7 +398,22 @@ func (s *Service) isTableReplicated(tableName string) bool {
 	return s.replicatedTables[tableName]
 }
 
-// createReplicationSlot creates a replication slot if it doesn't exist.
+func (s *Service) setAdminSearchPathFromDSN(ctx context.Context, purpose string) {
+	schema := extractSchemaFromConnectionString(s.config.SourceDB)
+	if schema == "" {
+		return
+	}
+	_, err := s.adminConn.Exec(ctx, fmt.Sprintf("SET search_path TO \"%s\"", schema))
+	if err != nil {
+		s.log.Warn("failed to set search_path",
+			zap.String("for", purpose),
+			zap.String("schema", schema),
+			zap.Error(err))
+		return
+	}
+	s.log.Debug("set search_path", zap.String("for", purpose), zap.String("schema", schema))
+}
+
 func (s *Service) createReplicationSlot(ctx context.Context) (bool, error) {
 	var exists bool
 	err := s.adminConn.QueryRow(ctx,
@@ -410,7 +437,6 @@ func (s *Service) createReplicationSlot(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// createPublication creates a publication if it doesn't exist.
 func (s *Service) createPublication(ctx context.Context) error {
 	var exists bool
 	err := s.adminConn.QueryRow(ctx,
@@ -425,15 +451,8 @@ func (s *Service) createPublication(ctx context.Context) error {
 		return nil
 	}
 
+	s.setAdminSearchPathFromDSN(ctx, "publication")
 	schema := extractSchemaFromConnectionString(s.config.SourceDB)
-	if schema != "" {
-		_, err = s.adminConn.Exec(ctx, fmt.Sprintf("SET search_path TO \"%s\"", schema))
-		if err != nil {
-			s.log.Warn("failed to set search_path, proceeding without explicit schema", zap.Error(err))
-		} else {
-			s.log.Debug("set search_path for publication creation", zap.String("schema", schema))
-		}
-	}
 
 	tableNames := s.config.GetTableNames()
 	if len(tableNames) == 0 {
@@ -472,7 +491,29 @@ func (s *Service) createPublication(ctx context.Context) error {
 	return nil
 }
 
-// getCurrentLSN gets the current LSN position.
+func (s *Service) ensureReplicaIdentity(ctx context.Context) error {
+	alters, err := collectReplicaIdentityAlters(&s.config)
+	if err != nil {
+		return err
+	}
+	if len(alters) == 0 {
+		return nil
+	}
+
+	s.setAdminSearchPathFromDSN(ctx, "replica_identity")
+
+	for _, a := range alters {
+		if _, err := s.adminConn.Exec(ctx, a.SQL); err != nil {
+			return Error.Wrap(err)
+		}
+		s.log.Info("replication: replica identity DDL applied",
+			zap.String("table", a.Table),
+			zap.String("mode", a.Mode),
+		)
+	}
+	return nil
+}
+
 func (s *Service) getCurrentLSN(ctx context.Context) (pglogrepl.LSN, error) {
 	var lsnStr string
 	err := s.adminConn.QueryRow(ctx, "SELECT pg_current_wal_lsn()").Scan(&lsnStr)
@@ -488,50 +529,140 @@ func (s *Service) getCurrentLSN(ctx context.Context) (pglogrepl.LSN, error) {
 	return lsn, nil
 }
 
-// webhookWorker processes events from the event channel and sends webhooks.
-func (s *Service) webhookWorker(workerID int) {
-	defer s.workerWg.Done()
+func (s *Service) runBatchIngress() {
+	defer s.ingressWg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("panic in batch ingress",
+				zap.Any("panic", r),
+				zap.ByteString("stack", debug.Stack()),
+			)
+		}
+	}()
+
+	batchSize := s.config.WebhookBatchSize
+	flushInterval := s.config.WebhookBatchFlushInterval
+	buckets := make(map[string]*batchBucket)
+
+	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case event, ok := <-s.eventChan:
+		case ev, ok := <-s.eventChan:
 			if !ok {
+				s.flushAllWebhookBuckets(buckets)
 				return
 			}
+			s.addEventToWebhookBuckets(buckets, ev, batchSize)
 
-			sender := s.getWebhookSender(event.Table)
-			if sender == nil {
-				s.log.Warn("no webhook sender configured for table",
-					zap.String("table", event.Table),
-					zap.Int("worker_id", workerID),
-				)
-				continue
-			}
-
-			ctx, cancel := context.WithTimeout(s.shutdownCtx, s.config.WebhookTimeout)
-			err := sender.SendEvent(ctx, event)
-			cancel()
-
-			if err != nil {
-				s.log.Error("failed to send webhook",
-					zap.String("table", event.Table),
-					zap.String("operation", event.Operation),
-					zap.Int("worker_id", workerID),
-					zap.Error(err),
-				)
-			}
-
-		case <-s.shutdownCtx.Done():
-			return
+		case <-ticker.C:
+			s.flushExpiredWebhookBuckets(buckets, flushInterval)
 		}
 	}
 }
 
-// Close closes the replication service and cleans up resources.
+func (s *Service) addEventToWebhookBuckets(buckets map[string]*batchBucket, ev TableChangeEvent, batchSize int) {
+	sender := s.getWebhookSender(ev.Table)
+	if sender == nil {
+		s.log.Warn("no webhook sender configured for table", zap.String("table", ev.Table))
+		return
+	}
+
+	key := sender.url
+	b := buckets[key]
+	if b == nil {
+		b = &batchBucket{
+			sender: sender,
+			events: make([]TableChangeEvent, 0, batchSize),
+		}
+		buckets[key] = b
+	}
+	if len(b.events) == 0 {
+		b.firstTime = time.Now()
+	}
+	b.events = append(b.events, ev)
+	if len(b.events) >= batchSize {
+		s.emitWebhookBatch(b)
+		delete(buckets, key)
+	}
+}
+
+func (s *Service) emitWebhookBatch(b *batchBucket) {
+	if len(b.events) == 0 {
+		return
+	}
+	events := make([]TableChangeEvent, len(b.events))
+	copy(events, b.events)
+	s.workerWg.Add(1)
+	go s.sendWebhookBatch(b.sender, events)
+}
+
+func (s *Service) flushExpiredWebhookBuckets(buckets map[string]*batchBucket, flushInterval time.Duration) {
+	now := time.Now()
+	for key, b := range buckets {
+		if b == nil || len(b.events) == 0 {
+			continue
+		}
+		if now.Sub(b.firstTime) >= flushInterval {
+			s.emitWebhookBatch(b)
+			delete(buckets, key)
+		}
+	}
+}
+
+func (s *Service) flushAllWebhookBuckets(buckets map[string]*batchBucket) {
+	for key, b := range buckets {
+		if b == nil || len(b.events) == 0 {
+			delete(buckets, key)
+			continue
+		}
+		s.emitWebhookBatch(b)
+		delete(buckets, key)
+	}
+}
+
+func (s *Service) sendWebhookBatch(sender *WebhookSender, events []TableChangeEvent) {
+	defer s.workerWg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("panic in webhook batch sender",
+				zap.Any("panic", r),
+				zap.ByteString("stack", debug.Stack()),
+			)
+		}
+	}()
+	s.sendSem <- struct{}{}
+	defer func() { <-s.sendSem }()
+
+	ctx, cancel := context.WithTimeout(s.shutdownCtx, s.config.WebhookTimeout)
+	err := sender.SendEvents(ctx, events)
+	cancel()
+
+	if err != nil {
+		s.log.Error("failed to send webhook batch",
+			zap.Int("batch_size", len(events)),
+			zap.Error(err),
+		)
+	}
+}
+
 func (s *Service) Close() error {
 	s.shutdownCancel()
 
 	close(s.eventChan)
+
+	ingressDone := make(chan struct{})
+	go func() {
+		s.ingressWg.Wait()
+		close(ingressDone)
+	}()
+
+	select {
+	case <-ingressDone:
+	case <-time.After(30 * time.Second):
+		s.log.Warn("timeout waiting for batch ingress to finish")
+	}
 
 	done := make(chan struct{})
 	go func() {
@@ -542,7 +673,7 @@ func (s *Service) Close() error {
 	select {
 	case <-done:
 	case <-time.After(30 * time.Second):
-		s.log.Warn("timeout waiting for workers to finish")
+		s.log.Warn("timeout waiting for webhook senders to finish")
 	}
 
 	var errs []error
@@ -562,7 +693,6 @@ func (s *Service) Close() error {
 	return nil
 }
 
-// extractSchemaFromConnectionString extracts the schema from the connection string's search_path option.
 func extractSchemaFromConnectionString(connStr string) string {
 	if !strings.Contains(connStr, "search_path") {
 		return ""

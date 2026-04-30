@@ -14,7 +14,6 @@ var (
 	postgresEpoch = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 )
 
-// parseTimestamp parses a PostgreSQL TIMESTAMPTZ value from binary data.
 func parseTimestamp(data []byte) *time.Time {
 	if len(data) < 8 {
 		return nil
@@ -24,7 +23,6 @@ func parseTimestamp(data []byte) *time.Time {
 	return &t
 }
 
-// extractTableData extracts table data from a WAL tuple generically.
 func extractTableData(rel *pglogrepl.RelationMessage, tuple *pglogrepl.TupleData) (map[string]interface{}, error) {
 	if rel == nil || tuple == nil {
 		return nil, Error.New("relation or tuple is nil")
@@ -52,7 +50,6 @@ func extractTableData(rel *pglogrepl.RelationMessage, tuple *pglogrepl.TupleData
 	return data, nil
 }
 
-// convertValueByOID converts a PostgreSQL value based on OID and data format.
 func convertValueByOID(oid uint32, dataFormat byte, data []byte) interface{} {
 	if dataFormat == 't' {
 		switch oid {
