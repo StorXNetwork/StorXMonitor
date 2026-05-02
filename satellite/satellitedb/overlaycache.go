@@ -728,6 +728,9 @@ func (cache *overlaycache) GetAllParticipatingNodes(ctx context.Context, onlineW
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	err = cache.addNodeTagsFromFullScan(ctx, nodes)
 	if err != nil {
@@ -939,10 +942,11 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	var node nodeselection.SelectedNode
 	node.Address = &pb.NodeAddress{}
 	var lastIPPort, countryCode sql.NullString
+	var exited bool
 	err := rows.Scan(
 		&node.ID,
 		&node.Address.Address, &node.Email, &node.Wallet, &node.LastNet, &lastIPPort, &countryCode, &node.PieceCount, &node.FreeDisk,
-		&node.Online, &node.Suspended, &node.Exiting, &node.Vetted)
+		&node.Online, &node.Suspended, &node.Exiting, &exited, &node.Vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, err
 	}
@@ -953,6 +957,7 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	if countryCode.Valid {
 		node.CountryCode = location.ToCountryCode(countryCode.String)
 	}
+	_ = exited // SQL column is always false in GetAllParticipatingNodes; scanned for SELECT/Scan alignment
 	return node, nil
 }
 
