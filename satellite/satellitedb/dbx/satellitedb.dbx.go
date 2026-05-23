@@ -17,16 +17,15 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
 	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
-
-	"encoding/base64"
-	"encoding/json"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
 
 	"cloud.google.com/go/spanner"
-	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"encoding/base64"
+	"encoding/json"
 	sqlspanner "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 )
@@ -619,6 +618,20 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE google_backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	google_email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, google_email )
+)`,
+
 		`CREATE TABLE key_versions (
 	key_id bytea NOT NULL,
 	version text NOT NULL,
@@ -1359,6 +1372,8 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -1557,6 +1572,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS nodes`,
 
 		`DROP TABLE IF EXISTS key_versions`,
+
+		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`DROP TABLE IF EXISTS fcm_tokens`,
 
@@ -1961,6 +1978,20 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE google_backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	google_email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, google_email )
+)`,
+
 		`CREATE TABLE key_versions (
 	key_id bytea NOT NULL,
 	version text NOT NULL,
@@ -2701,6 +2732,8 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -2899,6 +2932,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS nodes`,
 
 		`DROP TABLE IF EXISTS key_versions`,
+
+		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`DROP TABLE IF EXISTS fcm_tokens`,
 
@@ -3284,6 +3319,20 @@ func (obj *spannerDB) Schema() []string {
 	last_used_at TIMESTAMP,
 	is_active BOOL NOT NULL DEFAULT (true)
 ) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE google_backup_credentials (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	google_email STRING(MAX) NOT NULL,
+	access_token STRING(MAX) NOT NULL,
+	refresh_token STRING(MAX),
+	access_token_expiry TIMESTAMP,
+	account_type STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email )`,
 
 		`CREATE TABLE key_versions (
 	key_id BYTES(MAX) NOT NULL,
@@ -3999,6 +4048,8 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -4138,6 +4189,8 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS index_registration_tokens_owner_id`,
 
+		`DROP INDEX IF EXISTS index_google_backup_credentials_user_id_google_email`,
+
 		`DROP INDEX IF EXISTS index_configs_config_type_name`,
 
 		`DROP INDEX IF EXISTS accounting_rollups_start_time_index`,
@@ -4181,6 +4234,8 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS fcm_tokens_token_index`,
 
 		`DROP INDEX IF EXISTS fcm_tokens_user_active_index`,
+
+		`DROP INDEX IF EXISTS google_backup_credentials_user_id_index`,
 
 		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
 
@@ -4679,6 +4734,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS key_versions_key_id`,
 
 		`DROP TABLE IF EXISTS key_versions`,
+
+		`ALTER TABLE  google_backup_credentials ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS google_backup_credentials_id`,
+
+		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`ALTER TABLE  fcm_tokens ALTER id SET DEFAULT (null)`,
 
@@ -8778,6 +8839,231 @@ func (f FcmTokens_IsActive_Field) value() any {
 	return f._value
 }
 
+type GoogleBackupCredentials struct {
+	Id                []byte
+	UserId            []byte
+	GoogleEmail       string
+	AccessToken       string
+	RefreshToken      *string
+	AccessTokenExpiry *time.Time
+	AccountType       *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (GoogleBackupCredentials) _Table() string { return "google_backup_credentials" }
+
+type GoogleBackupCredentials_Create_Fields struct {
+	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
+	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
+	AccountType       GoogleBackupCredentials_AccountType_Field
+}
+
+type GoogleBackupCredentials_Update_Fields struct {
+	AccessToken       GoogleBackupCredentials_AccessToken_Field
+	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
+	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
+	AccountType       GoogleBackupCredentials_AccountType_Field
+}
+
+type GoogleBackupCredentials_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GoogleBackupCredentials_Id(v []byte) GoogleBackupCredentials_Id_Field {
+	return GoogleBackupCredentials_Id_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GoogleBackupCredentials_UserId(v []byte) GoogleBackupCredentials_UserId_Field {
+	return GoogleBackupCredentials_UserId_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_GoogleEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func GoogleBackupCredentials_GoogleEmail(v string) GoogleBackupCredentials_GoogleEmail_Field {
+	return GoogleBackupCredentials_GoogleEmail_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_GoogleEmail_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_AccessToken_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func GoogleBackupCredentials_AccessToken(v string) GoogleBackupCredentials_AccessToken_Field {
+	return GoogleBackupCredentials_AccessToken_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_AccessToken_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_RefreshToken_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func GoogleBackupCredentials_RefreshToken(v string) GoogleBackupCredentials_RefreshToken_Field {
+	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _value: &v}
+}
+
+func GoogleBackupCredentials_RefreshToken_Raw(v *string) GoogleBackupCredentials_RefreshToken_Field {
+	if v == nil {
+		return GoogleBackupCredentials_RefreshToken_Null()
+	}
+	return GoogleBackupCredentials_RefreshToken(*v)
+}
+
+func GoogleBackupCredentials_RefreshToken_Null() GoogleBackupCredentials_RefreshToken_Field {
+	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _null: true}
+}
+
+func (f GoogleBackupCredentials_RefreshToken_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GoogleBackupCredentials_RefreshToken_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_AccessTokenExpiry_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func GoogleBackupCredentials_AccessTokenExpiry(v time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
+	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _value: &v}
+}
+
+func GoogleBackupCredentials_AccessTokenExpiry_Raw(v *time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
+	if v == nil {
+		return GoogleBackupCredentials_AccessTokenExpiry_Null()
+	}
+	return GoogleBackupCredentials_AccessTokenExpiry(*v)
+}
+
+func GoogleBackupCredentials_AccessTokenExpiry_Null() GoogleBackupCredentials_AccessTokenExpiry_Field {
+	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _null: true}
+}
+
+func (f GoogleBackupCredentials_AccessTokenExpiry_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GoogleBackupCredentials_AccessTokenExpiry_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_AccountType_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func GoogleBackupCredentials_AccountType(v string) GoogleBackupCredentials_AccountType_Field {
+	return GoogleBackupCredentials_AccountType_Field{_set: true, _value: &v}
+}
+
+func GoogleBackupCredentials_AccountType_Raw(v *string) GoogleBackupCredentials_AccountType_Field {
+	if v == nil {
+		return GoogleBackupCredentials_AccountType_Null()
+	}
+	return GoogleBackupCredentials_AccountType(*v)
+}
+
+func GoogleBackupCredentials_AccountType_Null() GoogleBackupCredentials_AccountType_Field {
+	return GoogleBackupCredentials_AccountType_Field{_set: true, _null: true}
+}
+
+func (f GoogleBackupCredentials_AccountType_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GoogleBackupCredentials_AccountType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func GoogleBackupCredentials_CreatedAt(v time.Time) GoogleBackupCredentials_CreatedAt_Field {
+	return GoogleBackupCredentials_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func GoogleBackupCredentials_UpdatedAt(v time.Time) GoogleBackupCredentials_UpdatedAt_Field {
+	return GoogleBackupCredentials_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type KeyVersion struct {
 	KeyId   []byte
 	Version string
@@ -11369,42 +11655,6 @@ func (f PeerIdentity_UpdatedAt_Field) value() any {
 	return f._value
 }
 
-type Project_StorageUsedPercentage_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Project_StorageUsedPercentage(v float64) Project_StorageUsedPercentage_Field {
-	return Project_StorageUsedPercentage_Field{_set: true, _value: v}
-}
-
-func (f Project_StorageUsedPercentage_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Project_StorageUsedPercentage_Field) _Column() string { return "storage_used_percentage" }
-
-type Project_PathEncryption_Field struct {
-	_set   bool
-	_null  bool
-	_value bool
-}
-
-func Project_PathEncryption(v bool) Project_PathEncryption_Field {
-	return Project_PathEncryption_Field{_set: true, _value: v}
-}
-
-func (f Project_PathEncryption_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
 type Project struct {
 	Id                          []byte
 	PublicId                    []byte
@@ -11438,9 +11688,7 @@ type Project struct {
 	StatusUpdatedAt             *time.Time
 	DefaultPlacement            *int
 	DefaultVersioning           int
-	PrevDaysUntilExpiration     *int
-	StorageUsedPercentage       float64
-	PathEncryption              bool
+	PrevDaysUntilExpiration     int
 }
 
 func (Project) _Table() string { return "projects" }
@@ -11474,9 +11722,6 @@ type Project_Create_Fields struct {
 	DefaultPlacement            Project_DefaultPlacement_Field
 	DefaultVersioning           Project_DefaultVersioning_Field
 	PrevDaysUntilExpiration     Project_PrevDaysUntilExpiration_Field
-	StorageUsedPercentage       Project_StorageUsedPercentage_Field
-	CreatedAt                   Project_CreatedAt_Field
-	PathEncryption              Project_PathEncryption_Field
 }
 
 type Project_Update_Fields struct {
@@ -11508,9 +11753,6 @@ type Project_Update_Fields struct {
 	DefaultPlacement            Project_DefaultPlacement_Field
 	DefaultVersioning           Project_DefaultVersioning_Field
 	PrevDaysUntilExpiration     Project_PrevDaysUntilExpiration_Field
-	StorageUsedPercentage       Project_StorageUsedPercentage_Field
-	CreatedAt                   Project_CreatedAt_Field
-	PathEncryption              Project_PathEncryption_Field
 }
 
 type Project_Id_Field struct {
@@ -20537,12 +20779,6 @@ type Id_Email_FullName_Row struct {
 	FullName string
 }
 
-type Id_PublicId_OwnerId_Row struct {
-	Id       []byte
-	PublicId []byte
-	OwnerId  []byte
-}
-
 type Id_PieceCount_Row struct {
 	Id         []byte
 	PieceCount int64
@@ -20657,10 +20893,6 @@ type Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_Greater
 type PassphraseEnc_PassphraseEncKeyId_Row struct {
 	PassphraseEnc      []byte
 	PassphraseEncKeyId *int
-}
-
-type PaidTier_Row struct {
-	PaidTier bool
 }
 
 type Placement_Row struct {
@@ -22472,6 +22704,45 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
+	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
+	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
+	optional GoogleBackupCredentials_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := google_backup_credentials_id.value()
+	__user_id_val := google_backup_credentials_user_id.value()
+	__google_email_val := google_backup_credentials_google_email.value()
+	__access_token_val := google_backup_credentials_access_token.value()
+	__refresh_token_val := optional.RefreshToken.value()
+	__access_token_expiry_val := optional.AccessTokenExpiry.value()
+	__account_type_val := optional.AccountType.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -28003,6 +28274,31 @@ func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+	google_backup_credentials *GoogleBackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	google_backup_credentials = &GoogleBackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	if err != nil {
+		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+	}
+	return google_backup_credentials, nil
+
+}
+
 func (obj *pgxImpl) Get_Project_PassphraseEnc_Project_PassphraseEncKeyId_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *PassphraseEnc_PassphraseEncKeyId_Row, err error) {
@@ -28762,61 +29058,6 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
-	project_status Project_Status_Field,
-	project_status_updated_at_less Project_StatusUpdatedAt_Field,
-	limit int, offset int64) (
-	rows []*Id_PublicId_OwnerId_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
-
-	var __values []any
-	if !project_status.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, project_status.value())
-	}
-	__values = append(__values, project_status_updated_at_less.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			for __rows.Next() {
-				row := &Id_PublicId_OwnerId_Row{}
-				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, row)
 			}
 			return rows, nil
 		}()
@@ -30259,28 +30500,6 @@ func (obj *pgxImpl) Get_User_Kind_By_Id(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
 		return (*Kind_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxImpl) Get_User_PaidTier_By_Id(ctx context.Context,
-	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
-	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -33622,6 +33841,63 @@ func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Cont
 	return nil
 }
 
+func (obj *pgxImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+	update GoogleBackupCredentials_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.AccessToken._set {
+		__values = append(__values, update.AccessToken.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_token = ?"))
+	}
+
+	if update.RefreshToken._set {
+		__values = append(__values, update.RefreshToken.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("refresh_token = ?"))
+	}
+
+	if update.AccessTokenExpiry._set {
+		__values = append(__values, update.AccessTokenExpiry.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_token_expiry = ?"))
+	}
+
+	if update.AccountType._set {
+		__values = append(__values, update.AccountType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, google_backup_credentials_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -35953,33 +36229,6 @@ func (obj *pgxImpl) Delete_FcmTokens_By_UserId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Delete_Project_By_OwnerId(ctx context.Context,
-	project_owner_id Project_OwnerId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_owner_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *pgxImpl) Delete_PushNotifications_By_Id(ctx context.Context,
 	push_notifications_id PushNotifications_Id_Field) (
 	deleted bool, err error) {
@@ -36052,6 +36301,36 @@ func (obj *pgxImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -36189,70 +36468,6 @@ func (obj *pgxImpl) Delete_ApiKey_By_Id(ctx context.Context,
 	}
 
 	return __count > 0, nil
-
-}
-
-func (obj *pgxImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, api_key_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *pgxImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_created_by ApiKey_CreatedBy_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "api_keys.created_by", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ? AND "), __cond_0}}
-
-	var __values []any
-	__values = append(__values, api_key_project_id.value())
-	if !api_key_created_by.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, api_key_created_by.value())
-	}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
 
 }
 
@@ -37217,6 +37432,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -39159,6 +39384,45 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
+	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
+	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
+	optional GoogleBackupCredentials_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := google_backup_credentials_id.value()
+	__user_id_val := google_backup_credentials_user_id.value()
+	__google_email_val := google_backup_credentials_google_email.value()
+	__access_token_val := google_backup_credentials_access_token.value()
+	__refresh_token_val := optional.RefreshToken.value()
+	__access_token_expiry_val := optional.AccessTokenExpiry.value()
+	__account_type_val := optional.AccountType.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -44690,6 +44954,31 @@ func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Contex
 
 }
 
+func (obj *pgxcockroachImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+	google_backup_credentials *GoogleBackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	google_backup_credentials = &GoogleBackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	if err != nil {
+		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+	}
+	return google_backup_credentials, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_Project_PassphraseEnc_Project_PassphraseEncKeyId_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *PassphraseEnc_PassphraseEncKeyId_Row, err error) {
@@ -45449,61 +45738,6 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
-	project_status Project_Status_Field,
-	project_status_updated_at_less Project_StatusUpdatedAt_Field,
-	limit int, offset int64) (
-	rows []*Id_PublicId_OwnerId_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
-
-	var __values []any
-	if !project_status.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, project_status.value())
-	}
-	__values = append(__values, project_status_updated_at_less.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			for __rows.Next() {
-				row := &Id_PublicId_OwnerId_Row{}
-				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, row)
 			}
 			return rows, nil
 		}()
@@ -46946,28 +47180,6 @@ func (obj *pgxcockroachImpl) Get_User_Kind_By_Id(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
 		return (*Kind_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_User_PaidTier_By_Id(ctx context.Context,
-	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
-	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -50309,6 +50521,63 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx con
 	return nil
 }
 
+func (obj *pgxcockroachImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+	update GoogleBackupCredentials_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.AccessToken._set {
+		__values = append(__values, update.AccessToken.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_token = ?"))
+	}
+
+	if update.RefreshToken._set {
+		__values = append(__values, update.RefreshToken.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("refresh_token = ?"))
+	}
+
+	if update.AccessTokenExpiry._set {
+		__values = append(__values, update.AccessTokenExpiry.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_token_expiry = ?"))
+	}
+
+	if update.AccountType._set {
+		__values = append(__values, update.AccountType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, google_backup_credentials_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -52640,33 +52909,6 @@ func (obj *pgxcockroachImpl) Delete_FcmTokens_By_UserId(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Delete_Project_By_OwnerId(ctx context.Context,
-	project_owner_id Project_OwnerId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_owner_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_PushNotifications_By_Id(ctx context.Context,
 	push_notifications_id PushNotifications_Id_Field) (
 	deleted bool, err error) {
@@ -52739,6 +52981,36 @@ func (obj *pgxcockroachImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -52846,70 +53118,6 @@ func (obj *pgxcockroachImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx
 	}
 
 	return __count > 0, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
-
-	var __values []any
-	__values = append(__values, api_key_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_created_by ApiKey_CreatedBy_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "api_keys.created_by", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ? AND "), __cond_0}}
-
-	var __values []any
-	__values = append(__values, api_key_project_id.value())
-	if !api_key_created_by.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, api_key_created_by.value())
-	}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
 
 }
 
@@ -53904,6 +54112,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -56060,6 +56278,45 @@ func (obj *spannerImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
+	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
+	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
+	optional GoogleBackupCredentials_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := google_backup_credentials_id.value()
+	__user_id_val := google_backup_credentials_user_id.value()
+	__google_email_val := google_backup_credentials_google_email.value()
+	__access_token_val := google_backup_credentials_access_token.value()
+	__refresh_token_val := optional.RefreshToken.value()
+	__access_token_expiry_val := optional.AccessTokenExpiry.value()
+	__account_type_val := optional.AccountType.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -61801,6 +62058,31 @@ func (obj *spannerImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+	google_backup_credentials *GoogleBackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	google_backup_credentials = &GoogleBackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	if err != nil {
+		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+	}
+	return google_backup_credentials, nil
+
+}
+
 func (obj *spannerImpl) Get_Project_PassphraseEnc_Project_PassphraseEncKeyId_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *PassphraseEnc_PassphraseEncKeyId_Row, err error) {
@@ -62560,61 +62842,6 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *spannerImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
-	project_status Project_Status_Field,
-	project_status_updated_at_less Project_StatusUpdatedAt_Field,
-	limit int, offset int64) (
-	rows []*Id_PublicId_OwnerId_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
-
-	var __values []any
-	if !project_status.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, project_status.value())
-	}
-	__values = append(__values, project_status_updated_at_less.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			for __rows.Next() {
-				row := &Id_PublicId_OwnerId_Row{}
-				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, row)
 			}
 			return rows, nil
 		}()
@@ -64060,31 +64287,6 @@ func (obj *spannerImpl) Get_User_Kind_By_Id(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
 		return (*Kind_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *spannerImpl) Get_User_PaidTier_By_Id(ctx context.Context,
-	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
-
-	var __values []any
-	__values = append(__values, user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
-	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -67217,6 +67419,60 @@ func (obj *spannerImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.
 	return nil
 }
 
+func (obj *spannerImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+	update GoogleBackupCredentials_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.AccessToken._set {
+		__values = append(__values, update.AccessToken.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_token = ?"))
+	}
+	if update.RefreshToken._set {
+		__values = append(__values, update.RefreshToken.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("refresh_token = ?"))
+	}
+	if update.AccessTokenExpiry._set {
+		__values = append(__values, update.AccessTokenExpiry.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_token_expiry = ?"))
+	}
+	if update.AccountType._set {
+		__values = append(__values, update.AccountType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, google_backup_credentials_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -69480,33 +69736,33 @@ func (obj *spannerImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Delete_Project_By_OwnerId(ctx context.Context,
-	project_owner_id Project_OwnerId_Field) (
-	count int64, err error) {
+func (obj *spannerImpl) Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+	deleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
 
 	var __values []any
-	__values = append(__values, project_owner_id.value())
+	__values = append(__values, google_backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return 0, obj.makeErr(err)
+		return false, obj.makeErr(err)
 	}
 
-	count, err = __res.RowsAffected()
+	__count, err := __res.RowsAffected()
 	if err != nil {
-		return 0, obj.makeErr(err)
+		return false, obj.makeErr(err)
 	}
 
-	return count, nil
+	return __count > 0, nil
 
 }
 
@@ -69599,73 +69855,6 @@ func (obj *spannerImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 	}
 
 	return __count > 0, nil
-
-}
-
-func (obj *spannerImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
-
-	var __values []any
-	__values = append(__values, api_key_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *spannerImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_created_by ApiKey_CreatedBy_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "api_keys.created_by", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ? AND "), __cond_0}}
-
-	var __values []any
-	__values = append(__values, api_key_project_id.value())
-	if !api_key_created_by.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, api_key_created_by.value())
-	}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
 
 }
 
@@ -70665,6 +70854,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM fcm_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -71188,6 +71387,14 @@ type Methods interface {
 		billing_balance_balance BillingBalance_Balance_Field) (
 		err error)
 
+	CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
+		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
+		google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
+		google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
+		optional GoogleBackupCredentials_Create_Fields) (
+		err error)
+
 	CreateNoReturn_KeyVersion(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field,
 		key_version_version KeyVersion_Version_Field) (
@@ -71622,17 +71829,8 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
-	Delete_ApiKey_By_ProjectId(ctx context.Context,
-		api_key_project_id ApiKey_ProjectId_Field) (
-		count int64, err error)
-
 	Delete_BucketMetainfo_By_ProjectId(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
-		count int64, err error)
-
-	Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
-		api_key_project_id ApiKey_ProjectId_Field,
-		api_key_created_by ApiKey_CreatedBy_Field) (
 		count int64, err error)
 
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -71697,6 +71895,10 @@ type Methods interface {
 		fcm_tokens_user_id FcmTokens_UserId_Field) (
 		count int64, err error)
 
+	Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
+		google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+		deleted bool, err error)
+
 	Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 		node_event_created_at_less NodeEvent_CreatedAt_Field) (
 		count int64, err error)
@@ -71722,10 +71924,6 @@ type Methods interface {
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		deleted bool, err error)
-
-	Delete_Project_By_OwnerId(ctx context.Context,
-		project_owner_id Project_OwnerId_Field) (
-		count int64, err error)
 
 	Delete_PushNotifications_By_Id(ctx context.Context,
 		push_notifications_id PushNotifications_Id_Field) (
@@ -71980,6 +72178,10 @@ type Methods interface {
 		fcm_tokens_token FcmTokens_Token_Field) (
 		fcm_tokens *FcmTokens, err error)
 
+	Get_GoogleBackupCredentials_By_Id(ctx context.Context,
+		google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+		google_backup_credentials *GoogleBackupCredentials, err error)
+
 	Get_KeyVersion_Version_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field) (
 		row *Version_Row, err error)
@@ -72233,10 +72435,6 @@ type Methods interface {
 		user_id User_Id_Field) (
 		row *Kind_Row, err error)
 
-	Get_User_PaidTier_By_Id(ctx context.Context,
-		user_id User_Id_Field) (
-		row *PaidTier_Row, err error)
-
 	Get_User_ProjectLimit_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		row *ProjectLimit_Row, err error)
@@ -72316,12 +72514,6 @@ type Methods interface {
 		push_notifications_user_id PushNotifications_UserId_Field,
 		limit int, offset int64) (
 		rows []*PushNotifications, err error)
-
-	Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
-		project_status Project_Status_Field,
-		project_status_updated_at_less Project_StatusUpdatedAt_Field,
-		limit int, offset int64) (
-		rows []*Id_PublicId_OwnerId_Row, err error)
 
 	Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
 		storagenode_payment_node_id StoragenodePayment_NodeId_Field,
@@ -72473,6 +72665,11 @@ type Methods interface {
 		billing_transaction_id BillingTransaction_Id_Field,
 		billing_transaction_status BillingTransaction_Status_Field,
 		update BillingTransaction_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Context,
+		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+		update GoogleBackupCredentials_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,

@@ -4956,6 +4956,26 @@ true, NOW(), NOW());`,
 					`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add google_backup_credentials table",
+				Version:     373,
+				Action: migrate.SQL{
+					`CREATE TABLE google_backup_credentials (
+						id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						google_email text NOT NULL,
+						access_token text NOT NULL,
+						refresh_token text,
+						access_token_expiry timestamp with time zone,
+						account_type text,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					)`,
+					`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
