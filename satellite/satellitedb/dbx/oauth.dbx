@@ -126,3 +126,50 @@ update oauth_token (
 	where oauth_token.kind = ?
 	noreturn
 )
+
+// google_backup_credentials stores Google OAuth tokens for backup and domain-users classification.
+model google_backup_credentials (
+	key id
+
+	unique user_id google_email
+
+	index (
+		name google_backup_credentials_user_id_index
+		fields user_id
+	)
+
+	// id is a UUID for this credential row.
+	field id                  blob
+	// user_id refers to user.id.
+	field user_id             user.id restrict
+	// google_email is the Google account email used for OAuth.
+	field google_email        text
+	// access_token is the Google OAuth access token.
+	field access_token        text       ( updatable )
+	// refresh_token is the Google OAuth refresh token for offline access.
+	field refresh_token       text       ( nullable, updatable )
+	// access_token_expiry is when the access token expires.
+	field access_token_expiry timestamp ( nullable, updatable )
+	// account_type is the workspace classification (personal, employee_workspace, admin_workspace).
+	field account_type        text       ( nullable, updatable )
+	// created_at indicates when the row was created.
+	field created_at          timestamp  ( autoinsert )
+	// updated_at indicates when the row was last updated.
+	field updated_at          timestamp  ( autoinsert, autoupdate )
+)
+
+create google_backup_credentials ( )
+
+update google_backup_credentials (
+	where google_backup_credentials.id = ?
+)
+
+read one (
+	select google_backup_credentials
+	where google_backup_credentials.id = ?
+)
+
+read all (
+	select google_backup_credentials
+	where google_backup_credentials.user_id = ?
+)
