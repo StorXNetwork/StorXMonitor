@@ -400,12 +400,14 @@ CREATE TABLE projects (
 	salt BYTES(MAX),
 	passphrase_enc BYTES(MAX),
 	passphrase_enc_key_id INT64,
+	path_encryption BOOL NOT NULL DEFAULT (true),
+	storage_used_percentage FLOAT64 NOT NULL DEFAULT (0),
 	created_at TIMESTAMP NOT NULL,
 	status INT64,
 	status_updated_at TIMESTAMP,
 	default_placement INT64,
 	default_versioning INT64 NOT NULL DEFAULT (1),
-	prevDays_UntilExpiration INT64 NOT NULL DEFAULT (0)
+	prevDays_UntilExpiration INT64
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
 	project_id BYTES(MAX) NOT NULL,

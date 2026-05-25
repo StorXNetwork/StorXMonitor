@@ -432,12 +432,14 @@ CREATE TABLE projects (
 	salt bytea,
 	passphrase_enc bytea,
 	passphrase_enc_key_id integer,
+	path_encryption boolean NOT NULL DEFAULT true,
+	storage_used_percentage double precision NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	status integer,
 	status_updated_at timestamp with time zone,
 	default_placement integer,
 	default_versioning integer NOT NULL DEFAULT 1,
-	prevDays_UntilExpiration integer NOT NULL DEFAULT 0,
+	prevDays_UntilExpiration integer,
 	PRIMARY KEY ( id )
 ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
