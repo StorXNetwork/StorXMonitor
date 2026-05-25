@@ -1900,11 +1900,11 @@ func (users *users) GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (_
 func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row, err := users.db.Get_User_PaidTier_By_Id(ctx, dbx.User_Id(id[:]))
+	row, err := users.db.Get_User_Kind_By_Id(ctx, dbx.User_Id(id[:]))
 	if err != nil {
 		return false, err
 	}
-	return row.PaidTier, nil
+	return console.UserKind(row.Kind) == console.PaidUser, nil
 }
 
 func normalizeEmail(email string) string {

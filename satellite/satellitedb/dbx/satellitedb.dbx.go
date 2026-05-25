@@ -17,16 +17,15 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
 	"github.com/StorXNetwork/StorXMonitor/shared/flightrecorder"
-
-	"encoding/base64"
-	"encoding/json"
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/txutil"
 
 	"cloud.google.com/go/spanner"
-	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
+	"encoding/base64"
+	"encoding/json"
 	sqlspanner "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/StorXNetwork/StorXMonitor/shared/tagsql"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 )
@@ -811,12 +810,14 @@ func (obj *pgxDB) Schema() []string {
 	salt bytea,
 	passphrase_enc bytea,
 	passphrase_enc_key_id integer,
+	path_encryption boolean NOT NULL DEFAULT true,
+	storage_used_percentage double precision NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	status integer,
 	status_updated_at timestamp with time zone,
 	default_placement integer,
 	default_versioning integer NOT NULL DEFAULT 1,
-	prevDays_UntilExpiration integer NOT NULL DEFAULT 0,
+	prevDays_UntilExpiration integer,
 	PRIMARY KEY ( id )
 )`,
 
@@ -2153,12 +2154,14 @@ func (obj *pgxcockroachDB) Schema() []string {
 	salt bytea,
 	passphrase_enc bytea,
 	passphrase_enc_key_id integer,
+	path_encryption boolean NOT NULL DEFAULT true,
+	storage_used_percentage double precision NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	status integer,
 	status_updated_at timestamp with time zone,
 	default_placement integer,
 	default_versioning integer NOT NULL DEFAULT 1,
-	prevDays_UntilExpiration integer NOT NULL DEFAULT 0,
+	prevDays_UntilExpiration integer,
 	PRIMARY KEY ( id )
 )`,
 
@@ -3467,12 +3470,14 @@ func (obj *spannerDB) Schema() []string {
 	salt BYTES(MAX),
 	passphrase_enc BYTES(MAX),
 	passphrase_enc_key_id INT64,
+	path_encryption BOOL NOT NULL DEFAULT (true),
+	storage_used_percentage FLOAT64 NOT NULL DEFAULT (0),
 	created_at TIMESTAMP NOT NULL,
 	status INT64,
 	status_updated_at TIMESTAMP,
 	default_placement INT64,
 	default_versioning INT64 NOT NULL DEFAULT (1),
-	prevDays_UntilExpiration INT64 NOT NULL DEFAULT (0)
+	prevDays_UntilExpiration INT64
 ) PRIMARY KEY ( id )`,
 
 		`CREATE TABLE project_bandwidth_daily_rollups (
@@ -11369,42 +11374,6 @@ func (f PeerIdentity_UpdatedAt_Field) value() any {
 	return f._value
 }
 
-type Project_StorageUsedPercentage_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Project_StorageUsedPercentage(v float64) Project_StorageUsedPercentage_Field {
-	return Project_StorageUsedPercentage_Field{_set: true, _value: v}
-}
-
-func (f Project_StorageUsedPercentage_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Project_StorageUsedPercentage_Field) _Column() string { return "storage_used_percentage" }
-
-type Project_PathEncryption_Field struct {
-	_set   bool
-	_null  bool
-	_value bool
-}
-
-func Project_PathEncryption(v bool) Project_PathEncryption_Field {
-	return Project_PathEncryption_Field{_set: true, _value: v}
-}
-
-func (f Project_PathEncryption_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
 type Project struct {
 	Id                          []byte
 	PublicId                    []byte
@@ -11433,14 +11402,14 @@ type Project struct {
 	Salt                        []byte
 	PassphraseEnc               []byte
 	PassphraseEncKeyId          *int
+	PathEncryption              bool
+	StorageUsedPercentage       float64
 	CreatedAt                   time.Time
 	Status                      *int
 	StatusUpdatedAt             *time.Time
 	DefaultPlacement            *int
 	DefaultVersioning           int
 	PrevDaysUntilExpiration     *int
-	StorageUsedPercentage       float64
-	PathEncryption              bool
 }
 
 func (Project) _Table() string { return "projects" }
@@ -11469,14 +11438,13 @@ type Project_Create_Fields struct {
 	Salt                        Project_Salt_Field
 	PassphraseEnc               Project_PassphraseEnc_Field
 	PassphraseEncKeyId          Project_PassphraseEncKeyId_Field
+	PathEncryption              Project_PathEncryption_Field
+	StorageUsedPercentage       Project_StorageUsedPercentage_Field
 	Status                      Project_Status_Field
 	StatusUpdatedAt             Project_StatusUpdatedAt_Field
 	DefaultPlacement            Project_DefaultPlacement_Field
 	DefaultVersioning           Project_DefaultVersioning_Field
 	PrevDaysUntilExpiration     Project_PrevDaysUntilExpiration_Field
-	StorageUsedPercentage       Project_StorageUsedPercentage_Field
-	CreatedAt                   Project_CreatedAt_Field
-	PathEncryption              Project_PathEncryption_Field
 }
 
 type Project_Update_Fields struct {
@@ -11503,14 +11471,14 @@ type Project_Update_Fields struct {
 	UserAgent                   Project_UserAgent_Field
 	PassphraseEnc               Project_PassphraseEnc_Field
 	PassphraseEncKeyId          Project_PassphraseEncKeyId_Field
+	PathEncryption              Project_PathEncryption_Field
+	StorageUsedPercentage       Project_StorageUsedPercentage_Field
+	CreatedAt                   Project_CreatedAt_Field
 	Status                      Project_Status_Field
 	StatusUpdatedAt             Project_StatusUpdatedAt_Field
 	DefaultPlacement            Project_DefaultPlacement_Field
 	DefaultVersioning           Project_DefaultVersioning_Field
 	PrevDaysUntilExpiration     Project_PrevDaysUntilExpiration_Field
-	StorageUsedPercentage       Project_StorageUsedPercentage_Field
-	CreatedAt                   Project_CreatedAt_Field
-	PathEncryption              Project_PathEncryption_Field
 }
 
 type Project_Id_Field struct {
@@ -12275,6 +12243,40 @@ func (f Project_PassphraseEncKeyId_Field) value() any {
 	return f._value
 }
 
+type Project_PathEncryption_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Project_PathEncryption(v bool) Project_PathEncryption_Field {
+	return Project_PathEncryption_Field{_set: true, _value: v}
+}
+
+func (f Project_PathEncryption_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Project_StorageUsedPercentage_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Project_StorageUsedPercentage(v float64) Project_StorageUsedPercentage_Field {
+	return Project_StorageUsedPercentage_Field{_set: true, _value: v}
+}
+
+func (f Project_StorageUsedPercentage_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type Project_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -12402,11 +12404,26 @@ func (f Project_DefaultVersioning_Field) value() any {
 type Project_PrevDaysUntilExpiration_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value *int
 }
 
 func Project_PrevDaysUntilExpiration(v int) Project_PrevDaysUntilExpiration_Field {
-	return Project_PrevDaysUntilExpiration_Field{_set: true, _value: v}
+	return Project_PrevDaysUntilExpiration_Field{_set: true, _value: &v}
+}
+
+func Project_PrevDaysUntilExpiration_Raw(v *int) Project_PrevDaysUntilExpiration_Field {
+	if v == nil {
+		return Project_PrevDaysUntilExpiration_Null()
+	}
+	return Project_PrevDaysUntilExpiration(*v)
+}
+
+func Project_PrevDaysUntilExpiration_Null() Project_PrevDaysUntilExpiration_Field {
+	return Project_PrevDaysUntilExpiration_Field{_set: true, _null: true}
+}
+
+func (f Project_PrevDaysUntilExpiration_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
 }
 
 func (f Project_PrevDaysUntilExpiration_Field) value() any {
@@ -20537,15 +20554,15 @@ type Id_Email_FullName_Row struct {
 	FullName string
 }
 
+type Id_PieceCount_Row struct {
+	Id         []byte
+	PieceCount int64
+}
+
 type Id_PublicId_OwnerId_Row struct {
 	Id       []byte
 	PublicId []byte
 	OwnerId  []byte
-}
-
-type Id_PieceCount_Row struct {
-	Id         []byte
-	PieceCount int64
 }
 
 type Id_Row struct {
@@ -20659,16 +20676,12 @@ type PassphraseEnc_PassphraseEncKeyId_Row struct {
 	PassphraseEncKeyId *int
 }
 
-type PaidTier_Row struct {
-	PaidTier bool
-}
-
 type Placement_Row struct {
 	Placement *int
 }
 
 type PrevDaysUntilExpiration_Row struct {
-	PrevDaysUntilExpiration int
+	PrevDaysUntilExpiration *int
 }
 
 type ProjectId_Name_Row struct {
@@ -22527,15 +22540,16 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 	__status_val := optional.Status.value()
 	__status_updated_at_val := optional.StatusUpdatedAt.value()
 	__default_placement_val := optional.DefaultPlacement.value()
+	__prevDays_UntilExpiration_val := optional.PrevDaysUntilExpiration.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, public_id, name, description, usage_limit, bandwidth_limit, user_specified_usage_limit, user_specified_bandwidth_limit, rate_limit, burst_limit, rate_limit_head, burst_limit_head, rate_limit_get, burst_limit_get, rate_limit_put, burst_limit_put, rate_limit_list, burst_limit_list, rate_limit_del, burst_limit_del, max_buckets, user_agent, owner_id, salt, passphrase_enc, passphrase_enc_key_id, created_at, status, status_updated_at, default_placement")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, public_id, name, description, usage_limit, bandwidth_limit, user_specified_usage_limit, user_specified_bandwidth_limit, rate_limit, burst_limit, rate_limit_head, burst_limit_head, rate_limit_get, burst_limit_get, rate_limit_put, burst_limit_put, rate_limit_list, burst_limit_list, rate_limit_del, burst_limit_del, max_buckets, user_agent, owner_id, salt, passphrase_enc, passphrase_enc_key_id, created_at, status, status_updated_at, default_placement, prevDays_UntilExpiration")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
 
 	var __values []any
-	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __passphrase_enc_val, __passphrase_enc_key_id_val, __created_at_val, __status_val, __status_updated_at_val, __default_placement_val)
+	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __passphrase_enc_val, __passphrase_enc_key_id_val, __created_at_val, __status_val, __status_updated_at_val, __default_placement_val, __prevDays_UntilExpiration_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -22546,15 +22560,21 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
-	if optional.DefaultVersioning._set {
-		__values = append(__values, optional.DefaultVersioning.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
+	if optional.PathEncryption._set {
+		__values = append(__values, optional.PathEncryption.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("path_encryption"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
-	if optional.PrevDaysUntilExpiration._set {
-		__values = append(__values, optional.PrevDaysUntilExpiration.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("prevDays_UntilExpiration"))
+	if optional.StorageUsedPercentage._set {
+		__values = append(__values, optional.StorageUsedPercentage.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("storage_used_percentage"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.DefaultVersioning._set {
+		__values = append(__values, optional.DefaultVersioning.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -22570,7 +22590,7 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -28063,7 +28083,7 @@ func (obj *pgxImpl) Get_Project_By_PublicId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.public_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []any
 	if !project_public_id.isnull() {
@@ -28087,7 +28107,7 @@ func (obj *pgxImpl) Get_Project_By_PublicId(ctx context.Context,
 			}
 
 			project = &Project{}
-			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 			if err != nil {
 				return nil, err
 			}
@@ -28120,7 +28140,7 @@ func (obj *pgxImpl) Get_Project_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.id = ?")
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -28129,7 +28149,7 @@ func (obj *pgxImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -28148,7 +28168,7 @@ func (obj *pgxImpl) Get_Project_By__Id_Or_PublicId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.public_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE (projects.id = ? OR "), __cond_0, __sqlbundle_Literal(") LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE (projects.id = ? OR "), __cond_0, __sqlbundle_Literal(") LIMIT 2")}}
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -28173,7 +28193,7 @@ func (obj *pgxImpl) Get_Project_By__Id_Or_PublicId(ctx context.Context,
 			}
 
 			project = &Project{}
-			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 			if err != nil {
 				return nil, err
 			}
@@ -28505,7 +28525,7 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects")
 
 	var __values []any
 
@@ -28522,7 +28542,7 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -28549,7 +28569,7 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []any
 	__values = append(__values, project_created_at_less.value())
@@ -28567,7 +28587,7 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -28594,7 +28614,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []any
 	__values = append(__values, project_owner_id.value())
@@ -28612,7 +28632,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -28642,7 +28662,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(ctx 
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
 
 	var __values []any
 	__values = append(__values, project_owner_id.value())
@@ -28664,7 +28684,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(ctx 
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -28691,7 +28711,7 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []any
 	__values = append(__values, project_member_member_id.value())
@@ -28709,7 +28729,7 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -28737,7 +28757,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []any
 	__values = append(__values, project_created_at_less.value())
@@ -28757,7 +28777,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -30259,28 +30279,6 @@ func (obj *pgxImpl) Get_User_Kind_By_Id(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
 		return (*Kind_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxImpl) Get_User_PaidTier_By_Id(ctx context.Context,
-	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
-	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -33633,7 +33631,7 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -33754,6 +33752,21 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_enc_key_id = ?"))
 	}
 
+	if update.PathEncryption._set {
+		__values = append(__values, update.PathEncryption.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("path_encryption = ?"))
+	}
+
+	if update.StorageUsedPercentage._set {
+		__values = append(__values, update.StorageUsedPercentage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("storage_used_percentage = ?"))
+	}
+
+	if update.CreatedAt._set {
+		__values = append(__values, update.CreatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
+	}
+
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
@@ -33792,7 +33805,7 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -35953,33 +35966,6 @@ func (obj *pgxImpl) Delete_FcmTokens_By_UserId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Delete_Project_By_OwnerId(ctx context.Context,
-	project_owner_id Project_OwnerId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_owner_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *pgxImpl) Delete_PushNotifications_By_Id(ctx context.Context,
 	push_notifications_id PushNotifications_Id_Field) (
 	deleted bool, err error) {
@@ -36100,6 +36086,36 @@ func (obj *pgxImpl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
+
+	var __values []any
+	__values = append(__values, project_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -36196,10 +36212,13 @@ func (obj *pgxImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 	api_key_project_id ApiKey_ProjectId_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -39214,15 +39233,16 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 	__status_val := optional.Status.value()
 	__status_updated_at_val := optional.StatusUpdatedAt.value()
 	__default_placement_val := optional.DefaultPlacement.value()
+	__prevDays_UntilExpiration_val := optional.PrevDaysUntilExpiration.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, public_id, name, description, usage_limit, bandwidth_limit, user_specified_usage_limit, user_specified_bandwidth_limit, rate_limit, burst_limit, rate_limit_head, burst_limit_head, rate_limit_get, burst_limit_get, rate_limit_put, burst_limit_put, rate_limit_list, burst_limit_list, rate_limit_del, burst_limit_del, max_buckets, user_agent, owner_id, salt, passphrase_enc, passphrase_enc_key_id, created_at, status, status_updated_at, default_placement")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, public_id, name, description, usage_limit, bandwidth_limit, user_specified_usage_limit, user_specified_bandwidth_limit, rate_limit, burst_limit, rate_limit_head, burst_limit_head, rate_limit_get, burst_limit_get, rate_limit_put, burst_limit_put, rate_limit_list, burst_limit_list, rate_limit_del, burst_limit_del, max_buckets, user_agent, owner_id, salt, passphrase_enc, passphrase_enc_key_id, created_at, status, status_updated_at, default_placement, prevDays_UntilExpiration")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
 
 	var __values []any
-	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __passphrase_enc_val, __passphrase_enc_key_id_val, __created_at_val, __status_val, __status_updated_at_val, __default_placement_val)
+	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __passphrase_enc_val, __passphrase_enc_key_id_val, __created_at_val, __status_val, __status_updated_at_val, __default_placement_val, __prevDays_UntilExpiration_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -39233,15 +39253,21 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
-	if optional.DefaultVersioning._set {
-		__values = append(__values, optional.DefaultVersioning.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
+	if optional.PathEncryption._set {
+		__values = append(__values, optional.PathEncryption.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("path_encryption"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
-	if optional.PrevDaysUntilExpiration._set {
-		__values = append(__values, optional.PrevDaysUntilExpiration.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("prevDays_UntilExpiration"))
+	if optional.StorageUsedPercentage._set {
+		__values = append(__values, optional.StorageUsedPercentage.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("storage_used_percentage"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.DefaultVersioning._set {
+		__values = append(__values, optional.DefaultVersioning.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -39257,7 +39283,7 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -44750,7 +44776,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_PublicId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.public_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []any
 	if !project_public_id.isnull() {
@@ -44774,7 +44800,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_PublicId(ctx context.Context,
 			}
 
 			project = &Project{}
-			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 			if err != nil {
 				return nil, err
 			}
@@ -44807,7 +44833,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.id = ?")
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -44816,7 +44842,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -44835,7 +44861,7 @@ func (obj *pgxcockroachImpl) Get_Project_By__Id_Or_PublicId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.public_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE (projects.id = ? OR "), __cond_0, __sqlbundle_Literal(") LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE (projects.id = ? OR "), __cond_0, __sqlbundle_Literal(") LIMIT 2")}}
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -44860,7 +44886,7 @@ func (obj *pgxcockroachImpl) Get_Project_By__Id_Or_PublicId(ctx context.Context,
 			}
 
 			project = &Project{}
-			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 			if err != nil {
 				return nil, err
 			}
@@ -45192,7 +45218,7 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects")
 
 	var __values []any
 
@@ -45209,7 +45235,7 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -45236,7 +45262,7 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []any
 	__values = append(__values, project_created_at_less.value())
@@ -45254,7 +45280,7 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -45281,7 +45307,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []any
 	__values = append(__values, project_owner_id.value())
@@ -45299,7 +45325,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -45329,7 +45355,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_Creat
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
 
 	var __values []any
 	__values = append(__values, project_owner_id.value())
@@ -45351,7 +45377,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_Creat
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -45378,7 +45404,7 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []any
 	__values = append(__values, project_member_member_id.value())
@@ -45396,7 +45422,7 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -45424,7 +45450,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []any
 	__values = append(__values, project_created_at_less.value())
@@ -45444,7 +45470,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -46946,28 +46972,6 @@ func (obj *pgxcockroachImpl) Get_User_Kind_By_Id(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
 		return (*Kind_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_User_PaidTier_By_Id(ctx context.Context,
-	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
-	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -50320,7 +50324,7 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -50441,6 +50445,21 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_enc_key_id = ?"))
 	}
 
+	if update.PathEncryption._set {
+		__values = append(__values, update.PathEncryption.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("path_encryption = ?"))
+	}
+
+	if update.StorageUsedPercentage._set {
+		__values = append(__values, update.StorageUsedPercentage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("storage_used_percentage = ?"))
+	}
+
+	if update.CreatedAt._set {
+		__values = append(__values, update.CreatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
+	}
+
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
@@ -50479,7 +50498,7 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -52640,33 +52659,6 @@ func (obj *pgxcockroachImpl) Delete_FcmTokens_By_UserId(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Delete_Project_By_OwnerId(ctx context.Context,
-	project_owner_id Project_OwnerId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_owner_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_PushNotifications_By_Id(ctx context.Context,
 	push_notifications_id PushNotifications_Id_Field) (
 	deleted bool, err error) {
@@ -52787,6 +52779,36 @@ func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
+
+	var __values []any
+	__values = append(__values, project_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -52849,10 +52871,43 @@ func (obj *pgxcockroachImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx
 
 }
 
+func (obj *pgxcockroachImpl) Delete_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []any
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 	api_key_project_id ApiKey_ProjectId_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
 
@@ -52910,36 +52965,6 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx contex
 	}
 
 	return count, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_ApiKey_By_Id(ctx context.Context,
-	api_key_id ApiKey_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
-
-	var __values []any
-	__values = append(__values, api_key_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
 
 }
 
@@ -56115,15 +56140,16 @@ func (obj *spannerImpl) Create_Project(ctx context.Context,
 	__status_val := optional.Status.value()
 	__status_updated_at_val := optional.StatusUpdatedAt.value()
 	__default_placement_val := optional.DefaultPlacement.value()
+	__prevDays_UntilExpiration_val := optional.PrevDaysUntilExpiration.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, public_id, name, description, usage_limit, bandwidth_limit, user_specified_usage_limit, user_specified_bandwidth_limit, rate_limit, burst_limit, rate_limit_head, burst_limit_head, rate_limit_get, burst_limit_get, rate_limit_put, burst_limit_put, rate_limit_list, burst_limit_list, rate_limit_del, burst_limit_del, max_buckets, user_agent, owner_id, salt, passphrase_enc, passphrase_enc_key_id, created_at, status, status_updated_at, default_placement")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, public_id, name, description, usage_limit, bandwidth_limit, user_specified_usage_limit, user_specified_bandwidth_limit, rate_limit, burst_limit, rate_limit_head, burst_limit_head, rate_limit_get, burst_limit_get, rate_limit_put, burst_limit_put, rate_limit_list, burst_limit_list, rate_limit_del, burst_limit_del, max_buckets, user_agent, owner_id, salt, passphrase_enc, passphrase_enc_key_id, created_at, status, status_updated_at, default_placement, prevDays_UntilExpiration")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" THEN RETURN projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" THEN RETURN projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
 
 	var __values []any
-	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __passphrase_enc_val, __passphrase_enc_key_id_val, __created_at_val, __status_val, __status_updated_at_val, __default_placement_val)
+	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __passphrase_enc_val, __passphrase_enc_key_id_val, __created_at_val, __status_val, __status_updated_at_val, __default_placement_val, __prevDays_UntilExpiration_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -56134,15 +56160,21 @@ func (obj *spannerImpl) Create_Project(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
-	if optional.DefaultVersioning._set {
-		__values = append(__values, optional.DefaultVersioning.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
+	if optional.PathEncryption._set {
+		__values = append(__values, optional.PathEncryption.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("path_encryption"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
-	if optional.PrevDaysUntilExpiration._set {
-		__values = append(__values, optional.PrevDaysUntilExpiration.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("prevDays_UntilExpiration"))
+	if optional.StorageUsedPercentage._set {
+		__values = append(__values, optional.StorageUsedPercentage.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("storage_used_percentage"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.DefaultVersioning._set {
+		__values = append(__values, optional.DefaultVersioning.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -56151,10 +56183,13 @@ func (obj *spannerImpl) Create_Project(ctx context.Context,
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("segment_limit"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
 
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("path_encryption"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
 
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("prevDays_UntilExpiration"))
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("storage_used_percentage"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
 
 	}
@@ -56170,10 +56205,10 @@ func (obj *spannerImpl) Create_Project(ctx context.Context,
 	project = &Project{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -61861,7 +61896,7 @@ func (obj *spannerImpl) Get_Project_By_PublicId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.public_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []any
 	if !project_public_id.isnull() {
@@ -61885,7 +61920,7 @@ func (obj *spannerImpl) Get_Project_By_PublicId(ctx context.Context,
 			}
 
 			project = &Project{}
-			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 			if err != nil {
 				return nil, err
 			}
@@ -61918,7 +61953,7 @@ func (obj *spannerImpl) Get_Project_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.id = ?")
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -61927,7 +61962,7 @@ func (obj *spannerImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -61946,7 +61981,7 @@ func (obj *spannerImpl) Get_Project_By__Id_Or_PublicId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.public_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE (projects.id = ? OR "), __cond_0, __sqlbundle_Literal(") LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE (projects.id = ? OR "), __cond_0, __sqlbundle_Literal(") LIMIT 2")}}
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -61971,7 +62006,7 @@ func (obj *spannerImpl) Get_Project_By__Id_Or_PublicId(ctx context.Context,
 			}
 
 			project = &Project{}
-			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 			if err != nil {
 				return nil, err
 			}
@@ -62303,7 +62338,7 @@ func (obj *spannerImpl) All_Project(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects")
 
 	var __values []any
 
@@ -62320,7 +62355,7 @@ func (obj *spannerImpl) All_Project(ctx context.Context) (
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -62347,7 +62382,7 @@ func (obj *spannerImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []any
 	__values = append(__values, project_created_at_less.value())
@@ -62365,7 +62400,7 @@ func (obj *spannerImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -62392,7 +62427,7 @@ func (obj *spannerImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []any
 	__values = append(__values, project_owner_id.value())
@@ -62410,7 +62445,7 @@ func (obj *spannerImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -62440,7 +62475,7 @@ func (obj *spannerImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
 
 	var __values []any
 	__values = append(__values, project_owner_id.value())
@@ -62462,7 +62497,7 @@ func (obj *spannerImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -62489,7 +62524,7 @@ func (obj *spannerImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []any
 	__values = append(__values, project_member_member_id.value())
@@ -62507,7 +62542,7 @@ func (obj *spannerImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -62535,7 +62570,7 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []any
 	__values = append(__values, project_created_at_less.value())
@@ -62555,7 +62590,7 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -64060,31 +64095,6 @@ func (obj *spannerImpl) Get_User_Kind_By_Id(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
 		return (*Kind_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *spannerImpl) Get_User_PaidTier_By_Id(ctx context.Context,
-	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
-
-	var __values []any
-	__values = append(__values, user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
-	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -67228,7 +67238,7 @@ func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? THEN RETURN projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? THEN RETURN projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption, projects.storage_used_percentage, projects.created_at, projects.status, projects.status_updated_at, projects.default_placement, projects.default_versioning, projects.prevDays_UntilExpiration")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -67326,6 +67336,18 @@ func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 		__values = append(__values, update.PassphraseEncKeyId.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_enc_key_id = ?"))
 	}
+	if update.PathEncryption._set {
+		__values = append(__values, update.PathEncryption.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("path_encryption = ?"))
+	}
+	if update.StorageUsedPercentage._set {
+		__values = append(__values, update.StorageUsedPercentage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("storage_used_percentage = ?"))
+	}
+	if update.CreatedAt._set {
+		__values = append(__values, update.CreatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
+	}
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
@@ -67360,7 +67382,7 @@ func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption, &project.StorageUsedPercentage, &project.CreatedAt, &project.Status, &project.StatusUpdatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PrevDaysUntilExpiration)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -69480,36 +69502,6 @@ func (obj *spannerImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Delete_Project_By_OwnerId(ctx context.Context,
-	project_owner_id Project_OwnerId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
-
-	var __values []any
-	__values = append(__values, project_owner_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *spannerImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -69537,6 +69529,36 @@ func (obj *spannerImpl) Delete_Project_By_Id(ctx context.Context,
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.owner_id = ?")
+
+	var __values []any
+	__values = append(__values, project_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -69584,6 +69606,36 @@ func (obj *spannerImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []any
+	__values = append(__values, api_key_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -69666,36 +69718,6 @@ func (obj *spannerImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Con
 	}
 
 	return count, nil
-
-}
-
-func (obj *spannerImpl) Delete_ApiKey_By_Id(ctx context.Context,
-	api_key_id ApiKey_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
-
-	var __values []any
-	__values = append(__values, api_key_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
 
 }
 
@@ -71626,13 +71648,13 @@ type Methods interface {
 		api_key_project_id ApiKey_ProjectId_Field) (
 		count int64, err error)
 
-	Delete_BucketMetainfo_By_ProjectId(ctx context.Context,
-		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
-		count int64, err error)
-
 	Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
 		api_key_project_id ApiKey_ProjectId_Field,
 		api_key_created_by ApiKey_CreatedBy_Field) (
+		count int64, err error)
+
+	Delete_BucketMetainfo_By_ProjectId(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
 		count int64, err error)
 
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -72233,10 +72255,6 @@ type Methods interface {
 		user_id User_Id_Field) (
 		row *Kind_Row, err error)
 
-	Get_User_PaidTier_By_Id(ctx context.Context,
-		user_id User_Id_Field) (
-		row *PaidTier_Row, err error)
-
 	Get_User_ProjectLimit_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		row *ProjectLimit_Row, err error)
@@ -72307,6 +72325,12 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Project, err error)
 
+	Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+		project_status Project_Status_Field,
+		project_status_updated_at_less Project_StatusUpdatedAt_Field,
+		limit int, offset int64) (
+		rows []*Id_PublicId_OwnerId_Row, err error)
+
 	Limited_PushNotifications_By_Status(ctx context.Context,
 		push_notifications_status PushNotifications_Status_Field,
 		limit int, offset int64) (
@@ -72316,12 +72340,6 @@ type Methods interface {
 		push_notifications_user_id PushNotifications_UserId_Field,
 		limit int, offset int64) (
 		rows []*PushNotifications, err error)
-
-	Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
-		project_status Project_Status_Field,
-		project_status_updated_at_less Project_StatusUpdatedAt_Field,
-		limit int, offset int64) (
-		rows []*Id_PublicId_OwnerId_Row, err error)
 
 	Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
 		storagenode_payment_node_id StoragenodePayment_NodeId_Field,

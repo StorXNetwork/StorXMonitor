@@ -362,7 +362,6 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 		RateLimit:   dbx.Project_RateLimit_Raw(project.RateLimit),
 		BurstLimit:  dbx.Project_BurstLimit_Raw(project.BurstLimit),
 	}
-	//boris
 	updateFields.CreatedAt = dbx.Project_CreatedAt(project.CreatedAt)
 	updateFields.PrevDaysUntilExpiration = dbx.Project_PrevDaysUntilExpiration(project.PrevDaysUntilExpiration)
 
