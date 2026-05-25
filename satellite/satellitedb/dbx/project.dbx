@@ -66,9 +66,13 @@ model project (
     field passphrase_enc                    blob      ( nullable, updatable )
     // passphrase_enc_key_id identifies the key used to encrypt passphrase_enc.
     field passphrase_enc_key_id             int       ( nullable, updatable )
+    // whether path encryption is enabled for the project.
+    field path_encryption                   bool      ( updatable, default true )
+    // storage_used_percentage is storage used percentage for the project.
+    field storage_used_percentage           float64   ( updatable, default 0 )
 
     // created_at indicates when the project was created.
-    field created_at                        timestamp ( autoinsert )
+    field created_at                        timestamp ( autoinsert, updatable )
 
 	// status indicates project state: 0=disabled, 1=active, 2=pending deletion.
 	field status int ( updatable, nullable )
@@ -85,12 +89,13 @@ model project (
     // note: suspended is not a valid state for new buckets
     field default_versioning int (updatable, default 1)
     // prevDays_UntilExpiration is the previous value of days until subscription expiration (for UI).
-    field prevDays_UntilExpiration int ( updatable, default 0 )
+    field prevDays_UntilExpiration int ( nullable, updatable )
 )
 
 create project ( )
 update project ( where project.id = ? )
 delete project ( where project.id = ? )
+delete project ( where project.owner_id = ? )
 
 read one (
 	select project.passphrase_enc project.passphrase_enc_key_id
@@ -213,6 +218,13 @@ read limitoffset (
 	select project
 	where project.created_at < ?
 	orderby asc project.created_at
+)
+
+read limitoffset (
+	select project.id project.public_id project.owner_id
+	where project.status = ?
+	where project.status_updated_at < ?
+	orderby asc project.status_updated_at
 )
 
 // project_member is an association table between projects and users.
@@ -351,6 +363,11 @@ update api_key (
 	noreturn
 )
 delete api_key ( where api_key.id = ? )
+delete api_key ( where api_key.project_id = ? )
+delete api_key (
+	where api_key.project_id = ?
+	where api_key.created_by = ?
+)
 
 read one (
 	select api_key project.public_id

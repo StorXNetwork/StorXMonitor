@@ -12,13 +12,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"github.com/StorXNetwork/common/macaroon"
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
 	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
 	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil"
 	"github.com/StorXNetwork/StorXMonitor/shared/lrucache"
+	"github.com/StorXNetwork/common/macaroon"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // ensures that apikeys implements console.APIKeys.
