@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	mathrand "math/rand"
@@ -44,6 +45,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
@@ -9584,4 +9586,82 @@ func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (st
 	}
 
 	return &stats, nil
+}
+
+// GmailCorporateDomainUsersResponse is the Backup-Tools domain-users payload.
+type GmailCorporateDomainUsersResponse map[string]interface{}
+
+// RegisterGoogleBackupResult is returned after calling domain-users during registration.
+type RegisterGoogleBackupResult struct {
+	GoogleEmail string
+	AccountType string
+	DomainUsers GmailCorporateDomainUsersResponse
+	DomainError string
+}
+
+// RegisterGoogleBackupCredential calls Backup-Tools domain-users for the Google account.
+func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmail, accessToken, refreshToken string, accessTokenExpiry time.Time) (RegisterGoogleBackupResult, error) {
+	result := RegisterGoogleBackupResult{
+		GoogleEmail: googleEmail,
+	}
+
+	if googleEmail == "" || accessToken == "" {
+		return result, Error.New("google email and access token are required")
+	}
+
+	domainUsers, domainErr := s.fetchGmailCorporateDomainUsers(ctx, accessToken, refreshToken, accessTokenExpiry)
+	if domainErr != nil {
+		s.log.Warn("domain-users call failed during registration", zap.Error(domainErr))
+		result.DomainError = domainErr.Error()
+	} else {
+		result.DomainUsers = domainUsers
+		if accountType, ok := domainUsers["account_type"].(string); ok {
+			result.AccountType = accountType
+		}
+	}
+
+	return result, nil
+}
+
+func (s *Service) fetchGmailCorporateDomainUsers(ctx context.Context, accessToken, refreshToken string, accessTokenExpiry time.Time) (GmailCorporateDomainUsersResponse, error) {
+	if s.backupToolsURL == "" {
+		return nil, Error.New("Backup-Tools URL not configured")
+	}
+	if accessToken == "" {
+		return nil, Error.New("access token is required")
+	}
+
+	validAccessToken, _, err := socialmedia.ResolveAccessToken(ctx, accessToken, refreshToken, accessTokenExpiry)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	endpoint := strings.TrimSuffix(s.backupToolsURL, "/") + "/google/gmail/corporate/domain-users"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+validAccessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, Error.New("Backup-Tools domain-users returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result GmailCorporateDomainUsersResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return result, nil
 }

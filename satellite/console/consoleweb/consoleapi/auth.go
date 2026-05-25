@@ -1487,6 +1487,205 @@ func (a *Auth) LoginUserApple(w http.ResponseWriter, r *http.Request) {
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
 
+func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+
+	var mode string = "signup"
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	code := r.URL.Query().Get("code")
+
+	if code == "" {
+		a.SendResponse(w, r, "Authorization code not provided!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	tokenRes, err := socialmedia.GetGoogleOauthToken(code, mode, r.URL.Query().Has("zoho-insert"))
+	if err != nil {
+		a.SendResponse(w, r, "Error getting token from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	a.registerUserByIDTokenFromGoogle(w, r, tokenRes.Id_token, tokenRes.Access_token, tokenRes.Refresh_token, "", tokenRes.ExpiresAt)
+}
+
+func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Request, idToken, accessToken, refreshToken, walletID string, accessTokenExpiry time.Time) {
+	ctx := r.Context()
+	cnf := socialmedia.GetConfig()
+
+	googleuser, err := socialmedia.GetGoogleUserByAccessToken(accessToken)
+	if err != nil {
+		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	state := r.URL.Query().Get("state")
+	verifier := socialmedia.NewVerifierDataFromString(state)
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, verifier)
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.SendResponse(w, r, "Error getting user details from system!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	var user *console.User
+	if verified != nil {
+		satelliteAddress := a.getExternalAddress(ctx)
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		if a.mailService != nil {
+			a.mailService.SendRenderedAsync(
+				ctx,
+				[]post.Address{{Address: verified.Email}},
+				&console.AccountAlreadyExistsEmail{
+					Origin:            satelliteAddress,
+					SatelliteName:     a.SatelliteName,
+					SignInLink:        satelliteAddress + "login",
+					ResetPasswordLink: satelliteAddress + "forgot-password",
+					CreateAccountLink: satelliteAddress + "signup",
+				},
+			)
+		}
+		a.SendResponse(w, r, "You are already registered!", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
+	if len(unverified) > 0 {
+		user = &unverified[0]
+	} else {
+		secret, err := console.RegistrationSecretFromBase64("")
+		if err != nil {
+			a.SendResponse(w, r, "Error creating secret!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			return
+		}
+
+		ip, err := web.GetRequestIP(r)
+		if err != nil {
+			a.SendResponse(w, r, "Error getting IP!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			return
+		}
+
+		var utmParams *console.UtmParams
+		if verifier != nil {
+			utmParams = &console.UtmParams{
+				UtmTerm:     verifier.UTMTerm,
+				UtmContent:  verifier.UTMContent,
+				UtmSource:   verifier.UTMSource,
+				UtmMedium:   verifier.UTMMedium,
+				UtmCampaign: verifier.UTMCampaign,
+			}
+		}
+
+		user, err = a.service.CreateUser(ctx,
+			console.CreateUser{
+				FullName:  googleuser.Name,
+				Email:     googleuser.Email,
+				Status:    1,
+				IP:        ip,
+				Source:    "Google",
+				WalletId:  walletID,
+				UtmParams: utmParams,
+			},
+			secret, true,
+		)
+		if err != nil {
+			a.SendResponse(w, r, "Error creating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			return
+		}
+
+		referrer := r.URL.Query().Get("referrer")
+		if referrer == "" {
+			referrer = r.Referer()
+		}
+		hubspotUTK := ""
+		hubspotCookie, err := r.Cookie("hubspotutk")
+		if err == nil {
+			hubspotUTK = hubspotCookie.Value
+		}
+
+		trackCreateUserFields := analytics.TrackCreateUserFields{
+			ID:           user.ID,
+			AnonymousID:  loadSession(r),
+			FullName:     user.FullName,
+			Email:        user.Email,
+			Type:         analytics.Personal,
+			OriginHeader: r.Header.Get("Origin"),
+			Referrer:     referrer,
+			HubspotUTK:   hubspotUTK,
+			UserAgent:    string(user.UserAgent),
+		}
+		if user.IsProfessional {
+			trackCreateUserFields.Type = analytics.Professional
+			trackCreateUserFields.EmployeeCount = user.EmployeeCount
+			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.JobTitle = user.Position
+			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+		}
+		a.analytics.TrackCreateUser(trackCreateUserFields)
+	}
+
+	a.TokenGoogleWrapper(ctx, googleuser.Email, "", w, r)
+
+	if a.mailService != nil {
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&console.RegistrationWelcomeEmail{
+				Username:  user.FullName,
+				LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
+			},
+		)
+	}
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	if err != nil {
+		a.log.Error("Error in Default Project:", zap.Error(err))
+		a.SendResponse(w, r, "Error creating default project!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+
+	var googleBackup map[string]interface{}
+	backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, accessToken, refreshToken, accessTokenExpiry)
+	if backupErr != nil {
+		a.log.Error("failed to fetch Google backup domain users during registration", zap.Error(backupErr))
+		googleBackup = map[string]interface{}{
+			"error": backupErr.Error(),
+		}
+	} else if backupResult.DomainUsers != nil {
+		googleBackup = backupResult.DomainUsers
+		if backupResult.DomainError != "" {
+			googleBackup["domain_users_error"] = backupResult.DomainError
+		}
+	} else if backupResult.DomainError != "" {
+		googleBackup = map[string]interface{}{
+			"domain_users_error": backupResult.DomainError,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	payload := map[string]interface{}{
+		"success": true,
+	}
+	if googleBackup != nil {
+		payload["google_backup"] = googleBackup
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(payload)
+}
+
 func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
