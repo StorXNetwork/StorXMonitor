@@ -1178,6 +1178,26 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add google_backup_credentials table",
+				Version:     129,
+				Action: migrate.SQL{
+					`CREATE TABLE google_backup_credentials (
+						id BYTES(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						google_email STRING(MAX) NOT NULL,
+						access_token STRING(MAX) NOT NULL,
+						refresh_token STRING(MAX),
+						access_token_expiry TIMESTAMP,
+						account_type STRING(MAX),
+						created_at TIMESTAMP NOT NULL,
+						updated_at TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp = TRUE)
+					) PRIMARY KEY ( id )`,
+					`CREATE UNIQUE INDEX google_backup_credentials_user_id_google_email_unique ON google_backup_credentials ( user_id, google_email )`,
+					`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4971,9 +4991,10 @@ true, NOW(), NOW());`,
 						account_type text,
 						created_at timestamp with time zone NOT NULL,
 						updated_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( id )
-					)`,
-					`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;`,
+						PRIMARY KEY ( id ),
+						UNIQUE ( user_id, google_email )
+					);`,
+					`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id );`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

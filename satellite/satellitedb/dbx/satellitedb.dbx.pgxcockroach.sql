@@ -239,19 +239,6 @@ CREATE TABLE fcm_tokens (
 	is_active boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id )
 ) ;
-CREATE TABLE google_backup_credentials (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL,
-	google_email text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, google_email )
-) ;
 CREATE TABLE key_versions (
 	key_id bytea NOT NULL,
 	version text NOT NULL,
@@ -861,6 +848,19 @@ CREATE TABLE domains (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, subdomain )
 ) ;
+CREATE TABLE google_backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	google_email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, google_email )
+) ;
 CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
@@ -920,7 +920,6 @@ CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_use
 CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
 CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
 CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
-CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
 CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;
@@ -960,6 +959,7 @@ CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_i
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
+CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;

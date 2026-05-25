@@ -618,20 +618,6 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
-		`CREATE TABLE google_backup_credentials (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL,
-	google_email text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, google_email )
-)`,
-
 		`CREATE TABLE key_versions (
 	key_id bytea NOT NULL,
 	version text NOT NULL,
@@ -1289,6 +1275,20 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( project_id, subdomain )
 )`,
 
+		`CREATE TABLE google_backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	google_email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, google_email )
+)`,
+
 		`CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
@@ -1374,8 +1374,6 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -1454,6 +1452,8 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
+		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
@@ -1478,6 +1478,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS project_members`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`DROP TABLE IF EXISTS domains`,
 
@@ -1574,8 +1576,6 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS nodes`,
 
 		`DROP TABLE IF EXISTS key_versions`,
-
-		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`DROP TABLE IF EXISTS fcm_tokens`,
 
@@ -1980,20 +1980,6 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
-		`CREATE TABLE google_backup_credentials (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL,
-	google_email text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, google_email )
-)`,
-
 		`CREATE TABLE key_versions (
 	key_id bytea NOT NULL,
 	version text NOT NULL,
@@ -2651,6 +2637,20 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( project_id, subdomain )
 )`,
 
+		`CREATE TABLE google_backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	google_email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, google_email )
+)`,
+
 		`CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
@@ -2736,8 +2736,6 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -2816,6 +2814,8 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
+		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
@@ -2840,6 +2840,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS project_members`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`DROP TABLE IF EXISTS domains`,
 
@@ -2936,8 +2938,6 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS nodes`,
 
 		`DROP TABLE IF EXISTS key_versions`,
-
-		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`DROP TABLE IF EXISTS fcm_tokens`,
 
@@ -3323,20 +3323,6 @@ func (obj *spannerDB) Schema() []string {
 	last_used_at TIMESTAMP,
 	is_active BOOL NOT NULL DEFAULT (true)
 ) PRIMARY KEY ( id )`,
-
-		`CREATE TABLE google_backup_credentials (
-	id BYTES(MAX) NOT NULL,
-	user_id BYTES(MAX) NOT NULL,
-	google_email STRING(MAX) NOT NULL,
-	access_token STRING(MAX) NOT NULL,
-	refresh_token STRING(MAX),
-	access_token_expiry TIMESTAMP,
-	account_type STRING(MAX),
-	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL
-) PRIMARY KEY ( id )`,
-
-		`CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email )`,
 
 		`CREATE TABLE key_versions (
 	key_id BYTES(MAX) NOT NULL,
@@ -3966,6 +3952,21 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, subdomain )`,
 
+		`CREATE TABLE google_backup_credentials (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	google_email STRING(MAX) NOT NULL,
+	access_token STRING(MAX) NOT NULL,
+	refresh_token STRING(MAX),
+	access_token_expiry TIMESTAMP,
+	account_type STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	CONSTRAINT google_backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email )`,
+
 		`CREATE TABLE project_invitations (
 	project_id BYTES(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
@@ -4054,8 +4055,6 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -4134,6 +4133,8 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
+		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
@@ -4165,6 +4166,10 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey`,
 
+		`ALTER TABLE google_backup_credentials DROP CONSTRAINT google_backup_credentials_user_id_fkey`,
+
+		`DROP INDEX IF EXISTS index_google_backup_credentials_user_id_google_email`,
+
 		`ALTER TABLE domains DROP CONSTRAINT domains_project_id_fkey`,
 
 		`ALTER TABLE domains DROP CONSTRAINT domains_created_by_fkey`,
@@ -4194,8 +4199,6 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS index_registration_token_developers_owner_id`,
 
 		`DROP INDEX IF EXISTS index_registration_tokens_owner_id`,
-
-		`DROP INDEX IF EXISTS index_google_backup_credentials_user_id_google_email`,
 
 		`DROP INDEX IF EXISTS index_configs_config_type_name`,
 
@@ -4240,8 +4243,6 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS fcm_tokens_token_index`,
 
 		`DROP INDEX IF EXISTS fcm_tokens_user_active_index`,
-
-		`DROP INDEX IF EXISTS google_backup_credentials_user_id_index`,
 
 		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
 
@@ -4321,6 +4322,8 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS bucket_migrations_state_created_at_index`,
 
+		`DROP INDEX IF EXISTS google_backup_credentials_user_id_index`,
+
 		`DROP INDEX IF EXISTS project_invitations_project_id_index`,
 
 		`DROP INDEX IF EXISTS project_invitations_email_index`,
@@ -4368,6 +4371,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS project_invitations_email`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`ALTER TABLE  google_backup_credentials ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS google_backup_credentials_id`,
+
+		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`ALTER TABLE  domains ALTER project_id SET DEFAULT (null)`,
 
@@ -4740,12 +4749,6 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS key_versions_key_id`,
 
 		`DROP TABLE IF EXISTS key_versions`,
-
-		`ALTER TABLE  google_backup_credentials ALTER id SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS google_backup_credentials_id`,
-
-		`DROP TABLE IF EXISTS google_backup_credentials`,
 
 		`ALTER TABLE  fcm_tokens ALTER id SET DEFAULT (null)`,
 
@@ -8839,231 +8842,6 @@ func FcmTokens_IsActive(v bool) FcmTokens_IsActive_Field {
 }
 
 func (f FcmTokens_IsActive_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials struct {
-	Id                []byte
-	UserId            []byte
-	GoogleEmail       string
-	AccessToken       string
-	RefreshToken      *string
-	AccessTokenExpiry *time.Time
-	AccountType       *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-}
-
-func (GoogleBackupCredentials) _Table() string { return "google_backup_credentials" }
-
-type GoogleBackupCredentials_Create_Fields struct {
-	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
-	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
-	AccountType       GoogleBackupCredentials_AccountType_Field
-}
-
-type GoogleBackupCredentials_Update_Fields struct {
-	AccessToken       GoogleBackupCredentials_AccessToken_Field
-	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
-	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
-	AccountType       GoogleBackupCredentials_AccountType_Field
-}
-
-type GoogleBackupCredentials_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GoogleBackupCredentials_Id(v []byte) GoogleBackupCredentials_Id_Field {
-	return GoogleBackupCredentials_Id_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_Id_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_UserId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GoogleBackupCredentials_UserId(v []byte) GoogleBackupCredentials_UserId_Field {
-	return GoogleBackupCredentials_UserId_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_UserId_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_GoogleEmail_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func GoogleBackupCredentials_GoogleEmail(v string) GoogleBackupCredentials_GoogleEmail_Field {
-	return GoogleBackupCredentials_GoogleEmail_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_GoogleEmail_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_AccessToken_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func GoogleBackupCredentials_AccessToken(v string) GoogleBackupCredentials_AccessToken_Field {
-	return GoogleBackupCredentials_AccessToken_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_AccessToken_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_RefreshToken_Field struct {
-	_set   bool
-	_null  bool
-	_value *string
-}
-
-func GoogleBackupCredentials_RefreshToken(v string) GoogleBackupCredentials_RefreshToken_Field {
-	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _value: &v}
-}
-
-func GoogleBackupCredentials_RefreshToken_Raw(v *string) GoogleBackupCredentials_RefreshToken_Field {
-	if v == nil {
-		return GoogleBackupCredentials_RefreshToken_Null()
-	}
-	return GoogleBackupCredentials_RefreshToken(*v)
-}
-
-func GoogleBackupCredentials_RefreshToken_Null() GoogleBackupCredentials_RefreshToken_Field {
-	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _null: true}
-}
-
-func (f GoogleBackupCredentials_RefreshToken_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GoogleBackupCredentials_RefreshToken_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_AccessTokenExpiry_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func GoogleBackupCredentials_AccessTokenExpiry(v time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
-	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _value: &v}
-}
-
-func GoogleBackupCredentials_AccessTokenExpiry_Raw(v *time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
-	if v == nil {
-		return GoogleBackupCredentials_AccessTokenExpiry_Null()
-	}
-	return GoogleBackupCredentials_AccessTokenExpiry(*v)
-}
-
-func GoogleBackupCredentials_AccessTokenExpiry_Null() GoogleBackupCredentials_AccessTokenExpiry_Field {
-	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _null: true}
-}
-
-func (f GoogleBackupCredentials_AccessTokenExpiry_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GoogleBackupCredentials_AccessTokenExpiry_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_AccountType_Field struct {
-	_set   bool
-	_null  bool
-	_value *string
-}
-
-func GoogleBackupCredentials_AccountType(v string) GoogleBackupCredentials_AccountType_Field {
-	return GoogleBackupCredentials_AccountType_Field{_set: true, _value: &v}
-}
-
-func GoogleBackupCredentials_AccountType_Raw(v *string) GoogleBackupCredentials_AccountType_Field {
-	if v == nil {
-		return GoogleBackupCredentials_AccountType_Null()
-	}
-	return GoogleBackupCredentials_AccountType(*v)
-}
-
-func GoogleBackupCredentials_AccountType_Null() GoogleBackupCredentials_AccountType_Field {
-	return GoogleBackupCredentials_AccountType_Field{_set: true, _null: true}
-}
-
-func (f GoogleBackupCredentials_AccountType_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GoogleBackupCredentials_AccountType_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GoogleBackupCredentials_CreatedAt(v time.Time) GoogleBackupCredentials_CreatedAt_Field {
-	return GoogleBackupCredentials_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_CreatedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_UpdatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GoogleBackupCredentials_UpdatedAt(v time.Time) GoogleBackupCredentials_UpdatedAt_Field {
-	return GoogleBackupCredentials_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -19940,6 +19718,231 @@ func (f Domain_CreatedAt_Field) value() any {
 	return f._value
 }
 
+type GoogleBackupCredentials struct {
+	Id                []byte
+	UserId            []byte
+	GoogleEmail       string
+	AccessToken       string
+	RefreshToken      *string
+	AccessTokenExpiry *time.Time
+	AccountType       *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (GoogleBackupCredentials) _Table() string { return "google_backup_credentials" }
+
+type GoogleBackupCredentials_Create_Fields struct {
+	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
+	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
+	AccountType       GoogleBackupCredentials_AccountType_Field
+}
+
+type GoogleBackupCredentials_Update_Fields struct {
+	AccessToken       GoogleBackupCredentials_AccessToken_Field
+	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
+	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
+	AccountType       GoogleBackupCredentials_AccountType_Field
+}
+
+type GoogleBackupCredentials_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GoogleBackupCredentials_Id(v []byte) GoogleBackupCredentials_Id_Field {
+	return GoogleBackupCredentials_Id_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GoogleBackupCredentials_UserId(v []byte) GoogleBackupCredentials_UserId_Field {
+	return GoogleBackupCredentials_UserId_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_GoogleEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func GoogleBackupCredentials_GoogleEmail(v string) GoogleBackupCredentials_GoogleEmail_Field {
+	return GoogleBackupCredentials_GoogleEmail_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_GoogleEmail_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_AccessToken_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func GoogleBackupCredentials_AccessToken(v string) GoogleBackupCredentials_AccessToken_Field {
+	return GoogleBackupCredentials_AccessToken_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_AccessToken_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_RefreshToken_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func GoogleBackupCredentials_RefreshToken(v string) GoogleBackupCredentials_RefreshToken_Field {
+	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _value: &v}
+}
+
+func GoogleBackupCredentials_RefreshToken_Raw(v *string) GoogleBackupCredentials_RefreshToken_Field {
+	if v == nil {
+		return GoogleBackupCredentials_RefreshToken_Null()
+	}
+	return GoogleBackupCredentials_RefreshToken(*v)
+}
+
+func GoogleBackupCredentials_RefreshToken_Null() GoogleBackupCredentials_RefreshToken_Field {
+	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _null: true}
+}
+
+func (f GoogleBackupCredentials_RefreshToken_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GoogleBackupCredentials_RefreshToken_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_AccessTokenExpiry_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func GoogleBackupCredentials_AccessTokenExpiry(v time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
+	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _value: &v}
+}
+
+func GoogleBackupCredentials_AccessTokenExpiry_Raw(v *time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
+	if v == nil {
+		return GoogleBackupCredentials_AccessTokenExpiry_Null()
+	}
+	return GoogleBackupCredentials_AccessTokenExpiry(*v)
+}
+
+func GoogleBackupCredentials_AccessTokenExpiry_Null() GoogleBackupCredentials_AccessTokenExpiry_Field {
+	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _null: true}
+}
+
+func (f GoogleBackupCredentials_AccessTokenExpiry_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GoogleBackupCredentials_AccessTokenExpiry_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_AccountType_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func GoogleBackupCredentials_AccountType(v string) GoogleBackupCredentials_AccountType_Field {
+	return GoogleBackupCredentials_AccountType_Field{_set: true, _value: &v}
+}
+
+func GoogleBackupCredentials_AccountType_Raw(v *string) GoogleBackupCredentials_AccountType_Field {
+	if v == nil {
+		return GoogleBackupCredentials_AccountType_Null()
+	}
+	return GoogleBackupCredentials_AccountType(*v)
+}
+
+func GoogleBackupCredentials_AccountType_Null() GoogleBackupCredentials_AccountType_Field {
+	return GoogleBackupCredentials_AccountType_Field{_set: true, _null: true}
+}
+
+func (f GoogleBackupCredentials_AccountType_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GoogleBackupCredentials_AccountType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func GoogleBackupCredentials_CreatedAt(v time.Time) GoogleBackupCredentials_CreatedAt_Field {
+	return GoogleBackupCredentials_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type GoogleBackupCredentials_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func GoogleBackupCredentials_UpdatedAt(v time.Time) GoogleBackupCredentials_UpdatedAt_Field {
+	return GoogleBackupCredentials_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f GoogleBackupCredentials_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type ProjectInvitation struct {
 	ProjectId []byte
 	Email     string
@@ -22784,13 +22787,13 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
+func (obj *pgxImpl) Create_GoogleBackupCredentials(ctx context.Context,
 	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
 	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
 	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
 	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
 	optional GoogleBackupCredentials_Create_Fields) (
-	err error) {
+	google_backup_credentials *GoogleBackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -22807,7 +22810,7 @@ func (obj *pgxImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
 
 	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
@@ -22815,11 +22818,12 @@ func (obj *pgxImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	google_backup_credentials = &GoogleBackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
 	if err != nil {
-		return obj.makeErr(err)
+		return nil, obj.makeErr(err)
 	}
-	return nil
+	return google_backup_credentials, nil
 
 }
 
@@ -28371,6 +28375,51 @@ func (obj *pgxImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
 		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
 	}
 	return google_backup_credentials, nil
+
+}
+
+func (obj *pgxImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
+	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
+	rows []*GoogleBackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				google_backup_credentials := &GoogleBackupCredentials{}
+				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, google_backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -33971,10 +34020,10 @@ func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Cont
 	return nil
 }
 
-func (obj *pgxImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Context,
+func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
 	update GoogleBackupCredentials_Update_Fields) (
-	err error) {
+	google_backup_credentials *GoogleBackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -33982,7 +34031,7 @@ func (obj *pgxImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Con
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -34021,11 +34070,15 @@ func (obj *pgxImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Con
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
+	google_backup_credentials = &GoogleBackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
 	}
-	return nil
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return google_backup_credentials, nil
 }
 
 func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
@@ -36464,36 +36517,6 @@ func (obj *pgxImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
-
-	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -37203,6 +37226,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -37674,16 +37707,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -39638,13 +39661,13 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
+func (obj *pgxcockroachImpl) Create_GoogleBackupCredentials(ctx context.Context,
 	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
 	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
 	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
 	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
 	optional GoogleBackupCredentials_Create_Fields) (
-	err error) {
+	google_backup_credentials *GoogleBackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -39661,7 +39684,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
 
 	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
@@ -39669,11 +39692,12 @@ func (obj *pgxcockroachImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	google_backup_credentials = &GoogleBackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
 	if err != nil {
-		return obj.makeErr(err)
+		return nil, obj.makeErr(err)
 	}
-	return nil
+	return google_backup_credentials, nil
 
 }
 
@@ -45225,6 +45249,51 @@ func (obj *pgxcockroachImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Conte
 		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
 	}
 	return google_backup_credentials, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
+	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
+	rows []*GoogleBackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				google_backup_credentials := &GoogleBackupCredentials{}
+				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, google_backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -50825,10 +50894,10 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx con
 	return nil
 }
 
-func (obj *pgxcockroachImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Context,
+func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
 	update GoogleBackupCredentials_Update_Fields) (
-	err error) {
+	google_backup_credentials *GoogleBackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -50836,7 +50905,7 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx co
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -50875,11 +50944,15 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx co
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
+	google_backup_credentials = &GoogleBackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
 	}
-	return nil
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return google_backup_credentials, nil
 }
 
 func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
@@ -53318,36 +53391,6 @@ func (obj *pgxcockroachImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
-
-	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -54057,6 +54100,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -54528,16 +54581,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -56706,13 +56749,13 @@ func (obj *spannerImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
+func (obj *spannerImpl) Create_GoogleBackupCredentials(ctx context.Context,
 	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
 	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
 	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
 	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
 	optional GoogleBackupCredentials_Create_Fields) (
-	err error) {
+	google_backup_credentials *GoogleBackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -56729,7 +56772,7 @@ func (obj *spannerImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Conte
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
 
 	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
@@ -56737,11 +56780,18 @@ func (obj *spannerImpl) CreateNoReturn_GoogleBackupCredentials(ctx context.Conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
+	google_backup_credentials = &GoogleBackupCredentials{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
 	}
-	return nil
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return google_backup_credentials, nil
 
 }
 
@@ -62509,6 +62559,51 @@ func (obj *spannerImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
+	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
+	rows []*GoogleBackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				google_backup_credentials := &GoogleBackupCredentials{}
+				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, google_backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *spannerImpl) Get_Project_PassphraseEnc_Project_PassphraseEncKeyId_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *PassphraseEnc_PassphraseEncKeyId_Row, err error) {
@@ -67900,10 +67995,10 @@ func (obj *spannerImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.
 	return nil
 }
 
-func (obj *spannerImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Context,
+func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
 	update GoogleBackupCredentials_Update_Fields) (
-	err error) {
+	google_backup_credentials *GoogleBackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -67911,7 +68006,7 @@ func (obj *spannerImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? THEN RETURN google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -67947,11 +68042,15 @@ func (obj *spannerImpl) UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
+	google_backup_credentials = &GoogleBackupCredentials{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-	return nil
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return google_backup_credentials, nil
 }
 
 func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
@@ -70229,36 +70328,6 @@ func (obj *spannerImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
-
-	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *spannerImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -70964,6 +71033,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -71444,16 +71523,6 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM fcm_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -71795,6 +71864,10 @@ type Methods interface {
 		fcm_tokens_user_id FcmTokens_UserId_Field) (
 		rows []*FcmTokens, err error)
 
+	All_GoogleBackupCredentials_By_UserId(ctx context.Context,
+		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
+		rows []*GoogleBackupCredentials, err error)
+
 	All_NodeSmartContractUpdates(ctx context.Context) (
 		rows []*NodeSmartContractUpdates, err error)
 
@@ -71975,14 +72048,6 @@ type Methods interface {
 	CreateNoReturn_BillingBalance(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field,
 		billing_balance_balance BillingBalance_Balance_Field) (
-		err error)
-
-	CreateNoReturn_GoogleBackupCredentials(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-		google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-		google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-		optional GoogleBackupCredentials_Create_Fields) (
 		err error)
 
 	CreateNoReturn_KeyVersion(ctx context.Context,
@@ -72232,6 +72297,14 @@ type Methods interface {
 		fcm_tokens_updated_at FcmTokens_UpdatedAt_Field,
 		optional FcmTokens_Create_Fields) (
 		fcm_tokens *FcmTokens, err error)
+
+	Create_GoogleBackupCredentials(ctx context.Context,
+		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
+		google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
+		google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
+		optional GoogleBackupCredentials_Create_Fields) (
+		google_backup_credentials *GoogleBackupCredentials, err error)
 
 	Create_NodeEvent(ctx context.Context,
 		node_event_id NodeEvent_Id_Field,
@@ -72493,10 +72566,6 @@ type Methods interface {
 	Delete_FcmTokens_By_UserId(ctx context.Context,
 		fcm_tokens_user_id FcmTokens_UserId_Field) (
 		count int64, err error)
-
-	Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-		deleted bool, err error)
 
 	Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 		node_event_created_at_less NodeEvent_CreatedAt_Field) (
@@ -73276,11 +73345,6 @@ type Methods interface {
 		update BillingTransaction_Update_Fields) (
 		err error)
 
-	UpdateNoReturn_GoogleBackupCredentials_By_Id(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-		update GoogleBackupCredentials_Update_Fields) (
-		err error)
-
 	UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
 		node_api_version_id NodeApiVersion_Id_Field,
 		node_api_version_api_version_less NodeApiVersion_ApiVersion_Field,
@@ -73410,6 +73474,11 @@ type Methods interface {
 		fcm_tokens_id FcmTokens_Id_Field,
 		update FcmTokens_Update_Fields) (
 		fcm_tokens *FcmTokens, err error)
+
+	Update_GoogleBackupCredentials_By_Id(ctx context.Context,
+		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
+		update GoogleBackupCredentials_Update_Fields) (
+		google_backup_credentials *GoogleBackupCredentials, err error)
 
 	Update_KeyVersion_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field,

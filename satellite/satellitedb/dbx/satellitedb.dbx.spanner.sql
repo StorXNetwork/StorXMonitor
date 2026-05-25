@@ -219,18 +219,6 @@ CREATE TABLE fcm_tokens (
 	last_used_at TIMESTAMP,
 	is_active BOOL NOT NULL DEFAULT (true)
 ) PRIMARY KEY ( id ) ;
-CREATE TABLE google_backup_credentials (
-	id BYTES(MAX) NOT NULL,
-	user_id BYTES(MAX) NOT NULL,
-	google_email STRING(MAX) NOT NULL,
-	access_token STRING(MAX) NOT NULL,
-	refresh_token STRING(MAX),
-	access_token_expiry TIMESTAMP,
-	account_type STRING(MAX),
-	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL
-) PRIMARY KEY ( id ) ;
-CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email ) ;
 CREATE TABLE key_versions (
 	key_id BYTES(MAX) NOT NULL,
 	version STRING(MAX) NOT NULL
@@ -801,6 +789,19 @@ CREATE TABLE domains (
 	CONSTRAINT domains_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
 	CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, subdomain ) ;
+CREATE TABLE google_backup_credentials (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	google_email STRING(MAX) NOT NULL,
+	access_token STRING(MAX) NOT NULL,
+	refresh_token STRING(MAX),
+	access_token_expiry TIMESTAMP,
+	account_type STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	CONSTRAINT google_backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email ) ;
 CREATE TABLE project_invitations (
 	project_id BYTES(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
@@ -862,7 +863,6 @@ CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_use
 CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
 CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
 CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
-CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
 CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;
@@ -902,6 +902,7 @@ CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_i
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
+CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;
