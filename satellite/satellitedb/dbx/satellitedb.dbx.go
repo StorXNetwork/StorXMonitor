@@ -29147,6 +29147,61 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 }
 
+func (obj *pgxImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+	project_status Project_Status_Field,
+	project_status_updated_at_less Project_StatusUpdatedAt_Field,
+	limit int, offset int64) (
+	rows []*Id_PublicId_OwnerId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_status_updated_at_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_PublicId_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -36316,6 +36371,36 @@ func (obj *pgxImpl) Delete_FcmTokens_By_UserId(ctx context.Context,
 	}
 
 	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_PushNotifications_By_Id(ctx context.Context,
+	push_notifications_id PushNotifications_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM push_notifications WHERE push_notifications.id = ?")
+
+	var __values []any
+	__values = append(__values, push_notifications_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
 
 }
 
@@ -45916,6 +46001,61 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 }
 
+func (obj *pgxcockroachImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+	project_status Project_Status_Field,
+	project_status_updated_at_less Project_StatusUpdatedAt_Field,
+	limit int, offset int64) (
+	rows []*Id_PublicId_OwnerId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_status_updated_at_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_PublicId_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -53208,6 +53348,36 @@ func (obj *pgxcockroachImpl) Delete_GoogleBackupCredentials_By_Id(ctx context.Co
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
+
+	var __values []any
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_Project_By_OwnerId(ctx context.Context,
 	project_owner_id Project_OwnerId_Field) (
 	count int64, err error) {
@@ -53247,10 +53417,10 @@ func (obj *pgxcockroachImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx 
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
 
 	var __values []any
-	__values = append(__values, project_id.value())
+	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -53269,19 +53439,19 @@ func (obj *pgxcockroachImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx 
 
 }
 
-func (obj *pgxcockroachImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
-	project_member_member_id ProjectMember_MemberId_Field,
-	project_member_project_id ProjectMember_ProjectId_Field) (
+func (obj *pgxcockroachImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
 	deleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
 	var __values []any
-	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
+	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -53348,15 +53518,15 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 
 	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return false, obj.makeErr(err)
+		return 0, obj.makeErr(err)
 	}
 
-	__count, err := __res.RowsAffected()
+	count, err = __res.RowsAffected()
 	if err != nil {
-		return false, obj.makeErr(err)
+		return 0, obj.makeErr(err)
 	}
 
-	return __count > 0, nil
+	return count, nil
 
 }
 
@@ -63112,6 +63282,61 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 
 }
 
+func (obj *spannerImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+	project_status Project_Status_Field,
+	project_status_updated_at_less Project_StatusUpdatedAt_Field,
+	limit int, offset int64) (
+	rows []*Id_PublicId_OwnerId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_status_updated_at_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_PublicId_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *spannerImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -70004,6 +70229,36 @@ func (obj *spannerImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Delete_GoogleBackupCredentials_By_Id(ctx context.Context,
+	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+
+	var __values []any
+	__values = append(__values, google_backup_credentials_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *spannerImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -70052,15 +70307,15 @@ func (obj *spannerImpl) Delete_Project_By_OwnerId(ctx context.Context,
 
 	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return false, obj.makeErr(err)
+		return 0, obj.makeErr(err)
 	}
 
-	__count, err := __res.RowsAffected()
+	count, err = __res.RowsAffected()
 	if err != nil {
-		return false, obj.makeErr(err)
+		return 0, obj.makeErr(err)
 	}
 
-	return __count > 0, nil
+	return count, nil
 
 }
 
@@ -72268,6 +72523,10 @@ type Methods interface {
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		deleted bool, err error)
+
+	Delete_Project_By_OwnerId(ctx context.Context,
+		project_owner_id Project_OwnerId_Field) (
+		count int64, err error)
 
 	Delete_PushNotifications_By_Id(ctx context.Context,
 		push_notifications_id PushNotifications_Id_Field) (
