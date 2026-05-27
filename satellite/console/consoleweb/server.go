@@ -364,8 +364,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	router := mux.NewRouter()
 	server.router = router
 
-	// Add Swagger UI
-	router.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/", http.FileServer(http.Dir("swagger-ui"))))
+	// Swagger UI (embedded; run scripts/generate_swagger.sh to refresh swagger.json)
+	if swaggerHandler, err := swaggerUIHandler(); err != nil {
+		logger.Warn("failed to init swagger UI", zap.Error(err))
+	} else {
+		router.Handle("/swagger", http.RedirectHandler("/swagger/", http.StatusMovedPermanently))
+		router.PathPrefix("/swagger/").Handler(swaggerHandler)
+	}
 
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.
@@ -491,7 +496,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	router.HandleFunc("/linkedin_login/mobile", authController.HandleLinkedInLoginWithAuthToken)
 	authRouter.Handle("/linkedin_register/mobile", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleLinkedInRegisterWithAuthToken))).Methods(http.MethodPost, http.MethodOptions)
 
-	// authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogleForApp))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/login-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirmForApp))).Methods(http.MethodPost, http.MethodOptions)
@@ -517,6 +522,17 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	dashboardRouter.Use(server.withCORS)
 	dashboardRouter.Use(server.withAuth)
 	dashboardRouter.Handle("/stats", http.HandlerFunc(dashboardController.GetDashboardStats)).Methods(http.MethodGet, http.MethodOptions)
+
+	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)
+	googleBackupRouter := router.PathPrefix("/api/v0/google-backup").Subrouter()
+	googleBackupRouter.Use(server.withCORS)
+	googleBackupRouter.Use(server.withAuth)
+	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/gmail/bulk-update", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.BulkUpdateGmailAutoSyncJobs))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
 
 	// User developer access management
 	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility

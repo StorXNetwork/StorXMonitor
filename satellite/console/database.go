@@ -72,6 +72,9 @@ type DB interface {
 	// Entitlements is a getter for Entitlements repository.
 	Entitlements() entitlements.DB
 
+	// GoogleBackupCredentials is a getter for Google backup OAuth credentials.
+	GoogleBackupCredentials() GoogleBackupCredentials
+
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error
 }

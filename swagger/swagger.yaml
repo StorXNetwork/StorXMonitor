@@ -1,4 +1,313 @@
+basePath: /api/v0
+definitions:
+  consoleapi.BackupToolsJSONResponse:
+    additionalProperties: true
+    type: object
+  consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest:
+    properties:
+      emails:
+        example:
+        - billing@salestalker.com
+        - support@salestalker.com
+        items:
+          type: string
+        type: array
+      interval:
+        example: 1h
+        type: string
+      services:
+        example:
+        - gmail
+        - drive
+        items:
+          type: string
+        type: array
+    required:
+    - interval
+    - services
+    type: object
+  consoleapi.GoogleBackupRegisterSuccess:
+    properties:
+      google_backup:
+        type: object
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.GoogleOAuthJSONError:
+    properties:
+      error:
+        example: Error getting token from Google
+        type: string
+      redirect_url:
+        example: https://storx.io/login
+        type: string
+    type: object
+  consoleapi.GoogleOAuthJSONSuccess:
+    properties:
+      redirect_url:
+        example: https://storx.io/
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.SwaggerErrorResponse:
+    properties:
+      error:
+        example: error message
+        type: string
+    type: object
+  consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest:
+    properties:
+      active:
+        example: true
+        type: boolean
+      google_email:
+        example: user@gmail.com
+        type: string
+      interval:
+        example: daily
+        type: string
+      "on":
+        example: 12am
+        type: string
+      project_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      refresh_token:
+        example: <google refresh token>
+        type: string
+      storx_token:
+        example: <storx access grant>
+        type: string
+    required:
+    - project_id
+    type: object
+host: localhost:10002
 info:
-  contact: {}
-paths: {}
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API documentation for StorX Monitor server
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: StorX Monitor API
+  version: "1.0"
+paths:
+  /auth/login-google:
+    get:
+      description: 'Google OAuth callback. Browser flow (no json param): 302 redirect
+        to the web app. Swagger/Postman: set `json=true` (required below) for JSON
+        + Set-Cookie `_tokenKey` with no redirect — then Authorize CookieAuth and
+        call google-backup routes. Does not change browser behavior.'
+      parameters:
+      - description: Must be true in Swagger/API clients (uses existing ?json= query
+          on SendResponse)
+        in: query
+        name: json
+        required: true
+        type: boolean
+      - description: Fresh Google OAuth code (single-use)
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: OAuth state
+        in: query
+        name: state
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Set-Cookie: _tokenKey'
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleOAuthJSONSuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleOAuthJSONError'
+      summary: Login with Google (login-google)
+      tags:
+      - google-backup
+  /auth/register-google:
+    get:
+      description: Google OAuth signup callback. Success is always JSON. On error,
+        browser gets 302; use `json=true` in Swagger/Postman for JSON errors (existing
+        SendResponse behavior).
+      parameters:
+      - description: Fresh Google OAuth code (single-use)
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: OAuth state (UTM / verifier payload)
+        in: query
+        name: state
+        type: string
+      - description: When true, inserts CRM lead in Zoho
+        in: query
+        name: zoho-insert
+        type: boolean
+      - description: Set true in Swagger when testing error paths (avoids redirect)
+        in: query
+        name: json
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Set-Cookie: _tokenKey'
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupRegisterSuccess'
+        "500":
+          description: When json=true on failed callback
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleOAuthJSONError'
+      summary: Register with Google (register-google)
+      tags:
+      - google-backup
+  /google-backup/auto-sync/jobs:
+    get:
+      parameters:
+      - description: Optional Backup-Tools filter
+        in: query
+        name: filter
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Google Backup auto-sync jobs
+      tags:
+      - google-backup
+    post:
+      consumes:
+      - application/json
+      description: 'Satellite enriches the body with credentials and project_id, then
+        POSTs to Backup-Tools. Example body: `{"services":["gmail","drive"],"interval":"1h","emails":["billing@salestalker.com","support@salestalker.com"]}`'
+      parameters:
+      - description: Backup-Tools sync type (default daily)
+        in: query
+        name: sync_type
+        type: string
+      - description: Job create request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create Google Backup auto-sync jobs
+      tags:
+      - google-backup
+  /google-backup/auto-sync/jobs/{job_id}:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get Google Backup auto-sync job
+      tags:
+      - google-backup
+  /google-backup/auto-sync/jobs/project:
+    put:
+      consumes:
+      - application/json
+      description: Requires project_id and google_email in the body; other fields
+        are optional.
+      parameters:
+      - description: Project-scoped update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update Google Backup jobs by project
+      tags:
+      - google-backup
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+  CookieAuth:
+    in: cookie
+    name: _tokenKey
+    type: apiKey
 swagger: "2.0"
+tags:
+- description: Project management operations
+  name: projects
+- description: Bucket management operations
+  name: buckets
+- description: API key management operations
+  name: api-keys
+- description: Payment and billing operations
+  name: payments
+- description: Analytics operations
+  name: analytics
+- description: 'Google Backup: GET /auth/register-google and GET /auth/login-google
+    (Google OAuth only), plus auto-sync job proxy to Backup-Tools'
+  name: google-backup

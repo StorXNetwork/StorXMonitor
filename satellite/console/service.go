@@ -9548,43 +9548,23 @@ func (s *Service) enrichAutoSyncCard(ctx context.Context, card *BaseCard, tokenG
 }
 
 func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (string, error)) (*AutoSyncStats, error) {
-	if s.backupToolsURL == "" {
-		return nil, Error.New("Backup-Tools URL not configured")
-	}
-
 	tokenString, err := tokenGetter()
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	url := strings.TrimSuffix(s.backupToolsURL, "/") + "/autosync/stats"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	body, status, err := s.backupToolsRequest(ctx, http.MethodGet, "/autosync/stats", tokenString, "", nil)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	req.Header.Set("token_key", tokenString)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, Error.New("Backup-Tools returned status %d", resp.StatusCode)
+	if status != http.StatusOK {
+		return nil, Error.New("Backup-Tools returned status %d", status)
 	}
 
 	var stats AutoSyncStats
-	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+	if err := json.Unmarshal(body, &stats); err != nil {
 		return nil, Error.Wrap(err)
 	}
-
 	return &stats, nil
 }
 
@@ -9599,9 +9579,11 @@ type RegisterGoogleBackupResult struct {
 	DomainError string
 }
 
-// RegisterGoogleBackupCredential calls Backup-Tools domain-users for the Google account.
-func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmail, accessToken, refreshToken string, accessTokenExpiry time.Time) (RegisterGoogleBackupResult, error) {
-	result := RegisterGoogleBackupResult{
+// RegisterGoogleBackupCredential stores Google OAuth tokens, calls Backup-Tools domain-users, and persists account classification.
+func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmail, accessToken, refreshToken string, accessTokenExpiry time.Time, tokenKey string) (result RegisterGoogleBackupResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result = RegisterGoogleBackupResult{
 		GoogleEmail: googleEmail,
 	}
 
@@ -9609,7 +9591,21 @@ func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmai
 		return result, Error.New("google email and access token are required")
 	}
 
-	domainUsers, domainErr := s.fetchGmailCorporateDomainUsers(ctx, accessToken, refreshToken, accessTokenExpiry)
+	user, err := GetUser(ctx)
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
+
+	validAccessToken, validExpiry, err := socialmedia.ResolveAccessToken(ctx, accessToken, refreshToken, accessTokenExpiry)
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
+	if !validExpiry.IsZero() {
+		accessTokenExpiry = validExpiry
+	}
+	accessToken = validAccessToken
+
+	domainUsers, domainErr := s.fetchGmailCorporateDomainUsers(ctx, tokenKey, accessToken)
 	if domainErr != nil {
 		s.log.Warn("domain-users call failed during registration", zap.Error(domainErr))
 		result.DomainError = domainErr.Error()
@@ -9620,48 +9616,95 @@ func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmai
 		}
 	}
 
+	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, googleEmail, accessToken, refreshToken, accessTokenExpiry, result.AccountType); storeErr != nil {
+		s.log.Warn("failed to store Google backup credentials during registration", zap.Error(storeErr))
+	}
+
 	return result, nil
 }
 
-func (s *Service) fetchGmailCorporateDomainUsers(ctx context.Context, accessToken, refreshToken string, accessTokenExpiry time.Time) (GmailCorporateDomainUsersResponse, error) {
+func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.UUID, googleEmail, accessToken, refreshToken string, accessTokenExpiry time.Time, accountType string) error {
+	var expiryPtr *time.Time
+	if !accessTokenExpiry.IsZero() {
+		expiryPtr = &accessTokenExpiry
+	}
+
+	existing, err := s.store.GoogleBackupCredentials().GetByUserID(ctx, userID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return Error.Wrap(err)
+	}
+
+	if existing != nil {
+		if err := s.store.GoogleBackupCredentials().UpdateTokens(ctx, existing.ID, accessToken, refreshToken, expiryPtr); err != nil {
+			return Error.Wrap(err)
+		}
+		if accountType != "" && accountType != existing.AccountType {
+			if err := s.store.GoogleBackupCredentials().UpdateAccountType(ctx, existing.ID, accountType); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+		return nil
+	}
+
+	credentialID, err := uuid.New()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	_, err = s.store.GoogleBackupCredentials().Create(ctx, GoogleBackupCredential{
+		ID:                credentialID,
+		UserID:            userID,
+		GoogleEmail:       googleEmail,
+		AccessToken:       accessToken,
+		RefreshToken:      refreshToken,
+		AccessTokenExpiry: expiryPtr,
+		AccountType:       accountType,
+	})
+	return Error.Wrap(err)
+}
+
+func (s *Service) fetchGmailCorporateDomainUsers(ctx context.Context, tokenKey, accessToken string) (GmailCorporateDomainUsersResponse, error) {
+	var result GmailCorporateDomainUsersResponse
+	body, status, err := s.backupToolsRequest(ctx, http.MethodGet, "/google/gmail/corporate/domain-users", tokenKey, accessToken, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK {
+		return nil, Error.New("Backup-Tools domain-users returned status %d: %s", status, string(body))
+	}
+	return result, json.Unmarshal(body, &result)
+}
+
+func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey, accessToken string, payload []byte) ([]byte, int, error) {
 	if s.backupToolsURL == "" {
-		return nil, Error.New("Backup-Tools URL not configured")
+		return nil, 0, Error.New("Backup-Tools URL not configured")
 	}
-	if accessToken == "" {
-		return nil, Error.New("access token is required")
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, Error.New("token_key is required")
 	}
-
-	validAccessToken, _, err := socialmedia.ResolveAccessToken(ctx, accessToken, refreshToken, accessTokenExpiry)
+	var bodyReader io.Reader
+	if len(payload) > 0 {
+		bodyReader = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, strings.TrimSuffix(s.backupToolsURL, "/")+path, bodyReader)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, 0, Error.Wrap(err)
 	}
-
-	endpoint := strings.TrimSuffix(s.backupToolsURL, "/") + "/google/gmail/corporate/domain-users"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	req.Header.Set("token_key", tokenKey)
+	if accessToken != "" {
+		req.Header.Set("ACCESS_TOKEN", accessToken)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
-	req.Header.Set("Authorization", "Bearer "+validAccessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, 0, Error.Wrap(err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, resp.StatusCode, Error.Wrap(err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, Error.New("Backup-Tools domain-users returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result GmailCorporateDomainUsersResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return result, nil
+	return body, resp.StatusCode, nil
 }

@@ -1487,6 +1487,19 @@ func (a *Auth) LoginUserApple(w http.ResponseWriter, r *http.Request) {
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
 
+// RegisterGoogle handles Google OAuth signup, stores Google Backup credentials, and returns domain-users metadata.
+//
+// @Summary      Register with Google (register-google)
+// @Description  Google OAuth signup callback. Success is always JSON. On error, browser gets 302; use `json=true` in Swagger/Postman for JSON errors (existing SendResponse behavior).
+// @Tags         google-backup
+// @Produce      json
+// @Param        code        query  string  true   "Fresh Google OAuth code (single-use)"
+// @Param        state       query  string  false  "OAuth state (UTM / verifier payload)"
+// @Param        zoho-insert query  bool    false  "When true, inserts CRM lead in Zoho"
+// @Param        json        query  bool    false  "Set true in Swagger when testing error paths (avoids redirect)"
+// @Success      200         {object}  GoogleBackupRegisterSuccess  "Set-Cookie: _tokenKey"
+// @Failure      500         {object}  GoogleOAuthJSONError         "When json=true on failed callback"
+// @Router       /auth/register-google [get]
 func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
@@ -1631,7 +1644,10 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
 
-	a.TokenGoogleWrapper(ctx, googleuser.Email, "", w, r)
+	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
+	if err != nil {
+		return
+	}
 
 	if a.mailService != nil {
 		a.mailService.SendRenderedAsync(
@@ -1658,7 +1674,7 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 	a.log.Info("Default Project Name: " + project.Name)
 
 	var googleBackup map[string]interface{}
-	backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, accessToken, refreshToken, accessTokenExpiry)
+	backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, accessToken, refreshToken, accessTokenExpiry, sessionToken)
 	if backupErr != nil {
 		a.log.Error("failed to fetch Google backup domain users during registration", zap.Error(backupErr))
 		googleBackup = map[string]interface{}{
@@ -1702,6 +1718,18 @@ func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
 	a.loginUserConfirmFromIdtokeAndAccessToken(w, r, body.AccessToken)
 }
 
+// LoginUserConfirm handles Google OAuth login for existing users (login-google).
+//
+// @Summary      Login with Google (login-google)
+// @Description  Google OAuth callback. Browser flow (no json param): 302 redirect to the web app. Swagger/Postman: set `json=true` (required below) for JSON + Set-Cookie `_tokenKey` with no redirect — then Authorize CookieAuth and call google-backup routes. Does not change browser behavior.
+// @Tags         google-backup
+// @Produce      json
+// @Param        json   query  bool    true   "Must be true in Swagger/API clients (uses existing ?json= query on SendResponse)"
+// @Param        code   query  string  true   "Fresh Google OAuth code (single-use)"
+// @Param        state  query  string  false  "OAuth state"
+// @Success      200    {object}  GoogleOAuthJSONSuccess  "Set-Cookie: _tokenKey"
+// @Failure      500    {object}  GoogleOAuthJSONError
+// @Router       /auth/login-google [get]
 func (a *Auth) LoginUserConfirm(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
@@ -1753,38 +1781,37 @@ func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
 
-func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail, key string, w http.ResponseWriter, r *http.Request) {
+func (a *Auth) issueSessionTokenForGoogleUser(ctx context.Context, userGmail, key string, w http.ResponseWriter, r *http.Request) (string, error) {
 	cnf := socialmedia.GetConfig()
-	var err error
 
 	tokenRequest := console.AuthUser{}
 	tokenRequest.Email = userGmail
-	userGmail = ""
 	tokenRequest.UserAgent = r.UserAgent()
-	tokenRequest.IP, err = web.GetRequestIP(r)
+	ip, err := web.GetRequestIP(r)
 	if err != nil {
 		a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting IP", http.StatusTemporaryRedirect)
-		return
+		return "", ErrAuthAPI.Wrap(err)
 	}
+	tokenRequest.IP = ip
 
 	tokenInfo, err := a.service.Token_google(ctx, tokenRequest)
-
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
 			a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from system", http.StatusTemporaryRedirect)
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from system", http.StatusTemporaryRedirect)
 		}
-		return
+		return "", ErrAuthAPI.Wrap(err)
 	}
 
 	tokenInfo.Token.Key = key
-
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+	return tokenInfo.Token.String(), nil
+}
+
+func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail, key string, w http.ResponseWriter, r *http.Request) {
+	_, _ = a.issueSessionTokenForGoogleUser(ctx, userGmail, key, w, r)
 }
 
 func (a *Auth) InitFacebookRegister(w http.ResponseWriter, r *http.Request) {
@@ -3861,6 +3888,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case console.ErrEmailNotFound.Has(err):
 		return http.StatusNotFound
+	case console.ErrCredentialsInvalid.Has(err), console.ErrReauthRequired.Has(err):
+		return http.StatusUnprocessableEntity
 	default:
 		return http.StatusInternalServerError
 	}

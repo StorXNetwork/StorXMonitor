@@ -9,22 +9,476 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "http://www.swagger.io/support",
+            "email": "support@swagger.io"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
-    "paths": {}
+    "paths": {
+        "/auth/login-google": {
+            "get": {
+                "description": "Google OAuth callback. Browser flow (no json param): 302 redirect to the web app. Swagger/Postman: set ` + "`" + `json=true` + "`" + ` (required below) for JSON + Set-Cookie ` + "`" + `_tokenKey` + "`" + ` with no redirect — then Authorize CookieAuth and call google-backup routes. Does not change browser behavior.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Login with Google (login-google)",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Must be true in Swagger/API clients (uses existing ?json= query on SendResponse)",
+                        "name": "json",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fresh Google OAuth code (single-use)",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth state",
+                        "name": "state",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Set-Cookie: _tokenKey",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleOAuthJSONSuccess"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleOAuthJSONError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register-google": {
+            "get": {
+                "description": "Google OAuth signup callback. Success is always JSON. On error, browser gets 302; use ` + "`" + `json=true` + "`" + ` in Swagger/Postman for JSON errors (existing SendResponse behavior).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Register with Google (register-google)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fresh Google OAuth code (single-use)",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth state (UTM / verifier payload)",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, inserts CRM lead in Zoho",
+                        "name": "zoho-insert",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Set true in Swagger when testing error paths (avoids redirect)",
+                        "name": "json",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Set-Cookie: _tokenKey",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupRegisterSuccess"
+                        }
+                    },
+                    "500": {
+                        "description": "When json=true on failed callback",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleOAuthJSONError"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "List Google Backup auto-sync jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional Backup-Tools filter",
+                        "name": "filter",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Satellite enriches the body with credentials and project_id, then POSTs to Backup-Tools. Example body: ` + "`" + `{\"services\":[\"gmail\",\"drive\"],\"interval\":\"1h\",\"emails\":[\"billing@salestalker.com\",\"support@salestalker.com\"]}` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Create Google Backup auto-sync jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools sync type (default daily)",
+                        "name": "sync_type",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job create request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs/project": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Requires project_id and google_email in the body; other fields are optional.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Update Google Backup jobs by project",
+                "parameters": [
+                    {
+                        "description": "Project-scoped update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs/{job_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Get Google Backup auto-sync job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "consoleapi.BackupToolsJSONResponse": {
+            "type": "object",
+            "additionalProperties": true
+        },
+        "consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "interval",
+                "services"
+            ],
+            "properties": {
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "billing@salestalker.com",
+                        "support@salestalker.com"
+                    ]
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "1h"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "gmail",
+                        "drive"
+                    ]
+                }
+            }
+        },
+        "consoleapi.GoogleBackupRegisterSuccess": {
+            "type": "object",
+            "properties": {
+                "google_backup": {
+                    "type": "object"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleOAuthJSONError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Error getting token from Google"
+                },
+                "redirect_url": {
+                    "type": "string",
+                    "example": "https://storx.io/login"
+                }
+            }
+        },
+        "consoleapi.GoogleOAuthJSONSuccess": {
+            "type": "object",
+            "properties": {
+                "redirect_url": {
+                    "type": "string",
+                    "example": "https://storx.io/"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.SwaggerErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "error message"
+                }
+            }
+        },
+        "consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "project_id"
+            ],
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "google_email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "daily"
+                },
+                "on": {
+                    "type": "string",
+                    "example": "12am"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "refresh_token": {
+                    "type": "string",
+                    "example": "\u003cgoogle refresh token\u003e"
+                },
+                "storx_token": {
+                    "type": "string",
+                    "example": "\u003cstorx access grant\u003e"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "CookieAuth": {
+            "type": "apiKey",
+            "name": "_tokenKey",
+            "in": "cookie"
+        }
+    },
+    "tags": [
+        {
+            "description": "Project management operations",
+            "name": "projects"
+        },
+        {
+            "description": "Bucket management operations",
+            "name": "buckets"
+        },
+        {
+            "description": "API key management operations",
+            "name": "api-keys"
+        },
+        {
+            "description": "Payment and billing operations",
+            "name": "payments"
+        },
+        {
+            "description": "Analytics operations",
+            "name": "analytics"
+        },
+        {
+            "description": "Google Backup: GET /auth/register-google and GET /auth/login-google (Google OAuth only), plus auto-sync job proxy to Backup-Tools",
+            "name": "google-backup"
+        }
+    ]
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
+	Version:          "1.0",
+	Host:             "localhost:10002",
+	BasePath:         "/api/v0",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "StorX Monitor API",
+	Description:      "API documentation for StorX Monitor server",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

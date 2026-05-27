@@ -12,7 +12,7 @@ package consoleweb
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host localhost:10100
+// @host localhost:10002
 // @BasePath /api/v0
 
 // @securityDefinitions.apikey ApiKeyAuth
@@ -22,9 +22,6 @@ package consoleweb
 // @securityDefinitions.apikey CookieAuth
 // @in cookie
 // @name _tokenKey
-
-// @tag.name auth
-// @tag.description Authentication operations
 
 // @tag.name projects
 // @tag.description Project management operations
@@ -40,6 +37,9 @@ package consoleweb
 
 // @tag.name analytics
 // @tag.description Analytics operations
+
+// @tag.name google-backup
+// @tag.description Google Backup: GET /auth/register-google and GET /auth/login-google (Google OAuth only), plus auto-sync job proxy to Backup-Tools
 
 // Common response models
 type ErrorResponse struct {
