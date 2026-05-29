@@ -530,7 +530,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/gmail/bulk-update", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.BulkUpdateGmailAutoSyncJobs))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/policy", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncPolicies))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/policy/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncPolicy))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/policy/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncPolicy))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}/policy", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJobPolicy))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
 

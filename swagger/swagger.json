@@ -219,7 +219,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "Requires project_id and google_email in the body; other fields are optional.",
+                "description": "Account-level update (refresh_token, storx_token, active, interval, on). Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).",
                 "consumes": [
                     "application/json"
                 ],
@@ -301,6 +301,196 @@
                     }
                 }
             }
+        },
+        "/google-backup/auto-sync/jobs/{job_id}/policy": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Get Google Backup policy for job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "List Google Backup auto-sync policies",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools credential ID",
+                        "name": "credential_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Storj project ID (with google_email)",
+                        "name": "project_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Google account email (with project_id)",
+                        "name": "google_email",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/{policy_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Get Google Backup auto-sync policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Updates interval and on for a single policy (both required; use on:\"\" for hourly). Use PUT .../jobs/project for refresh_token, storx_token, or bulk schedule/active.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Update Google Backup auto-sync policy schedule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Policy schedule update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -327,7 +517,11 @@
                 },
                 "interval": {
                     "type": "string",
-                    "example": "1h"
+                    "example": "6h"
+                },
+                "on": {
+                    "type": "string",
+                    "example": ""
                 },
                 "services": {
                     "type": "array",
@@ -391,6 +585,7 @@
         "consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest": {
             "type": "object",
             "required": [
+                "google_email",
                 "project_id"
             ],
             "properties": {
@@ -398,13 +593,17 @@
                     "type": "boolean",
                     "example": true
                 },
+                "code": {
+                    "type": "string",
+                    "example": ""
+                },
                 "google_email": {
                     "type": "string",
                     "example": "user@gmail.com"
                 },
                 "interval": {
                     "type": "string",
-                    "example": "daily"
+                    "example": "nightly"
                 },
                 "on": {
                     "type": "string",
@@ -421,6 +620,22 @@
                 "storx_token": {
                     "type": "string",
                     "example": "\u003cstorx access grant\u003e"
+                }
+            }
+        },
+        "consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest": {
+            "type": "object",
+            "required": [
+                "interval"
+            ],
+            "properties": {
+                "interval": {
+                    "type": "string",
+                    "example": "3h"
+                },
+                "on": {
+                    "type": "string",
+                    "example": ""
                 }
             }
         }

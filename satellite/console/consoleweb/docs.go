@@ -12,7 +12,7 @@ package consoleweb
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host localhost:10002
+// Omit @host so Swagger UI uses the same origin as /swagger/ (avoids localhost vs 127.0.0.1 mismatch).
 // @BasePath /api/v0
 
 // @securityDefinitions.apikey ApiKeyAuth

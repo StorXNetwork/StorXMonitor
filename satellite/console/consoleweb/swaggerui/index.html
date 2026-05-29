@@ -10,11 +10,30 @@
 <body>
     <div id="swagger-ui"></div>
     <script>
+        // Browsers forbid setting the Cookie request header from JS, so Swagger's
+        // CookieAuth "Authorize" dialog does not send _tokenKey by itself. Sync the
+        // authorized value into document.cookie (same origin) and send credentials.
+        function syncCookieAuthFromSwagger(ui) {
+            try {
+                const authorized = ui.getSystem().authSelectors.authorized();
+                const entry = authorized && authorized.get && authorized.get('CookieAuth');
+                const value = entry && (entry.get ? entry.get('value') : entry.value);
+                if (value) {
+                    document.cookie = '_tokenKey=' + value + '; path=/; SameSite=Lax';
+                }
+            } catch (e) {
+                console.warn('swagger CookieAuth sync:', e);
+            }
+        }
+
         window.onload = function() {
-            SwaggerUIBundle({
+            let ui;
+            ui = SwaggerUIBundle({
                 url: "./swagger.json",
                 dom_id: '#swagger-ui',
                 deepLinking: true,
+                withCredentials: true,
+                persistAuthorization: true,
                 presets: [
                     SwaggerUIBundle.presets.apis,
                     SwaggerUIBundle.SwaggerUIStandalonePreset
@@ -22,8 +41,14 @@
                 plugins: [
                     SwaggerUIBundle.plugins.DownloadUrl
                 ],
-                layout: "BaseLayout"
+                layout: "BaseLayout",
+                requestInterceptor: function(req) {
+                    syncCookieAuthFromSwagger(ui);
+                    req.credentials = 'include';
+                    return req;
+                }
             });
+            window.ui = ui;
         };
     </script>
 </body>

@@ -13,7 +13,10 @@ definitions:
           type: string
         type: array
       interval:
-        example: 1h
+        example: 6h
+        type: string
+      "on":
+        example: ""
         type: string
       services:
         example:
@@ -63,11 +66,14 @@ definitions:
       active:
         example: true
         type: boolean
+      code:
+        example: ""
+        type: string
       google_email:
         example: user@gmail.com
         type: string
       interval:
-        example: daily
+        example: nightly
         type: string
       "on":
         example: 12am
@@ -82,7 +88,19 @@ definitions:
         example: <storx access grant>
         type: string
     required:
+    - google_email
     - project_id
+    type: object
+  consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest:
+    properties:
+      interval:
+        example: 3h
+        type: string
+      "on":
+        example: ""
+        type: string
+    required:
+    - interval
     type: object
 host: localhost:10002
 info:
@@ -254,12 +272,37 @@ paths:
       summary: Get Google Backup auto-sync job
       tags:
       - google-backup
+  /google-backup/auto-sync/jobs/{job_id}/policy:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get Google Backup policy for job
+      tags:
+      - google-backup
   /google-backup/auto-sync/jobs/project:
     put:
       consumes:
       - application/json
-      description: Requires project_id and google_email in the body; other fields
-        are optional.
+      description: 'Account-level update (refresh_token, storx_token, active, interval,
+        on). Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials,
+        then forwards refresh_token to Backup-Tools (never forwards code).'
       parameters:
       - description: Project-scoped update
         in: body
@@ -285,6 +328,103 @@ paths:
       security:
       - CookieAuth: []
       summary: Update Google Backup jobs by project
+      tags:
+      - google-backup
+  /google-backup/auto-sync/policy:
+    get:
+      parameters:
+      - description: Backup-Tools credential ID
+        in: query
+        name: credential_id
+        type: string
+      - description: Storj project ID (with google_email)
+        in: query
+        name: project_id
+        type: string
+      - description: Google account email (with project_id)
+        in: query
+        name: google_email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Google Backup auto-sync policies
+      tags:
+      - google-backup
+  /google-backup/auto-sync/policy/{policy_id}:
+    get:
+      parameters:
+      - description: Policy ID
+        in: path
+        name: policy_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get Google Backup auto-sync policy
+      tags:
+      - google-backup
+    put:
+      consumes:
+      - application/json
+      description: Updates interval and on for a single policy (both required; use
+        on:"" for hourly). Use PUT .../jobs/project for refresh_token, storx_token,
+        or bulk schedule/active.
+      parameters:
+      - description: Policy ID
+        in: path
+        name: policy_id
+        required: true
+        type: string
+      - description: Policy schedule update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update Google Backup auto-sync policy schedule
       tags:
       - google-backup
 securityDefinitions:
