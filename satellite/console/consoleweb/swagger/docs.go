@@ -405,19 +405,50 @@ const docTemplate = `{
                 }
             }
         },
-        "/google-backup/auto-sync/jobs/{job_id}/policy": {
+        "/google-backup/auto-sync/policy": {
             "get": {
                 "security": [
                     {
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs/{job_id}/policy` + "`" + `",
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/policy` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "google-backup"
+                    "google-backup-policy"
+                ],
+                "summary": "List Google Backup auto-sync policies",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/by-job/{job_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/policy/by-job/{job_id}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
                 ],
                 "summary": "Get Google Backup policy for job",
                 "parameters": [
@@ -445,39 +476,33 @@ const docTemplate = `{
                 }
             }
         },
-        "/google-backup/auto-sync/policy": {
-            "get": {
+        "/google-backup/auto-sync/policy/merge": {
+            "post": {
                 "security": [
                     {
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/policy` + "`" + `",
+                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/policy/merge` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "google-backup"
+                    "google-backup-policy"
                 ],
-                "summary": "List Google Backup auto-sync policies",
+                "summary": "Merge duplicate Google Backup policies",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Backup-Tools credential ID",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Storj project ID (with google_email)",
-                        "name": "project_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Google account email (with project_id)",
-                        "name": "google_email",
-                        "in": "query"
+                        "description": "Merge request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -514,7 +539,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "google-backup"
+                    "google-backup-policy"
                 ],
                 "summary": "Get Google Backup auto-sync policy",
                 "parameters": [
@@ -555,9 +580,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "google-backup"
+                    "google-backup-policy"
                 ],
-                "summary": "Update Google Backup auto-sync policy schedule",
+                "summary": "Update Google Backup auto-sync policy",
                 "parameters": [
                     {
                         "type": "string",
@@ -567,7 +592,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Policy schedule update",
+                        "description": "Policy update",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1646,6 +1671,15 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "dry_run": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
         "consoleapi.ProjectDailyUsageResponse": {
             "type": "object",
             "properties": {
@@ -1755,14 +1789,6 @@ const docTemplate = `{
                     "type": "string",
                     "example": "user@gmail.com"
                 },
-                "interval": {
-                    "type": "string",
-                    "example": "nightly"
-                },
-                "on": {
-                    "type": "string",
-                    "example": "12am"
-                },
                 "project_id": {
                     "type": "string",
                     "example": "00000000-0000-0000-0000-000000000000"
@@ -1783,13 +1809,31 @@ const docTemplate = `{
                 "interval"
             ],
             "properties": {
+                "apply_all": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "interval": {
                     "type": "string",
-                    "example": "3h"
+                    "example": "daily"
                 },
                 "on": {
                     "type": "string",
-                    "example": ""
+                    "example": "12am"
+                },
+                "retention_type": {
+                    "type": "string",
+                    "example": "1_year"
+                },
+                "selected_job_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        101,
+                        102
+                    ]
                 }
             }
         }
@@ -1838,6 +1882,10 @@ const docTemplate = `{
         {
             "description": "Google Backup: GET /auth/register-google and GET /auth/login-google (Google OAuth only), plus auto-sync job proxy to Backup-Tools",
             "name": "google-backup"
+        },
+        {
+            "description": "Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)",
+            "name": "google-backup-policy"
         },
         {
             "description": "Google Backup authentication: POST /google-backup/google-auth (Backup-Tools google-auth JWT)",

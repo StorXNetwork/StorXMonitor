@@ -144,43 +144,6 @@ func TestUpdateGoogleBackupAutoSyncJobRequest_Validate(t *testing.T) {
 	}
 }
 
-func TestListGoogleBackupAutoSyncPoliciesQuery_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		q       ListGoogleBackupAutoSyncPoliciesQuery
-		wantErr string
-	}{
-		{
-			name: "credential_id",
-			q:    ListGoogleBackupAutoSyncPoliciesQuery{CredentialID: "3"},
-		},
-		{
-			name: "project and email",
-			q: ListGoogleBackupAutoSyncPoliciesQuery{
-				ProjectID:   "proj-1",
-				GoogleEmail: "user@gmail.com",
-			},
-		},
-		{
-			name:    "missing filter",
-			q:       ListGoogleBackupAutoSyncPoliciesQuery{},
-			wantErr: "credential_id or project_id and google_email are required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.q.Validate()
-			if tt.wantErr == "" {
-				require.NoError(t, err)
-				return
-			}
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.wantErr)
-		})
-	}
-}
-
 func TestUpdateGoogleBackupAutoSyncJobRequest_backupToolsPayload(t *testing.T) {
 	body, err := UpdateGoogleBackupAutoSyncJobRequest{Active: boolPtr(true)}.backupToolsPayload()
 	require.NoError(t, err)
@@ -188,46 +151,6 @@ func TestUpdateGoogleBackupAutoSyncJobRequest_backupToolsPayload(t *testing.T) {
 	var got map[string]interface{}
 	require.NoError(t, json.Unmarshal(body, &got))
 	require.Equal(t, map[string]interface{}{"active": true}, got)
-}
-
-func TestUpdateGoogleBackupAutoSyncPolicyRequest_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		req     UpdateGoogleBackupAutoSyncPolicyRequest
-		wantErr string
-	}{
-		{
-			name: "interval and on",
-			req: UpdateGoogleBackupAutoSyncPolicyRequest{
-				Interval: "1h",
-				On:       "",
-			},
-		},
-		{
-			name: "daily schedule",
-			req: UpdateGoogleBackupAutoSyncPolicyRequest{
-				Interval: "daily",
-				On:       "12am",
-			},
-		},
-		{
-			name:    "missing interval",
-			req:     UpdateGoogleBackupAutoSyncPolicyRequest{On: "12am"},
-			wantErr: "interval is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.req.Validate()
-			if tt.wantErr == "" {
-				require.NoError(t, err)
-				return
-			}
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.wantErr)
-		})
-	}
 }
 
 func boolPtr(v bool) *bool { return &v }

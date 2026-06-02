@@ -170,110 +170,12 @@ func (g *GoogleBackup) GetAutoSyncJob(w http.ResponseWriter, r *http.Request) {
 	writeBackupToolsJSON(w, status, respBody)
 }
 
-// GetAutoSyncJobPolicy returns the policy for one job (Backup-Tools GET /auto-sync/job/{job_id}/policy).
-//
-// @Summary      Get Google Backup policy for job
-// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}/policy`
-// @Tags         google-backup
-// @Produce      json
-// @Param        job_id  path      string  true  "Job ID"
-// @Success      200     {object}  BackupToolsJSONResponse
-// @Failure      401     {object}  SwaggerErrorResponse
-// @Security     CookieAuth
-// @Router       /google-backup/auto-sync/jobs/{job_id}/policy [get]
-func (g *GoogleBackup) GetAutoSyncJobPolicy(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	tokenKey, err := g.sessionTokenKey(r)
-	if err != nil {
-		g.serveJSONError(ctx, w, err)
-		return
-	}
-
-	respBody, status, err := g.service.GetGoogleBackupAutoSyncJobPolicy(ctx, tokenKey, mux.Vars(r)["job_id"])
-	if err != nil {
-		g.serveJSONError(ctx, w, err)
-		return
-	}
-	writeBackupToolsJSON(w, status, respBody)
-}
-
-// ListAutoSyncPolicies lists policies for a connected account (Backup-Tools GET /auto-sync/policy).
-//
-// @Summary      List Google Backup auto-sync policies
-// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/policy`
-// @Tags         google-backup
-// @Produce      json
-// @Param        credential_id  query     string  false  "Backup-Tools credential ID"
-// @Param        project_id     query     string  false  "Storj project ID (with google_email)"
-// @Param        google_email   query     string  false  "Google account email (with project_id)"
-// @Success      200            {object}  BackupToolsJSONResponse
-// @Failure      400            {object}  SwaggerErrorResponse
-// @Failure      401            {object}  SwaggerErrorResponse
-// @Security     CookieAuth
-// @Router       /google-backup/auto-sync/policy [get]
-func (g *GoogleBackup) ListAutoSyncPolicies(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	tokenKey, err := g.sessionTokenKey(r)
-	if err != nil {
-		g.serveJSONError(ctx, w, err)
-		return
-	}
-
-	q := console.ListGoogleBackupAutoSyncPoliciesQuery{
-		CredentialID: r.URL.Query().Get("credential_id"),
-		ProjectID:    r.URL.Query().Get("project_id"),
-		GoogleEmail:  r.URL.Query().Get("google_email"),
-	}
-	respBody, status, err := g.service.ListGoogleBackupAutoSyncPolicies(ctx, tokenKey, q)
-	if err != nil {
-		g.serveJSONError(ctx, w, err)
-		return
-	}
-	writeBackupToolsJSON(w, status, respBody)
-}
-
-// GetAutoSyncPolicy returns one policy by ID (Backup-Tools GET /auto-sync/policy/{policy_id}).
-//
-// @Summary      Get Google Backup auto-sync policy
-// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/policy/{policy_id}`
-// @Tags         google-backup
-// @Produce      json
-// @Param        policy_id  path      string  true  "Policy ID"
-// @Success      200        {object}  BackupToolsJSONResponse
-// @Failure      401        {object}  SwaggerErrorResponse
-// @Security     CookieAuth
-// @Router       /google-backup/auto-sync/policy/{policy_id} [get]
-func (g *GoogleBackup) GetAutoSyncPolicy(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	tokenKey, err := g.sessionTokenKey(r)
-	if err != nil {
-		g.serveJSONError(ctx, w, err)
-		return
-	}
-
-	respBody, status, err := g.service.GetGoogleBackupAutoSyncPolicy(ctx, tokenKey, mux.Vars(r)["policy_id"])
-	if err != nil {
-		g.serveJSONError(ctx, w, err)
-		return
-	}
-	writeBackupToolsJSON(w, status, respBody)
-}
-
 // UpdateAutoSyncJobsByProject updates all jobs for a project via Backup-Tools PUT /auto-sync/job/project.
 //
 // @Summary      Update Google Backup jobs by project
 // @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/project`
 //
-// Account-level update (refresh_token, storx_token, active, interval, on). Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
+// Account-level update (refresh_token, storx_token, active). Schedule and retention use PUT .../auto-sync/policy/{policy_id}. Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -339,53 +241,6 @@ func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request)
 	}
 
 	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncJob(ctx, tokenKey, mux.Vars(r)["job_id"], req)
-	if err != nil {
-		g.serveJSONError(ctx, w, err)
-		return
-	}
-	writeBackupToolsJSON(w, status, respBody)
-}
-
-// UpdateAutoSyncPolicy updates schedule on a policy (Backup-Tools PUT /auto-sync/policy/{policy_id}).
-//
-// @Summary      Update Google Backup auto-sync policy schedule
-// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}`
-//
-// Updates interval and on for a single policy (both required; use on:"" for hourly). Use PUT .../jobs/project for refresh_token, storx_token, or bulk schedule/active.
-// @Tags         google-backup
-// @Accept       json
-// @Produce      json
-// @Param        policy_id  path      string                                         true  "Policy ID"
-// @Param        body       body      UpdateGoogleBackupAutoSyncPolicySwaggerRequest  true  "Policy schedule update"
-// @Success      200        {object}  BackupToolsJSONResponse
-// @Failure      400        {object}  SwaggerErrorResponse
-// @Failure      401        {object}  SwaggerErrorResponse
-// @Security     CookieAuth
-// @Router       /google-backup/auto-sync/policy/{policy_id} [put]
-func (g *GoogleBackup) UpdateAutoSyncPolicy(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	tokenKey, err := g.sessionTokenKey(r)
-	if err != nil {
-		g.serveJSONError(ctx, w, err)
-		return
-	}
-
-	var req console.UpdateGoogleBackupAutoSyncPolicyRequest
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
-		return
-	}
-	if dec.More() {
-		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
-		return
-	}
-
-	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncPolicy(ctx, tokenKey, mux.Vars(r)["policy_id"], req)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return

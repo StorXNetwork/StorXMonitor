@@ -47,6 +47,9 @@ package consoleweb
 // @tag.name google-backup
 // @tag.description Google Backup: GET /auth/register-google and GET /auth/login-google (Google OAuth only), plus auto-sync job proxy to Backup-Tools
 
+// @tag.name google-backup-policy
+// @tag.description Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)
+
 // @tag.name google-backup-auth
 // @tag.description Google Backup authentication: POST /google-backup/google-auth (Backup-Tools google-auth JWT)
 

@@ -27,28 +27,6 @@ type CreateGoogleBackupAutoSyncJobsRequest struct {
 	Emails   []string
 }
 
-// ListGoogleBackupAutoSyncPoliciesQuery filters Backup-Tools GET /auto-sync/policy.
-type ListGoogleBackupAutoSyncPoliciesQuery struct {
-	CredentialID string
-	ProjectID    string
-	GoogleEmail  string
-}
-
-func (q ListGoogleBackupAutoSyncPoliciesQuery) Validate() error {
-	if strings.TrimSpace(q.CredentialID) != "" {
-		return nil
-	}
-	projectID := strings.TrimSpace(q.ProjectID)
-	googleEmail := strings.TrimSpace(q.GoogleEmail)
-	if projectID != "" && googleEmail != "" {
-		if _, err := mail.ParseAddress(googleEmail); err != nil {
-			return ErrValidation.New("invalid google_email: %s", googleEmail)
-		}
-		return nil
-	}
-	return ErrValidation.New("credential_id or project_id and google_email are required")
-}
-
 // UpdateGoogleBackupAutoSyncJobsByProjectRequest is the UI → satellite body for
 // Backup-Tools PUT /auto-sync/job/project (project_id in JSON body, not URL path).
 type UpdateGoogleBackupAutoSyncJobsByProjectRequest struct {
@@ -57,20 +35,12 @@ type UpdateGoogleBackupAutoSyncJobsByProjectRequest struct {
 	Code         string `json:"code,omitempty"`
 	StorxToken   string `json:"storx_token,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
-	Interval     string `json:"interval,omitempty"`
-	On           string `json:"on,omitempty"`
 	Active       *bool  `json:"active,omitempty"`
 }
 
 // UpdateGoogleBackupAutoSyncJobRequest is the UI body for Backup-Tools PUT /auto-sync/job/{job_id} (active only).
 type UpdateGoogleBackupAutoSyncJobRequest struct {
 	Active *bool `json:"active"`
-}
-
-// UpdateGoogleBackupAutoSyncPolicyRequest is the UI body for Backup-Tools PUT /auto-sync/policy/{policy_id}.
-type UpdateGoogleBackupAutoSyncPolicyRequest struct {
-	Interval string `json:"interval,omitempty"`
-	On       string `json:"on,omitempty"`
 }
 
 // Validate requires project_id, google_email, and at least one account-level update field.
@@ -97,9 +67,7 @@ func (r UpdateGoogleBackupAutoSyncJobsByProjectRequest) hasUpdateFields() bool {
 	return strings.TrimSpace(r.Code) != "" ||
 		strings.TrimSpace(r.RefreshToken) != "" ||
 		strings.TrimSpace(r.StorxToken) != "" ||
-		r.Active != nil ||
-		strings.TrimSpace(r.Interval) != "" ||
-		strings.TrimSpace(r.On) != ""
+		r.Active != nil
 }
 
 func (r UpdateGoogleBackupAutoSyncJobRequest) Validate() error {
@@ -112,24 +80,6 @@ func (r UpdateGoogleBackupAutoSyncJobRequest) Validate() error {
 func (r UpdateGoogleBackupAutoSyncJobRequest) backupToolsPayload() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"active": *r.Active,
-	})
-}
-
-func (r UpdateGoogleBackupAutoSyncPolicyRequest) Validate() error {
-	if strings.TrimSpace(r.Interval) == "" {
-		return ErrValidation.New("interval is required")
-	}
-	interval := normalizeGoogleBackupInterval(r.Interval)
-	if _, ok := allowedGoogleBackupIntervals[interval]; !ok {
-		return ErrValidation.New("unsupported interval: %s", interval)
-	}
-	return nil
-}
-
-func (r UpdateGoogleBackupAutoSyncPolicyRequest) backupToolsPayload() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"interval": normalizeGoogleBackupInterval(r.Interval),
-		"on":       strings.TrimSpace(r.On),
 	})
 }
 
@@ -148,12 +98,6 @@ func (r UpdateGoogleBackupAutoSyncJobsByProjectRequest) backupToolsPayload() ([]
 	}
 	if v := strings.TrimSpace(r.RefreshToken); v != "" {
 		out["refresh_token"] = v
-	}
-	if v := normalizeGoogleBackupInterval(r.Interval); v != "" {
-		out["interval"] = v
-	}
-	if v := strings.TrimSpace(r.On); v != "" {
-		out["on"] = v
 	}
 	if r.Active != nil {
 		out["active"] = *r.Active
@@ -275,58 +219,6 @@ func (s *Service) GetGoogleBackupAutoSyncJob(ctx context.Context, tokenKey, jobI
 	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
 }
 
-func (s *Service) GetGoogleBackupAutoSyncJobPolicy(ctx context.Context, tokenKey, jobID string) (body []byte, status int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if strings.TrimSpace(tokenKey) == "" {
-		return nil, 0, ErrUnauthorized.New("session token is required")
-	}
-	jobID = strings.TrimSpace(jobID)
-	if jobID == "" {
-		return nil, 0, ErrValidation.New("job_id is required")
-	}
-
-	path := "/auto-sync/job/" + url.PathEscape(jobID) + "/policy"
-	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
-}
-
-func (s *Service) ListGoogleBackupAutoSyncPolicies(ctx context.Context, tokenKey string, q ListGoogleBackupAutoSyncPoliciesQuery) (body []byte, status int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if strings.TrimSpace(tokenKey) == "" {
-		return nil, 0, ErrUnauthorized.New("session token is required")
-	}
-	if err := q.Validate(); err != nil {
-		return nil, 0, err
-	}
-
-	values := url.Values{}
-	if id := strings.TrimSpace(q.CredentialID); id != "" {
-		values.Set("credential_id", id)
-	} else {
-		values.Set("project_id", strings.TrimSpace(q.ProjectID))
-		values.Set("google_email", strings.TrimSpace(q.GoogleEmail))
-	}
-
-	path := "/auto-sync/policy?" + values.Encode()
-	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
-}
-
-func (s *Service) GetGoogleBackupAutoSyncPolicy(ctx context.Context, tokenKey, policyID string) (body []byte, status int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if strings.TrimSpace(tokenKey) == "" {
-		return nil, 0, ErrUnauthorized.New("session token is required")
-	}
-	policyID = strings.TrimSpace(policyID)
-	if policyID == "" {
-		return nil, 0, ErrValidation.New("policy_id is required")
-	}
-
-	path := "/auto-sync/policy/" + url.PathEscape(policyID)
-	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
-}
-
 // UpdateGoogleBackupAutoSyncJobsByProject proxies to Backup-Tools PUT /auto-sync/job/project.
 // When code is present, Satellite exchanges it for tokens, updates google_backup_credentials, then sends refresh_token only.
 func (s *Service) UpdateGoogleBackupAutoSyncJobsByProject(ctx context.Context, tokenKey string, req UpdateGoogleBackupAutoSyncJobsByProjectRequest) (body []byte, status int, err error) {
@@ -411,29 +303,6 @@ func (s *Service) UpdateGoogleBackupAutoSyncJob(ctx context.Context, tokenKey, j
 	}
 
 	path := "/auto-sync/job/" + url.PathEscape(jobID)
-	return s.backupToolsRequest(ctx, http.MethodPut, path, tokenKey, "", btPayload)
-}
-
-func (s *Service) UpdateGoogleBackupAutoSyncPolicy(ctx context.Context, tokenKey, policyID string, req UpdateGoogleBackupAutoSyncPolicyRequest) (body []byte, status int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if strings.TrimSpace(tokenKey) == "" {
-		return nil, 0, ErrUnauthorized.New("session token is required")
-	}
-	policyID = strings.TrimSpace(policyID)
-	if policyID == "" {
-		return nil, 0, ErrValidation.New("policy_id is required")
-	}
-	if err := req.Validate(); err != nil {
-		return nil, 0, err
-	}
-
-	btPayload, err := req.backupToolsPayload()
-	if err != nil {
-		return nil, 0, Error.Wrap(err)
-	}
-
-	path := "/auto-sync/policy/" + url.PathEscape(policyID)
 	return s.backupToolsRequest(ctx, http.MethodPut, path, tokenKey, "", btPayload)
 }
 

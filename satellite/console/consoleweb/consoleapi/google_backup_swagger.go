@@ -46,15 +46,7 @@ type UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest struct {
 	Code         string `json:"code,omitempty" example:""`
 	StorxToken   string `json:"storx_token,omitempty" example:"<storx access grant>"`
 	RefreshToken string `json:"refresh_token,omitempty" example:"<google refresh token>"`
-	Interval     string `json:"interval,omitempty" example:"nightly"`
-	On           string `json:"on,omitempty" example:"12am"`
 	Active       *bool  `json:"active,omitempty" example:"true"`
-}
-
-// UpdateGoogleBackupAutoSyncPolicySwaggerRequest is the UI body for PUT .../auto-sync/policy/{policy_id}.
-type UpdateGoogleBackupAutoSyncPolicySwaggerRequest struct {
-	Interval string `json:"interval" binding:"required" example:"3h"`
-	On       string `json:"on" example:""`
 }
 
 // SwaggerErrorResponse is a generic API error body.

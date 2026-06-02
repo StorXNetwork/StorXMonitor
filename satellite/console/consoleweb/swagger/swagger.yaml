@@ -202,6 +202,12 @@ definitions:
         example: true
         type: boolean
     type: object
+  consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest:
+    properties:
+      dry_run:
+        example: false
+        type: boolean
+    type: object
   consoleapi.ProjectDailyUsageResponse:
     properties:
       allocatedBandwidthUsage:
@@ -276,12 +282,6 @@ definitions:
       google_email:
         example: user@gmail.com
         type: string
-      interval:
-        example: nightly
-        type: string
-      "on":
-        example: 12am
-        type: string
       project_id:
         example: 00000000-0000-0000-0000-000000000000
         type: string
@@ -297,12 +297,25 @@ definitions:
     type: object
   consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest:
     properties:
+      apply_all:
+        example: true
+        type: boolean
       interval:
-        example: 3h
+        example: daily
         type: string
       "on":
-        example: ""
+        example: 12am
         type: string
+      retention_type:
+        example: 1_year
+        type: string
+      selected_job_ids:
+        example:
+        - 101
+        - 102
+        items:
+          type: integer
+        type: array
     required:
     - interval
     type: object
@@ -536,31 +549,6 @@ paths:
       summary: Get Google Backup auto-sync job
       tags:
       - google-backup
-  /google-backup/auto-sync/jobs/{job_id}/policy:
-    get:
-      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}/policy`'
-      parameters:
-      - description: Job ID
-        in: path
-        name: job_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Get Google Backup policy for job
-      tags:
-      - google-backup
   /google-backup/auto-sync/jobs/project:
     put:
       consumes:
@@ -596,19 +584,6 @@ paths:
   /google-backup/auto-sync/policy:
     get:
       description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy`'
-      parameters:
-      - description: Backup-Tools credential ID
-        in: query
-        name: credential_id
-        type: string
-      - description: Storj project ID (with google_email)
-        in: query
-        name: project_id
-        type: string
-      - description: Google account email (with project_id)
-        in: query
-        name: google_email
-        type: string
       produces:
       - application/json
       responses:
@@ -616,10 +591,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -628,7 +599,7 @@ paths:
       - CookieAuth: []
       summary: List Google Backup auto-sync policies
       tags:
-      - google-backup
+      - google-backup-policy
   /google-backup/auto-sync/policy/{policy_id}:
     get:
       description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy/{policy_id}`'
@@ -653,7 +624,7 @@ paths:
       - CookieAuth: []
       summary: Get Google Backup auto-sync policy
       tags:
-      - google-backup
+      - google-backup-policy
     put:
       consumes:
       - application/json
@@ -664,7 +635,7 @@ paths:
         name: policy_id
         required: true
         type: string
-      - description: Policy schedule update
+      - description: Policy update
         in: body
         name: body
         required: true
@@ -687,9 +658,66 @@ paths:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
-      summary: Update Google Backup auto-sync policy schedule
+      summary: Update Google Backup auto-sync policy
       tags:
-      - google-backup
+      - google-backup-policy
+  /google-backup/auto-sync/policy/by-job/{job_id}:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy/by-job/{job_id}`'
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get Google Backup policy for job
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/policy/merge:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/google-backup/auto-sync/policy/merge`'
+      parameters:
+      - description: Merge request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Merge duplicate Google Backup policies
+      tags:
+      - google-backup-policy
   /google-backup/connect:
     post:
       consumes:
@@ -1210,6 +1238,9 @@ tags:
 - description: 'Google Backup: GET /auth/register-google and GET /auth/login-google
     (Google OAuth only), plus auto-sync job proxy to Backup-Tools'
   name: google-backup
+- description: 'Google Backup shared policies: schedule, retention, merge (Backup-Tools
+    /auto-sync/policy/*)'
+  name: google-backup-policy
 - description: 'Google Backup authentication: POST /google-backup/google-auth (Backup-Tools
     google-auth JWT)'
   name: google-backup-auth
