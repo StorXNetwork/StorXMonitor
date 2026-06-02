@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/StorXNetwork/common/uuid"
@@ -71,6 +72,27 @@ func (g *googleBackupCredentials) GetByUserID(ctx context.Context, userID uuid.U
 		}
 	}
 	return googleBackupCredentialFromDBX(latest)
+}
+
+func (g *googleBackupCredentials) GetByUserIDAndGoogleEmail(ctx context.Context, userID uuid.UUID, googleEmail string) (_ *console.GoogleBackupCredential, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	googleEmail = strings.TrimSpace(strings.ToLower(googleEmail))
+	if googleEmail == "" {
+		return nil, sql.ErrNoRows
+	}
+
+	rows, err := g.db.All_GoogleBackupCredentials_By_UserId(ctx, dbx.GoogleBackupCredentials_UserId(userID[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		if strings.EqualFold(row.GoogleEmail, googleEmail) {
+			return googleBackupCredentialFromDBX(row)
+		}
+	}
+	return nil, sql.ErrNoRows
 }
 
 func (g *googleBackupCredentials) UpdateAccountType(ctx context.Context, id uuid.UUID, accountType string) (err error) {

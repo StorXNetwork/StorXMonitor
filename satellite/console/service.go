@@ -9314,18 +9314,35 @@ type BaseCard struct {
 	Value2Label string      `json:"value_2_label,omitempty"`
 }
 
+// DashboardCardsResponse holds dashboard card shells from config plus runtime values.
 type DashboardCardsResponse struct {
+	// Legacy dashboard cards (previous UI).
 	AutoSync BaseCard `json:"autoSync"`
 	Vault    BaseCard `json:"vault"`
 	Access   BaseCard `json:"access"`
 	Billing  BaseCard `json:"billing"`
+
+	// Protected Services overview (updated UI — GET /api/v0/dashboard/stats).
+	ProtectedUsers BaseCard `json:"protectedUsers"`
+	StorageQuota   BaseCard `json:"storageQuota"`
+	BandwidthQuota BaseCard `json:"bandwidthQuota"`
+	LastSnapshot   BaseCard `json:"lastSnapshot"`
 }
 
+// AutoSyncStats is the legacy Backup-Tools GET /autosync/stats payload (unchanged).
 type AutoSyncStats struct {
 	ActiveSyncs   int    `json:"active_syncs"`
 	FailedSyncs   int    `json:"failed_syncs"`
 	TotalAccounts int    `json:"total_accounts"`
 	Status        string `json:"status"`
+}
+
+// ProtectedServicesStats is the updated Backup-Tools GET /autosync/stats payload.
+type ProtectedServicesStats struct {
+	ConnectedAccounts           int        `json:"connected_accounts"`
+	ConnectedAccountsGrowthWeek int        `json:"connected_accounts_growth_this_week"`
+	LastSyncAt                  *time.Time `json:"last_sync_at,omitempty"`
+	LastSyncItemsSynced         int64      `json:"last_sync_items_synced"`
 }
 
 func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, tokenGetter func() (string, error)) ([]interface{}, error) {
@@ -9346,21 +9363,49 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 
 	s.enrichBillingCard(ctx, &response.Billing, user)
 
-	if len(projects) > 0 {
-		projectID := projects[0].ID
-		s.enrichVaultCard(ctx, &response.Vault, projectID)
-		s.enrichAccessCard(ctx, &response.Access, projectID)
+	var projectID uuid.UUID
+	hasProject := len(projects) > 0
+	if hasProject {
+		projectID = projects[0].ID
 	}
 
+	var protectedStats *ProtectedServicesStats
 	if s.backupToolsURL != "" && tokenGetter != nil {
-		s.enrichAutoSyncCard(ctx, &response.AutoSync, tokenGetter)
+		stats, fetchErr := s.fetchProtectedServicesStats(ctx, tokenGetter)
+		if fetchErr != nil {
+			s.log.Warn("failed to fetch Protected Services stats from Backup-Tools", zap.Error(fetchErr))
+		} else {
+			protectedStats = stats
+		}
 	}
+
+	s.enrichProtectedUsersCard(&response.ProtectedUsers, protectedStats)
+	s.enrichLastSnapshotCard(&response.LastSnapshot, protectedStats)
+
+	if hasProject {
+		s.enrichStorageQuotaCard(ctx, &response.StorageQuota, projectID)
+		s.enrichBandwidthQuotaCard(ctx, &response.BandwidthQuota, projectID)
+	}
+
+	// Legacy enrichment (previous dashboard: autoSync active/failed, vault count, access grants).
+	// if hasProject {
+	// 	s.enrichVaultCard(ctx, &response.Vault, projectID)
+	// 	s.enrichAccessCard(ctx, &response.Access, projectID)
+	// }
+	// if s.backupToolsURL != "" && tokenGetter != nil {
+	// 	s.enrichAutoSyncCard(ctx, &response.AutoSync, tokenGetter)
+	// }
 
 	result := []interface{}{
-		response.AutoSync,
-		response.Vault,
-		response.Access,
+		response.ProtectedUsers,
+		response.StorageQuota,
+		response.BandwidthQuota,
+		response.LastSnapshot,
 		response.Billing,
+		// Legacy card order (commented out):
+		// response.AutoSync,
+		// response.Vault,
+		// response.Access,
 	}
 
 	return result, nil
@@ -9382,6 +9427,20 @@ func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsRes
 
 	if err := json.Unmarshal(configJSON, &response); err != nil {
 		return response
+	}
+
+	// When DB still stores legacy keys only, reuse those card shells for the new overview.
+	if response.ProtectedUsers.Title == "" && response.AutoSync.Title != "" {
+		response.ProtectedUsers = response.AutoSync
+	}
+	if response.StorageQuota.Title == "" && response.Vault.Title != "" {
+		response.StorageQuota = response.Vault
+	}
+	if response.BandwidthQuota.Title == "" && response.Access.Title != "" {
+		response.BandwidthQuota = response.Access
+	}
+	if response.LastSnapshot.Title == "" && response.AutoSync.Title != "" {
+		response.LastSnapshot = response.AutoSync
 	}
 
 	return response
@@ -9528,6 +9587,124 @@ func (s *Service) enrichAccessCard(ctx context.Context, card *BaseCard, projectI
 	card.Value2Label = ""
 }
 
+func (s *Service) enrichProtectedUsersCard(card *BaseCard, stats *ProtectedServicesStats) {
+	if stats == nil {
+		card.Value1 = 0
+		card.Value2 = nil
+		card.Value2Label = ""
+		return
+	}
+
+	card.Value1 = stats.ConnectedAccounts
+	if stats.ConnectedAccountsGrowthWeek > 0 {
+		card.Value2 = fmt.Sprintf("+%d this week", stats.ConnectedAccountsGrowthWeek)
+		card.Value2Label = "growth_this_week"
+	} else {
+		card.Value2 = nil
+		card.Value2Label = ""
+	}
+}
+
+func (s *Service) enrichLastSnapshotCard(card *BaseCard, stats *ProtectedServicesStats) {
+	if stats == nil || stats.LastSyncAt == nil || stats.LastSyncAt.IsZero() {
+		card.Value1 = "—"
+		card.Value2 = int64(0)
+		card.Value2Label = "items_synced"
+		return
+	}
+
+	card.Value1 = formatRelativeTime(*stats.LastSyncAt)
+	card.Value2 = stats.LastSyncItemsSynced
+	card.Value2Label = "items_synced"
+	if stats.LastSyncItemsSynced > 0 {
+		card.Description = fmt.Sprintf("%d items synced successfully", stats.LastSyncItemsSynced)
+	}
+}
+
+func (s *Service) enrichStorageQuotaCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
+	var used, limit int64
+	if usageLimits, err := s.GetProjectUsageLimits(ctx, projectID); err == nil && usageLimits != nil {
+		used = usageLimits.StorageUsed
+		limit = usageLimits.StorageLimit
+		if usageLimits.UserSetStorageLimit != nil && *usageLimits.UserSetStorageLimit > 0 {
+			limit = *usageLimits.UserSetStorageLimit
+		}
+	}
+	s.enrichUsageQuotaCard(card, used, limit)
+}
+
+func (s *Service) enrichBandwidthQuotaCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
+	var used, limit int64
+	if usageLimits, err := s.GetProjectUsageLimits(ctx, projectID); err == nil && usageLimits != nil {
+		used = usageLimits.BandwidthUsed
+		limit = usageLimits.BandwidthLimit
+		if usageLimits.UserSetBandwidthLimit != nil && *usageLimits.UserSetBandwidthLimit > 0 {
+			limit = *usageLimits.UserSetBandwidthLimit
+		}
+	}
+	s.enrichUsageQuotaCard(card, used, limit)
+}
+
+func (s *Service) enrichUsageQuotaCard(card *BaseCard, used, limit int64) {
+	percent := usagePercentUsed(used, limit)
+	card.Value1 = fmt.Sprintf("%s / %s", formatBytes(used), formatBytes(limit))
+	card.Value2 = percent
+	card.Value2Label = "percent_used"
+
+	status := s.getStatus("active")
+	status.Value = fmt.Sprintf("%d%% Used", percent)
+	if percent >= 90 {
+		warn := s.getStatus("partial_success")
+		warn.Value = status.Value
+		status = warn
+	}
+	card.Status = &status
+}
+
+func usagePercentUsed(used, limit int64) int {
+	if limit <= 0 {
+		if used > 0 {
+			return 100
+		}
+		return 0
+	}
+	percent := int(float64(used) / float64(limit) * 100)
+	if percent > 100 {
+		return 100
+	}
+	if percent < 0 {
+		return 0
+	}
+	return percent
+}
+
+func formatRelativeTime(t time.Time) string {
+	elapsed := time.Since(t)
+	switch {
+	case elapsed < time.Minute:
+		return "just now"
+	case elapsed < time.Hour:
+		mins := int(elapsed.Minutes())
+		if mins == 1 {
+			return "1 min ago"
+		}
+		return fmt.Sprintf("%d mins ago", mins)
+	case elapsed < 24*time.Hour:
+		hours := int(elapsed.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	default:
+		days := int(elapsed.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	}
+}
+
+// enrichAutoSyncCard — legacy dashboard card (active/failed sync counts). Uses AutoSyncStats.
 func (s *Service) enrichAutoSyncCard(ctx context.Context, card *BaseCard, tokenGetter func() (string, error)) {
 	stats, err := s.fetchAutoSyncStats(ctx, tokenGetter)
 	if err != nil {
@@ -9562,6 +9739,27 @@ func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (st
 	}
 
 	var stats AutoSyncStats
+	if err := json.Unmarshal(body, &stats); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &stats, nil
+}
+
+func (s *Service) fetchProtectedServicesStats(ctx context.Context, tokenGetter func() (string, error)) (*ProtectedServicesStats, error) {
+	tokenString, err := tokenGetter()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	body, status, err := s.backupToolsRequest(ctx, http.MethodGet, "/autosync/stats", tokenString, "", nil)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if status != http.StatusOK {
+		return nil, Error.New("Backup-Tools returned status %d", status)
+	}
+
+	var stats ProtectedServicesStats
 	if err := json.Unmarshal(body, &stats); err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -9629,7 +9827,8 @@ func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.U
 		expiryPtr = &accessTokenExpiry
 	}
 
-	existing, err := s.store.GoogleBackupCredentials().GetByUserID(ctx, userID)
+	googleEmail = strings.TrimSpace(googleEmail)
+	existing, err := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, userID, googleEmail)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return Error.Wrap(err)
 	}
@@ -9660,6 +9859,26 @@ func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.U
 		AccountType:       accountType,
 	})
 	return Error.Wrap(err)
+}
+
+// googleBackupDomainUsersPayload builds the register-google `google_backup` object shape.
+func googleBackupDomainUsersPayload(domainUsers GmailCorporateDomainUsersResponse, domainError string) map[string]interface{} {
+	if domainUsers != nil {
+		out := make(map[string]interface{}, len(domainUsers)+1)
+		for k, v := range domainUsers {
+			out[k] = v
+		}
+		if domainError != "" {
+			out["domain_users_error"] = domainError
+		}
+		return out
+	}
+	if domainError != "" {
+		return map[string]interface{}{
+			"domain_users_error": domainError,
+		}
+	}
+	return nil
 }
 
 func (s *Service) fetchGmailCorporateDomainUsers(ctx context.Context, tokenKey, accessToken string) (GmailCorporateDomainUsersResponse, error) {

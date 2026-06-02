@@ -542,3 +542,116 @@ func isCorporateGoogleBackupAccount(accountType string) bool {
 		return false
 	}
 }
+
+// ConnectGoogleBackupCredential exchanges a Google OAuth code for an already logged-in user (login redirect, not register).
+// The UI must request backup scopes on the Google consent screen; redirect_uri must match GOOGLE_OAUTH_REDIRECT_URL_LOGIN.
+func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code string) (googleEmail string, created bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return "", false, ErrValidation.New("code is required")
+	}
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return "", false, Error.Wrap(err)
+	}
+
+	tokenRes, err := socialmedia.GetGoogleOauthToken(code, "connect", false)
+	if err != nil {
+		return "", false, ErrValidation.New("failed to exchange google oauth code: %v", err)
+	}
+	if tokenRes.Refresh_token == "" {
+		return "", false, ErrValidation.New("google did not return a refresh token; re-authorize with consent")
+	}
+
+	googleUser, err := socialmedia.GetGoogleUser(tokenRes.Access_token, tokenRes.Id_token)
+	if err != nil {
+		return "", false, Error.Wrap(err)
+	}
+
+	existing, lookupErr := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, user.ID, googleUser.Email)
+	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+		return "", false, Error.Wrap(lookupErr)
+	}
+	created = existing == nil
+
+	accessToken := tokenRes.Access_token
+	refreshToken := tokenRes.Refresh_token
+	accessTokenExpiry := tokenRes.ExpiresAt
+
+	validAccessToken, validExpiry, err := socialmedia.ResolveAccessToken(ctx, accessToken, refreshToken, accessTokenExpiry)
+	if err != nil {
+		return "", false, Error.Wrap(err)
+	}
+	if !validExpiry.IsZero() {
+		accessTokenExpiry = validExpiry
+	}
+	accessToken = validAccessToken
+
+	if err := s.storeGoogleBackupCredential(ctx, user.ID, googleUser.Email, accessToken, refreshToken, accessTokenExpiry, ""); err != nil {
+		return "", false, Error.Wrap(err)
+	}
+
+	return googleUser.Email, created, nil
+}
+
+// GetGoogleBackupDomainUsers calls Backup-Tools domain-users using stored Google backup credentials.
+// Returns the same google_backup payload shape as register-google.
+func (s *Service) GetGoogleBackupDomainUsers(ctx context.Context, tokenKey, googleEmail string) (googleBackup map[string]interface{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, ErrUnauthorized.New("session token is required")
+	}
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	googleEmail = strings.TrimSpace(googleEmail)
+	var credential *GoogleBackupCredential
+	if googleEmail != "" {
+		credential, err = s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, user.ID, googleEmail)
+	} else {
+		credential, err = s.store.GoogleBackupCredentials().GetByUserID(ctx, user.ID)
+	}
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound.New("google backup credentials not found")
+		}
+		return nil, Error.Wrap(err)
+	}
+	if err := credential.ValidateForBackup(); err != nil {
+		return nil, err
+	}
+
+	accessTokenExpiry := time.Time{}
+	if credential.AccessTokenExpiry != nil {
+		accessTokenExpiry = *credential.AccessTokenExpiry
+	}
+
+	accessToken, validExpiry, err := socialmedia.ResolveAccessToken(ctx, credential.AccessToken, credential.RefreshToken, accessTokenExpiry)
+	if err != nil {
+		return nil, ErrValidation.Wrap(err)
+	}
+
+	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.GoogleEmail, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
+		s.log.Warn("failed to persist google tokens before domain-users", zap.Error(storeErr))
+	}
+
+	domainUsers, domainErr := s.fetchGmailCorporateDomainUsers(ctx, tokenKey, accessToken)
+	var domainError string
+	if domainErr != nil {
+		s.log.Warn("domain-users call failed", zap.Error(domainErr))
+		domainError = domainErr.Error()
+	} else if accountType, ok := domainUsers["account_type"].(string); ok && accountType != "" && accountType != credential.AccountType {
+		if err := s.store.GoogleBackupCredentials().UpdateAccountType(ctx, credential.ID, accountType); err != nil {
+			s.log.Warn("failed to update google backup account type from domain-users", zap.Error(err))
+		}
+	}
+
+	return googleBackupDomainUsersPayload(domainUsers, domainError), nil
+}

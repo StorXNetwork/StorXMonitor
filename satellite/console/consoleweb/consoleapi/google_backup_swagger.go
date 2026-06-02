@@ -18,8 +18,8 @@ type GoogleOAuthCallbackError struct {
 
 // GoogleOAuthJSONSuccess is returned from login-google when query json=true (existing SendResponse path).
 type GoogleOAuthJSONSuccess struct {
-	Success      bool   `json:"success" example:"true"`
-	RedirectURL  string `json:"redirect_url" example:"https://storx.io/"`
+	Success     bool   `json:"success" example:"true"`
+	RedirectURL string `json:"redirect_url" example:"https://storx.io/"`
 }
 
 // GoogleOAuthJSONError is returned from login-google when query json=true and the callback fails.
@@ -64,3 +64,21 @@ type SwaggerErrorResponse struct {
 
 // BackupToolsJSONResponse is an opaque Backup-Tools JSON payload (passthrough).
 type BackupToolsJSONResponse map[string]interface{}
+
+// GoogleBackupConnectSwaggerRequest is the body for POST /google-backup/connect.
+type GoogleBackupConnectSwaggerRequest struct {
+	Code string `json:"code" binding:"required" example:"4/0AeanS..."`
+}
+
+// GoogleBackupConnectSwaggerResponse is returned after connecting Google for backup.
+type GoogleBackupConnectSwaggerResponse struct {
+	Success     bool   `json:"success" example:"true"`
+	GoogleEmail string `json:"google_email" example:"user@gmail.com"`
+	Created     bool   `json:"created" example:"true"`
+}
+
+// GoogleBackupDomainUsersSwaggerResponse matches register-google google_backup metadata (domain-users).
+type GoogleBackupDomainUsersSwaggerResponse struct {
+	Success      bool                   `json:"success" example:"true"`
+	GoogleBackup map[string]interface{} `json:"google_backup,omitempty" swaggertype:"object"`
+}

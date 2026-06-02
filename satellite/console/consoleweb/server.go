@@ -527,6 +527,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter := router.PathPrefix("/api/v0/google-backup").Subrouter()
 	googleBackupRouter.Use(server.withCORS)
 	googleBackupRouter.Use(server.withAuth)
+	googleBackupRouter.Handle("/connect", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ConnectGoogle))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
@@ -536,6 +538,21 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}/policy", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJobPolicy))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
+
+	googleBackupRestoreController := consoleapi.NewGoogleBackupRestore(logger, service, server.cookieAuth)
+	googleBackupRouter.Handle("/google-auth", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.GoogleAuth))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/all", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreAll))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/live", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreLive))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreJobs))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/job/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.GetRestoreJob))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/job/{job_id}/cancel", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.CancelRestoreJob))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/job/{job_id}/dead-items", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ListRestoreDeadItems))).Methods(http.MethodGet, http.MethodOptions)
+
+	googleBackupRouter.Handle("/google/gmail/insert-mail", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreGmail))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/google/satellite-to-drive", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreDrive))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/google/satellite-to-photos", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestorePhotos))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/google/satellite-to-calendar", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreCalendar))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/google/satellite-to-contacts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreContacts))).Methods(http.MethodPost, http.MethodOptions)
 
 	// User developer access management
 	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility

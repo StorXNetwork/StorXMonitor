@@ -39,6 +39,7 @@ type GoogleBackupCredential struct {
 type GoogleBackupCredentials interface {
 	Create(ctx context.Context, credential GoogleBackupCredential) (*GoogleBackupCredential, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*GoogleBackupCredential, error)
+	GetByUserIDAndGoogleEmail(ctx context.Context, userID uuid.UUID, googleEmail string) (*GoogleBackupCredential, error)
 	UpdateAccountType(ctx context.Context, id uuid.UUID, accountType string) error
 	UpdateTokens(ctx context.Context, id uuid.UUID, accessToken, refreshToken string, accessTokenExpiry *time.Time) error
 }

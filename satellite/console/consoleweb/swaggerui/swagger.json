@@ -118,6 +118,101 @@
                 }
             }
         },
+        "/buckets/usage-totals-for-reserved": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/buckets/usage-totals-for-reserved`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "buckets-reserved-usage"
+                ],
+                "summary": "Reserved vault usage totals",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "projectID",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.ReservedBucketUsageItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard/stats": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/dashboard/stats`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Dashboard stats cards",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.DashboardStatsCardSwaggerResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/google-backup/auto-sync/jobs": {
             "get": {
                 "security": [
@@ -125,6 +220,7 @@
                         "CookieAuth": []
                     }
                 ],
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`",
                 "produces": [
                     "application/json"
                 ],
@@ -161,7 +257,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "Satellite enriches the body with credentials and project_id, then POSTs to Backup-Tools. Example body: `{\"services\":[\"gmail\",\"drive\"],\"interval\":\"1h\",\"emails\":[\"billing@salestalker.com\",\"support@salestalker.com\"]}`",
+                "description": "**Full route:** `POST /api/v0/google-backup/auto-sync/jobs`",
                 "consumes": [
                     "application/json"
                 ],
@@ -218,7 +314,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "Account-level update (refresh_token, storx_token, active, interval, on). Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).",
+                "description": "**Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/project`",
                 "consumes": [
                     "application/json"
                 ],
@@ -269,6 +365,7 @@
                         "CookieAuth": []
                     }
                 ],
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`",
                 "produces": [
                     "application/json"
                 ],
@@ -308,6 +405,7 @@
                         "CookieAuth": []
                     }
                 ],
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}/policy`",
                 "produces": [
                     "application/json"
                 ],
@@ -347,6 +445,7 @@
                         "CookieAuth": []
                     }
                 ],
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/policy`",
                 "produces": [
                     "application/json"
                 ],
@@ -403,6 +502,7 @@
                         "CookieAuth": []
                     }
                 ],
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/policy/{policy_id}`",
                 "produces": [
                     "application/json"
                 ],
@@ -440,7 +540,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "Updates interval and on for a single policy (both required; use on:\"\" for hourly). Use PUT .../jobs/project for refresh_token, storx_token, or bulk schedule/active.",
+                "description": "**Full route:** `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}`",
                 "consumes": [
                     "application/json"
                 ],
@@ -484,6 +584,764 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/connect": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/google-backup/connect`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Connect Google account for backup",
+                "parameters": [
+                    {
+                        "description": "OAuth authorization code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupConnectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupConnectSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/domain-users": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/google-backup/domain-users`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Gmail corporate domain-users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Google account email (default: latest credential for user)",
+                        "name": "google_email",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupDomainUsersSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google-auth": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google-auth. Call before restore-all or manual restore. Pass Google OAuth id_token or access_token as google_key.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-auth"
+                ],
+                "summary": "Exchange Google token for Backup-Tools auth JWT",
+                "parameters": [
+                    {
+                        "description": "Google OAuth token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/gmail/insert-mail": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64 vault keys). Requires POST /google-backup/google-auth first. Headers: Authorization, ACCESS_TOKEN (or body fields).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Gmail messages",
+                "parameters": [
+                    {
+                        "description": "Vault keys (forwarded as JSON array to Backup-Tools)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/satellite-to-calendar": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/satellite-to-calendar (max 10 base64 vault keys).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Google Calendar",
+                "parameters": [
+                    {
+                        "description": "Vault keys",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/satellite-to-contacts": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/satellite-to-contacts (max 10 base64 vault keys).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Google Contacts",
+                "parameters": [
+                    {
+                        "description": "Vault keys",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/satellite-to-drive": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64 vault keys).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Google Drive",
+                "parameters": [
+                    {
+                        "description": "Vault keys",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/satellite-to-photos": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/satellite-to-photos (max 10 base64 vault keys).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Google Photos",
+                "parameters": [
+                    {
+                        "description": "Vault keys",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/all": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /restore/all. Requires google_auth JWT (from POST /google-backup/google-auth), storx_access_grant, and login_id matching the Google account. Worker picks up job within ~30s.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "Start restore-all job",
+                "parameters": [
+                    {
+                        "description": "Restore-all request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupRestoreAllSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/job/{job_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools GET /restore/job/{job_id} (use after POST /restore/all while status is queued)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "Get restore job status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Restore job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools google-auth JWT",
+                        "name": "X-Google-Auth",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/job/{job_id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /restore/job/{job_id}/cancel",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "Cancel restore job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Restore job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools google-auth JWT",
+                        "name": "X-Google-Auth",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/job/{job_id}/dead-items": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools GET /restore/job/{job_id}/dead-items",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "List restore dead-letter items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Restore job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools google-auth JWT",
+                        "name": "X-Google-Auth",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools GET /restore/jobs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "List restore job history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Max jobs (default 20)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools google-auth JWT",
+                        "name": "X-Google-Auth",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/live": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools GET /restore/live (running jobs only). Pass google_auth in X-Google-Auth header.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "List active restore jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools google-auth JWT",
+                        "name": "X-Google-Auth",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/daily-usage": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/projects/{id}/daily-usage`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects-daily-usage"
+                ],
+                "summary": "Project daily storage and bandwidth usage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Range start (Unix seconds)",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Range end (Unix seconds)",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectDailyUsageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -534,6 +1392,188 @@
                 }
             }
         },
+        "consoleapi.DashboardButtonSwagger": {
+            "type": "object",
+            "properties": {
+                "click": {
+                    "type": "string",
+                    "example": ""
+                },
+                "color": {
+                    "type": "string",
+                    "example": "#2563EB"
+                },
+                "link": {
+                    "type": "string",
+                    "example": "/billing"
+                },
+                "text": {
+                    "type": "string",
+                    "example": "Upgrade"
+                },
+                "textColor": {
+                    "type": "string",
+                    "example": "#FFFFFF"
+                }
+            }
+        },
+        "consoleapi.DashboardIconSwagger": {
+            "type": "object",
+            "properties": {
+                "backgroundColor": {
+                    "type": "string",
+                    "example": "#E8F0FE"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "/static/icons/protected-users.svg"
+                }
+            }
+        },
+        "consoleapi.DashboardStatsCardSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "button": {
+                    "$ref": "#/definitions/consoleapi.DashboardButtonSwagger"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Google accounts with backup enabled"
+                },
+                "icon": {
+                    "$ref": "#/definitions/consoleapi.DashboardIconSwagger"
+                },
+                "status": {
+                    "$ref": "#/definitions/consoleapi.DashboardStatusSwagger"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Protected Users"
+                },
+                "value_1": {
+                    "type": "string",
+                    "example": "124"
+                },
+                "value_1_label": {
+                    "type": "string",
+                    "example": ""
+                },
+                "value_2": {
+                    "type": "string",
+                    "example": "+2 this week"
+                },
+                "value_2_label": {
+                    "type": "string",
+                    "example": "growth_this_week"
+                }
+            }
+        },
+        "consoleapi.DashboardStatusSwagger": {
+            "type": "object",
+            "properties": {
+                "backgroundColor": {
+                    "type": "string",
+                    "example": "#18DB351A"
+                },
+                "textColor": {
+                    "type": "string",
+                    "example": "#388E3C"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "84% Used"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAuthSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "google_key"
+            ],
+            "properties": {
+                "google_key": {
+                    "type": "string",
+                    "example": "\u003cGoogle OAuth id_token or access_token\u003e"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAuthSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "google-auth": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIs..."
+                }
+            }
+        },
+        "consoleapi.GoogleBackupConnectSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "4/0AeanS..."
+                }
+            }
+        },
+        "consoleapi.GoogleBackupConnectSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "google_email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDomainUsersSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "google_backup": {
+                    "type": "object"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleBackupManualRestoreSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "google_auth",
+                "keys",
+                "storx_access_grant"
+            ],
+            "properties": {
+                "google_auth": {
+                    "type": "string",
+                    "example": "\u003cJWT from POST /google-backup/google-auth\u003e"
+                },
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"
+                    ]
+                },
+                "storx_access_grant": {
+                    "type": "string",
+                    "example": "\u003cstorx access grant\u003e"
+                }
+            }
+        },
         "consoleapi.GoogleBackupRegisterSuccess": {
             "type": "object",
             "properties": {
@@ -543,6 +1583,33 @@
                 "success": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleBackupRestoreAllSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "google_auth",
+                "login_id",
+                "service",
+                "storx_access_grant"
+            ],
+            "properties": {
+                "google_auth": {
+                    "type": "string",
+                    "example": "\u003cJWT from POST /google-backup/google-auth\u003e"
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "service": {
+                    "type": "string",
+                    "example": "drive"
+                },
+                "storx_access_grant": {
+                    "type": "string",
+                    "example": "\u003cstorx access grant\u003e"
                 }
             }
         },
@@ -569,6 +1636,87 @@
                 "success": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "consoleapi.ProjectDailyUsageResponse": {
+            "type": "object",
+            "properties": {
+                "allocatedBandwidthUsage": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectUsageByDayItem"
+                    }
+                },
+                "settledBandwidthUsage": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectUsageByDayItem"
+                    }
+                },
+                "storageUsage": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectUsageByDayItem"
+                    }
+                }
+            }
+        },
+        "consoleapi.ProjectUsageByDayItem": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "example": "2026-05-26T00:00:00Z"
+                },
+                "value": {
+                    "type": "integer",
+                    "example": 9007199254740992
+                }
+            }
+        },
+        "consoleapi.ReservedBucketUsageItem": {
+            "type": "object",
+            "properties": {
+                "before": {
+                    "type": "string",
+                    "example": "2026-05-28T10:00:00Z"
+                },
+                "bucketName": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2024-03-20T10:00:00Z"
+                },
+                "egress": {
+                    "type": "number",
+                    "example": 12.3
+                },
+                "location": {
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "objectCount": {
+                    "type": "integer",
+                    "example": 124
+                },
+                "projectID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "segmentCount": {
+                    "type": "integer",
+                    "example": 500
+                },
+                "since": {
+                    "type": "string",
+                    "example": "2024-03-20T10:00:00Z"
+                },
+                "storage": {
+                    "type": "number",
+                    "example": 210.5
                 }
             }
         },
@@ -657,8 +1805,16 @@
             "name": "projects"
         },
         {
+            "description": "Storage \u0026 bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts",
+            "name": "projects-daily-usage"
+        },
+        {
             "description": "Bucket management operations",
             "name": "buckets"
+        },
+        {
+            "description": "Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)",
+            "name": "buckets-reserved-usage"
         },
         {
             "description": "API key management operations",
@@ -675,6 +1831,18 @@
         {
             "description": "Google Backup: GET /auth/register-google and GET /auth/login-google (Google OAuth only), plus auto-sync job proxy to Backup-Tools",
             "name": "google-backup"
+        },
+        {
+            "description": "Google Backup authentication: POST /google-backup/google-auth (Backup-Tools google-auth JWT)",
+            "name": "google-backup-auth"
+        },
+        {
+            "description": "Google Backup manual restore: synchronous vault → Google (POST /google-backup/google/*, max 10 keys). Call POST /google-backup/google-auth first.",
+            "name": "google-backup-restore-manual"
+        },
+        {
+            "description": "Google Backup restore-all (async): Backup-Tools worker cron proxies (/restore/all, /restore/live, /restore/job/*)",
+            "name": "google-backup-restore-cron"
         }
     ]
 }

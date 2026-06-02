@@ -26,8 +26,14 @@ package consoleweb
 // @tag.name projects
 // @tag.description Project management operations
 
+// @tag.name projects-daily-usage
+// @tag.description Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts
+
 // @tag.name buckets
 // @tag.description Bucket management operations
+
+// @tag.name buckets-reserved-usage
+// @tag.description Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)
 
 // @tag.name api-keys
 // @tag.description API key management operations
@@ -40,6 +46,15 @@ package consoleweb
 
 // @tag.name google-backup
 // @tag.description Google Backup: GET /auth/register-google and GET /auth/login-google (Google OAuth only), plus auto-sync job proxy to Backup-Tools
+
+// @tag.name google-backup-auth
+// @tag.description Google Backup authentication: POST /google-backup/google-auth (Backup-Tools google-auth JWT)
+
+// @tag.name google-backup-restore-manual
+// @tag.description Google Backup manual restore: synchronous vault → Google (POST /google-backup/google/*, max 10 keys). Call POST /google-backup/google-auth first.
+
+// @tag.name google-backup-restore-cron
+// @tag.description Google Backup restore-all (async): Backup-Tools worker cron proxies (/restore/all, /restore/live, /restore/job/*)
 
 // Common response models
 type ErrorResponse struct {

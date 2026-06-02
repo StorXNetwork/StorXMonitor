@@ -44,7 +44,8 @@ type GoogleUserResult struct {
 }
 
 func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOauthToken, error) {
-	if mode != "signup" && mode != "signin" {
+	// signup = register-google redirect; signin = login-google redirect; connect = login redirect for logged-in backup connect.
+	if mode != "signup" && mode != "signin" && mode != "connect" {
 		return nil, errors.New("invalid mode")
 	}
 

@@ -205,7 +205,34 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 	wr.Flush()
 }
 
-// DailyUsage returns daily usage by project ID.
+// DailyUsage returns daily storage and bandwidth usage for a project (time series for charts).
+//
+// @Summary      Project daily storage and bandwidth usage
+// @Description  **Full route:** `GET /api/v0/projects/{id}/daily-usage`
+//
+// Returns per-day **storage** and **bandwidth** for the project over a date range. All `value` fields are in **bytes** (convert to GB in the UI: `value / 1e9` or your bytes helper).
+//
+// **Query parameters:** `from` and `to` are **Unix timestamps in seconds** (UTC). The server normalizes to start/end of those calendar days.
+//
+// **Response fields:**
+// - `storageUsage` — total stored bytes across all buckets per day (use for **Storage** line in "Storage & Bandwidth Trends").
+// - `settledBandwidthUsage` — egress bandwidth settled per day (typical choice for **Bandwidth** / download chart line).
+// - `allocatedBandwidthUsage` — allocated egress per day (alternative bandwidth series).
+//
+// **Example (last 7 days):** `from` = Unix at Monday 00:00 UTC, `to` = Unix at Sunday 23:59 UTC. Map each `date` to Mon–Sun labels; plot `storageUsage[].value` and `settledBandwidthUsage[].value` as GB.
+//
+// **Related:** `GET /api/v0/projects/{id}/usage-limits` returns current totals only (not a time series). `GET /api/v0/buckets/usage-totals-for-reserved` is per-vault snapshot, not daily trends.
+// @Tags         projects-daily-usage
+// @Produce      json
+// @Param        id    path      string  true  "Project UUID"
+// @Param        from  query     int     true  "Range start (Unix seconds)"
+// @Param        to    query     int     true  "Range end (Unix seconds)"
+// @Success      200   {object}  ProjectDailyUsageResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/daily-usage [get]
 func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

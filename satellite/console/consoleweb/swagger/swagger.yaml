@@ -29,6 +29,133 @@ definitions:
     - interval
     - services
     type: object
+  consoleapi.DashboardButtonSwagger:
+    properties:
+      click:
+        example: ""
+        type: string
+      color:
+        example: '#2563EB'
+        type: string
+      link:
+        example: /billing
+        type: string
+      text:
+        example: Upgrade
+        type: string
+      textColor:
+        example: '#FFFFFF'
+        type: string
+    type: object
+  consoleapi.DashboardIconSwagger:
+    properties:
+      backgroundColor:
+        example: '#E8F0FE'
+        type: string
+      url:
+        example: /static/icons/protected-users.svg
+        type: string
+    type: object
+  consoleapi.DashboardStatsCardSwaggerResponse:
+    properties:
+      button:
+        $ref: '#/definitions/consoleapi.DashboardButtonSwagger'
+      description:
+        example: Google accounts with backup enabled
+        type: string
+      icon:
+        $ref: '#/definitions/consoleapi.DashboardIconSwagger'
+      status:
+        $ref: '#/definitions/consoleapi.DashboardStatusSwagger'
+      title:
+        example: Protected Users
+        type: string
+      value_1:
+        example: "124"
+        type: string
+      value_1_label:
+        example: ""
+        type: string
+      value_2:
+        example: +2 this week
+        type: string
+      value_2_label:
+        example: growth_this_week
+        type: string
+    type: object
+  consoleapi.DashboardStatusSwagger:
+    properties:
+      backgroundColor:
+        example: '#18DB351A'
+        type: string
+      textColor:
+        example: '#388E3C'
+        type: string
+      value:
+        example: 84% Used
+        type: string
+    type: object
+  consoleapi.GoogleBackupAuthSwaggerRequest:
+    properties:
+      google_key:
+        example: <Google OAuth id_token or access_token>
+        type: string
+    required:
+    - google_key
+    type: object
+  consoleapi.GoogleBackupAuthSwaggerResponse:
+    properties:
+      google-auth:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+    type: object
+  consoleapi.GoogleBackupConnectSwaggerRequest:
+    properties:
+      code:
+        example: 4/0AeanS...
+        type: string
+    required:
+    - code
+    type: object
+  consoleapi.GoogleBackupConnectSwaggerResponse:
+    properties:
+      created:
+        example: true
+        type: boolean
+      google_email:
+        example: user@gmail.com
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupDomainUsersSwaggerResponse:
+    properties:
+      google_backup:
+        type: object
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupManualRestoreSwaggerRequest:
+    properties:
+      google_auth:
+        example: <JWT from POST /google-backup/google-auth>
+        type: string
+      keys:
+        example:
+        - dXNlckBnbWFpbC5jb20vcGF0aC9maWxl
+        items:
+          type: string
+        type: array
+      storx_access_grant:
+        example: <storx access grant>
+        type: string
+    required:
+    - google_auth
+    - keys
+    - storx_access_grant
+    type: object
   consoleapi.GoogleBackupRegisterSuccess:
     properties:
       google_backup:
@@ -36,6 +163,26 @@ definitions:
       success:
         example: true
         type: boolean
+    type: object
+  consoleapi.GoogleBackupRestoreAllSwaggerRequest:
+    properties:
+      google_auth:
+        example: <JWT from POST /google-backup/google-auth>
+        type: string
+      login_id:
+        example: user@gmail.com
+        type: string
+      service:
+        example: drive
+        type: string
+      storx_access_grant:
+        example: <storx access grant>
+        type: string
+    required:
+    - google_auth
+    - login_id
+    - service
+    - storx_access_grant
     type: object
   consoleapi.GoogleOAuthJSONError:
     properties:
@@ -54,6 +201,63 @@ definitions:
       success:
         example: true
         type: boolean
+    type: object
+  consoleapi.ProjectDailyUsageResponse:
+    properties:
+      allocatedBandwidthUsage:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectUsageByDayItem'
+        type: array
+      settledBandwidthUsage:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectUsageByDayItem'
+        type: array
+      storageUsage:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectUsageByDayItem'
+        type: array
+    type: object
+  consoleapi.ProjectUsageByDayItem:
+    properties:
+      date:
+        example: "2026-05-26T00:00:00Z"
+        type: string
+      value:
+        example: 9007199254740992
+        type: integer
+    type: object
+  consoleapi.ReservedBucketUsageItem:
+    properties:
+      before:
+        example: "2026-05-28T10:00:00Z"
+        type: string
+      bucketName:
+        example: gmail
+        type: string
+      createdAt:
+        example: "2024-03-20T10:00:00Z"
+        type: string
+      egress:
+        example: 12.3
+        type: number
+      location:
+        example: us-east-1
+        type: string
+      objectCount:
+        example: 124
+        type: integer
+      projectID:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      segmentCount:
+        example: 500
+        type: integer
+      since:
+        example: "2024-03-20T10:00:00Z"
+        type: string
+      storage:
+        example: 210.5
+        type: number
     type: object
   consoleapi.SwaggerErrorResponse:
     properties:
@@ -188,8 +392,69 @@ paths:
       summary: Register with Google (register-google)
       tags:
       - google-backup
+  /buckets/usage-totals-for-reserved:
+    get:
+      description: '**Full route:** `GET /api/v0/buckets/usage-totals-for-reserved`'
+      parameters:
+      - description: Project UUID
+        in: query
+        name: projectID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.ReservedBucketUsageItem'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Reserved vault usage totals
+      tags:
+      - buckets-reserved-usage
+  /dashboard/stats:
+    get:
+      description: '**Full route:** `GET /api/v0/dashboard/stats`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.DashboardStatsCardSwaggerResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Dashboard stats cards
+      tags:
+      - dashboard
   /google-backup/auto-sync/jobs:
     get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`'
       parameters:
       - description: Optional Backup-Tools filter
         in: query
@@ -214,8 +479,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Satellite enriches the body with credentials and project_id, then
-        POSTs to Backup-Tools. Example body: `{"services":["gmail","drive"],"interval":"1h","emails":["billing@salestalker.com","support@salestalker.com"]}`'
+      description: '**Full route:** `POST /api/v0/google-backup/auto-sync/jobs`'
       parameters:
       - description: Backup-Tools sync type (default daily)
         in: query
@@ -249,6 +513,7 @@ paths:
       - google-backup
   /google-backup/auto-sync/jobs/{job_id}:
     get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`'
       parameters:
       - description: Job ID
         in: path
@@ -273,6 +538,7 @@ paths:
       - google-backup
   /google-backup/auto-sync/jobs/{job_id}/policy:
     get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}/policy`'
       parameters:
       - description: Job ID
         in: path
@@ -299,9 +565,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: 'Account-level update (refresh_token, storx_token, active, interval,
-        on). Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials,
-        then forwards refresh_token to Backup-Tools (never forwards code).'
+      description: '**Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/project`'
       parameters:
       - description: Project-scoped update
         in: body
@@ -331,6 +595,7 @@ paths:
       - google-backup
   /google-backup/auto-sync/policy:
     get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy`'
       parameters:
       - description: Backup-Tools credential ID
         in: query
@@ -366,6 +631,7 @@ paths:
       - google-backup
   /google-backup/auto-sync/policy/{policy_id}:
     get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy/{policy_id}`'
       parameters:
       - description: Policy ID
         in: path
@@ -391,9 +657,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Updates interval and on for a single policy (both required; use
-        on:"" for hourly). Use PUT .../jobs/project for refresh_token, storx_token,
-        or bulk schedule/active.
+      description: '**Full route:** `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}`'
       parameters:
       - description: Policy ID
         in: path
@@ -426,6 +690,496 @@ paths:
       summary: Update Google Backup auto-sync policy schedule
       tags:
       - google-backup
+  /google-backup/connect:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/google-backup/connect`'
+      parameters:
+      - description: OAuth authorization code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupConnectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupConnectSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Connect Google account for backup
+      tags:
+      - google-backup
+  /google-backup/domain-users:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/domain-users`'
+      parameters:
+      - description: 'Google account email (default: latest credential for user)'
+        in: query
+        name: google_email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupDomainUsersSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Gmail corporate domain-users
+      tags:
+      - google-backup
+  /google-backup/google-auth:
+    post:
+      consumes:
+      - application/json
+      description: Proxies Backup-Tools POST /google-auth. Call before restore-all
+        or manual restore. Pass Google OAuth id_token or access_token as google_key.
+      parameters:
+      - description: Google OAuth token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupAuthSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAuthSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Exchange Google token for Backup-Tools auth JWT
+      tags:
+      - google-backup-auth
+  /google-backup/google/gmail/insert-mail:
+    post:
+      consumes:
+      - application/json
+      description: 'Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64
+        vault keys). Requires POST /google-backup/google-auth first. Headers: Authorization,
+        ACCESS_TOKEN (or body fields).'
+      parameters:
+      - description: Vault keys (forwarded as JSON array to Backup-Tools)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Gmail messages
+      tags:
+      - google-backup-restore-manual
+  /google-backup/google/satellite-to-calendar:
+    post:
+      consumes:
+      - application/json
+      description: Proxies Backup-Tools POST /google/satellite-to-calendar (max 10
+        base64 vault keys).
+      parameters:
+      - description: Vault keys
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Google Calendar
+      tags:
+      - google-backup-restore-manual
+  /google-backup/google/satellite-to-contacts:
+    post:
+      consumes:
+      - application/json
+      description: Proxies Backup-Tools POST /google/satellite-to-contacts (max 10
+        base64 vault keys).
+      parameters:
+      - description: Vault keys
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Google Contacts
+      tags:
+      - google-backup-restore-manual
+  /google-backup/google/satellite-to-drive:
+    post:
+      consumes:
+      - application/json
+      description: Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64
+        vault keys).
+      parameters:
+      - description: Vault keys
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Google Drive
+      tags:
+      - google-backup-restore-manual
+  /google-backup/google/satellite-to-photos:
+    post:
+      consumes:
+      - application/json
+      description: Proxies Backup-Tools POST /google/satellite-to-photos (max 10 base64
+        vault keys).
+      parameters:
+      - description: Vault keys
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Google Photos
+      tags:
+      - google-backup-restore-manual
+  /google-backup/restore/all:
+    post:
+      consumes:
+      - application/json
+      description: Proxies Backup-Tools POST /restore/all. Requires google_auth JWT
+        (from POST /google-backup/google-auth), storx_access_grant, and login_id matching
+        the Google account. Worker picks up job within ~30s.
+      parameters:
+      - description: Restore-all request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupRestoreAllSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+      security:
+      - CookieAuth: []
+      summary: Start restore-all job
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/job/{job_id}:
+    get:
+      description: Proxies Backup-Tools GET /restore/job/{job_id} (use after POST
+        /restore/all while status is queued)
+      parameters:
+      - description: Restore job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      - description: Backup-Tools google-auth JWT
+        in: header
+        name: X-Google-Auth
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+      security:
+      - CookieAuth: []
+      summary: Get restore job status
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/job/{job_id}/cancel:
+    post:
+      description: Proxies Backup-Tools POST /restore/job/{job_id}/cancel
+      parameters:
+      - description: Restore job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      - description: Backup-Tools google-auth JWT
+        in: header
+        name: X-Google-Auth
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Cancel restore job
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/job/{job_id}/dead-items:
+    get:
+      description: Proxies Backup-Tools GET /restore/job/{job_id}/dead-items
+      parameters:
+      - description: Restore job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      - description: Backup-Tools google-auth JWT
+        in: header
+        name: X-Google-Auth
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List restore dead-letter items
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/jobs:
+    get:
+      description: Proxies Backup-Tools GET /restore/jobs
+      parameters:
+      - description: Max jobs (default 20)
+        in: query
+        name: limit
+        type: string
+      - description: Backup-Tools google-auth JWT
+        in: header
+        name: X-Google-Auth
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List restore job history
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/live:
+    get:
+      description: Proxies Backup-Tools GET /restore/live (running jobs only). Pass
+        google_auth in X-Google-Auth header.
+      parameters:
+      - description: Backup-Tools google-auth JWT
+        in: header
+        name: X-Google-Auth
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List active restore jobs
+      tags:
+      - google-backup-restore-cron
+  /projects/{id}/daily-usage:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/daily-usage`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Range start (Unix seconds)
+        in: query
+        name: from
+        required: true
+        type: integer
+      - description: Range end (Unix seconds)
+        in: query
+        name: to
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectDailyUsageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Project daily storage and bandwidth usage
+      tags:
+      - projects-daily-usage
 securityDefinitions:
   ApiKeyAuth:
     in: header
@@ -439,8 +1193,14 @@ swagger: "2.0"
 tags:
 - description: Project management operations
   name: projects
+- description: 'Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage
+    — daily storageUsage and settledBandwidthUsage (bytes per day) for charts'
+  name: projects-daily-usage
 - description: Bucket management operations
   name: buckets
+- description: 'Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved
+    — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)'
+  name: buckets-reserved-usage
 - description: API key management operations
   name: api-keys
 - description: Payment and billing operations
@@ -450,3 +1210,12 @@ tags:
 - description: 'Google Backup: GET /auth/register-google and GET /auth/login-google
     (Google OAuth only), plus auto-sync job proxy to Backup-Tools'
   name: google-backup
+- description: 'Google Backup authentication: POST /google-backup/google-auth (Backup-Tools
+    google-auth JWT)'
+  name: google-backup-auth
+- description: 'Google Backup manual restore: synchronous vault → Google (POST /google-backup/google/*,
+    max 10 keys). Call POST /google-backup/google-auth first.'
+  name: google-backup-restore-manual
+- description: 'Google Backup restore-all (async): Backup-Tools worker cron proxies
+    (/restore/all, /restore/live, /restore/job/*)'
+  name: google-backup-restore-cron

@@ -54,7 +54,9 @@ func (g *GoogleBackup) serveJSONError(ctx context.Context, w http.ResponseWriter
 // CreateAutoSyncJobs creates Backup-Tools auto-sync jobs from a minimal UI payload.
 //
 // @Summary      Create Google Backup auto-sync jobs
-// @Description  Satellite enriches the body with credentials and project_id, then POSTs to Backup-Tools. Example body: `{"services":["gmail","drive"],"interval":"1h","emails":["billing@salestalker.com","support@salestalker.com"]}`
+// @Description  **Full route:** `POST /api/v0/google-backup/auto-sync/jobs`
+//
+// Satellite enriches the body with credentials and project_id, then POSTs to Backup-Tools. Example body: `{"services":["gmail","drive"],"interval":"1h","emails":["billing@salestalker.com","support@salestalker.com"]}`
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -110,6 +112,7 @@ func (g *GoogleBackup) CreateAutoSyncJobs(w http.ResponseWriter, r *http.Request
 // ListAutoSyncJobs lists Backup-Tools auto-sync jobs for the session user.
 //
 // @Summary      List Google Backup auto-sync jobs
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs`
 // @Tags         google-backup
 // @Produce      json
 // @Param        filter  query     string  false  "Optional Backup-Tools filter"
@@ -139,6 +142,7 @@ func (g *GoogleBackup) ListAutoSyncJobs(w http.ResponseWriter, r *http.Request) 
 // GetAutoSyncJob returns one Backup-Tools auto-sync job by id.
 //
 // @Summary      Get Google Backup auto-sync job
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`
 // @Tags         google-backup
 // @Produce      json
 // @Param        job_id  path      string  true  "Job ID"
@@ -169,6 +173,7 @@ func (g *GoogleBackup) GetAutoSyncJob(w http.ResponseWriter, r *http.Request) {
 // GetAutoSyncJobPolicy returns the policy for one job (Backup-Tools GET /auto-sync/job/{job_id}/policy).
 //
 // @Summary      Get Google Backup policy for job
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}/policy`
 // @Tags         google-backup
 // @Produce      json
 // @Param        job_id  path      string  true  "Job ID"
@@ -198,6 +203,7 @@ func (g *GoogleBackup) GetAutoSyncJobPolicy(w http.ResponseWriter, r *http.Reque
 // ListAutoSyncPolicies lists policies for a connected account (Backup-Tools GET /auto-sync/policy).
 //
 // @Summary      List Google Backup auto-sync policies
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/policy`
 // @Tags         google-backup
 // @Produce      json
 // @Param        credential_id  query     string  false  "Backup-Tools credential ID"
@@ -235,6 +241,7 @@ func (g *GoogleBackup) ListAutoSyncPolicies(w http.ResponseWriter, r *http.Reque
 // GetAutoSyncPolicy returns one policy by ID (Backup-Tools GET /auto-sync/policy/{policy_id}).
 //
 // @Summary      Get Google Backup auto-sync policy
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/policy/{policy_id}`
 // @Tags         google-backup
 // @Produce      json
 // @Param        policy_id  path      string  true  "Policy ID"
@@ -264,7 +271,9 @@ func (g *GoogleBackup) GetAutoSyncPolicy(w http.ResponseWriter, r *http.Request)
 // UpdateAutoSyncJobsByProject updates all jobs for a project via Backup-Tools PUT /auto-sync/job/project.
 //
 // @Summary      Update Google Backup jobs by project
-// @Description  Account-level update (refresh_token, storx_token, active, interval, on). Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
+// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/project`
+//
+// Account-level update (refresh_token, storx_token, active, interval, on). Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -340,7 +349,9 @@ func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request)
 // UpdateAutoSyncPolicy updates schedule on a policy (Backup-Tools PUT /auto-sync/policy/{policy_id}).
 //
 // @Summary      Update Google Backup auto-sync policy schedule
-// @Description  Updates interval and on for a single policy (both required; use on:"" for hourly). Use PUT .../jobs/project for refresh_token, storx_token, or bulk schedule/active.
+// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}`
+//
+// Updates interval and on for a single policy (both required; use on:"" for hourly). Use PUT .../jobs/project for refresh_token, storx_token, or bulk schedule/active.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -380,4 +391,99 @@ func (g *GoogleBackup) UpdateAutoSyncPolicy(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	writeBackupToolsJSON(w, status, respBody)
+}
+
+// GetDomainUsers proxies Backup-Tools GET /google/gmail/corporate/domain-users (same payload as register-google).
+//
+// @Summary      Gmail corporate domain-users
+// @Description  **Full route:** `GET /api/v0/google-backup/domain-users`
+//
+// Uses stored google_backup_credentials for the logged-in user. Response matches register-google: `{ "success": true, "google_backup": { ... } }` including `domain_users_error` when Backup-Tools fails.
+// @Tags         google-backup
+// @Produce      json
+// @Param        google_email  query     string  false  "Google account email (default: latest credential for user)"
+// @Success      200           {object}  GoogleBackupDomainUsersSwaggerResponse
+// @Failure      401           {object}  SwaggerErrorResponse
+// @Failure      404           {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/domain-users [get]
+func (g *GoogleBackup) GetDomainUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	googleBackup, err := g.service.GetGoogleBackupDomainUsers(ctx, tokenKey, r.URL.Query().Get("google_email"))
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	payload := GoogleBackupDomainUsersSwaggerResponse{Success: true}
+	if googleBackup != nil {
+		payload.GoogleBackup = googleBackup
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		g.log.Error("failed to encode domain-users response", zap.Error(err))
+	}
+}
+
+// ConnectGoogle exchanges an OAuth code and upserts google_backup_credentials for the logged-in user.
+//
+// @Summary      Connect Google account for backup
+// @Description  **Full route:** `POST /api/v0/google-backup/connect`
+//
+// Exchanges OAuth `code` for a logged-in user (login redirect URI, not register-google). Use backup scopes on the Google consent URL; `redirect_uri` must match GOOGLE_OAUTH_REDIRECT_URL_LOGIN. Stores tokens in google_backup_credentials (create or update by email).
+// @Tags         google-backup
+// @Accept       json
+// @Produce      json
+// @Param        body  body      GoogleBackupConnectSwaggerRequest  true  "OAuth authorization code"
+// @Success      200   {object}  GoogleBackupConnectSwaggerResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/connect [post]
+func (g *GoogleBackup) ConnectGoogle(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if _, err := g.sessionTokenKey(r); err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	var body GoogleBackupConnectSwaggerRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
+		return
+	}
+	if dec.More() {
+		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
+		return
+	}
+
+	googleEmail, created, err := g.service.ConnectGoogleBackupCredential(ctx, body.Code)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(GoogleBackupConnectSwaggerResponse{
+		Success:     true,
+		GoogleEmail: googleEmail,
+		Created:     created,
+	}); err != nil {
+		g.log.Error("failed to encode google connect response", zap.Error(err))
+	}
 }
