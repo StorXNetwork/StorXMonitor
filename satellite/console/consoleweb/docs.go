@@ -24,13 +24,13 @@ package consoleweb
 // @name _tokenKey
 
 // @tag.name projects
-// @tag.description Project management operations
+// @tag.description Project management: invitations, members, usage, and project CRUD
 
 // @tag.name projects-daily-usage
 // @tag.description Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts
 
 // @tag.name buckets
-// @tag.description Bucket management operations
+// @tag.description Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved, and bucket APIs
 
 // @tag.name buckets-reserved-usage
 // @tag.description Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)
@@ -58,6 +58,21 @@ package consoleweb
 
 // @tag.name google-backup-restore-cron
 // @tag.description Google Backup restore-all (async): Backup-Tools worker cron proxies (/restore/all, /restore/live, /restore/job/*)
+
+// @tag.name auth-account
+// @tag.description Account & session: profile, settings, refresh-session, developer-access, MFA, FCM tokens, notification-preferences
+
+// @tag.name access
+// @tag.description Access management: GET /api/v0/api-keys/list-paged (paginated keys), POST /v1/access (exchange access grant for S3 credentials on auth host)
+
+// @tag.name notifications
+// @tag.description In-app notifications: GET/PUT /api/v0/notifications (list, count, detail, dismiss, read-all)
+
+// @tag.name payment-plans
+// @tag.description Public billing plans: GET /payment-plans at server root (not under /api/v0). Swagger may show /api/v0/payment-plans — use the host root path when calling.
+
+// @tag.name config
+// @tag.description Public console bootstrap config: GET /api/v0/config (feature flags, API base URL, CSRF token, billing/UI toggles)
 
 // Common response models
 type ErrorResponse struct {

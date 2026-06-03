@@ -17,6 +17,558 @@
     },
     "basePath": "/api/v0",
     "paths": {
+        "/api-keys/list-paged": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/api-keys/list-paged`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "access"
+                ],
+                "summary": "List API keys (paginated)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "projectID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Sort field: 1=name, 2=created, 3=creator email",
+                        "name": "order",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Sort direction",
+                        "name": "orderDirection",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name search filter",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.APIKeysListPagedSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/auth/account`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Get current account",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthAccountSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `DELETE /api/v0/auth/account`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Delete account (admin)",
+                "parameters": [
+                    {
+                        "description": "Target email and verification password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DeleteAuthAccountSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PATCH /api/v0/auth/account`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Update account display name",
+                "parameters": [
+                    {
+                        "description": "Name fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateAuthAccountSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account/freezestatus": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/auth/account/freezestatus`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Account billing freeze status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthAccountFreezeStatusSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account/info": {
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PATCH /api/v0/auth/account/info`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Update account profile links",
+                "parameters": [
+                    {
+                        "description": "Social and wallet fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateAuthAccountInfoSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account/onboarding": {
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PATCH /api/v0/auth/account/onboarding`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Update onboarding flags",
+                "parameters": [
+                    {
+                        "description": "Onboarding fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SetAuthOnboardingStatusSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account/settings": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/auth/account/settings`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Get account settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthUserSettingsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PATCH /api/v0/auth/account/settings`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Update account settings",
+                "parameters": [
+                    {
+                        "description": "Settings patch",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SetAuthUserSettingsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthUserSettingsSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/developer-access": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/auth/developer-access`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "List developer access to my account",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.UserDeveloperAccessSwaggerItem"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/developer-access/{clientId}/history": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/auth/developer-access/{clientId}/history`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Developer access history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth client ID",
+                        "name": "clientId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.UserDeveloperAccessHistorySwaggerItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/developer-access/{clientId}/revoke": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `DELETE /api/v0/auth/developer-access/{clientId}/revoke`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Revoke developer access",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth client ID",
+                        "name": "clientId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login-google": {
             "get": {
                 "description": "Google OAuth callback. Browser flow (no json param): 302 redirect to the web app. Swagger/Postman: set `json=true` (required below) for JSON + Set-Cookie `_tokenKey` with no redirect — then Authorize CookieAuth and call google-backup routes. Does not change browser behavior.",
@@ -60,6 +612,264 @@
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.GoogleOAuthJSONError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/disable": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/auth/mfa/disable`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Disable MFA",
+                "parameters": [
+                    {
+                        "description": "Passcode or recovery code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MFADisableSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/enable": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/auth/mfa/enable`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Enable MFA",
+                "parameters": [
+                    {
+                        "description": "TOTP passcode",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MFAEnableSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/generate-recovery-codes": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/auth/mfa/generate-recovery-codes`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Generate MFA recovery codes",
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/generate-secret-key": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/auth/mfa/generate-secret-key`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Generate MFA secret key",
+                "responses": {
+                    "200": {
+                        "description": "TOTP secret key string",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/regenerate-recovery-codes": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/auth/mfa/regenerate-recovery-codes`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Regenerate MFA recovery codes",
+                "parameters": [
+                    {
+                        "description": "Passcode or recovery code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MFARegenerateRecoveryCodesSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh-session": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/auth/refresh-session`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Refresh login session",
+                "responses": {
+                    "200": {
+                        "description": "New session expiresAt (RFC3339)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     }
                 }
@@ -113,6 +923,93 @@
                         "description": "When json=true on failed callback",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.GoogleOAuthJSONError"
+                        }
+                    }
+                }
+            }
+        },
+        "/buckets/usage-totals": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/buckets/usage-totals`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "buckets"
+                ],
+                "summary": "Paginated bucket usage totals",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "projectID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Range end (2006-01-02T15:04:05.999Z)",
+                        "name": "before",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name filter",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Range start (2006-01-02T15:04:05.999Z)",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BucketUsageTotalsPageSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     }
                 }
@@ -173,6 +1070,29 @@
                 }
             }
         },
+        "/config": {
+            "get": {
+                "description": "**Full route:** `GET /api/v0/config`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Get frontend satellite configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleweb.FrontendConfig"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
         "/dashboard/stats": {
             "get": {
                 "security": [
@@ -206,6 +1126,221 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/fcm-token": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/fcm-token`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "List FCM device tokens",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.FCMTokenSwaggerResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/fcm-token`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Register FCM device token",
+                "parameters": [
+                    {
+                        "description": "FCM token and device metadata",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RegisterTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.FCMTokenSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/fcm-token/{tokenId}": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PUT /api/v0/fcm-token/{tokenId}`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Update FCM device token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "FCM token record UUID",
+                        "name": "tokenId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Delete FCM device token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "FCM token record UUID",
+                        "name": "tokenId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -1308,6 +2443,633 @@
                 }
             }
         },
+        "/notifications": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/notifications`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "List notifications",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: unread",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Time window: 1d, 7d, 15d, 1m, 6m, 1y",
+                        "name": "timeFilter",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.NotificationListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/count": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/notifications/count`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Unread notification count",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UnreadCountResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/read-all": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PUT /api/v0/notifications/read-all`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Mark all notifications read",
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/notifications/{id}`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Get notification detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Notification UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.NotificationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}/dismiss": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PUT /api/v0/notifications/{id}/dismiss`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Dismiss notification",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Notification UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/payment-plans": {
+            "get": {
+                "description": "**Full route:** `GET /payment-plans` (server root, not under `/api/v0`).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment-plans"
+                ],
+                "summary": "List payment plans",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.PaymentPlansSwaggerResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/projects`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "List my projects",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.ProjectInfoSwaggerItem"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/projects`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Create project",
+                "parameters": [
+                    {
+                        "description": "Project name and optional limits",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpsertProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectInfoSwaggerItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/invitations": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/projects/invitations`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "List my pending project invitations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.UserProjectInvitationSwaggerItem"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/invitations/{id}/respond": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/projects/invitations/{id}/respond`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Accept or decline a project invitation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Accept or decline",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RespondToProjectInvitationSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `DELETE /api/v0/projects/{id}`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Delete project (multi-step)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Deletion step payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DeleteProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DeleteProjectSwaggerResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PATCH /api/v0/projects/{id}`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Update project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpsertProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{id}/daily-usage": {
             "get": {
                 "security": [
@@ -1373,12 +3135,640 @@
                     }
                 }
             }
+        },
+        "/projects/{id}/salt": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/projects/{id}/salt`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Get project encryption salt",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Base64-encoded salt",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/usage-limits": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/projects/{id}/usage-limits`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Project usage and limits",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectUsageLimitsSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/notification-preferences": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/user/notification-preferences`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Get notification preferences",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter: billing, backup, account, vault",
+                        "name": "category",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.UserNotificationPreferenceSwagger"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PUT /api/v0/user/notification-preferences`",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Create or update notification preference",
+                "parameters": [
+                    {
+                        "description": "Category and channel preferences",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpsertUserNotificationPreferenceSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UserNotificationPreferenceSwagger"
+                        }
+                    },
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UserNotificationPreferenceSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/access": {
+            "post": {
+                "description": "**Full route:** `POST /v1/access` (server root on the StorX auth host, e.g. `https://storx.io/v1/access`).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "access"
+                ],
+                "summary": "Exchange access grant for S3 credentials",
+                "parameters": [
+                    {
+                        "description": "Access grant and visibility",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.V1AccessCreateSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.V1AccessCreateSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "console.AnnouncementConfig": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "name": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "console.CaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "$ref": "#/definitions/console.MultiCaptchaConfig"
+                },
+                "registration": {
+                    "$ref": "#/definitions/console.MultiCaptchaConfig"
+                }
+            }
+        },
+        "console.MinimumChargeConfig": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "console.MultiCaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "hcaptcha": {
+                    "$ref": "#/definitions/console.SingleCaptchaConfig"
+                },
+                "recaptcha": {
+                    "$ref": "#/definitions/console.SingleCaptchaConfig"
+                }
+            }
+        },
+        "console.SingleCaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "siteKey": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.APIKeyListItemSwagger": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "creatorEmail": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "my-key"
+                },
+                "projectId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "consoleapi.APIKeysListPagedSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "apiKeys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.APIKeyListItemSwagger"
+                    }
+                },
+                "currentPage": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "order": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "orderDirection": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "pageCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "search": {
+                    "type": "string",
+                    "example": ""
+                },
+                "totalCount": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "consoleapi.AuthAccountFreezeStatusSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "frozen": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "trialExpiredFrozen": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "violationFrozen": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "warned": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.AuthAccountSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "companyName": {
+                    "type": "string",
+                    "example": ""
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "employeeCount": {
+                    "type": "string",
+                    "example": ""
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                },
+                "hasVarPartner": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "haveSalesContact": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "isMFAEnabled": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isProfessional": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "loginToken": {
+                    "type": "string",
+                    "example": ""
+                },
+                "mfaRecoveryCodeCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "paidTier": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "partner": {
+                    "type": "string",
+                    "example": ""
+                },
+                "pendingVerification": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "position": {
+                    "type": "string",
+                    "example": ""
+                },
+                "projectBandwidthLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "projectLimit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "projectSegmentLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "projectStorageLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "shortName": {
+                    "type": "string",
+                    "example": "Jane"
+                },
+                "socialFacebook": {
+                    "type": "string",
+                    "example": ""
+                },
+                "socialGithub": {
+                    "type": "string",
+                    "example": ""
+                },
+                "socialLinkedin": {
+                    "type": "string",
+                    "example": ""
+                },
+                "socialTwitter": {
+                    "type": "string",
+                    "example": ""
+                },
+                "trialExpiration": {
+                    "type": "string"
+                },
+                "walletId": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "consoleapi.AuthUserSettingsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "noticeDismissal": {
+                    "type": "object"
+                },
+                "onboardingEnd": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "onboardingStart": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "onboardingStep": {
+                    "type": "string",
+                    "example": "welcome"
+                },
+                "passphrasePrompt": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sessionDuration": {
+                    "type": "integer",
+                    "example": 3600
+                }
+            }
+        },
         "consoleapi.BackupToolsJSONResponse": {
             "type": "object",
             "additionalProperties": true
+        },
+        "consoleapi.BucketUsageTotalsItemSwagger": {
+            "type": "object",
+            "properties": {
+                "before": {
+                    "type": "string",
+                    "example": "2026-06-03T09:01:55.204Z"
+                },
+                "bucketName": {
+                    "type": "string",
+                    "example": "my-bucket"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2024-03-20T10:00:00Z"
+                },
+                "creatorEmail": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "egress": {
+                    "type": "number",
+                    "example": 0.2
+                },
+                "location": {
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "objectCount": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "projectID": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                },
+                "segmentCount": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "since": {
+                    "type": "string",
+                    "example": "2026-06-01T00:00:00.000Z"
+                },
+                "storage": {
+                    "type": "number",
+                    "example": 1.5
+                }
+            }
+        },
+        "consoleapi.BucketUsageTotalsPageSwagger": {
+            "type": "object",
+            "properties": {
+                "bucketUsages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.BucketUsageTotalsItemSwagger"
+                    }
+                },
+                "currentPage": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "pageCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "search": {
+                    "type": "string",
+                    "example": ""
+                },
+                "totalCount": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
         },
         "consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest": {
             "type": "object",
@@ -1507,6 +3897,112 @@
                 "value": {
                     "type": "string",
                     "example": "84% Used"
+                }
+            }
+        },
+        "consoleapi.DeleteAuthAccountSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "admin-verification-password"
+                }
+            }
+        },
+        "consoleapi.DeleteProjectSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string",
+                    "example": ""
+                },
+                "step": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "consoleapi.DeleteProjectSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "apiKeys": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "buckets": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "currentUsage": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "invoicingIncomplete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "lockEnabledBuckets": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "consoleapi.FCMTokenSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "AppVersion": {
+                    "type": "string"
+                },
+                "BrowserName": {
+                    "type": "string"
+                },
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "DeviceID": {
+                    "type": "string"
+                },
+                "DeviceModel": {
+                    "type": "string"
+                },
+                "DeviceType": {
+                    "type": "string",
+                    "example": "web"
+                },
+                "ID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "IPAddress": {
+                    "type": "string"
+                },
+                "IsActive": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "LastUsedAt": {
+                    "type": "string"
+                },
+                "OSVersion": {
+                    "type": "string"
+                },
+                "Token": {
+                    "type": "string",
+                    "example": "fcm-device-token"
+                },
+                "UpdatedAt": {
+                    "type": "string"
+                },
+                "UserAgent": {
+                    "type": "string"
+                },
+                "UserID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
                 }
             }
         },
@@ -1664,12 +4160,152 @@
                 }
             }
         },
+        "consoleapi.MFADisableSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "recoveryCode": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "consoleapi.MFAEnableSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "consoleapi.MFARegenerateRecoveryCodesSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "recoveryCode": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
         "consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest": {
             "type": "object",
             "properties": {
                 "dry_run": {
                     "type": "boolean",
                     "example": false
+                }
+            }
+        },
+        "consoleapi.NotificationListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.NotificationResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageCount": {
+                    "type": "integer"
+                },
+                "totalCount": {
+                    "type": "integer"
+                }
+            }
+        },
+        "consoleapi.NotificationResponse": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "hide": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isRead": {
+                    "type": "boolean"
+                },
+                "retryCount": {
+                    "type": "integer"
+                },
+                "sentAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "tokenId": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.PaymentPlanGroupSwagger": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "monthly"
+                },
+                "plans": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                }
+            }
+        },
+        "consoleapi.PaymentPlansSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "crypto_modes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "SRX",
+                        "XDC",
+                        "USDT"
+                    ]
+                },
+                "group": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.PaymentPlanGroupSwagger"
+                    }
                 }
             }
         },
@@ -1696,6 +4332,62 @@
                 }
             }
         },
+        "consoleapi.ProjectInfoSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "bandwidthUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Backup vault"
+                },
+                "hasManagedPassphrase": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "isClassic": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "memberCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My Project"
+                },
+                "ownerId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "placement": {
+                    "type": "string",
+                    "example": ""
+                },
+                "prevDaysUntilExpiration": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "storageUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "versioning": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
         "consoleapi.ProjectUsageByDayItem": {
             "type": "object",
             "properties": {
@@ -1706,6 +4398,102 @@
                 "value": {
                     "type": "integer",
                     "example": 9007199254740992
+                }
+            }
+        },
+        "consoleapi.ProjectUsageLimitsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "bandwidthLimit": {
+                    "type": "integer",
+                    "example": 107374182400
+                },
+                "bandwidthUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "bucketsLimit": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "bucketsUsed": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "objectCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "rateLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "rateUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "segmentCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "segmentLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "segmentUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "storageLimit": {
+                    "type": "integer",
+                    "example": 107374182400
+                },
+                "storageUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "userSetBandwidthLimit": {
+                    "type": "integer"
+                },
+                "userSetStorageLimit": {
+                    "type": "integer"
+                }
+            }
+        },
+        "consoleapi.RegisterTokenRequest": {
+            "type": "object",
+            "properties": {
+                "appVersion": {
+                    "description": "Optional: app version",
+                    "type": "string"
+                },
+                "browserName": {
+                    "description": "Optional: browser name (web only)",
+                    "type": "string"
+                },
+                "deviceId": {
+                    "description": "Optional: device identifier",
+                    "type": "string"
+                },
+                "deviceModel": {
+                    "description": "Optional: device model",
+                    "type": "string"
+                },
+                "deviceType": {
+                    "description": "Optional: \"android\", \"ios\", \"web\"",
+                    "type": "string"
+                },
+                "osVersion": {
+                    "description": "Optional: OS version",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "Required: FCM token",
+                    "type": "string"
+                },
+                "userAgent": {
+                    "description": "Optional: full user agent string",
+                    "type": "string"
                 }
             }
         },
@@ -1754,12 +4542,111 @@
                 }
             }
         },
+        "consoleapi.RespondToProjectInvitationSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "response": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.SetAuthOnboardingStatusSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "onboardingEnd": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "onboardingStart": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "onboardingStep": {
+                    "type": "string",
+                    "example": "welcome"
+                }
+            }
+        },
+        "consoleapi.SetAuthUserSettingsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "noticeDismissal": {
+                    "type": "object"
+                },
+                "onboardingEnd": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "onboardingStart": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "onboardingStep": {
+                    "type": "string",
+                    "example": "welcome"
+                },
+                "passphrasePrompt": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sessionDuration": {
+                    "type": "integer",
+                    "example": 3600
+                }
+            }
+        },
         "consoleapi.SwaggerErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
                     "type": "string",
                     "example": "error message"
+                }
+            }
+        },
+        "consoleapi.UnreadCountResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "consoleapi.UpdateAuthAccountInfoSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "socialFacebook": {
+                    "type": "string"
+                },
+                "socialGithub": {
+                    "type": "string",
+                    "example": "jane"
+                },
+                "socialLinkedin": {
+                    "type": "string",
+                    "example": "https://linkedin.com/in/jane"
+                },
+                "socialTwitter": {
+                    "type": "string",
+                    "example": "@jane"
+                },
+                "walletId": {
+                    "type": "string",
+                    "example": "0xabc"
+                }
+            }
+        },
+        "consoleapi.UpdateAuthAccountSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "fullName": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                },
+                "shortName": {
+                    "type": "string",
+                    "example": "Jane"
                 }
             }
         },
@@ -1829,6 +4716,615 @@
                     ]
                 }
             }
+        },
+        "consoleapi.UpdateTokenRequest": {
+            "type": "object",
+            "properties": {
+                "appVersion": {
+                    "type": "string"
+                },
+                "browserName": {
+                    "type": "string"
+                },
+                "deviceId": {
+                    "type": "string"
+                },
+                "deviceModel": {
+                    "type": "string"
+                },
+                "deviceType": {
+                    "type": "string"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "osVersion": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "userAgent": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.UpsertProjectSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "bandwidthLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Optional description"
+                },
+                "managePassphrase": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My Project"
+                },
+                "prevDaysUntilExpiration": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "storageLimit": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "consoleapi.UpsertUserNotificationPreferenceSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "example": "billing"
+                },
+                "preferences": {
+                    "type": "object"
+                }
+            }
+        },
+        "consoleapi.UserDeveloperAccessHistorySwaggerItem": {
+            "type": "object",
+            "properties": {
+                "application_name": {
+                    "type": "string",
+                    "example": "My Integration"
+                },
+                "client_id": {
+                    "type": "string",
+                    "example": "client-id"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "request_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "read"
+                    ]
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.UserDeveloperAccessSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "access_granted_date": {
+                    "type": "string"
+                },
+                "application_description": {
+                    "type": "string",
+                    "example": "Backup integration"
+                },
+                "application_name": {
+                    "type": "string",
+                    "example": "My Integration"
+                },
+                "approved_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "read",
+                        "write"
+                    ]
+                },
+                "client_id": {
+                    "type": "string",
+                    "example": "client-id"
+                },
+                "consent_expires_at": {
+                    "type": "string"
+                },
+                "developer_email": {
+                    "type": "string",
+                    "example": "dev@example.com"
+                },
+                "developer_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "developer_name": {
+                    "type": "string",
+                    "example": "Acme App"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "last_access_date": {
+                    "type": "string"
+                },
+                "rejected_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "total_requests": {
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
+        "consoleapi.UserNotificationPreferenceSwagger": {
+            "type": "object",
+            "properties": {
+                "Category": {
+                    "type": "string",
+                    "example": "billing"
+                },
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "ID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "Preferences": {
+                    "type": "object"
+                },
+                "UpdatedAt": {
+                    "type": "string"
+                },
+                "UserID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "consoleapi.UserProjectInvitationSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "inviterEmail": {
+                    "type": "string",
+                    "example": "owner@example.com"
+                },
+                "projectDescription": {
+                    "type": "string",
+                    "example": "Shared backup project"
+                },
+                "projectID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "projectName": {
+                    "type": "string",
+                    "example": "My Project"
+                }
+            }
+        },
+        "consoleapi.V1AccessCreateSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "access_grant": {
+                    "type": "string",
+                    "example": "serialized-access-grant"
+                },
+                "public": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.V1AccessCreateSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "access_key_id": {
+                    "type": "string",
+                    "example": "AKIA..."
+                },
+                "endpoint": {
+                    "type": "string",
+                    "example": "https://storx.io"
+                },
+                "secret_key": {
+                    "type": "string",
+                    "example": "..."
+                }
+            }
+        },
+        "consoleweb.FrontendConfig": {
+            "type": "object",
+            "properties": {
+                "abTestingEnabled": {
+                    "type": "boolean"
+                },
+                "activeSessionsViewEnabled": {
+                    "type": "boolean"
+                },
+                "allowedUsageReportDateRange": {
+                    "$ref": "#/definitions/time.Duration"
+                },
+                "altObjBrowserPagingEnabled": {
+                    "type": "boolean"
+                },
+                "altObjBrowserPagingThreshold": {
+                    "type": "integer"
+                },
+                "analyticsEnabled": {
+                    "type": "boolean"
+                },
+                "announcement": {
+                    "$ref": "#/definitions/console.AnnouncementConfig"
+                },
+                "apiBaseURL": {
+                    "description": "ApiBaseURL is the base URL for all API requests. The frontend MUST use this (e.g. apiBaseURL + \"api/v0/...\")\nfor every API call so requests hit the correct host. Using relative paths when the app is served from\na different host (e.g. dev server) causes the wrong host to return HTML → DOCTYPE/JSON parse error.",
+                    "type": "string"
+                },
+                "betaSatelliteFeedbackURL": {
+                    "type": "string"
+                },
+                "betaSatelliteSupportURL": {
+                    "type": "string"
+                },
+                "billingFeaturesEnabled": {
+                    "type": "boolean"
+                },
+                "billingInformationTabEnabled": {
+                    "type": "boolean"
+                },
+                "billingStripeCheckoutEnabled": {
+                    "type": "boolean"
+                },
+                "bucketLimitsUIEnabled": {
+                    "type": "boolean"
+                },
+                "captcha": {
+                    "$ref": "#/definitions/console.CaptchaConfig"
+                },
+                "collectBillingInfoOnOnboarding": {
+                    "type": "boolean"
+                },
+                "computeGatewayURL": {
+                    "type": "string"
+                },
+                "computeUIEnabled": {
+                    "type": "boolean"
+                },
+                "couponCodeBillingUIEnabled": {
+                    "type": "boolean"
+                },
+                "couponCodeSignupUIEnabled": {
+                    "type": "boolean"
+                },
+                "csrfToken": {
+                    "type": "string"
+                },
+                "cunoFSBetaEnabled": {
+                    "type": "boolean"
+                },
+                "daysBeforeTrialEndNotification": {
+                    "type": "integer"
+                },
+                "defaultPaidBandwidthLimit": {
+                    "$ref": "#/definitions/memory.Size"
+                },
+                "defaultPaidStorageLimit": {
+                    "$ref": "#/definitions/memory.Size"
+                },
+                "defaultProjectLimit": {
+                    "type": "integer"
+                },
+                "deleteProjectEnabled": {
+                    "type": "boolean"
+                },
+                "documentationURL": {
+                    "type": "string"
+                },
+                "domainsPageEnabled": {
+                    "type": "boolean"
+                },
+                "downloadPrefixEnabled": {
+                    "type": "boolean"
+                },
+                "egressMBCents": {
+                    "type": "string"
+                },
+                "emailChangeFlowEnabled": {
+                    "type": "boolean"
+                },
+                "emissionImpactViewEnabled": {
+                    "type": "boolean"
+                },
+                "enableRegionTag": {
+                    "type": "boolean"
+                },
+                "entitlementsEnabled": {
+                    "type": "boolean"
+                },
+                "externalAddress": {
+                    "description": "ExternalAddress is the canonical URL of the console (e.g. for links and redirects).",
+                    "type": "string"
+                },
+                "fileBrowserFlowDisabled": {
+                    "type": "boolean"
+                },
+                "galleryViewEnabled": {
+                    "type": "boolean"
+                },
+                "gatewayCredentialsRequestURL": {
+                    "type": "string"
+                },
+                "generalRequestURL": {
+                    "type": "string"
+                },
+                "hideProjectEncryptionOptions": {
+                    "type": "boolean"
+                },
+                "hideUplinkBehavior": {
+                    "type": "boolean"
+                },
+                "homepageURL": {
+                    "type": "string"
+                },
+                "inactivityTimerDuration": {
+                    "type": "integer"
+                },
+                "inactivityTimerEnabled": {
+                    "type": "boolean"
+                },
+                "inactivityTimerViewerEnabled": {
+                    "type": "boolean"
+                },
+                "isBetaSatellite": {
+                    "type": "boolean"
+                },
+                "limitIncreaseRequestEnabled": {
+                    "type": "boolean"
+                },
+                "limitsAreaEnabled": {
+                    "type": "boolean"
+                },
+                "linksharingURL": {
+                    "type": "string"
+                },
+                "liveCheckBadPasswords": {
+                    "type": "boolean"
+                },
+                "maxAddFundsAmount": {
+                    "type": "integer"
+                },
+                "maxNameCharacters": {
+                    "type": "integer"
+                },
+                "minAddFundsAmount": {
+                    "type": "integer"
+                },
+                "minimumCharge": {
+                    "$ref": "#/definitions/console.MinimumChargeConfig"
+                },
+                "nativeTokenPaymentsEnabled": {
+                    "type": "boolean"
+                },
+                "neededTransactionConfirmations": {
+                    "type": "integer"
+                },
+                "newDetailedUsageReportEnabled": {
+                    "type": "boolean"
+                },
+                "newPricingStartDate": {
+                    "type": "string"
+                },
+                "noLimitsUiEnabled": {
+                    "type": "boolean"
+                },
+                "objectBrowserKeyLifetime": {
+                    "$ref": "#/definitions/time.Duration"
+                },
+                "objectBrowserKeyNamePrefix": {
+                    "type": "string"
+                },
+                "objectLockUIEnabled": {
+                    "type": "boolean"
+                },
+                "objectMountConsultationEnabled": {
+                    "type": "boolean"
+                },
+                "optionalSignupSuccessURL": {
+                    "type": "string"
+                },
+                "partneredSatellites": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleweb.PartneredSatellite"
+                    }
+                },
+                "passwordMaximumLength": {
+                    "type": "integer"
+                },
+                "passwordMinimumLength": {
+                    "type": "integer"
+                },
+                "pathwayOverviewEnabled": {
+                    "type": "boolean"
+                },
+                "pricingPackagesEnabled": {
+                    "type": "boolean"
+                },
+                "productPriceSummaries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "projectLimitsIncreaseRequestURL": {
+                    "type": "string"
+                },
+                "publicLinksharingURL": {
+                    "type": "string"
+                },
+                "requireBillingAddress": {
+                    "type": "boolean"
+                },
+                "restAPIKeysUIEnabled": {
+                    "type": "boolean"
+                },
+                "satelliteManagedEncryptionEnabled": {
+                    "type": "boolean"
+                },
+                "satelliteName": {
+                    "type": "string"
+                },
+                "satelliteNodeURL": {
+                    "type": "string"
+                },
+                "scheduleMeetingURL": {
+                    "type": "string"
+                },
+                "segmentMonthCents": {
+                    "type": "string"
+                },
+                "segmentsUIEnabled": {
+                    "type": "boolean"
+                },
+                "selfServeAccountDeleteEnabled": {
+                    "type": "boolean"
+                },
+                "selfServePlacementSelectEnabled": {
+                    "type": "boolean"
+                },
+                "showNewPricingTiers": {
+                    "type": "boolean"
+                },
+                "signupActivationCodeEnabled": {
+                    "type": "boolean"
+                },
+                "ssoEnabled": {
+                    "type": "boolean"
+                },
+                "storageMBMonthCents": {
+                    "type": "string"
+                },
+                "stripePublicKey": {
+                    "type": "string"
+                },
+                "unregisteredInviteEmailsEnabled": {
+                    "type": "boolean"
+                },
+                "upgradePayUpfrontAmount": {
+                    "type": "integer"
+                },
+                "useGeneratedPrivateAPI": {
+                    "type": "boolean"
+                },
+                "userBalanceForUpgrade": {
+                    "type": "integer"
+                },
+                "userFeedbackEnabled": {
+                    "type": "boolean"
+                },
+                "valdiSignUpURL": {
+                    "type": "string"
+                },
+                "versioningUIEnabled": {
+                    "type": "boolean"
+                },
+                "zipDownloadLimit": {
+                    "type": "integer"
+                },
+                "zkSyncContractAddress": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleweb.PartneredSatellite": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "memory.Size": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+                1,
+                1024,
+                1048576,
+                1073741824,
+                1099511627776,
+                1125899906842624,
+                1152921504606846976
+            ],
+            "x-enum-varnames": [
+                "B",
+                "KiB",
+                "MiB",
+                "GiB",
+                "TiB",
+                "PiB",
+                "EiB"
+            ]
+        },
+        "time.Duration": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+                -9223372036854775808,
+                9223372036854775807,
+                1,
+                1000,
+                1000000,
+                1000000000,
+                60000000000,
+                3600000000000
+            ],
+            "x-enum-varnames": [
+                "minDuration",
+                "maxDuration",
+                "Nanosecond",
+                "Microsecond",
+                "Millisecond",
+                "Second",
+                "Minute",
+                "Hour"
+            ]
         }
     },
     "securityDefinitions": {
@@ -1845,7 +5341,7 @@
     },
     "tags": [
         {
-            "description": "Project management operations",
+            "description": "Project management: invitations, members, usage, and project CRUD",
             "name": "projects"
         },
         {
@@ -1853,7 +5349,7 @@
             "name": "projects-daily-usage"
         },
         {
-            "description": "Bucket management operations",
+            "description": "Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved, and bucket APIs",
             "name": "buckets"
         },
         {
@@ -1891,6 +5387,26 @@
         {
             "description": "Google Backup restore-all (async): Backup-Tools worker cron proxies (/restore/all, /restore/live, /restore/job/*)",
             "name": "google-backup-restore-cron"
+        },
+        {
+            "description": "Account \u0026 session: profile, settings, refresh-session, developer-access, MFA, FCM tokens, notification-preferences",
+            "name": "auth-account"
+        },
+        {
+            "description": "Access management: GET /api/v0/api-keys/list-paged (paginated keys), POST /v1/access (exchange access grant for S3 credentials on auth host)",
+            "name": "access"
+        },
+        {
+            "description": "In-app notifications: GET/PUT /api/v0/notifications (list, count, detail, dismiss, read-all)",
+            "name": "notifications"
+        },
+        {
+            "description": "Public billing plans: GET /payment-plans at server root (not under /api/v0). Swagger may show /api/v0/payment-plans — use the host root path when calling.",
+            "name": "payment-plans"
+        },
+        {
+            "description": "Public console bootstrap config: GET /api/v0/config (feature flags, API base URL, CSRF token, billing/UI toggles)",
+            "name": "config"
         }
     ]
 }

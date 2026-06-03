@@ -1,7 +1,279 @@
 basePath: /api/v0
 definitions:
+  console.AnnouncementConfig:
+    properties:
+      body:
+        type: string
+      enabled:
+        default: false
+        type: boolean
+      name:
+        type: string
+      title:
+        type: string
+    type: object
+  console.CaptchaConfig:
+    properties:
+      login:
+        $ref: '#/definitions/console.MultiCaptchaConfig'
+      registration:
+        $ref: '#/definitions/console.MultiCaptchaConfig'
+    type: object
+  console.MinimumChargeConfig:
+    properties:
+      amount:
+        type: integer
+      enabled:
+        type: boolean
+      startDate:
+        type: string
+    type: object
+  console.MultiCaptchaConfig:
+    properties:
+      hcaptcha:
+        $ref: '#/definitions/console.SingleCaptchaConfig'
+      recaptcha:
+        $ref: '#/definitions/console.SingleCaptchaConfig'
+    type: object
+  console.SingleCaptchaConfig:
+    properties:
+      enabled:
+        default: false
+        type: boolean
+      siteKey:
+        type: string
+    type: object
+  consoleapi.APIKeyListItemSwagger:
+    properties:
+      createdAt:
+        type: string
+      creatorEmail:
+        example: user@example.com
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      name:
+        example: my-key
+        type: string
+      projectId:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      version:
+        example: 2
+        type: integer
+    type: object
+  consoleapi.APIKeysListPagedSwaggerResponse:
+    properties:
+      apiKeys:
+        items:
+          $ref: '#/definitions/consoleapi.APIKeyListItemSwagger'
+        type: array
+      currentPage:
+        example: 1
+        type: integer
+      limit:
+        example: 10
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      order:
+        example: 1
+        type: integer
+      orderDirection:
+        example: 1
+        type: integer
+      pageCount:
+        example: 1
+        type: integer
+      search:
+        example: ""
+        type: string
+      totalCount:
+        example: 3
+        type: integer
+    type: object
+  consoleapi.AuthAccountFreezeStatusSwaggerResponse:
+    properties:
+      frozen:
+        example: false
+        type: boolean
+      trialExpiredFrozen:
+        example: false
+        type: boolean
+      violationFrozen:
+        example: false
+        type: boolean
+      warned:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.AuthAccountSwaggerResponse:
+    properties:
+      companyName:
+        example: ""
+        type: string
+      createdAt:
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      employeeCount:
+        example: ""
+        type: string
+      fullName:
+        example: Jane Doe
+        type: string
+      hasVarPartner:
+        example: false
+        type: boolean
+      haveSalesContact:
+        example: false
+        type: boolean
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      isMFAEnabled:
+        example: false
+        type: boolean
+      isProfessional:
+        example: false
+        type: boolean
+      loginToken:
+        example: ""
+        type: string
+      mfaRecoveryCodeCount:
+        example: 0
+        type: integer
+      paidTier:
+        example: false
+        type: boolean
+      partner:
+        example: ""
+        type: string
+      pendingVerification:
+        example: false
+        type: boolean
+      position:
+        example: ""
+        type: string
+      projectBandwidthLimit:
+        example: 0
+        type: integer
+      projectLimit:
+        example: 10
+        type: integer
+      projectSegmentLimit:
+        example: 0
+        type: integer
+      projectStorageLimit:
+        example: 0
+        type: integer
+      shortName:
+        example: Jane
+        type: string
+      socialFacebook:
+        example: ""
+        type: string
+      socialGithub:
+        example: ""
+        type: string
+      socialLinkedin:
+        example: ""
+        type: string
+      socialTwitter:
+        example: ""
+        type: string
+      trialExpiration:
+        type: string
+      walletId:
+        example: ""
+        type: string
+    type: object
+  consoleapi.AuthUserSettingsSwaggerResponse:
+    properties:
+      noticeDismissal:
+        type: object
+      onboardingEnd:
+        example: false
+        type: boolean
+      onboardingStart:
+        example: true
+        type: boolean
+      onboardingStep:
+        example: welcome
+        type: string
+      passphrasePrompt:
+        example: true
+        type: boolean
+      sessionDuration:
+        example: 3600
+        type: integer
+    type: object
   consoleapi.BackupToolsJSONResponse:
     additionalProperties: true
+    type: object
+  consoleapi.BucketUsageTotalsItemSwagger:
+    properties:
+      before:
+        example: "2026-06-03T09:01:55.204Z"
+        type: string
+      bucketName:
+        example: my-bucket
+        type: string
+      createdAt:
+        example: "2024-03-20T10:00:00Z"
+        type: string
+      creatorEmail:
+        example: user@example.com
+        type: string
+      egress:
+        example: 0.2
+        type: number
+      location:
+        example: us-east-1
+        type: string
+      objectCount:
+        example: 42
+        type: integer
+      projectID:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+      segmentCount:
+        example: 100
+        type: integer
+      since:
+        example: "2026-06-01T00:00:00.000Z"
+        type: string
+      storage:
+        example: 1.5
+        type: number
+    type: object
+  consoleapi.BucketUsageTotalsPageSwagger:
+    properties:
+      bucketUsages:
+        items:
+          $ref: '#/definitions/consoleapi.BucketUsageTotalsItemSwagger'
+        type: array
+      currentPage:
+        example: 1
+        type: integer
+      limit:
+        example: 10
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      pageCount:
+        example: 1
+        type: integer
+      search:
+        example: ""
+        type: string
+      totalCount:
+        example: 3
+        type: integer
     type: object
   consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest:
     properties:
@@ -93,6 +365,80 @@ definitions:
         type: string
       value:
         example: 84% Used
+        type: string
+    type: object
+  consoleapi.DeleteAuthAccountSwaggerRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      password:
+        example: admin-verification-password
+        type: string
+    type: object
+  consoleapi.DeleteProjectSwaggerRequest:
+    properties:
+      data:
+        example: ""
+        type: string
+      step:
+        example: 0
+        type: integer
+    type: object
+  consoleapi.DeleteProjectSwaggerResponse:
+    properties:
+      apiKeys:
+        example: 0
+        type: integer
+      buckets:
+        example: 0
+        type: integer
+      currentUsage:
+        example: false
+        type: boolean
+      invoicingIncomplete:
+        example: false
+        type: boolean
+      lockEnabledBuckets:
+        example: 0
+        type: integer
+    type: object
+  consoleapi.FCMTokenSwaggerResponse:
+    properties:
+      AppVersion:
+        type: string
+      BrowserName:
+        type: string
+      CreatedAt:
+        type: string
+      DeviceID:
+        type: string
+      DeviceModel:
+        type: string
+      DeviceType:
+        example: web
+        type: string
+      ID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      IPAddress:
+        type: string
+      IsActive:
+        example: true
+        type: boolean
+      LastUsedAt:
+        type: string
+      OSVersion:
+        type: string
+      Token:
+        example: fcm-device-token
+        type: string
+      UpdatedAt:
+        type: string
+      UserAgent:
+        type: string
+      UserID:
+        example: 00000000-0000-0000-0000-000000000000
         type: string
     type: object
   consoleapi.GoogleBackupAuthSwaggerRequest:
@@ -202,11 +548,105 @@ definitions:
         example: true
         type: boolean
     type: object
+  consoleapi.MFADisableSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+      recoveryCode:
+        example: ""
+        type: string
+    type: object
+  consoleapi.MFAEnableSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+    type: object
+  consoleapi.MFARegenerateRecoveryCodesSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+      recoveryCode:
+        example: ""
+        type: string
+    type: object
   consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest:
     properties:
       dry_run:
         example: false
         type: boolean
+    type: object
+  consoleapi.NotificationListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/consoleapi.NotificationResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      pageCount:
+        type: integer
+      totalCount:
+        type: integer
+    type: object
+  consoleapi.NotificationResponse:
+    properties:
+      body:
+        type: string
+      createdAt:
+        type: string
+      data:
+        additionalProperties: true
+        type: object
+      errorMessage:
+        type: string
+      hide:
+        type: boolean
+      id:
+        type: string
+      isRead:
+        type: boolean
+      retryCount:
+        type: integer
+      sentAt:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      tokenId:
+        type: string
+      userId:
+        type: string
+    type: object
+  consoleapi.PaymentPlanGroupSwagger:
+    properties:
+      name:
+        example: monthly
+        type: string
+      plans:
+        items:
+          type: object
+        type: array
+    type: object
+  consoleapi.PaymentPlansSwaggerResponse:
+    properties:
+      crypto_modes:
+        example:
+        - SRX
+        - XDC
+        - USDT
+        items:
+          type: string
+        type: array
+      group:
+        items:
+          $ref: '#/definitions/consoleapi.PaymentPlanGroupSwagger'
+        type: array
     type: object
   consoleapi.ProjectDailyUsageResponse:
     properties:
@@ -223,6 +663,47 @@ definitions:
           $ref: '#/definitions/consoleapi.ProjectUsageByDayItem'
         type: array
     type: object
+  consoleapi.ProjectInfoSwaggerItem:
+    properties:
+      bandwidthUsed:
+        example: 0
+        type: integer
+      createdAt:
+        type: string
+      description:
+        example: Backup vault
+        type: string
+      hasManagedPassphrase:
+        example: false
+        type: boolean
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      isClassic:
+        example: false
+        type: boolean
+      memberCount:
+        example: 1
+        type: integer
+      name:
+        example: My Project
+        type: string
+      ownerId:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      placement:
+        example: ""
+        type: string
+      prevDaysUntilExpiration:
+        example: 0
+        type: integer
+      storageUsed:
+        example: 0
+        type: integer
+      versioning:
+        example: 1
+        type: integer
+    type: object
   consoleapi.ProjectUsageByDayItem:
     properties:
       date:
@@ -231,6 +712,76 @@ definitions:
       value:
         example: 9007199254740992
         type: integer
+    type: object
+  consoleapi.ProjectUsageLimitsSwaggerResponse:
+    properties:
+      bandwidthLimit:
+        example: 107374182400
+        type: integer
+      bandwidthUsed:
+        example: 0
+        type: integer
+      bucketsLimit:
+        example: 100
+        type: integer
+      bucketsUsed:
+        example: 2
+        type: integer
+      objectCount:
+        example: 0
+        type: integer
+      rateLimit:
+        example: 0
+        type: integer
+      rateUsed:
+        example: 0
+        type: integer
+      segmentCount:
+        example: 0
+        type: integer
+      segmentLimit:
+        example: 0
+        type: integer
+      segmentUsed:
+        example: 0
+        type: integer
+      storageLimit:
+        example: 107374182400
+        type: integer
+      storageUsed:
+        example: 0
+        type: integer
+      userSetBandwidthLimit:
+        type: integer
+      userSetStorageLimit:
+        type: integer
+    type: object
+  consoleapi.RegisterTokenRequest:
+    properties:
+      appVersion:
+        description: 'Optional: app version'
+        type: string
+      browserName:
+        description: 'Optional: browser name (web only)'
+        type: string
+      deviceId:
+        description: 'Optional: device identifier'
+        type: string
+      deviceModel:
+        description: 'Optional: device model'
+        type: string
+      deviceType:
+        description: 'Optional: "android", "ios", "web"'
+        type: string
+      osVersion:
+        description: 'Optional: OS version'
+        type: string
+      token:
+        description: 'Required: FCM token'
+        type: string
+      userAgent:
+        description: 'Optional: full user agent string'
+        type: string
     type: object
   consoleapi.ReservedBucketUsageItem:
     properties:
@@ -265,10 +816,79 @@ definitions:
         example: 210.5
         type: number
     type: object
+  consoleapi.RespondToProjectInvitationSwaggerRequest:
+    properties:
+      response:
+        example: 1
+        type: integer
+    type: object
+  consoleapi.SetAuthOnboardingStatusSwaggerRequest:
+    properties:
+      onboardingEnd:
+        example: false
+        type: boolean
+      onboardingStart:
+        example: true
+        type: boolean
+      onboardingStep:
+        example: welcome
+        type: string
+    type: object
+  consoleapi.SetAuthUserSettingsSwaggerRequest:
+    properties:
+      noticeDismissal:
+        type: object
+      onboardingEnd:
+        example: false
+        type: boolean
+      onboardingStart:
+        example: true
+        type: boolean
+      onboardingStep:
+        example: welcome
+        type: string
+      passphrasePrompt:
+        example: true
+        type: boolean
+      sessionDuration:
+        example: 3600
+        type: integer
+    type: object
   consoleapi.SwaggerErrorResponse:
     properties:
       error:
         example: error message
+        type: string
+    type: object
+  consoleapi.UnreadCountResponse:
+    properties:
+      count:
+        type: integer
+    type: object
+  consoleapi.UpdateAuthAccountInfoSwaggerRequest:
+    properties:
+      socialFacebook:
+        type: string
+      socialGithub:
+        example: jane
+        type: string
+      socialLinkedin:
+        example: https://linkedin.com/in/jane
+        type: string
+      socialTwitter:
+        example: '@jane'
+        type: string
+      walletId:
+        example: "0xabc"
+        type: string
+    type: object
+  consoleapi.UpdateAuthAccountSwaggerRequest:
+    properties:
+      fullName:
+        example: Jane Doe
+        type: string
+      shortName:
+        example: Jane
         type: string
     type: object
   consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest:
@@ -319,6 +939,433 @@ definitions:
     required:
     - interval
     type: object
+  consoleapi.UpdateTokenRequest:
+    properties:
+      appVersion:
+        type: string
+      browserName:
+        type: string
+      deviceId:
+        type: string
+      deviceModel:
+        type: string
+      deviceType:
+        type: string
+      isActive:
+        type: boolean
+      osVersion:
+        type: string
+      token:
+        type: string
+      userAgent:
+        type: string
+    type: object
+  consoleapi.UpsertProjectSwaggerRequest:
+    properties:
+      bandwidthLimit:
+        example: 0
+        type: integer
+      description:
+        example: Optional description
+        type: string
+      managePassphrase:
+        example: false
+        type: boolean
+      name:
+        example: My Project
+        type: string
+      prevDaysUntilExpiration:
+        example: 0
+        type: integer
+      storageLimit:
+        example: 0
+        type: integer
+    type: object
+  consoleapi.UpsertUserNotificationPreferenceSwaggerRequest:
+    properties:
+      category:
+        example: billing
+        type: string
+      preferences:
+        type: object
+    type: object
+  consoleapi.UserDeveloperAccessHistorySwaggerItem:
+    properties:
+      application_name:
+        example: My Integration
+        type: string
+      client_id:
+        example: client-id
+        type: string
+      created_at:
+        type: string
+      request_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      scopes:
+        example:
+        - read
+        items:
+          type: string
+        type: array
+      status:
+        example: 1
+        type: integer
+    type: object
+  consoleapi.UserDeveloperAccessSwaggerItem:
+    properties:
+      access_granted_date:
+        type: string
+      application_description:
+        example: Backup integration
+        type: string
+      application_name:
+        example: My Integration
+        type: string
+      approved_scopes:
+        example:
+        - read
+        - write
+        items:
+          type: string
+        type: array
+      client_id:
+        example: client-id
+        type: string
+      consent_expires_at:
+        type: string
+      developer_email:
+        example: dev@example.com
+        type: string
+      developer_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      developer_name:
+        example: Acme App
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      last_access_date:
+        type: string
+      rejected_scopes:
+        items:
+          type: string
+        type: array
+      total_requests:
+        example: 12
+        type: integer
+    type: object
+  consoleapi.UserNotificationPreferenceSwagger:
+    properties:
+      Category:
+        example: billing
+        type: string
+      CreatedAt:
+        type: string
+      ID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      Preferences:
+        type: object
+      UpdatedAt:
+        type: string
+      UserID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+    type: object
+  consoleapi.UserProjectInvitationSwaggerItem:
+    properties:
+      createdAt:
+        type: string
+      inviterEmail:
+        example: owner@example.com
+        type: string
+      projectDescription:
+        example: Shared backup project
+        type: string
+      projectID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      projectName:
+        example: My Project
+        type: string
+    type: object
+  consoleapi.V1AccessCreateSwaggerRequest:
+    properties:
+      access_grant:
+        example: serialized-access-grant
+        type: string
+      public:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.V1AccessCreateSwaggerResponse:
+    properties:
+      access_key_id:
+        example: AKIA...
+        type: string
+      endpoint:
+        example: https://storx.io
+        type: string
+      secret_key:
+        example: '...'
+        type: string
+    type: object
+  consoleweb.FrontendConfig:
+    properties:
+      abTestingEnabled:
+        type: boolean
+      activeSessionsViewEnabled:
+        type: boolean
+      allowedUsageReportDateRange:
+        $ref: '#/definitions/time.Duration'
+      altObjBrowserPagingEnabled:
+        type: boolean
+      altObjBrowserPagingThreshold:
+        type: integer
+      analyticsEnabled:
+        type: boolean
+      announcement:
+        $ref: '#/definitions/console.AnnouncementConfig'
+      apiBaseURL:
+        description: |-
+          ApiBaseURL is the base URL for all API requests. The frontend MUST use this (e.g. apiBaseURL + "api/v0/...")
+          for every API call so requests hit the correct host. Using relative paths when the app is served from
+          a different host (e.g. dev server) causes the wrong host to return HTML → DOCTYPE/JSON parse error.
+        type: string
+      betaSatelliteFeedbackURL:
+        type: string
+      betaSatelliteSupportURL:
+        type: string
+      billingFeaturesEnabled:
+        type: boolean
+      billingInformationTabEnabled:
+        type: boolean
+      billingStripeCheckoutEnabled:
+        type: boolean
+      bucketLimitsUIEnabled:
+        type: boolean
+      captcha:
+        $ref: '#/definitions/console.CaptchaConfig'
+      collectBillingInfoOnOnboarding:
+        type: boolean
+      computeGatewayURL:
+        type: string
+      computeUIEnabled:
+        type: boolean
+      couponCodeBillingUIEnabled:
+        type: boolean
+      couponCodeSignupUIEnabled:
+        type: boolean
+      csrfToken:
+        type: string
+      cunoFSBetaEnabled:
+        type: boolean
+      daysBeforeTrialEndNotification:
+        type: integer
+      defaultPaidBandwidthLimit:
+        $ref: '#/definitions/memory.Size'
+      defaultPaidStorageLimit:
+        $ref: '#/definitions/memory.Size'
+      defaultProjectLimit:
+        type: integer
+      deleteProjectEnabled:
+        type: boolean
+      documentationURL:
+        type: string
+      domainsPageEnabled:
+        type: boolean
+      downloadPrefixEnabled:
+        type: boolean
+      egressMBCents:
+        type: string
+      emailChangeFlowEnabled:
+        type: boolean
+      emissionImpactViewEnabled:
+        type: boolean
+      enableRegionTag:
+        type: boolean
+      entitlementsEnabled:
+        type: boolean
+      externalAddress:
+        description: ExternalAddress is the canonical URL of the console (e.g. for
+          links and redirects).
+        type: string
+      fileBrowserFlowDisabled:
+        type: boolean
+      galleryViewEnabled:
+        type: boolean
+      gatewayCredentialsRequestURL:
+        type: string
+      generalRequestURL:
+        type: string
+      hideProjectEncryptionOptions:
+        type: boolean
+      hideUplinkBehavior:
+        type: boolean
+      homepageURL:
+        type: string
+      inactivityTimerDuration:
+        type: integer
+      inactivityTimerEnabled:
+        type: boolean
+      inactivityTimerViewerEnabled:
+        type: boolean
+      isBetaSatellite:
+        type: boolean
+      limitIncreaseRequestEnabled:
+        type: boolean
+      limitsAreaEnabled:
+        type: boolean
+      linksharingURL:
+        type: string
+      liveCheckBadPasswords:
+        type: boolean
+      maxAddFundsAmount:
+        type: integer
+      maxNameCharacters:
+        type: integer
+      minAddFundsAmount:
+        type: integer
+      minimumCharge:
+        $ref: '#/definitions/console.MinimumChargeConfig'
+      nativeTokenPaymentsEnabled:
+        type: boolean
+      neededTransactionConfirmations:
+        type: integer
+      newDetailedUsageReportEnabled:
+        type: boolean
+      newPricingStartDate:
+        type: string
+      noLimitsUiEnabled:
+        type: boolean
+      objectBrowserKeyLifetime:
+        $ref: '#/definitions/time.Duration'
+      objectBrowserKeyNamePrefix:
+        type: string
+      objectLockUIEnabled:
+        type: boolean
+      objectMountConsultationEnabled:
+        type: boolean
+      optionalSignupSuccessURL:
+        type: string
+      partneredSatellites:
+        items:
+          $ref: '#/definitions/consoleweb.PartneredSatellite'
+        type: array
+      passwordMaximumLength:
+        type: integer
+      passwordMinimumLength:
+        type: integer
+      pathwayOverviewEnabled:
+        type: boolean
+      pricingPackagesEnabled:
+        type: boolean
+      productPriceSummaries:
+        items:
+          type: string
+        type: array
+      projectLimitsIncreaseRequestURL:
+        type: string
+      publicLinksharingURL:
+        type: string
+      requireBillingAddress:
+        type: boolean
+      restAPIKeysUIEnabled:
+        type: boolean
+      satelliteManagedEncryptionEnabled:
+        type: boolean
+      satelliteName:
+        type: string
+      satelliteNodeURL:
+        type: string
+      scheduleMeetingURL:
+        type: string
+      segmentMonthCents:
+        type: string
+      segmentsUIEnabled:
+        type: boolean
+      selfServeAccountDeleteEnabled:
+        type: boolean
+      selfServePlacementSelectEnabled:
+        type: boolean
+      showNewPricingTiers:
+        type: boolean
+      signupActivationCodeEnabled:
+        type: boolean
+      ssoEnabled:
+        type: boolean
+      storageMBMonthCents:
+        type: string
+      stripePublicKey:
+        type: string
+      unregisteredInviteEmailsEnabled:
+        type: boolean
+      upgradePayUpfrontAmount:
+        type: integer
+      useGeneratedPrivateAPI:
+        type: boolean
+      userBalanceForUpgrade:
+        type: integer
+      userFeedbackEnabled:
+        type: boolean
+      valdiSignUpURL:
+        type: string
+      versioningUIEnabled:
+        type: boolean
+      zipDownloadLimit:
+        type: integer
+      zkSyncContractAddress:
+        type: string
+    type: object
+  consoleweb.PartneredSatellite:
+    properties:
+      address:
+        type: string
+      name:
+        type: string
+    type: object
+  memory.Size:
+    enum:
+    - 1
+    - 1024
+    - 1048576
+    - 1073741824
+    - 1099511627776
+    - 1125899906842624
+    - 1152921504606846976
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - B
+    - KiB
+    - MiB
+    - GiB
+    - TiB
+    - PiB
+    - EiB
+  time.Duration:
+    enum:
+    - -9223372036854775808
+    - 9223372036854775807
+    - 1
+    - 1000
+    - 1000000
+    - 1000000000
+    - 60000000000
+    - 3600000000000
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - minDuration
+    - maxDuration
+    - Nanosecond
+    - Microsecond
+    - Millisecond
+    - Second
+    - Minute
+    - Hour
 info:
   contact:
     email: support@swagger.io
@@ -332,6 +1379,356 @@ info:
   title: StorX Monitor API
   version: "1.0"
 paths:
+  /api-keys/list-paged:
+    get:
+      description: '**Full route:** `GET /api/v0/api-keys/list-paged`'
+      parameters:
+      - description: Project UUID
+        in: query
+        name: projectID
+        required: true
+        type: string
+      - description: Page size
+        example: 10
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - description: Page number (1-based)
+        example: 1
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: 'Sort field: 1=name, 2=created, 3=creator email'
+        example: 1
+        in: query
+        name: order
+        required: true
+        type: integer
+      - description: Sort direction
+        example: 1
+        in: query
+        name: orderDirection
+        required: true
+        type: integer
+      - description: Name search filter
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.APIKeysListPagedSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List API keys (paginated)
+      tags:
+      - access
+  /auth/account:
+    delete:
+      consumes:
+      - application/json
+      description: '**Full route:** `DELETE /api/v0/auth/account`'
+      parameters:
+      - description: Target email and verification password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.DeleteAuthAccountSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete account (admin)
+      tags:
+      - auth-account
+    get:
+      description: '**Full route:** `GET /api/v0/auth/account`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthAccountSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get current account
+      tags:
+      - auth-account
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/auth/account`'
+      parameters:
+      - description: Name fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateAuthAccountSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update account display name
+      tags:
+      - auth-account
+  /auth/account/freezestatus:
+    get:
+      description: '**Full route:** `GET /api/v0/auth/account/freezestatus`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthAccountFreezeStatusSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Account billing freeze status
+      tags:
+      - auth-account
+  /auth/account/info:
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/auth/account/info`'
+      parameters:
+      - description: Social and wallet fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateAuthAccountInfoSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update account profile links
+      tags:
+      - auth-account
+  /auth/account/onboarding:
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/auth/account/onboarding`'
+      parameters:
+      - description: Onboarding fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.SetAuthOnboardingStatusSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update onboarding flags
+      tags:
+      - auth-account
+  /auth/account/settings:
+    get:
+      description: '**Full route:** `GET /api/v0/auth/account/settings`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthUserSettingsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get account settings
+      tags:
+      - auth-account
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/auth/account/settings`'
+      parameters:
+      - description: Settings patch
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.SetAuthUserSettingsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthUserSettingsSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update account settings
+      tags:
+      - auth-account
+  /auth/developer-access:
+    get:
+      description: '**Full route:** `GET /api/v0/auth/developer-access`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.UserDeveloperAccessSwaggerItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List developer access to my account
+      tags:
+      - auth-account
+  /auth/developer-access/{clientId}/history:
+    get:
+      description: '**Full route:** `GET /api/v0/auth/developer-access/{clientId}/history`'
+      parameters:
+      - description: OAuth client ID
+        in: path
+        name: clientId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.UserDeveloperAccessHistorySwaggerItem'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Developer access history
+      tags:
+      - auth-account
+  /auth/developer-access/{clientId}/revoke:
+    delete:
+      description: '**Full route:** `DELETE /api/v0/auth/developer-access/{clientId}/revoke`'
+      parameters:
+      - description: OAuth client ID
+        in: path
+        name: clientId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Revoke developer access
+      tags:
+      - auth-account
   /auth/login-google:
     get:
       description: 'Google OAuth callback. Browser flow (no json param): 302 redirect
@@ -368,6 +1765,167 @@ paths:
       summary: Login with Google (login-google)
       tags:
       - google-backup
+  /auth/mfa/disable:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/mfa/disable`'
+      parameters:
+      - description: Passcode or recovery code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MFADisableSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Disable MFA
+      tags:
+      - auth-account
+  /auth/mfa/enable:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/mfa/enable`'
+      parameters:
+      - description: TOTP passcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MFAEnableSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Enable MFA
+      tags:
+      - auth-account
+  /auth/mfa/generate-recovery-codes:
+    post:
+      description: '**Full route:** `POST /api/v0/auth/mfa/generate-recovery-codes`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Generate MFA recovery codes
+      tags:
+      - auth-account
+  /auth/mfa/generate-secret-key:
+    post:
+      description: '**Full route:** `POST /api/v0/auth/mfa/generate-secret-key`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: TOTP secret key string
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Generate MFA secret key
+      tags:
+      - auth-account
+  /auth/mfa/regenerate-recovery-codes:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/mfa/regenerate-recovery-codes`'
+      parameters:
+      - description: Passcode or recovery code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MFARegenerateRecoveryCodesSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Regenerate MFA recovery codes
+      tags:
+      - auth-account
+  /auth/refresh-session:
+    post:
+      description: '**Full route:** `POST /api/v0/auth/refresh-session`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New session expiresAt (RFC3339)
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Refresh login session
+      tags:
+      - auth-account
   /auth/register-google:
     get:
       description: Google OAuth signup callback. Success is always JSON. On error,
@@ -405,6 +1963,64 @@ paths:
       summary: Register with Google (register-google)
       tags:
       - google-backup
+  /buckets/usage-totals:
+    get:
+      description: '**Full route:** `GET /api/v0/buckets/usage-totals`'
+      parameters:
+      - description: Project public UUID
+        in: query
+        name: projectID
+        required: true
+        type: string
+      - description: Range end (2006-01-02T15:04:05.999Z)
+        in: query
+        name: before
+        required: true
+        type: string
+      - description: Page size
+        example: 10
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - description: Page number (1-based)
+        example: 1
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: Bucket name filter
+        in: query
+        name: search
+        type: string
+      - description: Range start (2006-01-02T15:04:05.999Z)
+        in: query
+        name: since
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BucketUsageTotalsPageSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Paginated bucket usage totals
+      tags:
+      - buckets
   /buckets/usage-totals-for-reserved:
     get:
       description: '**Full route:** `GET /api/v0/buckets/usage-totals-for-reserved`'
@@ -440,6 +2056,21 @@ paths:
       summary: Reserved vault usage totals
       tags:
       - buckets-reserved-usage
+  /config:
+    get:
+      description: '**Full route:** `GET /api/v0/config`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleweb.FrontendConfig'
+        "500":
+          description: Internal Server Error
+      summary: Get frontend satellite configuration
+      tags:
+      - config
   /dashboard/stats:
     get:
       description: '**Full route:** `GET /api/v0/dashboard/stats`'
@@ -465,6 +2096,143 @@ paths:
       summary: Dashboard stats cards
       tags:
       - dashboard
+  /fcm-token:
+    get:
+      description: '**Full route:** `GET /api/v0/fcm-token`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.FCMTokenSwaggerResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List FCM device tokens
+      tags:
+      - auth-account
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/fcm-token`'
+      parameters:
+      - description: FCM token and device metadata
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.RegisterTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/consoleapi.FCMTokenSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Register FCM device token
+      tags:
+      - auth-account
+  /fcm-token/{tokenId}:
+    delete:
+      description: '**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`'
+      parameters:
+      - description: FCM token record UUID
+        in: path
+        name: tokenId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete FCM device token
+      tags:
+      - auth-account
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/fcm-token/{tokenId}`'
+      parameters:
+      - description: FCM token record UUID
+        in: path
+        name: tokenId
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update FCM device token
+      tags:
+      - auth-account
   /google-backup/auto-sync/jobs:
     get:
       description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`'
@@ -1165,6 +2933,334 @@ paths:
       summary: List active restore jobs
       tags:
       - google-backup-restore-cron
+  /notifications:
+    get:
+      description: '**Full route:** `GET /api/v0/notifications`'
+      parameters:
+      - default: 50
+        description: Page size (default 50)
+        in: query
+        name: limit
+        type: integer
+      - default: 1
+        description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: 'Filter: unread'
+        in: query
+        name: filter
+        type: string
+      - description: 'Time window: 1d, 7d, 15d, 1m, 6m, 1y'
+        in: query
+        name: timeFilter
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.NotificationListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List notifications
+      tags:
+      - notifications
+  /notifications/{id}:
+    get:
+      description: '**Full route:** `GET /api/v0/notifications/{id}`'
+      parameters:
+      - description: Notification UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.NotificationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get notification detail
+      tags:
+      - notifications
+  /notifications/{id}/dismiss:
+    put:
+      description: '**Full route:** `PUT /api/v0/notifications/{id}/dismiss`'
+      parameters:
+      - description: Notification UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Dismiss notification
+      tags:
+      - notifications
+  /notifications/count:
+    get:
+      description: '**Full route:** `GET /api/v0/notifications/count`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.UnreadCountResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Unread notification count
+      tags:
+      - notifications
+  /notifications/read-all:
+    put:
+      description: '**Full route:** `PUT /api/v0/notifications/read-all`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mark all notifications read
+      tags:
+      - notifications
+  /payment-plans:
+    get:
+      description: '**Full route:** `GET /payment-plans` (server root, not under `/api/v0`).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.PaymentPlansSwaggerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      summary: List payment plans
+      tags:
+      - payment-plans
+  /projects:
+    get:
+      description: '**Full route:** `GET /api/v0/projects`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.ProjectInfoSwaggerItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List my projects
+      tags:
+      - projects
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/projects`'
+      parameters:
+      - description: Project name and optional limits
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpsertProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectInfoSwaggerItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create project
+      tags:
+      - projects
+  /projects/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: '**Full route:** `DELETE /api/v0/projects/{id}`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Deletion step payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.DeleteProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.DeleteProjectSwaggerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete project (multi-step)
+      tags:
+      - projects
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/projects/{id}`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpsertProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update project
+      tags:
+      - projects
   /projects/{id}/daily-usage:
     get:
       description: '**Full route:** `GET /api/v0/projects/{id}/daily-usage`'
@@ -1208,6 +3304,236 @@ paths:
       summary: Project daily storage and bandwidth usage
       tags:
       - projects-daily-usage
+  /projects/{id}/salt:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/salt`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Base64-encoded salt
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get project encryption salt
+      tags:
+      - projects
+  /projects/{id}/usage-limits:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/usage-limits`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectUsageLimitsSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Project usage and limits
+      tags:
+      - projects
+  /projects/invitations:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/invitations`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.UserProjectInvitationSwaggerItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List my pending project invitations
+      tags:
+      - projects
+  /projects/invitations/{id}/respond:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/projects/invitations/{id}/respond`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Accept or decline
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.RespondToProjectInvitationSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Accept or decline a project invitation
+      tags:
+      - projects
+  /user/notification-preferences:
+    get:
+      description: '**Full route:** `GET /api/v0/user/notification-preferences`'
+      parameters:
+      - description: 'Filter: billing, backup, account, vault'
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.UserNotificationPreferenceSwagger'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get notification preferences
+      tags:
+      - auth-account
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/user/notification-preferences`'
+      parameters:
+      - description: Category and channel preferences
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpsertUserNotificationPreferenceSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.UserNotificationPreferenceSwagger'
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/consoleapi.UserNotificationPreferenceSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create or update notification preference
+      tags:
+      - auth-account
+  /v1/access:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /v1/access` (server root on the StorX auth
+        host, e.g. `https://storx.io/v1/access`).'
+      parameters:
+      - description: Access grant and visibility
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.V1AccessCreateSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.V1AccessCreateSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      summary: Exchange access grant for S3 credentials
+      tags:
+      - access
 securityDefinitions:
   ApiKeyAuth:
     in: header
@@ -1219,12 +3545,13 @@ securityDefinitions:
     type: apiKey
 swagger: "2.0"
 tags:
-- description: Project management operations
+- description: 'Project management: invitations, members, usage, and project CRUD'
   name: projects
 - description: 'Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage
     — daily storageUsage and settledBandwidthUsage (bytes per day) for charts'
   name: projects-daily-usage
-- description: Bucket management operations
+- description: 'Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved,
+    and bucket APIs'
   name: buckets
 - description: 'Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved
     — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)'
@@ -1250,3 +3577,19 @@ tags:
 - description: 'Google Backup restore-all (async): Backup-Tools worker cron proxies
     (/restore/all, /restore/live, /restore/job/*)'
   name: google-backup-restore-cron
+- description: 'Account & session: profile, settings, refresh-session, developer-access,
+    MFA, FCM tokens, notification-preferences'
+  name: auth-account
+- description: 'Access management: GET /api/v0/api-keys/list-paged (paginated keys),
+    POST /v1/access (exchange access grant for S3 credentials on auth host)'
+  name: access
+- description: 'In-app notifications: GET/PUT /api/v0/notifications (list, count,
+    detail, dismiss, read-all)'
+  name: notifications
+- description: 'Public billing plans: GET /payment-plans at server root (not under
+    /api/v0). Swagger may show /api/v0/payment-plans — use the host root path when
+    calling.'
+  name: payment-plans
+- description: 'Public console bootstrap config: GET /api/v0/config (feature flags,
+    API base URL, CSRF token, billing/UI toggles)'
+  name: config

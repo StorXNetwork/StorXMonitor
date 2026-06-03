@@ -70,6 +70,18 @@ func NewProjects(log *zap.Logger, service *console.Service) *Projects {
 }
 
 // GetUserProjects returns the user's projects.
+//
+// @Summary      List my projects
+// @Description  **Full route:** `GET /api/v0/projects`
+//
+// Returns all projects the authenticated user owns or is a member of.
+// @Tags         projects
+// @Produce      json
+// @Success      200  {array}   ProjectInfoSwaggerItem
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects [get]
 func (p *Projects) GetUserProjects(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -100,6 +112,20 @@ func (p *Projects) GetUserProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateProject handles updating projects.
+//
+// @Summary      Update project
+// @Description  **Full route:** `PATCH /api/v0/projects/{id}`
+// @Tags         projects
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project public UUID"
+// @Param        body  body  UpsertProjectSwaggerRequest  true  "Fields to update"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id} [patch]
 func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -144,6 +170,23 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteProject handles deleting projects.
+//
+// @Summary      Delete project (multi-step)
+// @Description  **Full route:** `DELETE /api/v0/projects/{id}`
+//
+// Multi-step deletion flow via `step` and `data` in the JSON body. Returns 409 with blockers when the project cannot be deleted yet.
+// @Tags         projects
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project public UUID"
+// @Param        body  body  DeleteProjectSwaggerRequest  true  "Deletion step payload"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      409   {object}  DeleteProjectSwaggerResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id} [delete]
 func (p *Projects) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -295,6 +338,20 @@ func (p *Projects) RequestLimitIncrease(w http.ResponseWriter, r *http.Request) 
 }
 
 // CreateProject handles creating projects.
+//
+// @Summary      Create project
+// @Description  **Full route:** `POST /api/v0/projects`
+// @Tags         projects
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UpsertProjectSwaggerRequest  true  "Project name and optional limits"
+// @Success      201   {object}  ProjectInfoSwaggerItem
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      403   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects [post]
 func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -615,6 +672,20 @@ func (p *Projects) GetMember(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetSalt returns the project's salt.
+//
+// @Summary      Get project encryption salt
+// @Description  **Full route:** `GET /api/v0/projects/{id}/salt`
+//
+// Returns the project salt as a base64-encoded string (used for access grant / encryption setup).
+// @Tags         projects
+// @Produce      json
+// @Param        id  path  string  true  "Project public UUID"
+// @Success      200  {string}  string  "Base64-encoded salt"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/salt [get]
 func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -880,6 +951,18 @@ func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserInvitations returns the user's pending project member invitations.
+//
+// @Summary      List my pending project invitations
+// @Description  **Full route:** `GET /api/v0/projects/invitations`
+//
+// Returns project invitations for the authenticated user (project name, description, inviter email, createdAt).
+// @Tags         projects
+// @Produce      json
+// @Success      200  {array}   UserProjectInvitationSwaggerItem
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/invitations [get]
 func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -936,6 +1019,24 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 }
 
 // RespondToInvitation handles accepting or declining a user's project member invitation.
+//
+// @Summary      Accept or decline a project invitation
+// @Description  **Full route:** `POST /api/v0/projects/invitations/{id}/respond`
+//
+// Path `id` is the project public UUID. Body `response`: `0` = decline, `1` = accept.
+// @Tags         projects
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project public UUID"
+// @Param        body  body  RespondToProjectInvitationSwaggerRequest  true  "Accept or decline"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      403   {object}  SwaggerErrorResponse
+// @Failure      404   {object}  SwaggerErrorResponse
+// @Failure      409   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/invitations/{id}/respond [post]
 func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

@@ -2814,6 +2814,18 @@ func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateAccount updates user's full name and short name.
+//
+// @Summary      Update account display name
+// @Description  **Full route:** `PATCH /api/v0/auth/account`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UpdateAuthAccountSwaggerRequest  true  "Name fields"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account [patch]
 func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2835,7 +2847,19 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// UpdateAccount updates user's full name and short name.
+// UpdateAccountInfo updates social links and wallet id.
+//
+// @Summary      Update account profile links
+// @Description  **Full route:** `PATCH /api/v0/auth/account/info`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UpdateAuthAccountInfoSwaggerRequest  true  "Social and wallet fields"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/info [patch]
 func (a *Auth) UpdateAccountInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2868,6 +2892,15 @@ func (a *Auth) UpdateAccountInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetFreezeStatus checks to see if an account is frozen or warned.
+//
+// @Summary      Account billing freeze status
+// @Description  **Full route:** `GET /api/v0/auth/account/freezestatus`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {object}  AuthAccountFreezeStatusSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/freezestatus [get]
 func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
 		Frozen             bool `json:"frozen"`
@@ -2905,6 +2938,7 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteAccountRequest starts the account deletion workflow.
 func (a *Auth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2918,7 +2952,7 @@ func (a *Auth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-// SetupAccount updates user's full name and short name.
+// SetupAccount completes onboarding profile fields.
 func (a *Auth) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2952,6 +2986,16 @@ func (a *Auth) GetBadPasswords(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetAccount returns the authenticated user's profile.
+//
+// @Summary      Get current account
+// @Description  **Full route:** `GET /api/v0/auth/account`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {object}  AuthAccountSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account [get]
 func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3318,6 +3362,20 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 // EnableUserMFA enables multi-factor authentication for the user.
+//
+// @Summary      Enable MFA
+// @Description  **Full route:** `POST /api/v0/auth/mfa/enable`
+//
+// Verifies TOTP passcode, enables MFA, invalidates other sessions, returns new recovery codes.
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  MFAEnableSwaggerRequest  true  "TOTP passcode"
+// @Success      200   {array}  string  "Recovery codes"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/enable [post]
 func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3370,6 +3428,18 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 }
 
 // DisableUserMFA disables multi-factor authentication for the user.
+//
+// @Summary      Disable MFA
+// @Description  **Full route:** `POST /api/v0/auth/mfa/disable`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  MFADisableSwaggerRequest  true  "Passcode or recovery code"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/disable [post]
 func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3411,6 +3481,18 @@ func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 }
 
 // GenerateMFASecretKey creates a new TOTP secret key for the user.
+//
+// @Summary      Generate MFA secret key
+// @Description  **Full route:** `POST /api/v0/auth/mfa/generate-secret-key`
+//
+// Returns TOTP secret for authenticator app setup (MFA must not already be enabled).
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {string}  string  "TOTP secret key string"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/generate-secret-key [post]
 func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3431,6 +3513,15 @@ func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
 }
 
 // GenerateMFARecoveryCodes creates a new set of MFA recovery codes for the user.
+//
+// @Summary      Generate MFA recovery codes
+// @Description  **Full route:** `POST /api/v0/auth/mfa/generate-recovery-codes`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {array}  string  "Recovery codes"
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/generate-recovery-codes [post]
 func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3451,6 +3542,18 @@ func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) 
 }
 
 // RegenerateMFARecoveryCodes requires MFA code to create a new set of MFA recovery codes for the user.
+//
+// @Summary      Regenerate MFA recovery codes
+// @Description  **Full route:** `POST /api/v0/auth/mfa/regenerate-recovery-codes`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  MFARegenerateRecoveryCodesSwaggerRequest  true  "Passcode or recovery code"
+// @Success      200   {array}  string  "New recovery codes"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/regenerate-recovery-codes [post]
 func (a *Auth) RegenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3564,6 +3667,17 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 // RefreshSession refreshes the user's session.
+//
+// @Summary      Refresh login session
+// @Description  **Full route:** `POST /api/v0/auth/refresh-session`
+//
+// Extends session expiry and refreshes `_tokenKey` cookie for the logged-in user.
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {string}  string  "New session expiresAt (RFC3339)"
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/refresh-session [post]
 func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3709,6 +3823,15 @@ func (a *Auth) InvalidateSessionByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserSettings gets a user's settings.
+//
+// @Summary      Get account settings
+// @Description  **Full route:** `GET /api/v0/auth/account/settings`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {object}  AuthUserSettingsSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/settings [get]
 func (a *Auth) GetUserSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3728,6 +3851,18 @@ func (a *Auth) GetUserSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 // SetOnboardingStatus updates a user's onboarding status.
+//
+// @Summary      Update onboarding flags
+// @Description  **Full route:** `PATCH /api/v0/auth/account/onboarding`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  SetAuthOnboardingStatusSwaggerRequest  true  "Onboarding fields"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/onboarding [patch]
 func (a *Auth) SetOnboardingStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3757,6 +3892,18 @@ func (a *Auth) SetOnboardingStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // SetUserSettings updates a user's settings.
+//
+// @Summary      Update account settings
+// @Description  **Full route:** `PATCH /api/v0/auth/account/settings`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  SetAuthUserSettingsSwaggerRequest  true  "Settings patch"
+// @Success      200   {object}  AuthUserSettingsSwaggerResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/settings [patch]
 func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -4016,6 +4163,21 @@ func (a *Auth) RegisterPipedriveForApp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteAccount removes a user account (admin verification flow).
+//
+// @Summary      Delete account (admin)
+// @Description  **Full route:** `DELETE /api/v0/auth/account`
+//
+// Requires email and admin verification password in the JSON body.
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  DeleteAuthAccountSwaggerRequest  true  "Target email and verification password"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account [delete]
 func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -4074,6 +4236,15 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserDeveloperAccess returns all developers with access to the current user's account
+//
+// @Summary      List developer access to my account
+// @Description  **Full route:** `GET /api/v0/auth/developer-access`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {array}   UserDeveloperAccessSwaggerItem
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/developer-access [get]
 func (a *Auth) GetUserDeveloperAccess(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -4091,6 +4262,17 @@ func (a *Auth) GetUserDeveloperAccess(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserDeveloperAccessHistory returns access history for a specific developer
+//
+// @Summary      Developer access history
+// @Description  **Full route:** `GET /api/v0/auth/developer-access/{clientId}/history`
+// @Tags         auth-account
+// @Produce      json
+// @Param        clientId  path  string  true  "OAuth client ID"
+// @Success      200       {array}   UserDeveloperAccessHistorySwaggerItem
+// @Failure      400       {object}  SwaggerErrorResponse
+// @Failure      401       {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/developer-access/{clientId}/history [get]
 func (a *Auth) GetUserDeveloperAccessHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -4115,6 +4297,17 @@ func (a *Auth) GetUserDeveloperAccessHistory(w http.ResponseWriter, r *http.Requ
 }
 
 // RevokeUserDeveloperAccess revokes a developer's access to the current user's account
+//
+// @Summary      Revoke developer access
+// @Description  **Full route:** `DELETE /api/v0/auth/developer-access/{clientId}/revoke`
+// @Tags         auth-account
+// @Produce      json
+// @Param        clientId  path  string  true  "OAuth client ID"
+// @Success      200       {object}  map[string]string  "message"
+// @Failure      400       {object}  SwaggerErrorResponse
+// @Failure      401       {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/developer-access/{clientId}/revoke [delete]
 func (a *Auth) RevokeUserDeveloperAccess(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

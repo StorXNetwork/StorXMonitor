@@ -397,6 +397,28 @@ func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Req
 }
 
 // GetBucketTotals returns a page of bucket usage totals since project creation.
+// GetBucketTotals returns paginated per-bucket usage totals for a project in a time range.
+//
+// @Summary      Paginated bucket usage totals
+// @Description  **Full route:** `GET /api/v0/buckets/usage-totals`
+//
+// Example: `?projectID=37159d9b-6f3c-4c38-bfe2-0efbbc4b568d&before=2026-06-03T09:01:55.204Z&limit=10&search=&page=1`
+//
+// `before` and `limit` and `page` are required. `since` is optional (RFC3339 with millis, e.g. `2006-01-02T15:04:05.999Z`).
+// @Tags         buckets
+// @Produce      json
+// @Param        projectID  query  string  true   "Project public UUID"
+// @Param        before     query  string  true   "Range end (2006-01-02T15:04:05.999Z)"
+// @Param        limit      query  int     true   "Page size"  example(10)
+// @Param        page       query  int     true   "Page number (1-based)"  example(1)
+// @Param        search     query  string  false  "Bucket name filter"
+// @Param        since      query  string  false  "Range start (2006-01-02T15:04:05.999Z)"
+// @Success      200        {object}  BucketUsageTotalsPageSwagger
+// @Failure      400        {object}  SwaggerErrorResponse
+// @Failure      401        {object}  SwaggerErrorResponse
+// @Failure      500        {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /buckets/usage-totals [get]
 func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

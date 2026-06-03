@@ -43,6 +43,20 @@ func NewUsageLimits(log *zap.Logger, service *console.Service, allowedReportDate
 }
 
 // ProjectUsageLimits returns usage and limits by project ID.
+//
+// @Summary      Project usage and limits
+// @Description  **Full route:** `GET /api/v0/projects/{id}/usage-limits`
+//
+// Returns current storage, bandwidth, segment, bucket counts and configured limits for one project.
+// @Tags         projects
+// @Produce      json
+// @Param        id  path  string  true  "Project public UUID"
+// @Success      200  {object}  ProjectUsageLimitsSwaggerResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/usage-limits [get]
 func (ul *UsageLimits) ProjectUsageLimits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

@@ -129,6 +129,25 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetProjectAPIKeys returns paged API keys by project ID.
+//
+// @Summary      List API keys (paginated)
+// @Description  **Full route:** `GET /api/v0/api-keys/list-paged`
+//
+// Paginated project API keys for access management UI. All query parameters are required.
+// @Tags         access
+// @Produce      json
+// @Param        projectID       query  string  true   "Project UUID"
+// @Param        limit           query  int     true   "Page size"  example(10)
+// @Param        page            query  int     true   "Page number (1-based)"  example(1)
+// @Param        order           query  int     true   "Sort field: 1=name, 2=created, 3=creator email"  example(1)
+// @Param        orderDirection  query  int     true   "Sort direction"  example(1)
+// @Param        search          query  string  false  "Name search filter"
+// @Success      200             {object}  APIKeysListPagedSwaggerResponse
+// @Failure      400             {object}  SwaggerErrorResponse
+// @Failure      401             {object}  SwaggerErrorResponse
+// @Failure      500             {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /api-keys/list-paged [get]
 func (keys *APIKeys) GetProjectAPIKeys(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

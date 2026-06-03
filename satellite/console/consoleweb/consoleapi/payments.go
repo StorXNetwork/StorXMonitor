@@ -1794,6 +1794,17 @@ func (p *Payments) StartMonitoringUserProjects(ctx context.Context) {
 	}()
 }
 
+// HandlePaymentPlans returns grouped billing plans and supported crypto payment modes.
+//
+// @Summary      List payment plans
+// @Description  **Full route:** `GET /payment-plans` (server root, not under `/api/v0`).
+//
+// Public endpoint when billing features are enabled. Response includes `crypto_modes` and `group` (name + plans).
+// @Tags         payment-plans
+// @Produce      json
+// @Success      200  {object}  PaymentPlansSwaggerResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Router       /payment-plans [get]
 func (p *Payments) HandlePaymentPlans(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	plans, err := p.service.GetPaymentPlans(ctx)

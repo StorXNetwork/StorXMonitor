@@ -35,8 +35,19 @@ func NewUserNotificationPreferences(log *zap.Logger, service *console.Service) *
 }
 
 // GetUserPreferences handles GET /api/v0/user/notification-preferences - Get current user's preferences.
-// Query parameters:
-//   - category: Filter by category (optional)
+//
+// @Summary      Get notification preferences
+// @Description  **Full route:** `GET /api/v0/user/notification-preferences`
+//
+// Optional query `category`: `billing`, `backup`, `account`, or `vault`. Without category returns all preferences.
+// @Tags         auth-account
+// @Produce      json
+// @Param        category  query  string  false  "Filter: billing, backup, account, vault"
+// @Success      200       {array}   UserNotificationPreferenceSwagger
+// @Failure      400       {object}  SwaggerErrorResponse
+// @Failure      401       {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /user/notification-preferences [get]
 func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -89,6 +100,21 @@ func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, 
 }
 
 // UpsertUserPreference handles PUT /api/v0/user/notification-preferences - Create or update user preferences.
+//
+// @Summary      Create or update notification preference
+// @Description  **Full route:** `PUT /api/v0/user/notification-preferences`
+//
+// `preferences` keys: `push`, `email`, `sms`. Values: 1=marketing, 2=info, 3=warning, 4=critical.
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UpsertUserNotificationPreferenceSwaggerRequest  true  "Category and channel preferences"
+// @Success      200   {object}  UserNotificationPreferenceSwagger
+// @Success      201   {object}  UserNotificationPreferenceSwagger
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /user/notification-preferences [put]
 func (u *UserNotificationPreferences) UpsertUserPreference(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

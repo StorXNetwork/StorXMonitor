@@ -1403,6 +1403,19 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 }
 
 // frontendConfigHandler handles sending the frontend config to the client.
+//
+// @Summary      Get frontend satellite configuration
+// @Description  **Full route:** `GET /api/v0/config`
+//
+// Public endpoint (no authentication). Called on console load to bootstrap the web app.
+// Returns `apiBaseURL`, `externalAddress`, feature flags (billing, MFA, domains, object lock, etc.),
+// captcha settings, session/CSRF token when CSRF protection is enabled, Stripe public key, pricing fields,
+// and other UI toggles defined in `FrontendConfig`.
+// @Tags         config
+// @Produce      json
+// @Success      200  {object}  FrontendConfig
+// @Failure      500  "Internal Server Error"
+// @Router       /config [get]
 func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
