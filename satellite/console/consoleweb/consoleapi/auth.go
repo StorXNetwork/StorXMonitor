@@ -1517,6 +1517,12 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 
 	tokenRes, err := socialmedia.GetGoogleOauthToken(code, mode, r.URL.Query().Has("zoho-insert"))
 	if err != nil {
+		a.log.Error("register-google: google token exchange failed",
+			zap.String("mode", mode),
+			zap.Bool("zoho_insert", r.URL.Query().Has("zoho-insert")),
+			zap.Int("code_len", len(code)),
+			zap.Error(err),
+		)
 		a.SendResponse(w, r, "Error getting token from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}

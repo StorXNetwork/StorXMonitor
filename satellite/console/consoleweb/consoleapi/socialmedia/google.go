@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -70,7 +71,7 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 
 	query := values.Encode()
 
-	fmt.Println("GOOGLE Query: "+query, "mode: "+mode)
+	logGoogleTokenExchangeRequest(mode, redirectURL, zohoInsert, len(code))
 
 	req, err := http.NewRequest(http.MethodPost, googleTokenURL, bytes.NewBufferString(query))
 	if err != nil {
@@ -91,6 +92,7 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 	}
 
 	if res.StatusCode != http.StatusOK {
+		logGoogleTokenExchangeFailure(mode, res.StatusCode, resBody)
 		return nil, fmt.Errorf("google token exchange returned status %d: %s", res.StatusCode, string(resBody))
 	}
 
@@ -119,6 +121,25 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 	}
 
 	return tokenBody, nil
+}
+
+func logGoogleTokenExchangeRequest(mode, redirectURI string, zohoInsert bool, codeLen int) {
+	log.Printf(
+		"google oauth token exchange request mode=%s redirect_uri=%s zoho_insert=%v code_len=%d",
+		mode, redirectURI, zohoInsert, codeLen,
+	)
+}
+
+func logGoogleTokenExchangeFailure(mode string, status int, body []byte) {
+	var oauthErr struct {
+		Error            string `json:"error"`
+		ErrorDescription string `json:"error_description"`
+	}
+	_ = json.Unmarshal(body, &oauthErr)
+	log.Printf(
+		"google oauth token exchange failed mode=%s status=%d google_error=%q google_error_description=%q raw_body=%s",
+		mode, status, oauthErr.Error, oauthErr.ErrorDescription, string(body),
+	)
 }
 
 func GetGoogleUser(access_token string, id_token string) (*GoogleUserResult, error) {
