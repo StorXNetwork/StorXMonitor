@@ -9771,14 +9771,16 @@ type GmailCorporateDomainUsersResponse map[string]interface{}
 
 // RegisterGoogleBackupResult is returned after calling domain-users during registration.
 type RegisterGoogleBackupResult struct {
-	GoogleEmail string
-	AccountType string
-	DomainUsers GmailCorporateDomainUsersResponse
-	DomainError string
+	GoogleEmail     string
+	AccountType     string
+	DomainUsers     GmailCorporateDomainUsersResponse
+	DomainError     string
+	GrantedScopes   []string
+	UngrantedScopes []string
 }
 
 // RegisterGoogleBackupCredential stores Google OAuth tokens, calls Backup-Tools domain-users, and persists account classification.
-func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmail, accessToken, refreshToken string, accessTokenExpiry time.Time, tokenKey string) (result RegisterGoogleBackupResult, err error) {
+func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmail, accessToken, refreshToken, scopeFromExchange string, accessTokenExpiry time.Time, tokenKey string) (result RegisterGoogleBackupResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result = RegisterGoogleBackupResult{
@@ -9802,6 +9804,12 @@ func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmai
 		accessTokenExpiry = validExpiry
 	}
 	accessToken = validAccessToken
+
+	if granted, scopeErr := socialmedia.ResolveGrantedScopes(ctx, accessToken, scopeFromExchange); scopeErr != nil {
+		s.log.Warn("failed to resolve google granted scopes during registration", zap.Error(scopeErr))
+	} else {
+		result.GrantedScopes, result.UngrantedScopes = socialmedia.GoogleBackupScopeSummary(granted)
+	}
 
 	domainUsers, domainErr := s.fetchGmailCorporateDomainUsers(ctx, tokenKey, accessToken)
 	if domainErr != nil {
@@ -9879,6 +9887,37 @@ func googleBackupDomainUsersPayload(domainUsers GmailCorporateDomainUsersRespons
 		}
 	}
 	return nil
+}
+
+func appendGoogleBackupScopes(out map[string]interface{}, granted, ungranted []string) {
+	if granted == nil && ungranted == nil {
+		return
+	}
+	if granted == nil {
+		granted = []string{}
+	}
+	if ungranted == nil {
+		ungranted = []string{}
+	}
+	out["granted_scopes"] = granted
+	out["ungranted_scopes"] = ungranted
+}
+
+// GoogleBackupScopesPayload is the scope-only google_backup object (connect and partial responses).
+func GoogleBackupScopesPayload(granted, ungranted []string) map[string]interface{} {
+	out := make(map[string]interface{})
+	appendGoogleBackupScopes(out, granted, ungranted)
+	return out
+}
+
+// GoogleBackupRegistrationPayload merges domain-users metadata and OAuth scope summary for register-google.
+func GoogleBackupRegistrationPayload(result RegisterGoogleBackupResult) map[string]interface{} {
+	out := googleBackupDomainUsersPayload(result.DomainUsers, result.DomainError)
+	if out == nil {
+		out = make(map[string]interface{})
+	}
+	appendGoogleBackupScopes(out, result.GrantedScopes, result.UngrantedScopes)
+	return out
 }
 
 func (s *Service) fetchGmailCorporateDomainUsers(ctx context.Context, tokenKey, accessToken string) (GmailCorporateDomainUsersResponse, error) {

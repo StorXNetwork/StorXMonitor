@@ -65,7 +65,7 @@ type AuthUserSettingsSwaggerResponse struct {
 	OnboardingStart  bool                   `json:"onboardingStart" example:"true"`
 	OnboardingEnd    bool                   `json:"onboardingEnd" example:"false"`
 	PassphrasePrompt bool                   `json:"passphrasePrompt" example:"true"`
-	OnboardingStep   *string                `json:"onboardingStep" example:"welcome"`
+	OnboardingStep   *string                `json:"onboardingStep" example:"GoogleBackupServiceSelection"`
 	NoticeDismissal  map[string]interface{} `json:"noticeDismissal" swaggertype:"object"`
 }
 
@@ -83,7 +83,7 @@ type SetAuthUserSettingsSwaggerRequest struct {
 type SetAuthOnboardingStatusSwaggerRequest struct {
 	OnboardingStart *bool   `json:"onboardingStart,omitempty" example:"true"`
 	OnboardingEnd   *bool   `json:"onboardingEnd,omitempty" example:"false"`
-	OnboardingStep  *string `json:"onboardingStep,omitempty" example:"welcome"`
+	OnboardingStep  *string `json:"onboardingStep,omitempty" example:"GoogleBackupServiceSelection"`
 }
 
 // DeleteAuthAccountSwaggerRequest is the body for DELETE /api/v0/auth/account (admin flow).

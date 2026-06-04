@@ -316,9 +316,12 @@ func (s *Service) maybeCompleteGoogleBackupOnboarding(ctx context.Context, body 
 	if len(resp.Failed) > 0 {
 		return
 	}
-	onboardingEnd, step := true, "GoogleBackupServices"
+	onboardingStart, onboardingEnd := true, true
+	step := OnboardingStepGoogleBackupCompleted
 	if _, err := s.SetUserSettings(ctx, UpsertUserSettingsRequest{
-		OnboardingEnd: &onboardingEnd, OnboardingStep: &step,
+		OnboardingStart: &onboardingStart,
+		OnboardingEnd:   &onboardingEnd,
+		OnboardingStep:  &step,
 	}); err != nil {
 		s.log.Warn("failed to update onboarding status", zap.Error(err))
 	}
@@ -412,39 +415,48 @@ func isCorporateGoogleBackupAccount(accountType string) bool {
 	}
 }
 
+// ConnectGoogleBackupResult is returned after POST /google-backup/connect.
+type ConnectGoogleBackupResult struct {
+	GoogleEmail     string
+	Created         bool
+	GrantedScopes   []string
+	UngrantedScopes []string
+}
+
 // ConnectGoogleBackupCredential exchanges a Google OAuth code for an already logged-in user (login redirect, not register).
 // The UI must request backup scopes on the Google consent screen; redirect_uri must match GOOGLE_OAUTH_REDIRECT_URL_LOGIN.
-func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code string) (googleEmail string, created bool, err error) {
+func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code string) (result ConnectGoogleBackupResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	code = strings.TrimSpace(code)
 	if code == "" {
-		return "", false, ErrValidation.New("code is required")
+		return result, ErrValidation.New("code is required")
 	}
 
 	user, err := GetUser(ctx)
 	if err != nil {
-		return "", false, Error.Wrap(err)
+		return result, Error.Wrap(err)
 	}
 
 	tokenRes, err := socialmedia.GetGoogleOauthToken(code, "connect", false)
 	if err != nil {
-		return "", false, ErrValidation.New("failed to exchange google oauth code: %v", err)
+		return result, ErrValidation.New("failed to exchange google oauth code: %v", err)
 	}
 	if tokenRes.Refresh_token == "" {
-		return "", false, ErrValidation.New("google did not return a refresh token; re-authorize with consent")
+		return result, ErrValidation.New("google did not return a refresh token; re-authorize with consent")
 	}
 
 	googleUser, err := socialmedia.GetGoogleUser(tokenRes.Access_token, tokenRes.Id_token)
 	if err != nil {
-		return "", false, Error.Wrap(err)
+		return result, Error.Wrap(err)
 	}
 
 	existing, lookupErr := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, user.ID, googleUser.Email)
 	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
-		return "", false, Error.Wrap(lookupErr)
+		return result, Error.Wrap(lookupErr)
 	}
-	created = existing == nil
+	result.Created = existing == nil
+	result.GoogleEmail = googleUser.Email
 
 	accessToken := tokenRes.Access_token
 	refreshToken := tokenRes.Refresh_token
@@ -452,18 +464,24 @@ func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code string
 
 	validAccessToken, validExpiry, err := socialmedia.ResolveAccessToken(ctx, accessToken, refreshToken, accessTokenExpiry)
 	if err != nil {
-		return "", false, Error.Wrap(err)
+		return result, Error.Wrap(err)
 	}
 	if !validExpiry.IsZero() {
 		accessTokenExpiry = validExpiry
 	}
 	accessToken = validAccessToken
 
-	if err := s.storeGoogleBackupCredential(ctx, user.ID, googleUser.Email, accessToken, refreshToken, accessTokenExpiry, ""); err != nil {
-		return "", false, Error.Wrap(err)
+	if granted, scopeErr := socialmedia.ResolveGrantedScopes(ctx, accessToken, tokenRes.Scope); scopeErr != nil {
+		s.log.Warn("failed to resolve google granted scopes during connect", zap.Error(scopeErr))
+	} else {
+		result.GrantedScopes, result.UngrantedScopes = socialmedia.GoogleBackupScopeSummary(granted)
 	}
 
-	return googleUser.Email, created, nil
+	if err := s.storeGoogleBackupCredential(ctx, user.ID, googleUser.Email, accessToken, refreshToken, accessTokenExpiry, ""); err != nil {
+		return result, Error.Wrap(err)
+	}
+
+	return result, nil
 }
 
 // GetGoogleBackupDomainUsers calls Backup-Tools domain-users using stored Google backup credentials.

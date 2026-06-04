@@ -7,8 +7,9 @@ package consoleapi
 
 // GoogleBackupRegisterSuccess is returned from register-google on success.
 type GoogleBackupRegisterSuccess struct {
-	Success      bool                   `json:"success" example:"true"`
-	GoogleBackup map[string]interface{} `json:"google_backup,omitempty" swaggertype:"object"`
+	Success          bool                   `json:"success" example:"true"`
+	OnboardingStatus string                 `json:"onboarding_status" example:"pending" enums:"pending,in_progress,completed"`
+	GoogleBackup     map[string]interface{} `json:"google_backup,omitempty" swaggertype:"object"`
 }
 
 // GoogleOAuthCallbackError is an HTML error page body when OAuth callback fails (redirect flow).
@@ -18,8 +19,9 @@ type GoogleOAuthCallbackError struct {
 
 // GoogleOAuthJSONSuccess is returned from login-google when query json=true (existing SendResponse path).
 type GoogleOAuthJSONSuccess struct {
-	Success     bool   `json:"success" example:"true"`
-	RedirectURL string `json:"redirect_url" example:"https://storx.io/"`
+	Success           bool   `json:"success" example:"true"`
+	OnboardingStatus  string `json:"onboarding_status,omitempty" example:"pending" enums:"pending,in_progress,completed"`
+	RedirectURL       string `json:"redirect_url" example:"https://storx.io/project-dashboard"`
 }
 
 // GoogleOAuthJSONError is returned from login-google when query json=true and the callback fails.
@@ -64,9 +66,10 @@ type GoogleBackupConnectSwaggerRequest struct {
 
 // GoogleBackupConnectSwaggerResponse is returned after connecting Google for backup.
 type GoogleBackupConnectSwaggerResponse struct {
-	Success     bool   `json:"success" example:"true"`
-	GoogleEmail string `json:"google_email" example:"user@gmail.com"`
-	Created     bool   `json:"created" example:"true"`
+	Success      bool                   `json:"success" example:"true"`
+	GoogleEmail  string                 `json:"google_email" example:"user@gmail.com"`
+	Created      bool                   `json:"created" example:"true"`
+	GoogleBackup map[string]interface{} `json:"google_backup,omitempty" swaggertype:"object"`
 }
 
 // GoogleBackupDomainUsersSwaggerResponse matches register-google google_backup metadata (domain-users).

@@ -83,7 +83,7 @@ func decodeStrictJSON(r *http.Request, dest interface{}) error {
 	return nil
 }
 
-type restoreCronCall func(ctx context.Context, tokenKey, googleAuth string) ([]byte, int, error)
+type restoreCronCall func(ctx context.Context, tokenKey string) ([]byte, int, error)
 
 func (g *GoogleBackupRestore) restoreCron(w http.ResponseWriter, r *http.Request, call restoreCronCall) {
 	ctx := r.Context()
@@ -95,13 +95,8 @@ func (g *GoogleBackupRestore) restoreCron(w http.ResponseWriter, r *http.Request
 		g.serveJSONError(ctx, w, err)
 		return
 	}
-	googleAuth := g.googleAuthFromRequest(r, "")
-	if googleAuth == "" {
-		g.serveJSONError(ctx, w, console.ErrValidation.New("google_auth is required (X-Google-Auth header)"))
-		return
-	}
 
-	respBody, status, err := call(ctx, tokenKey, googleAuth)
+	respBody, status, err := call(ctx, tokenKey)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -171,10 +166,51 @@ func (g *GoogleBackupRestore) GoogleAuth(w http.ResponseWriter, r *http.Request)
 	writeBackupToolsJSON(w, status, respBody)
 }
 
+// RestorePrepare runs pre-flight checks before restore-all (Backup-Tools GET /restore/prepare).
+//
+// @Summary      Pre-flight restore-all check
+// @Description  **Full route:** `GET /api/v0/google-backup/restore/prepare`
+//
+// Proxies Backup-Tools `GET /restore/prepare` with `token_key` only. Query: `project_id`, `login_id`, `service` (gmail|drive|photos|calendar|contacts). Returns `ready`, `reason`, `auth_mode`, OAuth/DWD hints, and `cron_job_id` for reconnect.
+// @Tags         google-backup-restore-cron
+// @Produce      json
+// @Param        project_id  query  string  true  "Storj/Satellite project public UUID"
+// @Param        login_id    query  string  true  "Mailbox email (same as policy UI)"
+// @Param        service     query  string  true  "gmail, drive, photos, calendar, or contacts"
+// @Success      200         {object}  BackupToolsJSONResponse
+// @Failure      400         {object}  SwaggerErrorResponse
+// @Failure      401         {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/restore/prepare [get]
+func (g *GoogleBackupRestore) RestorePrepare(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.PrepareGoogleBackupRestore(ctx, tokenKey, console.GoogleBackupRestorePrepareParams{
+		ProjectID: r.URL.Query().Get("project_id"),
+		LoginID:   r.URL.Query().Get("login_id"),
+		Service:   r.URL.Query().Get("service"),
+	})
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
 // RestoreAll starts an async restore-all job on Backup-Tools.
 //
 // @Summary      Start restore-all job
-// @Description  Proxies Backup-Tools POST /restore/all. Requires google_auth JWT (from POST /google-backup/google-auth), storx_access_grant, and login_id matching the Google account. Worker picks up job within ~30s.
+// @Description  **Full route:** `POST /api/v0/google-backup/restore/all`
+//
+// Proxies Backup-Tools `POST /restore/all` with `token_key` only. Body: `project_id`, `login_id`, `service`. Call `GET /restore/prepare` first. OAuth reconnect uses existing `PUT /auto-sync/job/{id}`.
 // @Tags         google-backup-restore-cron
 // @Accept       json
 // @Produce      json
@@ -183,6 +219,7 @@ func (g *GoogleBackupRestore) GoogleAuth(w http.ResponseWriter, r *http.Request)
 // @Failure      400   {object}  SwaggerErrorResponse
 // @Failure      401   {object}  SwaggerErrorResponse
 // @Failure      409   {object}  BackupToolsJSONResponse
+// @Failure      422   {object}  BackupToolsJSONResponse
 // @Security     CookieAuth
 // @Router       /google-backup/restore/all [post]
 func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request) {
@@ -203,10 +240,9 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 	}
 
 	respBody, status, err := g.service.StartGoogleBackupRestoreAll(ctx, tokenKey, console.GoogleBackupRestoreAllRequest{
-		Service:          body.Service,
-		LoginID:          body.LoginID,
-		StorxAccessGrant: g.storxGrantFromRequest(r, body.StorxAccessGrant),
-		GoogleAuth:       g.googleAuthFromRequest(r, body.GoogleAuth),
+		Service:   body.Service,
+		ProjectID: body.ProjectID,
+		LoginID:   body.LoginID,
 	})
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
@@ -218,98 +254,103 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 // RestoreLive lists running restore jobs (Backup-Tools GET /restore/live).
 //
 // @Summary      List active restore jobs
-// @Description  Proxies Backup-Tools GET /restore/live (running jobs only). Pass google_auth in X-Google-Auth header.
+// @Description  **Full route:** `GET /api/v0/google-backup/restore/live`
+//
+// Proxies Backup-Tools `GET /restore/live` with `token_key` only (poll while jobs are running).
 // @Tags         google-backup-restore-cron
 // @Produce      json
-// @Param        X-Google-Auth  header  string  true  "Backup-Tools google-auth JWT"
-// @Success      200            {object}  BackupToolsJSONResponse
-// @Failure      401            {object}  SwaggerErrorResponse
+// @Success      200  {object}  BackupToolsJSONResponse
+// @Failure      401  {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/restore/live [get]
 func (g *GoogleBackupRestore) RestoreLive(w http.ResponseWriter, r *http.Request) {
-	g.restoreCron(w, r, func(ctx context.Context, tokenKey, googleAuth string) ([]byte, int, error) {
-		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, "/restore/live", tokenKey, googleAuth, nil)
+	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
+		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, "/restore/live", tokenKey, nil)
 	})
 }
 
 // RestoreJobs lists recent restore jobs.
 //
 // @Summary      List restore job history
-// @Description  Proxies Backup-Tools GET /restore/jobs
+// @Description  **Full route:** `GET /api/v0/google-backup/restore/jobs`
+//
+// Proxies Backup-Tools `GET /restore/jobs` with `token_key` only.
 // @Tags         google-backup-restore-cron
 // @Produce      json
-// @Param        limit          query   string  false  "Max jobs (default 20)"
-// @Param        X-Google-Auth  header  string  true   "Backup-Tools google-auth JWT"
-// @Success      200            {object}  BackupToolsJSONResponse
-// @Failure      401            {object}  SwaggerErrorResponse
+// @Param        limit  query  string  false  "Max jobs (default 20)"
+// @Success      200    {object}  BackupToolsJSONResponse
+// @Failure      401    {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/restore/jobs [get]
 func (g *GoogleBackupRestore) RestoreJobs(w http.ResponseWriter, r *http.Request) {
 	limit := strings.TrimSpace(r.URL.Query().Get("limit"))
-	g.restoreCron(w, r, func(ctx context.Context, tokenKey, googleAuth string) ([]byte, int, error) {
+	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
 		path := "/restore/jobs"
 		if limit != "" {
 			path += "?limit=" + limit
 		}
-		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, path, tokenKey, googleAuth, nil)
+		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, path, tokenKey, nil)
 	})
 }
 
 // GetRestoreJob returns one restore job by id.
 //
 // @Summary      Get restore job status
-// @Description  Proxies Backup-Tools GET /restore/job/{job_id} (use after POST /restore/all while status is queued)
+// @Description  **Full route:** `GET /api/v0/google-backup/restore/job/{job_id}`
+//
+// Proxies Backup-Tools `GET /restore/job/{job_id}` with `token_key` only.
 // @Tags         google-backup-restore-cron
 // @Produce      json
-// @Param        job_id         path    string  true  "Restore job ID"
-// @Param        X-Google-Auth  header  string  true  "Backup-Tools google-auth JWT"
-// @Success      200            {object}  BackupToolsJSONResponse
-// @Failure      401            {object}  SwaggerErrorResponse
-// @Failure      404            {object}  BackupToolsJSONResponse
+// @Param        job_id  path  string  true  "Restore job ID"
+// @Success      200     {object}  BackupToolsJSONResponse
+// @Failure      401     {object}  SwaggerErrorResponse
+// @Failure      404     {object}  BackupToolsJSONResponse
 // @Security     CookieAuth
 // @Router       /google-backup/restore/job/{job_id} [get]
 func (g *GoogleBackupRestore) GetRestoreJob(w http.ResponseWriter, r *http.Request) {
 	jobID := mux.Vars(r)["job_id"]
-	g.restoreCron(w, r, func(ctx context.Context, tokenKey, googleAuth string) ([]byte, int, error) {
-		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, "/restore/job/"+jobID, tokenKey, googleAuth, nil)
+	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
+		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, "/restore/job/"+jobID, tokenKey, nil)
 	})
 }
 
 // CancelRestoreJob cancels a restore job.
 //
 // @Summary      Cancel restore job
-// @Description  Proxies Backup-Tools POST /restore/job/{job_id}/cancel
+// @Description  **Full route:** `POST /api/v0/google-backup/restore/job/{job_id}/cancel`
+//
+// Proxies Backup-Tools `POST /restore/job/{job_id}/cancel` with `token_key` only.
 // @Tags         google-backup-restore-cron
 // @Produce      json
-// @Param        job_id         path    string  true  "Restore job ID"
-// @Param        X-Google-Auth  header  string  true  "Backup-Tools google-auth JWT"
-// @Success      200            {object}  BackupToolsJSONResponse
-// @Failure      401            {object}  SwaggerErrorResponse
+// @Param        job_id  path  string  true  "Restore job ID"
+// @Success      200     {object}  BackupToolsJSONResponse
+// @Failure      401     {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/restore/job/{job_id}/cancel [post]
 func (g *GoogleBackupRestore) CancelRestoreJob(w http.ResponseWriter, r *http.Request) {
 	jobID := mux.Vars(r)["job_id"]
-	g.restoreCron(w, r, func(ctx context.Context, tokenKey, googleAuth string) ([]byte, int, error) {
-		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodPost, "/restore/job/"+jobID+"/cancel", tokenKey, googleAuth, nil)
+	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
+		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodPost, "/restore/job/"+jobID+"/cancel", tokenKey, nil)
 	})
 }
 
 // ListRestoreDeadItems lists failed object keys for a job.
 //
 // @Summary      List restore dead-letter items
-// @Description  Proxies Backup-Tools GET /restore/job/{job_id}/dead-items
+// @Description  **Full route:** `GET /api/v0/google-backup/restore/job/{job_id}/dead-items`
+//
+// Proxies Backup-Tools `GET /restore/job/{job_id}/dead-items` with `token_key` only.
 // @Tags         google-backup-restore-cron
 // @Produce      json
-// @Param        job_id         path    string  true  "Restore job ID"
-// @Param        X-Google-Auth  header  string  true  "Backup-Tools google-auth JWT"
-// @Success      200            {object}  BackupToolsJSONResponse
-// @Failure      401            {object}  SwaggerErrorResponse
+// @Param        job_id  path  string  true  "Restore job ID"
+// @Success      200     {object}  BackupToolsJSONResponse
+// @Failure      401     {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/restore/job/{job_id}/dead-items [get]
 func (g *GoogleBackupRestore) ListRestoreDeadItems(w http.ResponseWriter, r *http.Request) {
 	jobID := mux.Vars(r)["job_id"]
-	g.restoreCron(w, r, func(ctx context.Context, tokenKey, googleAuth string) ([]byte, int, error) {
-		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, "/restore/job/"+jobID+"/dead-items", tokenKey, googleAuth, nil)
+	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
+		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, "/restore/job/"+jobID+"/dead-items", tokenKey, nil)
 	})
 }
 

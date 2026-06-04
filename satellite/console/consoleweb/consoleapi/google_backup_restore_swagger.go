@@ -15,12 +15,11 @@ type GoogleBackupAuthSwaggerResponse struct {
 	GoogleAuth string `json:"google-auth" example:"eyJhbGciOiJIUzI1NiIs..."`
 }
 
-// GoogleBackupRestoreAllSwaggerRequest starts async restore-all on Backup-Tools.
+// GoogleBackupRestoreAllSwaggerRequest starts async restore-all on Backup-Tools (token_key only; credentials from DB).
 type GoogleBackupRestoreAllSwaggerRequest struct {
-	Service          string `json:"service" binding:"required" example:"drive"`
-	LoginID          string `json:"login_id" binding:"required" example:"user@gmail.com"`
-	StorxAccessGrant string `json:"storx_access_grant" binding:"required" example:"<storx access grant>"`
-	GoogleAuth       string `json:"google_auth" binding:"required" example:"<JWT from POST /google-backup/google-auth>"`
+	Service   string `json:"service" binding:"required" example:"gmail"`
+	ProjectID string `json:"project_id" binding:"required" example:"37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"`
+	LoginID   string `json:"login_id" binding:"required" example:"user@company.com"`
 }
 
 // GoogleBackupManualRestoreSwaggerRequest is the UI body for batch manual restore (≤10 base64 vault keys).

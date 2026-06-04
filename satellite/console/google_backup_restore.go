@@ -10,6 +10,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -20,19 +21,53 @@ var allowedGoogleBackupRestoreServices = []string{
 	"gmail", "drive", "photos", "calendar", "contacts",
 }
 
-// GoogleBackupRestoreAllRequest is the UI body for Backup-Tools POST /restore/all.
-type GoogleBackupRestoreAllRequest struct {
-	Service          string `json:"service"`
-	LoginID          string `json:"login_id"`
-	StorxAccessGrant string `json:"storx_access_grant"`
-	GoogleAuth       string `json:"google_auth"`
+// GoogleBackupRestorePrepareParams are query params for Backup-Tools GET /restore/prepare.
+type GoogleBackupRestorePrepareParams struct {
+	ProjectID string
+	LoginID   string
+	Service   string
 }
 
-func (r GoogleBackupRestoreAllRequest) Validate() error {
+func (p *GoogleBackupRestorePrepareParams) Validate() error {
+	p.ProjectID = strings.TrimSpace(p.ProjectID)
+	p.LoginID = strings.TrimSpace(p.LoginID)
+	p.Service = strings.TrimSpace(strings.ToLower(p.Service))
+
+	if p.ProjectID == "" {
+		return ErrValidation.New("project_id is required")
+	}
+	if p.LoginID == "" {
+		return ErrValidation.New("login_id is required")
+	}
+	if p.Service == "" {
+		return ErrValidation.New("service is required")
+	}
+	if !slices.Contains(allowedGoogleBackupRestoreServices, p.Service) {
+		return ErrValidation.New("unsupported service: %s", p.Service)
+	}
+	return nil
+}
+
+func (p GoogleBackupRestorePrepareParams) queryString() string {
+	v := url.Values{}
+	v.Set("project_id", p.ProjectID)
+	v.Set("login_id", p.LoginID)
+	v.Set("service", p.Service)
+	return v.Encode()
+}
+
+// GoogleBackupRestoreAllRequest is the UI body for Backup-Tools POST /restore/all.
+// Backup-Tools resolves StorX and Google credentials from DB using token_key; do not send grants or JWT.
+type GoogleBackupRestoreAllRequest struct {
+	Service   string `json:"service"`
+	ProjectID string `json:"project_id"`
+	LoginID   string `json:"login_id"`
+}
+
+func (r *GoogleBackupRestoreAllRequest) Validate() error {
 	r.Service = strings.TrimSpace(strings.ToLower(r.Service))
+	r.ProjectID = strings.TrimSpace(r.ProjectID)
 	r.LoginID = strings.TrimSpace(r.LoginID)
-	r.StorxAccessGrant = strings.TrimSpace(r.StorxAccessGrant)
-	r.GoogleAuth = strings.TrimSpace(r.GoogleAuth)
 
 	if r.Service == "" {
 		return ErrValidation.New("service is required")
@@ -40,26 +75,56 @@ func (r GoogleBackupRestoreAllRequest) Validate() error {
 	if !slices.Contains(allowedGoogleBackupRestoreServices, r.Service) {
 		return ErrValidation.New("unsupported service: %s", r.Service)
 	}
+	if r.ProjectID == "" {
+		return ErrValidation.New("project_id is required")
+	}
 	if r.LoginID == "" {
 		return ErrValidation.New("login_id is required")
-	}
-	if r.StorxAccessGrant == "" {
-		return ErrValidation.New("storx_access_grant is required")
-	}
-	if r.GoogleAuth == "" {
-		return ErrValidation.New("google_auth is required (from POST /google-backup/google-auth)")
 	}
 	return nil
 }
 
-func (r GoogleBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) {
+func (r *GoogleBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) {
 	return json.Marshal(map[string]string{
-		"service":  r.Service,
-		"login_id": r.LoginID,
+		"service":    r.Service,
+		"project_id": r.ProjectID,
+		"login_id":   r.LoginID,
 	})
 }
 
+// PrepareGoogleBackupRestore proxies GET /restore/prepare (token_key only).
+func (s *Service) PrepareGoogleBackupRestore(ctx context.Context, tokenKey string, params GoogleBackupRestorePrepareParams) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := (&params).Validate(); err != nil {
+		return nil, 0, err
+	}
+	path := "/restore/prepare?" + (&params).queryString()
+	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
+}
+
+// StartGoogleBackupRestoreAll proxies POST /restore/all to Backup-Tools (token_key only).
+func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey string, req GoogleBackupRestoreAllRequest) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := (&req).Validate(); err != nil {
+		return nil, 0, err
+	}
+	payload, err := (&req).backupToolsPayload()
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+	return s.backupToolsRequest(ctx, http.MethodPost, "/restore/all", tokenKey, "", payload)
+}
+
+// ProxyGoogleBackupRestoreCron proxies Backup-Tools async restore routes (/restore/*) with token_key only.
+func (s *Service) ProxyGoogleBackupRestoreCron(ctx context.Context, method, path, tokenKey string, payload []byte) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.backupToolsRequest(ctx, method, path, tokenKey, "", payload)
+}
+
 // BackupToolsGoogleAuth exchanges a Google id/access token for Backup-Tools google-auth JWT (POST /google-auth).
+// Used by manual /google/* restore routes only, not restore-all scheduler.
 func (s *Service) BackupToolsGoogleAuth(ctx context.Context, googleKey string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -99,26 +164,6 @@ func (s *Service) BackupToolsGoogleAuth(ctx context.Context, googleKey string) (
 	return body, resp.StatusCode, nil
 }
 
-// StartGoogleBackupRestoreAll proxies POST /restore/all to Backup-Tools.
-func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey string, req GoogleBackupRestoreAllRequest) (body []byte, status int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := req.Validate(); err != nil {
-		return nil, 0, err
-	}
-	payload, err := req.backupToolsPayload()
-	if err != nil {
-		return nil, 0, Error.Wrap(err)
-	}
-	return s.backupToolsRestoreRequest(ctx, http.MethodPost, "/restore/all", tokenKey, req.StorxAccessGrant, req.GoogleAuth, payload)
-}
-
-// ProxyGoogleBackupRestoreCron proxies Backup-Tools async restore routes (/restore/*).
-func (s *Service) ProxyGoogleBackupRestoreCron(ctx context.Context, method, path, tokenKey, googleAuth string, payload []byte) (body []byte, status int, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return s.backupToolsRestoreRequest(ctx, method, path, tokenKey, "", googleAuth, payload)
-}
-
 // GoogleBackupManualRestoreRequest is the Satellite body for batch manual restore (≤10 base64 vault keys).
 type GoogleBackupManualRestoreRequest struct {
 	StorxAccessGrant string   `json:"storx_access_grant"`
@@ -142,7 +187,7 @@ func (r GoogleBackupManualRestoreRequest) Validate() error {
 	return nil
 }
 
-// GoogleBackupManualRestore proxies Backup-Tools POST /google/* manual restore routes.
+// GoogleBackupManualRestore proxies Backup-Tools POST /google/* manual restore routes (JWT + optional ACCESS_TOKEN).
 func (s *Service) GoogleBackupManualRestore(ctx context.Context, tokenKey, backupToolsPath string, req GoogleBackupManualRestoreRequest) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := req.Validate(); err != nil {
@@ -152,11 +197,11 @@ func (s *Service) GoogleBackupManualRestore(ctx context.Context, tokenKey, backu
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	return s.backupToolsRestoreRequest(ctx, http.MethodPost, backupToolsPath, tokenKey, req.StorxAccessGrant, req.GoogleAuth, payload)
+	return s.backupToolsManualRestoreRequest(ctx, http.MethodPost, backupToolsPath, tokenKey, req.StorxAccessGrant, req.GoogleAuth, payload)
 }
 
-// backupToolsRestoreRequest proxies Backup-Tools restore and manual routes (google-auth JWT + token_key; optional ACCESS_TOKEN).
-func (s *Service) backupToolsRestoreRequest(ctx context.Context, method, path, tokenKey, storxAccessGrant, googleAuthJWT string, payload []byte) ([]byte, int, error) {
+// backupToolsManualRestoreRequest proxies Backup-Tools manual /google/* routes (google-auth JWT + token_key; optional ACCESS_TOKEN).
+func (s *Service) backupToolsManualRestoreRequest(ctx context.Context, method, path, tokenKey, storxAccessGrant, googleAuthJWT string, payload []byte) ([]byte, int, error) {
 	if s.backupToolsURL == "" {
 		return nil, 0, Error.New("Backup-Tools URL not configured")
 	}

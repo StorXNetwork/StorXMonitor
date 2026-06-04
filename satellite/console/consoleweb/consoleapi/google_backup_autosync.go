@@ -53,10 +53,8 @@ func (g *GoogleBackup) serveJSONError(ctx context.Context, w http.ResponseWriter
 
 // CreateAutoSyncJobs creates Backup-Tools auto-sync jobs from a minimal UI payload.
 //
-// @Summary      Create Google Backup auto-sync jobs
-// @Description  **Full route:** `POST /api/v0/google-backup/auto-sync/jobs`
-//
-// Satellite enriches the body with credentials and project_id, then POSTs to Backup-Tools. Example body: `{"services":["gmail","drive"],"interval":"1h","emails":["billing@salestalker.com","support@salestalker.com"]}`
+// @Summary      Create Google Backup auto-sync jobs (complete onboarding)
+// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. **Completes onboarding:** on success (no failed jobs) sets `onboardingEnd=true`, `onboardingStep=GoogleBackupCompleted` (backend-defined). Frontend may go to `/google-backup/success`. Satellite adds `refresh_token` + `project_id`, POSTs Backup-Tools `/auto-sync/job`.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -251,9 +249,7 @@ func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request)
 // GetDomainUsers proxies Backup-Tools GET /google/gmail/corporate/domain-users (same payload as register-google).
 //
 // @Summary      Gmail corporate domain-users
-// @Description  **Full route:** `GET /api/v0/google-backup/domain-users`
-//
-// Uses stored google_backup_credentials for the logged-in user. Response matches register-google: `{ "success": true, "google_backup": { ... } }` including `domain_users_error` when Backup-Tools fails.
+// @Description  **Route:** `GET /api/v0/google-backup/domain-users`. **Onboarding:** workspace mailboxes; pair with frontend `/google-backup/domain-users` and PATCH `onboardingStep=GoogleBackupDomainUsers`. Optional `google_email` query.
 // @Tags         google-backup
 // @Produce      json
 // @Param        google_email  query     string  false  "Google account email (default: latest credential for user)"
@@ -293,9 +289,7 @@ func (g *GoogleBackup) GetDomainUsers(w http.ResponseWriter, r *http.Request) {
 // ConnectGoogle exchanges an OAuth code and upserts google_backup_credentials for the logged-in user.
 //
 // @Summary      Connect Google account for backup
-// @Description  **Full route:** `POST /api/v0/google-backup/connect`
-//
-// Exchanges OAuth `code` for a logged-in user (login redirect URI, not register-google). Use backup scopes on the Google consent URL; `redirect_uri` must match GOOGLE_OAUTH_REDIRECT_URL_LOGIN. Stores tokens in google_backup_credentials (create or update by email).
+// @Description  **Route:** `POST /api/v0/google-backup/connect`. **Onboarding:** body OAuth `code` (login redirect_uri); pair with frontend `/google-backup/connect` and PATCH `onboardingStep=GoogleBackupConnect`. Returns scopes; finish with POST /auto-sync/jobs. Tokens stored server-side only.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -327,17 +321,23 @@ func (g *GoogleBackup) ConnectGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	googleEmail, created, err := g.service.ConnectGoogleBackupCredential(ctx, body.Code)
+	connectResult, err := g.service.ConnectGoogleBackupCredential(ctx, body.Code)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
 	}
 
+	var googleBackup map[string]interface{}
+	if connectResult.GrantedScopes != nil || connectResult.UngrantedScopes != nil {
+		googleBackup = console.GoogleBackupScopesPayload(connectResult.GrantedScopes, connectResult.UngrantedScopes)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(GoogleBackupConnectSwaggerResponse{
-		Success:     true,
-		GoogleEmail: googleEmail,
-		Created:     created,
+		Success:      true,
+		GoogleEmail:  connectResult.GoogleEmail,
+		Created:        connectResult.Created,
+		GoogleBackup:   googleBackup,
 	}); err != nil {
 		g.log.Error("failed to encode google connect response", zap.Error(err))
 	}

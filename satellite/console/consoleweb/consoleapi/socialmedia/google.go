@@ -22,6 +22,7 @@ type GoogleOauthToken struct {
 	Access_token  string
 	Id_token      string
 	Refresh_token string
+	Scope         string
 	ExpiresIn     int
 	ExpiresAt     time.Time
 }
@@ -100,6 +101,7 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 		AccessToken  string `json:"access_token"`
 		IDToken      string `json:"id_token"`
 		RefreshToken string `json:"refresh_token"`
+		Scope        string `json:"scope"`
 		ExpiresIn    int    `json:"expires_in"`
 	}
 	if err := json.Unmarshal(resBody, &tokenResp); err != nil {
@@ -114,6 +116,7 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 		Access_token:  tokenResp.AccessToken,
 		Id_token:      tokenResp.IDToken,
 		Refresh_token: tokenResp.RefreshToken,
+		Scope:         tokenResp.Scope,
 		ExpiresIn:     tokenResp.ExpiresIn,
 	}
 	if tokenResp.ExpiresIn > 0 {
@@ -224,6 +227,141 @@ func GetGoogleUserByAccessToken(access_token string) (*GoogleUserResult, error) 
 	}
 
 	return &GoogleUserRes, nil
+}
+
+// ParseGoogleScopeString splits Google's space-separated scope string from token exchange or tokeninfo.
+func ParseGoogleScopeString(scope string) []string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return nil
+	}
+	parts := strings.Fields(scope)
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
+}
+
+// googleBackupScopeAlternates lists Google-returned scopes that satisfy each registration scope.
+var googleBackupScopeAlternates = map[string][]string{
+	"openid": {"openid"},
+	"email": {
+		"email",
+		"https://www.googleapis.com/auth/userinfo.email",
+	},
+	"profile": {
+		"profile",
+		"https://www.googleapis.com/auth/userinfo.profile",
+	},
+	"https://www.googleapis.com/auth/gmail.readonly": {
+		"https://www.googleapis.com/auth/gmail.readonly",
+	},
+	"https://www.googleapis.com/auth/gmail.insert": {
+		"https://www.googleapis.com/auth/gmail.insert",
+	},
+	"https://www.googleapis.com/auth/admin.directory.user.readonly": {
+		"https://www.googleapis.com/auth/admin.directory.user.readonly",
+	},
+	"https://www.googleapis.com/auth/drive.readonly": {
+		"https://www.googleapis.com/auth/drive.readonly",
+		"https://www.googleapis.com/auth/drive.photos.readonly",
+	},
+	"https://www.googleapis.com/auth/photoslibrary.readonly": {
+		"https://www.googleapis.com/auth/photoslibrary.readonly",
+		"https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
+	},
+	"https://www.googleapis.com/auth/calendar.readonly": {
+		"https://www.googleapis.com/auth/calendar.readonly",
+	},
+	"https://www.googleapis.com/auth/contacts.readonly": {
+		"https://www.googleapis.com/auth/contacts.readonly",
+	},
+}
+
+func googleBackupScopeGranted(grantedSet map[string]struct{}, required string) bool {
+	for _, alt := range googleBackupScopeAlternates[required] {
+		if _, ok := grantedSet[alt]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// GoogleBackupScopeSummary returns canonical backup scopes only: granted vs ungranted.
+func GoogleBackupScopeSummary(granted []string) (grantedOut, ungranted []string) {
+	grantedSet := make(map[string]struct{}, len(granted))
+	for _, s := range granted {
+		grantedSet[s] = struct{}{}
+	}
+	for _, req := range GoogleRegisterBackupScopes {
+		if googleBackupScopeGranted(grantedSet, req) {
+			grantedOut = append(grantedOut, req)
+		} else {
+			ungranted = append(ungranted, req)
+		}
+	}
+	return grantedOut, ungranted
+}
+
+// ResolveGrantedScopes returns scopes granted by the user (token response scope, else tokeninfo).
+func ResolveGrantedScopes(ctx context.Context, accessToken, scopeFromExchange string) ([]string, error) {
+	if granted := ParseGoogleScopeString(scopeFromExchange); len(granted) > 0 {
+		return granted, nil
+	}
+	return FetchGrantedScopesFromTokenInfo(ctx, accessToken)
+}
+
+const googleTokenInfoURL = "https://oauth2.googleapis.com/tokeninfo"
+
+// FetchGrantedScopesFromTokenInfo loads granted scopes for an access token.
+func FetchGrantedScopesFromTokenInfo(ctx context.Context, accessToken string) ([]string, error) {
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return nil, errors.New("access token is required")
+	}
+
+	reqURL := googleTokenInfoURL + "?access_token=" + url.QueryEscape(accessToken)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := googleHTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("google tokeninfo returned status %d: %s", res.StatusCode, string(body))
+	}
+
+	var tokenInfo struct {
+		Scope string `json:"scope"`
+	}
+	if err := json.Unmarshal(body, &tokenInfo); err != nil {
+		return nil, err
+	}
+
+	granted := ParseGoogleScopeString(tokenInfo.Scope)
+	if len(granted) == 0 {
+		return nil, errors.New("google tokeninfo response missing scope")
+	}
+	return granted, nil
 }
 
 // GoogleRegisterBackupScopes are required for registration backup, restore, and domain-users classification.

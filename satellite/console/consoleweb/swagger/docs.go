@@ -323,7 +323,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `PATCH /api/v0/auth/account/onboarding` + "`" + `",
+                "description": "**Route:** ` + "`" + `PATCH /api/v0/auth/account/onboarding` + "`" + `. **Body:** ` + "`" + `onboardingStart` + "`" + `, ` + "`" + `onboardingEnd` + "`" + `, ` + "`" + `onboardingStep` + "`" + ` — step names only, never frontend URLs. Any ` + "`" + `onboardingStep` + "`" + ` with prefix ` + "`" + `GoogleBackup` + "`" + ` is accepted. **Backend sets automatically:** ` + "`" + `GoogleBackupPending` + "`" + ` (register), ` + "`" + `GoogleBackupCompleted` + "`" + ` (POST /auto-sync/jobs), ` + "`" + `GoogleBackupSkipped` + "`" + ` (skip PATCH). **UI examples:** ` + "`" + `GoogleBackupServiceSelection` + "`" + ` (services page), ` + "`" + `GoogleBackupConnect` + "`" + ` (connect page), ` + "`" + `GoogleBackupDomainUsers` + "`" + ` (domain-users page). **Skip:** ` + "`" + `{onboardingStart:true, onboardingEnd:true, onboardingStep:GoogleBackupSkipped}` + "`" + `. **Finish:** POST ` + "`" + `/google-backup/auto-sync/jobs` + "`" + ` (not manual PATCH).",
                 "consumes": [
                     "application/json"
                 ],
@@ -331,12 +331,12 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth-account"
+                    "google-backup-onboarding-settings"
                 ],
-                "summary": "Update onboarding flags",
+                "summary": "Update onboarding step (UI progress — not URLs)",
                 "parameters": [
                     {
-                        "description": "Onboarding fields",
+                        "description": "onboardingStart, onboardingEnd, onboardingStep (GoogleBackup* prefix)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -371,14 +371,14 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/auth/account/settings` + "`" + `",
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/account/settings` + "`" + `. **DB fields:** ` + "`" + `onboardingStart` + "`" + `, ` + "`" + `onboardingEnd` + "`" + `, ` + "`" + `onboardingStep` + "`" + ` (step name only — never frontend URLs). **Resume:** e.g. ` + "`" + `onboardingStep=GoogleBackupServiceSelection` + "`" + ` → frontend opens ` + "`" + `/google-backup/services` + "`" + `. **Backend-defined steps:** ` + "`" + `GoogleBackupPending` + "`" + `, ` + "`" + `GoogleBackupCompleted` + "`" + `, ` + "`" + `GoogleBackupSkipped` + "`" + ` (legacy ` + "`" + `GoogleBackupServices` + "`" + ` still treated as completed). **UI-defined steps:** any ` + "`" + `GoogleBackup*` + "`" + ` prefix (` + "`" + `GoogleBackupConnect` + "`" + `, ` + "`" + `GoogleBackupServiceSelection` + "`" + `, ` + "`" + `GoogleBackupDomainUsers` + "`" + `, …).",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "auth-account"
+                    "google-backup-onboarding-settings"
                 ],
-                "summary": "Get account settings",
+                "summary": "Get account settings (onboarding state for resume)",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -578,18 +578,18 @@ const docTemplate = `{
         },
         "/auth/login-google": {
             "get": {
-                "description": "Google OAuth callback. Browser flow (no json param): 302 redirect to the web app. Swagger/Postman: set ` + "`" + `json=true` + "`" + ` (required below) for JSON + Set-Cookie ` + "`" + `_tokenKey` + "`" + ` with no redirect — then Authorize CookieAuth and call google-backup routes. Does not change browser behavior.",
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/login-google` + "`" + `. **Pages vs state:** backend stores step names only (not URLs). ` + "`" + `redirect_url` + "`" + ` is always ` + "`" + `{CLIENT_ORIGIN}/project-dashboard` + "`" + `. **Resume wizard:** GET ` + "`" + `/auth/account/settings` + "`" + `, map ` + "`" + `onboardingStep` + "`" + ` to your route (e.g. ` + "`" + `GoogleBackupServiceSelection` + "`" + ` → ` + "`" + `/google-backup/services` + "`" + `). **Hints:** with ` + "`" + `?json=true` + "`" + `, optional ` + "`" + `onboarding_status` + "`" + ` (` + "`" + `pending` + "`" + `|` + "`" + `in_progress` + "`" + `|` + "`" + `completed` + "`" + `, computed). UI chooses dashboard vs wizard; skip: PATCH ` + "`" + `GoogleBackupSkipped` + "`" + ` + ` + "`" + `onboardingEnd=true` + "`" + `. **OAuth:** ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_LOGIN` + "`" + `.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "google-backup"
+                    "google-backup-onboarding-login"
                 ],
                 "summary": "Login with Google (login-google)",
                 "parameters": [
                     {
                         "type": "boolean",
-                        "description": "Must be true in Swagger/API clients (uses existing ?json= query on SendResponse)",
+                        "description": "Required true in Swagger to receive JSON + cookie instead of HTTP 302 redirect",
                         "name": "json",
                         "in": "query",
                         "required": true
@@ -884,12 +884,12 @@ const docTemplate = `{
         },
         "/auth/register-google": {
             "get": {
-                "description": "Google OAuth signup callback. Success is always JSON. On error, browser gets 302; use ` + "`" + `json=true` + "`" + ` in Swagger/Postman for JSON errors (existing SendResponse behavior).",
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/register-google` + "`" + `. **Backend auto-sets** ` + "`" + `user_settings` + "`" + `: ` + "`" + `onboardingStart=true` + "`" + `, ` + "`" + `onboardingEnd=false` + "`" + `, ` + "`" + `onboardingStep=GoogleBackupPending` + "`" + ` (backend-defined step). Returns ` + "`" + `onboarding_status: pending` + "`" + `, ` + "`" + `google_backup` + "`" + ` (scopes, domain-users). **Frontend:** open your page e.g. ` + "`" + `/google-backup/onboarding` + "`" + ` — no ` + "`" + `redirect_url` + "`" + ` in success JSON; backend never stores frontend URLs. **OAuth:** ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_REGISTER` + "`" + `. Errors: ` + "`" + `?json=true` + "`" + ` for JSON body.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "google-backup"
+                    "google-backup-onboarding-registration"
                 ],
                 "summary": "Register with Google (register-google)",
                 "parameters": [
@@ -914,7 +914,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Set true in Swagger when testing error paths (avoids redirect)",
+                        "description": "JSON error body instead of redirect when callback fails",
                         "name": "json",
                         "in": "query"
                     }
@@ -1399,7 +1399,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `",
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `. **Completes onboarding:** on success (no failed jobs) sets ` + "`" + `onboardingEnd=true` + "`" + `, ` + "`" + `onboardingStep=GoogleBackupCompleted` + "`" + ` (backend-defined). Frontend may go to ` + "`" + `/google-backup/success` + "`" + `. Satellite adds ` + "`" + `refresh_token` + "`" + ` + ` + "`" + `project_id` + "`" + `, POSTs Backup-Tools ` + "`" + `/auto-sync/job` + "`" + `.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1409,7 +1409,7 @@ const docTemplate = `{
                 "tags": [
                     "google-backup"
                 ],
-                "summary": "Create Google Backup auto-sync jobs",
+                "summary": "Create Google Backup auto-sync jobs (complete onboarding)",
                 "parameters": [
                     {
                         "type": "string",
@@ -1765,7 +1765,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `",
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `. **Onboarding:** body OAuth ` + "`" + `code` + "`" + ` (login redirect_uri); pair with frontend ` + "`" + `/google-backup/connect` + "`" + ` and PATCH ` + "`" + `onboardingStep=GoogleBackupConnect` + "`" + `. Returns scopes; finish with POST /auto-sync/jobs. Tokens stored server-side only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1816,7 +1816,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/domain-users` + "`" + `",
+                "description": "**Route:** ` + "`" + `GET /api/v0/google-backup/domain-users` + "`" + `. **Onboarding:** workspace mailboxes; pair with frontend ` + "`" + `/google-backup/domain-users` + "`" + ` and PATCH ` + "`" + `onboardingStep=GoogleBackupDomainUsers` + "`" + `. Optional ` + "`" + `google_email` + "`" + ` query.",
                 "produces": [
                     "application/json"
                 ],
@@ -2167,7 +2167,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /restore/all. Requires google_auth JWT (from POST /google-backup/google-auth), storx_access_grant, and login_id matching the Google account. Worker picks up job within ~30s.",
+                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/restore/all` + "`" + `",
                 "consumes": [
                     "application/json"
                 ],
@@ -2213,6 +2213,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
                         }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
                     }
                 }
             }
@@ -2224,7 +2230,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools GET /restore/job/{job_id} (use after POST /restore/all while status is queued)",
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/job/{job_id}` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
@@ -2238,13 +2244,6 @@ const docTemplate = `{
                         "description": "Restore job ID",
                         "name": "job_id",
                         "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Backup-Tools google-auth JWT",
-                        "name": "X-Google-Auth",
-                        "in": "header",
                         "required": true
                     }
                 ],
@@ -2277,7 +2276,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /restore/job/{job_id}/cancel",
+                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/restore/job/{job_id}/cancel` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
@@ -2291,13 +2290,6 @@ const docTemplate = `{
                         "description": "Restore job ID",
                         "name": "job_id",
                         "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Backup-Tools google-auth JWT",
-                        "name": "X-Google-Auth",
-                        "in": "header",
                         "required": true
                     }
                 ],
@@ -2324,7 +2316,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools GET /restore/job/{job_id}/dead-items",
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/job/{job_id}/dead-items` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
@@ -2338,13 +2330,6 @@ const docTemplate = `{
                         "description": "Restore job ID",
                         "name": "job_id",
                         "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Backup-Tools google-auth JWT",
-                        "name": "X-Google-Auth",
-                        "in": "header",
                         "required": true
                     }
                 ],
@@ -2371,7 +2356,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools GET /restore/jobs",
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/jobs` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
@@ -2385,13 +2370,6 @@ const docTemplate = `{
                         "description": "Max jobs (default 20)",
                         "name": "limit",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Backup-Tools google-auth JWT",
-                        "name": "X-Google-Auth",
-                        "in": "header",
-                        "required": true
                     }
                 ],
                 "responses": {
@@ -2417,7 +2395,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools GET /restore/live (running jobs only). Pass google_auth in X-Google-Auth header.",
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/live` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
@@ -2425,12 +2403,57 @@ const docTemplate = `{
                     "google-backup-restore-cron"
                 ],
                 "summary": "List active restore jobs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/prepare": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/prepare` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "Pre-flight restore-all check",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Backup-Tools google-auth JWT",
-                        "name": "X-Google-Auth",
-                        "in": "header",
+                        "description": "Storj/Satellite project public UUID",
+                        "name": "project_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mailbox email (same as policy UI)",
+                        "name": "login_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "gmail, drive, photos, calendar, or contacts",
+                        "name": "service",
+                        "in": "query",
                         "required": true
                     }
                 ],
@@ -2439,6 +2462,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     },
                     "401": {
@@ -3677,7 +3706,7 @@ const docTemplate = `{
                 },
                 "onboardingStep": {
                     "type": "string",
-                    "example": "welcome"
+                    "example": "GoogleBackupServiceSelection"
                 },
                 "passphrasePrompt": {
                     "type": "boolean",
@@ -4053,6 +4082,9 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": true
                 },
+                "google_backup": {
+                    "type": "object"
+                },
                 "google_email": {
                     "type": "string",
                     "example": "user@gmail.com"
@@ -4108,6 +4140,15 @@ const docTemplate = `{
                 "google_backup": {
                     "type": "object"
                 },
+                "onboarding_status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "in_progress",
+                        "completed"
+                    ],
+                    "example": "pending"
+                },
                 "success": {
                     "type": "boolean",
                     "example": true
@@ -4117,27 +4158,22 @@ const docTemplate = `{
         "consoleapi.GoogleBackupRestoreAllSwaggerRequest": {
             "type": "object",
             "required": [
-                "google_auth",
                 "login_id",
-                "service",
-                "storx_access_grant"
+                "project_id",
+                "service"
             ],
             "properties": {
-                "google_auth": {
-                    "type": "string",
-                    "example": "\u003cJWT from POST /google-backup/google-auth\u003e"
-                },
                 "login_id": {
                     "type": "string",
-                    "example": "user@gmail.com"
+                    "example": "user@company.com"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
                 },
                 "service": {
                     "type": "string",
-                    "example": "drive"
-                },
-                "storx_access_grant": {
-                    "type": "string",
-                    "example": "\u003cstorx access grant\u003e"
+                    "example": "gmail"
                 }
             }
         },
@@ -4157,9 +4193,18 @@ const docTemplate = `{
         "consoleapi.GoogleOAuthJSONSuccess": {
             "type": "object",
             "properties": {
+                "onboarding_status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "in_progress",
+                        "completed"
+                    ],
+                    "example": "pending"
+                },
                 "redirect_url": {
                     "type": "string",
-                    "example": "https://storx.io/"
+                    "example": "https://storx.io/project-dashboard"
                 },
                 "success": {
                     "type": "boolean",
@@ -4571,7 +4616,7 @@ const docTemplate = `{
                 },
                 "onboardingStep": {
                     "type": "string",
-                    "example": "welcome"
+                    "example": "GoogleBackupServiceSelection"
                 }
             }
         },
@@ -5376,7 +5421,23 @@ const docTemplate = `{
             "name": "analytics"
         },
         {
-            "description": "Google Backup: GET /auth/register-google and GET /auth/login-google (Google OAuth only), plus auto-sync job proxy to Backup-Tools",
+            "description": "**Google Backup onboarding — architecture.** **Backend stores** (table ` + "`" + `user_settings` + "`" + `): ` + "`" + `onboardingStart` + "`" + `, ` + "`" + `onboardingEnd` + "`" + `, ` + "`" + `onboardingStep` + "`" + ` (step name string only — never frontend URLs). **Frontend controls** pages/routes (examples: ` + "`" + `/google-backup/onboarding` + "`" + `, ` + "`" + `/google-backup/services` + "`" + `, ` + "`" + `/google-backup/connect` + "`" + `, ` + "`" + `/google-backup/domain-users` + "`" + `); use your router (` + "`" + `router.push` + "`" + `, etc.). **Backend-defined steps** (3 only): ` + "`" + `GoogleBackupPending` + "`" + ` (auto on register-google), ` + "`" + `GoogleBackupCompleted` + "`" + ` (auto on POST /auto-sync/jobs; legacy ` + "`" + `GoogleBackupServices` + "`" + ` accepted), ` + "`" + `GoogleBackupSkipped` + "`" + ` (UI PATCH skip). **UI-defined steps:** any string with prefix ` + "`" + `GoogleBackup` + "`" + ` via PATCH — e.g. ` + "`" + `GoogleBackupConnect` + "`" + `, ` + "`" + `GoogleBackupServiceSelection` + "`" + `, ` + "`" + `GoogleBackupDomainUsers` + "`" + ` (UI progress / resume). **onboarding_status** (` + "`" + `pending` + "`" + `|` + "`" + `in_progress` + "`" + `|` + "`" + `completed` + "`" + `) is computed for responses, not stored. **Resume:** GET /auth/account/settings → read ` + "`" + `onboardingStep` + "`" + ` → frontend maps to correct page. **Full flow:** register → Pending → PATCH steps → optional connect/domain-users → POST /auto-sync/jobs → Services + ` + "`" + `onboardingEnd=true` + "`" + `. **Login:** ` + "`" + `redirect_url` + "`" + ` is always dashboard; use ` + "`" + `onboarding_status` + "`" + ` + settings as hints — UI decides onboarding vs dashboard.",
+            "name": "google-backup-onboarding"
+        },
+        {
+            "description": "**Registration** ` + "`" + `GET /auth/register-google` + "`" + `. Backend auto-sets ` + "`" + `onboardingStep=GoogleBackupPending` + "`" + `, ` + "`" + `onboardingEnd=false` + "`" + `. Returns JSON: ` + "`" + `success` + "`" + `, ` + "`" + `onboarding_status` + "`" + ` (usually ` + "`" + `pending` + "`" + `), ` + "`" + `google_backup` + "`" + `. No ` + "`" + `redirect_url` + "`" + ` on success — frontend navigates (e.g. ` + "`" + `/google-backup/onboarding` + "`" + `). Tokens stored server-side only. OAuth ` + "`" + `redirect_uri` + "`" + ` = ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_REGISTER` + "`" + `.",
+            "name": "google-backup-onboarding-registration"
+        },
+        {
+            "description": "**Login** ` + "`" + `GET /auth/login-google` + "`" + `. Sets session cookie. ` + "`" + `redirect_url` + "`" + ` = ` + "`" + `{CLIENT_ORIGIN}/project-dashboard` + "`" + ` (fixed; backend does not store frontend URLs). With ` + "`" + `?json=true` + "`" + `: optional ` + "`" + `onboarding_status` + "`" + ` hint from ` + "`" + `user_settings` + "`" + ` — UI may resume onboarding via GET /auth/account/settings (` + "`" + `onboardingStep` + "`" + `). Persist skip: PATCH onboarding with ` + "`" + `GoogleBackupSkipped` + "`" + `, ` + "`" + `onboardingEnd=true` + "`" + `.",
+            "name": "google-backup-onboarding-login"
+        },
+        {
+            "description": "**Onboarding state** (authenticated). **GET** ` + "`" + `/auth/account/settings` + "`" + ` — read ` + "`" + `onboardingStart` + "`" + `, ` + "`" + `onboardingEnd` + "`" + `, ` + "`" + `onboardingStep` + "`" + ` for resume (map step → your frontend route). **PATCH** ` + "`" + `/auth/account/onboarding` + "`" + ` — send step names only (not URLs). Examples: advance ` + "`" + `{onboardingStart:true, onboardingEnd:false, onboardingStep:\"GoogleBackupServiceSelection\"}` + "`" + `; skip ` + "`" + `{..., onboardingEnd:true, onboardingStep:\"GoogleBackupSkipped\"}` + "`" + `. See models ` + "`" + `SetGoogleBackupOnboarding*SwaggerRequest` + "`" + ` in Schemas.",
+            "name": "google-backup-onboarding-settings"
+        },
+        {
+            "description": "Google Backup auto-sync and policy APIs (jobs, connect, domain-users, policy merge) — use after onboarding or for ongoing management. ` + "`" + `POST /auto-sync/jobs` + "`" + ` completes onboarding when successful.",
             "name": "google-backup"
         },
         {
@@ -5392,7 +5453,7 @@ const docTemplate = `{
             "name": "google-backup-restore-manual"
         },
         {
-            "description": "Google Backup restore-all (async): Backup-Tools worker cron proxies (/restore/all, /restore/live, /restore/job/*)",
+            "description": "Google Backup restore-all scheduler: GET /restore/prepare, POST /restore/all, GET /restore/live|jobs|job/* (token_key only; OAuth reconnect via auto-sync job PUT)",
             "name": "google-backup-restore-cron"
         },
         {

@@ -765,6 +765,11 @@ func loadSession(req *http.Request) string {
 
 // SendResponse sends a response to the client.
 func (a *Auth) SendResponse(w http.ResponseWriter, r *http.Request, errorMessage, redirectUri string) {
+	a.sendAuthRedirect(w, r, errorMessage, redirectUri, "")
+}
+
+// sendAuthRedirect sends redirect (302) or JSON with optional onboarding_status.
+func (a *Auth) sendAuthRedirect(w http.ResponseWriter, r *http.Request, errorMessage, redirectUri, onboardingStatus string) {
 	if !r.URL.Query().Has("json") {
 		if errorMessage != "" {
 			redirectUri += "?error=" + errorMessage
@@ -773,26 +778,38 @@ func (a *Auth) SendResponse(w http.ResponseWriter, r *http.Request, errorMessage
 		return
 	}
 
-	a.sendJsonResponse(w, errorMessage, redirectUri)
+	a.sendJSONAuthRedirect(w, errorMessage, redirectUri, onboardingStatus)
 }
 
 // sendJsonResponse is a helper function to send a JSON response with a given status code
 func (a *Auth) sendJsonResponse(w http.ResponseWriter, errorMessage, redirectUri string) {
+	a.sendJSONAuthRedirect(w, errorMessage, redirectUri, "")
+}
+
+func (a *Auth) sendJSONAuthRedirect(w http.ResponseWriter, errorMessage, redirectUri, onboardingStatus string) {
 	w.Header().Set("Content-Type", "application/json")
 	if errorMessage != "" {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		body := map[string]interface{}{
 			"error":        errorMessage,
 			"redirect_url": redirectUri,
-		})
+		}
+		if onboardingStatus != "" {
+			body["onboarding_status"] = onboardingStatus
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(body)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	body := map[string]interface{}{
 		"redirect_url": redirectUri,
 		"success":      true,
-	})
+	}
+	if onboardingStatus != "" {
+		body["onboarding_status"] = onboardingStatus
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(body)
 }
 
 func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Request) {
@@ -1490,13 +1507,13 @@ func (a *Auth) LoginUserApple(w http.ResponseWriter, r *http.Request) {
 // RegisterGoogle handles Google OAuth signup, stores Google Backup credentials, and returns domain-users metadata.
 //
 // @Summary      Register with Google (register-google)
-// @Description  Google OAuth signup callback. Success is always JSON. On error, browser gets 302; use `json=true` in Swagger/Postman for JSON errors (existing SendResponse behavior).
-// @Tags         google-backup
+// @Description  **Route:** `GET /api/v0/auth/register-google`. **Backend auto-sets** `user_settings`: `onboardingStart=true`, `onboardingEnd=false`, `onboardingStep=GoogleBackupPending` (backend-defined step). Returns `onboarding_status: pending`, `google_backup` (scopes, domain-users). **Frontend:** open your page e.g. `/google-backup/onboarding` — no `redirect_url` in success JSON; backend never stores frontend URLs. **OAuth:** `GOOGLE_OAUTH_REDIRECT_URL_REGISTER`. Errors: `?json=true` for JSON body.
+// @Tags         google-backup-onboarding-registration
 // @Produce      json
 // @Param        code        query  string  true   "Fresh Google OAuth code (single-use)"
 // @Param        state       query  string  false  "OAuth state (UTM / verifier payload)"
 // @Param        zoho-insert query  bool    false  "When true, inserts CRM lead in Zoho"
-// @Param        json        query  bool    false  "Set true in Swagger when testing error paths (avoids redirect)"
+// @Param        json        query  bool    false  "JSON error body instead of redirect when callback fails"
 // @Success      200         {object}  GoogleBackupRegisterSuccess  "Set-Cookie: _tokenKey"
 // @Failure      500         {object}  GoogleOAuthJSONError         "When json=true on failed callback"
 // @Router       /auth/register-google [get]
@@ -1527,10 +1544,10 @@ func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.registerUserByIDTokenFromGoogle(w, r, tokenRes.Id_token, tokenRes.Access_token, tokenRes.Refresh_token, "", tokenRes.ExpiresAt)
+	a.registerUserByIDTokenFromGoogle(w, r, tokenRes.Id_token, tokenRes.Access_token, tokenRes.Refresh_token, tokenRes.Scope, "", tokenRes.ExpiresAt)
 }
 
-func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Request, idToken, accessToken, refreshToken, walletID string, accessTokenExpiry time.Time) {
+func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Request, idToken, accessToken, refreshToken, googleScope, walletID string, accessTokenExpiry time.Time) {
 	ctx := r.Context()
 	cnf := socialmedia.GetConfig()
 
@@ -1679,27 +1696,32 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 
 	a.log.Info("Default Project Name: " + project.Name)
 
+	if err := a.service.InitGoogleBackupOnboarding(authed); err != nil {
+		a.log.Warn("failed to init google backup onboarding status", zap.Error(err))
+	}
+
 	var googleBackup map[string]interface{}
-	backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, accessToken, refreshToken, accessTokenExpiry, sessionToken)
+	backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, accessToken, refreshToken, googleScope, accessTokenExpiry, sessionToken)
 	if backupErr != nil {
 		a.log.Error("failed to fetch Google backup domain users during registration", zap.Error(backupErr))
 		googleBackup = map[string]interface{}{
 			"error": backupErr.Error(),
 		}
-	} else if backupResult.DomainUsers != nil {
-		googleBackup = backupResult.DomainUsers
-		if backupResult.DomainError != "" {
-			googleBackup["domain_users_error"] = backupResult.DomainError
-		}
-	} else if backupResult.DomainError != "" {
-		googleBackup = map[string]interface{}{
-			"domain_users_error": backupResult.DomainError,
-		}
+	} else {
+		googleBackup = console.GoogleBackupRegistrationPayload(backupResult)
+	}
+
+	onboardingStatus := console.OnboardingStatusPending
+	if settings, settingsErr := a.service.GetUserSettings(authed); settingsErr != nil {
+		a.log.Warn("failed to read onboarding status after registration", zap.Error(settingsErr))
+	} else {
+		onboardingStatus = console.GoogleBackupOnboardingStatus(settings)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	payload := map[string]interface{}{
-		"success": true,
+		"success":           true,
+		"onboarding_status": onboardingStatus,
 	}
 	if googleBackup != nil {
 		payload["google_backup"] = googleBackup
@@ -1727,10 +1749,10 @@ func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
 // LoginUserConfirm handles Google OAuth login for existing users (login-google).
 //
 // @Summary      Login with Google (login-google)
-// @Description  Google OAuth callback. Browser flow (no json param): 302 redirect to the web app. Swagger/Postman: set `json=true` (required below) for JSON + Set-Cookie `_tokenKey` with no redirect — then Authorize CookieAuth and call google-backup routes. Does not change browser behavior.
-// @Tags         google-backup
+// @Description  **Route:** `GET /api/v0/auth/login-google`. **Pages vs state:** backend stores step names only (not URLs). `redirect_url` is always `{CLIENT_ORIGIN}/project-dashboard`. **Resume wizard:** GET `/auth/account/settings`, map `onboardingStep` to your route (e.g. `GoogleBackupServiceSelection` → `/google-backup/services`). **Hints:** with `?json=true`, optional `onboarding_status` (`pending`|`in_progress`|`completed`, computed). UI chooses dashboard vs wizard; skip: PATCH `GoogleBackupSkipped` + `onboardingEnd=true`. **OAuth:** `GOOGLE_OAUTH_REDIRECT_URL_LOGIN`.
+// @Tags         google-backup-onboarding-login
 // @Produce      json
-// @Param        json   query  bool    true   "Must be true in Swagger/API clients (uses existing ?json= query on SendResponse)"
+// @Param        json   query  bool    true   "Required true in Swagger to receive JSON + cookie instead of HTTP 302 redirect"
 // @Param        code   query  string  true   "Fresh Google OAuth code (single-use)"
 // @Param        state  query  string  false  "OAuth state"
 // @Success      200    {object}  GoogleOAuthJSONSuccess  "Set-Cookie: _tokenKey"
@@ -1783,8 +1805,19 @@ func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r
 		return
 	}
 
-	a.TokenGoogleWrapper(r.Context(), googleuser.Email, "", w, r)
-	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
+	authed := console.WithUser(ctx, verified)
+	redirectURL := fmt.Sprint(cnf.ClientOrigin, mainPageURL)
+
+	// Optional hint for UI only; skip/resume is client-driven (PATCH /account/onboarding). No forced redirect.
+	var onboardingStatus string
+	if settings, settingsErr := a.service.GetUserSettings(authed); settingsErr != nil {
+		a.log.Warn("failed to load user settings at login", zap.Error(settingsErr))
+	} else {
+		onboardingStatus = console.GoogleBackupOnboardingStatus(settings)
+	}
+
+	a.TokenGoogleWrapper(authed, googleuser.Email, "", w, r)
+	a.sendAuthRedirect(w, r, "", redirectURL, onboardingStatus)
 }
 
 func (a *Auth) issueSessionTokenForGoogleUser(ctx context.Context, userGmail, key string, w http.ResponseWriter, r *http.Request) (string, error) {
@@ -3824,9 +3857,9 @@ func (a *Auth) InvalidateSessionByID(w http.ResponseWriter, r *http.Request) {
 
 // GetUserSettings gets a user's settings.
 //
-// @Summary      Get account settings
-// @Description  **Full route:** `GET /api/v0/auth/account/settings`
-// @Tags         auth-account
+// @Summary      Get account settings (onboarding state for resume)
+// @Description  **Route:** `GET /api/v0/auth/account/settings`. **DB fields:** `onboardingStart`, `onboardingEnd`, `onboardingStep` (step name only — never frontend URLs). **Resume:** e.g. `onboardingStep=GoogleBackupServiceSelection` → frontend opens `/google-backup/services`. **Backend-defined steps:** `GoogleBackupPending`, `GoogleBackupCompleted`, `GoogleBackupSkipped` (legacy `GoogleBackupServices` still treated as completed). **UI-defined steps:** any `GoogleBackup*` prefix (`GoogleBackupConnect`, `GoogleBackupServiceSelection`, `GoogleBackupDomainUsers`, …).
+// @Tags         google-backup-onboarding-settings
 // @Produce      json
 // @Success      200  {object}  AuthUserSettingsSwaggerResponse
 // @Failure      401  {object}  SwaggerErrorResponse
@@ -3852,12 +3885,12 @@ func (a *Auth) GetUserSettings(w http.ResponseWriter, r *http.Request) {
 
 // SetOnboardingStatus updates a user's onboarding status.
 //
-// @Summary      Update onboarding flags
-// @Description  **Full route:** `PATCH /api/v0/auth/account/onboarding`
-// @Tags         auth-account
+// @Summary      Update onboarding step (UI progress — not URLs)
+// @Description  **Route:** `PATCH /api/v0/auth/account/onboarding`. **Body:** `onboardingStart`, `onboardingEnd`, `onboardingStep` — step names only, never frontend URLs. Any `onboardingStep` with prefix `GoogleBackup` is accepted. **Backend sets automatically:** `GoogleBackupPending` (register), `GoogleBackupCompleted` (POST /auto-sync/jobs), `GoogleBackupSkipped` (skip PATCH). **UI examples:** `GoogleBackupServiceSelection` (services page), `GoogleBackupConnect` (connect page), `GoogleBackupDomainUsers` (domain-users page). **Skip:** `{onboardingStart:true, onboardingEnd:true, onboardingStep:GoogleBackupSkipped}`. **Finish:** POST `/google-backup/auto-sync/jobs` (not manual PATCH).
+// @Tags         google-backup-onboarding-settings
 // @Accept       json
 // @Produce      json
-// @Param        body  body  SetAuthOnboardingStatusSwaggerRequest  true  "Onboarding fields"
+// @Param        body  body  SetAuthOnboardingStatusSwaggerRequest  true  "onboardingStart, onboardingEnd, onboardingStep (GoogleBackup* prefix)"
 // @Success      200   "OK"
 // @Failure      400   {object}  SwaggerErrorResponse
 // @Failure      401   {object}  SwaggerErrorResponse
