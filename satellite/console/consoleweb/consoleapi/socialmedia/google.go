@@ -46,7 +46,7 @@ type GoogleUserResult struct {
 }
 
 func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOauthToken, error) {
-	if mode != "signup" && mode != "signin" && mode != "connect" {
+	if mode != "signup" && mode != "signin" && mode != "connect" && mode != "googlebackup" {
 		return nil, errors.New("invalid mode")
 	}
 
@@ -60,8 +60,14 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 	values.Add("client_id", configVal.GoogleClientID)
 	values.Add("client_secret", configVal.GoogleClientSecret)
 	redirectURL := configVal.GoogleOAuthRedirectUrl_login
-	if mode == "signup" {
+	switch mode {
+	case "signup":
 		redirectURL = configVal.GoogleOAuthRedirectUrl_register
+	case "googlebackup":
+		redirectURL = configVal.GoogleOAuthRedirectUrl_googlebackup
+		if redirectURL == "" {
+			return nil, errors.New("GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP is not configured")
+		}
 	}
 
 	if zohoInsert {

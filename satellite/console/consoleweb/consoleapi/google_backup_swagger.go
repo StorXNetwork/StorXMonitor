@@ -5,29 +5,26 @@ package consoleapi
 
 // Swagger models for Google Backup and related auth routes (used by swag only).
 
-// GoogleBackupRegisterSuccess is returned from register-google on success.
-type GoogleBackupRegisterSuccess struct {
-	Success          bool                   `json:"success" example:"true"`
-	OnboardingStatus string                 `json:"onboarding_status" example:"pending" enums:"pending,in_progress,completed"`
-	GoogleBackup     map[string]interface{} `json:"google_backup,omitempty" swaggertype:"object"`
+// GoogleBackupOnboardingSwagger is the onboarding block on GET /auth/google-backup responses.
+type GoogleBackupOnboardingSwagger struct {
+	OnboardingStart  bool   `json:"onboardingStart" example:"true"`
+	OnboardingEnd    bool   `json:"onboardingEnd" example:"false"`
+	OnboardingStep   string `json:"onboardingStep" example:"GoogleBackupPending"`
+	OnboardingStatus string `json:"onboarding_status" example:"pending" enums:"pending,in_progress,completed"`
 }
 
-// GoogleOAuthCallbackError is an HTML error page body when OAuth callback fails (redirect flow).
-type GoogleOAuthCallbackError struct {
-	Message string `json:"message" example:"Authorization code not provided!"`
+// GoogleBackupAuthSuccess is returned from GET /auth/google-backup on success.
+type GoogleBackupAuthSuccess struct {
+	Success      bool                          `json:"success" example:"true"`
+	Action       string                        `json:"action" example:"registered" enums:"registered,logged_in"`
+	Onboarding   GoogleBackupOnboardingSwagger `json:"onboarding"`
+	GoogleBackup map[string]interface{}        `json:"google_backup,omitempty" swaggertype:"object"`
 }
 
-// GoogleOAuthJSONSuccess is returned from login-google when query json=true (existing SendResponse path).
-type GoogleOAuthJSONSuccess struct {
-	Success           bool   `json:"success" example:"true"`
-	OnboardingStatus  string `json:"onboarding_status,omitempty" example:"pending" enums:"pending,in_progress,completed"`
-	RedirectURL       string `json:"redirect_url" example:"https://storx.io/project-dashboard"`
-}
-
-// GoogleOAuthJSONError is returned from login-google when query json=true and the callback fails.
-type GoogleOAuthJSONError struct {
-	Error       string `json:"error" example:"Error getting token from Google"`
-	RedirectURL string `json:"redirect_url" example:"https://storx.io/login"`
+// GoogleBackupAuthError is returned when GET /auth/google-backup fails.
+type GoogleBackupAuthError struct {
+	Success bool   `json:"success" example:"false"`
+	Error   string `json:"error" example:"Error getting token from Google!"`
 }
 
 // CreateGoogleBackupAutoSyncJobsSwaggerRequest is the UI → satellite body for job create.
@@ -72,7 +69,7 @@ type GoogleBackupConnectSwaggerResponse struct {
 	GoogleBackup map[string]interface{} `json:"google_backup,omitempty" swaggertype:"object"`
 }
 
-// GoogleBackupDomainUsersSwaggerResponse matches register-google google_backup metadata (domain-users).
+// GoogleBackupDomainUsersSwaggerResponse is returned from GET /google-backup/domain-users.
 type GoogleBackupDomainUsersSwaggerResponse struct {
 	Success      bool                   `json:"success" example:"true"`
 	GoogleBackup map[string]interface{} `json:"google_backup,omitempty" swaggertype:"object"`

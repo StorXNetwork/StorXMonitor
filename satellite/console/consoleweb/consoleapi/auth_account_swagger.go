@@ -79,13 +79,6 @@ type SetAuthUserSettingsSwaggerRequest struct {
 	NoticeDismissal  map[string]interface{} `json:"noticeDismissal,omitempty" swaggertype:"object"`
 }
 
-// SetAuthOnboardingStatusSwaggerRequest is the body for PATCH /api/v0/auth/account/onboarding.
-type SetAuthOnboardingStatusSwaggerRequest struct {
-	OnboardingStart *bool   `json:"onboardingStart,omitempty" example:"true"`
-	OnboardingEnd   *bool   `json:"onboardingEnd,omitempty" example:"false"`
-	OnboardingStep  *string `json:"onboardingStep,omitempty" example:"GoogleBackupServiceSelection"`
-}
-
 // DeleteAuthAccountSwaggerRequest is the body for DELETE /api/v0/auth/account (admin flow).
 type DeleteAuthAccountSwaggerRequest struct {
 	Email    string `json:"email" example:"user@example.com"`

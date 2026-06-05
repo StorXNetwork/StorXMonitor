@@ -9769,6 +9769,23 @@ func (s *Service) fetchProtectedServicesStats(ctx context.Context, tokenGetter f
 // GmailCorporateDomainUsersResponse is the Backup-Tools domain-users payload.
 type GmailCorporateDomainUsersResponse map[string]interface{}
 
+// GetGoogleBackupOnboarding reads user_settings for the current user and returns the API onboarding block.
+// Uses GetSettings directly (not GetUserSettings) so project ownership does not auto-complete backup onboarding.
+func (s *Service) GetGoogleBackupOnboarding(ctx context.Context) (GoogleBackupOnboardingAPI, error) {
+	defer mon.Task()(&ctx)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return GoogleBackupOnboardingAPI{}, Error.Wrap(err)
+	}
+
+	settings, err := s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return GoogleBackupOnboardingAPI{}, Error.Wrap(err)
+	}
+	return GoogleBackupOnboardingAPIFromSettings(settings), nil
+}
+
 // RegisterGoogleBackupResult is returned after calling domain-users during registration.
 type RegisterGoogleBackupResult struct {
 	GoogleEmail     string

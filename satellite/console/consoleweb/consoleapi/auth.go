@@ -1504,19 +1504,279 @@ func (a *Auth) LoginUserApple(w http.ResponseWriter, r *http.Request) {
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
 }
 
-// RegisterGoogle handles Google OAuth signup, stores Google Backup credentials, and returns domain-users metadata.
+const googleBackupAuthActionRegistered = "registered"
+const googleBackupAuthActionLoggedIn = "logged_in"
+
+type googleBackupOAuthTokens struct {
+	idToken           string
+	accessToken       string
+	refreshToken      string
+	googleScope       string
+	walletID          string
+	accessTokenExpiry time.Time
+}
+
+func (a *Auth) writeGoogleBackupAuthSuccess(w http.ResponseWriter, action string, onboarding console.GoogleBackupOnboardingAPI, googleBackup map[string]interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	payload := map[string]interface{}{
+		"success":    true,
+		"action":     action,
+		"onboarding": onboarding,
+	}
+	if googleBackup != nil {
+		payload["google_backup"] = googleBackup
+	}
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func (a *Auth) writeGoogleBackupAuthError(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": false,
+		"error":   message,
+	})
+}
+
+// GoogleBackupAuth handles combined Google OAuth register-or-login for Google Backup.
 //
-// @Summary      Register with Google (register-google)
-// @Description  **Route:** `GET /api/v0/auth/register-google`. **Backend auto-sets** `user_settings`: `onboardingStart=true`, `onboardingEnd=false`, `onboardingStep=GoogleBackupPending` (backend-defined step). Returns `onboarding_status: pending`, `google_backup` (scopes, domain-users). **Frontend:** open your page e.g. `/google-backup/onboarding` — no `redirect_url` in success JSON; backend never stores frontend URLs. **OAuth:** `GOOGLE_OAUTH_REDIRECT_URL_REGISTER`. Errors: `?json=true` for JSON body.
-// @Tags         google-backup-onboarding-registration
+// @Summary      Google Backup auth (register or login)
+// @Description  **Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP). If email exists, logs in; otherwise registers. Returns JSON with `action`, `onboarding`, and `google_backup`. Sets session cookie.
+// @Tags         google-backup-onboarding
 // @Produce      json
 // @Param        code        query  string  true   "Fresh Google OAuth code (single-use)"
 // @Param        state       query  string  false  "OAuth state (UTM / verifier payload)"
 // @Param        zoho-insert query  bool    false  "When true, inserts CRM lead in Zoho"
-// @Param        json        query  bool    false  "JSON error body instead of redirect when callback fails"
-// @Success      200         {object}  GoogleBackupRegisterSuccess  "Set-Cookie: _tokenKey"
-// @Failure      500         {object}  GoogleOAuthJSONError         "When json=true on failed callback"
-// @Router       /auth/register-google [get]
+// @Success      200         {object}  GoogleBackupAuthSuccess  "Set-Cookie: _tokenKey"
+// @Failure      500         {object}  GoogleBackupAuthError
+// @Router       /auth/google-backup [get]
+func (a *Auth) GoogleBackupAuth(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		a.writeGoogleBackupAuthError(w, "Authorization code not provided!")
+		return
+	}
+
+	tokenRes, err := socialmedia.GetGoogleOauthToken(code, "googlebackup", r.URL.Query().Has("zoho-insert"))
+	if err != nil {
+		a.log.Error("google-backup: google token exchange failed",
+			zap.Bool("zoho_insert", r.URL.Query().Has("zoho-insert")),
+			zap.Int("code_len", len(code)),
+			zap.Error(err),
+		)
+		a.writeGoogleBackupAuthError(w, "Error getting token from Google!")
+		return
+	}
+
+	a.googleBackupAuthFromGoogle(w, r, googleBackupOAuthTokens{
+		idToken:           tokenRes.Id_token,
+		accessToken:       tokenRes.Access_token,
+		refreshToken:      tokenRes.Refresh_token,
+		googleScope:       tokenRes.Scope,
+		accessTokenExpiry: tokenRes.ExpiresAt,
+	})
+}
+
+func (a *Auth) googleBackupAuthFromGoogle(w http.ResponseWriter, r *http.Request, tokens googleBackupOAuthTokens) {
+	ctx := r.Context()
+	cnf := socialmedia.GetConfig()
+
+	googleuser, err := socialmedia.GetGoogleUserByAccessToken(tokens.accessToken)
+	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error getting user details from Google!")
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.writeGoogleBackupAuthError(w, "Error getting user details from system!")
+		return
+	}
+
+	if verified != nil {
+		a.completeGoogleBackupLogin(w, r, ctx, verified, googleuser, tokens)
+		return
+	}
+
+	a.completeGoogleBackupRegister(w, r, ctx, cnf, googleuser, tokens, unverified)
+}
+
+func (a *Auth) completeGoogleBackupRegister(w http.ResponseWriter, r *http.Request, ctx context.Context, cnf *socialmedia.Config, googleuser *socialmedia.GoogleUserResult, tokens googleBackupOAuthTokens, unverified []console.User) {
+	state := r.URL.Query().Get("state")
+	verifier := socialmedia.NewVerifierDataFromString(state)
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, verifier)
+	}
+
+	var user *console.User
+	if len(unverified) > 0 {
+		user = &unverified[0]
+	} else {
+		secret, err := console.RegistrationSecretFromBase64("")
+		if err != nil {
+			a.writeGoogleBackupAuthError(w, "Error creating secret!")
+			return
+		}
+
+		ip, err := web.GetRequestIP(r)
+		if err != nil {
+			a.writeGoogleBackupAuthError(w, "Error getting IP!")
+			return
+		}
+
+		var utmParams *console.UtmParams
+		if verifier != nil {
+			utmParams = &console.UtmParams{
+				UtmTerm:     verifier.UTMTerm,
+				UtmContent:  verifier.UTMContent,
+				UtmSource:   verifier.UTMSource,
+				UtmMedium:   verifier.UTMMedium,
+				UtmCampaign: verifier.UTMCampaign,
+			}
+		}
+
+		user, err = a.service.CreateUser(ctx,
+			console.CreateUser{
+				FullName:  googleuser.Name,
+				Email:     googleuser.Email,
+				Status:    1,
+				IP:        ip,
+				Source:    "Google",
+				WalletId:  tokens.walletID,
+				UtmParams: utmParams,
+			},
+			secret, true,
+		)
+		if err != nil {
+			a.writeGoogleBackupAuthError(w, "Error creating user!")
+			return
+		}
+
+		referrer := r.URL.Query().Get("referrer")
+		if referrer == "" {
+			referrer = r.Referer()
+		}
+		hubspotUTK := ""
+		hubspotCookie, err := r.Cookie("hubspotutk")
+		if err == nil {
+			hubspotUTK = hubspotCookie.Value
+		}
+
+		trackCreateUserFields := analytics.TrackCreateUserFields{
+			ID:           user.ID,
+			AnonymousID:  loadSession(r),
+			FullName:     user.FullName,
+			Email:        user.Email,
+			Type:         analytics.Personal,
+			OriginHeader: r.Header.Get("Origin"),
+			Referrer:     referrer,
+			HubspotUTK:   hubspotUTK,
+			UserAgent:    string(user.UserAgent),
+		}
+		if user.IsProfessional {
+			trackCreateUserFields.Type = analytics.Professional
+			trackCreateUserFields.EmployeeCount = user.EmployeeCount
+			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.JobTitle = user.Position
+			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+		}
+		a.analytics.TrackCreateUser(trackCreateUserFields)
+	}
+
+	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
+	if err != nil {
+		return
+	}
+
+	if a.mailService != nil {
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&console.RegistrationWelcomeEmail{
+				Username:  user.FullName,
+				LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
+			},
+		)
+	}
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	if err != nil {
+		a.log.Error("Error in Default Project:", zap.Error(err))
+		a.writeGoogleBackupAuthError(w, "Error creating default project!")
+		return
+	}
+	a.log.Info("Default Project Name: " + project.Name)
+
+	if err := a.service.InitGoogleBackupOnboarding(authed); err != nil {
+		a.log.Warn("failed to init google backup onboarding status", zap.Error(err))
+	}
+
+	var googleBackup map[string]interface{}
+	backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, tokens.accessToken, tokens.refreshToken, tokens.googleScope, tokens.accessTokenExpiry, sessionToken)
+	if backupErr != nil {
+		a.log.Error("failed to fetch Google backup metadata during registration", zap.Error(backupErr))
+		googleBackup = map[string]interface{}{
+			"error": backupErr.Error(),
+		}
+	} else {
+		googleBackup = console.GoogleBackupRegistrationPayload(backupResult)
+	}
+
+	onboarding, err := a.service.GetGoogleBackupOnboarding(authed)
+	if err != nil {
+		a.log.Warn("failed to read onboarding after registration", zap.Error(err))
+		onboarding = console.GoogleBackupOnboardingAPI{
+			OnboardingStart:  true,
+			OnboardingEnd:    false,
+			OnboardingStep:   console.OnboardingStepGoogleBackupPending,
+			OnboardingStatus: console.OnboardingStatusPending,
+		}
+	}
+
+	a.writeGoogleBackupAuthSuccess(w, googleBackupAuthActionRegistered, onboarding, googleBackup)
+}
+
+func (a *Auth) completeGoogleBackupLogin(w http.ResponseWriter, r *http.Request, ctx context.Context, user *console.User, googleuser *socialmedia.GoogleUserResult, tokens googleBackupOAuthTokens) {
+	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
+	if err != nil {
+		return
+	}
+
+	authed := console.WithUser(ctx, user)
+
+	var googleBackup map[string]interface{}
+	if tokens.accessToken != "" {
+		backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, tokens.accessToken, tokens.refreshToken, tokens.googleScope, tokens.accessTokenExpiry, sessionToken)
+		if backupErr != nil {
+			a.log.Warn("failed to refresh Google backup metadata at login", zap.Error(backupErr))
+			googleBackup = map[string]interface{}{
+				"error": backupErr.Error(),
+			}
+		} else {
+			googleBackup = console.GoogleBackupRegistrationPayload(backupResult)
+		}
+	}
+
+	onboarding, err := a.service.GetGoogleBackupOnboarding(authed)
+	if err != nil {
+		a.log.Warn("failed to read onboarding at login", zap.Error(err))
+		onboarding = console.GoogleBackupOnboardingAPI{}
+	}
+
+	a.writeGoogleBackupAuthSuccess(w, googleBackupAuthActionLoggedIn, onboarding, googleBackup)
+}
+
+// RegisterGoogle handles Google OAuth signup, stores Google Backup credentials, and returns domain-users metadata.
 func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
@@ -1747,17 +2007,6 @@ func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
 }
 
 // LoginUserConfirm handles Google OAuth login for existing users (login-google).
-//
-// @Summary      Login with Google (login-google)
-// @Description  **Route:** `GET /api/v0/auth/login-google`. **Pages vs state:** backend stores step names only (not URLs). `redirect_url` is always `{CLIENT_ORIGIN}/project-dashboard`. **Resume wizard:** GET `/auth/account/settings`, map `onboardingStep` to your route (e.g. `GoogleBackupServiceSelection` → `/google-backup/services`). **Hints:** with `?json=true`, optional `onboarding_status` (`pending`|`in_progress`|`completed`, computed). UI chooses dashboard vs wizard; skip: PATCH `GoogleBackupSkipped` + `onboardingEnd=true`. **OAuth:** `GOOGLE_OAUTH_REDIRECT_URL_LOGIN`.
-// @Tags         google-backup-onboarding-login
-// @Produce      json
-// @Param        json   query  bool    true   "Required true in Swagger to receive JSON + cookie instead of HTTP 302 redirect"
-// @Param        code   query  string  true   "Fresh Google OAuth code (single-use)"
-// @Param        state  query  string  false  "OAuth state"
-// @Success      200    {object}  GoogleOAuthJSONSuccess  "Set-Cookie: _tokenKey"
-// @Failure      500    {object}  GoogleOAuthJSONError
-// @Router       /auth/login-google [get]
 func (a *Auth) LoginUserConfirm(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
@@ -3857,9 +4106,9 @@ func (a *Auth) InvalidateSessionByID(w http.ResponseWriter, r *http.Request) {
 
 // GetUserSettings gets a user's settings.
 //
-// @Summary      Get account settings (onboarding state for resume)
-// @Description  **Route:** `GET /api/v0/auth/account/settings`. **DB fields:** `onboardingStart`, `onboardingEnd`, `onboardingStep` (step name only — never frontend URLs). **Resume:** e.g. `onboardingStep=GoogleBackupServiceSelection` → frontend opens `/google-backup/services`. **Backend-defined steps:** `GoogleBackupPending`, `GoogleBackupCompleted`, `GoogleBackupSkipped` (legacy `GoogleBackupServices` still treated as completed). **UI-defined steps:** any `GoogleBackup*` prefix (`GoogleBackupConnect`, `GoogleBackupServiceSelection`, `GoogleBackupDomainUsers`, …).
-// @Tags         google-backup-onboarding-settings
+// @Summary      Get account settings
+// @Description  **Full route:** `GET /api/v0/auth/account/settings`
+// @Tags         auth-account
 // @Produce      json
 // @Success      200  {object}  AuthUserSettingsSwaggerResponse
 // @Failure      401  {object}  SwaggerErrorResponse
@@ -3884,18 +4133,6 @@ func (a *Auth) GetUserSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 // SetOnboardingStatus updates a user's onboarding status.
-//
-// @Summary      Update onboarding step (UI progress — not URLs)
-// @Description  **Route:** `PATCH /api/v0/auth/account/onboarding`. **Body:** `onboardingStart`, `onboardingEnd`, `onboardingStep` — step names only, never frontend URLs. Any `onboardingStep` with prefix `GoogleBackup` is accepted. **Backend sets automatically:** `GoogleBackupPending` (register), `GoogleBackupCompleted` (POST /auto-sync/jobs), `GoogleBackupSkipped` (skip PATCH). **UI examples:** `GoogleBackupServiceSelection` (services page), `GoogleBackupConnect` (connect page), `GoogleBackupDomainUsers` (domain-users page). **Skip:** `{onboardingStart:true, onboardingEnd:true, onboardingStep:GoogleBackupSkipped}`. **Finish:** POST `/google-backup/auto-sync/jobs` (not manual PATCH).
-// @Tags         google-backup-onboarding-settings
-// @Accept       json
-// @Produce      json
-// @Param        body  body  SetAuthOnboardingStatusSwaggerRequest  true  "onboardingStart, onboardingEnd, onboardingStep (GoogleBackup* prefix)"
-// @Success      200   "OK"
-// @Failure      400   {object}  SwaggerErrorResponse
-// @Failure      401   {object}  SwaggerErrorResponse
-// @Security     CookieAuth
-// @Router       /auth/account/onboarding [patch]
 func (a *Auth) SetOnboardingStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

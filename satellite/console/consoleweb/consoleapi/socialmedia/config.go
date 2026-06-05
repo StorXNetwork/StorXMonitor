@@ -5,8 +5,9 @@ type Config struct {
 
 	GoogleClientID                  string `mapstructure:"GOOGLE_OAUTH_CLIENT_ID"`
 	GoogleClientSecret              string `mapstructure:"GOOGLE_OAUTH_CLIENT_SECRET"`
-	GoogleOAuthRedirectUrl_register string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_REGISTER"`
-	GoogleOAuthRedirectUrl_login    string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_LOGIN"`
+	GoogleOAuthRedirectUrl_register     string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_REGISTER"`
+	GoogleOAuthRedirectUrl_login        string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_LOGIN"`
+	GoogleOAuthRedirectUrl_googlebackup string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP"`
 
 	FacebookClientID                  string `mapstructure:"FACEBOOK_CLIENT_ID"`
 	FacebookClientSecret              string `mapstructure:"FACEBOOK_CLIENT_SECRET"`
@@ -55,6 +56,10 @@ func SetGoogleSocialMediaConfig(clientID string, clientSecret string, redirectUr
 	configVal.GoogleClientSecret = clientSecret
 	configVal.GoogleOAuthRedirectUrl_register = redirectUrl_register
 	configVal.GoogleOAuthRedirectUrl_login = redirectUrl_login
+}
+
+func SetGoogleBackupOAuthRedirectURL(redirectURL string) {
+	configVal.GoogleOAuthRedirectUrl_googlebackup = redirectURL
 }
 
 func SetFacebookSocialMediaConfig(clientID string, clientSecret string, redirectUrl_register string, redirectUrl_login string) {

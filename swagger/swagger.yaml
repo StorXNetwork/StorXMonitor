@@ -441,6 +441,31 @@ definitions:
         example: 00000000-0000-0000-0000-000000000000
         type: string
     type: object
+  consoleapi.GoogleBackupAuthError:
+    properties:
+      error:
+        example: Error getting token from Google!
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupAuthSuccess:
+    properties:
+      action:
+        enum:
+        - registered
+        - logged_in
+        example: registered
+        type: string
+      google_backup:
+        type: object
+      onboarding:
+        $ref: '#/definitions/consoleapi.GoogleBackupOnboardingSwagger'
+      success:
+        example: true
+        type: boolean
+    type: object
   consoleapi.GoogleBackupAuthSwaggerRequest:
     properties:
       google_key:
@@ -504,10 +529,8 @@ definitions:
     - keys
     - storx_access_grant
     type: object
-  consoleapi.GoogleBackupRegisterSuccess:
+  consoleapi.GoogleBackupOnboardingSwagger:
     properties:
-      google_backup:
-        type: object
       onboarding_status:
         enum:
         - pending
@@ -515,9 +538,15 @@ definitions:
         - completed
         example: pending
         type: string
-      success:
+      onboardingEnd:
+        example: false
+        type: boolean
+      onboardingStart:
         example: true
         type: boolean
+      onboardingStep:
+        example: GoogleBackupPending
+        type: string
     type: object
   consoleapi.GoogleBackupRestoreAllSwaggerRequest:
     properties:
@@ -534,31 +563,6 @@ definitions:
     - login_id
     - project_id
     - service
-    type: object
-  consoleapi.GoogleOAuthJSONError:
-    properties:
-      error:
-        example: Error getting token from Google
-        type: string
-      redirect_url:
-        example: https://storx.io/login
-        type: string
-    type: object
-  consoleapi.GoogleOAuthJSONSuccess:
-    properties:
-      onboarding_status:
-        enum:
-        - pending
-        - in_progress
-        - completed
-        example: pending
-        type: string
-      redirect_url:
-        example: https://storx.io/project-dashboard
-        type: string
-      success:
-        example: true
-        type: boolean
     type: object
   consoleapi.MFADisableSwaggerRequest:
     properties:
@@ -833,18 +837,6 @@ definitions:
       response:
         example: 1
         type: integer
-    type: object
-  consoleapi.SetAuthOnboardingStatusSwaggerRequest:
-    properties:
-      onboardingEnd:
-        example: false
-        type: boolean
-      onboardingStart:
-        example: true
-        type: boolean
-      onboardingStep:
-        example: GoogleBackupServiceSelection
-        type: string
     type: object
   consoleapi.SetAuthUserSettingsSwaggerRequest:
     properties:
@@ -1578,55 +1570,9 @@ paths:
       summary: Update account profile links
       tags:
       - auth-account
-  /auth/account/onboarding:
-    patch:
-      consumes:
-      - application/json
-      description: '**Route:** `PATCH /api/v0/auth/account/onboarding`. **Body:**
-        `onboardingStart`, `onboardingEnd`, `onboardingStep` — step names only, never
-        frontend URLs. Any `onboardingStep` with prefix `GoogleBackup` is accepted.
-        **Backend sets automatically:** `GoogleBackupPending` (register), `GoogleBackupCompleted`
-        (POST /auto-sync/jobs), `GoogleBackupSkipped` (skip PATCH). **UI examples:**
-        `GoogleBackupServiceSelection` (services page), `GoogleBackupConnect` (connect
-        page), `GoogleBackupDomainUsers` (domain-users page). **Skip:** `{onboardingStart:true,
-        onboardingEnd:true, onboardingStep:GoogleBackupSkipped}`. **Finish:** POST
-        `/google-backup/auto-sync/jobs` (not manual PATCH).'
-      parameters:
-      - description: onboardingStart, onboardingEnd, onboardingStep (GoogleBackup*
-          prefix)
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/consoleapi.SetAuthOnboardingStatusSwaggerRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Update onboarding step (UI progress — not URLs)
-      tags:
-      - google-backup-onboarding-settings
   /auth/account/settings:
     get:
-      description: '**Route:** `GET /api/v0/auth/account/settings`. **DB fields:**
-        `onboardingStart`, `onboardingEnd`, `onboardingStep` (step name only — never
-        frontend URLs). **Resume:** e.g. `onboardingStep=GoogleBackupServiceSelection`
-        → frontend opens `/google-backup/services`. **Backend-defined steps:** `GoogleBackupPending`,
-        `GoogleBackupCompleted`, `GoogleBackupSkipped` (legacy `GoogleBackupServices`
-        still treated as completed). **UI-defined steps:** any `GoogleBackup*` prefix
-        (`GoogleBackupConnect`, `GoogleBackupServiceSelection`, `GoogleBackupDomainUsers`,
-        …).'
+      description: '**Full route:** `GET /api/v0/auth/account/settings`'
       produces:
       - application/json
       responses:
@@ -1640,9 +1586,9 @@ paths:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
-      summary: Get account settings (onboarding state for resume)
+      summary: Get account settings
       tags:
-      - google-backup-onboarding-settings
+      - auth-account
     patch:
       consumes:
       - application/json
@@ -1757,45 +1703,40 @@ paths:
       summary: Revoke developer access
       tags:
       - auth-account
-  /auth/login-google:
+  /auth/google-backup:
     get:
-      description: '**Route:** `GET /api/v0/auth/login-google`. **Pages vs state:**
-        backend stores step names only (not URLs). `redirect_url` is always `{CLIENT_ORIGIN}/project-dashboard`.
-        **Resume wizard:** GET `/auth/account/settings`, map `onboardingStep` to your
-        route (e.g. `GoogleBackupServiceSelection` → `/google-backup/services`). **Hints:**
-        with `?json=true`, optional `onboarding_status` (`pending`|`in_progress`|`completed`,
-        computed). UI chooses dashboard vs wizard; skip: PATCH `GoogleBackupSkipped`
-        + `onboardingEnd=true`. **OAuth:** `GOOGLE_OAUTH_REDIRECT_URL_LOGIN`.'
+      description: '**Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code
+        (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP). If email exists,
+        logs in; otherwise registers. Returns JSON with `action`, `onboarding`, and
+        `google_backup`. Sets session cookie.'
       parameters:
-      - description: Required true in Swagger to receive JSON + cookie instead of
-          HTTP 302 redirect
-        in: query
-        name: json
-        required: true
-        type: boolean
       - description: Fresh Google OAuth code (single-use)
         in: query
         name: code
         required: true
         type: string
-      - description: OAuth state
+      - description: OAuth state (UTM / verifier payload)
         in: query
         name: state
         type: string
+      - description: When true, inserts CRM lead in Zoho
+        in: query
+        name: zoho-insert
+        type: boolean
       produces:
       - application/json
       responses:
         "200":
           description: 'Set-Cookie: _tokenKey'
           schema:
-            $ref: '#/definitions/consoleapi.GoogleOAuthJSONSuccess'
+            $ref: '#/definitions/consoleapi.GoogleBackupAuthSuccess'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/consoleapi.GoogleOAuthJSONError'
-      summary: Login with Google (login-google)
+            $ref: '#/definitions/consoleapi.GoogleBackupAuthError'
+      summary: Google Backup auth (register or login)
       tags:
-      - google-backup-onboarding-login
+      - google-backup-onboarding
   /auth/mfa/disable:
     post:
       consumes:
@@ -1957,46 +1898,6 @@ paths:
       summary: Refresh login session
       tags:
       - auth-account
-  /auth/register-google:
-    get:
-      description: '**Route:** `GET /api/v0/auth/register-google`. **Backend auto-sets**
-        `user_settings`: `onboardingStart=true`, `onboardingEnd=false`, `onboardingStep=GoogleBackupPending`
-        (backend-defined step). Returns `onboarding_status: pending`, `google_backup`
-        (scopes, domain-users). **Frontend:** open your page e.g. `/google-backup/onboarding`
-        — no `redirect_url` in success JSON; backend never stores frontend URLs. **OAuth:**
-        `GOOGLE_OAUTH_REDIRECT_URL_REGISTER`. Errors: `?json=true` for JSON body.'
-      parameters:
-      - description: Fresh Google OAuth code (single-use)
-        in: query
-        name: code
-        required: true
-        type: string
-      - description: OAuth state (UTM / verifier payload)
-        in: query
-        name: state
-        type: string
-      - description: When true, inserts CRM lead in Zoho
-        in: query
-        name: zoho-insert
-        type: boolean
-      - description: JSON error body instead of redirect when callback fails
-        in: query
-        name: json
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 'Set-Cookie: _tokenKey'
-          schema:
-            $ref: '#/definitions/consoleapi.GoogleBackupRegisterSuccess'
-        "500":
-          description: When json=true on failed callback
-          schema:
-            $ref: '#/definitions/consoleapi.GoogleOAuthJSONError'
-      summary: Register with Google (register-google)
-      tags:
-      - google-backup-onboarding-registration
   /buckets/usage-totals:
     get:
       description: '**Full route:** `GET /api/v0/buckets/usage-totals`'
@@ -2294,9 +2195,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: '**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. **Completes
-        onboarding:** on success (no failed jobs) sets `onboardingEnd=true`, `onboardingStep=GoogleBackupCompleted`
-        (backend-defined). Frontend may go to `/google-backup/success`. Satellite
+      description: '**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. On success
+        (no failed jobs) sets `user_settings` step to `GoogleBackupCompleted`. Satellite
         adds `refresh_token` + `project_id`, POSTs Backup-Tools `/auto-sync/job`.'
       parameters:
       - description: Backup-Tools sync type (default daily)
@@ -2326,7 +2226,7 @@ paths:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
-      summary: Create Google Backup auto-sync jobs (complete onboarding)
+      summary: Create Google Backup auto-sync jobs
       tags:
       - google-backup
   /google-backup/auto-sync/jobs/{job_id}:
@@ -2527,10 +2427,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: '**Route:** `POST /api/v0/google-backup/connect`. **Onboarding:**
-        body OAuth `code` (login redirect_uri); pair with frontend `/google-backup/connect`
-        and PATCH `onboardingStep=GoogleBackupConnect`. Returns scopes; finish with
-        POST /auto-sync/jobs. Tokens stored server-side only.'
+      description: '**Route:** `POST /api/v0/google-backup/connect`. Body: Google
+        OAuth `code` (login redirect_uri). Returns scopes metadata. Tokens stored
+        server-side only.'
       parameters:
       - description: OAuth authorization code
         in: body
@@ -2560,9 +2459,8 @@ paths:
       - google-backup
   /google-backup/domain-users:
     get:
-      description: '**Route:** `GET /api/v0/google-backup/domain-users`. **Onboarding:**
-        workspace mailboxes; pair with frontend `/google-backup/domain-users` and
-        PATCH `onboardingStep=GoogleBackupDomainUsers`. Optional `google_email` query.'
+      description: '**Route:** `GET /api/v0/google-backup/domain-users`. Workspace
+        mailboxes for corporate Gmail. Optional `google_email` query.'
       parameters:
       - description: 'Google account email (default: latest credential for user)'
         in: query
@@ -3617,44 +3515,12 @@ tags:
   name: payments
 - description: Analytics operations
   name: analytics
-- description: '**Google Backup onboarding — architecture.** **Backend stores** (table
-    `user_settings`): `onboardingStart`, `onboardingEnd`, `onboardingStep` (step name
-    string only — never frontend URLs). **Frontend controls** pages/routes (examples:
-    `/google-backup/onboarding`, `/google-backup/services`, `/google-backup/connect`,
-    `/google-backup/domain-users`); use your router (`router.push`, etc.). **Backend-defined
-    steps** (3 only): `GoogleBackupPending` (auto on register-google), `GoogleBackupCompleted`
-    (auto on POST /auto-sync/jobs; legacy `GoogleBackupServices` accepted), `GoogleBackupSkipped`
-    (UI PATCH skip). **UI-defined steps:** any string with prefix `GoogleBackup` via
-    PATCH — e.g. `GoogleBackupConnect`, `GoogleBackupServiceSelection`, `GoogleBackupDomainUsers`
-    (UI progress / resume). **onboarding_status** (`pending`|`in_progress`|`completed`)
-    is computed for responses, not stored. **Resume:** GET /auth/account/settings
-    → read `onboardingStep` → frontend maps to correct page. **Full flow:** register
-    → Pending → PATCH steps → optional connect/domain-users → POST /auto-sync/jobs
-    → Services + `onboardingEnd=true`. **Login:** `redirect_url` is always dashboard;
-    use `onboarding_status` + settings as hints — UI decides onboarding vs dashboard.'
+- description: 'Google Backup combined auth: `GET /auth/google-backup` (register or
+    login by email). Returns `action`, `onboarding` block, and `google_backup`. OAuth
+    redirect = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`.'
   name: google-backup-onboarding
-- description: '**Registration** `GET /auth/register-google`. Backend auto-sets `onboardingStep=GoogleBackupPending`,
-    `onboardingEnd=false`. Returns JSON: `success`, `onboarding_status` (usually `pending`),
-    `google_backup`. No `redirect_url` on success — frontend navigates (e.g. `/google-backup/onboarding`).
-    Tokens stored server-side only. OAuth `redirect_uri` = `GOOGLE_OAUTH_REDIRECT_URL_REGISTER`.'
-  name: google-backup-onboarding-registration
-- description: '**Login** `GET /auth/login-google`. Sets session cookie. `redirect_url`
-    = `{CLIENT_ORIGIN}/project-dashboard` (fixed; backend does not store frontend
-    URLs). With `?json=true`: optional `onboarding_status` hint from `user_settings`
-    — UI may resume onboarding via GET /auth/account/settings (`onboardingStep`).
-    Persist skip: PATCH onboarding with `GoogleBackupSkipped`, `onboardingEnd=true`.'
-  name: google-backup-onboarding-login
-- description: '**Onboarding state** (authenticated). **GET** `/auth/account/settings`
-    — read `onboardingStart`, `onboardingEnd`, `onboardingStep` for resume (map step
-    → your frontend route). **PATCH** `/auth/account/onboarding` — send step names
-    only (not URLs). Examples: advance `{onboardingStart:true, onboardingEnd:false,
-    onboardingStep:"GoogleBackupServiceSelection"}`; skip `{..., onboardingEnd:true,
-    onboardingStep:"GoogleBackupSkipped"}`. See models `SetGoogleBackupOnboarding*SwaggerRequest`
-    in Schemas.'
-  name: google-backup-onboarding-settings
-- description: Google Backup auto-sync and policy APIs (jobs, connect, domain-users,
-    policy merge) — use after onboarding or for ongoing management. `POST /auto-sync/jobs`
-    completes onboarding when successful.
+- description: Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs`
+    sets onboarding complete on success.
   name: google-backup
 - description: 'Google Backup shared policies: schedule, retention, merge (Backup-Tools
     /auto-sync/policy/*)'

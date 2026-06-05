@@ -22,9 +22,6 @@ const (
 	OnboardingStepGoogleBackupPending = "GoogleBackupPending"
 	// OnboardingStepGoogleBackupCompleted is set when auto-sync jobs are created successfully.
 	OnboardingStepGoogleBackupCompleted = "GoogleBackupCompleted"
-	// onboardingStepGoogleBackupCompletedLegacy is the previous step value still accepted for existing rows.
-	onboardingStepGoogleBackupCompletedLegacy = "GoogleBackupServices"
-
 	// OnboardingStepGoogleBackupSkipped may be set by the UI when the user skips backup onboarding.
 	OnboardingStepGoogleBackupSkipped = "GoogleBackupSkipped"
 )
@@ -47,7 +44,7 @@ func IsGoogleBackupOnboardingStep(step string) bool {
 }
 
 func isGoogleBackupOnboardingCompleteStep(step string) bool {
-	return step == OnboardingStepGoogleBackupCompleted || step == onboardingStepGoogleBackupCompletedLegacy
+	return step == OnboardingStepGoogleBackupCompleted
 }
 
 // GoogleBackupOnboardingStatus derives backup onboarding status from user_settings.
@@ -101,4 +98,35 @@ func (s *Service) InitGoogleBackupOnboarding(ctx context.Context) error {
 		OnboardingStep:  &step,
 	})
 	return Error.Wrap(err)
+}
+
+// GoogleBackupOnboardingAPI is returned on Google Backup auth and onboarding PATCH responses.
+// UI should use this instead of GET /auth/account/settings for backup onboarding state.
+type GoogleBackupOnboardingAPI struct {
+	OnboardingStart  bool   `json:"onboardingStart"`
+	OnboardingEnd    bool   `json:"onboardingEnd"`
+	OnboardingStep   string `json:"onboardingStep"`
+	OnboardingStatus string `json:"onboarding_status"`
+}
+
+// GoogleBackupOnboardingAPIFromSettings builds the onboarding block for API responses.
+func GoogleBackupOnboardingAPIFromSettings(settings *UserSettings) GoogleBackupOnboardingAPI {
+	if settings == nil {
+		return GoogleBackupOnboardingAPI{
+			OnboardingStart:  true,
+			OnboardingEnd:    false,
+			OnboardingStep:   OnboardingStepGoogleBackupPending,
+			OnboardingStatus: OnboardingStatusPending,
+		}
+	}
+	step := googleBackupOnboardingStep(settings)
+	if step == "" {
+		step = OnboardingStepGoogleBackupPending
+	}
+	return GoogleBackupOnboardingAPI{
+		OnboardingStart:  settings.OnboardingStart,
+		OnboardingEnd:    settings.OnboardingEnd,
+		OnboardingStep:   step,
+		OnboardingStatus: GoogleBackupOnboardingStatus(settings),
+	}
 }

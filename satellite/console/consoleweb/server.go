@@ -104,8 +104,9 @@ type Config struct {
 
 	GoogleClientID               string `help:"client id for google oauth" default:""`
 	GoogleClientSecret           string `help:"client secret for google oauth" default:""`
-	GoogleSigupRedirectURLstring string `help:"redirect url for google oauth" default:""`
-	GoggleLoginRedirectURLstring string `help:"redirect url for google oauth" default:""`
+	GoogleSigupRedirectURLstring       string `help:"redirect url for google oauth register" default:""`
+	GoggleLoginRedirectURLstring       string `help:"redirect url for google oauth login" default:""`
+	GoogleBackupRedirectURLstring      string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
 
 	FacebookClientID               string `help:"client id for facebook oauth" default:""`
 	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
@@ -447,6 +448,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	// set social media config
 	socialmedia.SetClientOrigin(config.ClientOrigin)
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
+	socialmedia.SetGoogleBackupOAuthRedirectURL(config.GoogleBackupRedirectURLstring)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring, config.LinkedinRegisterIdTokenRedirectURLstring, config.LinkedinLoginIdTokenRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
@@ -496,6 +498,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	router.HandleFunc("/linkedin_login/mobile", authController.HandleLinkedInLoginWithAuthToken)
 	authRouter.Handle("/linkedin_register/mobile", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleLinkedInRegisterWithAuthToken))).Methods(http.MethodPost, http.MethodOptions)
 
+	authRouter.Handle("/google-backup", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GoogleBackupAuth))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogleForApp))).Methods(http.MethodPost, http.MethodOptions)

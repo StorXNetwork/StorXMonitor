@@ -53,8 +53,8 @@ func (g *GoogleBackup) serveJSONError(ctx context.Context, w http.ResponseWriter
 
 // CreateAutoSyncJobs creates Backup-Tools auto-sync jobs from a minimal UI payload.
 //
-// @Summary      Create Google Backup auto-sync jobs (complete onboarding)
-// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. **Completes onboarding:** on success (no failed jobs) sets `onboardingEnd=true`, `onboardingStep=GoogleBackupCompleted` (backend-defined). Frontend may go to `/google-backup/success`. Satellite adds `refresh_token` + `project_id`, POSTs Backup-Tools `/auto-sync/job`.
+// @Summary      Create Google Backup auto-sync jobs
+// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. On success (no failed jobs) sets `user_settings` step to `GoogleBackupCompleted`. Satellite adds `refresh_token` + `project_id`, POSTs Backup-Tools `/auto-sync/job`.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -249,7 +249,7 @@ func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request)
 // GetDomainUsers proxies Backup-Tools GET /google/gmail/corporate/domain-users (same payload as register-google).
 //
 // @Summary      Gmail corporate domain-users
-// @Description  **Route:** `GET /api/v0/google-backup/domain-users`. **Onboarding:** workspace mailboxes; pair with frontend `/google-backup/domain-users` and PATCH `onboardingStep=GoogleBackupDomainUsers`. Optional `google_email` query.
+// @Description  **Route:** `GET /api/v0/google-backup/domain-users`. Workspace mailboxes for corporate Gmail. Optional `google_email` query.
 // @Tags         google-backup
 // @Produce      json
 // @Param        google_email  query     string  false  "Google account email (default: latest credential for user)"
@@ -289,7 +289,7 @@ func (g *GoogleBackup) GetDomainUsers(w http.ResponseWriter, r *http.Request) {
 // ConnectGoogle exchanges an OAuth code and upserts google_backup_credentials for the logged-in user.
 //
 // @Summary      Connect Google account for backup
-// @Description  **Route:** `POST /api/v0/google-backup/connect`. **Onboarding:** body OAuth `code` (login redirect_uri); pair with frontend `/google-backup/connect` and PATCH `onboardingStep=GoogleBackupConnect`. Returns scopes; finish with POST /auto-sync/jobs. Tokens stored server-side only.
+// @Description  **Route:** `POST /api/v0/google-backup/connect`. Body: Google OAuth `code` (login redirect_uri). Returns scopes metadata. Tokens stored server-side only.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
