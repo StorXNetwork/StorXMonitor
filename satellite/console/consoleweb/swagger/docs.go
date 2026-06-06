@@ -114,6 +114,230 @@ const docTemplate = `{
                 }
             }
         },
+        "/audit-logs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/audit-logs` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audit-logs"
+                ],
+                "summary": "List audit logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by action code (e.g. AUTH_LOGIN)",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "success",
+                            "failed"
+                        ],
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search action, resource, message, or record id",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-06-01T00:00:00Z",
+                        "description": "Range start (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-06-02T23:59:59Z",
+                        "description": "Range end (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor from previous response NextCursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuditLogListSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/audit-logs/actions": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/audit-logs/actions` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audit-logs"
+                ],
+                "summary": "List audit log action codes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuditLogActionsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/audit-logs/export": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/audit-logs/export` + "`" + `",
+                "produces": [
+                    "text/csv"
+                ],
+                "tags": [
+                    "audit-logs"
+                ],
+                "summary": "Export audit logs as CSV",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by action code",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "success",
+                            "failed"
+                        ],
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search action, resource, message, or record id",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-06-01T00:00:00Z",
+                        "description": "Range start (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-06-02T23:59:59Z",
+                        "description": "Range end (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max rows per batch (internal pagination)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV file (Content-Disposition: audit-logs.csv)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/account": {
             "get": {
                 "security": [
@@ -3456,6 +3680,90 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.AuditLogActionsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "AUTH_LOGIN",
+                        "AUTH_LOGOUT",
+                        "PROJECT_CREATE"
+                    ]
+                }
+            }
+        },
+        "consoleapi.AuditLogListSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "Items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.AuditLogRecordSwagger"
+                    }
+                },
+                "NextCursor": {
+                    "type": "string",
+                    "example": ""
+                },
+                "TotalCount": {
+                    "type": "integer",
+                    "example": 42
+                }
+            }
+        },
+        "consoleapi.AuditLogRecordSwagger": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "example": "AUTH_LOGIN"
+                },
+                "actor": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                },
+                "actor_email": {
+                    "type": "string",
+                    "example": "jane@example.com"
+                },
+                "actor_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "878b7ed7-e0b8-499f-b7ad-eae3af6153c6"
+                },
+                "ip_address": {
+                    "type": "string",
+                    "example": "203.0.113.10"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "User logged in"
+                },
+                "resource": {
+                    "type": "string",
+                    "example": "Session"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "failed"
+                    ],
+                    "example": "success"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-06-02T10:15:30Z"
+                }
+            }
+        },
         "consoleapi.AuthAccountFreezeStatusSwaggerResponse": {
             "type": "object",
             "properties": {
@@ -5350,6 +5658,10 @@ const docTemplate = `{
         {
             "description": "Public console bootstrap config: GET /api/v0/config (feature flags, API base URL, CSRF token, billing/UI toggles)",
             "name": "config"
+        },
+        {
+            "description": "System audit logs: GET /api/v0/audit-logs (list with filters), GET /api/v0/audit-logs/actions (filter dropdown), GET /api/v0/audit-logs/export (CSV)",
+            "name": "audit-logs"
         }
     ]
 }`

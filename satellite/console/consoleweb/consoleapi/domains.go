@@ -19,9 +19,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var (
@@ -99,6 +99,7 @@ func (d *Domains) CreateDomain(w http.ResponseWriter, r *http.Request) {
 	payload.ProjectPublicID = projectID
 
 	_, err = d.service.CreateDomain(ctx, payload)
+	d.service.RecordUserAudit(ctx, "DOMAIN_CREATE", "Domain", "Domain created", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			d.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -156,6 +157,7 @@ func (d *Domains) DeleteDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = d.service.DeleteDomain(ctx, projectID, subdomain)
+	d.service.RecordUserAudit(ctx, "DOMAIN_DELETE", "Domain", "Domain deleted", err)
 	if err != nil {
 		switch {
 		case console.ErrUnauthorized.Has(err):
@@ -396,6 +398,7 @@ func (d *Domains) CheckDNSRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	d.service.RecordUserAudit(ctx, "DOMAIN_CHECK_DNS", "Domain", "Domain DNS check completed", nil)
 	d.sendResponse(w, checkDNSRecordsResponse{IsSuccess: true})
 }
 

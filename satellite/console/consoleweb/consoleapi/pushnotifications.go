@@ -105,6 +105,7 @@ func (p *PushNotifications) RegisterToken(w http.ResponseWriter, r *http.Request
 			web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
 			return
 		}
+		p.service.RecordUserAuditHTTP(ctx, "FCM_TOKEN_UPDATE", "Push token", "Push token updated", http.StatusOK, nil, nil)
 		w.Header().Set("Content-Type", "application/json")
 		if err = json.NewEncoder(w).Encode(existingToken); err != nil {
 			p.log.Error("failed to encode response", zap.Error(err))
@@ -139,6 +140,7 @@ func (p *PushNotifications) RegisterToken(w http.ResponseWriter, r *http.Request
 		web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
 		return
 	}
+	p.service.RecordUserAuditHTTP(ctx, "FCM_TOKEN_REGISTER", "Push token", "Push token registered", http.StatusCreated, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -233,6 +235,7 @@ func (p *PushNotifications) UpdateToken(w http.ResponseWriter, r *http.Request) 
 		web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
 		return
 	}
+	p.service.RecordUserAuditHTTP(ctx, "FCM_TOKEN_UPDATE", "Push token", "Push token updated", http.StatusOK, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(map[string]string{"message": "token updated successfully"}); err != nil {
@@ -327,6 +330,7 @@ func (p *PushNotifications) DeleteToken(w http.ResponseWriter, r *http.Request) 
 		web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
 		return
 	}
+	p.service.RecordUserAuditHTTP(ctx, "FCM_TOKEN_DELETE", "Push token", "Push token deleted", http.StatusOK, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(map[string]string{"message": "token deleted successfully"}); err != nil {

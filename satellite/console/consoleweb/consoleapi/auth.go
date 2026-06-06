@@ -248,6 +248,10 @@ func (a *Auth) getExternalAddress(ctx context.Context) string {
 	return a.ExternalAddress
 }
 
+func (a *Auth) recordFailedLoginByEmail(ctx context.Context, email, failureMessage string) {
+	a.service.RecordUserAuditForEmail(ctx, email, "AUTH_LOGIN", "Session", "User logged in", console.ErrLoginCredentials.New(failureMessage))
+}
+
 // Token authenticates user by credentials and returns auth token.
 func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -262,7 +266,9 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if tokenRequest.Password == "" {
-		a.serveJSONError(ctx, w, console.ErrValidation.New("password is required"))
+		loginErr := console.ErrValidation.New("password is required")
+		a.service.RecordUserAuditForEmail(ctx, tokenRequest.Email, "AUTH_LOGIN", "Session", "User logged in", loginErr)
+		a.serveJSONError(ctx, w, loginErr)
 		return
 	}
 
@@ -275,6 +281,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	tokenRequest.AnonymousID = LoadAjsAnonymousID(r)
 
 	tokenInfo, err := a.service.Token(ctx, tokenRequest)
+	a.service.RecordUserAuditForEmail(ctx, tokenRequest.Email, "AUTH_LOGIN", "Session", "User logged in", err)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
 			web.ServeCustomJSONError(ctx, a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
@@ -368,12 +375,14 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.service.GetUserForSsoAuth(ctx, *claims, provider, ip, userAgent)
 	if err != nil {
+		a.service.RecordUserAuditForEmail(ctx, claims.Email, "AUTH_LOGIN", "Session", "User logged in", err)
 		a.log.Error("Error getting user for sso auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
 
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, LoadAjsAnonymousID(r), nil, nil, nil)
+	a.service.RecordUserAuditForUser(ctx, user, "AUTH_LOGIN", "Session", "User logged in", err)
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -533,6 +542,7 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
+	a.service.RecordUserAudit(ctx, "AUTH_LOGOUT", "Session", "User logged out", nil)
 	a.cookieAuth.RemoveTokenCookie(w)
 }
 
@@ -1002,6 +1012,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, userI.Data.Username+"@no-email.com", "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Your email id is not registered", http.StatusTemporaryRedirect)
 		return
@@ -1334,6 +1345,7 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, responseBody.Sub+"@ud.me", "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -1496,6 +1508,7 @@ func (a *Auth) LoginUserApple(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, responseBody.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -1743,6 +1756,7 @@ func (a *Auth) completeGoogleBackupRegister(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	a.service.RecordUserAudit(authed, "AUTH_GOOGLE_BACKUP", "Google Backup", "Google Backup registration completed", nil)
 	a.writeGoogleBackupAuthSuccess(w, googleBackupAuthActionRegistered, onboarding, googleBackup)
 }
 
@@ -1773,6 +1787,7 @@ func (a *Auth) completeGoogleBackupLogin(w http.ResponseWriter, r *http.Request,
 		onboarding = console.GoogleBackupOnboardingAPI{}
 	}
 
+	a.service.RecordUserAudit(authed, "AUTH_GOOGLE_BACKUP", "Google Backup", "Google Backup login completed", nil)
 	a.writeGoogleBackupAuthSuccess(w, googleBackupAuthActionLoggedIn, onboarding, googleBackup)
 }
 
@@ -2050,6 +2065,7 @@ func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, googleuser.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -2083,6 +2099,7 @@ func (a *Auth) issueSessionTokenForGoogleUser(ctx context.Context, userGmail, ke
 	tokenRequest.IP = ip
 
 	tokenInfo, err := a.service.Token_google(ctx, tokenRequest)
+	a.service.RecordUserAuditForEmail(ctx, userGmail, "AUTH_LOGIN", "Session", "User logged in", err)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
 			a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
@@ -2320,6 +2337,7 @@ func (a *Auth) HandleFacebookLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, fbUserDetails.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -2788,6 +2806,7 @@ func (a *Auth) HandleLinkedInLogin(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(verified, unverified)
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, LinkedinUserDetails.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -2861,6 +2880,7 @@ func (a *Auth) HandleLinkedInLoginWithAuthToken(w http.ResponseWriter, r *http.R
 	fmt.Println(verified, unverified)
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, LinkedinUserDetails.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id ("+LinkedinUserDetails.Email+") is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -3021,6 +3041,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.SetAccountActive(ctx, user)
+	a.service.RecordUserAuditForUser(ctx, user, "AUTH_ACTIVATE", "Account", "Account activated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3090,7 +3111,9 @@ func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.ChangeEmail(ctx, data.Step, data.Data); err != nil {
+	err = a.service.ChangeEmail(ctx, data.Step, data.Data)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_CHANGE_EMAIL", "Account", "Account email changed", err)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
@@ -3124,7 +3147,9 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
+	err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_UPDATE", "Account", "Account updated", err)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
@@ -3162,13 +3187,15 @@ func (a *Auth) UpdateAccountInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.UpdateAccountInfo(ctx, &console.UpdateUserSocialMediaLinks{
+	err = a.service.UpdateAccountInfo(ctx, &console.UpdateUserSocialMediaLinks{
 		SocialLinkedin: updatedInfo.SocialLinkedin,
 		SocialTwitter:  updatedInfo.SocialTwitter,
 		SocialFacebook: updatedInfo.SocialFacebook,
 		SocialGithub:   updatedInfo.SocialGithub,
 		WalletID:       updatedInfo.WalletID,
-	}); err != nil {
+	})
+	a.service.RecordUserAudit(ctx, "ACCOUNT_INFO_UPDATE", "Account", "Account info updated", err)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
@@ -3227,8 +3254,10 @@ func (a *Auth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = a.service.DeleteAccountRequest(ctx)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_DELETE_REQUEST", "Account", "Account deletion requested", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
+		return
 	}
 
 	w.WriteHeader(http.StatusAccepted)
@@ -3248,7 +3277,9 @@ func (a *Auth) SetupAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.SetupAccount(ctx, updatedInfo); err != nil {
+	err = a.service.SetupAccount(ctx, updatedInfo)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_SETUP", "Account", "Account setup completed", err)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
@@ -3402,6 +3433,7 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword, &sessionID)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_CHANGE_PASSWORD", "Account", "Password changed", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3673,6 +3705,7 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.EnableUserMFA(ctx, data.Passcode, time.Now())
+	a.service.RecordUserAudit(ctx, "MFA_ENABLE", "MFA", "MFA enabled", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3738,6 +3771,7 @@ func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.DisableUserMFA(ctx, data.Passcode, time.Now(), data.RecoveryCode)
+	a.service.RecordUserAudit(ctx, "MFA_DISABLE", "MFA", "MFA disabled", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3781,6 +3815,7 @@ func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	key, err := a.service.ResetMFASecretKey(ctx)
+	a.service.RecordUserAudit(ctx, "MFA_GENERATE_SECRET", "MFA", "MFA secret key generated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3810,6 +3845,7 @@ func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) 
 	defer mon.Task()(&ctx)(&err)
 
 	codes, err := a.service.ResetMFARecoveryCodes(ctx, false, "", "")
+	a.service.RecordUserAudit(ctx, "MFA_REGENERATE_RECOVERY", "MFA", "MFA recovery codes generated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3852,6 +3888,7 @@ func (a *Auth) RegenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request
 	}
 
 	codes, err := a.service.ResetMFARecoveryCodes(ctx, true, data.Passcode, data.RecoveryCode)
+	a.service.RecordUserAudit(ctx, "MFA_REGENERATE_RECOVERY", "MFA", "MFA recovery codes regenerated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3978,6 +4015,7 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenInfo.ExpiresAt, err = a.service.RefreshSession(ctx, id)
+	a.service.RecordUserAudit(ctx, "AUTH_REFRESH_SESSION", "Session", "Session refreshed", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -4099,6 +4137,7 @@ func (a *Auth) InvalidateSessionByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.InvalidateSession(ctx, sessionID)
+	a.service.RecordUserAudit(ctx, "AUTH_INVALIDATE_SESSION", "Session", "Session invalidated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
@@ -4493,6 +4532,7 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Call delete account function with the provided email
 	err = a.service.DeleteAccount(ctx, requestData.Email)
+	a.service.RecordUserAuditForEmail(ctx, requestData.Email, "ACCOUNT_DELETE", "Account", "Account deleted", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -4591,6 +4631,7 @@ func (a *Auth) RevokeUserDeveloperAccess(w http.ResponseWriter, r *http.Request)
 	}
 
 	err = a.service.RevokeUserDeveloperAccess(ctx, clientID)
+	a.service.RecordUserAudit(ctx, "DEVELOPER_ACCESS_REVOKE", "Developer access", "Developer access revoked", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return

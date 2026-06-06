@@ -127,6 +127,7 @@ func (g *GoogleBackupRestore) manualRestoreBatch(w http.ResponseWriter, r *http.
 		Keys:             body.Keys,
 	}
 	respBody, status, err := g.service.GoogleBackupManualRestore(ctx, tokenKey, backupToolsPath, req)
+	g.service.RecordUserAuditHTTP(ctx, "GB_MANUAL_RESTORE", "Manual restore", "Manual restore completed", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -159,6 +160,7 @@ func (g *GoogleBackupRestore) GoogleAuth(w http.ResponseWriter, r *http.Request)
 	}
 
 	respBody, status, err := g.service.BackupToolsGoogleAuth(ctx, body.GoogleKey)
+	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_AUTH", "Google restore auth", "Google restore authentication completed", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -244,6 +246,7 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 		ProjectID: body.ProjectID,
 		LoginID:   body.LoginID,
 	})
+	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_INITIATED", "Restore", "Restore initiated", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -328,10 +331,24 @@ func (g *GoogleBackupRestore) GetRestoreJob(w http.ResponseWriter, r *http.Reque
 // @Security     CookieAuth
 // @Router       /google-backup/restore/job/{job_id}/cancel [post]
 func (g *GoogleBackupRestore) CancelRestoreJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	jobID := mux.Vars(r)["job_id"]
-	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
-		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodPost, "/restore/job/"+jobID+"/cancel", tokenKey, nil)
-	})
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.CancelGoogleBackupRestoreJob(ctx, tokenKey, jobID)
+	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_CANCEL", "Restore job", "Restore job cancelled", status, respBody, err)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
 }
 
 // ListRestoreDeadItems lists failed object keys for a job.

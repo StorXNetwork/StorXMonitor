@@ -77,6 +77,9 @@ package consoleweb
 // @tag.name config
 // @tag.description Public console bootstrap config: GET /api/v0/config (feature flags, API base URL, CSRF token, billing/UI toggles)
 
+// @tag.name audit-logs
+// @tag.description System audit logs: GET /api/v0/audit-logs (list with filters), GET /api/v0/audit-logs/actions (filter dropdown), GET /api/v0/audit-logs/export (CSV)
+
 // Common response models
 type ErrorResponse struct {
 	Error string `json:"error" example:"error message"`

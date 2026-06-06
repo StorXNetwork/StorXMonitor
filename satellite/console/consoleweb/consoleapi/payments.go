@@ -1495,6 +1495,8 @@ func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 		// Set appropriate headers
 		w.Header().Set("Content-Type", "application/json")
 
+		p.service.RecordUserAuditHTTP(ctx, "PAYMENT_GENERATE_LINK", "Payment", "Payment link generated", http.StatusOK, nil, nil)
+
 		// Send the response to the frontend
 		_, err = w.Write(jsonResponse)
 		if err != nil {

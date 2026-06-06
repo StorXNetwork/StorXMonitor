@@ -323,6 +323,7 @@ func (b *Buckets) UpdateImmutabilityRules(w http.ResponseWriter, r *http.Request
 	}
 
 	err = b.service.UpdateBucketImmutabilityRules(ctx, []byte(bucketName), projectID, rules)
+	b.service.RecordUserAudit(ctx, "BUCKET_IMMUTABILITY_UPDATE", "Bucket", "Bucket immutability updated", err)
 	if err != nil {
 		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
@@ -381,6 +382,7 @@ func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Req
 	}
 
 	err = b.service.UpdateBucketMigrationStatus(ctx, []byte(bucketName), projectID, statusInt)
+	b.service.RecordUserAudit(ctx, "BUCKET_MIGRATION_UPDATE", "Bucket", "Bucket migration updated", err)
 	if err != nil {
 		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return

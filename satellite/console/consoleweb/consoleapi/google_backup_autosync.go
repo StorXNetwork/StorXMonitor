@@ -100,6 +100,15 @@ func (g *GoogleBackup) CreateAutoSyncJobs(w http.ResponseWriter, r *http.Request
 		On:       body.On,
 		Emails:   body.Emails,
 	}, tokenKey, syncType)
+	g.service.RecordUserAuditHTTP(ctx, "GB_JOB_CREATE", "Auto-sync job", "Auto-sync job created", status, respBody, err)
+	if err == nil && status == http.StatusOK {
+		var jobCreateResp struct {
+			Failed []json.RawMessage `json:"failed"`
+		}
+		if json.Unmarshal(respBody, &jobCreateResp) == nil && len(jobCreateResp.Failed) == 0 {
+			g.service.RecordUserAudit(ctx, "GB_ONBOARDING_COMPLETE", "Google Backup onboarding", "Google Backup onboarding completed", nil)
+		}
+	}
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -207,6 +216,7 @@ func (g *GoogleBackup) UpdateAutoSyncJobsByProject(w http.ResponseWriter, r *htt
 	}
 
 	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncJobsByProject(ctx, tokenKey, req)
+	g.service.RecordUserAuditHTTP(ctx, "GB_JOB_UPDATE", "Auto-sync project", "Auto-sync project updated", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -239,6 +249,7 @@ func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request)
 	}
 
 	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncJob(ctx, tokenKey, mux.Vars(r)["job_id"], req)
+	g.service.RecordUserAuditHTTP(ctx, "GB_JOB_UPDATE", "Auto-sync job", "Auto-sync job updated", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -322,6 +333,7 @@ func (g *GoogleBackup) ConnectGoogle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	connectResult, err := g.service.ConnectGoogleBackupCredential(ctx, body.Code)
+	g.service.RecordUserAudit(ctx, "GB_CONNECT", "Google account", "Google account connected", err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return

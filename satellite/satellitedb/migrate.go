@@ -1198,6 +1198,44 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add audit_logs table",
+				Version:     130,
+				Action: migrate.SQL{
+					`CREATE TABLE audit_logs (
+						id BYTES(16) NOT NULL,
+						timestamp TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+						actor_id STRING(MAX) NOT NULL,
+						actor_name STRING(MAX),
+						actor_email STRING(MAX),
+						action STRING(MAX) NOT NULL,
+						resource STRING(MAX),
+						ip_address STRING(MAX),
+						status STRING(MAX) NOT NULL
+					) PRIMARY KEY ( id )`,
+					`CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp )`,
+					`CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add message column to audit_logs",
+				Version:     131,
+				Action: migrate.SQL{
+					`ALTER TABLE audit_logs ADD COLUMN message STRING(MAX)`,
+					`UPDATE audit_logs SET message = action WHERE message IS NULL`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop actor_name and actor_email from audit_logs",
+				Version:     132,
+				Action: migrate.SQL{
+					`ALTER TABLE audit_logs DROP COLUMN actor_name`,
+					`ALTER TABLE audit_logs DROP COLUMN actor_email`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4995,6 +5033,46 @@ true, NOW(), NOW());`,
 						UNIQUE ( user_id, google_email )
 					);`,
 					`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add audit_logs table",
+				Version:     374,
+				Action: migrate.SQL{
+					`CREATE TABLE audit_logs (
+						id bytea NOT NULL,
+						timestamp timestamp with time zone NOT NULL DEFAULT now(),
+						actor_id text NOT NULL,
+						actor_name text,
+						actor_email text,
+						action text NOT NULL,
+						resource text,
+						ip_address text,
+						status text NOT NULL DEFAULT 'success',
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp );`,
+					`CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add message column to audit_logs",
+				Version:     375,
+				Action: migrate.SQL{
+					`ALTER TABLE audit_logs ADD COLUMN message text NOT NULL DEFAULT ''`,
+					`UPDATE audit_logs SET message = action WHERE message = ''`,
+					`ALTER TABLE audit_logs ALTER COLUMN message DROP DEFAULT`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop actor_name and actor_email from audit_logs",
+				Version:     376,
+				Action: migrate.SQL{
+					`ALTER TABLE audit_logs DROP COLUMN IF EXISTS actor_name`,
+					`ALTER TABLE audit_logs DROP COLUMN IF EXISTS actor_email`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

@@ -154,6 +154,7 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = p.service.UpdateProject(ctx, id, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_UPDATE", "Project", "Project updated", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -224,6 +225,7 @@ func (p *Projects) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := p.service.DeleteProject(ctx, id, data.Step, data.Data)
+	p.service.RecordUserAudit(ctx, "PROJECT_DELETE", "Project", "Project deleted", err)
 	if err != nil {
 		if resp != nil {
 			w.WriteHeader(http.StatusConflict)
@@ -270,6 +272,7 @@ func (p *Projects) UpdateUserSpecifiedLimits(w http.ResponseWriter, r *http.Requ
 	}
 
 	err = p.service.UpdateUserSpecifiedLimits(ctx, id, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_LIMITS_UPDATE", "Project limits", "Project limits updated", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -327,6 +330,7 @@ func (p *Projects) RequestLimitIncrease(w http.ResponseWriter, r *http.Request) 
 	}
 
 	err = p.service.RequestLimitIncrease(ctx, id, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_LIMIT_INCREASE", "Project", "Project limit increase requested", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -366,6 +370,7 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	project, err := p.service.CreateProject(ctx, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_CREATE", "Project", "Project created", err)
 	if err != nil {
 		if console.ErrBotUser.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusForbidden, err)
@@ -573,6 +578,7 @@ func (p *Projects) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updatedMember, err := p.service.UpdateProjectMemberRole(ctx, memberID, publicID, newRole)
+	p.service.RecordUserAudit(ctx, "PROJECT_MEMBER_UPDATE", "Project member", "Project member updated", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -855,6 +861,7 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = p.service.InviteNewProjectMember(ctx, id, email)
+	p.service.RecordUserAudit(ctx, "PROJECT_INVITE", "Project member", "Project member invited", err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
@@ -897,6 +904,7 @@ func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = p.service.ReinviteProjectMembers(ctx, id, data.Emails)
+	p.service.RecordUserAudit(ctx, "PROJECT_REINVITE", "Project member", "Project members reinvited", err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
@@ -1067,6 +1075,7 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = p.service.RespondToProjectInvitation(ctx, id, payload.Response)
+	p.service.RecordUserAudit(ctx, "PROJECT_INVITATION_RESPOND", "Project invitation", "Project invitation responded", err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		switch {
@@ -1112,6 +1121,7 @@ func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Re
 	}
 
 	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_MEMBERS_DELETE", "Project members", "Project members removed", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)

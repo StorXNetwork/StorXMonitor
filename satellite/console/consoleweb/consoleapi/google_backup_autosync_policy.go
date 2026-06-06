@@ -172,6 +172,7 @@ func (g *GoogleBackupAutoSyncPolicy) UpdatePolicy(w http.ResponseWriter, r *http
 	}
 
 	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncPolicy(ctx, tokenKey, mux.Vars(r)["policy_id"], req)
+	g.service.RecordUserAuditHTTP(ctx, "GB_POLICY_UPDATE", "Auto-sync policy", "Auto-sync policy updated", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -218,6 +219,7 @@ func (g *GoogleBackupAutoSyncPolicy) MergePolicies(w http.ResponseWriter, r *htt
 	}
 
 	respBody, status, err := g.service.MergeGoogleBackupAutoSyncPolicies(ctx, tokenKey, req)
+	g.service.RecordUserAuditHTTP(ctx, "GB_POLICY_MERGE", "Auto-sync policy", "Auto-sync policies merged", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return

@@ -94,6 +94,7 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name, apiKeyVersion)
+	keys.service.RecordUserAudit(ctx, "API_KEY_CREATE", "API key", "API key created", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -480,6 +481,7 @@ func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = keys.service.DeleteAPIKeys(ctx, keyIDs)
+	keys.service.RecordUserAudit(ctx, "API_KEY_DELETE", "API key", "API key deleted", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -531,6 +533,7 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 	}
 
 	err = keys.service.DeleteAPIKeyByNameAndProjectID(ctx, name, projectID)
+	keys.service.RecordUserAudit(ctx, "API_KEY_DELETE", "API key", "API key deleted", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)

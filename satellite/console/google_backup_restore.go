@@ -123,6 +123,18 @@ func (s *Service) ProxyGoogleBackupRestoreCron(ctx context.Context, method, path
 	return s.backupToolsRequest(ctx, method, path, tokenKey, "", payload)
 }
 
+// CancelGoogleBackupRestoreJob proxies Backup-Tools POST /restore/job/{job_id}/cancel.
+func (s *Service) CancelGoogleBackupRestoreJob(ctx context.Context, tokenKey, jobID string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	jobID = strings.TrimSpace(jobID)
+	if jobID == "" {
+		return nil, 0, ErrValidation.New("job_id is required")
+	}
+	path := "/restore/job/" + url.PathEscape(jobID) + "/cancel"
+	return s.backupToolsRequest(ctx, http.MethodPost, path, tokenKey, "", nil)
+}
+
 // BackupToolsGoogleAuth exchanges a Google id/access token for Backup-Tools google-auth JWT (POST /google-auth).
 // Used by manual /google/* restore routes only, not restore-all scheduler.
 func (s *Service) BackupToolsGoogleAuth(ctx context.Context, googleKey string) (body []byte, status int, err error) {

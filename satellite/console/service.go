@@ -42,6 +42,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
@@ -284,6 +285,7 @@ type Service struct {
 	satelliteName           string
 	whiteLabelConfig        TenantWhiteLabelConfig
 	pushNotificationService *pushnotifications.Service
+	auditLogService         *auditlog.Service
 
 	paymentSourceChainIDs map[int64]string
 
@@ -750,6 +752,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		return nil, Error.Wrap(err)
 	}
 
+	auditLogService := auditlog.NewService(log.Named("auditlog-service"), store.AuditLogs(), config.AuditLog)
+
 	return &Service{
 		log:                        log,
 		auditLogger:                log.Named("auditlog"),
@@ -785,6 +789,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		maxProjectBuckets:          maxProjectBuckets,
 		ssoEnabled:                 ssoEnabled,
 		pushNotificationService:    pushNotificationService,
+		auditLogService:            auditLogService,
 		config:                     config,
 		varPartners:                partners,
 		versioningConfig:           versioning,

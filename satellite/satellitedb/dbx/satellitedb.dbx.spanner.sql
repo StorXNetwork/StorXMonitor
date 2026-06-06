@@ -33,6 +33,16 @@ CREATE TABLE admins (
 	updated_at TIMESTAMP NOT NULL,
 	deleted_at TIMESTAMP
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE audit_logs (
+	id BYTES(MAX) NOT NULL,
+	timestamp TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	actor_id STRING(MAX) NOT NULL,
+	action STRING(MAX) NOT NULL,
+	resource STRING(MAX),
+	message STRING(MAX) NOT NULL,
+	ip_address STRING(MAX),
+	status STRING(MAX) NOT NULL
+) PRIMARY KEY ( id ) ;
 CREATE TABLE backup_final_statuses (
 	backup_date STRING(MAX) NOT NULL,
 	status STRING(MAX) NOT NULL,
@@ -844,6 +854,8 @@ CREATE TABLE api_key_tails (
 ) PRIMARY KEY ( tail ) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
 CREATE INDEX admin_email_status_index ON admins ( email, status ) ;
+CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp ) ;
+CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp ) ;
 CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;

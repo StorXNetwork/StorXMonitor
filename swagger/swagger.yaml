@@ -94,6 +94,66 @@ definitions:
         example: 3
         type: integer
     type: object
+  consoleapi.AuditLogActionsSwaggerResponse:
+    properties:
+      actions:
+        example:
+        - AUTH_LOGIN
+        - AUTH_LOGOUT
+        - PROJECT_CREATE
+        items:
+          type: string
+        type: array
+    type: object
+  consoleapi.AuditLogListSwaggerResponse:
+    properties:
+      Items:
+        items:
+          $ref: '#/definitions/consoleapi.AuditLogRecordSwagger'
+        type: array
+      NextCursor:
+        example: ""
+        type: string
+      TotalCount:
+        example: 42
+        type: integer
+    type: object
+  consoleapi.AuditLogRecordSwagger:
+    properties:
+      action:
+        example: AUTH_LOGIN
+        type: string
+      actor:
+        example: Jane Doe
+        type: string
+      actor_email:
+        example: jane@example.com
+        type: string
+      actor_id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      id:
+        example: 878b7ed7-e0b8-499f-b7ad-eae3af6153c6
+        type: string
+      ip_address:
+        example: 203.0.113.10
+        type: string
+      message:
+        example: User logged in
+        type: string
+      resource:
+        example: Session
+        type: string
+      status:
+        enum:
+        - success
+        - failed
+        example: success
+        type: string
+      timestamp:
+        example: "2026-06-02T10:15:30Z"
+        type: string
+    type: object
   consoleapi.AuthAccountFreezeStatusSwaggerResponse:
     properties:
       frozen:
@@ -1444,6 +1504,152 @@ paths:
       summary: List API keys (paginated)
       tags:
       - access
+  /audit-logs:
+    get:
+      description: '**Full route:** `GET /api/v0/audit-logs`'
+      parameters:
+      - description: Filter by action code (e.g. AUTH_LOGIN)
+        in: query
+        name: action
+        type: string
+      - description: Filter by status
+        enum:
+        - success
+        - failed
+        in: query
+        name: status
+        type: string
+      - description: Search action, resource, message, or record id
+        in: query
+        name: search
+        type: string
+      - description: Range start (RFC3339)
+        example: "2026-06-01T00:00:00Z"
+        in: query
+        name: from
+        type: string
+      - description: Range end (RFC3339)
+        example: "2026-06-02T23:59:59Z"
+        in: query
+        name: to
+        type: string
+      - default: 50
+        description: Page size (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor from previous response NextCursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuditLogListSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List audit logs
+      tags:
+      - audit-logs
+  /audit-logs/actions:
+    get:
+      description: '**Full route:** `GET /api/v0/audit-logs/actions`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuditLogActionsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List audit log action codes
+      tags:
+      - audit-logs
+  /audit-logs/export:
+    get:
+      description: '**Full route:** `GET /api/v0/audit-logs/export`'
+      parameters:
+      - description: Filter by action code
+        in: query
+        name: action
+        type: string
+      - description: Filter by status
+        enum:
+        - success
+        - failed
+        in: query
+        name: status
+        type: string
+      - description: Search action, resource, message, or record id
+        in: query
+        name: search
+        type: string
+      - description: Range start (RFC3339)
+        example: "2026-06-01T00:00:00Z"
+        in: query
+        name: from
+        type: string
+      - description: Range end (RFC3339)
+        example: "2026-06-02T23:59:59Z"
+        in: query
+        name: to
+        type: string
+      - description: Max rows per batch (internal pagination)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: 'CSV file (Content-Disposition: audit-logs.csv)'
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Export audit logs as CSV
+      tags:
+      - audit-logs
   /auth/account:
     delete:
       consumes:
@@ -3551,3 +3757,6 @@ tags:
 - description: 'Public console bootstrap config: GET /api/v0/config (feature flags,
     API base URL, CSRF token, billing/UI toggles)'
   name: config
+- description: 'System audit logs: GET /api/v0/audit-logs (list with filters), GET
+    /api/v0/audit-logs/actions (filter dropdown), GET /api/v0/audit-logs/export (CSV)'
+  name: audit-logs

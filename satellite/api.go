@@ -28,6 +28,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
@@ -849,6 +850,23 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		auditLogChore := auditlog.NewChore(
+			peer.Log.Named("auditlog:chore"),
+			peer.Console.Service.AuditLog(),
+			24*time.Hour,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "auditlog:chore",
+			Run:   auditLogChore.Run,
+			Close: auditLogChore.Close,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "console:auditlog",
+			Close: func() error {
+				return peer.Console.Service.CloseAuditLog()
+			},
+		})
 
 		peer.Console.ConsoleService, err = consoleservice.NewService(
 			peer.Log.Named("console:service"),

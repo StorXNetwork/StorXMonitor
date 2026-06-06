@@ -264,6 +264,7 @@ func (n *Notifications) MarkAllAsRead(w http.ResponseWriter, r *http.Request) {
 		web.ServeJSONError(ctx, n.log, w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
+	n.service.RecordUserAuditHTTP(ctx, "NOTIFICATION_READ_ALL", "Notifications", "All notifications marked as read", http.StatusOK, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(map[string]string{"message": "All notifications marked as read"}); err != nil {
@@ -351,6 +352,7 @@ func (n *Notifications) DismissNotification(w http.ResponseWriter, r *http.Reque
 		web.ServeJSONError(ctx, n.log, w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
+	n.service.RecordUserAuditHTTP(ctx, "NOTIFICATION_DISMISS", "Notification", "Notification dismissed", http.StatusOK, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(map[string]string{"message": "Notification dismissed successfully"}); err != nil {

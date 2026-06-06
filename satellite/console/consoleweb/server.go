@@ -102,11 +102,11 @@ type Config struct {
 
 	BackupToolsURL string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
 
-	GoogleClientID               string `help:"client id for google oauth" default:""`
-	GoogleClientSecret           string `help:"client secret for google oauth" default:""`
-	GoogleSigupRedirectURLstring       string `help:"redirect url for google oauth register" default:""`
-	GoggleLoginRedirectURLstring       string `help:"redirect url for google oauth login" default:""`
-	GoogleBackupRedirectURLstring      string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
+	GoogleClientID                string `help:"client id for google oauth" default:""`
+	GoogleClientSecret            string `help:"client secret for google oauth" default:""`
+	GoogleSigupRedirectURLstring  string `help:"redirect url for google oauth register" default:""`
+	GoggleLoginRedirectURLstring  string `help:"redirect url for google oauth login" default:""`
+	GoogleBackupRedirectURLstring string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
 
 	FacebookClientID               string `help:"client id for facebook oauth" default:""`
 	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
@@ -525,6 +525,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	dashboardRouter.Use(server.withCORS)
 	dashboardRouter.Use(server.withAuth)
 	dashboardRouter.Handle("/stats", http.HandlerFunc(dashboardController.GetDashboardStats)).Methods(http.MethodGet, http.MethodOptions)
+
+	auditLogsController := consoleapi.NewAuditLogs(logger, service)
+	auditLogsRouter := router.PathPrefix("/api/v0/audit-logs").Subrouter()
+	auditLogsRouter.Use(server.withCORS)
+	auditLogsRouter.Handle("", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ListAuditLogs)))).Methods(http.MethodGet, http.MethodOptions)
+	auditLogsRouter.Handle("/actions", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ListAuditLogActions)))).Methods(http.MethodGet, http.MethodOptions)
+	auditLogsRouter.Handle("/export", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ExportAuditLogs)))).Methods(http.MethodGet, http.MethodOptions)
 
 	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)
 	googleBackupRouter := router.PathPrefix("/api/v0/google-backup").Subrouter()
