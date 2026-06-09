@@ -540,6 +540,31 @@ definitions:
         example: eyJhbGciOiJIUzI1NiIs...
         type: string
     type: object
+  consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger:
+    properties:
+      active_jobs:
+        example: 3
+        type: integer
+      deactive_jobs:
+        example: 1
+        type: integer
+      method:
+        example: gmail
+        type: string
+      total_jobs:
+        example: 4
+        type: integer
+    type: object
+  consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse:
+    properties:
+      message:
+        example: Connected autosync services
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger'
+        type: array
+    type: object
   consoleapi.GoogleBackupConnectSwaggerRequest:
     properties:
       code:
@@ -608,6 +633,381 @@ definitions:
         example: GoogleBackupPending
         type: string
     type: object
+  consoleapi.GoogleBackupPolicyConnectedAccountSwagger:
+    properties:
+      account_type:
+        enum:
+        - personal
+        - employee_workspace
+        - admin_workspace
+        example: admin_workspace
+        type: string
+      credential_id:
+        example: 5
+        type: integer
+      google_email:
+        example: admin@company.com
+        type: string
+      needs_google_reconnect:
+        example: true
+        type: boolean
+      needs_storx_reconnect:
+        example: false
+        type: boolean
+      oauth_holder_email:
+        example: admin@company.com
+        type: string
+      project_id:
+        example: abc-123
+        type: string
+      reconnect_scope:
+        example: credential
+        type: string
+      storj_project_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+    type: object
+  consoleapi.GoogleBackupPolicyDetailSwaggerResponse:
+    properties:
+      account:
+        $ref: '#/definitions/consoleapi.GoogleBackupPolicyConnectedAccountSwagger'
+      failed:
+        items: {}
+        type: array
+      linked_jobs:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupPolicyLinkedJobSwagger'
+        type: array
+      message:
+        example: Backup policy details
+        type: string
+      policy:
+        $ref: '#/definitions/consoleapi.GoogleBackupPolicyListItemSwagger'
+    type: object
+  consoleapi.GoogleBackupPolicyLinkedJobSwagger:
+    properties:
+      active:
+        example: false
+        type: boolean
+      email:
+        example: user1@company.com
+        type: string
+      job_id:
+        example: 101
+        type: integer
+      method:
+        example: gmail
+        type: string
+      sync_type:
+        example: daily
+        type: string
+    type: object
+  consoleapi.GoogleBackupPolicyListItemSwagger:
+    properties:
+      credential_id:
+        example: 5
+        type: integer
+      expires_at:
+        example: "2027-01-01T00:00:00Z"
+        type: string
+      interval:
+        description: 'Schedule interval: 3h, 12h, daily, weekly, monthly.'
+        enum:
+        - 3h
+        - 12h
+        - daily
+        - weekly
+        - monthly
+        example: daily
+        type: string
+      is_expired:
+        example: false
+        type: boolean
+      linked_job_count:
+        example: 3
+        type: integer
+      needs_google_reconnect:
+        example: true
+        type: boolean
+      needs_storx_reconnect:
+        example: false
+        type: boolean
+      "on":
+        description: 'Schedule anchor: empty (3h/12h), time (daily), weekday (weekly),
+          day-of-month (monthly).'
+        example: 12am
+        type: string
+      policy_id:
+        example: 12
+        type: integer
+      retention_type:
+        description: 'Retention: never, 30_days, 1_year, 7_years.'
+        enum:
+        - never
+        - 30_days
+        - 1_year
+        - 7_years
+        example: never
+        type: string
+    type: object
+  consoleapi.GoogleBackupPolicyListSwaggerResponse:
+    properties:
+      account:
+        $ref: '#/definitions/consoleapi.GoogleBackupPolicyConnectedAccountSwagger'
+      failed:
+        items: {}
+        type: array
+      message:
+        example: Backup policies
+        type: string
+      policies:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupPolicyListItemSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupPolicyMergeExecuteSwaggerResponse:
+    properties:
+      failed:
+        items: {}
+        type: array
+      merge:
+        properties:
+          canonical_policy_id:
+            example: 12
+            type: integer
+          canonical_reason:
+            example: most_linked_jobs_non_expired
+            type: string
+          impact:
+            $ref: '#/definitions/consoleapi.GoogleBackupPolicyMergeImpactSwagger'
+          jobs_rebound:
+            example: 5
+            type: integer
+          policy:
+            $ref: '#/definitions/consoleapi.GoogleBackupPolicyListItemSwagger'
+          policy_ids:
+            example:
+            - 12
+            - 18
+            - 22
+            items:
+              type: integer
+            type: array
+          removed_policy_ids:
+            example:
+            - 18
+            - 22
+            items:
+              type: integer
+            type: array
+          schedule:
+            $ref: '#/definitions/consoleapi.GoogleBackupPolicyScheduleSwagger'
+        type: object
+      message:
+        example: Policies merged
+        type: string
+    type: object
+  consoleapi.GoogleBackupPolicyMergeImpactSwagger:
+    properties:
+      jobs_rebound:
+        example: 5
+        type: integer
+      jobs_to_rebind:
+        example: 5
+        type: integer
+      policies_removed:
+        example: 2
+        type: integer
+      policies_to_remove:
+        example: 2
+        type: integer
+      policy_kept:
+        example: 1
+        type: integer
+      total_jobs_after_merge:
+        example: 8
+        type: integer
+    type: object
+  consoleapi.GoogleBackupPolicyMergeLinkedJobPreviewSwagger:
+    properties:
+      email:
+        example: user1@company.com
+        type: string
+      job_id:
+        example: 101
+        type: integer
+      method:
+        example: gmail
+        type: string
+      policy_id:
+        example: 12
+        type: integer
+    type: object
+  consoleapi.GoogleBackupPolicyMergePreviewGroupSwagger:
+    properties:
+      account:
+        $ref: '#/definitions/consoleapi.GoogleBackupPolicyConnectedAccountSwagger'
+      canonical_reason:
+        enum:
+        - most_linked_jobs_non_expired
+        - non_expired_policy
+        - lowest_policy_id
+        example: most_linked_jobs_non_expired
+        type: string
+      has_more_jobs:
+        example: false
+        type: boolean
+      impact:
+        $ref: '#/definitions/consoleapi.GoogleBackupPolicyMergeImpactSwagger'
+      jobs_to_rebind:
+        example: 5
+        type: integer
+      linked_jobs_preview:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupPolicyMergeLinkedJobPreviewSwagger'
+        type: array
+      policies:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupPolicyMergePreviewPolicySwagger'
+        type: array
+      policy_ids:
+        example:
+        - 12
+        - 18
+        - 22
+        items:
+          type: integer
+        type: array
+      recommended_canonical_policy_id:
+        example: 12
+        type: integer
+      schedule:
+        $ref: '#/definitions/consoleapi.GoogleBackupPolicyScheduleSwagger'
+    type: object
+  consoleapi.GoogleBackupPolicyMergePreviewPolicySwagger:
+    properties:
+      credential_id:
+        example: 5
+        type: integer
+      expires_at:
+        example: "2027-01-01T00:00:00Z"
+        type: string
+      interval:
+        description: 'Schedule interval: 3h, 12h, daily, weekly, monthly.'
+        enum:
+        - 3h
+        - 12h
+        - daily
+        - weekly
+        - monthly
+        example: daily
+        type: string
+      is_expired:
+        example: false
+        type: boolean
+      linked_job_count:
+        example: 3
+        type: integer
+      needs_google_reconnect:
+        example: true
+        type: boolean
+      needs_storx_reconnect:
+        example: false
+        type: boolean
+      "on":
+        description: 'Schedule anchor: empty (3h/12h), time (daily), weekday (weekly),
+          day-of-month (monthly).'
+        example: 12am
+        type: string
+      policy_id:
+        example: 12
+        type: integer
+      retention_type:
+        description: 'Retention: never, 30_days, 1_year, 7_years.'
+        enum:
+        - never
+        - 30_days
+        - 1_year
+        - 7_years
+        example: never
+        type: string
+      role:
+        enum:
+        - canonical
+        - duplicate
+        example: canonical
+        type: string
+    type: object
+  consoleapi.GoogleBackupPolicyMergePreviewSummarySwagger:
+    properties:
+      duplicate_policy_count:
+        example: 5
+        type: integer
+      jobs_that_would_move:
+        example: 8
+        type: integer
+      mergeable_group_count:
+        example: 2
+        type: integer
+    type: object
+  consoleapi.GoogleBackupPolicyMergePreviewSwaggerResponse:
+    properties:
+      failed:
+        items: {}
+        type: array
+      groups:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupPolicyMergePreviewGroupSwagger'
+        type: array
+      message:
+        example: Duplicate policy merge preview
+        type: string
+      summary:
+        $ref: '#/definitions/consoleapi.GoogleBackupPolicyMergePreviewSummarySwagger'
+    type: object
+  consoleapi.GoogleBackupPolicyScheduleSwagger:
+    properties:
+      expires_at:
+        type: string
+      interval:
+        description: 'Schedule interval: 3h, 12h, daily, weekly, monthly.'
+        enum:
+        - 3h
+        - 12h
+        - daily
+        - weekly
+        - monthly
+        example: daily
+        type: string
+      is_expired:
+        example: false
+        type: boolean
+      "on":
+        description: 'Schedule anchor: empty (3h/12h), time (daily), weekday (weekly),
+          day-of-month (monthly).'
+        example: 12am
+        type: string
+      retention_type:
+        description: 'Retention: never, 30_days, 1_year, 7_years.'
+        enum:
+        - never
+        - 30_days
+        - 1_year
+        - 7_years
+        example: never
+        type: string
+    type: object
+  consoleapi.GoogleBackupPolicyUpdateSwaggerResponse:
+    properties:
+      failed:
+        items: {}
+        type: array
+      message:
+        example: Policy updated
+        type: string
+      policy:
+        $ref: '#/definitions/consoleapi.GoogleBackupPolicyListItemSwagger'
+    type: object
   consoleapi.GoogleBackupRestoreAllSwaggerRequest:
     properties:
       login_id:
@@ -623,6 +1023,77 @@ definitions:
     - login_id
     - project_id
     - service
+    type: object
+  consoleapi.GoogleBackupUsersGroupsDomainsSwaggerResponse:
+    properties:
+      domains:
+        example:
+        - acme.com
+        - gmail.com
+        items:
+          type: string
+        type: array
+    type: object
+  consoleapi.GoogleBackupUsersGroupsEntitySwagger:
+    properties:
+      email:
+        example: s.jenkins@acme.com
+        type: string
+      name:
+        example: s.jenkins
+        type: string
+      policy_id:
+        example: 5
+        type: integer
+      services:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsServiceSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupUsersGroupsPaginationSwagger:
+    properties:
+      limit:
+        example: 10
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total_count:
+        example: 25
+        type: integer
+      total_pages:
+        example: 3
+        type: integer
+    type: object
+  consoleapi.GoogleBackupUsersGroupsServiceSwagger:
+    properties:
+      active:
+        example: true
+        type: boolean
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_contacts
+        - google_calendar
+        example: gmail
+        type: string
+    type: object
+  consoleapi.GoogleBackupUsersGroupsSwaggerResponse:
+    properties:
+      entities:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsEntitySwagger'
+        type: array
+      pagination:
+        $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsPaginationSwagger'
+      policy_link:
+        example: /auto-sync/policy
+        type: string
     type: object
   consoleapi.MFADisableSwaggerRequest:
     properties:
@@ -650,9 +1121,16 @@ definitions:
     type: object
   consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest:
     properties:
-      dry_run:
-        example: false
-        type: boolean
+      policy_ids:
+        example:
+        - 12
+        - 18
+        - 22
+        items:
+          type: integer
+        type: array
+    required:
+    - policy_ids
     type: object
   consoleapi.NotificationListResponse:
     properties:
@@ -982,18 +1460,37 @@ definitions:
   consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest:
     properties:
       apply_all:
+        description: true = Edit (all linked jobs). false = Copy (use with selected_job_ids).
         example: true
         type: boolean
       interval:
+        description: 'Schedule interval. Allowed: 3h, 12h, daily, weekly, monthly.
+          UI aliases nightly, 24h, 7d normalize to daily.'
+        enum:
+        - 3h
+        - 12h
+        - daily
+        - weekly
+        - monthly
         example: daily
         type: string
       "on":
+        description: 'Schedule anchor (depends on interval). 3h/12h: empty string.
+          daily: time e.g. 12am. weekly: weekday e.g. Monday. monthly: day e.g. 1.'
         example: 12am
         type: string
       retention_type:
+        description: 'Backup retention. Allowed: never, 30_days, 1_year, 7_years.
+          Optional — omit to leave unchanged.'
+        enum:
+        - never
+        - 30_days
+        - 1_year
+        - 7_years
         example: 1_year
         type: string
       selected_job_ids:
+        description: Job IDs when apply_all is false (Copy flow).
         example:
         - 101
         - 102
@@ -2492,6 +2989,25 @@ paths:
       summary: Update Google Backup jobs by project
       tags:
       - google-backup
+  /google-backup/auto-sync/jobs/services:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/services`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Google Backup auto-sync service stats
+      tags:
+      - google-backup-users-groups
   /google-backup/auto-sync/policy:
     get:
       description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy`'
@@ -2501,7 +3017,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.GoogleBackupPolicyListSwaggerResponse'
         "401":
           description: Unauthorized
           schema:
@@ -2526,9 +3042,13 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.GoogleBackupPolicyDetailSwaggerResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
@@ -2539,7 +3059,11 @@ paths:
     put:
       consumes:
       - application/json
-      description: '**Full route:** `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}`'
+      description: |-
+        **Full route:** `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}`. Copy: apply_all false + selected_job_ids. Edit: apply_all true. On 409 duplicate schedule use GET .../merge/preview then POST .../merge.
+        **interval:** 3h, 12h, daily, weekly, monthly (aliases nightly/24h/7d normalize to daily).
+        **on:** 3h/12h empty ""; daily time e.g. 12am; weekly weekday e.g. Monday; monthly day e.g. 1.
+        **retention_type:** never, 30_days, 1_year, 7_years (optional).
       parameters:
       - description: Policy ID
         in: path
@@ -2558,7 +3082,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.GoogleBackupPolicyUpdateSwaggerResponse'
         "400":
           description: Bad Request
           schema:
@@ -2567,34 +3091,13 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Update Google Backup auto-sync policy
-      tags:
-      - google-backup-policy
-  /google-backup/auto-sync/policy/by-job/{job_id}:
-    get:
-      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy/by-job/{job_id}`'
-      parameters:
-      - description: Job ID
-        in: path
-        name: job_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "401":
-          description: Unauthorized
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
-      summary: Get Google Backup policy for job
+      summary: Update Google Backup auto-sync policy
       tags:
       - google-backup-policy
   /google-backup/auto-sync/policy/merge:
@@ -2615,7 +3118,78 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.GoogleBackupPolicyMergeExecuteSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Merge duplicate Google Backup policies
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/policy/merge/preview:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy/merge/preview`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupPolicyMergePreviewSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Preview Google Backup policy merge
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/users-groups:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/users-groups`'
+      parameters:
+      - description: Accounts/domains dropdown — filter by domain (e.g. acme.com).
+          From GET .../users-groups/domains.
+        in: query
+        name: domain
+        type: string
+      - description: Email search — substring match on mailbox email.
+        in: query
+        name: search
+        type: string
+      - description: 'Services dropdown. All Services: omit, all, or all_services.
+          Specific: gmail, google_drive, google_photos, google_contacts, google_calendar.
+          Invalid → 400.'
+        in: query
+        name: method
+        type: string
+      - description: Pagination — emails per request (default 10).
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination — emails to skip (default 0). Page 2 with limit 10
+          → offset=10.
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsSwaggerResponse'
         "400":
           description: Bad Request
           schema:
@@ -2626,9 +3200,28 @@ paths:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
-      summary: Merge duplicate Google Backup policies
+      summary: List Google Backup Users & Groups
       tags:
-      - google-backup-policy
+      - google-backup-users-groups
+  /google-backup/auto-sync/users-groups/domains:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/users-groups/domains`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsDomainsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Google Backup Users & Groups domains
+      tags:
+      - google-backup-users-groups
   /google-backup/connect:
     post:
       consumes:

@@ -47,9 +47,11 @@ func (g *GoogleBackupAutoSyncPolicy) serveJSONError(ctx context.Context, w http.
 //
 // @Summary      List Google Backup auto-sync policies
 // @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/policy`
+//
+// No query parameters. Each policy includes `needs_google_reconnect` and `needs_storx_reconnect`.
 // @Tags         google-backup-policy
 // @Produce      json
-// @Success      200  {object}  BackupToolsJSONResponse
+// @Success      200  {object}  GoogleBackupPolicyListSwaggerResponse
 // @Failure      401  {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/auto-sync/policy [get]
@@ -64,7 +66,7 @@ func (g *GoogleBackupAutoSyncPolicy) ListPolicies(w http.ResponseWriter, r *http
 		return
 	}
 
-	respBody, status, err := g.service.ListGoogleBackupAutoSyncPolicies(ctx, tokenKey)
+	respBody, status, err := g.service.ListGoogleBackupAutoSyncPolicies(ctx, tokenKey, r.URL.RawQuery)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -76,11 +78,14 @@ func (g *GoogleBackupAutoSyncPolicy) ListPolicies(w http.ResponseWriter, r *http
 //
 // @Summary      Get Google Backup auto-sync policy
 // @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/policy/{policy_id}`
+//
+// Returns `policy` (with `needs_google_reconnect`, `needs_storx_reconnect`), `account` for Copy/Edit/Reconnect, and `linked_jobs`. Reconnect save uses PUT .../auto-sync/jobs/project with `account.oauth_holder_email`.
 // @Tags         google-backup-policy
 // @Produce      json
 // @Param        policy_id  path      string  true  "Policy ID"
-// @Success      200        {object}  BackupToolsJSONResponse
+// @Success      200        {object}  GoogleBackupPolicyDetailSwaggerResponse
 // @Failure      401        {object}  SwaggerErrorResponse
+// @Failure      404        {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/auto-sync/policy/{policy_id} [get]
 func (g *GoogleBackupAutoSyncPolicy) GetPolicy(w http.ResponseWriter, r *http.Request) {
@@ -103,16 +108,6 @@ func (g *GoogleBackupAutoSyncPolicy) GetPolicy(w http.ResponseWriter, r *http.Re
 }
 
 // GetPolicyByJob resolves the policy for one job (Backup-Tools GET /auto-sync/policy/by-job/{job_id}).
-//
-// @Summary      Get Google Backup policy for job
-// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/policy/by-job/{job_id}`
-// @Tags         google-backup-policy
-// @Produce      json
-// @Param        job_id  path      string  true  "Job ID"
-// @Success      200     {object}  BackupToolsJSONResponse
-// @Failure      401     {object}  SwaggerErrorResponse
-// @Security     CookieAuth
-// @Router       /google-backup/auto-sync/policy/by-job/{job_id} [get]
 func (g *GoogleBackupAutoSyncPolicy) GetPolicyByJob(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -135,17 +130,19 @@ func (g *GoogleBackupAutoSyncPolicy) GetPolicyByJob(w http.ResponseWriter, r *ht
 // UpdatePolicy updates schedule and retention on a policy (Backup-Tools PUT /auto-sync/policy/{policy_id}).
 //
 // @Summary      Update Google Backup auto-sync policy
-// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}`
-//
-// Updates schedule and retention for all linked jobs (`apply_all: true`) or selected jobs (`apply_all: false` + `selected_job_ids`). Job active toggles use PUT .../auto-sync/jobs/{job_id}.
+// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}`. Copy: apply_all false + selected_job_ids. Edit: apply_all true. On 409 duplicate schedule use GET .../merge/preview then POST .../merge.
+// @Description  **interval:** 3h, 12h, daily, weekly, monthly (aliases nightly/24h/7d normalize to daily).
+// @Description  **on:** 3h/12h empty ""; daily time e.g. 12am; weekly weekday e.g. Monday; monthly day e.g. 1.
+// @Description  **retention_type:** never, 30_days, 1_year, 7_years (optional).
 // @Tags         google-backup-policy
 // @Accept       json
 // @Produce      json
 // @Param        policy_id  path      string                                         true  "Policy ID"
 // @Param        body       body      UpdateGoogleBackupAutoSyncPolicySwaggerRequest  true  "Policy update"
-// @Success      200        {object}  BackupToolsJSONResponse
+// @Success      200        {object}  GoogleBackupPolicyUpdateSwaggerResponse
 // @Failure      400        {object}  SwaggerErrorResponse
 // @Failure      401        {object}  SwaggerErrorResponse
+// @Failure      409        {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/auto-sync/policy/{policy_id} [put]
 func (g *GoogleBackupAutoSyncPolicy) UpdatePolicy(w http.ResponseWriter, r *http.Request) {
@@ -180,19 +177,51 @@ func (g *GoogleBackupAutoSyncPolicy) UpdatePolicy(w http.ResponseWriter, r *http
 	writeBackupToolsJSON(w, status, respBody)
 }
 
-// MergePolicies consolidates duplicate policy rows (Backup-Tools POST /auto-sync/policy/merge).
+// PreviewMergePolicies previews duplicate policy groups (Backup-Tools GET /auto-sync/policy/merge/preview).
+//
+// @Summary      Preview Google Backup policy merge
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/policy/merge/preview`
+//
+// Returns duplicate schedule groups with `policy_ids` to POST to .../merge. Use before POST .../merge.
+// @Tags         google-backup-policy
+// @Produce      json
+// @Success      200  {object}  GoogleBackupPolicyMergePreviewSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/policy/merge/preview [get]
+func (g *GoogleBackupAutoSyncPolicy) PreviewMergePolicies(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.PreviewMergeGoogleBackupAutoSyncPolicies(ctx, tokenKey)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// MergePolicies merges one duplicate policy group (Backup-Tools POST /auto-sync/policy/merge).
 //
 // @Summary      Merge duplicate Google Backup policies
 // @Description  **Full route:** `POST /api/v0/google-backup/auto-sync/policy/merge`
 //
-// Body `{"dry_run": false}` merges all duplicate groups for the logged-in user. Use `dry_run: true` to preview.
+// Body `{"policy_ids": [12, 18, 22]}` merges one preview group. Include all policy IDs from the group's `policy_ids` array (minimum 2).
 // @Tags         google-backup-policy
 // @Accept       json
 // @Produce      json
 // @Param        body  body      MergeGoogleBackupAutoSyncPoliciesSwaggerRequest  true  "Merge request"
-// @Success      200   {object}  BackupToolsJSONResponse
+// @Success      200   {object}  GoogleBackupPolicyMergeExecuteSwaggerResponse
 // @Failure      400   {object}  SwaggerErrorResponse
 // @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      404   {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/auto-sync/policy/merge [post]
 func (g *GoogleBackupAutoSyncPolicy) MergePolicies(w http.ResponseWriter, r *http.Request) {

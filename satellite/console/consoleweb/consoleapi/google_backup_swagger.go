@@ -74,3 +74,52 @@ type GoogleBackupDomainUsersSwaggerResponse struct {
 	Success      bool                   `json:"success" example:"true"`
 	GoogleBackup map[string]interface{} `json:"google_backup,omitempty" swaggertype:"object"`
 }
+
+// GoogleBackupUsersGroupsDomainsSwaggerResponse is returned from GET .../auto-sync/users-groups/domains.
+type GoogleBackupUsersGroupsDomainsSwaggerResponse struct {
+	Domains []string `json:"domains" example:"acme.com,gmail.com"`
+}
+
+// GoogleBackupUsersGroupsServiceSwagger is one service row on a Users & Groups entity (all services shown per email even when method filter is set).
+type GoogleBackupUsersGroupsServiceSwagger struct {
+	Method string `json:"method" example:"gmail" enums:"gmail,google_drive,google_photos,google_contacts,google_calendar"`
+	Active bool   `json:"active" example:"true"`
+}
+
+// GoogleBackupUsersGroupsEntitySwagger is one email row on the Users & Groups table.
+type GoogleBackupUsersGroupsEntitySwagger struct {
+	Name     string                                `json:"name" example:"s.jenkins"`
+	Email    string                                `json:"email" example:"s.jenkins@acme.com"`
+	PolicyID int                                   `json:"policy_id" example:"5"`
+	Services []GoogleBackupUsersGroupsServiceSwagger `json:"services"`
+}
+
+// GoogleBackupUsersGroupsPaginationSwagger is pagination metadata on the Users & Groups listing.
+type GoogleBackupUsersGroupsPaginationSwagger struct {
+	Limit      int `json:"limit" example:"10"`
+	Offset     int `json:"offset" example:"0"`
+	Page       int `json:"page" example:"1"`
+	TotalPages int `json:"total_pages" example:"3"`
+	TotalCount int `json:"total_count" example:"25"`
+}
+
+// GoogleBackupUsersGroupsSwaggerResponse is returned from GET .../auto-sync/users-groups.
+type GoogleBackupUsersGroupsSwaggerResponse struct {
+	PolicyLink string                                   `json:"policy_link" example:"/auto-sync/policy"`
+	Entities   []GoogleBackupUsersGroupsEntitySwagger   `json:"entities"`
+	Pagination GoogleBackupUsersGroupsPaginationSwagger `json:"pagination"`
+}
+
+// GoogleBackupAutoSyncJobServiceStatsSwagger is per-service job counts on the Services Update page.
+type GoogleBackupAutoSyncJobServiceStatsSwagger struct {
+	Method       string `json:"method" example:"gmail"`
+	TotalJobs    int    `json:"total_jobs" example:"4"`
+	ActiveJobs   int    `json:"active_jobs" example:"3"`
+	DeactiveJobs int    `json:"deactive_jobs" example:"1"`
+}
+
+// GoogleBackupAutoSyncJobServicesSwaggerResponse is returned from GET .../auto-sync/jobs/services.
+type GoogleBackupAutoSyncJobServicesSwaggerResponse struct {
+	Message  string                                       `json:"message" example:"Connected autosync services"`
+	Services []GoogleBackupAutoSyncJobServiceStatsSwagger `json:"services"`
+}

@@ -128,11 +128,51 @@ func TestUpdateGoogleBackupAutoSyncPolicyRequest_backupToolsPayload(t *testing.T
 	}
 }
 
+func TestMergeGoogleBackupAutoSyncPoliciesRequest_Validate(t *testing.T) {
+	tests := []struct {
+		name      string
+		policyIDs []int
+		wantErr   string
+	}{
+		{
+			name:      "two policy ids",
+			policyIDs: []int{12, 18},
+		},
+		{
+			name:      "three policy ids",
+			policyIDs: []int{12, 18, 22},
+		},
+		{
+			name:      "single policy id",
+			policyIDs: []int{12},
+			wantErr:   "at least two policy_ids are required",
+		},
+		{
+			name:    "empty policy ids",
+			wantErr: "at least two policy_ids are required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := MergeGoogleBackupAutoSyncPoliciesRequest{PolicyIDs: tt.policyIDs}.Validate()
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
 func TestMergeGoogleBackupAutoSyncPoliciesRequest_backupToolsPayload(t *testing.T) {
-	body, err := MergeGoogleBackupAutoSyncPoliciesRequest{DryRun: true}.backupToolsPayload()
+	body, err := MergeGoogleBackupAutoSyncPoliciesRequest{PolicyIDs: []int{12, 18, 22}}.backupToolsPayload()
 	require.NoError(t, err)
 
 	var got map[string]interface{}
 	require.NoError(t, json.Unmarshal(body, &got))
-	require.Equal(t, map[string]interface{}{"dry_run": true}, got)
+	require.Equal(t, map[string]interface{}{
+		"policy_ids": []interface{}{float64(12), float64(18), float64(22)},
+	}, got)
 }
