@@ -107,6 +107,111 @@ func (g *GoogleBackup) CreateAutoSyncJobs(w http.ResponseWriter, r *http.Request
 	writeBackupToolsJSON(w, status, respBody)
 }
 
+// GetUsersGroupsDomains lists connected account domains for the Users & Groups filter (Backup-Tools GET /auto-sync/users-groups/domains).
+//
+// @Summary      List Google Backup Users & Groups domains
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/users-groups/domains`
+//
+// Corporate Users & Groups page — "All Accounts/Domains" dropdown. Call on page load; refresh after reconnect.
+// @Tags         google-backup-users-groups
+// @Produce      json
+// @Success      200  {object}  GoogleBackupUsersGroupsDomainsSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/users-groups/domains [get]
+func (g *GoogleBackup) GetUsersGroupsDomains(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupUsersGroupsDomains(ctx, tokenKey)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// ListUsersGroups lists email rows for the Users & Groups table (Backup-Tools GET /auto-sync/users-groups).
+//
+// @Summary      List Google Backup Users & Groups
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/users-groups`
+//
+// Corporate Users & Groups table. All filters are optional and combinable on this single route.
+//
+// **Query params:** `domain` — Accounts/domains dropdown (from GET .../users-groups/domains). `search` — email substring search. `method` — Services dropdown (All Services or one Google service). `limit` — emails per page (default 10). `offset` — emails to skip (default 0); pager formula `offset = (page - 1) * limit`.
+//
+// **method (Services filter):** omit, `all`, or `all_services` = All Services (every mailbox row, subject to domain/search). `gmail`, `google_drive`, `google_photos`, `google_contacts`, `google_calendar` = only emails with a job for that service. Invalid value → 400 `"invalid service filter"`. Filtered rows still return all `services[]` icons for each email.
+//
+// **Example:** `GET .../users-groups?domain=acme.com&method=google_contacts&limit=10&offset=0`
+// @Tags         google-backup-users-groups
+// @Produce      json
+// @Param        domain  query     string  false  "Accounts/domains dropdown — filter by domain (e.g. acme.com). From GET .../users-groups/domains."
+// @Param        search  query     string  false  "Email search — substring match on mailbox email."
+// @Param        method  query     string  false  "Services dropdown. All Services: omit, all, or all_services. Specific: gmail, google_drive, google_photos, google_contacts, google_calendar. Invalid → 400."
+// @Param        limit   query     int     false  "Pagination — emails per request (default 10)."
+// @Param        offset  query     int     false  "Pagination — emails to skip (default 0). Page 2 with limit 10 → offset=10."
+// @Success      200     {object}  GoogleBackupUsersGroupsSwaggerResponse
+// @Failure      400     {object}  SwaggerErrorResponse
+// @Failure      401     {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/users-groups [get]
+func (g *GoogleBackup) ListUsersGroups(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupUsersGroups(ctx, tokenKey, r.URL.RawQuery)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// ListAutoSyncJobServices returns per-service job counts for the Services Update page (Backup-Tools GET /auto-sync/job/services).
+//
+// @Summary      List Google Backup auto-sync service stats
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs/services`
+//
+// Services Update page only — not Users & Groups. All five Google services are always returned.
+// @Tags         google-backup-users-groups
+// @Produce      json
+// @Success      200  {object}  GoogleBackupAutoSyncJobServicesSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/jobs/services [get]
+func (g *GoogleBackup) ListAutoSyncJobServices(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupAutoSyncJobServices(ctx, tokenKey)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
 // ListAutoSyncJobs lists Backup-Tools auto-sync jobs for the session user.
 //
 // @Summary      List Google Backup auto-sync jobs

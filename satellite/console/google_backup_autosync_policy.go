@@ -22,7 +22,7 @@ type UpdateGoogleBackupAutoSyncPolicyRequest struct {
 
 // MergeGoogleBackupAutoSyncPoliciesRequest is the UI body for Backup-Tools POST /auto-sync/policy/merge.
 type MergeGoogleBackupAutoSyncPoliciesRequest struct {
-	DryRun bool `json:"dry_run"`
+	PolicyIDs []int `json:"policy_ids"`
 }
 
 var (
@@ -67,9 +67,16 @@ func (r UpdateGoogleBackupAutoSyncPolicyRequest) backupToolsPayload() ([]byte, e
 	return json.Marshal(out)
 }
 
+func (r MergeGoogleBackupAutoSyncPoliciesRequest) Validate() error {
+	if len(r.PolicyIDs) < 2 {
+		return ErrValidation.New("at least two policy_ids are required")
+	}
+	return nil
+}
+
 func (r MergeGoogleBackupAutoSyncPoliciesRequest) backupToolsPayload() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"dry_run": r.DryRun,
+		"policy_ids": r.PolicyIDs,
 	})
 }
 
@@ -83,14 +90,18 @@ func normalizeGoogleBackupPolicyInterval(interval string) string {
 	}
 }
 
-func (s *Service) ListGoogleBackupAutoSyncPolicies(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
+func (s *Service) ListGoogleBackupAutoSyncPolicies(ctx context.Context, tokenKey, query string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if strings.TrimSpace(tokenKey) == "" {
 		return nil, 0, ErrUnauthorized.New("session token is required")
 	}
 
-	return s.backupToolsRequest(ctx, http.MethodGet, "/auto-sync/policy", tokenKey, "", nil)
+	path := "/auto-sync/policy"
+	if query != "" {
+		path += "?" + query
+	}
+	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
 }
 
 func (s *Service) GetGoogleBackupAutoSyncPolicy(ctx context.Context, tokenKey, policyID string) (body []byte, status int, err error) {
@@ -146,11 +157,24 @@ func (s *Service) UpdateGoogleBackupAutoSyncPolicy(ctx context.Context, tokenKey
 	return s.backupToolsRequest(ctx, http.MethodPut, path, tokenKey, "", btPayload)
 }
 
+func (s *Service) PreviewMergeGoogleBackupAutoSyncPolicies(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+
+	return s.backupToolsRequest(ctx, http.MethodGet, "/auto-sync/policy/merge/preview", tokenKey, "", nil)
+}
+
 func (s *Service) MergeGoogleBackupAutoSyncPolicies(ctx context.Context, tokenKey string, req MergeGoogleBackupAutoSyncPoliciesRequest) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if strings.TrimSpace(tokenKey) == "" {
 		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+	if err := req.Validate(); err != nil {
+		return nil, 0, err
 	}
 
 	btPayload, err := req.backupToolsPayload()
