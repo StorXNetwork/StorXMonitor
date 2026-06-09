@@ -37,6 +37,11 @@ type CreateGoogleBackupAutoSyncJobsSwaggerRequest struct {
 	Emails   []string `json:"emails,omitempty" example:"billing@salestalker.com,support@salestalker.com"`
 }
 
+// UpdateGoogleBackupAutoSyncJobSwaggerRequest is the UI body for PUT .../auto-sync/job/{job_id} (active toggle only).
+type UpdateGoogleBackupAutoSyncJobSwaggerRequest struct {
+	Active bool `json:"active" binding:"required" example:"true"`
+}
+
 // UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest is the UI body for PUT .../auto-sync/jobs/project.
 // Requires project_id and google_email. Send code OR refresh_token for token updates (Satellite exchanges code; Backup-Tools never receives code).
 type UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest struct {
@@ -123,3 +128,104 @@ type GoogleBackupAutoSyncJobServicesSwaggerResponse struct {
 	Message  string                                       `json:"message" example:"Connected autosync services"`
 	Services []GoogleBackupAutoSyncJobServiceStatsSwagger `json:"services"`
 }
+
+// AutosyncJobListFilter is URL-encoded JSON for GET .../auto-sync/jobs?filter=...
+// Build: encodeURIComponent(JSON.stringify({ method: 'gmail', active: true }))
+//
+// UI mapping:
+//   - method (Service dropdown): gmail, google_drive, google_photos, google_calendar, google_contacts
+//   - active (Active/Inactive toggle): true / false — user on/off; not the same as status
+//   - status (Success/Failed/Running): success, failed, in_progress, in_queue, created — last run result
+//   - name (Search bar): partial email text (e.g. jenkins, user@gmail.com). No separate search param on job list.
+//   - project_id, policy_id, sync_type: optional Backup-Tools filters (combinable with the above).
+type AutosyncJobListFilter struct {
+	Method    string `json:"method,omitempty" example:"gmail" enums:"gmail,google_drive,google_photos,google_calendar,google_contacts"`
+	Active    *bool  `json:"active,omitempty" example:"true"`
+	Status    string `json:"status,omitempty" example:"failed" enums:"success,failed,in_progress,in_queue,created"`
+	Name      string `json:"name,omitempty" example:"dhavalder@gmail.com"`
+	ProjectID string `json:"project_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	PolicyID  *int   `json:"policy_id,omitempty" example:"37"`
+	SyncType  string `json:"sync_type,omitempty" example:"daily" enums:"daily,weekly,monthly"`
+}
+
+// AutosyncJobInputDataSwagger is input_data on a Backup-Tools auto-sync job.
+type AutosyncJobInputDataSwagger struct {
+	Email        string `json:"email" example:"dhavalder93@gmail.com"`
+	CredentialID int    `json:"credential_id" example:"12"`
+}
+
+// AutosyncJobSwagger is one job in Backup-Tools success[] (GET/PUT by id returns success[0]).
+type AutosyncJobSwagger struct {
+	ID              int                         `json:"ID" example:"57"`
+	Name            string                      `json:"name" example:"dhavalder93@gmail.com"`
+	Method          string                      `json:"method" example:"gmail"`
+	Active          bool                        `json:"active" example:"false"`
+	SyncType        string                      `json:"sync_type" example:"daily"`
+	Interval        string                      `json:"interval" example:"3h"`
+	On              string                      `json:"on" example:""`
+	PolicyID        int                         `json:"policy_id" example:"37"`
+	Message         string                      `json:"message" example:"Backup scheduled"`
+	MessageStatus   string                      `json:"message_status" example:"info"`
+	LastRun         interface{}                 `json:"last_run" swaggertype:"object"`
+	InputData       AutosyncJobInputDataSwagger `json:"input_data"`
+	TaskMemory      map[string]interface{}      `json:"task_memory" swaggertype:"object"`
+	Autodeactivated bool                        `json:"autodeactivated" example:"false"`
+	FailurePeriods  int                         `json:"failure_periods" example:"0"`
+}
+
+// AutosyncJobDetailResponse is returned from GET/PUT .../auto-sync/job/{job_id} (passthrough from Backup-Tools).
+type AutosyncJobDetailResponse struct {
+	Message string             `json:"message" example:"Automatic Backup Account Details"`
+	Success []AutosyncJobSwagger `json:"success"`
+	Failed  []interface{}      `json:"failed" swaggertype:"array,object"`
+}
+
+// AutosyncJobListResponse is returned from GET .../auto-sync/jobs?filter=... (passthrough from Backup-Tools).
+type AutosyncJobListResponse struct {
+	Message string               `json:"message" example:"Automatic backup jobs"`
+	Success []AutosyncJobSwagger `json:"success"`
+	Failed  []interface{}        `json:"failed" swaggertype:"array,object"`
+}
+
+// AutosyncJobListFilterExamples documents example filter JSON values for the job list UI.
+type AutosyncJobListFilterExamples struct {
+	AllFields      AutosyncJobListFilter                      `json:"all_fields"`
+	ByMethod       AutosyncJobListFilterByMethodExample       `json:"by_method"`
+	ByActiveStatus AutosyncJobListFilterByActiveStatusExample `json:"by_active_status"`
+	ByName         AutosyncJobListFilterByNameExample         `json:"by_name"`
+	Combined       AutosyncJobListFilterCombinedExample       `json:"combined"`
+}
+
+// AutosyncJobListFilterByMethodExample is filter example `{"method":"gmail"}`.
+type AutosyncJobListFilterByMethodExample struct {
+	Method string `json:"method" example:"gmail" enums:"gmail,google_drive,google_photos,google_calendar,google_contacts"`
+}
+
+// AutosyncJobListFilterByActiveStatusExample is filter example `{"active":true,"status":"failed"}`.
+type AutosyncJobListFilterByActiveStatusExample struct {
+	Active *bool  `json:"active" example:"true"`
+	Status string `json:"status" example:"failed" enums:"success,failed,in_progress,in_queue,created"`
+}
+
+// AutosyncJobListFilterByNameExample is filter example `{"name":"dhavalder@gmail.com"}`.
+type AutosyncJobListFilterByNameExample struct {
+	Name string `json:"name" example:"dhavalder@gmail.com"`
+}
+
+// AutosyncJobListFilterCombinedExample is filter example `{"method":"gmail","name":"jenkins","active":true,"status":"success"}`.
+type AutosyncJobListFilterCombinedExample struct {
+	Method string `json:"method" example:"gmail" enums:"gmail,google_drive,google_photos,google_calendar,google_contacts"`
+	Name   string `json:"name" example:"jenkins"`
+	Active *bool  `json:"active" example:"true"`
+	Status string `json:"status" example:"success" enums:"success,failed,in_progress,in_queue,created"`
+}
+
+// AutoSyncJobListFilterSchema exposes AutosyncJobListFilter in Swagger definitions (not registered on server).
+//
+// @Summary      Auto-sync job list filter schema
+// @Description  **Not a live route.** Documents `AutosyncJobListFilter` and four filter examples for `GET /api/v0/google-backup/auto-sync/jobs?filter=` (URL-encoded JSON). UI: method=Service dropdown; active=on/off toggle; status=last run result; name=search bar (partial email).
+// @Tags         google-backup
+// @Produce      json
+// @Success      200  {object}  AutosyncJobListFilterExamples
+// @Router       /google-backup/auto-sync/jobs/filter-schema [get]
+func AutoSyncJobListFilterSchema() {}

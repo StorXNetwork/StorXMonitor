@@ -63,7 +63,13 @@ package consoleweb
 // @tag.description Google Backup restore-all scheduler: GET /restore/prepare, POST /restore/all, GET /restore/live|jobs|job/* (token_key only; OAuth reconnect via auto-sync job PUT)
 
 // @tag.name auth-account
-// @tag.description Account & session: profile, settings, refresh-session, developer-access, MFA, FCM tokens, notification-preferences
+// @tag.description Account & session: profile, settings, refresh-session, developer-access, MFA
+
+// @tag.name settings-fcm
+// @tag.description Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token` (session cookie). IP address is set server-side.
+
+// @tag.name settings-notification-preferences
+// @tag.description Settings → Notification preferences: per-category channel thresholds at `/api/v0/user/notification-preferences` (billing, backup, account, vault).
 
 // @tag.name access
 // @tag.description Access management: GET /api/v0/api-keys/list-paged (paginated keys), POST /v1/access (exchange access grant for S3 credentials on auth host)

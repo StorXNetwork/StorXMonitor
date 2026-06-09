@@ -1262,12 +1262,12 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `GET /api/v0/fcm-token`",
+                "description": "**Full route:** `GET /api/v0/fcm-token`. Settings → Push devices. Returns all FCM token records for the logged-in user (active and inactive).",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "auth-account"
+                    "settings-fcm"
                 ],
                 "summary": "List FCM device tokens",
                 "responses": {
@@ -1294,7 +1294,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `POST /api/v0/fcm-token`",
+                "description": "**Full route:** `POST /api/v0/fcm-token`. Settings → Push devices. Registers the device FCM token for the logged-in user. If the same `token` string already exists, metadata is updated and `200` semantics apply (existing record returned). `ip_address` is derived from `X-Forwarded-For`, `X-Real-IP`, or `RemoteAddr` — do not send from client.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1302,17 +1302,17 @@
                     "application/json"
                 ],
                 "tags": [
-                    "auth-account"
+                    "settings-fcm"
                 ],
                 "summary": "Register FCM device token",
                 "parameters": [
                     {
-                        "description": "FCM token and device metadata",
+                        "description": "FCM token and optional device metadata",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.RegisterTokenRequest"
+                            "$ref": "#/definitions/consoleapi.RegisterFCMTokenSwaggerRequest"
                         }
                     }
                 ],
@@ -1345,7 +1345,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `PUT /api/v0/fcm-token/{tokenId}`",
+                "description": "**Full route:** `PUT /api/v0/fcm-token/{tokenId}`. Settings → Push devices. Updates metadata or `isActive` for a token owned by the current user. All body fields are optional; send only fields to change.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1353,7 +1353,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "auth-account"
+                    "settings-fcm"
                 ],
                 "summary": "Update FCM device token",
                 "parameters": [
@@ -1370,18 +1370,15 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.UpdateTokenRequest"
+                            "$ref": "#/definitions/consoleapi.UpdateFCMTokenSwaggerRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "message",
+                        "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/consoleapi.SettingsMessageSwaggerResponse"
                         }
                     },
                     "400": {
@@ -1416,12 +1413,12 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`",
+                "description": "**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`. Settings → Push devices. Permanently removes a token record owned by the current user.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "auth-account"
+                    "settings-fcm"
                 ],
                 "summary": "Delete FCM device token",
                 "parameters": [
@@ -1435,12 +1432,9 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "message",
+                        "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/consoleapi.SettingsMessageSwaggerResponse"
                         }
                     },
                     "400": {
@@ -1470,6 +1464,120 @@
                 }
             }
         },
+        "/google-backup/auto-sync/job/{job_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/job/{job_id}`. Proxies Backup-Tools `GET /auto-sync/job/{job_id}` with session `token_key`. Job is in `success[0]`.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Get Google Backup auto-sync job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `PUT /api/v0/google-backup/auto-sync/job/{job_id}`. Proxies Backup-Tools `PUT /auto-sync/job/{job_id}` with body `{ \"active\": true|false }` only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Toggle Google Backup auto-sync job active",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Active toggle",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/google-backup/auto-sync/jobs": {
             "get": {
                 "security": [
@@ -1477,7 +1585,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`",
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter` query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service dropdown → `method` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running → `status` (success, failed, in_progress, in_queue, created — last run, not same as active); Search bar → `name` (partial email). No `search` param on job list — use `filter.name`. Mailbox/domain search → `GET .../auto-sync/users-groups?search=...`. See `GET .../auto-sync/jobs/filter-schema` for examples.",
                 "produces": [
                     "application/json"
                 ],
@@ -1488,7 +1596,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Optional Backup-Tools filter",
+                        "example": "%7B%22method%22%3A%22gmail%22%2C%22active%22%3Atrue%2C%22status%22%3A%22failed%22%7D",
+                        "description": "URL-encoded AutosyncJobListFilter JSON. See definitions and GET .../auto-sync/jobs/filter-schema for four examples.",
                         "name": "filter",
                         "in": "query"
                     }
@@ -1497,7 +1606,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.AutosyncJobListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     },
                     "401": {
@@ -1559,6 +1674,26 @@
                         "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs/filter-schema": {
+            "get": {
+                "description": "**Not a live route.** Documents `AutosyncJobListFilter` and four filter examples for `GET /api/v0/google-backup/auto-sync/jobs?filter=` (URL-encoded JSON). UI: method=Service dropdown; active=on/off toggle; status=last run result; name=search bar (partial email).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Auto-sync job list filter schema",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobListFilterExamples"
                         }
                     }
                 }
@@ -1635,46 +1770,6 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/jobs/{job_id}": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "Get Google Backup auto-sync job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "job_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
                         }
                     },
                     "401": {
@@ -3538,18 +3633,24 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `GET /api/v0/user/notification-preferences`",
+                "description": "**Full route:** `GET /api/v0/user/notification-preferences`. Settings → Notification preferences. Without `category`: returns a JSON **array** of all preference rows. With `category`: returns a single preference **object** for that category. Each row `Preferences` map uses keys `push`, `email`, `sms` with minimum priority levels 1–4 (marketing, info, warning, critical).",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "auth-account"
+                    "settings-notification-preferences"
                 ],
                 "summary": "Get notification preferences",
                 "parameters": [
                     {
+                        "enum": [
+                            "billing",
+                            "backup",
+                            "account",
+                            "vault"
+                        ],
                         "type": "string",
-                        "description": "Filter: billing, backup, account, vault",
+                        "description": "Optional filter: billing, backup, account, vault",
                         "name": "category",
                         "in": "query"
                     }
@@ -3584,7 +3685,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `PUT /api/v0/user/notification-preferences`",
+                "description": "**Full route:** `PUT /api/v0/user/notification-preferences`. Settings → Notification preferences. Upserts one category row. `category` required. `preferences` may include any of `push`, `email`, `sms` — each value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names `marketing`/`info`/`warning`/`critical` also accepted). Returns `201` on create, `200` on update.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3592,7 +3693,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "auth-account"
+                    "settings-notification-preferences"
                 ],
                 "summary": "Create or update notification preference",
                 "parameters": [
@@ -4057,6 +4158,275 @@
                 }
             }
         },
+        "consoleapi.AutosyncJobDetailResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Automatic Backup Account Details"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.AutosyncJobSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.AutosyncJobInputDataSwagger": {
+            "type": "object",
+            "properties": {
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "email": {
+                    "type": "string",
+                    "example": "dhavalder93@gmail.com"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilter": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "dhavalder@gmail.com"
+                },
+                "policy_id": {
+                    "type": "integer",
+                    "example": 37
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "failed",
+                        "in_progress",
+                        "in_queue",
+                        "created"
+                    ],
+                    "example": "failed"
+                },
+                "sync_type": {
+                    "type": "string",
+                    "enum": [
+                        "daily",
+                        "weekly",
+                        "monthly"
+                    ],
+                    "example": "daily"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterByActiveStatusExample": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "failed",
+                        "in_progress",
+                        "in_queue",
+                        "created"
+                    ],
+                    "example": "failed"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterByMethodExample": {
+            "type": "object",
+            "properties": {
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterByNameExample": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "dhavalder@gmail.com"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterCombinedExample": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "jenkins"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "failed",
+                        "in_progress",
+                        "in_queue",
+                        "created"
+                    ],
+                    "example": "success"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterExamples": {
+            "type": "object",
+            "properties": {
+                "all_fields": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilter"
+                },
+                "by_active_status": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilterByActiveStatusExample"
+                },
+                "by_method": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilterByMethodExample"
+                },
+                "by_name": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilterByNameExample"
+                },
+                "combined": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilterCombinedExample"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Automatic backup jobs"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.AutosyncJobSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.AutosyncJobSwagger": {
+            "type": "object",
+            "properties": {
+                "ID": {
+                    "type": "integer",
+                    "example": 57
+                },
+                "active": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "autodeactivated": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "failure_periods": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "input_data": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobInputDataSwagger"
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "3h"
+                },
+                "last_run": {
+                    "type": "object"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Backup scheduled"
+                },
+                "message_status": {
+                    "type": "string",
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "dhavalder93@gmail.com"
+                },
+                "on": {
+                    "type": "string",
+                    "example": ""
+                },
+                "policy_id": {
+                    "type": "integer",
+                    "example": 37
+                },
+                "sync_type": {
+                    "type": "string",
+                    "example": "daily"
+                },
+                "task_memory": {
+                    "type": "object"
+                }
+            }
+        },
         "consoleapi.BackupToolsJSONResponse": {
             "type": "object",
             "additionalProperties": true
@@ -4330,22 +4700,31 @@
             "type": "object",
             "properties": {
                 "AppVersion": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "1.2.0"
                 },
                 "BrowserName": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Chrome"
                 },
                 "CreatedAt": {
                     "type": "string"
                 },
                 "DeviceID": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "device-uuid-123"
                 },
                 "DeviceModel": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Pixel 8"
                 },
                 "DeviceType": {
                     "type": "string",
+                    "enum": [
+                        "android",
+                        "ios",
+                        "web"
+                    ],
                     "example": "web"
                 },
                 "ID": {
@@ -4353,7 +4732,8 @@
                     "example": "00000000-0000-0000-0000-000000000000"
                 },
                 "IPAddress": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "203.0.113.10"
                 },
                 "IsActive": {
                     "type": "boolean",
@@ -4363,7 +4743,8 @@
                     "type": "string"
                 },
                 "OSVersion": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "14.0"
                 },
                 "Token": {
                     "type": "string",
@@ -4373,7 +4754,8 @@
                     "type": "string"
                 },
                 "UserAgent": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Mozilla/5.0 ..."
                 },
                 "UserID": {
                     "type": "string",
@@ -5259,6 +5641,41 @@
                 }
             }
         },
+        "consoleapi.NotificationChannelPreferencesSwagger": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "example": 3
+                },
+                "push": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "example": 2
+                },
+                "sms": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "example": 4
+                }
+            }
+        },
         "consoleapi.NotificationListResponse": {
             "type": "object",
             "properties": {
@@ -5515,40 +5932,48 @@
                 }
             }
         },
-        "consoleapi.RegisterTokenRequest": {
+        "consoleapi.RegisterFCMTokenSwaggerRequest": {
             "type": "object",
+            "required": [
+                "token"
+            ],
             "properties": {
                 "appVersion": {
-                    "description": "Optional: app version",
-                    "type": "string"
+                    "type": "string",
+                    "example": "1.2.0"
                 },
                 "browserName": {
-                    "description": "Optional: browser name (web only)",
-                    "type": "string"
+                    "type": "string",
+                    "example": "Chrome"
                 },
                 "deviceId": {
-                    "description": "Optional: device identifier",
-                    "type": "string"
+                    "type": "string",
+                    "example": "device-uuid-123"
                 },
                 "deviceModel": {
-                    "description": "Optional: device model",
-                    "type": "string"
+                    "type": "string",
+                    "example": "Pixel 8"
                 },
                 "deviceType": {
-                    "description": "Optional: \"android\", \"ios\", \"web\"",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "android",
+                        "ios",
+                        "web"
+                    ],
+                    "example": "web"
                 },
                 "osVersion": {
-                    "description": "Optional: OS version",
-                    "type": "string"
+                    "type": "string",
+                    "example": "14.0"
                 },
                 "token": {
-                    "description": "Required: FCM token",
-                    "type": "string"
+                    "type": "string",
+                    "example": "fcm-device-token-string"
                 },
                 "userAgent": {
-                    "description": "Optional: full user agent string",
-                    "type": "string"
+                    "type": "string",
+                    "example": "Mozilla/5.0 ..."
                 }
             }
         },
@@ -5634,6 +6059,15 @@
                 }
             }
         },
+        "consoleapi.SettingsMessageSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "token updated successfully"
+                }
+            }
+        },
         "consoleapi.SwaggerErrorResponse": {
             "type": "object",
             "properties": {
@@ -5685,6 +6119,64 @@
                 "shortName": {
                     "type": "string",
                     "example": "Jane"
+                }
+            }
+        },
+        "consoleapi.UpdateFCMTokenSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "appVersion": {
+                    "type": "string",
+                    "example": "1.2.0"
+                },
+                "browserName": {
+                    "type": "string",
+                    "example": "Chrome"
+                },
+                "deviceId": {
+                    "type": "string",
+                    "example": "device-uuid-123"
+                },
+                "deviceModel": {
+                    "type": "string",
+                    "example": "Pixel 8"
+                },
+                "deviceType": {
+                    "type": "string",
+                    "enum": [
+                        "android",
+                        "ios",
+                        "web"
+                    ],
+                    "example": "web"
+                },
+                "isActive": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "osVersion": {
+                    "type": "string",
+                    "example": "14.0"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "fcm-device-token-string"
+                },
+                "userAgent": {
+                    "type": "string",
+                    "example": "Mozilla/5.0 ..."
+                }
+            }
+        },
+        "consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "active"
+            ],
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -5773,38 +6265,6 @@
                 }
             }
         },
-        "consoleapi.UpdateTokenRequest": {
-            "type": "object",
-            "properties": {
-                "appVersion": {
-                    "type": "string"
-                },
-                "browserName": {
-                    "type": "string"
-                },
-                "deviceId": {
-                    "type": "string"
-                },
-                "deviceModel": {
-                    "type": "string"
-                },
-                "deviceType": {
-                    "type": "string"
-                },
-                "isActive": {
-                    "type": "boolean"
-                },
-                "osVersion": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "userAgent": {
-                    "type": "string"
-                }
-            }
-        },
         "consoleapi.UpsertProjectSwaggerRequest": {
             "type": "object",
             "properties": {
@@ -5839,10 +6299,16 @@
             "properties": {
                 "category": {
                     "type": "string",
+                    "enum": [
+                        "billing",
+                        "backup",
+                        "account",
+                        "vault"
+                    ],
                     "example": "billing"
                 },
                 "preferences": {
-                    "type": "object"
+                    "$ref": "#/definitions/consoleapi.NotificationChannelPreferencesSwagger"
                 }
             }
         },
@@ -5946,6 +6412,12 @@
             "properties": {
                 "Category": {
                     "type": "string",
+                    "enum": [
+                        "billing",
+                        "backup",
+                        "account",
+                        "vault"
+                    ],
                     "example": "billing"
                 },
                 "CreatedAt": {
@@ -6449,8 +6921,16 @@
             "name": "google-backup-restore-cron"
         },
         {
-            "description": "Account \u0026 session: profile, settings, refresh-session, developer-access, MFA, FCM tokens, notification-preferences",
+            "description": "Account \u0026 session: profile, settings, refresh-session, developer-access, MFA",
             "name": "auth-account"
+        },
+        {
+            "description": "Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token` (session cookie). IP address is set server-side.",
+            "name": "settings-fcm"
+        },
+        {
+            "description": "Settings → Notification preferences: per-category channel thresholds at `/api/v0/user/notification-preferences` (billing, backup, account, vault).",
+            "name": "settings-notification-preferences"
         },
         {
             "description": "Access management: GET /api/v0/api-keys/list-paged (paginated keys), POST /v1/access (exchange access grant for S3 credentials on auth host)",

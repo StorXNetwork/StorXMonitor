@@ -37,12 +37,10 @@ func NewUserNotificationPreferences(log *zap.Logger, service *console.Service) *
 // GetUserPreferences handles GET /api/v0/user/notification-preferences - Get current user's preferences.
 //
 // @Summary      Get notification preferences
-// @Description  **Full route:** `GET /api/v0/user/notification-preferences`
-//
-// Optional query `category`: `billing`, `backup`, `account`, or `vault`. Without category returns all preferences.
-// @Tags         auth-account
+// @Description  **Full route:** `GET /api/v0/user/notification-preferences`. Settings → Notification preferences. Without `category`: returns a JSON **array** of all preference rows. With `category`: returns a single preference **object** for that category. Each row `Preferences` map uses keys `push`, `email`, `sms` with minimum priority levels 1–4 (marketing, info, warning, critical).
+// @Tags         settings-notification-preferences
 // @Produce      json
-// @Param        category  query  string  false  "Filter: billing, backup, account, vault"
+// @Param        category  query  string  false  "Optional filter: billing, backup, account, vault"  Enums(billing,backup,account,vault)
 // @Success      200       {array}   UserNotificationPreferenceSwagger
 // @Failure      400       {object}  SwaggerErrorResponse
 // @Failure      401       {object}  SwaggerErrorResponse
@@ -102,10 +100,8 @@ func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, 
 // UpsertUserPreference handles PUT /api/v0/user/notification-preferences - Create or update user preferences.
 //
 // @Summary      Create or update notification preference
-// @Description  **Full route:** `PUT /api/v0/user/notification-preferences`
-//
-// `preferences` keys: `push`, `email`, `sms`. Values: 1=marketing, 2=info, 3=warning, 4=critical.
-// @Tags         auth-account
+// @Description  **Full route:** `PUT /api/v0/user/notification-preferences`. Settings → Notification preferences. Upserts one category row. `category` required. `preferences` may include any of `push`, `email`, `sms` — each value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names `marketing`/`info`/`warning`/`critical` also accepted). Returns `201` on create, `200` on update.
+// @Tags         settings-notification-preferences
 // @Accept       json
 // @Produce      json
 // @Param        body  body  UpsertUserNotificationPreferenceSwaggerRequest  true  "Category and channel preferences"

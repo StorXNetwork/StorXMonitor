@@ -224,11 +224,12 @@ func (g *GoogleBackup) ListAutoSyncJobServices(w http.ResponseWriter, r *http.Re
 // ListAutoSyncJobs lists Backup-Tools auto-sync jobs for the session user.
 //
 // @Summary      List Google Backup auto-sync jobs
-// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs`
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter` query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service dropdown → `method` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running → `status` (success, failed, in_progress, in_queue, created — last run, not same as active); Search bar → `name` (partial email). No `search` param on job list — use `filter.name`. Mailbox/domain search → `GET .../auto-sync/users-groups?search=...`. See `GET .../auto-sync/jobs/filter-schema` for examples.
 // @Tags         google-backup
 // @Produce      json
-// @Param        filter  query     string  false  "Optional Backup-Tools filter"
-// @Success      200     {object}  BackupToolsJSONResponse
+// @Param        filter  query     string  false  "URL-encoded AutosyncJobListFilter JSON. See definitions and GET .../auto-sync/jobs/filter-schema for four examples."  example(%7B%22method%22%3A%22gmail%22%2C%22active%22%3Atrue%2C%22status%22%3A%22failed%22%7D)
+// @Success      200     {object}  AutosyncJobListResponse
+// @Failure      400     {object}  SwaggerErrorResponse
 // @Failure      401     {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/auto-sync/jobs [get]
@@ -254,14 +255,16 @@ func (g *GoogleBackup) ListAutoSyncJobs(w http.ResponseWriter, r *http.Request) 
 // GetAutoSyncJob returns one Backup-Tools auto-sync job by id.
 //
 // @Summary      Get Google Backup auto-sync job
-// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/job/{job_id}`. Proxies Backup-Tools `GET /auto-sync/job/{job_id}` with session `token_key`. Job is in `success[0]`.
 // @Tags         google-backup
 // @Produce      json
 // @Param        job_id  path      string  true  "Job ID"
-// @Success      200     {object}  BackupToolsJSONResponse
+// @Success      200     {object}  AutosyncJobDetailResponse
+// @Failure      400     {object}  SwaggerErrorResponse
 // @Failure      401     {object}  SwaggerErrorResponse
+// @Failure      404     {object}  SwaggerErrorResponse
 // @Security     CookieAuth
-// @Router       /google-backup/auto-sync/jobs/{job_id} [get]
+// @Router       /google-backup/auto-sync/job/{job_id} [get]
 func (g *GoogleBackup) GetAutoSyncJob(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -329,7 +332,21 @@ func (g *GoogleBackup) UpdateAutoSyncJobsByProject(w http.ResponseWriter, r *htt
 	writeBackupToolsJSON(w, status, respBody)
 }
 
-// UpdateAutoSyncJob toggles a single job active flag (Backup-Tools PUT /auto-sync/job/{job_id}). Not exposed in Swagger.
+// UpdateAutoSyncJob toggles a single job active flag (Backup-Tools PUT /auto-sync/job/{job_id}).
+//
+// @Summary      Toggle Google Backup auto-sync job active
+// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/job/{job_id}`. Proxies Backup-Tools `PUT /auto-sync/job/{job_id}` with body `{ "active": true|false }` only.
+// @Tags         google-backup
+// @Accept       json
+// @Produce      json
+// @Param        job_id  path      string                                       true  "Job ID"
+// @Param        body    body      UpdateGoogleBackupAutoSyncJobSwaggerRequest  true  "Active toggle"
+// @Success      200     {object}  AutosyncJobDetailResponse
+// @Failure      400     {object}  SwaggerErrorResponse
+// @Failure      401     {object}  SwaggerErrorResponse
+// @Failure      404     {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/job/{job_id} [put]
 func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

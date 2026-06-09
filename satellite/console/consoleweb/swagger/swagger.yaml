@@ -271,6 +271,201 @@ definitions:
         example: 3600
         type: integer
     type: object
+  consoleapi.AutosyncJobDetailResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Automatic Backup Account Details
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.AutosyncJobSwagger'
+        type: array
+    type: object
+  consoleapi.AutosyncJobInputDataSwagger:
+    properties:
+      credential_id:
+        example: 12
+        type: integer
+      email:
+        example: dhavalder93@gmail.com
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilter:
+    properties:
+      active:
+        example: true
+        type: boolean
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      name:
+        example: dhavalder@gmail.com
+        type: string
+      policy_id:
+        example: 37
+        type: integer
+      project_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      status:
+        enum:
+        - success
+        - failed
+        - in_progress
+        - in_queue
+        - created
+        example: failed
+        type: string
+      sync_type:
+        enum:
+        - daily
+        - weekly
+        - monthly
+        example: daily
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterByActiveStatusExample:
+    properties:
+      active:
+        example: true
+        type: boolean
+      status:
+        enum:
+        - success
+        - failed
+        - in_progress
+        - in_queue
+        - created
+        example: failed
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterByMethodExample:
+    properties:
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterByNameExample:
+    properties:
+      name:
+        example: dhavalder@gmail.com
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterCombinedExample:
+    properties:
+      active:
+        example: true
+        type: boolean
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      name:
+        example: jenkins
+        type: string
+      status:
+        enum:
+        - success
+        - failed
+        - in_progress
+        - in_queue
+        - created
+        example: success
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterExamples:
+    properties:
+      all_fields:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilter'
+      by_active_status:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilterByActiveStatusExample'
+      by_method:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilterByMethodExample'
+      by_name:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilterByNameExample'
+      combined:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilterCombinedExample'
+    type: object
+  consoleapi.AutosyncJobListResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Automatic backup jobs
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.AutosyncJobSwagger'
+        type: array
+    type: object
+  consoleapi.AutosyncJobSwagger:
+    properties:
+      ID:
+        example: 57
+        type: integer
+      active:
+        example: false
+        type: boolean
+      autodeactivated:
+        example: false
+        type: boolean
+      failure_periods:
+        example: 0
+        type: integer
+      input_data:
+        $ref: '#/definitions/consoleapi.AutosyncJobInputDataSwagger'
+      interval:
+        example: 3h
+        type: string
+      last_run:
+        type: object
+      message:
+        example: Backup scheduled
+        type: string
+      message_status:
+        example: info
+        type: string
+      method:
+        example: gmail
+        type: string
+      name:
+        example: dhavalder93@gmail.com
+        type: string
+      "on":
+        example: ""
+        type: string
+      policy_id:
+        example: 37
+        type: integer
+      sync_type:
+        example: daily
+        type: string
+      task_memory:
+        type: object
+    type: object
   consoleapi.BackupToolsJSONResponse:
     additionalProperties: true
     type: object
@@ -466,22 +661,31 @@ definitions:
   consoleapi.FCMTokenSwaggerResponse:
     properties:
       AppVersion:
+        example: 1.2.0
         type: string
       BrowserName:
+        example: Chrome
         type: string
       CreatedAt:
         type: string
       DeviceID:
+        example: device-uuid-123
         type: string
       DeviceModel:
+        example: Pixel 8
         type: string
       DeviceType:
+        enum:
+        - android
+        - ios
+        - web
         example: web
         type: string
       ID:
         example: 00000000-0000-0000-0000-000000000000
         type: string
       IPAddress:
+        example: 203.0.113.10
         type: string
       IsActive:
         example: true
@@ -489,6 +693,7 @@ definitions:
       LastUsedAt:
         type: string
       OSVersion:
+        example: "14.0"
         type: string
       Token:
         example: fcm-device-token
@@ -496,6 +701,7 @@ definitions:
       UpdatedAt:
         type: string
       UserAgent:
+        example: Mozilla/5.0 ...
         type: string
       UserID:
         example: 00000000-0000-0000-0000-000000000000
@@ -1132,6 +1338,33 @@ definitions:
     required:
     - policy_ids
     type: object
+  consoleapi.NotificationChannelPreferencesSwagger:
+    properties:
+      email:
+        enum:
+        - 1
+        - 2
+        - 3
+        - 4
+        example: 3
+        type: integer
+      push:
+        enum:
+        - 1
+        - 2
+        - 3
+        - 4
+        example: 2
+        type: integer
+      sms:
+        enum:
+        - 1
+        - 2
+        - 3
+        - 4
+        example: 4
+        type: integer
+    type: object
   consoleapi.NotificationListResponse:
     properties:
       items:
@@ -1310,32 +1543,38 @@ definitions:
       userSetStorageLimit:
         type: integer
     type: object
-  consoleapi.RegisterTokenRequest:
+  consoleapi.RegisterFCMTokenSwaggerRequest:
     properties:
       appVersion:
-        description: 'Optional: app version'
+        example: 1.2.0
         type: string
       browserName:
-        description: 'Optional: browser name (web only)'
+        example: Chrome
         type: string
       deviceId:
-        description: 'Optional: device identifier'
+        example: device-uuid-123
         type: string
       deviceModel:
-        description: 'Optional: device model'
+        example: Pixel 8
         type: string
       deviceType:
-        description: 'Optional: "android", "ios", "web"'
+        enum:
+        - android
+        - ios
+        - web
+        example: web
         type: string
       osVersion:
-        description: 'Optional: OS version'
+        example: "14.0"
         type: string
       token:
-        description: 'Required: FCM token'
+        example: fcm-device-token-string
         type: string
       userAgent:
-        description: 'Optional: full user agent string'
+        example: Mozilla/5.0 ...
         type: string
+    required:
+    - token
     type: object
   consoleapi.ReservedBucketUsageItem:
     properties:
@@ -1396,6 +1635,12 @@ definitions:
         example: 3600
         type: integer
     type: object
+  consoleapi.SettingsMessageSwaggerResponse:
+    properties:
+      message:
+        example: token updated successfully
+        type: string
+    type: object
   consoleapi.SwaggerErrorResponse:
     properties:
       error:
@@ -1432,6 +1677,48 @@ definitions:
       shortName:
         example: Jane
         type: string
+    type: object
+  consoleapi.UpdateFCMTokenSwaggerRequest:
+    properties:
+      appVersion:
+        example: 1.2.0
+        type: string
+      browserName:
+        example: Chrome
+        type: string
+      deviceId:
+        example: device-uuid-123
+        type: string
+      deviceModel:
+        example: Pixel 8
+        type: string
+      deviceType:
+        enum:
+        - android
+        - ios
+        - web
+        example: web
+        type: string
+      isActive:
+        example: true
+        type: boolean
+      osVersion:
+        example: "14.0"
+        type: string
+      token:
+        example: fcm-device-token-string
+        type: string
+      userAgent:
+        example: Mozilla/5.0 ...
+        type: string
+    type: object
+  consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest:
+    properties:
+      active:
+        example: true
+        type: boolean
+    required:
+    - active
     type: object
   consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest:
     properties:
@@ -1500,27 +1787,6 @@ definitions:
     required:
     - interval
     type: object
-  consoleapi.UpdateTokenRequest:
-    properties:
-      appVersion:
-        type: string
-      browserName:
-        type: string
-      deviceId:
-        type: string
-      deviceModel:
-        type: string
-      deviceType:
-        type: string
-      isActive:
-        type: boolean
-      osVersion:
-        type: string
-      token:
-        type: string
-      userAgent:
-        type: string
-    type: object
   consoleapi.UpsertProjectSwaggerRequest:
     properties:
       bandwidthLimit:
@@ -1545,10 +1811,15 @@ definitions:
   consoleapi.UpsertUserNotificationPreferenceSwaggerRequest:
     properties:
       category:
+        enum:
+        - billing
+        - backup
+        - account
+        - vault
         example: billing
         type: string
       preferences:
-        type: object
+        $ref: '#/definitions/consoleapi.NotificationChannelPreferencesSwagger'
     type: object
   consoleapi.UserDeveloperAccessHistorySwaggerItem:
     properties:
@@ -1620,6 +1891,11 @@ definitions:
   consoleapi.UserNotificationPreferenceSwagger:
     properties:
       Category:
+        enum:
+        - billing
+        - backup
+        - account
+        - vault
         example: billing
         type: string
       CreatedAt:
@@ -2736,7 +3012,8 @@ paths:
       - dashboard
   /fcm-token:
     get:
-      description: '**Full route:** `GET /api/v0/fcm-token`'
+      description: '**Full route:** `GET /api/v0/fcm-token`. Settings → Push devices.
+        Returns all FCM token records for the logged-in user (active and inactive).'
       produces:
       - application/json
       responses:
@@ -2754,18 +3031,22 @@ paths:
       - CookieAuth: []
       summary: List FCM device tokens
       tags:
-      - auth-account
+      - settings-fcm
     post:
       consumes:
       - application/json
-      description: '**Full route:** `POST /api/v0/fcm-token`'
+      description: '**Full route:** `POST /api/v0/fcm-token`. Settings → Push devices.
+        Registers the device FCM token for the logged-in user. If the same `token`
+        string already exists, metadata is updated and `200` semantics apply (existing
+        record returned). `ip_address` is derived from `X-Forwarded-For`, `X-Real-IP`,
+        or `RemoteAddr` — do not send from client.'
       parameters:
-      - description: FCM token and device metadata
+      - description: FCM token and optional device metadata
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/consoleapi.RegisterTokenRequest'
+          $ref: '#/definitions/consoleapi.RegisterFCMTokenSwaggerRequest'
       produces:
       - application/json
       responses:
@@ -2785,10 +3066,11 @@ paths:
       - CookieAuth: []
       summary: Register FCM device token
       tags:
-      - auth-account
+      - settings-fcm
   /fcm-token/{tokenId}:
     delete:
-      description: '**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`'
+      description: '**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`. Settings
+        → Push devices. Permanently removes a token record owned by the current user.'
       parameters:
       - description: FCM token record UUID
         in: path
@@ -2799,11 +3081,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: message
+          description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/consoleapi.SettingsMessageSwaggerResponse'
         "400":
           description: Bad Request
           schema:
@@ -2824,11 +3104,13 @@ paths:
       - CookieAuth: []
       summary: Delete FCM device token
       tags:
-      - auth-account
+      - settings-fcm
     put:
       consumes:
       - application/json
-      description: '**Full route:** `PUT /api/v0/fcm-token/{tokenId}`'
+      description: '**Full route:** `PUT /api/v0/fcm-token/{tokenId}`. Settings →
+        Push devices. Updates metadata or `isActive` for a token owned by the current
+        user. All body fields are optional; send only fields to change.'
       parameters:
       - description: FCM token record UUID
         in: path
@@ -2840,16 +3122,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/consoleapi.UpdateTokenRequest'
+          $ref: '#/definitions/consoleapi.UpdateFCMTokenSwaggerRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: message
+          description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/consoleapi.SettingsMessageSwaggerResponse'
         "400":
           description: Bad Request
           schema:
@@ -2870,12 +3150,99 @@ paths:
       - CookieAuth: []
       summary: Update FCM device token
       tags:
-      - auth-account
+      - settings-fcm
+  /google-backup/auto-sync/job/{job_id}:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/job/{job_id}`.
+        Proxies Backup-Tools `GET /auto-sync/job/{job_id}` with session `token_key`.
+        Job is in `success[0]`.'
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get Google Backup auto-sync job
+      tags:
+      - google-backup
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/google-backup/auto-sync/job/{job_id}`.
+        Proxies Backup-Tools `PUT /auto-sync/job/{job_id}` with body `{ "active":
+        true|false }` only.'
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      - description: Active toggle
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Toggle Google Backup auto-sync job active
+      tags:
+      - google-backup
   /google-backup/auto-sync/jobs:
     get:
-      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`'
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies
+        Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter`
+        query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service
+        dropdown → `method` (gmail, google_drive, google_photos, google_calendar,
+        google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running
+        → `status` (success, failed, in_progress, in_queue, created — last run, not
+        same as active); Search bar → `name` (partial email). No `search` param on
+        job list — use `filter.name`. Mailbox/domain search → `GET .../auto-sync/users-groups?search=...`.
+        See `GET .../auto-sync/jobs/filter-schema` for examples.'
       parameters:
-      - description: Optional Backup-Tools filter
+      - description: URL-encoded AutosyncJobListFilter JSON. See definitions and GET
+          .../auto-sync/jobs/filter-schema for four examples.
+        example: '%7B%22method%22%3A%22gmail%22%2C%22active%22%3Atrue%2C%22status%22%3A%22failed%22%7D'
         in: query
         name: filter
         type: string
@@ -2885,7 +3252,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.AutosyncJobListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -2932,29 +3303,20 @@ paths:
       summary: Create Google Backup auto-sync jobs
       tags:
       - google-backup
-  /google-backup/auto-sync/jobs/{job_id}:
+  /google-backup/auto-sync/jobs/filter-schema:
     get:
-      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`'
-      parameters:
-      - description: Job ID
-        in: path
-        name: job_id
-        required: true
-        type: string
+      description: '**Not a live route.** Documents `AutosyncJobListFilter` and four
+        filter examples for `GET /api/v0/google-backup/auto-sync/jobs?filter=` (URL-encoded
+        JSON). UI: method=Service dropdown; active=on/off toggle; status=last run
+        result; name=search bar (partial email).'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Get Google Backup auto-sync job
+            $ref: '#/definitions/consoleapi.AutosyncJobListFilterExamples'
+      summary: Auto-sync job list filter schema
       tags:
       - google-backup
   /google-backup/auto-sync/jobs/project:
@@ -4196,9 +4558,18 @@ paths:
       - projects
   /user/notification-preferences:
     get:
-      description: '**Full route:** `GET /api/v0/user/notification-preferences`'
+      description: '**Full route:** `GET /api/v0/user/notification-preferences`. Settings
+        → Notification preferences. Without `category`: returns a JSON **array** of
+        all preference rows. With `category`: returns a single preference **object**
+        for that category. Each row `Preferences` map uses keys `push`, `email`, `sms`
+        with minimum priority levels 1–4 (marketing, info, warning, critical).'
       parameters:
-      - description: 'Filter: billing, backup, account, vault'
+      - description: 'Optional filter: billing, backup, account, vault'
+        enum:
+        - billing
+        - backup
+        - account
+        - vault
         in: query
         name: category
         type: string
@@ -4223,11 +4594,16 @@ paths:
       - CookieAuth: []
       summary: Get notification preferences
       tags:
-      - auth-account
+      - settings-notification-preferences
     put:
       consumes:
       - application/json
-      description: '**Full route:** `PUT /api/v0/user/notification-preferences`'
+      description: '**Full route:** `PUT /api/v0/user/notification-preferences`. Settings
+        → Notification preferences. Upserts one category row. `category` required.
+        `preferences` may include any of `push`, `email`, `sms` — each value is minimum
+        priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names
+        `marketing`/`info`/`warning`/`critical` also accepted). Returns `201` on create,
+        `200` on update.'
       parameters:
       - description: Category and channel preferences
         in: body
@@ -4258,7 +4634,7 @@ paths:
       - CookieAuth: []
       summary: Create or update notification preference
       tags:
-      - auth-account
+      - settings-notification-preferences
   /v1/access:
     post:
       consumes:
@@ -4335,8 +4711,14 @@ tags:
     PUT)'
   name: google-backup-restore-cron
 - description: 'Account & session: profile, settings, refresh-session, developer-access,
-    MFA, FCM tokens, notification-preferences'
+    MFA'
   name: auth-account
+- description: 'Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token`
+    (session cookie). IP address is set server-side.'
+  name: settings-fcm
+- description: 'Settings → Notification preferences: per-category channel thresholds
+    at `/api/v0/user/notification-preferences` (billing, backup, account, vault).'
+  name: settings-notification-preferences
 - description: 'Access management: GET /api/v0/api-keys/list-paged (paginated keys),
     POST /v1/access (exchange access grant for S3 credentials on auth host)'
   name: access

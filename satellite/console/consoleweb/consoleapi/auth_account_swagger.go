@@ -140,38 +140,3 @@ type UserDeveloperAccessHistorySwaggerItem struct {
 	Status          int       `json:"status" example:"1"`
 	CreatedAt       time.Time `json:"created_at"`
 }
-
-// UserNotificationPreferenceSwagger is a notification preference row.
-type UserNotificationPreferenceSwagger struct {
-	ID          string                 `json:"ID" example:"00000000-0000-0000-0000-000000000000"`
-	UserID      string                 `json:"UserID" example:"00000000-0000-0000-0000-000000000000"`
-	Category    string                 `json:"Category" example:"billing"`
-	Preferences map[string]interface{} `json:"Preferences" swaggertype:"object"`
-	CreatedAt   time.Time              `json:"CreatedAt"`
-	UpdatedAt   time.Time              `json:"UpdatedAt"`
-}
-
-// UpsertUserNotificationPreferenceSwaggerRequest is the body for PUT /api/v0/user/notification-preferences.
-type UpsertUserNotificationPreferenceSwaggerRequest struct {
-	Category    string                 `json:"category" example:"billing"`
-	Preferences map[string]interface{} `json:"preferences" swaggertype:"object"`
-}
-
-// FCMTokenSwaggerResponse is an FCM device token record.
-type FCMTokenSwaggerResponse struct {
-	ID          string     `json:"ID" example:"00000000-0000-0000-0000-000000000000"`
-	UserID      string     `json:"UserID" example:"00000000-0000-0000-0000-000000000000"`
-	Token       string     `json:"Token" example:"fcm-device-token"`
-	DeviceID    *string    `json:"DeviceID"`
-	DeviceType  *string    `json:"DeviceType" example:"web"`
-	AppVersion  *string    `json:"AppVersion"`
-	OSVersion   *string    `json:"OSVersion"`
-	DeviceModel *string    `json:"DeviceModel"`
-	BrowserName *string    `json:"BrowserName"`
-	UserAgent   *string    `json:"UserAgent"`
-	IPAddress   *string    `json:"IPAddress"`
-	CreatedAt   time.Time  `json:"CreatedAt"`
-	UpdatedAt   time.Time  `json:"UpdatedAt"`
-	LastUsedAt  *time.Time `json:"LastUsedAt"`
-	IsActive    bool       `json:"IsActive" example:"true"`
-}
