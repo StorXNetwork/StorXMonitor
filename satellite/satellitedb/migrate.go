@@ -5040,39 +5040,19 @@ true, NOW(), NOW());`,
 				Description: "add audit_logs table",
 				Version:     374,
 				Action: migrate.SQL{
-					`CREATE TABLE audit_logs (
+					`CREATE TABLE IF NOT EXISTS audit_logs (
 						id bytea NOT NULL,
-						timestamp timestamp with time zone NOT NULL DEFAULT now(),
+						timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
 						actor_id text NOT NULL,
-						actor_name text,
-						actor_email text,
 						action text NOT NULL,
 						resource text,
+						message text NOT NULL,
 						ip_address text,
-						status text NOT NULL DEFAULT 'success',
+						status text NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
-					`CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp );`,
-					`CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp );`,
-				},
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "add message column to audit_logs",
-				Version:     375,
-				Action: migrate.SQL{
-					`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS message text NOT NULL DEFAULT ''`,
-					`UPDATE audit_logs SET message = action WHERE message = '' OR message IS NULL`,
-					`ALTER TABLE audit_logs ALTER COLUMN message DROP DEFAULT`,
-				},
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "drop actor_name and actor_email from audit_logs",
-				Version:     376,
-				Action: migrate.SQL{
-					`ALTER TABLE audit_logs DROP COLUMN IF EXISTS actor_name`,
-					`ALTER TABLE audit_logs DROP COLUMN IF EXISTS actor_email`,
+					`CREATE INDEX IF NOT EXISTS audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp );`,
+					`CREATE INDEX IF NOT EXISTS audit_log_action_timestamp_idx ON audit_logs ( action, timestamp );`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
