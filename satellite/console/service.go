@@ -1023,6 +1023,8 @@ func (s *Service) convertToHTTPError(ctx context.Context, err error, defaultStat
 		status = http.StatusUnauthorized
 	} else if ErrUnauthorized.Has(err) {
 		status = http.StatusUnauthorized
+	} else if ErrConflict.Has(err) {
+		status = http.StatusConflict
 	}
 	return api.HTTPError{
 		Status: status,
@@ -4931,19 +4933,31 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
-		p, err = tx.Projects().Insert(ctx,
-			&Project{
-				Description:             projectInfo.Description,
-				Name:                    projectInfo.Name,
-				OwnerID:                 user.ID,
-				UserAgent:               user.UserAgent,
-				StorageLimit:            &storageLimit,
-				BandwidthLimit:          &bandwidthLimit,
-				SegmentLimit:            &newProjectLimits.Segment,
-				DefaultPlacement:        user.DefaultPlacement,
-				PrevDaysUntilExpiration: 0,
-			},
-		)
+
+		newProject := &Project{
+			Description:             projectInfo.Description,
+			Name:                    projectInfo.Name,
+			OwnerID:                 user.ID,
+			UserAgent:               user.UserAgent,
+			StorageLimit:            &storageLimit,
+			BandwidthLimit:          &bandwidthLimit,
+			SegmentLimit:            &newProjectLimits.Segment,
+			DefaultPlacement:        user.DefaultPlacement,
+			PrevDaysUntilExpiration: projectInfo.PrevDaysUntilExpiration,
+		}
+		if s.config.SatelliteManagedEncryptionEnabled && projectInfo.ManagePassphrase && s.kmsService != nil {
+			encPassphrase, keyID, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			newProject.PassphraseEnc = encPassphrase
+			newProject.PassphraseEncKeyID = &keyID
+			newProject.PathEncryption = &s.config.ManagedEncryption.PathEncryptionEnabled
+		} else if projectInfo.ManagePassphrase {
+			return ErrSatelliteManagedEncryption
+		}
+
+		p, err = tx.Projects().Insert(ctx, newProject)
 		if err != nil {
 			return Error.Wrap(err)
 		}
