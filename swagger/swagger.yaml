@@ -3584,6 +3584,58 @@ paths:
       summary: List Google Backup Users & Groups domains
       tags:
       - google-backup-users-groups
+  /google-backup/backup-restore/logs:
+    get:
+      parameters:
+      - description: 'Comma-separated: backup, restore, or both (default backup,restore).'
+        in: query
+        name: types
+        type: string
+      - description: Partial match on subject or message.
+        in: query
+        name: search
+        type: string
+      - description: 'Exact service filter: gmail, google_drive, google_photos, google_contacts,
+          google_calendar.'
+        in: query
+        name: method
+        type: string
+      - description: info, warning, or error.
+        in: query
+        name: message_status
+        type: string
+      - description: Page size on merged list (default 10, max 100).
+        in: query
+        name: limit
+        type: integer
+      - description: Rows to skip (default 0).
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List backup and restore logs
+      tags:
+      - google-backup-logs
   /google-backup/connect:
     post:
       consumes:
@@ -4710,6 +4762,8 @@ tags:
     GET /restore/live|jobs|job/* (token_key only; OAuth reconnect via auto-sync job
     PUT)'
   name: google-backup-restore-cron
+- description: GET /google-backup/backup-restore/logs
+  name: google-backup-logs
 - description: 'Account & session: profile, settings, refresh-session, developer-access,
     MFA'
   name: auth-account

@@ -214,6 +214,20 @@ func (s *Service) ListGoogleBackupUsersGroups(ctx context.Context, tokenKey, que
 	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
 }
 
+func (s *Service) ListGoogleBackupRestoreLogs(ctx context.Context, tokenKey, query string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+
+	path := "/backup-restore/logs"
+	if query != "" {
+		path += "?" + query
+	}
+	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
+}
+
 func (s *Service) ListGoogleBackupAutoSyncJobServices(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 

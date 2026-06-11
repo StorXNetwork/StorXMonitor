@@ -2108,6 +2108,86 @@
                 }
             }
         },
+        "/google-backup/backup-restore/logs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-logs"
+                ],
+                "summary": "List backup and restore logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Comma-separated: backup, restore, or both (default backup,restore).",
+                        "name": "types",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Partial match on subject or message.",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact service filter: gmail, google_drive, google_photos, google_contacts, google_calendar.",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "info, warning, or error.",
+                        "name": "message_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size on merged list (default 10, max 100).",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows to skip (default 0).",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/google-backup/connect": {
             "post": {
                 "security": [
@@ -6919,6 +6999,10 @@
         {
             "description": "Google Backup restore-all scheduler: GET /restore/prepare, POST /restore/all, GET /restore/live|jobs|job/* (token_key only; OAuth reconnect via auto-sync job PUT)",
             "name": "google-backup-restore-cron"
+        },
+        {
+            "description": "GET /google-backup/backup-restore/logs",
+            "name": "google-backup-logs"
         },
         {
             "description": "Account \u0026 session: profile, settings, refresh-session, developer-access, MFA",

@@ -62,6 +62,9 @@ package consoleweb
 // @tag.name google-backup-restore-cron
 // @tag.description Google Backup restore-all scheduler: GET /restore/prepare, POST /restore/all, GET /restore/live|jobs|job/* (token_key only; OAuth reconnect via auto-sync job PUT)
 
+// @tag.name google-backup-logs
+// @tag.description GET /google-backup/backup-restore/logs
+
 // @tag.name auth-account
 // @tag.description Account & session: profile, settings, refresh-session, developer-access, MFA
 

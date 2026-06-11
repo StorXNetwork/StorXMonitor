@@ -190,6 +190,42 @@ func (g *GoogleBackup) ListUsersGroups(w http.ResponseWriter, r *http.Request) {
 	writeBackupToolsJSON(w, status, respBody)
 }
 
+// ListBackupRestoreLogs proxies Backup-Tools GET /backup-restore/logs.
+//
+// @Summary      List backup and restore logs
+// @Tags         google-backup-logs
+// @Produce      json
+// @Param        types           query  string  false  "Comma-separated: backup, restore, or both (default backup,restore)."
+// @Param        search          query  string  false  "Partial match on subject or message."
+// @Param        method          query  string  false  "Exact service filter: gmail, google_drive, google_photos, google_contacts, google_calendar."
+// @Param        message_status  query  string  false  "info, warning, or error."
+// @Param        limit           query  int     false  "Page size on merged list (default 10, max 100)."
+// @Param        offset          query  int     false  "Rows to skip (default 0)."
+// @Success      200  {object}  BackupToolsJSONResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/backup-restore/logs [get]
+func (g *GoogleBackup) ListBackupRestoreLogs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupRestoreLogs(ctx, tokenKey, r.URL.RawQuery)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
 // ListAutoSyncJobServices returns per-service job counts for the Services Update page (Backup-Tools GET /auto-sync/job/services).
 //
 // @Summary      List Google Backup auto-sync service stats

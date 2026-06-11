@@ -541,6 +541,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/users-groups/domains", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetUsersGroupsDomains))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/users-groups", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListUsersGroups))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/backup-restore/logs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListBackupRestoreLogs))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobServices))).Methods(http.MethodGet, http.MethodOptions)
