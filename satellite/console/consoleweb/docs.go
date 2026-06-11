@@ -50,6 +50,9 @@ package consoleweb
 // @tag.name google-backup
 // @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs` sets onboarding complete on success.
 
+// @tag.name google-backup-users-groups
+// @tag.description GET /google-backup/users-groups/*
+
 // @tag.name google-backup-policy
 // @tag.description Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)
 

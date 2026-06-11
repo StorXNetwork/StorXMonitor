@@ -1230,76 +1230,22 @@ definitions:
     - project_id
     - service
     type: object
-  consoleapi.GoogleBackupUsersGroupsDomainsSwaggerResponse:
-    properties:
-      domains:
-        example:
-        - acme.com
-        - gmail.com
-        items:
-          type: string
-        type: array
-    type: object
-  consoleapi.GoogleBackupUsersGroupsEntitySwagger:
-    properties:
-      email:
-        example: s.jenkins@acme.com
-        type: string
-      name:
-        example: s.jenkins
-        type: string
-      policy_id:
-        example: 5
-        type: integer
-      services:
-        items:
-          $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsServiceSwagger'
-        type: array
-    type: object
-  consoleapi.GoogleBackupUsersGroupsPaginationSwagger:
-    properties:
-      limit:
-        example: 10
-        type: integer
-      offset:
-        example: 0
-        type: integer
-      page:
-        example: 1
-        type: integer
-      total_count:
-        example: 25
-        type: integer
-      total_pages:
-        example: 3
-        type: integer
-    type: object
-  consoleapi.GoogleBackupUsersGroupsServiceSwagger:
+  consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest:
     properties:
       active:
-        example: true
+        example: false
         type: boolean
-      method:
-        enum:
-        - gmail
-        - google_drive
-        - google_photos
-        - google_contacts
-        - google_calendar
-        example: gmail
-        type: string
-    type: object
-  consoleapi.GoogleBackupUsersGroupsSwaggerResponse:
-    properties:
-      entities:
+      job_ids:
+        example:
+        - 12
+        - 13
+        - 14
         items:
-          $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsEntitySwagger'
+          type: integer
         type: array
-      pagination:
-        $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsPaginationSwagger'
-      policy_link:
-        example: /auto-sync/policy
-        type: string
+    required:
+    - active
+    - job_ids
     type: object
   consoleapi.MFADisableSwaggerRequest:
     properties:
@@ -3237,7 +3183,7 @@ paths:
         google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running
         → `status` (success, failed, in_progress, in_queue, created — last run, not
         same as active); Search bar → `name` (partial email). No `search` param on
-        job list — use `filter.name`. Mailbox/domain search → `GET .../auto-sync/users-groups?search=...`.
+        job list — use `filter.name`. Mailbox/domain search → `GET .../users-groups?search=...`.
         See `GET .../auto-sync/jobs/filter-schema` for examples.'
       parameters:
       - description: URL-encoded AutosyncJobListFilter JSON. See definitions and GET
@@ -3369,7 +3315,7 @@ paths:
       - CookieAuth: []
       summary: List Google Backup auto-sync service stats
       tags:
-      - google-backup-users-groups
+      - google-backup
   /google-backup/auto-sync/policy:
     get:
       description: '**Full route:** `GET /api/v0/google-backup/auto-sync/policy`'
@@ -3517,73 +3463,6 @@ paths:
       summary: Preview Google Backup policy merge
       tags:
       - google-backup-policy
-  /google-backup/auto-sync/users-groups:
-    get:
-      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/users-groups`'
-      parameters:
-      - description: Accounts/domains dropdown — filter by domain (e.g. acme.com).
-          From GET .../users-groups/domains.
-        in: query
-        name: domain
-        type: string
-      - description: Email search — substring match on mailbox email.
-        in: query
-        name: search
-        type: string
-      - description: 'Services dropdown. All Services: omit, all, or all_services.
-          Specific: gmail, google_drive, google_photos, google_contacts, google_calendar.
-          Invalid → 400.'
-        in: query
-        name: method
-        type: string
-      - description: Pagination — emails per request (default 10).
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination — emails to skip (default 0). Page 2 with limit 10
-          → offset=10.
-        in: query
-        name: offset
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsSwaggerResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: List Google Backup Users & Groups
-      tags:
-      - google-backup-users-groups
-  /google-backup/auto-sync/users-groups/domains:
-    get:
-      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/users-groups/domains`'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsDomainsSwaggerResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: List Google Backup Users & Groups domains
-      tags:
-      - google-backup-users-groups
   /google-backup/backup-restore/logs:
     get:
       parameters:
@@ -4099,6 +3978,224 @@ paths:
       summary: Pre-flight restore-all check
       tags:
       - google-backup-restore-cron
+  /google-backup/users-groups:
+    get:
+      parameters:
+      - description: Filter by domain.
+        in: query
+        name: domain
+        type: string
+      - description: Partial match on mailbox email.
+        in: query
+        name: search
+        type: string
+      - description: gmail, google_drive, google_photos, google_contacts, google_calendar,
+          all, all_services.
+        in: query
+        name: method
+        type: string
+      - description: corporate, individual, all, all_types.
+        in: query
+        name: account_type
+        type: string
+      - description: healthy, re_auth_required, all, all_statuses.
+        in: query
+        name: credential_status
+        type: string
+      - description: true = at least one active job; false = at least one paused job;
+          omit or all = no filter.
+        in: query
+        name: active
+        type: string
+      - description: Page size (default 10).
+        in: query
+        name: limit
+        type: integer
+      - description: Rows to skip (default 0).
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Users & Groups mailboxes
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/domains:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Users & Groups domains
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/jobs/active:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: job_ids from list entities[].services[].job_id
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Bulk pause or resume jobs
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/mailbox/credentials:
+    get:
+      parameters:
+      - description: Mailbox email.
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mailbox credentials tab
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/mailbox/overview:
+    get:
+      parameters:
+      - description: Mailbox email.
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mailbox overview tab
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/mailbox/schedule:
+    get:
+      parameters:
+      - description: Mailbox email.
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mailbox schedule tab
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/mailbox/services:
+    get:
+      parameters:
+      - description: Mailbox email.
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mailbox services tab
+      tags:
+      - google-backup-users-groups
   /notifications:
     get:
       description: '**Full route:** `GET /api/v0/notifications`'
@@ -4749,6 +4846,8 @@ tags:
 - description: Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs`
     sets onboarding complete on success.
   name: google-backup
+- description: GET /google-backup/users-groups/*
+  name: google-backup-users-groups
 - description: 'Google Backup shared policies: schedule, retention, merge (Backup-Tools
     /auto-sync/policy/*)'
   name: google-backup-policy

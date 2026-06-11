@@ -1585,7 +1585,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter` query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service dropdown → `method` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running → `status` (success, failed, in_progress, in_queue, created — last run, not same as active); Search bar → `name` (partial email). No `search` param on job list — use `filter.name`. Mailbox/domain search → `GET .../auto-sync/users-groups?search=...`. See `GET .../auto-sync/jobs/filter-schema` for examples.",
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter` query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service dropdown → `method` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running → `status` (success, failed, in_progress, in_queue, created — last run, not same as active); Search bar → `name` (partial email). No `search` param on job list — use `filter.name`. Mailbox/domain search → `GET .../users-groups?search=...`. See `GET .../auto-sync/jobs/filter-schema` for examples.",
                 "produces": [
                     "application/json"
                 ],
@@ -1762,7 +1762,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "google-backup-users-groups"
+                    "google-backup"
                 ],
                 "summary": "List Google Backup auto-sync service stats",
                 "responses": {
@@ -2001,106 +2001,6 @@
                     },
                     "409": {
                         "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/users-groups": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/users-groups`",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-users-groups"
-                ],
-                "summary": "List Google Backup Users \u0026 Groups",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Accounts/domains dropdown — filter by domain (e.g. acme.com). From GET .../users-groups/domains.",
-                        "name": "domain",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Email search — substring match on mailbox email.",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Services dropdown. All Services: omit, all, or all_services. Specific: gmail, google_drive, google_photos, google_contacts, google_calendar. Invalid → 400.",
-                        "name": "method",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Pagination — emails per request (default 10).",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Pagination — emails to skip (default 0). Page 2 with limit 10 → offset=10.",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsSwaggerResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/users-groups/domains": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/users-groups/domains`",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-users-groups"
-                ],
-                "summary": "List Google Backup Users \u0026 Groups domains",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsDomainsSwaggerResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -2883,6 +2783,352 @@
                         "type": "string",
                         "description": "gmail, drive, photos, calendar, or contacts",
                         "name": "service",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "List Users \u0026 Groups mailboxes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by domain.",
+                        "name": "domain",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Partial match on mailbox email.",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "gmail, google_drive, google_photos, google_contacts, google_calendar, all, all_services.",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "corporate, individual, all, all_types.",
+                        "name": "account_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "healthy, re_auth_required, all, all_statuses.",
+                        "name": "credential_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "true = at least one active job; false = at least one paused job; omit or all = no filter.",
+                        "name": "active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10).",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows to skip (default 0).",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/domains": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "List Users \u0026 Groups domains",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/jobs/active": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Bulk pause or resume jobs",
+                "parameters": [
+                    {
+                        "description": "job_ids from list entities[].services[].job_id",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/mailbox/credentials": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Mailbox credentials tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email.",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/mailbox/overview": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Mailbox overview tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email.",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/mailbox/schedule": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Mailbox schedule tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email.",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/mailbox/services": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Mailbox services tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email.",
+                        "name": "email",
                         "in": "query",
                         "required": true
                     }
@@ -5566,104 +5812,27 @@
                 }
             }
         },
-        "consoleapi.GoogleBackupUsersGroupsDomainsSwaggerResponse": {
+        "consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest": {
             "type": "object",
-            "properties": {
-                "domains": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "acme.com",
-                        "gmail.com"
-                    ]
-                }
-            }
-        },
-        "consoleapi.GoogleBackupUsersGroupsEntitySwagger": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string",
-                    "example": "s.jenkins@acme.com"
-                },
-                "name": {
-                    "type": "string",
-                    "example": "s.jenkins"
-                },
-                "policy_id": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "services": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsServiceSwagger"
-                    }
-                }
-            }
-        },
-        "consoleapi.GoogleBackupUsersGroupsPaginationSwagger": {
-            "type": "object",
-            "properties": {
-                "limit": {
-                    "type": "integer",
-                    "example": 10
-                },
-                "offset": {
-                    "type": "integer",
-                    "example": 0
-                },
-                "page": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "total_count": {
-                    "type": "integer",
-                    "example": 25
-                },
-                "total_pages": {
-                    "type": "integer",
-                    "example": 3
-                }
-            }
-        },
-        "consoleapi.GoogleBackupUsersGroupsServiceSwagger": {
-            "type": "object",
+            "required": [
+                "active",
+                "job_ids"
+            ],
             "properties": {
                 "active": {
                     "type": "boolean",
-                    "example": true
+                    "example": false
                 },
-                "method": {
-                    "type": "string",
-                    "enum": [
-                        "gmail",
-                        "google_drive",
-                        "google_photos",
-                        "google_contacts",
-                        "google_calendar"
-                    ],
-                    "example": "gmail"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupUsersGroupsSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "entities": {
+                "job_ids": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsEntitySwagger"
-                    }
-                },
-                "pagination": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsPaginationSwagger"
-                },
-                "policy_link": {
-                    "type": "string",
-                    "example": "/auto-sync/policy"
+                        "type": "integer"
+                    },
+                    "example": [
+                        12,
+                        13,
+                        14
+                    ]
                 }
             }
         },
@@ -6983,6 +7152,10 @@
         {
             "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs` sets onboarding complete on success.",
             "name": "google-backup"
+        },
+        {
+            "description": "GET /google-backup/users-groups/*",
+            "name": "google-backup-users-groups"
         },
         {
             "description": "Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)",
