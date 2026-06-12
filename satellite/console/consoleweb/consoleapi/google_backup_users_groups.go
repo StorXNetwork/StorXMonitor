@@ -79,7 +79,6 @@ func (g *GoogleBackupUsersGroups) GetDomains(w http.ResponseWriter, r *http.Requ
 // @Param        method            query  string  false  "gmail, google_drive, google_photos, google_contacts, google_calendar, all, all_services."
 // @Param        account_type      query  string  false  "corporate, individual, all, all_types."
 // @Param        credential_status query  string  false  "healthy, re_auth_required, all, all_statuses."
-// @Param        active            query  string  false  "true = at least one active job; false = at least one paused job; omit or all = no filter."
 // @Param        limit             query  int     false  "Page size (default 10)."
 // @Param        offset            query  int     false  "Rows to skip (default 0)."
 // @Success      200  {object}  BackupToolsJSONResponse

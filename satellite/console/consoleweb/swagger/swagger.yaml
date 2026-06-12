@@ -3828,11 +3828,6 @@ paths:
         in: query
         name: credential_status
         type: string
-      - description: true = at least one active job; false = at least one paused job;
-          omit or all = no filter.
-        in: query
-        name: active
-        type: string
       - description: Page size (default 10).
         in: query
         name: limit

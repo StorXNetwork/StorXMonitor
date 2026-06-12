@@ -3108,12 +3108,6 @@
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "description": "true = at least one active job; false = at least one paused job; omit or all = no filter.",
-                        "name": "active",
-                        "in": "query"
-                    },
-                    {
                         "type": "integer",
                         "description": "Page size (default 10).",
                         "name": "limit",
