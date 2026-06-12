@@ -1636,7 +1636,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `. On success (no failed jobs) sets ` + "`" + `user_settings` + "`" + ` step to ` + "`" + `GoogleBackupCompleted` + "`" + `. Satellite adds ` + "`" + `refresh_token` + "`" + ` + ` + "`" + `project_id` + "`" + `, POSTs Backup-Tools ` + "`" + `/auto-sync/job` + "`" + `.",
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `. On success (no failed jobs) sets ` + "`" + `user_settings` + "`" + ` step to ` + "`" + `GoogleBackupCompleted` + "`" + `. Satellite adds ` + "`" + `refresh_token` + "`" + ` + ` + "`" + `project_id` + "`" + `, POSTs Backup-Tools ` + "`" + `/auto-sync/job` + "`" + `. Optional ` + "`" + `policy_id` + "`" + ` or ` + "`" + `policy_name` + "`" + ` for later corporate connections.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1795,19 +1795,129 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/policy` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "google-backup-policy"
                 ],
-                "summary": "List Google Backup auto-sync policies",
+                "summary": "List backup policies",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupPolicyListSwaggerResponse"
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Create backup policy",
+                "parameters": [
+                    {
+                        "description": "Omit job_ids for empty policy; set job_ids for split or move-to-new",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/available-assignments": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "List available assignments for Add Email modal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target policy ID.",
+                        "name": "policy_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Step 1 — filter mailbox name or email.",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Step 2 — return services for this mailbox.",
+                        "name": "email",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     },
                     "401": {
@@ -1826,7 +1936,6 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/policy/merge` + "`" + `",
                 "consumes": [
                     "application/json"
                 ],
@@ -1836,10 +1945,10 @@ const docTemplate = `{
                 "tags": [
                     "google-backup-policy"
                 ],
-                "summary": "Merge duplicate Google Backup policies",
+                "summary": "Merge duplicate policies into a new policy",
                 "parameters": [
                     {
-                        "description": "Merge request",
+                        "description": "Complete policy_ids from one preview group plus new policy name",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1852,7 +1961,99 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupPolicyMergeExecuteSwaggerResponse"
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/merge/preview": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Preview duplicate policy merge",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/move": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Move job assignments to a policy",
+                "parameters": [
+                    {
+                        "description": "target_policy_id and job_ids",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
                         }
                     },
                     "400": {
@@ -1876,26 +2077,25 @@ const docTemplate = `{
                 }
             }
         },
-        "/google-backup/auto-sync/policy/merge/preview": {
+        "/google-backup/auto-sync/policy/options": {
             "get": {
                 "security": [
                     {
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/policy/merge/preview` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "google-backup-policy"
                 ],
-                "summary": "Preview Google Backup policy merge",
+                "summary": "List policy options for move picker",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupPolicyMergePreviewSwaggerResponse"
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
                         }
                     },
                     "401": {
@@ -1914,14 +2114,13 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/policy/{policy_id}` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "google-backup-policy"
                 ],
-                "summary": "Get Google Backup auto-sync policy",
+                "summary": "Get backup policy details",
                 "parameters": [
                     {
                         "type": "string",
@@ -1929,13 +2128,19 @@ const docTemplate = `{
                         "name": "policy_id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter linked_jobs by email, name, method, or service label.",
+                        "name": "search",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupPolicyDetailSwaggerResponse"
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
                         }
                     },
                     "401": {
@@ -1958,7 +2163,6 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `PUT /api/v0/google-backup/auto-sync/policy/{policy_id}` + "`" + `. Copy: apply_all false + selected_job_ids. Edit: apply_all true. On 409 duplicate schedule use GET .../merge/preview then POST .../merge.\n**interval:** 3h, 12h, daily, weekly, monthly (aliases nightly/24h/7d normalize to daily).\n**on:** 3h/12h empty \"\"; daily time e.g. 12am; weekly weekday e.g. Monday; monthly day e.g. 1.\n**retention_type:** never, 30_days, 1_year, 7_years (optional).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1968,7 +2172,7 @@ const docTemplate = `{
                 "tags": [
                     "google-backup-policy"
                 ],
-                "summary": "Update Google Backup auto-sync policy",
+                "summary": "Update backup policy schedule",
                 "parameters": [
                     {
                         "type": "string",
@@ -1978,7 +2182,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Policy update",
+                        "description": "interval, on, retention_type",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1991,7 +2195,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupPolicyUpdateSwaggerResponse"
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
                         }
                     },
                     "400": {
@@ -2002,6 +2206,55 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Delete empty backup policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID (linked_job_count must be 0)",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -4873,6 +5126,14 @@ const docTemplate = `{
                     "type": "string",
                     "example": ""
                 },
+                "policy_id": {
+                    "type": "integer",
+                    "example": 50
+                },
+                "policy_name": {
+                    "type": "string",
+                    "example": "New team policy"
+                },
                 "services": {
                     "type": "array",
                     "items": {
@@ -4882,6 +5143,56 @@ const docTemplate = `{
                         "gmail",
                         "drive"
                     ]
+                }
+            }
+        },
+        "consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest": {
+            "type": "object",
+            "required": [
+                "interval",
+                "name",
+                "retention_type"
+            ],
+            "properties": {
+                "interval": {
+                    "type": "string",
+                    "enum": [
+                        "3h",
+                        "12h",
+                        "daily",
+                        "weekly",
+                        "monthly"
+                    ],
+                    "example": "12h"
+                },
+                "job_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        101,
+                        102,
+                        103
+                    ]
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Executive Team Policy"
+                },
+                "on": {
+                    "type": "string",
+                    "example": ""
+                },
+                "retention_type": {
+                    "type": "string",
+                    "enum": [
+                        "never",
+                        "30_days",
+                        "1_year",
+                        "7_years"
+                    ],
+                    "example": "never"
                 }
             }
         },
@@ -5286,517 +5597,6 @@ const docTemplate = `{
                 }
             }
         },
-        "consoleapi.GoogleBackupPolicyConnectedAccountSwagger": {
-            "type": "object",
-            "properties": {
-                "account_type": {
-                    "type": "string",
-                    "enum": [
-                        "personal",
-                        "employee_workspace",
-                        "admin_workspace"
-                    ],
-                    "example": "admin_workspace"
-                },
-                "credential_id": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "google_email": {
-                    "type": "string",
-                    "example": "admin@company.com"
-                },
-                "needs_google_reconnect": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "needs_storx_reconnect": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "oauth_holder_email": {
-                    "type": "string",
-                    "example": "admin@company.com"
-                },
-                "project_id": {
-                    "type": "string",
-                    "example": "abc-123"
-                },
-                "reconnect_scope": {
-                    "type": "string",
-                    "example": "credential"
-                },
-                "storj_project_id": {
-                    "type": "string",
-                    "example": "00000000-0000-0000-0000-000000000000"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyDetailSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "account": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupPolicyConnectedAccountSwagger"
-                },
-                "failed": {
-                    "type": "array",
-                    "items": {}
-                },
-                "linked_jobs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupPolicyLinkedJobSwagger"
-                    }
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Backup policy details"
-                },
-                "policy": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupPolicyListItemSwagger"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyLinkedJobSwagger": {
-            "type": "object",
-            "properties": {
-                "active": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "email": {
-                    "type": "string",
-                    "example": "user1@company.com"
-                },
-                "job_id": {
-                    "type": "integer",
-                    "example": 101
-                },
-                "method": {
-                    "type": "string",
-                    "example": "gmail"
-                },
-                "sync_type": {
-                    "type": "string",
-                    "example": "daily"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyListItemSwagger": {
-            "type": "object",
-            "properties": {
-                "credential_id": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "expires_at": {
-                    "type": "string",
-                    "example": "2027-01-01T00:00:00Z"
-                },
-                "interval": {
-                    "description": "Schedule interval: 3h, 12h, daily, weekly, monthly.",
-                    "type": "string",
-                    "enum": [
-                        "3h",
-                        "12h",
-                        "daily",
-                        "weekly",
-                        "monthly"
-                    ],
-                    "example": "daily"
-                },
-                "is_expired": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "linked_job_count": {
-                    "type": "integer",
-                    "example": 3
-                },
-                "needs_google_reconnect": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "needs_storx_reconnect": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "on": {
-                    "description": "Schedule anchor: empty (3h/12h), time (daily), weekday (weekly), day-of-month (monthly).",
-                    "type": "string",
-                    "example": "12am"
-                },
-                "policy_id": {
-                    "type": "integer",
-                    "example": 12
-                },
-                "retention_type": {
-                    "description": "Retention: never, 30_days, 1_year, 7_years.",
-                    "type": "string",
-                    "enum": [
-                        "never",
-                        "30_days",
-                        "1_year",
-                        "7_years"
-                    ],
-                    "example": "never"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyListSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "account": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupPolicyConnectedAccountSwagger"
-                },
-                "failed": {
-                    "type": "array",
-                    "items": {}
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Backup policies"
-                },
-                "policies": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupPolicyListItemSwagger"
-                    }
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyMergeExecuteSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "failed": {
-                    "type": "array",
-                    "items": {}
-                },
-                "merge": {
-                    "type": "object",
-                    "properties": {
-                        "canonical_policy_id": {
-                            "type": "integer",
-                            "example": 12
-                        },
-                        "canonical_reason": {
-                            "type": "string",
-                            "example": "most_linked_jobs_non_expired"
-                        },
-                        "impact": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupPolicyMergeImpactSwagger"
-                        },
-                        "jobs_rebound": {
-                            "type": "integer",
-                            "example": 5
-                        },
-                        "policy": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupPolicyListItemSwagger"
-                        },
-                        "policy_ids": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            },
-                            "example": [
-                                12,
-                                18,
-                                22
-                            ]
-                        },
-                        "removed_policy_ids": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            },
-                            "example": [
-                                18,
-                                22
-                            ]
-                        },
-                        "schedule": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupPolicyScheduleSwagger"
-                        }
-                    }
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Policies merged"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyMergeImpactSwagger": {
-            "type": "object",
-            "properties": {
-                "jobs_rebound": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "jobs_to_rebind": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "policies_removed": {
-                    "type": "integer",
-                    "example": 2
-                },
-                "policies_to_remove": {
-                    "type": "integer",
-                    "example": 2
-                },
-                "policy_kept": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "total_jobs_after_merge": {
-                    "type": "integer",
-                    "example": 8
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyMergeLinkedJobPreviewSwagger": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string",
-                    "example": "user1@company.com"
-                },
-                "job_id": {
-                    "type": "integer",
-                    "example": 101
-                },
-                "method": {
-                    "type": "string",
-                    "example": "gmail"
-                },
-                "policy_id": {
-                    "type": "integer",
-                    "example": 12
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyMergePreviewGroupSwagger": {
-            "type": "object",
-            "properties": {
-                "account": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupPolicyConnectedAccountSwagger"
-                },
-                "canonical_reason": {
-                    "type": "string",
-                    "enum": [
-                        "most_linked_jobs_non_expired",
-                        "non_expired_policy",
-                        "lowest_policy_id"
-                    ],
-                    "example": "most_linked_jobs_non_expired"
-                },
-                "has_more_jobs": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "impact": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupPolicyMergeImpactSwagger"
-                },
-                "jobs_to_rebind": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "linked_jobs_preview": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupPolicyMergeLinkedJobPreviewSwagger"
-                    }
-                },
-                "policies": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupPolicyMergePreviewPolicySwagger"
-                    }
-                },
-                "policy_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    },
-                    "example": [
-                        12,
-                        18,
-                        22
-                    ]
-                },
-                "recommended_canonical_policy_id": {
-                    "type": "integer",
-                    "example": 12
-                },
-                "schedule": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupPolicyScheduleSwagger"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyMergePreviewPolicySwagger": {
-            "type": "object",
-            "properties": {
-                "credential_id": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "expires_at": {
-                    "type": "string",
-                    "example": "2027-01-01T00:00:00Z"
-                },
-                "interval": {
-                    "description": "Schedule interval: 3h, 12h, daily, weekly, monthly.",
-                    "type": "string",
-                    "enum": [
-                        "3h",
-                        "12h",
-                        "daily",
-                        "weekly",
-                        "monthly"
-                    ],
-                    "example": "daily"
-                },
-                "is_expired": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "linked_job_count": {
-                    "type": "integer",
-                    "example": 3
-                },
-                "needs_google_reconnect": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "needs_storx_reconnect": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "on": {
-                    "description": "Schedule anchor: empty (3h/12h), time (daily), weekday (weekly), day-of-month (monthly).",
-                    "type": "string",
-                    "example": "12am"
-                },
-                "policy_id": {
-                    "type": "integer",
-                    "example": 12
-                },
-                "retention_type": {
-                    "description": "Retention: never, 30_days, 1_year, 7_years.",
-                    "type": "string",
-                    "enum": [
-                        "never",
-                        "30_days",
-                        "1_year",
-                        "7_years"
-                    ],
-                    "example": "never"
-                },
-                "role": {
-                    "type": "string",
-                    "enum": [
-                        "canonical",
-                        "duplicate"
-                    ],
-                    "example": "canonical"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyMergePreviewSummarySwagger": {
-            "type": "object",
-            "properties": {
-                "duplicate_policy_count": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "jobs_that_would_move": {
-                    "type": "integer",
-                    "example": 8
-                },
-                "mergeable_group_count": {
-                    "type": "integer",
-                    "example": 2
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyMergePreviewSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "failed": {
-                    "type": "array",
-                    "items": {}
-                },
-                "groups": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupPolicyMergePreviewGroupSwagger"
-                    }
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Duplicate policy merge preview"
-                },
-                "summary": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupPolicyMergePreviewSummarySwagger"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyScheduleSwagger": {
-            "type": "object",
-            "properties": {
-                "expires_at": {
-                    "type": "string"
-                },
-                "interval": {
-                    "description": "Schedule interval: 3h, 12h, daily, weekly, monthly.",
-                    "type": "string",
-                    "enum": [
-                        "3h",
-                        "12h",
-                        "daily",
-                        "weekly",
-                        "monthly"
-                    ],
-                    "example": "daily"
-                },
-                "is_expired": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "on": {
-                    "description": "Schedule anchor: empty (3h/12h), time (daily), weekday (weekly), day-of-month (monthly).",
-                    "type": "string",
-                    "example": "12am"
-                },
-                "retention_type": {
-                    "description": "Retention: never, 30_days, 1_year, 7_years.",
-                    "type": "string",
-                    "enum": [
-                        "never",
-                        "30_days",
-                        "1_year",
-                        "7_years"
-                    ],
-                    "example": "never"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupPolicyUpdateSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "failed": {
-                    "type": "array",
-                    "items": {}
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Policy updated"
-                },
-                "policy": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupPolicyListItemSwagger"
-                }
-            }
-        },
         "consoleapi.GoogleBackupRestoreAllSwaggerRequest": {
             "type": "object",
             "required": [
@@ -5881,19 +5681,47 @@ const docTemplate = `{
         "consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest": {
             "type": "object",
             "required": [
+                "name",
                 "policy_ids"
             ],
             "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "My Unified Backup Policy"
+                },
                 "policy_ids": {
                     "type": "array",
                     "items": {
                         "type": "integer"
                     },
                     "example": [
-                        12,
-                        18,
-                        22
+                        52,
+                        55,
+                        56
                     ]
+                }
+            }
+        },
+        "consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "job_ids",
+                "target_policy_id"
+            ],
+            "properties": {
+                "job_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        101,
+                        102
+                    ]
+                },
+                "target_policy_id": {
+                    "type": "integer",
+                    "example": 61
                 }
             }
         },
@@ -6472,16 +6300,11 @@ const docTemplate = `{
         "consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest": {
             "type": "object",
             "required": [
-                "interval"
+                "interval",
+                "retention_type"
             ],
             "properties": {
-                "apply_all": {
-                    "description": "true = Edit (all linked jobs). false = Copy (use with selected_job_ids).",
-                    "type": "boolean",
-                    "example": true
-                },
                 "interval": {
-                    "description": "Schedule interval. Allowed: 3h, 12h, daily, weekly, monthly. UI aliases nightly, 24h, 7d normalize to daily.",
                     "type": "string",
                     "enum": [
                         "3h",
@@ -6490,15 +6313,13 @@ const docTemplate = `{
                         "weekly",
                         "monthly"
                     ],
-                    "example": "daily"
+                    "example": "3h"
                 },
                 "on": {
-                    "description": "Schedule anchor (depends on interval). 3h/12h: empty string. daily: time e.g. 12am. weekly: weekday e.g. Monday. monthly: day e.g. 1.",
                     "type": "string",
-                    "example": "12am"
+                    "example": ""
                 },
                 "retention_type": {
-                    "description": "Backup retention. Allowed: never, 30_days, 1_year, 7_years. Optional — omit to leave unchanged.",
                     "type": "string",
                     "enum": [
                         "never",
@@ -6506,18 +6327,7 @@ const docTemplate = `{
                         "1_year",
                         "7_years"
                     ],
-                    "example": "1_year"
-                },
-                "selected_job_ids": {
-                    "description": "Job IDs when apply_all is false (Copy flow).",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    },
-                    "example": [
-                        101,
-                        102
-                    ]
+                    "example": "never"
                 }
             }
         },

@@ -54,7 +54,7 @@ func (g *GoogleBackup) serveJSONError(ctx context.Context, w http.ResponseWriter
 // CreateAutoSyncJobs creates Backup-Tools auto-sync jobs from a minimal UI payload.
 //
 // @Summary      Create Google Backup auto-sync jobs
-// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. On success (no failed jobs) sets `user_settings` step to `GoogleBackupCompleted`. Satellite adds `refresh_token` + `project_id`, POSTs Backup-Tools `/auto-sync/job`.
+// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. On success (no failed jobs) sets `user_settings` step to `GoogleBackupCompleted`. Satellite adds `refresh_token` + `project_id`, POSTs Backup-Tools `/auto-sync/job`. Optional `policy_id` or `policy_name` for later corporate connections.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -77,10 +77,12 @@ func (g *GoogleBackup) CreateAutoSyncJobs(w http.ResponseWriter, r *http.Request
 	}
 
 	var body struct {
-		Services []string `json:"services"`
-		Interval string   `json:"interval"`
-		On       string   `json:"on"`
-		Emails   []string `json:"emails"`
+		Services   []string `json:"services"`
+		Interval   string   `json:"interval"`
+		On         string   `json:"on"`
+		Emails     []string `json:"emails"`
+		PolicyID   *int     `json:"policy_id"`
+		PolicyName string   `json:"policy_name"`
 	}
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
@@ -95,10 +97,12 @@ func (g *GoogleBackup) CreateAutoSyncJobs(w http.ResponseWriter, r *http.Request
 
 	syncType := r.URL.Query().Get("sync_type")
 	respBody, status, err := g.service.CreateGoogleBackupAutoSyncJobs(ctx, console.CreateGoogleBackupAutoSyncJobsRequest{
-		Services: body.Services,
-		Interval: body.Interval,
-		On:       body.On,
-		Emails:   body.Emails,
+		Services:   body.Services,
+		Interval:   body.Interval,
+		On:         body.On,
+		Emails:     body.Emails,
+		PolicyID:   body.PolicyID,
+		PolicyName: body.PolicyName,
 	}, tokenKey, syncType)
 	g.service.RecordUserAuditHTTP(ctx, "GB_JOB_CREATE", "Auto-sync job", "Auto-sync job created", status, respBody, err)
 	if err == nil && status == http.StatusOK {

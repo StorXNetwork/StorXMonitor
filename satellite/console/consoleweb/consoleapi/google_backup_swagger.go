@@ -31,10 +31,12 @@ type GoogleBackupAuthError struct {
 // services: gmail, drive, photos, contacts, calendar. interval: 1h, 6h, nightly (daily/24h/7d map to nightly).
 // emails: required for corporate gmail when backing up delegated mailboxes.
 type CreateGoogleBackupAutoSyncJobsSwaggerRequest struct {
-	Services []string `json:"services" binding:"required" example:"gmail,drive"`
-	Interval string   `json:"interval" binding:"required" example:"6h"`
-	On       string   `json:"on" example:""`
-	Emails   []string `json:"emails,omitempty" example:"billing@salestalker.com,support@salestalker.com"`
+	Services   []string `json:"services" binding:"required" example:"gmail,drive"`
+	Interval   string   `json:"interval" binding:"required" example:"6h"`
+	On         string   `json:"on" example:""`
+	Emails     []string `json:"emails,omitempty" example:"billing@salestalker.com,support@salestalker.com"`
+	PolicyID   *int     `json:"policy_id,omitempty" example:"50"`
+	PolicyName string   `json:"policy_name,omitempty" example:"New team policy"`
 }
 
 // UpdateGoogleBackupAutoSyncJobSwaggerRequest is the UI body for PUT .../auto-sync/job/{job_id} (active toggle only).

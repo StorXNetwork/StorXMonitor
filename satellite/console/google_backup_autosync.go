@@ -21,10 +21,12 @@ import (
 )
 
 type CreateGoogleBackupAutoSyncJobsRequest struct {
-	Services []string
-	Interval string
-	On       string
-	Emails   []string
+	Services   []string
+	Interval   string
+	On         string
+	Emails     []string
+	PolicyID   *int
+	PolicyName string
 }
 
 // UpdateGoogleBackupAutoSyncJobsByProjectRequest is the UI → satellite body for
@@ -172,6 +174,12 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	}
 	if len(gmailEmails) > 0 {
 		payload["emails"] = gmailEmails
+	}
+	if req.PolicyID != nil {
+		payload["policy_id"] = *req.PolicyID
+	}
+	if v := strings.TrimSpace(req.PolicyName); v != "" {
+		payload["policy_name"] = v
 	}
 
 	btPayload, err := json.Marshal(payload)
