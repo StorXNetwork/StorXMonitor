@@ -799,6 +799,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/google-backup/init": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup/init` + "`" + `. Redirects to Google consent with ` + "`" + `GoogleRegisterBackupScopes` + "`" + ` (readonly + restore write). After consent, Google redirects to ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` + "`" + ` → call ` + "`" + `GET /api/v0/auth/google-backup?code=...` + "`" + `. Use this URL instead of a frontend-hardcoded scope list.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-onboarding"
+                ],
+                "summary": "Start Google Backup OAuth (all scopes)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional OAuth state",
+                        "name": "state",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to Google OAuth"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/google-backup/oauth-url": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup/oauth-url` + "`" + `. Returns the same URL as ` + "`" + `/auth/google-backup/init` + "`" + ` without redirecting. Scopes = ` + "`" + `GoogleRegisterBackupScopes` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-onboarding"
+                ],
+                "summary": "Google Backup OAuth URL (all scopes)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional OAuth state",
+                        "name": "state",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupOAuthURLSwaggerResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthError"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/mfa/disable": {
             "post": {
                 "security": [
@@ -2806,7 +2871,7 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.RestoreAllQueuedSwaggerResponse"
                         }
                     },
                     "400": {
@@ -2824,13 +2889,13 @@ const docTemplate = `{
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     },
                     "422": {
                         "description": "Unprocessable Entity",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.RestorePrepareSwaggerResponse"
                         }
                     }
                 }
@@ -2864,7 +2929,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.RestoreJobDetailSwaggerResponse"
                         }
                     },
                     "401": {
@@ -2876,7 +2941,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     }
                 }
@@ -2910,7 +2975,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.RestoreCancelSwaggerResponse"
                         }
                     },
                     "401": {
@@ -2950,7 +3015,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.RestoreDeadItemsSwaggerResponse"
                         }
                     },
                     "401": {
@@ -2980,8 +3045,56 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Max jobs (default 20)",
+                        "description": "UI service filter: gmail, drive, photos, calendar, contacts",
+                        "name": "service",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Internal method alias (google_drive, etc.)",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "queued, running, completed, partial_completed, failed, cancelled",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Partial match on login_id",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Alias for search (partial login_id)",
+                        "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Created-at range start (YYYY-MM-DD or RFC3339)",
+                        "name": "from_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Created-at range end (YYYY-MM-DD end-of-day or RFC3339)",
+                        "name": "to_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Max jobs (default 20, max 100)",
                         "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset",
+                        "name": "offset",
                         "in": "query"
                     }
                 ],
@@ -2989,7 +3102,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.RestoreJobListSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     },
                     "401": {
@@ -3020,7 +3139,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.RestoreLiveSwaggerResponse"
                         }
                     },
                     "401": {
@@ -3074,7 +3193,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.RestorePrepareSwaggerResponse"
                         }
                     },
                     "400": {
@@ -5867,6 +5986,25 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.GoogleBackupOAuthURLSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "oauth_url": {
+                    "type": "string",
+                    "example": "https://accounts.google.com/o/oauth2/v2/auth?..."
+                },
+                "redirect_uri": {
+                    "type": "string",
+                    "example": "https://app.example.com/google-backup/callback"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "consoleapi.GoogleBackupOnboardingSwagger": {
             "type": "object",
             "properties": {
@@ -5911,6 +6049,13 @@ const docTemplate = `{
                 },
                 "service": {
                     "type": "string",
+                    "enum": [
+                        "gmail",
+                        "drive",
+                        "photos",
+                        "calendar",
+                        "contacts"
+                    ],
                     "example": "gmail"
                 }
             }
@@ -6508,6 +6653,532 @@ const docTemplate = `{
                 "response": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "consoleapi.RestoreAllQueuedSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore job queued"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "partial_completed",
+                        "failed",
+                        "cancelled"
+                    ],
+                    "example": "queued"
+                }
+            }
+        },
+        "consoleapi.RestoreCancelSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore cancelled"
+                }
+            }
+        },
+        "consoleapi.RestoreDeadItemSwagger": {
+            "type": "object",
+            "properties": {
+                "error_code": {
+                    "type": "string",
+                    "example": "api_error"
+                },
+                "object_key": {
+                    "type": "string",
+                    "example": "user@gmail.com/path/file"
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "google api returned 403"
+                },
+                "restore_job_id": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "consoleapi.RestoreDeadItemsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreDeadItemSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.RestoreJobDetailSwagger": {
+            "type": "object",
+            "properties": {
+                "ID": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "personal"
+                },
+                "auth_mode": {
+                    "type": "string",
+                    "enum": [
+                        "oauth",
+                        "dwd"
+                    ],
+                    "example": "oauth"
+                },
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "cursor_id": {
+                    "type": "integer",
+                    "example": 7807
+                },
+                "failed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "input_data": {
+                    "$ref": "#/definitions/consoleapi.RestoreJobInputDataSwagger"
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore in progress"
+                },
+                "message_status": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error"
+                    ],
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "processed": {
+                    "type": "integer",
+                    "example": 249
+                },
+                "progress_percent": {
+                    "type": "number",
+                    "example": 12.5
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "partial_completed",
+                        "failed",
+                        "cancelled"
+                    ],
+                    "example": "running"
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 1988
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.RestoreJobDetailSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Restore Account Details"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreJobDetailSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.RestoreJobInputDataSwagger": {
+            "type": "object",
+            "properties": {
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "cron_job_id": {
+                    "type": "integer",
+                    "example": 57
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                }
+            }
+        },
+        "consoleapi.RestoreJobListItemSwagger": {
+            "type": "object",
+            "properties": {
+                "ID": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "personal"
+                },
+                "auth_mode": {
+                    "type": "string",
+                    "enum": [
+                        "oauth",
+                        "dwd"
+                    ],
+                    "example": "oauth"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "input_data": {
+                    "$ref": "#/definitions/consoleapi.RestoreJobInputDataSwagger"
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore in progress"
+                },
+                "message_status": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error"
+                    ],
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "partial_completed",
+                        "failed",
+                        "cancelled"
+                    ],
+                    "example": "running"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.RestoreJobListSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Restore jobs list"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreJobListItemSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.RestoreLiveJobSwagger": {
+            "type": "object",
+            "properties": {
+                "cursor_id": {
+                    "type": "integer",
+                    "example": 7807
+                },
+                "failed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore in progress"
+                },
+                "message_status": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error"
+                    ],
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "processed": {
+                    "type": "integer",
+                    "example": 249
+                },
+                "progress_percent": {
+                    "type": "number",
+                    "example": 12.5
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "partial_completed",
+                        "failed",
+                        "cancelled"
+                    ],
+                    "example": "running"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreLiveTaskSwagger"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 1988
+                }
+            }
+        },
+        "consoleapi.RestoreLiveSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Active Restore Jobs List"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreLiveJobSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.RestoreLiveTaskSwagger": {
+            "type": "object",
+            "properties": {
+                "batch_index": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "running",
+                        "retrying",
+                        "completed",
+                        "failed"
+                    ],
+                    "example": "running"
+                }
+            }
+        },
+        "consoleapi.RestoreMissingPermissionSwagger": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "OAuth scope required for restore"
+                },
+                "scope": {
+                    "type": "string",
+                    "example": "https://www.googleapis.com/auth/gmail.insert"
+                },
+                "service": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "oauth"
+                }
+            }
+        },
+        "consoleapi.RestorePrepareSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "personal"
+                },
+                "auth_mode": {
+                    "type": "string",
+                    "enum": [
+                        "oauth",
+                        "dwd"
+                    ],
+                    "example": "oauth"
+                },
+                "backup_item_count": {
+                    "type": "integer",
+                    "example": 1988
+                },
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "cron_job_id": {
+                    "type": "integer",
+                    "example": 57
+                },
+                "delegation_setup": {
+                    "type": "object"
+                },
+                "granted_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "missing_permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreMissingPermissionSwagger"
+                    }
+                },
+                "oauth_holder_email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                },
+                "ready": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "missing_permissions"
+                },
+                "reconnect_hint": {
+                    "type": "string"
+                },
+                "required_dwd_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "service": {
+                    "type": "string",
+                    "example": "gmail"
                 }
             }
         },
@@ -7437,7 +8108,7 @@ const docTemplate = `{
             "name": "google-backup-restore-manual"
         },
         {
-            "description": "Google Backup restore-all scheduler: GET /restore/prepare, POST /restore/all, GET /restore/live|jobs|job/* (token_key only; OAuth reconnect via auto-sync job PUT)",
+            "description": "Google Backup restore-all scheduler: GET /restore/prepare (flat), POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live use {message,success,failed} envelope). UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.",
             "name": "google-backup-restore-cron"
         },
         {

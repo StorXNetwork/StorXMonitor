@@ -889,6 +889,19 @@ definitions:
     - keys
     - storx_access_grant
     type: object
+  consoleapi.GoogleBackupOAuthURLSwaggerResponse:
+    properties:
+      oauth_url:
+        example: https://accounts.google.com/o/oauth2/v2/auth?...
+        type: string
+      redirect_uri:
+        example: https://app.example.com/google-backup/callback
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+    type: object
   consoleapi.GoogleBackupOnboardingSwagger:
     properties:
       onboarding_status:
@@ -917,6 +930,12 @@ definitions:
         example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
         type: string
       service:
+        enum:
+        - gmail
+        - drive
+        - photos
+        - calendar
+        - contacts
         example: gmail
         type: string
     required:
@@ -1348,6 +1367,390 @@ definitions:
       response:
         example: 1
         type: integer
+    type: object
+  consoleapi.RestoreAllQueuedSwaggerResponse:
+    properties:
+      job_id:
+        example: 2
+        type: integer
+      message:
+        example: restore job queued
+        type: string
+      status:
+        enum:
+        - queued
+        - running
+        - completed
+        - partial_completed
+        - failed
+        - cancelled
+        example: queued
+        type: string
+    type: object
+  consoleapi.RestoreCancelSwaggerResponse:
+    properties:
+      job_id:
+        example: 2
+        type: integer
+      message:
+        example: restore cancelled
+        type: string
+    type: object
+  consoleapi.RestoreDeadItemSwagger:
+    properties:
+      error_code:
+        example: api_error
+        type: string
+      object_key:
+        example: user@gmail.com/path/file
+        type: string
+      reason:
+        example: google api returned 403
+        type: string
+      restore_job_id:
+        example: 2
+        type: integer
+    type: object
+  consoleapi.RestoreDeadItemsSwaggerResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreDeadItemSwagger'
+        type: array
+    type: object
+  consoleapi.RestoreJobDetailSwagger:
+    properties:
+      ID:
+        example: 2
+        type: integer
+      account_type:
+        enum:
+        - personal
+        - employee_workspace
+        - admin_workspace
+        example: personal
+        type: string
+      auth_mode:
+        enum:
+        - oauth
+        - dwd
+        example: oauth
+        type: string
+      cancelled_at:
+        type: string
+      created_at:
+        type: string
+      cursor_id:
+        example: 7807
+        type: integer
+      failed:
+        example: 0
+        type: integer
+      input_data:
+        $ref: '#/definitions/consoleapi.RestoreJobInputDataSwagger'
+      login_id:
+        example: user@gmail.com
+        type: string
+      message:
+        example: restore in progress
+        type: string
+      message_status:
+        enum:
+        - info
+        - warning
+        - error
+        example: info
+        type: string
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      processed:
+        example: 249
+        type: integer
+      progress_percent:
+        example: 12.5
+        type: number
+      status:
+        enum:
+        - queued
+        - running
+        - completed
+        - partial_completed
+        - failed
+        - cancelled
+        example: running
+        type: string
+      total:
+        example: 1988
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  consoleapi.RestoreJobDetailSwaggerResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Restore Account Details
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreJobDetailSwagger'
+        type: array
+    type: object
+  consoleapi.RestoreJobInputDataSwagger:
+    properties:
+      credential_id:
+        example: 12
+        type: integer
+      cron_job_id:
+        example: 57
+        type: integer
+      project_id:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+    type: object
+  consoleapi.RestoreJobListItemSwagger:
+    properties:
+      ID:
+        example: 2
+        type: integer
+      account_type:
+        enum:
+        - personal
+        - employee_workspace
+        - admin_workspace
+        example: personal
+        type: string
+      auth_mode:
+        enum:
+        - oauth
+        - dwd
+        example: oauth
+        type: string
+      created_at:
+        type: string
+      input_data:
+        $ref: '#/definitions/consoleapi.RestoreJobInputDataSwagger'
+      login_id:
+        example: user@gmail.com
+        type: string
+      message:
+        example: restore in progress
+        type: string
+      message_status:
+        enum:
+        - info
+        - warning
+        - error
+        example: info
+        type: string
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      status:
+        enum:
+        - queued
+        - running
+        - completed
+        - partial_completed
+        - failed
+        - cancelled
+        example: running
+        type: string
+      updated_at:
+        type: string
+    type: object
+  consoleapi.RestoreJobListSwaggerResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Restore jobs list
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreJobListItemSwagger'
+        type: array
+    type: object
+  consoleapi.RestoreLiveJobSwagger:
+    properties:
+      cursor_id:
+        example: 7807
+        type: integer
+      failed:
+        example: 0
+        type: integer
+      id:
+        example: 2
+        type: integer
+      login_id:
+        example: user@gmail.com
+        type: string
+      message:
+        example: restore in progress
+        type: string
+      message_status:
+        enum:
+        - info
+        - warning
+        - error
+        example: info
+        type: string
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      processed:
+        example: 249
+        type: integer
+      progress_percent:
+        example: 12.5
+        type: number
+      status:
+        enum:
+        - queued
+        - running
+        - completed
+        - partial_completed
+        - failed
+        - cancelled
+        example: running
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreLiveTaskSwagger'
+        type: array
+      total:
+        example: 1988
+        type: integer
+    type: object
+  consoleapi.RestoreLiveSwaggerResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Active Restore Jobs List
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreLiveJobSwagger'
+        type: array
+    type: object
+  consoleapi.RestoreLiveTaskSwagger:
+    properties:
+      batch_index:
+        example: 0
+        type: integer
+      start_time:
+        type: string
+      status:
+        enum:
+        - running
+        - retrying
+        - completed
+        - failed
+        example: running
+        type: string
+    type: object
+  consoleapi.RestoreMissingPermissionSwagger:
+    properties:
+      description:
+        example: OAuth scope required for restore
+        type: string
+      scope:
+        example: https://www.googleapis.com/auth/gmail.insert
+        type: string
+      service:
+        example: gmail
+        type: string
+      type:
+        example: oauth
+        type: string
+    type: object
+  consoleapi.RestorePrepareSwaggerResponse:
+    properties:
+      account_type:
+        enum:
+        - personal
+        - employee_workspace
+        - admin_workspace
+        example: personal
+        type: string
+      auth_mode:
+        enum:
+        - oauth
+        - dwd
+        example: oauth
+        type: string
+      backup_item_count:
+        example: 1988
+        type: integer
+      credential_id:
+        example: 12
+        type: integer
+      cron_job_id:
+        example: 57
+        type: integer
+      delegation_setup:
+        type: object
+      granted_scopes:
+        items:
+          type: string
+        type: array
+      login_id:
+        example: user@gmail.com
+        type: string
+      message:
+        type: string
+      missing_permissions:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreMissingPermissionSwagger'
+        type: array
+      oauth_holder_email:
+        example: user@gmail.com
+        type: string
+      project_id:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+      ready:
+        example: false
+        type: boolean
+      reason:
+        example: missing_permissions
+        type: string
+      reconnect_hint:
+        type: string
+      required_dwd_scopes:
+        items:
+          type: string
+        type: array
+      service:
+        example: gmail
+        type: string
     type: object
   consoleapi.SetAuthUserSettingsSwaggerRequest:
     properties:
@@ -2470,6 +2873,53 @@ paths:
           schema:
             $ref: '#/definitions/consoleapi.GoogleBackupAuthError'
       summary: Google Backup auth (register or login)
+      tags:
+      - google-backup-onboarding
+  /auth/google-backup/init:
+    get:
+      description: '**Route:** `GET /api/v0/auth/google-backup/init`. Redirects to
+        Google consent with `GoogleRegisterBackupScopes` (readonly + restore write).
+        After consent, Google redirects to `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`
+        → call `GET /api/v0/auth/google-backup?code=...`. Use this URL instead of
+        a frontend-hardcoded scope list.'
+      parameters:
+      - description: Optional OAuth state
+        in: query
+        name: state
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirect to Google OAuth
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAuthError'
+      summary: Start Google Backup OAuth (all scopes)
+      tags:
+      - google-backup-onboarding
+  /auth/google-backup/oauth-url:
+    get:
+      description: '**Route:** `GET /api/v0/auth/google-backup/oauth-url`. Returns
+        the same URL as `/auth/google-backup/init` without redirecting. Scopes = `GoogleRegisterBackupScopes`.'
+      parameters:
+      - description: Optional OAuth state
+        in: query
+        name: state
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupOAuthURLSwaggerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAuthError'
+      summary: Google Backup OAuth URL (all scopes)
       tags:
       - google-backup-onboarding
   /auth/mfa/disable:
@@ -3774,7 +4224,7 @@ paths:
         "202":
           description: Accepted
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.RestoreAllQueuedSwaggerResponse'
         "400":
           description: Bad Request
           schema:
@@ -3786,11 +4236,11 @@ paths:
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.RestorePrepareSwaggerResponse'
       security:
       - CookieAuth: []
       summary: Start restore-all job
@@ -3811,7 +4261,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.RestoreJobDetailSwaggerResponse'
         "401":
           description: Unauthorized
           schema:
@@ -3819,7 +4269,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
       summary: Get restore job status
@@ -3840,7 +4290,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.RestoreCancelSwaggerResponse'
         "401":
           description: Unauthorized
           schema:
@@ -3865,7 +4315,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.RestoreDeadItemsSwaggerResponse'
         "401":
           description: Unauthorized
           schema:
@@ -3879,9 +4329,41 @@ paths:
     get:
       description: '**Full route:** `GET /api/v0/google-backup/restore/jobs`'
       parameters:
-      - description: Max jobs (default 20)
+      - description: 'UI service filter: gmail, drive, photos, calendar, contacts'
+        in: query
+        name: service
+        type: string
+      - description: Internal method alias (google_drive, etc.)
+        in: query
+        name: method
+        type: string
+      - description: queued, running, completed, partial_completed, failed, cancelled
+        in: query
+        name: status
+        type: string
+      - description: Partial match on login_id
+        in: query
+        name: search
+        type: string
+      - description: Alias for search (partial login_id)
+        in: query
+        name: email
+        type: string
+      - description: Created-at range start (YYYY-MM-DD or RFC3339)
+        in: query
+        name: from_time
+        type: string
+      - description: Created-at range end (YYYY-MM-DD end-of-day or RFC3339)
+        in: query
+        name: to_time
+        type: string
+      - description: Max jobs (default 20, max 100)
         in: query
         name: limit
+        type: string
+      - description: Pagination offset
+        in: query
+        name: offset
         type: string
       produces:
       - application/json
@@ -3889,7 +4371,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.RestoreJobListSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -3908,7 +4394,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.RestoreLiveSwaggerResponse'
         "401":
           description: Unauthorized
           schema:
@@ -3943,7 +4429,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.RestorePrepareSwaggerResponse'
         "400":
           description: Bad Request
           schema:
@@ -4996,9 +5482,11 @@ tags:
 - description: 'Google Backup manual restore: synchronous vault → Google (POST /google-backup/google/*,
     max 10 keys). Call POST /google-backup/google-auth first.'
   name: google-backup-restore-manual
-- description: 'Google Backup restore-all scheduler: GET /restore/prepare, POST /restore/all,
-    GET /restore/live|jobs|job/* (token_key only; OAuth reconnect via auto-sync job
-    PUT)'
+- description: 'Google Backup restore-all scheduler: GET /restore/prepare (flat),
+    POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live
+    use {message,success,failed} envelope). UI service param (gmail,drive,...) maps
+    to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect
+    or PUT /auto-sync/jobs/project.'
   name: google-backup-restore-cron
 - description: GET /google-backup/backup-restore/logs
   name: google-backup-logs

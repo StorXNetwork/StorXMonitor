@@ -63,7 +63,7 @@ package consoleweb
 // @tag.description Google Backup manual restore: synchronous vault → Google (POST /google-backup/google/*, max 10 keys). Call POST /google-backup/google-auth first.
 
 // @tag.name google-backup-restore-cron
-// @tag.description Google Backup restore-all scheduler: GET /restore/prepare, POST /restore/all, GET /restore/live|jobs|job/* (token_key only; OAuth reconnect via auto-sync job PUT)
+// @tag.description Google Backup restore-all scheduler: GET /restore/prepare (flat), POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live use {message,success,failed} envelope). UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.
 
 // @tag.name google-backup-logs
 // @tag.description GET /google-backup/backup-restore/logs
