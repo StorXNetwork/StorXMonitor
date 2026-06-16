@@ -39,7 +39,7 @@ type CreateGoogleBackupAutoSyncJobsSwaggerRequest struct {
 	PolicyName string   `json:"policy_name,omitempty" example:"New team policy"`
 }
 
-// UpdateGoogleBackupAutoSyncJobSwaggerRequest is the UI body for PUT .../auto-sync/job/{job_id} (active toggle only).
+// UpdateGoogleBackupAutoSyncJobSwaggerRequest is the UI body for PUT .../auto-sync/jobs/{job_id} (active toggle only).
 type UpdateGoogleBackupAutoSyncJobSwaggerRequest struct {
 	Active bool `json:"active" binding:"required" example:"true"`
 }
@@ -140,11 +140,11 @@ type AutosyncJobSwagger struct {
 	FailurePeriods  int                         `json:"failure_periods" example:"0"`
 }
 
-// AutosyncJobDetailResponse is returned from GET/PUT .../auto-sync/job/{job_id} (passthrough from Backup-Tools).
+// AutosyncJobDetailResponse is returned from GET/PUT .../auto-sync/jobs/{job_id} (passthrough from Backup-Tools).
 type AutosyncJobDetailResponse struct {
-	Message string             `json:"message" example:"Automatic Backup Account Details"`
+	Message string               `json:"message" example:"Automatic Backup Account Details"`
 	Success []AutosyncJobSwagger `json:"success"`
-	Failed  []interface{}      `json:"failed" swaggertype:"array,object"`
+	Failed  []interface{}        `json:"failed" swaggertype:"array,object"`
 }
 
 // AutosyncJobListResponse is returned from GET .../auto-sync/jobs?filter=... (passthrough from Backup-Tools).

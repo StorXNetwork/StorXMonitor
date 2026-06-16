@@ -39,7 +39,7 @@ package consoleweb
 // @tag.description API key management operations
 
 // @tag.name payments
-// @tag.description Payment and billing operations
+// @tag.description Payment and billing: GET /payment-plans (server root), GET /api/v0/payments/coupons, POST /api/v0/payments/generate-payment-link, GET /api/v0/payments/invoice-history
 
 // @tag.name analytics
 // @tag.description Analytics operations
@@ -83,14 +83,14 @@ package consoleweb
 // @tag.name notifications
 // @tag.description In-app notifications: GET/PUT /api/v0/notifications (list, count, detail, dismiss, read-all)
 
-// @tag.name payment-plans
-// @tag.description Public billing plans: GET /payment-plans at server root (not under /api/v0). Swagger may show /api/v0/payment-plans — use the host root path when calling.
-
 // @tag.name config
 // @tag.description Public console bootstrap config: GET /api/v0/config (feature flags, API base URL, CSRF token, billing/UI toggles)
 
 // @tag.name audit-logs
 // @tag.description System audit logs: GET /api/v0/audit-logs (list with filters), GET /api/v0/audit-logs/actions (filter dropdown), GET /api/v0/audit-logs/export (CSV)
+
+// @tag.name static-api
+// @tag.description Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 — use the host root path when calling.
 
 // Common response models
 type ErrorResponse struct {

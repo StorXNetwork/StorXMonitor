@@ -387,6 +387,11 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if console.ErrConflict.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}

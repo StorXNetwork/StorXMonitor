@@ -106,6 +106,7 @@ const (
 	passwordTooLongErrMsg                = "Your password must be no longer than %d characters"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
+	googleBackupAPIKeyName               = "google-backup"
 	apiKeyWithNameDoesntExistErrMsg      = "An API Key with this name doesn't exist in this project."
 	teamMemberDoesNotExistErrMsg         = "There are no team members with the email '%s'. Please try again."
 	activationTokenExpiredErrMsg         = "This activation token has expired, please request another one"
@@ -657,6 +658,183 @@ func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uui
 
 	return restricted.Serialize()
 
+}
+
+func (s *Service) decryptManagedProjectPassphrase(ctx context.Context, project *Project) ([]byte, error) {
+	if project.PassphraseEnc == nil {
+		return nil, Error.New("project does not have a managed passphrase")
+	}
+	if s.kmsService == nil {
+		return nil, Error.New("kms service is not enabled")
+	}
+	if project.PassphraseEncKeyID == nil {
+		return nil, Error.New("missing passphrase encryption key ID")
+	}
+	passphrase, err := s.kmsService.DecryptPassphrase(ctx, *project.PassphraseEncKeyID, project.PassphraseEnc)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return passphrase, nil
+}
+
+func (s *Service) getOrCreateGoogleBackupAPIKey(ctx context.Context, projectID uuid.UUID) (*macaroon.APIKey, error) {
+	_, key, err := s.CreateAPIKey(ctx, projectID, googleBackupAPIKeyName, macaroon.APIKeyVersionMin)
+	if err == nil {
+		return key, nil
+	}
+	if !ErrValidation.Has(err) {
+		return nil, Error.Wrap(err)
+	}
+
+	info, err := s.store.APIKeys().GetByNameAndProjectID(ctx, googleBackupAPIKeyName, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	key, err = macaroon.FromParts(info.Head, info.Secret)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return key, nil
+}
+
+// createStorXAccessGrantForManagedProject builds a full access grant for satellite-managed projects.
+// This is separate from CreateAccessGrantForProject so managed backup flow can honor path_encryption.
+func (s *Service) createStorXAccessGrantForManagedProject(ctx context.Context, project *Project, passphrase string, apiKey *macaroon.APIKey) (string, error) {
+	salt, err := s.GetSalt(ctx, project.ID)
+	if err != nil {
+		return "", err
+	}
+
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", 8)
+	if err != nil {
+		return "", err
+	}
+
+	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
+	if project.PathEncryption != nil && !*project.PathEncryption {
+		encAccess.SetDefaultPathCipher(storxnetwork.EncNull)
+	} else {
+		encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
+	}
+	encAccess.LimitTo(apiKey)
+
+	g := &grant.Access{
+		SatelliteAddress: s.SatelliteNodeAddress,
+		APIKey:           apiKey,
+		EncAccess:        encAccess,
+	}
+
+	return g.Serialize()
+}
+
+// CreateAccessGrantForManagedProject creates a full StorX access grant for a satellite-managed project.
+func (s *Service) CreateAccessGrantForManagedProject(ctx context.Context, projectID uuid.UUID) (string, error) {
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+	passphrase, err := s.decryptManagedProjectPassphrase(ctx, project)
+	if err != nil {
+		return "", err
+	}
+	apiKey, err := s.getOrCreateGoogleBackupAPIKey(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	return s.createStorXAccessGrantForManagedProject(ctx, project, string(passphrase), apiKey)
+}
+
+// RefreshStorxTokenRequest is the Backup-Tools internal refresh body.
+type RefreshStorxTokenRequest struct {
+	UserID    string
+	ProjectID string
+	Email     string
+}
+
+// RefreshStorxTokenResult is returned to Backup-Tools on successful refresh.
+type RefreshStorxTokenResult struct {
+	AccessGrant string
+	ProjectID   string
+}
+
+func (r RefreshStorxTokenRequest) Validate() error {
+	if strings.TrimSpace(r.UserID) == "" || strings.TrimSpace(r.ProjectID) == "" {
+		return ErrValidation.New("user_id and project_id are required")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.UserID)); err != nil {
+		return ErrValidation.New("invalid user_id")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.ProjectID)); err != nil {
+		return ErrValidation.New("invalid project_id")
+	}
+	if email := strings.TrimSpace(r.Email); email != "" {
+		if _, err := mail.ParseAddress(email); err != nil {
+			return ErrValidation.New("invalid email: %s", email)
+		}
+	}
+	return nil
+}
+
+// RefreshStorxTokenForBackupTools mints a new uplink access grant for Backup-Tools.
+// Caller must authenticate the request (X-API-Key) before invoking this method.
+func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req RefreshStorxTokenRequest) (result RefreshStorxTokenResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := req.Validate(); err != nil {
+		return result, err
+	}
+
+	userID, err := uuid.FromString(strings.TrimSpace(req.UserID))
+	if err != nil {
+		return result, ErrValidation.New("invalid user_id")
+	}
+	projectID, err := uuid.FromString(strings.TrimSpace(req.ProjectID))
+	if err != nil {
+		return result, ErrValidation.New("invalid project_id")
+	}
+
+	member, err := s.isProjectMember(ctx, userID, projectID)
+	if err != nil {
+		if ErrNoMembership.Has(err) {
+			return result, ErrUnauthorized.Wrap(err)
+		}
+		return result, Error.Wrap(err)
+	}
+
+	project := member.project
+	if project.PassphraseEnc == nil {
+		return result, ErrValidation.New("project does not support server-side storx token refresh")
+	}
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return result, ErrUnauthorized.New("user not found")
+		}
+		return result, Error.Wrap(err)
+	}
+	ctx = WithUser(ctx, user)
+
+	accessGrant, err := s.CreateAccessGrantForManagedProject(ctx, project.ID)
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
+	if strings.TrimSpace(accessGrant) == "" {
+		return result, Error.New("failed to mint access grant")
+	}
+
+	if email := strings.TrimSpace(req.Email); email != "" {
+		s.log.Debug("refreshed storx token for backup tools",
+			zap.String("user_id", userID.String()),
+			zap.String("project_id", project.ID.String()),
+			zap.String("email", email),
+		)
+	}
+
+	return RefreshStorxTokenResult{
+		AccessGrant: accessGrant,
+		ProjectID:   project.ID.String(),
+	}, nil
 }
 
 func init() {
@@ -4934,23 +5112,42 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
+	projectToInsert := &Project{
+		Description:             projectInfo.Description,
+		Name:                    projectInfo.Name,
+		OwnerID:                 user.ID,
+		UserAgent:               user.UserAgent,
+		StorageLimit:            nil,
+		BandwidthLimit:          nil,
+		SegmentLimit:            &newProjectLimits.Segment,
+		DefaultPlacement:        user.DefaultPlacement,
+		PrevDaysUntilExpiration: 0,
+	}
+	storageLimit := memory.Size(newProjectLimits.Storage)
+	bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
+	projectToInsert.StorageLimit = &storageLimit
+	projectToInsert.BandwidthLimit = &bandwidthLimit
+
+	if projectInfo.ManagePassphrase {
+		if !s.config.SatelliteManagedEncryptionEnabled || s.kmsService == nil {
+			return nil, ErrSatelliteManagedEncryption
+		}
+		encPassphrase, keyID, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		projectToInsert.PassphraseEnc = encPassphrase
+		projectToInsert.PassphraseEncKeyID = &keyID
+		pathEncryption := s.config.ManagedEncryption.PathEncryptionEnabled
+		projectToInsert.PathEncryption = &pathEncryption
+	} else {
+		pathEncryption := true
+		projectToInsert.PathEncryption = &pathEncryption
+	}
+
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		storageLimit := memory.Size(newProjectLimits.Storage)
-		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
-		p, err = tx.Projects().Insert(ctx,
-			&Project{
-				Description:             projectInfo.Description,
-				Name:                    projectInfo.Name,
-				OwnerID:                 user.ID,
-				UserAgent:               user.UserAgent,
-				StorageLimit:            &storageLimit,
-				BandwidthLimit:          &bandwidthLimit,
-				SegmentLimit:            &newProjectLimits.Segment,
-				DefaultPlacement:        user.DefaultPlacement,
-				PrevDaysUntilExpiration: 0,
-			},
-		)
+		p, err = tx.Projects().Insert(ctx, projectToInsert)
 		if err != nil {
 			return Error.Wrap(err)
 		}

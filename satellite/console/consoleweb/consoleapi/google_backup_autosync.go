@@ -221,7 +221,7 @@ func (g *GoogleBackup) ListAutoSyncJobs(w http.ResponseWriter, r *http.Request) 
 // GetAutoSyncJob returns one Backup-Tools auto-sync job by id.
 //
 // @Summary      Get Google Backup auto-sync job
-// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/job/{job_id}`. Proxies Backup-Tools `GET /auto-sync/job/{job_id}` with session `token_key`. Job is in `success[0]`.
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`. Proxies Backup-Tools `GET /auto-sync/job/{job_id}` with session `token_key`. Job is in `success[0]`.
 // @Tags         google-backup
 // @Produce      json
 // @Param        job_id  path      string  true  "Job ID"
@@ -230,7 +230,7 @@ func (g *GoogleBackup) ListAutoSyncJobs(w http.ResponseWriter, r *http.Request) 
 // @Failure      401     {object}  SwaggerErrorResponse
 // @Failure      404     {object}  SwaggerErrorResponse
 // @Security     CookieAuth
-// @Router       /google-backup/auto-sync/job/{job_id} [get]
+// @Router       /google-backup/auto-sync/jobs/{job_id} [get]
 func (g *GoogleBackup) GetAutoSyncJob(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -301,7 +301,7 @@ func (g *GoogleBackup) UpdateAutoSyncJobsByProject(w http.ResponseWriter, r *htt
 // UpdateAutoSyncJob toggles a single job active flag (Backup-Tools PUT /auto-sync/job/{job_id}).
 //
 // @Summary      Toggle Google Backup auto-sync job active
-// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/job/{job_id}`. Proxies Backup-Tools `PUT /auto-sync/job/{job_id}` with body `{ "active": true|false }` only.
+// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/{job_id}`. Proxies Backup-Tools `PUT /auto-sync/job/{job_id}` with body `{ "active": true|false }` only.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -312,7 +312,7 @@ func (g *GoogleBackup) UpdateAutoSyncJobsByProject(w http.ResponseWriter, r *htt
 // @Failure      401     {object}  SwaggerErrorResponse
 // @Failure      404     {object}  SwaggerErrorResponse
 // @Security     CookieAuth
-// @Router       /google-backup/auto-sync/job/{job_id} [put]
+// @Router       /google-backup/auto-sync/jobs/{job_id} [put]
 func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -436,8 +436,8 @@ func (g *GoogleBackup) ConnectGoogle(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(GoogleBackupConnectSwaggerResponse{
 		Success:      true,
 		GoogleEmail:  connectResult.GoogleEmail,
-		Created:        connectResult.Created,
-		GoogleBackup:   googleBackup,
+		Created:      connectResult.Created,
+		GoogleBackup: googleBackup,
 	}); err != nil {
 		g.log.Error("failed to encode google connect response", zap.Error(err))
 	}

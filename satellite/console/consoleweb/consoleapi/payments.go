@@ -1312,6 +1312,17 @@ func (p *Payments) serveJSONError(ctx context.Context, w http.ResponseWriter, st
 	web.ServeJSONError(ctx, p.log, w, status, err)
 }
 
+// GetCoupons returns active billing coupons for the authenticated user.
+//
+// @Summary      List active coupons
+// @Description  Returns all currently active billing coupons (valid within their valid_from / valid_to window).
+// @Tags         payments
+// @Produce      json
+// @Security     CookieAuth
+// @Success      200  {array}   PaymentCouponSwaggerItem
+// @Failure      404  {string}  string  "No coupons found"
+// @Failure      500  {string}  string  "Failed to get coupons"
+// @Router       /payments/coupons [get]
 func (p *Payments) GetCoupons(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -1332,7 +1343,19 @@ func (p *Payments) GetCoupons(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// boris
+// GeneratePaymentLink creates a crypto payment checkout link for a billing plan.
+//
+// @Summary      Generate payment link
+// @Description  Creates a payment gateway checkout session for the selected plan and crypto mode (`SRX`, `XDC`, or `USDT`). Optional `couponCode` applies a discount when valid. Returns a `redirectURL` for the client to open.
+// @Tags         payments
+// @Accept       json
+// @Produce      json
+// @Security     CookieAuth
+// @Param        body  body      GeneratePaymentLinkSwaggerRequest  true  "Plan, crypto mode, and optional coupon"
+// @Success      200   {object}  GeneratePaymentLinkSwaggerResponse
+// @Failure      400   {string}  string  "Invalid request or coupon"
+// @Failure      500   {string}  string  "Server or gateway error"
+// @Router       /payments/generate-payment-link [post]
 func (p *Payments) GeneratePaymentLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -1802,7 +1825,7 @@ func (p *Payments) StartMonitoringUserProjects(ctx context.Context) {
 // @Description  **Full route:** `GET /payment-plans` (server root, not under `/api/v0`).
 //
 // Public endpoint when billing features are enabled. Response includes `crypto_modes` and `group` (name + plans).
-// @Tags         payment-plans
+// @Tags         payments
 // @Produce      json
 // @Success      200  {object}  PaymentPlansSwaggerResponse
 // @Failure      500  {object}  SwaggerErrorResponse
@@ -1838,7 +1861,19 @@ func (p *Payments) HandlePaymentPlans(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(output)
 }
 
-// payment history request and response
+// BillingTransactionHistory returns paginated billing transactions for the authenticated user.
+//
+// @Summary      Invoice / billing history
+// @Description  Returns billing transactions for the logged-in user. Supports cursor pagination via `starting_after` or `ending_before` (transaction `ID`) and an optional `limit` page size.
+// @Tags         payments
+// @Produce      json
+// @Security     CookieAuth
+// @Param        limit            query  int   false  "Max items to return (default slice size when no cursor)"
+// @Param        starting_after   query  int   false  "Return transactions after this transaction ID"
+// @Param        ending_before    query  int   false  "Return transactions before this transaction ID"
+// @Success      200  {array}   PaymentInvoiceHistoryItemSwagger
+// @Failure      500  {string}  string  "Failed to load billing history"
+// @Router       /payments/invoice-history [get]
 func (p *Payments) BillingTransactionHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

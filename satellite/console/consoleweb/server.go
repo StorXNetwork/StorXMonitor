@@ -100,7 +100,8 @@ type Config struct {
 
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
-	BackupToolsURL string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+	BackupToolsURL    string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+	BackupToolsAPIKey string `help:"shared API key for Backup-Tools internal routes (X-API-Key on POST /api/v0/internal/storx-token/refresh)" default:""`
 
 	GoogleClientID                string `help:"client id for google oauth" default:""`
 	GoogleClientSecret            string `help:"client secret for google oauth" default:""`
@@ -409,6 +410,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	publicProjectsRouter.Use(server.withCORS)
 	publicProjectsRouter.Handle("/project-id-from-access-grant", http.HandlerFunc(projectsController.GetProjectIDFromAccessGrant)).Methods(http.MethodPost, http.MethodOptions)
 
+	internalStorxTokenController := consoleapi.NewInternalStorxToken(logger, service, config.BackupToolsAPIKey)
+	internalRouter := router.PathPrefix("/api/v0/internal").Subrouter()
+	internalRouter.Handle("/storx-token/refresh", http.HandlerFunc(internalStorxTokenController.RefreshStorxToken)).Methods(http.MethodPost)
+
 	// Authenticated routes
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
 	projectsRouter.Use(server.withCORS)
@@ -544,7 +549,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupUsersGroupsRouter.Handle("/mailbox/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxCredentials))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
-	
+
 	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)
 	googleBackupRouter := router.PathPrefix("/api/v0/google-backup").Subrouter()
 	googleBackupRouter.Use(server.withCORS)

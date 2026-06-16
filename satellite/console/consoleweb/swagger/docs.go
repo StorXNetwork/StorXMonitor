@@ -1057,6 +1057,29 @@ const docTemplate = `{
                 }
             }
         },
+        "/blog-list": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /blog-list` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "static-api"
+                ],
+                "summary": "List featured blogs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/staticapi.StaticBlogItemSwagger"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/buckets/usage-totals": {
             "get": {
                 "security": [
@@ -1471,120 +1494,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/google-backup/auto-sync/job/{job_id}": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/job/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /auto-sync/job/{job_id}` + "`" + ` with session ` + "`" + `token_key` + "`" + `. Job is in ` + "`" + `success[0]` + "`" + `.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "Get Google Backup auto-sync job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "job_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `PUT /api/v0/google-backup/auto-sync/job/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `PUT /auto-sync/job/{job_id}` + "`" + ` with body ` + "`" + `{ \"active\": true|false }` + "`" + ` only.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "Toggle Google Backup auto-sync job active",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "job_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Active toggle",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/google-backup/auto-sync/jobs": {
             "get": {
                 "security": [
@@ -1781,6 +1690,120 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs/{job_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /auto-sync/job/{job_id}` + "`" + ` with session ` + "`" + `token_key` + "`" + `. Job is in ` + "`" + `success[0]` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Get Google Backup auto-sync job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/google-backup/auto-sync/jobs/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `PUT /auto-sync/job/{job_id}` + "`" + ` with body ` + "`" + `{ \"active\": true|false }` + "`" + ` only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Toggle Google Backup auto-sync job active",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Active toggle",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -3409,6 +3432,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/guides": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /guides` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "static-api"
+                ],
+                "summary": "Get documentation guide",
+                "parameters": [
+                    {
+                        "enum": [
+                            "usage-guideline",
+                            "google-backup",
+                            "microsoft-backup",
+                            "corporate-mail-backup",
+                            "signup"
+                        ],
+                        "type": "string",
+                        "description": "Guide identifier",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "HTML guide page",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Guide not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/notifications": {
             "get": {
                 "security": [
@@ -3677,7 +3748,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "payment-plans"
+                    "payments"
                 ],
                 "summary": "List payment plans",
                 "responses": {
@@ -3691,6 +3762,151 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/coupons": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Returns all currently active billing coupons (valid within their valid_from / valid_to window).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "List active coupons",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.PaymentCouponSwaggerItem"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No coupons found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to get coupons",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/generate-payment-link": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Creates a payment gateway checkout session for the selected plan and crypto mode (` + "`" + `SRX` + "`" + `, ` + "`" + `XDC` + "`" + `, or ` + "`" + `USDT` + "`" + `). Optional ` + "`" + `couponCode` + "`" + ` applies a discount when valid. Returns a ` + "`" + `redirectURL` + "`" + ` for the client to open.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Generate payment link",
+                "parameters": [
+                    {
+                        "description": "Plan, crypto mode, and optional coupon",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GeneratePaymentLinkSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GeneratePaymentLinkSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or coupon",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Server or gateway error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/invoice-history": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Returns billing transactions for the logged-in user. Supports cursor pagination via ` + "`" + `starting_after` + "`" + ` or ` + "`" + `ending_before` + "`" + ` (transaction ` + "`" + `ID` + "`" + `) and an optional ` + "`" + `limit` + "`" + ` page size.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Invoice / billing history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (default slice size when no cursor)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return transactions after this transaction ID",
+                        "name": "starting_after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return transactions before this transaction ID",
+                        "name": "ending_before",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.PaymentInvoiceHistoryItemSwagger"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to load billing history",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -4201,6 +4417,57 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/resources-list": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /resources-list` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "static-api"
+                ],
+                "summary": "List help resources",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "If true, returns app-specific resources (app-resources.json)",
+                        "name": "app",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/staticapi.StaticResourceItemSwagger"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/user-guideline-for-app": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /user-guideline-for-app` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "static-api"
+                ],
+                "summary": "Mobile app usage guideline",
+                "responses": {
+                    "200": {
+                        "description": "HTML usage guideline page",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -5401,6 +5668,41 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.GeneratePaymentLinkSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "cryptoMode",
+                "planId"
+            ],
+            "properties": {
+                "couponCode": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "cryptoMode": {
+                    "type": "string",
+                    "enum": [
+                        "SRX",
+                        "XDC",
+                        "USDT"
+                    ],
+                    "example": "USDT"
+                },
+                "planId": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.GeneratePaymentLinkSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "redirectURL": {
+                    "type": "string",
+                    "example": "https://pay.example.com/checkout/abc123"
+                }
+            }
+        },
         "consoleapi.GoogleBackupAuthError": {
             "type": "object",
             "properties": {
@@ -5819,6 +6121,106 @@ const docTemplate = `{
                 },
                 "userId": {
                     "type": "string"
+                }
+            }
+        },
+        "consoleapi.PaymentCouponSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "discount": {
+                    "type": "number",
+                    "example": 10
+                },
+                "discount_type": {
+                    "type": "string",
+                    "enum": [
+                        "percentage",
+                        "fixed"
+                    ],
+                    "example": "percentage"
+                },
+                "max_discount": {
+                    "type": "number",
+                    "example": 50
+                },
+                "min_order_amount": {
+                    "type": "number",
+                    "example": 9.99
+                },
+                "valid_from": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "valid_to": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                }
+            }
+        },
+        "consoleapi.PaymentInvoiceHistoryItemSwagger": {
+            "type": "object",
+            "properties": {
+                "Amount": {
+                    "type": "number",
+                    "example": 9.99
+                },
+                "CreatedAt": {
+                    "type": "string",
+                    "example": "2026-06-01T12:00:00Z"
+                },
+                "Description": {
+                    "type": "string",
+                    "example": "Plan purchase"
+                },
+                "ID": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "Metadata": {
+                    "type": "string",
+                    "example": ""
+                },
+                "PlanID": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "Source": {
+                    "type": "string",
+                    "example": "token_payment"
+                },
+                "Status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "complete",
+                        "failed"
+                    ],
+                    "example": "complete"
+                },
+                "Timestamp": {
+                    "type": "string",
+                    "example": "2026-06-01T12:00:00Z"
+                },
+                "Type": {
+                    "type": "string",
+                    "enum": [
+                        "credit",
+                        "debit",
+                        "unknown"
+                    ],
+                    "example": "debit"
+                },
+                "UserID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
                 }
             }
         },
@@ -6890,6 +7292,60 @@ const docTemplate = `{
                 "EiB"
             ]
         },
+        "staticapi.StaticBlogItemSwagger": {
+            "type": "object",
+            "properties": {
+                "by": {
+                    "type": "string",
+                    "example": "admin"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "JANUARY 1, 2022"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Cloud storage has become an integral part of our digital lives."
+                },
+                "image": {
+                    "type": "string",
+                    "example": "https://miro.medium.com/v2/resize:fit:1400/format:webp/0*j5KNMeLGxLjo4vNW"
+                },
+                "link": {
+                    "type": "string",
+                    "example": "https://medium.com/storx-network/cloud-storage-reimagined-with-storx-network-5c28296ac25f"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Cloud Storage Reimagined with StorX Network"
+                }
+            }
+        },
+        "staticapi.StaticResourceItemSwagger": {
+            "type": "object",
+            "properties": {
+                "desc": {
+                    "type": "string",
+                    "example": "Step-by-step guide to backup Google Workspace data"
+                },
+                "link": {
+                    "type": "string",
+                    "example": "/guides?type=google-backup"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Google Backup Guide"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "url",
+                        "contact"
+                    ],
+                    "example": "url"
+                }
+            }
+        },
         "time.Duration": {
             "type": "integer",
             "format": "int64",
@@ -6949,7 +7405,7 @@ const docTemplate = `{
             "name": "api-keys"
         },
         {
-            "description": "Payment and billing operations",
+            "description": "Payment and billing: GET /payment-plans (server root), GET /api/v0/payments/coupons, POST /api/v0/payments/generate-payment-link, GET /api/v0/payments/invoice-history",
             "name": "payments"
         },
         {
@@ -7009,16 +7465,16 @@ const docTemplate = `{
             "name": "notifications"
         },
         {
-            "description": "Public billing plans: GET /payment-plans at server root (not under /api/v0). Swagger may show /api/v0/payment-plans — use the host root path when calling.",
-            "name": "payment-plans"
-        },
-        {
             "description": "Public console bootstrap config: GET /api/v0/config (feature flags, API base URL, CSRF token, billing/UI toggles)",
             "name": "config"
         },
         {
             "description": "System audit logs: GET /api/v0/audit-logs (list with filters), GET /api/v0/audit-logs/actions (filter dropdown), GET /api/v0/audit-logs/export (CSV)",
             "name": "audit-logs"
+        },
+        {
+            "description": "Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 — use the host root path when calling.",
+            "name": "static-api"
         }
     ]
 }`

@@ -212,7 +212,7 @@ func (g *GoogleBackupRestore) RestorePrepare(w http.ResponseWriter, r *http.Requ
 // @Summary      Start restore-all job
 // @Description  **Full route:** `POST /api/v0/google-backup/restore/all`
 //
-// Proxies Backup-Tools `POST /restore/all` with `token_key` only. Body: `project_id`, `login_id`, `service`. Call `GET /restore/prepare` first. OAuth reconnect uses existing `PUT /auto-sync/job/{id}`.
+// Proxies Backup-Tools `POST /restore/all` with `token_key` only. Body: `project_id`, `login_id`, `service`. Call `GET /restore/prepare` first. OAuth reconnect uses existing `PUT /auto-sync/jobs/{job_id}`.
 // @Tags         google-backup-restore-cron
 // @Accept       json
 // @Produce      json

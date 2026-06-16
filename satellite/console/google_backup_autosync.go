@@ -162,15 +162,23 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		return nil, 0, Error.New("expected exactly one project per user, found %d", len(projects))
 	}
 
+	project := projects[0]
 	payload := map[string]interface{}{
 		"services":          req.Services,
 		"interval":          req.Interval,
 		"on":                strings.TrimSpace(req.On),
 		"google_email":      credential.GoogleEmail,
 		"account_type":      credential.AccountType,
-		"project_id":        projects[0].ID.String(),
+		"project_id":        project.ID.String(),
 		"satellite_user_id": user.ID.String(),
 		"refresh_token":     credential.RefreshToken,
+	}
+	if project.PassphraseEnc != nil {
+		storxToken, tokenErr := s.CreateAccessGrantForManagedProject(ctx, project.ID)
+		if tokenErr != nil {
+			return nil, 0, Error.Wrap(tokenErr)
+		}
+		payload["storx_token"] = storxToken
 	}
 	if len(gmailEmails) > 0 {
 		payload["emails"] = gmailEmails

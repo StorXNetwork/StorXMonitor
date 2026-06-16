@@ -748,7 +748,8 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:")
@@ -1155,7 +1156,8 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:")
@@ -1298,7 +1300,8 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:")
@@ -1468,7 +1471,8 @@ func (a *Auth) HandleAppleRegister(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:")
@@ -1721,7 +1725,8 @@ func (a *Auth) completeGoogleBackupRegister(w http.ResponseWriter, r *http.Reque
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:", zap.Error(err))
@@ -1961,7 +1966,8 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:", zap.Error(err))
@@ -2283,7 +2289,8 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	//require.NoError(t, err)
 	if err != nil {
@@ -2534,7 +2541,8 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 
 	if err != nil {
@@ -2721,7 +2729,8 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 
 	if err != nil {
