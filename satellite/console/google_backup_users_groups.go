@@ -97,6 +97,11 @@ func (s *Service) GetGoogleBackupUsersGroupsMailboxCredentials(ctx context.Conte
 	return s.getGoogleBackupUsersGroups(ctx, tokenKey, "/users-groups/mailbox/credentials", query)
 }
 
+// GetGoogleBackupDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts.
+func (s *Service) GetGoogleBackupDashboardAlerts(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
+	return s.getGoogleBackupUsersGroups(ctx, tokenKey, "/autosync/dashboard-alerts", "")
+}
+
 // UpdateGoogleBackupUsersGroupsJobsActive proxies Backup-Tools PUT /users-groups/jobs/active.
 func (s *Service) UpdateGoogleBackupUsersGroupsJobsActive(ctx context.Context, tokenKey string, req GoogleBackupUsersGroupsJobsActiveRequest) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)

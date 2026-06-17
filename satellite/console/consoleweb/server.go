@@ -548,6 +548,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupUsersGroupsRouter.Handle("/mailbox/schedule", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxSchedule))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxCredentials))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupUsersGroupsRouter.Handle("/dashboard-alerts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetDashboardAlerts))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
 
 	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)

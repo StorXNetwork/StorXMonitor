@@ -862,6 +862,82 @@ definitions:
         example: true
         type: boolean
     type: object
+  consoleapi.GoogleBackupDashboardAlertSectionSwagger:
+    properties:
+      count:
+        example: 2
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupDashboardMailboxSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupDashboardAlertsSwaggerResponse:
+    properties:
+      new_connected_accounts_24h:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+      paused_backups:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+      re_auth_required:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+    type: object
+  consoleapi.GoogleBackupDashboardCredentialSwagger:
+    properties:
+      credential_id:
+        example: 12
+        type: integer
+      needs_reconnect_google_auth:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupDashboardMailboxSwagger:
+    properties:
+      account_type:
+        enum:
+        - corporate
+        - individual
+        example: individual
+        type: string
+      connected_at:
+        example: "2026-06-10T08:00:00Z"
+        type: string
+      credential:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardCredentialSwagger'
+      credential_status:
+        enum:
+        - healthy
+        - re_auth_required
+        example: re_auth_required
+        type: string
+      email:
+        example: john@gmail.com
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupDashboardServiceSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupDashboardServiceSwagger:
+    properties:
+      active:
+        example: true
+        type: boolean
+      connected:
+        example: true
+        type: boolean
+      job_id:
+        example: 101
+        type: integer
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_contacts
+        - google_calendar
+        example: gmail
+        type: string
+    type: object
   consoleapi.GoogleBackupDomainUsersSwaggerResponse:
     properties:
       google_backup:
@@ -888,19 +964,6 @@ definitions:
     - google_auth
     - keys
     - storx_access_grant
-    type: object
-  consoleapi.GoogleBackupOAuthURLSwaggerResponse:
-    properties:
-      oauth_url:
-        example: https://accounts.google.com/o/oauth2/v2/auth?...
-        type: string
-      redirect_uri:
-        example: https://app.example.com/google-backup/callback
-        type: string
-      scopes:
-        items:
-          type: string
-        type: array
     type: object
   consoleapi.GoogleBackupOnboardingSwagger:
     properties:
@@ -2875,53 +2938,6 @@ paths:
       summary: Google Backup auth (register or login)
       tags:
       - google-backup-onboarding
-  /auth/google-backup/init:
-    get:
-      description: '**Route:** `GET /api/v0/auth/google-backup/init`. Redirects to
-        Google consent with `GoogleRegisterBackupScopes` (readonly + restore write).
-        After consent, Google redirects to `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`
-        → call `GET /api/v0/auth/google-backup?code=...`. Use this URL instead of
-        a frontend-hardcoded scope list.'
-      parameters:
-      - description: Optional OAuth state
-        in: query
-        name: state
-        type: string
-      produces:
-      - application/json
-      responses:
-        "302":
-          description: Redirect to Google OAuth
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/consoleapi.GoogleBackupAuthError'
-      summary: Start Google Backup OAuth (all scopes)
-      tags:
-      - google-backup-onboarding
-  /auth/google-backup/oauth-url:
-    get:
-      description: '**Route:** `GET /api/v0/auth/google-backup/oauth-url`. Returns
-        the same URL as `/auth/google-backup/init` without redirecting. Scopes = `GoogleRegisterBackupScopes`.'
-      parameters:
-      - description: Optional OAuth state
-        in: query
-        name: state
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.GoogleBackupOAuthURLSwaggerResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/consoleapi.GoogleBackupAuthError'
-      summary: Google Backup OAuth URL (all scopes)
-      tags:
-      - google-backup-onboarding
   /auth/mfa/disable:
     post:
       consumes:
@@ -4493,6 +4509,35 @@ paths:
       security:
       - CookieAuth: []
       summary: List Users & Groups mailboxes
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/dashboard-alerts:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/users-groups/dashboard-alerts`.
+        Proxies Backup-Tools `GET /autosync/dashboard-alerts` with session `token_key`.
+        UI mapping: Auth Errors → `re_auth_required`; Paused Backups → `paused_backups`;
+        New Mailboxes (24h) → `new_connected_accounts_24h`. Review links: re-auth
+        → `GET .../users-groups?credential_status=re_auth_required`; paused → `GET
+        .../users-groups?active=false`; new → sort by `connected_at` on users-groups
+        list.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Dashboard alert cards
       tags:
       - google-backup-users-groups
   /google-backup/users-groups/domains:

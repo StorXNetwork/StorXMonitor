@@ -41,6 +41,36 @@ func (g *GoogleBackupUsersGroups) serveJSONError(ctx context.Context, w http.Res
 	(&Auth{log: g.log, service: g.service, cookieAuth: g.cookieAuth}).serveJSONError(ctx, w, err)
 }
 
+// GetDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts.
+//
+// @Summary      Dashboard alert cards
+// @Description  **Full route:** `GET /api/v0/google-backup/users-groups/dashboard-alerts`. Proxies Backup-Tools `GET /autosync/dashboard-alerts` with session `token_key`. UI mapping: Auth Errors → `re_auth_required`; Paused Backups → `paused_backups`; New Mailboxes (24h) → `new_connected_accounts_24h`. Review links: re-auth → `GET .../users-groups?credential_status=re_auth_required`; paused → `GET .../users-groups?active=false`; new → sort by `connected_at` on users-groups list.
+// @Tags         google-backup-users-groups
+// @Produce      json
+// @Success      200  {object}  GoogleBackupDashboardAlertsSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/users-groups/dashboard-alerts [get]
+func (g *GoogleBackupUsersGroups) GetDashboardAlerts(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.GetGoogleBackupDashboardAlerts(ctx, tokenKey)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
 // GetDomains proxies Backup-Tools GET /users-groups/domains.
 //
 // @Summary      List Users & Groups domains

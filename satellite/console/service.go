@@ -9774,20 +9774,20 @@ func (s *Service) enrichVaultCard(ctx context.Context, card *BaseCard, projectID
 	card.Value2 = formatBytes(bandwidthBytes)
 }
 
-func (s *Service) enrichAccessCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
-	card.Status = nil
+// func (s *Service) enrichAccessCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
+// 	card.Status = nil
 
-	var accessCount int
-	if apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{
-		Limit: 1, Page: 1, Order: CreationDate, OrderDirection: Descending,
-	}); err == nil {
-		accessCount = int(apiKeys.TotalCount)
-	}
+// 	var accessCount int
+// 	if apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{
+// 		Limit: 1, Page: 1, Order: CreationDate, OrderDirection: Descending,
+// 	}); err == nil {
+// 		accessCount = int(apiKeys.TotalCount)
+// 	}
 
-	card.Value1 = accessCount
-	card.Value2 = nil
-	card.Value2Label = ""
-}
+// 	card.Value1 = accessCount
+// 	card.Value2 = nil
+// 	card.Value2Label = ""
+// }
 
 func (s *Service) enrichProtectedUsersCard(card *BaseCard, stats *ProtectedServicesStats) {
 	if stats == nil {
@@ -9907,24 +9907,24 @@ func formatRelativeTime(t time.Time) string {
 }
 
 // enrichAutoSyncCard — legacy dashboard card (active/failed sync counts). Uses AutoSyncStats.
-func (s *Service) enrichAutoSyncCard(ctx context.Context, card *BaseCard, tokenGetter func() (string, error)) {
-	stats, err := s.fetchAutoSyncStats(ctx, tokenGetter)
-	if err != nil {
-		s.log.Warn("failed to fetch AutoSync stats", zap.Error(err))
-		card.Value1 = 0
-		card.Value2 = 0
-		if card.Status == nil {
-			inactiveStatus := s.getStatus("inactive")
-			card.Status = &inactiveStatus
-		}
-		return
-	}
+// func (s *Service) enrichAutoSyncCard(ctx context.Context, card *BaseCard, tokenGetter func() (string, error)) {
+// 	stats, err := s.fetchAutoSyncStats(ctx, tokenGetter)
+// 	if err != nil {
+// 		s.log.Warn("failed to fetch AutoSync stats", zap.Error(err))
+// 		card.Value1 = 0
+// 		card.Value2 = 0
+// 		if card.Status == nil {
+// 			inactiveStatus := s.getStatus("inactive")
+// 			card.Status = &inactiveStatus
+// 		}
+// 		return
+// 	}
 
-	card.Value1 = stats.ActiveSyncs
-	card.Value2 = stats.FailedSyncs
-	status := s.getStatus(stats.Status)
-	card.Status = &status
-}
+// 	card.Value1 = stats.ActiveSyncs
+// 	card.Value2 = stats.FailedSyncs
+// 	status := s.getStatus(stats.Status)
+// 	card.Status = &status
+// }
 
 func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (string, error)) (*AutoSyncStats, error) {
 	tokenString, err := tokenGetter()

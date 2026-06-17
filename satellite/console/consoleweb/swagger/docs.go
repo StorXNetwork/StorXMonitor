@@ -799,71 +799,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/google-backup/init": {
-            "get": {
-                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup/init` + "`" + `. Redirects to Google consent with ` + "`" + `GoogleRegisterBackupScopes` + "`" + ` (readonly + restore write). After consent, Google redirects to ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` + "`" + ` → call ` + "`" + `GET /api/v0/auth/google-backup?code=...` + "`" + `. Use this URL instead of a frontend-hardcoded scope list.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-onboarding"
-                ],
-                "summary": "Start Google Backup OAuth (all scopes)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Optional OAuth state",
-                        "name": "state",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "302": {
-                        "description": "Redirect to Google OAuth"
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthError"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/google-backup/oauth-url": {
-            "get": {
-                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup/oauth-url` + "`" + `. Returns the same URL as ` + "`" + `/auth/google-backup/init` + "`" + ` without redirecting. Scopes = ` + "`" + `GoogleRegisterBackupScopes` + "`" + `.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-onboarding"
-                ],
-                "summary": "Google Backup OAuth URL (all scopes)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Optional OAuth state",
-                        "name": "state",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupOAuthURLSwaggerResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthError"
-                        }
-                    }
-                }
-            }
-        },
         "/auth/mfa/disable": {
             "post": {
                 "security": [
@@ -3284,6 +3219,43 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/dashboard-alerts": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/users-groups/dashboard-alerts` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /autosync/dashboard-alerts` + "`" + ` with session ` + "`" + `token_key` + "`" + `. UI mapping: Auth Errors → ` + "`" + `re_auth_required` + "`" + `; Paused Backups → ` + "`" + `paused_backups` + "`" + `; New Mailboxes (24h) → ` + "`" + `new_connected_accounts_24h` + "`" + `. Review links: re-auth → ` + "`" + `GET .../users-groups?credential_status=re_auth_required` + "`" + `; paused → ` + "`" + `GET .../users-groups?active=false` + "`" + `; new → sort by ` + "`" + `connected_at` + "`" + ` on users-groups list.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Dashboard alert cards",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -5947,6 +5919,114 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.GoogleBackupDashboardAlertSectionSwagger": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupDashboardMailboxSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardAlertsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "new_connected_accounts_24h": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                },
+                "paused_backups": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                },
+                "re_auth_required": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardCredentialSwagger": {
+            "type": "object",
+            "properties": {
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "needs_reconnect_google_auth": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardMailboxSwagger": {
+            "type": "object",
+            "properties": {
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "corporate",
+                        "individual"
+                    ],
+                    "example": "individual"
+                },
+                "connected_at": {
+                    "type": "string",
+                    "example": "2026-06-10T08:00:00Z"
+                },
+                "credential": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardCredentialSwagger"
+                },
+                "credential_status": {
+                    "type": "string",
+                    "enum": [
+                        "healthy",
+                        "re_auth_required"
+                    ],
+                    "example": "re_auth_required"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "john@gmail.com"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupDashboardServiceSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardServiceSwagger": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "connected": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "job_id": {
+                    "type": "integer",
+                    "example": 101
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_contacts",
+                        "google_calendar"
+                    ],
+                    "example": "gmail"
+                }
+            }
+        },
         "consoleapi.GoogleBackupDomainUsersSwaggerResponse": {
             "type": "object",
             "properties": {
@@ -5983,25 +6063,6 @@ const docTemplate = `{
                 "storx_access_grant": {
                     "type": "string",
                     "example": "\u003cstorx access grant\u003e"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupOAuthURLSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "oauth_url": {
-                    "type": "string",
-                    "example": "https://accounts.google.com/o/oauth2/v2/auth?..."
-                },
-                "redirect_uri": {
-                    "type": "string",
-                    "example": "https://app.example.com/google-backup/callback"
-                },
-                "scopes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
