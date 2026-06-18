@@ -47,6 +47,33 @@ type DeleteProjectSwaggerResponse struct {
 	InvoicingIncomplete bool `json:"invoicingIncomplete" example:"false"`
 }
 
+// ProjectConfigPlacementSwaggerItem is a placement option in GET /api/v0/projects/{id}/config.
+type ProjectConfigPlacementSwaggerItem struct {
+	ID          int    `json:"id" example:"0"`
+	IdName      string `json:"idName" example:"global"`
+	Name        string `json:"name" example:"Global"`
+	ShortName   string `json:"shortName" example:"Global"`
+	Title       string `json:"title" example:"Global"`
+	Description string `json:"description" example:"Default placement"`
+	Pending     bool   `json:"pending" example:"false"`
+	LucideIcon  string `json:"lucideIcon,omitempty" example:"globe"`
+}
+
+// ProjectConfigSwaggerResponse is returned by GET /api/v0/projects/{id}/config.
+type ProjectConfigSwaggerResponse struct {
+	HasManagedPassphrase bool                                `json:"hasManagedPassphrase" example:"false"`
+	EncryptPath          bool                                `json:"encryptPath" example:"true"`
+	Passphrase           string                              `json:"passphrase,omitempty" example:""`
+	IsOwnerPaidTier      bool                                `json:"isOwnerPaidTier" example:"true"`
+	HasPaidPrivileges    bool                                `json:"hasPaidPrivileges" example:"true"`
+	Role                 int                                 `json:"role" example:"0" enums:"0,1"`
+	Salt                 string                              `json:"salt" example:"YWJjZGVmZ2hpams="`
+	MembersCount         uint64                              `json:"membersCount" example:"1"`
+	AvailablePlacements  []ProjectConfigPlacementSwaggerItem `json:"availablePlacements"`
+	ComputeAuthToken     string                              `json:"computeAuthToken,omitempty" example:""`
+	EventingEnabled      bool                                `json:"eventingEnabled" example:"false"`
+}
+
 // ProjectUsageLimitsSwaggerResponse is returned by GET /api/v0/projects/{id}/usage-limits.
 type ProjectUsageLimitsSwaggerResponse struct {
 	StorageLimit          int64  `json:"storageLimit" example:"107374182400"`

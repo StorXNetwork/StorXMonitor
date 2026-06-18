@@ -766,6 +766,30 @@ func (p *Projects) GetEmissionImpact(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetConfig returns config specific to a project.
+//
+// @Summary      Project config for S3 credentials and vault setup
+// @Description  **Full route:** `GET /api/v0/projects/{id}/config`
+//
+// Returns project-scoped settings used by the frontend when creating access grants, S3 credentials, and vault setup flows.
+//
+// **Response fields:**
+// - `salt` — base64-encoded project salt (also available via `GET /projects/{id}/salt`).
+// - `passphrase` — managed-encryption passphrase when enabled (empty otherwise).
+// - `hasManagedPassphrase`, `encryptPath` — encryption mode flags for the UI.
+// - `role` — caller's project role (`0` = admin, `1` = member).
+// - `isOwnerPaidTier`, `hasPaidPrivileges` — billing / feature gating for the project owner.
+// - `availablePlacements` — placement options for bucket / vault creation.
+// - `computeAuthToken` — present for project admins when compute UI is enabled.
+// - `eventingEnabled` — whether bucket eventing is enabled for this project.
+// @Tags         projects-s3-vault-setup
+// @Produce      json
+// @Param        id  path  string  true  "Project public UUID"
+// @Success      200  {object}  ProjectConfigSwaggerResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/config [get]
 func (p *Projects) GetConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

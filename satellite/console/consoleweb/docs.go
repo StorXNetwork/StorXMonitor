@@ -29,6 +29,12 @@ package consoleweb
 // @tag.name projects-daily-usage
 // @tag.description Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts
 
+// @tag.name projects-s3-vault-setup
+// @tag.description S3 credentials & vault setup: GET /api/v0/projects/{id}/config — salt, passphrase, role, placements, and feature flags for access-grant / vault flows in the frontend
+
+// @tag.name api-keys-s3-vault-setup
+// @tag.description S3 credentials & vault setup: DELETE /api/v0/api-keys/delete-by-name — remove an API key by name and project when revoking S3 credentials from the frontend vault flow
+
 // @tag.name buckets
 // @tag.description Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved, and bucket APIs
 

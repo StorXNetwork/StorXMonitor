@@ -1366,6 +1366,73 @@ definitions:
           $ref: '#/definitions/consoleapi.PaymentPlanGroupSwagger'
         type: array
     type: object
+  consoleapi.ProjectConfigPlacementSwaggerItem:
+    properties:
+      description:
+        example: Default placement
+        type: string
+      id:
+        example: 0
+        type: integer
+      idName:
+        example: global
+        type: string
+      lucideIcon:
+        example: globe
+        type: string
+      name:
+        example: Global
+        type: string
+      pending:
+        example: false
+        type: boolean
+      shortName:
+        example: Global
+        type: string
+      title:
+        example: Global
+        type: string
+    type: object
+  consoleapi.ProjectConfigSwaggerResponse:
+    properties:
+      availablePlacements:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectConfigPlacementSwaggerItem'
+        type: array
+      computeAuthToken:
+        example: ""
+        type: string
+      encryptPath:
+        example: true
+        type: boolean
+      eventingEnabled:
+        example: false
+        type: boolean
+      hasManagedPassphrase:
+        example: false
+        type: boolean
+      hasPaidPrivileges:
+        example: true
+        type: boolean
+      isOwnerPaidTier:
+        example: true
+        type: boolean
+      membersCount:
+        example: 1
+        type: integer
+      passphrase:
+        example: ""
+        type: string
+      role:
+        enum:
+        - 0
+        - 1
+        example: 0
+        type: integer
+      salt:
+        example: YWJjZGVmZ2hpams=
+        type: string
+    type: object
   consoleapi.ProjectDailyUsageResponse:
     properties:
       allocatedBandwidthUsage:
@@ -2537,6 +2604,47 @@ info:
   title: StorX Monitor API
   version: "1.0"
 paths:
+  /api-keys/delete-by-name:
+    delete:
+      description: '**Full route:** `DELETE /api/v0/api-keys/delete-by-name`'
+      parameters:
+      - description: API key display name
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: Project internal UUID (use this or publicID)
+        in: query
+        name: projectID
+        type: string
+      - description: Project public UUID (use this or projectID)
+        in: query
+        name: publicID
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API key deleted
+        "204":
+          description: API key not found
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete API key by name (S3 credentials / vault setup)
+      tags:
+      - api-keys-s3-vault-setup
   /api-keys/list-paged:
     get:
       description: '**Full route:** `GET /api/v0/api-keys/list-paged`'
@@ -5316,6 +5424,39 @@ paths:
       summary: Update project
       tags:
       - projects
+  /projects/{id}/config:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/config`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectConfigSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Project config for S3 credentials and vault setup
+      tags:
+      - projects-s3-vault-setup
   /projects/{id}/daily-usage:
     get:
       description: '**Full route:** `GET /api/v0/projects/{id}/daily-usage`'
@@ -5647,6 +5788,14 @@ tags:
 - description: 'Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage
     — daily storageUsage and settledBandwidthUsage (bytes per day) for charts'
   name: projects-daily-usage
+- description: 'S3 credentials & vault setup: GET /api/v0/projects/{id}/config — salt,
+    passphrase, role, placements, and feature flags for access-grant / vault flows
+    in the frontend'
+  name: projects-s3-vault-setup
+- description: 'S3 credentials & vault setup: DELETE /api/v0/api-keys/delete-by-name
+    — remove an API key by name and project when revoking S3 credentials from the
+    frontend vault flow'
+  name: api-keys-s3-vault-setup
 - description: 'Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved,
     and bucket APIs'
   name: buckets

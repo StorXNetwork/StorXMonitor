@@ -17,6 +17,70 @@
     },
     "basePath": "/api/v0",
     "paths": {
+        "/api-keys/delete-by-name": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `DELETE /api/v0/api-keys/delete-by-name`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-keys-s3-vault-setup"
+                ],
+                "summary": "Delete API key by name (S3 credentials / vault setup)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API key display name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Project internal UUID (use this or publicID)",
+                        "name": "projectID",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Project public UUID (use this or projectID)",
+                        "name": "publicID",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "API key deleted"
+                    },
+                    "204": {
+                        "description": "API key not found"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api-keys/list-paged": {
             "get": {
                 "security": [
@@ -4430,6 +4494,58 @@
                 }
             }
         },
+        "/projects/{id}/config": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `GET /api/v0/projects/{id}/config`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects-s3-vault-setup"
+                ],
+                "summary": "Project config for S3 credentials and vault setup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectConfigSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{id}/daily-usage": {
             "get": {
                 "security": [
@@ -6704,6 +6820,98 @@
                 }
             }
         },
+        "consoleapi.ProjectConfigPlacementSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Default placement"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "idName": {
+                    "type": "string",
+                    "example": "global"
+                },
+                "lucideIcon": {
+                    "type": "string",
+                    "example": "globe"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Global"
+                },
+                "pending": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "shortName": {
+                    "type": "string",
+                    "example": "Global"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Global"
+                }
+            }
+        },
+        "consoleapi.ProjectConfigSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "availablePlacements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectConfigPlacementSwaggerItem"
+                    }
+                },
+                "computeAuthToken": {
+                    "type": "string",
+                    "example": ""
+                },
+                "encryptPath": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "eventingEnabled": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "hasManagedPassphrase": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "hasPaidPrivileges": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "isOwnerPaidTier": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "membersCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "passphrase": {
+                    "type": "string",
+                    "example": ""
+                },
+                "role": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ],
+                    "example": 0
+                },
+                "salt": {
+                    "type": "string",
+                    "example": "YWJjZGVmZ2hpams="
+                }
+            }
+        },
         "consoleapi.ProjectDailyUsageResponse": {
             "type": "object",
             "properties": {
@@ -8340,6 +8548,14 @@
         {
             "description": "Storage \u0026 bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts",
             "name": "projects-daily-usage"
+        },
+        {
+            "description": "S3 credentials \u0026 vault setup: GET /api/v0/projects/{id}/config — salt, passphrase, role, placements, and feature flags for access-grant / vault flows in the frontend",
+            "name": "projects-s3-vault-setup"
+        },
+        {
+            "description": "S3 credentials \u0026 vault setup: DELETE /api/v0/api-keys/delete-by-name — remove an API key by name and project when revoking S3 credentials from the frontend vault flow",
+            "name": "api-keys-s3-vault-setup"
         },
         {
             "description": "Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved, and bucket APIs",
