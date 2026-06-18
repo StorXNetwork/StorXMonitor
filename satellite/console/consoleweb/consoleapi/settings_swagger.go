@@ -5,19 +5,18 @@ package consoleapi
 
 import "time"
 
-// NotificationChannelPreferencesSwagger is per-channel minimum priority for a category.
+// NotificationChannelPreferencesSwagger is global per-channel minimum priority.
 // Keys: push, email, sms. Values: 1=marketing, 2=info, 3=warning, 4=critical (or string names).
 type NotificationChannelPreferencesSwagger struct {
 	Push  *int `json:"push,omitempty" example:"2" enums:"1,2,3,4"`
-	Email *int `json:"email,omitempty" example:"3" enums:"1,2,3,4"`
+	Email *int `json:"email,omitempty" example:"2" enums:"1,2,3,4"`
 	SMS   *int `json:"sms,omitempty" example:"4" enums:"1,2,3,4"`
 }
 
-// UserNotificationPreferenceSwagger is a notification preference row (Settings → Notifications).
+// UserNotificationPreferenceSwagger is a global notification preference row (Settings → Notifications).
 type UserNotificationPreferenceSwagger struct {
 	ID          string                 `json:"ID" example:"00000000-0000-0000-0000-000000000000"`
 	UserID      string                 `json:"UserID" example:"00000000-0000-0000-0000-000000000000"`
-	Category    string                 `json:"Category" example:"billing" enums:"billing,backup,account,vault"`
 	Preferences map[string]interface{} `json:"Preferences" swaggertype:"object"`
 	CreatedAt   time.Time              `json:"CreatedAt"`
 	UpdatedAt   time.Time              `json:"UpdatedAt"`
@@ -25,7 +24,6 @@ type UserNotificationPreferenceSwagger struct {
 
 // UpsertUserNotificationPreferenceSwaggerRequest is the body for PUT /api/v0/user/notification-preferences.
 type UpsertUserNotificationPreferenceSwaggerRequest struct {
-	Category    string                                `json:"category" example:"billing" enums:"billing,backup,account,vault"`
 	Preferences NotificationChannelPreferencesSwagger `json:"preferences"`
 }
 

@@ -101,7 +101,7 @@ type Config struct {
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
 	BackupToolsURL    string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
-	BackupToolsAPIKey string `help:"shared API key for Backup-Tools internal routes (X-API-Key on POST /api/v0/internal/storx-token/refresh)" default:""`
+	BackupToolsAPIKey string `help:"shared API key for Backup-Tools internal routes (X-API-Key on POST /api/v0/internal/storx-token/refresh and /api/v0/internal/google-token/clear)" default:""`
 
 	GoogleClientID                string `help:"client id for google oauth" default:""`
 	GoogleClientSecret            string `help:"client secret for google oauth" default:""`
@@ -413,6 +413,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	internalStorxTokenController := consoleapi.NewInternalStorxToken(logger, service, config.BackupToolsAPIKey)
 	internalRouter := router.PathPrefix("/api/v0/internal").Subrouter()
 	internalRouter.Handle("/storx-token/refresh", http.HandlerFunc(internalStorxTokenController.RefreshStorxToken)).Methods(http.MethodPost)
+	internalRouter.Handle("/google-token/clear", http.HandlerFunc(internalStorxTokenController.ClearGoogleToken)).Methods(http.MethodPost)
 
 	// Authenticated routes
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
@@ -561,6 +562,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobServices))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/live", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.AutoSyncLive))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)

@@ -230,6 +230,17 @@ func (s *Service) ListGoogleBackupAutoSyncJobServices(ctx context.Context, token
 	return s.backupToolsRequest(ctx, http.MethodGet, "/auto-sync/job/services", tokenKey, "", nil)
 }
 
+// ListGoogleBackupAutoSyncLive proxies Backup-Tools GET /auto-sync/live (running/failed backup tasks).
+func (s *Service) ListGoogleBackupAutoSyncLive(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+
+	return s.backupToolsRequest(ctx, http.MethodGet, "/auto-sync/live", tokenKey, "", nil)
+}
+
 func (s *Service) ListGoogleBackupAutoSyncJobs(ctx context.Context, tokenKey, filter string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 

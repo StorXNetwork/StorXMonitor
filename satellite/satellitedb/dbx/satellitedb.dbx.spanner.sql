@@ -682,11 +682,11 @@ CREATE TABLE user_delete_requests (
 CREATE TABLE user_notification_preferences (
 	id BYTES(MAX) NOT NULL,
 	user_id BYTES(MAX) NOT NULL,
-	category STRING(MAX),
 	preferences JSON NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_user_notification_preferences_user_id ON user_notification_preferences ( user_id ) ;
 CREATE TABLE user_settings (
 	user_id BYTES(MAX) NOT NULL,
 	session_minutes INT64,

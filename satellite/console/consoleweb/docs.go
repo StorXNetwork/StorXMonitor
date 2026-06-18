@@ -35,6 +35,9 @@ package consoleweb
 // @tag.name buckets-reserved-usage
 // @tag.description Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)
 
+// @tag.name buckets-quota-check
+// @tag.description Storage & bandwidth quota popup: POST /api/v0/buckets/check-upload — usage percents, allow_upload/download, popup_show + message (login, upload, download). Same usage data as dashboard quota cards.
+
 // @tag.name api-keys
 // @tag.description API key management operations
 
@@ -49,6 +52,9 @@ package consoleweb
 
 // @tag.name google-backup
 // @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs` sets onboarding complete on success.
+
+// @tag.name google-backup-autosync-live
+// @tag.description Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not `/autosync/live`.
 
 // @tag.name google-backup-users-groups
 // @tag.description GET /google-backup/users-groups/*
@@ -75,7 +81,7 @@ package consoleweb
 // @tag.description Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token` (session cookie). IP address is set server-side.
 
 // @tag.name settings-notification-preferences
-// @tag.description Settings → Notification preferences: per-category channel thresholds at `/api/v0/user/notification-preferences` (billing, backup, account, vault).
+// @tag.description Settings → Notification preferences: global channel thresholds at `/api/v0/user/notification-preferences` (push, email, sms minimum priority levels applied to all notifications).
 
 // @tag.name access
 // @tag.description Access management: GET /api/v0/api-keys/list-paged (paginated keys), POST /v1/access (exchange access grant for S3 credentials on auth host)

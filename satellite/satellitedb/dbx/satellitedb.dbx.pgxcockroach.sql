@@ -738,11 +738,11 @@ CREATE TABLE user_delete_requests (
 CREATE TABLE user_notification_preferences (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
-	category text,
 	preferences jsonb NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id )
 ) ;
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,

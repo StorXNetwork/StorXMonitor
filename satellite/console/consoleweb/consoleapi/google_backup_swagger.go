@@ -3,6 +3,8 @@
 
 package consoleapi
 
+import "time"
+
 // Swagger models for Google Backup and related auth routes (used by swag only).
 
 // GoogleBackupOnboardingSwagger is the onboarding block on GET /auth/google-backup responses.
@@ -94,6 +96,28 @@ type GoogleBackupAutoSyncJobServiceStatsSwagger struct {
 type GoogleBackupAutoSyncJobServicesSwaggerResponse struct {
 	Message  string                                       `json:"message" example:"Connected autosync services"`
 	Services []GoogleBackupAutoSyncJobServiceStatsSwagger `json:"services"`
+}
+
+// GoogleBackupAutoSyncLiveTaskSwagger is one running/failed task on a live backup job.
+type GoogleBackupAutoSyncLiveTaskSwagger struct {
+	StartTime *time.Time `json:"start_time,omitempty" example:"2026-06-17T10:30:00Z"`
+	Status    string     `json:"status" example:"running" enums:"running,failed"`
+}
+
+// GoogleBackupAutoSyncLiveJobSwagger is one job in GET .../auto-sync/live data[].
+type GoogleBackupAutoSyncLiveJobSwagger struct {
+	ID            uint                                  `json:"id" example:"12"`
+	Name          string                                `json:"name" example:"user@example.com"`
+	Method        string                                `json:"method" example:"gmail" enums:"gmail,google_drive,google_photos,google_contacts,google_calendar"`
+	Message       string                                `json:"message" example:"Backup in progress..."`
+	MessageStatus string                                `json:"message_status" example:"info" enums:"info,warning,error"`
+	Tasks         []GoogleBackupAutoSyncLiveTaskSwagger `json:"tasks"`
+}
+
+// GoogleBackupAutoSyncLiveSwaggerResponse is returned from GET .../auto-sync/live (Backup-Tools passthrough).
+type GoogleBackupAutoSyncLiveSwaggerResponse struct {
+	Message string                               `json:"message" example:"Active Automatic Backup Accounts List"`
+	Data    []GoogleBackupAutoSyncLiveJobSwagger `json:"data"`
 }
 
 // AutosyncJobListFilter is URL-encoded JSON for GET .../auto-sync/jobs?filter=...

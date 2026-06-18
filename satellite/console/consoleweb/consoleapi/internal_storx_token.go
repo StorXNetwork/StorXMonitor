@@ -111,3 +111,61 @@ func (h *InternalStorxToken) RefreshStorxToken(w http.ResponseWriter, r *http.Re
 		ProjectID:   result.ProjectID,
 	})
 }
+
+type clearGoogleTokenSwaggerRequest struct {
+	UserID string `json:"user_id"`
+	Email  string `json:"email"`
+}
+
+type clearGoogleTokenSwaggerResponse struct {
+	Error string `json:"error,omitempty"`
+}
+
+func (h *InternalStorxToken) writeClearGoogleTokenJSON(w http.ResponseWriter, status int, payload clearGoogleTokenSwaggerResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		h.log.Error("failed to encode internal google token clear response", zap.Error(err))
+	}
+}
+
+// ClearGoogleToken handles POST /api/v0/internal/google-token/clear for Backup-Tools.
+func (h *InternalStorxToken) ClearGoogleToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if !h.validateBackupToolsAPIKey(r) {
+		h.writeClearGoogleTokenJSON(w, http.StatusUnauthorized, clearGoogleTokenSwaggerResponse{Error: "unauthorized"})
+		return
+	}
+
+	var body clearGoogleTokenSwaggerRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		h.writeClearGoogleTokenJSON(w, http.StatusBadRequest, clearGoogleTokenSwaggerResponse{Error: "invalid request body"})
+		return
+	}
+	if dec.More() {
+		h.writeClearGoogleTokenJSON(w, http.StatusBadRequest, clearGoogleTokenSwaggerResponse{Error: "invalid request body"})
+		return
+	}
+
+	if err := h.service.ClearGoogleBackupTokensForBackupTools(ctx, console.ClearGoogleBackupTokensRequest{
+		UserID: body.UserID,
+		Email:  body.Email,
+	}); err != nil {
+		status := http.StatusInternalServerError
+		if console.ErrUnauthorized.Has(err) {
+			status = http.StatusUnauthorized
+		} else if console.ErrValidation.Has(err) {
+			status = http.StatusBadRequest
+		}
+		h.log.Debug("internal google token clear failed", zap.Error(err))
+		h.writeClearGoogleTokenJSON(w, status, clearGoogleTokenSwaggerResponse{Error: err.Error()})
+		return
+	}
+
+	h.writeClearGoogleTokenJSON(w, http.StatusOK, clearGoogleTokenSwaggerResponse{})
+}

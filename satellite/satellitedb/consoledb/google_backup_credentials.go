@@ -125,6 +125,21 @@ func (g *googleBackupCredentials) UpdateTokens(ctx context.Context, id uuid.UUID
 	return err
 }
 
+func (g *googleBackupCredentials) ClearTokens(ctx context.Context, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = g.db.Update_GoogleBackupCredentials_By_Id(
+		ctx,
+		dbx.GoogleBackupCredentials_Id(id[:]),
+		dbx.GoogleBackupCredentials_Update_Fields{
+			AccessToken:       dbx.GoogleBackupCredentials_AccessToken(""),
+			RefreshToken:      dbx.GoogleBackupCredentials_RefreshToken_Null(),
+			AccessTokenExpiry: dbx.GoogleBackupCredentials_AccessTokenExpiry_Null(),
+		},
+	)
+	return err
+}
+
 func googleBackupCredentialFromDBX(row *dbx.GoogleBackupCredentials) (*console.GoogleBackupCredential, error) {
 	if row == nil {
 		return nil, errors.New("nil google backup credential row")

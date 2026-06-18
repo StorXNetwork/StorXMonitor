@@ -351,43 +351,12 @@ func (s *Service) SendPushNotification(ctx context.Context, userID uuid.UUID, no
 	return s.pushNotificationService.SendNotification(ctx, userID, notification)
 }
 
-// SendPushNotificationWithPreferences sends a push notification after checking user preferences.
-// Gets config by category, verifies it's a push template, and checks user preferences.
-// If user preference level > config level, the notification is not sent.
-func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userID uuid.UUID, category string, notification pushnotifications.Notification) error {
-	// Get configs by category
-	configsDB := s.GetConfigs()
-	configsService := configs.NewService(configsDB)
+// SendPushNotificationWithPreferences sends a push notification after checking global user preferences.
+// If user preference level is above the notification config level, the notification is not sent.
+func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userID uuid.UUID, configLevel int, notification pushnotifications.Notification) error {
+	preferenceService := configs.NewPreferenceService(s.GetUserNotificationPreferences())
 
-	// Filter to find config with ConfigType == ConfigTypeNotificationTemplate (which is "push")
-	pushConfigType := configs.ConfigTypeNotificationTemplate
-	filters := configs.ListConfigFilters{
-		ConfigType: &pushConfigType,
-		Category:   &category,
-	}
-
-	configsList, err := configsService.ListConfigs(ctx, filters)
-	if err != nil {
-		// If we can't get configs, allow notification by default
-		return s.SendPushNotification(ctx, userID, notification)
-	}
-
-	// Find the first active push config for this category
-	pushConfig := s.findActivePushConfig(configsList, pushConfigType)
-
-	// If no push config found, allow notification by default
-	if pushConfig == nil {
-		return s.SendPushNotification(ctx, userID, notification)
-	}
-
-	// Extract level from ConfigData
-	configLevel := configs.GetConfigLevel(pushConfig.ConfigData)
-
-	// Check preferences using ShouldSendNotification
-	preferenceDB := s.GetUserNotificationPreferences()
-	preferenceService := configs.NewPreferenceService(preferenceDB)
-
-	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, category, string(configs.NotificationTypePush), configLevel)
+	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, string(configs.NotificationTypePush), configLevel)
 	if err != nil {
 		// If we can't check preferences, allow notification by default
 		return s.SendPushNotification(ctx, userID, notification)
@@ -398,7 +367,6 @@ func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userI
 		return nil
 	}
 
-	// If should send, call SendPushNotification
 	return s.SendPushNotification(ctx, userID, notification)
 }
 
@@ -406,12 +374,12 @@ func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userI
 // rendering templates from config_data, and sending the notification.
 // Variables can be nil - defaults from config_data will be used. Runtime variables override defaults.
 func (s *Service) SendPushNotificationByEventName(ctx context.Context, userID uuid.UUID, eventName string, category string, variables map[string]interface{}) error {
-	notification, err := s.buildNotificationFromEvent(ctx, userID, eventName, variables)
+	notification, configLevel, err := s.buildNotificationFromEvent(ctx, userID, eventName, variables)
 	if err != nil {
 		return err
 	}
 
-	return s.SendPushNotificationWithPreferences(ctx, userID, category, notification)
+	return s.SendPushNotificationWithPreferences(ctx, userID, configLevel, notification)
 }
 
 // SendNotificationAsync sends a push notification asynchronously in a goroutine.
@@ -437,11 +405,11 @@ func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventNam
 }
 
 // buildNotificationFromEvent builds a notification from event name and variables.
-func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UUID, eventName string, variables map[string]interface{}) (pushnotifications.Notification, error) {
+func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UUID, eventName string, variables map[string]interface{}) (pushnotifications.Notification, int, error) {
 	configName := strings.ReplaceAll(eventName, "_", " ")
 	templateData, configData, err := s.getTemplateData(ctx, eventName, configName, userID)
 	if err != nil {
-		return pushnotifications.Notification{}, err
+		return pushnotifications.Notification{}, 0, err
 	}
 
 	mergedVars := configs.MergeUserPreferences(templateData.DefaultVariables, nil, variables)
@@ -452,7 +420,7 @@ func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UU
 			zap.String("event_name", eventName),
 			zap.Stringer("user_id", userID),
 			zap.Error(err))
-		return pushnotifications.Notification{}, Error.Wrap(err)
+		return pushnotifications.Notification{}, 0, Error.Wrap(err)
 	}
 
 	title, body, _, err := configs.NewRenderer().RenderTemplate(templateData, mergedVars)
@@ -461,15 +429,17 @@ func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UU
 			zap.String("event_name", eventName),
 			zap.Stringer("user_id", userID),
 			zap.Error(err))
-		return pushnotifications.Notification{}, Error.Wrap(err)
+		return pushnotifications.Notification{}, 0, Error.Wrap(err)
 	}
+
+	configLevel := configs.GetConfigLevel(configData)
 
 	return pushnotifications.Notification{
 		Title:    title,
 		Body:     body,
 		Data:     s.buildNotificationData(eventName, mergedVars),
-		Priority: mapLevelToPriority(configs.GetConfigLevel(configData)),
-	}, nil
+		Priority: mapLevelToPriority(configLevel),
+	}, configLevel, nil
 }
 
 // getTemplateData retrieves and parses template data for a notification event.
@@ -835,6 +805,51 @@ func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req Refre
 		AccessGrant: accessGrant,
 		ProjectID:   project.ID.String(),
 	}, nil
+}
+
+// ClearGoogleBackupTokensRequest is the Backup-Tools internal clear-google-token body.
+type ClearGoogleBackupTokensRequest struct {
+	UserID string
+	Email  string
+}
+
+func (r ClearGoogleBackupTokensRequest) Validate() error {
+	if strings.TrimSpace(r.UserID) == "" || strings.TrimSpace(r.Email) == "" {
+		return ErrValidation.New("user_id and email are required")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.UserID)); err != nil {
+		return ErrValidation.New("invalid user_id")
+	}
+	return nil
+}
+
+// ClearGoogleBackupTokensForBackupTools clears stored Google OAuth access and refresh tokens
+// for the user's mailbox credential. Caller must authenticate the request (X-API-Key).
+func (s *Service) ClearGoogleBackupTokensForBackupTools(ctx context.Context, req ClearGoogleBackupTokensRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	userID, err := uuid.FromString(strings.TrimSpace(req.UserID))
+	if err != nil {
+		return ErrValidation.New("invalid user_id")
+	}
+
+	email := strings.TrimSpace(req.Email)
+	credential, err := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, userID, email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return Error.Wrap(err)
+	}
+
+	if err := s.store.GoogleBackupCredentials().ClearTokens(ctx, credential.ID); err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
 }
 
 func init() {

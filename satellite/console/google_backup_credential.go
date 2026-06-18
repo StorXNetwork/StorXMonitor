@@ -42,6 +42,7 @@ type GoogleBackupCredentials interface {
 	GetByUserIDAndGoogleEmail(ctx context.Context, userID uuid.UUID, googleEmail string) (*GoogleBackupCredential, error)
 	UpdateAccountType(ctx context.Context, id uuid.UUID, accountType string) error
 	UpdateTokens(ctx context.Context, id uuid.UUID, accessToken, refreshToken string, accessTokenExpiry *time.Time) error
+	ClearTokens(ctx context.Context, id uuid.UUID) error
 }
 
 // ValidateForBackup checks fields required before Backup-Tools onboarding (access token from DB only).

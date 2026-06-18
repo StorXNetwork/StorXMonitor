@@ -1080,6 +1080,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/buckets/check-upload": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/buckets/check-upload` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "buckets-quota-check"
+                ],
+                "summary": "Check storage and bandwidth quota (popup)",
+                "parameters": [
+                    {
+                        "description": "project_id, operation, optional file_size",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CheckUploadSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CheckUploadSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/buckets/usage-totals": {
             "get": {
                 "security": [
@@ -1804,6 +1861,43 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/live": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/live` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-autosync-live"
+                ],
+                "summary": "Live auto-sync backup progress",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -4571,7 +4665,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/user/notification-preferences` + "`" + `. Settings → Notification preferences. Without ` + "`" + `category` + "`" + `: returns a JSON **array** of all preference rows. With ` + "`" + `category` + "`" + `: returns a single preference **object** for that category. Each row ` + "`" + `Preferences` + "`" + ` map uses keys ` + "`" + `push` + "`" + `, ` + "`" + `email` + "`" + `, ` + "`" + `sms` + "`" + ` with minimum priority levels 1–4 (marketing, info, warning, critical).",
+                "description": "**Full route:** ` + "`" + `GET /api/v0/user/notification-preferences` + "`" + `. Settings → Notification preferences. Returns a JSON **array** with zero or one global preference row. Each row ` + "`" + `Preferences` + "`" + ` map uses keys ` + "`" + `push` + "`" + `, ` + "`" + `email` + "`" + `, ` + "`" + `sms` + "`" + ` with minimum priority levels 1–4 (marketing, info, warning, critical).",
                 "produces": [
                     "application/json"
                 ],
@@ -4579,20 +4673,6 @@ const docTemplate = `{
                     "settings-notification-preferences"
                 ],
                 "summary": "Get notification preferences",
-                "parameters": [
-                    {
-                        "enum": [
-                            "billing",
-                            "backup",
-                            "account",
-                            "vault"
-                        ],
-                        "type": "string",
-                        "description": "Optional filter: billing, backup, account, vault",
-                        "name": "category",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4603,14 +4683,14 @@ const docTemplate = `{
                             }
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -4623,7 +4703,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `PUT /api/v0/user/notification-preferences` + "`" + `. Settings → Notification preferences. Upserts one category row. ` + "`" + `category` + "`" + ` required. ` + "`" + `preferences` + "`" + ` may include any of ` + "`" + `push` + "`" + `, ` + "`" + `email` + "`" + `, ` + "`" + `sms` + "`" + ` — each value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names ` + "`" + `marketing` + "`" + `/` + "`" + `info` + "`" + `/` + "`" + `warning` + "`" + `/` + "`" + `critical` + "`" + ` also accepted). Returns ` + "`" + `201` + "`" + ` on create, ` + "`" + `200` + "`" + ` on update.",
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/user/notification-preferences` + "`" + `. Settings → Notification preferences. Upserts global channel thresholds applied to all notifications. ` + "`" + `preferences` + "`" + ` may include any of ` + "`" + `push` + "`" + `, ` + "`" + `email` + "`" + `, ` + "`" + `sms` + "`" + ` — each value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names ` + "`" + `marketing` + "`" + `/` + "`" + `info` + "`" + `/` + "`" + `warning` + "`" + `/` + "`" + `critical` + "`" + ` also accepted). Returns ` + "`" + `201` + "`" + ` on create, ` + "`" + `200` + "`" + ` on update.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4636,7 +4716,7 @@ const docTemplate = `{
                 "summary": "Create or update notification preference",
                 "parameters": [
                     {
-                        "description": "Category and channel preferences",
+                        "description": "Global channel preferences",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -4666,6 +4746,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -5453,6 +5539,89 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.CheckUploadSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "operation",
+                "project_id"
+            ],
+            "properties": {
+                "file_size": {
+                    "type": "integer",
+                    "example": 1048576
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": [
+                        "login",
+                        "upload",
+                        "download"
+                    ],
+                    "example": "login"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                }
+            }
+        },
+        "consoleapi.CheckUploadSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "allow_download": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allow_upload": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "bandwidth_usage_percent": {
+                    "type": "number",
+                    "example": 4.2
+                },
+                "bandwidth_warning_threshold": {
+                    "type": "number",
+                    "example": 80
+                },
+                "message": {
+                    "type": "string",
+                    "example": "You have used 100% of your storage quota."
+                },
+                "popup_show": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "remaining_bandwidth": {
+                    "type": "integer",
+                    "example": 2055208960
+                },
+                "remaining_space": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "storage_usage_percent": {
+                    "type": "number",
+                    "example": 100
+                },
+                "storage_warning_threshold": {
+                    "type": "number",
+                    "example": 80
+                },
+                "total_bandwidth": {
+                    "type": "integer",
+                    "example": 2147483648
+                },
+                "total_space": {
+                    "type": "integer",
+                    "example": 2147483648
+                },
+                "upgrade_url": {
+                    "type": "string",
+                    "example": "https://billing.example.com"
+                }
+            }
+        },
         "consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest": {
             "type": "object",
             "required": [
@@ -5887,6 +6056,81 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.GoogleBackupAutoSyncLiveJobSwagger": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Backup in progress..."
+                },
+                "message_status": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error"
+                    ],
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_contacts",
+                        "google_calendar"
+                    ],
+                    "example": "gmail"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveTaskSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveJobSwagger"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Active Automatic Backup Accounts List"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncLiveTaskSwagger": {
+            "type": "object",
+            "properties": {
+                "start_time": {
+                    "type": "string",
+                    "example": "2026-06-17T10:30:00Z"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "running",
+                        "failed"
+                    ],
+                    "example": "running"
+                }
+            }
+        },
         "consoleapi.GoogleBackupConnectSwaggerRequest": {
             "type": "object",
             "required": [
@@ -6238,7 +6482,7 @@ const docTemplate = `{
                         3,
                         4
                     ],
-                    "example": 3
+                    "example": 2
                 },
                 "push": {
                     "type": "integer",
@@ -7491,16 +7735,6 @@ const docTemplate = `{
         "consoleapi.UpsertUserNotificationPreferenceSwaggerRequest": {
             "type": "object",
             "properties": {
-                "category": {
-                    "type": "string",
-                    "enum": [
-                        "billing",
-                        "backup",
-                        "account",
-                        "vault"
-                    ],
-                    "example": "billing"
-                },
                 "preferences": {
                     "$ref": "#/definitions/consoleapi.NotificationChannelPreferencesSwagger"
                 }
@@ -7604,16 +7838,6 @@ const docTemplate = `{
         "consoleapi.UserNotificationPreferenceSwagger": {
             "type": "object",
             "properties": {
-                "Category": {
-                    "type": "string",
-                    "enum": [
-                        "billing",
-                        "backup",
-                        "account",
-                        "vault"
-                    ],
-                    "example": "billing"
-                },
                 "CreatedAt": {
                     "type": "string"
                 },
@@ -8133,6 +8357,10 @@ const docTemplate = `{
             "name": "buckets-reserved-usage"
         },
         {
+            "description": "Storage \u0026 bandwidth quota popup: POST /api/v0/buckets/check-upload — usage percents, allow_upload/download, popup_show + message (login, upload, download). Same usage data as dashboard quota cards.",
+            "name": "buckets-quota-check"
+        },
+        {
             "description": "API key management operations",
             "name": "api-keys"
         },
@@ -8151,6 +8379,10 @@ const docTemplate = `{
         {
             "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). ` + "`" + `POST /auto-sync/jobs` + "`" + ` sets onboarding complete on success.",
             "name": "google-backup"
+        },
+        {
+            "description": "Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not ` + "`" + `/autosync/live` + "`" + `.",
+            "name": "google-backup-autosync-live"
         },
         {
             "description": "GET /google-backup/users-groups/*",
@@ -8185,7 +8417,7 @@ const docTemplate = `{
             "name": "settings-fcm"
         },
         {
-            "description": "Settings → Notification preferences: per-category channel thresholds at ` + "`" + `/api/v0/user/notification-preferences` + "`" + ` (billing, backup, account, vault).",
+            "description": "Settings → Notification preferences: global channel thresholds at ` + "`" + `/api/v0/user/notification-preferences` + "`" + ` (push, email, sms minimum priority levels applied to all notifications).",
             "name": "settings-notification-preferences"
         },
         {

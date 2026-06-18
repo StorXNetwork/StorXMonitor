@@ -187,6 +187,38 @@ func (g *GoogleBackup) ListAutoSyncJobServices(w http.ResponseWriter, r *http.Re
 	writeBackupToolsJSON(w, status, respBody)
 }
 
+// AutoSyncLive lists jobs with running or failed backup tasks (Backup-Tools GET /auto-sync/live).
+//
+// @Summary      Live auto-sync backup progress
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/live`
+//
+// Proxies Backup-Tools `GET /auto-sync/live` (hyphenated `auto-sync`, not `/autosync/live`) with session `token_key`. Poll every 3–5s for dashboard "backup in progress" UI. Returns only jobs with at least one `running` or `failed` task; empty `data` means nothing active. Not the full job list — use `GET .../auto-sync/jobs`. Related: `GET .../restore/live` (restore progress).
+// @Tags         google-backup-autosync-live
+// @Produce      json
+// @Success      200  {object}  GoogleBackupAutoSyncLiveSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/live [get]
+func (g *GoogleBackup) AutoSyncLive(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupAutoSyncLive(ctx, tokenKey)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
 // ListAutoSyncJobs lists Backup-Tools auto-sync jobs for the session user.
 //
 // @Summary      List Google Backup auto-sync jobs

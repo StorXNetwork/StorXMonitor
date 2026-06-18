@@ -530,6 +530,67 @@ definitions:
         example: 3
         type: integer
     type: object
+  consoleapi.CheckUploadSwaggerRequest:
+    properties:
+      file_size:
+        example: 1048576
+        type: integer
+      operation:
+        enum:
+        - login
+        - upload
+        - download
+        example: login
+        type: string
+      project_id:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+    required:
+    - operation
+    - project_id
+    type: object
+  consoleapi.CheckUploadSwaggerResponse:
+    properties:
+      allow_download:
+        example: true
+        type: boolean
+      allow_upload:
+        example: false
+        type: boolean
+      bandwidth_usage_percent:
+        example: 4.2
+        type: number
+      bandwidth_warning_threshold:
+        example: 80
+        type: number
+      message:
+        example: You have used 100% of your storage quota.
+        type: string
+      popup_show:
+        example: true
+        type: boolean
+      remaining_bandwidth:
+        example: 2055208960
+        type: integer
+      remaining_space:
+        example: 0
+        type: integer
+      storage_usage_percent:
+        example: 100
+        type: number
+      storage_warning_threshold:
+        example: 80
+        type: number
+      total_bandwidth:
+        example: 2147483648
+        type: integer
+      total_space:
+        example: 2147483648
+        type: integer
+      upgrade_url:
+        example: https://billing.example.com
+        type: string
+    type: object
   consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest:
     properties:
       emails:
@@ -840,6 +901,60 @@ definitions:
           $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger'
         type: array
     type: object
+  consoleapi.GoogleBackupAutoSyncLiveJobSwagger:
+    properties:
+      id:
+        example: 12
+        type: integer
+      message:
+        example: Backup in progress...
+        type: string
+      message_status:
+        enum:
+        - info
+        - warning
+        - error
+        example: info
+        type: string
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_contacts
+        - google_calendar
+        example: gmail
+        type: string
+      name:
+        example: user@example.com
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncLiveTaskSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncLiveJobSwagger'
+        type: array
+      message:
+        example: Active Automatic Backup Accounts List
+        type: string
+    type: object
+  consoleapi.GoogleBackupAutoSyncLiveTaskSwagger:
+    properties:
+      start_time:
+        example: "2026-06-17T10:30:00Z"
+        type: string
+      status:
+        enum:
+        - running
+        - failed
+        example: running
+        type: string
+    type: object
   consoleapi.GoogleBackupConnectSwaggerRequest:
     properties:
       code:
@@ -1088,7 +1203,7 @@ definitions:
         - 2
         - 3
         - 4
-        example: 3
+        example: 2
         type: integer
       push:
         enum:
@@ -1993,14 +2108,6 @@ definitions:
     type: object
   consoleapi.UpsertUserNotificationPreferenceSwaggerRequest:
     properties:
-      category:
-        enum:
-        - billing
-        - backup
-        - account
-        - vault
-        example: billing
-        type: string
       preferences:
         $ref: '#/definitions/consoleapi.NotificationChannelPreferencesSwagger'
     type: object
@@ -2073,14 +2180,6 @@ definitions:
     type: object
   consoleapi.UserNotificationPreferenceSwagger:
     properties:
-      Category:
-        enum:
-        - billing
-        - backup
-        - account
-        - vault
-        example: billing
-        type: string
       CreatedAt:
         type: string
       ID:
@@ -3114,6 +3213,42 @@ paths:
       summary: List featured blogs
       tags:
       - static-api
+  /buckets/check-upload:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/buckets/check-upload`'
+      parameters:
+      - description: project_id, operation, optional file_size
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.CheckUploadSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.CheckUploadSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Check storage and bandwidth quota (popup)
+      tags:
+      - buckets-quota-check
   /buckets/usage-totals:
     get:
       description: '**Full route:** `GET /api/v0/buckets/usage-totals`'
@@ -3608,6 +3743,29 @@ paths:
       summary: List Google Backup auto-sync service stats
       tags:
       - google-backup
+  /google-backup/auto-sync/live:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/live`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Live auto-sync backup progress
+      tags:
+      - google-backup-autosync-live
   /google-backup/auto-sync/policy:
     get:
       produces:
@@ -5377,20 +5535,9 @@ paths:
   /user/notification-preferences:
     get:
       description: '**Full route:** `GET /api/v0/user/notification-preferences`. Settings
-        → Notification preferences. Without `category`: returns a JSON **array** of
-        all preference rows. With `category`: returns a single preference **object**
-        for that category. Each row `Preferences` map uses keys `push`, `email`, `sms`
+        → Notification preferences. Returns a JSON **array** with zero or one global
+        preference row. Each row `Preferences` map uses keys `push`, `email`, `sms`
         with minimum priority levels 1–4 (marketing, info, warning, critical).'
-      parameters:
-      - description: 'Optional filter: billing, backup, account, vault'
-        enum:
-        - billing
-        - backup
-        - account
-        - vault
-        in: query
-        name: category
-        type: string
       produces:
       - application/json
       responses:
@@ -5400,12 +5547,12 @@ paths:
             items:
               $ref: '#/definitions/consoleapi.UserNotificationPreferenceSwagger'
             type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
@@ -5417,13 +5564,13 @@ paths:
       consumes:
       - application/json
       description: '**Full route:** `PUT /api/v0/user/notification-preferences`. Settings
-        → Notification preferences. Upserts one category row. `category` required.
-        `preferences` may include any of `push`, `email`, `sms` — each value is minimum
-        priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names
-        `marketing`/`info`/`warning`/`critical` also accepted). Returns `201` on create,
-        `200` on update.'
+        → Notification preferences. Upserts global channel thresholds applied to all
+        notifications. `preferences` may include any of `push`, `email`, `sms` — each
+        value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical
+        (string names `marketing`/`info`/`warning`/`critical` also accepted). Returns
+        `201` on create, `200` on update.'
       parameters:
-      - description: Category and channel preferences
+      - description: Global channel preferences
         in: body
         name: body
         required: true
@@ -5446,6 +5593,10 @@ paths:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
@@ -5502,6 +5653,10 @@ tags:
 - description: 'Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved
     — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)'
   name: buckets-reserved-usage
+- description: 'Storage & bandwidth quota popup: POST /api/v0/buckets/check-upload
+    — usage percents, allow_upload/download, popup_show + message (login, upload,
+    download). Same usage data as dashboard quota cards.'
+  name: buckets-quota-check
 - description: API key management operations
   name: api-keys
 - description: 'Payment and billing: GET /payment-plans (server root), GET /api/v0/payments/coupons,
@@ -5516,6 +5671,10 @@ tags:
 - description: Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs`
     sets onboarding complete on success.
   name: google-backup
+- description: 'Live backup progress poll: GET /api/v0/google-backup/auto-sync/live
+    → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not
+    `/autosync/live`.'
+  name: google-backup-autosync-live
 - description: GET /google-backup/users-groups/*
   name: google-backup-users-groups
 - description: 'Google Backup shared policies: schedule, retention, merge (Backup-Tools
@@ -5541,8 +5700,9 @@ tags:
 - description: 'Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token`
     (session cookie). IP address is set server-side.'
   name: settings-fcm
-- description: 'Settings → Notification preferences: per-category channel thresholds
-    at `/api/v0/user/notification-preferences` (billing, backup, account, vault).'
+- description: 'Settings → Notification preferences: global channel thresholds at
+    `/api/v0/user/notification-preferences` (push, email, sms minimum priority levels
+    applied to all notifications).'
   name: settings-notification-preferences
 - description: 'Access management: GET /api/v0/api-keys/list-paged (paginated keys),
     POST /v1/access (exchange access grant for S3 credentials on auth host)'

@@ -619,6 +619,22 @@ func (b *Buckets) GetBucketTotalsForReservedBucket(w http.ResponseWriter, r *htt
 	}
 }
 
+// CheckUpload evaluates storage/bandwidth quota and returns popup flags for the UI.
+//
+// @Summary      Check storage and bandwidth quota (popup)
+// @Description  **Full route:** `POST /api/v0/buckets/check-upload`
+//
+// Returns quota usage and whether to show a warning popup. `operation`: `login` (after sign-in), `upload` (before upload), `download` (before download). Optional `file_size` validates the operation fits remaining quota (not used for `login`). Popup text comes from DB config `popup_messages`. Related: `GET /api/v0/dashboard/stats` (dashboard cards), `GET /api/v0/projects/{id}/usage-limits` (raw limits).
+// @Tags         buckets-quota-check
+// @Accept       json
+// @Produce      json
+// @Param        body  body  CheckUploadSwaggerRequest  true  "project_id, operation, optional file_size"
+// @Success      200   {object}  CheckUploadSwaggerResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /buckets/check-upload [post]
 func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

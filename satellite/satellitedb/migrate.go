@@ -5055,6 +5055,33 @@ true, NOW(), NOW());`,
 					`CREATE INDEX IF NOT EXISTS audit_log_action_timestamp_idx ON audit_logs ( action, timestamp );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "global user notification preferences remove category",
+				Version:     375,
+				Action: migrate.SQL{
+					`DELETE FROM user_notification_preferences`,
+					`DROP INDEX IF EXISTS user_notification_preferences_user_type_index`,
+					`DROP INDEX IF EXISTS user_notification_preferences_user_config_index`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS category`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS config_type`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS custom_variables`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS is_active`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS user_notification_preferences_user_id ON user_notification_preferences ( user_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop legacy user_notification_preferences columns if migration 375 ran before cleanup",
+				Version:     376,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS user_notification_preferences_user_type_index`,
+					`DROP INDEX IF EXISTS user_notification_preferences_user_config_index`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS config_type`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS custom_variables`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS is_active`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
