@@ -107,19 +107,14 @@ func (r UpdateGoogleBackupAutoSyncJobsByProjectRequest) backupToolsPayload() ([]
 	return json.Marshal(out)
 }
 
-var (
-	allowedGoogleBackupServices = map[string]struct{}{
-		"gmail": {}, "drive": {}, "photos": {}, "contacts": {}, "calendar": {},
-	}
-	allowedGoogleBackupIntervals = map[string]struct{}{
-		"1h": {}, "3h": {}, "6h": {}, "12h": {}, "nightly": {}, "weekly": {}, "monthly": {},
-	}
-)
+var allowedGoogleBackupServices = map[string]struct{}{
+	"gmail": {}, "drive": {}, "photos": {}, "contacts": {}, "calendar": {},
+}
 
 func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req CreateGoogleBackupAutoSyncJobsRequest, tokenKey, syncType string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	req.Services, req.Interval, err = normalizeGoogleBackupAutoSyncRequest(req.Services, req.Interval)
+	req.Services, err = normalizeGoogleBackupServices(req.Services)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -165,13 +160,19 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	project := projects[0]
 	payload := map[string]interface{}{
 		"services":          req.Services,
-		"interval":          req.Interval,
-		"on":                strings.TrimSpace(req.On),
 		"google_email":      credential.GoogleEmail,
 		"account_type":      credential.AccountType,
 		"project_id":        project.ID.String(),
 		"satellite_user_id": user.ID.String(),
 		"refresh_token":     credential.RefreshToken,
+	}
+	if req.needsScheduleInBody() {
+		if interval := normalizeGoogleBackupInterval(req.Interval); interval != "" {
+			payload["interval"] = interval
+		}
+		if on := strings.TrimSpace(req.On); on != "" {
+			payload["on"] = on
+		}
 	}
 	if project.PassphraseEnc != nil {
 		storxToken, tokenErr := s.CreateAccessGrantForManagedProject(ctx, project.ID)
@@ -378,16 +379,15 @@ func (s *Service) maybeCompleteGoogleBackupOnboarding(ctx context.Context, body 
 	}
 }
 
-func normalizeGoogleBackupAutoSyncRequest(services []string, interval string) ([]string, string, error) {
+// needsScheduleInBody reports whether interval/on should be forwarded to Backup-Tools.
+// When policy_id is set, schedule comes from the policy and Backup-Tools validates the rest.
+func (r CreateGoogleBackupAutoSyncJobsRequest) needsScheduleInBody() bool {
+	return r.PolicyID == nil
+}
+
+func normalizeGoogleBackupServices(services []string) ([]string, error) {
 	if len(services) == 0 {
-		return nil, "", Error.New("at least one service is required")
-	}
-	interval = normalizeGoogleBackupInterval(interval)
-	if interval == "" {
-		return nil, "", Error.New("interval is required")
-	}
-	if _, ok := allowedGoogleBackupIntervals[interval]; !ok {
-		return nil, "", Error.New("unsupported interval: %s", interval)
+		return nil, Error.New("at least one service is required")
 	}
 
 	seen := make(map[string]struct{}, len(services))
@@ -395,18 +395,18 @@ func normalizeGoogleBackupAutoSyncRequest(services []string, interval string) ([
 	for _, service := range services {
 		s := strings.ToLower(strings.TrimSpace(service))
 		if s == "" {
-			return nil, "", Error.New("service name cannot be empty")
+			return nil, Error.New("service name cannot be empty")
 		}
 		if _, ok := allowedGoogleBackupServices[s]; !ok {
-			return nil, "", Error.New("unsupported service: %s", service)
+			return nil, Error.New("unsupported service: %s", service)
 		}
 		if _, dup := seen[s]; dup {
-			return nil, "", Error.New("duplicate service: %s", service)
+			return nil, Error.New("duplicate service: %s", service)
 		}
 		seen[s] = struct{}{}
 		out = append(out, s)
 	}
-	return out, interval, nil
+	return out, nil
 }
 
 func normalizeGoogleBackupInterval(interval string) string {

@@ -30,12 +30,13 @@ type GoogleBackupAuthError struct {
 }
 
 // CreateGoogleBackupAutoSyncJobsSwaggerRequest is the UI → satellite body for job create.
-// services: gmail, drive, photos, contacts, calendar. interval: 1h, 6h, nightly (daily/24h/7d map to nightly).
+// services: gmail, drive, photos, contacts, calendar.
+// interval/on: forwarded when policy_id is absent; omitted when policy_id is set (schedule from policy). Required/optional rules are enforced by Backup-Tools.
 // emails: required for corporate gmail when backing up delegated mailboxes.
 type CreateGoogleBackupAutoSyncJobsSwaggerRequest struct {
 	Services   []string `json:"services" binding:"required" example:"gmail,drive"`
-	Interval   string   `json:"interval" binding:"required" example:"6h"`
-	On         string   `json:"on" example:""`
+	Interval   string   `json:"interval,omitempty" example:"6h"`
+	On         string   `json:"on,omitempty" example:"12am"`
 	Emails     []string `json:"emails,omitempty" example:"billing@salestalker.com,support@salestalker.com"`
 	PolicyID   *int     `json:"policy_id,omitempty" example:"50"`
 	PolicyName string   `json:"policy_name,omitempty" example:"New team policy"`

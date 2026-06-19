@@ -54,7 +54,7 @@ func (g *GoogleBackup) serveJSONError(ctx context.Context, w http.ResponseWriter
 // CreateAutoSyncJobs creates Backup-Tools auto-sync jobs from a minimal UI payload.
 //
 // @Summary      Create Google Backup auto-sync jobs
-// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. On success (no failed jobs) sets `user_settings` step to `GoogleBackupCompleted`. Satellite adds `refresh_token` + `project_id`, POSTs Backup-Tools `/auto-sync/job`. Optional `policy_id` or `policy_name` for later corporate connections.
+// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`. Omits `interval`/`on` when `policy_id` is set; schedule validation is handled by Backup-Tools. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
