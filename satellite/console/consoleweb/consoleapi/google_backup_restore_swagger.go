@@ -25,10 +25,10 @@ type GoogleBackupRestoreAllSwaggerRequest struct {
 }
 
 // GoogleBackupManualRestoreSwaggerRequest is the UI body for batch manual restore (≤10 base64 vault keys).
+// StorX access grant is loaded from the linked backup job/credential in Backup-Tools DB.
 type GoogleBackupManualRestoreSwaggerRequest struct {
-	StorxAccessGrant string   `json:"storx_access_grant" binding:"required" example:"<storx access grant>"`
-	GoogleAuth       string   `json:"google_auth" binding:"required" example:"<JWT from POST /google-backup/google-auth>"`
-	Keys             []string `json:"keys" binding:"required" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
+	GoogleAuth string   `json:"google_auth" binding:"required" example:"<JWT from POST /google-backup/google-auth>"`
+	Keys       []string `json:"keys" binding:"required" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
 }
 
 // RestoreMissingPermissionSwagger is one OAuth or grant gap from GET /restore/prepare.

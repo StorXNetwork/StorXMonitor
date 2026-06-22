@@ -67,6 +67,22 @@ func TestGoogleBackupRestoreAllRequest_Validate_andPayload(t *testing.T) {
 	require.Equal(t, "child@company.com", m["login_id"])
 }
 
+func TestGoogleBackupManualRestoreRequest_Validate(t *testing.T) {
+	req := GoogleBackupManualRestoreRequest{
+		GoogleAuth: "eyJhbGciOiJIUzI1NiIs...",
+		Keys:       []string{"dXNlckBnbWFpbC5jb20="},
+	}
+	require.NoError(t, req.Validate())
+
+	err := GoogleBackupManualRestoreRequest{Keys: []string{"k"}}.Validate()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "google_auth is required")
+
+	err = GoogleBackupManualRestoreRequest{GoogleAuth: "jwt"}.Validate()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "keys is required")
+}
+
 func TestGoogleBackupRestorePrepareParams_queryString(t *testing.T) {
 	q := (&GoogleBackupRestorePrepareParams{
 		ProjectID: "proj-1",

@@ -1666,7 +1666,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `. On success (no failed jobs) sets ` + "`" + `user_settings` + "`" + ` step to ` + "`" + `GoogleBackupCompleted` + "`" + `. Satellite adds ` + "`" + `refresh_token` + "`" + ` + ` + "`" + `project_id` + "`" + `, POSTs Backup-Tools ` + "`" + `/auto-sync/job` + "`" + `. Optional ` + "`" + `policy_id` + "`" + ` or ` + "`" + `policy_name` + "`" + ` for later corporate connections.",
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools ` + "`" + `/auto-sync/job` + "`" + `. Omits ` + "`" + `interval` + "`" + `/` + "`" + `on` + "`" + ` when ` + "`" + `policy_id` + "`" + ` is set; schedule validation is handled by Backup-Tools. On success (no failed jobs) sets onboarding to ` + "`" + `GoogleBackupCompleted` + "`" + `.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2683,7 +2683,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64 vault keys). Requires POST /google-backup/google-auth first. Headers: Authorization, ACCESS_TOKEN (or body fields).",
+                "description": "Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64 vault keys). Requires POST /google-backup/google-auth first. StorX grant is resolved from DB by Backup-Tools; send google_auth JWT + keys only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2836,7 +2836,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64 vault keys).",
+                "description": "Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64 vault keys). StorX grant resolved from DB by Backup-Tools.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5741,7 +5741,6 @@ const docTemplate = `{
         "consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest": {
             "type": "object",
             "required": [
-                "interval",
                 "services"
             ],
             "properties": {
@@ -5761,7 +5760,7 @@ const docTemplate = `{
                 },
                 "on": {
                     "type": "string",
-                    "example": ""
+                    "example": "12am"
                 },
                 "policy_id": {
                     "type": "integer",
@@ -6403,8 +6402,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "google_auth",
-                "keys",
-                "storx_access_grant"
+                "keys"
             ],
             "properties": {
                 "google_auth": {
@@ -6419,10 +6417,6 @@ const docTemplate = `{
                     "example": [
                         "dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"
                     ]
-                },
-                "storx_access_grant": {
-                    "type": "string",
-                    "example": "\u003cstorx access grant\u003e"
                 }
             }
         },

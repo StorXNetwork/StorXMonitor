@@ -177,16 +177,13 @@ func (s *Service) BackupToolsGoogleAuth(ctx context.Context, googleKey string) (
 }
 
 // GoogleBackupManualRestoreRequest is the Satellite body for batch manual restore (≤10 base64 vault keys).
+// Backup-Tools resolves the StorX access grant from the linked backup job/credential in DB.
 type GoogleBackupManualRestoreRequest struct {
-	StorxAccessGrant string   `json:"storx_access_grant"`
-	GoogleAuth       string   `json:"google_auth"`
-	Keys             []string `json:"keys"`
+	GoogleAuth string   `json:"google_auth"`
+	Keys       []string `json:"keys"`
 }
 
 func (r GoogleBackupManualRestoreRequest) Validate() error {
-	if strings.TrimSpace(r.StorxAccessGrant) == "" {
-		return ErrValidation.New("storx_access_grant is required")
-	}
 	if strings.TrimSpace(r.GoogleAuth) == "" {
 		return ErrValidation.New("google_auth is required")
 	}
@@ -199,7 +196,7 @@ func (r GoogleBackupManualRestoreRequest) Validate() error {
 	return nil
 }
 
-// GoogleBackupManualRestore proxies Backup-Tools POST /google/* manual restore routes (JWT + optional ACCESS_TOKEN).
+// GoogleBackupManualRestore proxies Backup-Tools POST /google/* manual restore routes (google-auth JWT + token_key).
 func (s *Service) GoogleBackupManualRestore(ctx context.Context, tokenKey, backupToolsPath string, req GoogleBackupManualRestoreRequest) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := req.Validate(); err != nil {
@@ -209,11 +206,11 @@ func (s *Service) GoogleBackupManualRestore(ctx context.Context, tokenKey, backu
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	return s.backupToolsManualRestoreRequest(ctx, http.MethodPost, backupToolsPath, tokenKey, req.StorxAccessGrant, req.GoogleAuth, payload)
+	return s.backupToolsManualRestoreRequest(ctx, http.MethodPost, backupToolsPath, tokenKey, req.GoogleAuth, payload)
 }
 
-// backupToolsManualRestoreRequest proxies Backup-Tools manual /google/* routes (google-auth JWT + token_key; optional ACCESS_TOKEN).
-func (s *Service) backupToolsManualRestoreRequest(ctx context.Context, method, path, tokenKey, storxAccessGrant, googleAuthJWT string, payload []byte) ([]byte, int, error) {
+// backupToolsManualRestoreRequest proxies Backup-Tools manual /google/* routes (google-auth JWT + token_key).
+func (s *Service) backupToolsManualRestoreRequest(ctx context.Context, method, path, tokenKey, googleAuthJWT string, payload []byte) ([]byte, int, error) {
 	if s.backupToolsURL == "" {
 		return nil, 0, Error.New("Backup-Tools URL not configured")
 	}
@@ -235,9 +232,6 @@ func (s *Service) backupToolsManualRestoreRequest(ctx context.Context, method, p
 	}
 
 	req.Header.Set("token_key", tokenKey)
-	if storxAccessGrant = strings.TrimSpace(storxAccessGrant); storxAccessGrant != "" {
-		req.Header.Set("ACCESS_TOKEN", storxAccessGrant)
-	}
 	auth := googleAuthJWT
 	if !strings.HasPrefix(strings.ToLower(auth), "bearer ") {
 		auth = "Bearer " + auth

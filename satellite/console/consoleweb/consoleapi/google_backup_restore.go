@@ -61,16 +61,6 @@ func (g *GoogleBackupRestore) googleAuthFromRequest(r *http.Request, bodyAuth st
 	return auth
 }
 
-func (g *GoogleBackupRestore) storxGrantFromRequest(r *http.Request, bodyGrant string) string {
-	if v := strings.TrimSpace(bodyGrant); v != "" {
-		return v
-	}
-	if v := strings.TrimSpace(r.Header.Get("X-Storx-Access-Grant")); v != "" {
-		return v
-	}
-	return strings.TrimSpace(r.Header.Get("Storx-Access-Grant"))
-}
-
 func decodeStrictJSON(r *http.Request, dest interface{}) error {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
@@ -122,9 +112,8 @@ func (g *GoogleBackupRestore) manualRestoreBatch(w http.ResponseWriter, r *http.
 	}
 
 	req := console.GoogleBackupManualRestoreRequest{
-		StorxAccessGrant: g.storxGrantFromRequest(r, body.StorxAccessGrant),
-		GoogleAuth:       g.googleAuthFromRequest(r, body.GoogleAuth),
-		Keys:             body.Keys,
+		GoogleAuth: g.googleAuthFromRequest(r, body.GoogleAuth),
+		Keys:       body.Keys,
 	}
 	respBody, status, err := g.service.GoogleBackupManualRestore(ctx, tokenKey, backupToolsPath, req)
 	g.service.RecordUserAuditHTTP(ctx, "GB_MANUAL_RESTORE", "Manual restore", "Manual restore completed", status, respBody, err)
@@ -382,7 +371,7 @@ func (g *GoogleBackupRestore) ListRestoreDeadItems(w http.ResponseWriter, r *htt
 // ManualRestoreGmail proxies Backup-Tools POST /google/gmail/insert-mail.
 //
 // @Summary      Manual restore Gmail messages
-// @Description  Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64 vault keys). Requires POST /google-backup/google-auth first. Headers: Authorization, ACCESS_TOKEN (or body fields).
+// @Description  Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64 vault keys). Requires POST /google-backup/google-auth first. StorX grant is resolved from DB by Backup-Tools; send google_auth JWT + keys only.
 // @Tags         google-backup-restore-manual
 // @Accept       json
 // @Produce      json
@@ -399,7 +388,7 @@ func (g *GoogleBackupRestore) ManualRestoreGmail(w http.ResponseWriter, r *http.
 // ManualRestoreDrive proxies Backup-Tools POST /google/satellite-to-drive.
 //
 // @Summary      Manual restore Google Drive
-// @Description  Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64 vault keys).
+// @Description  Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64 vault keys). StorX grant resolved from DB by Backup-Tools.
 // @Tags         google-backup-restore-manual
 // @Accept       json
 // @Produce      json

@@ -604,7 +604,7 @@ definitions:
         example: 6h
         type: string
       "on":
-        example: ""
+        example: 12am
         type: string
       policy_id:
         example: 50
@@ -620,7 +620,6 @@ definitions:
           type: string
         type: array
     required:
-    - interval
     - services
     type: object
   consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest:
@@ -1072,13 +1071,9 @@ definitions:
         items:
           type: string
         type: array
-      storx_access_grant:
-        example: <storx access grant>
-        type: string
     required:
     - google_auth
     - keys
-    - storx_access_grant
     type: object
   consoleapi.GoogleBackupOnboardingSwagger:
     properties:
@@ -3672,10 +3667,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: '**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. On success
-        (no failed jobs) sets `user_settings` step to `GoogleBackupCompleted`. Satellite
-        adds `refresh_token` + `project_id`, POSTs Backup-Tools `/auto-sync/job`.
-        Optional `policy_id` or `policy_name` for later corporate connections.'
+      description: '**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite
+        enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`.
+        Omits `interval`/`on` when `policy_id` is set; schedule validation is handled
+        by Backup-Tools. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.'
       parameters:
       - description: Backup-Tools sync type (default daily)
         in: query
@@ -4326,9 +4321,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64
-        vault keys). Requires POST /google-backup/google-auth first. Headers: Authorization,
-        ACCESS_TOKEN (or body fields).'
+      description: Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64
+        vault keys). Requires POST /google-backup/google-auth first. StorX grant is
+        resolved from DB by Backup-Tools; send google_auth JWT + keys only.
       parameters:
       - description: Vault keys (forwarded as JSON array to Backup-Tools)
         in: body
@@ -4427,7 +4422,7 @@ paths:
       consumes:
       - application/json
       description: Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64
-        vault keys).
+        vault keys). StorX grant resolved from DB by Backup-Tools.
       parameters:
       - description: Vault keys
         in: body
