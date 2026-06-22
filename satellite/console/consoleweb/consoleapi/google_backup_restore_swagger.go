@@ -24,11 +24,11 @@ type GoogleBackupRestoreAllSwaggerRequest struct {
 	LoginID   string `json:"login_id" binding:"required" example:"user@company.com"`
 }
 
-// GoogleBackupManualRestoreSwaggerRequest is the UI body for batch manual restore (≤10 base64 vault keys).
-// StorX access grant is loaded from the linked backup job/credential in Backup-Tools DB.
+// GoogleBackupManualRestoreSwaggerRequest is the UI body for manual restore (1–10 base64 vault keys per request).
+// Same body for single or multiple items: send keys or ids (not both). Backup-Tools JWT goes in Authorization header only.
 type GoogleBackupManualRestoreSwaggerRequest struct {
-	GoogleAuth string   `json:"google_auth" binding:"required" example:"<JWT from POST /google-backup/google-auth>"`
-	Keys       []string `json:"keys" binding:"required" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
+	Keys []string `json:"keys,omitempty" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
+	IDs  []string `json:"ids,omitempty" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
 }
 
 // RestoreMissingPermissionSwagger is one OAuth or grant gap from GET /restore/prepare.

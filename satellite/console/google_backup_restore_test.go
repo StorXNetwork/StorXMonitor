@@ -76,11 +76,17 @@ func TestGoogleBackupManualRestoreRequest_Validate(t *testing.T) {
 
 	err := GoogleBackupManualRestoreRequest{Keys: []string{"k"}}.Validate()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "google_auth is required")
+	require.Contains(t, err.Error(), "Authorization header is required")
+
+	err = GoogleBackupManualRestoreRequest{
+		GoogleAuth: "jwt",
+		Keys:       []string{"dXNlckBnbWFpbC5jb20="},
+	}.Validate()
+	require.NoError(t, err)
 
 	err = GoogleBackupManualRestoreRequest{GoogleAuth: "jwt"}.Validate()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "keys is required")
+	require.Contains(t, err.Error(), "keys or ids is required")
 }
 
 func TestGoogleBackupRestorePrepareParams_queryString(t *testing.T) {

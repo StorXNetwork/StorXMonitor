@@ -2683,9 +2683,10 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64 vault keys). Requires POST /google-backup/google-auth first. StorX grant is resolved from DB by Backup-Tools; send google_auth JWT + keys only.",
+                "description": "Proxies Backup-Tools POST /google/gmail/insert-mail. Single or multiple items (max 10 per request): send base64 vault keys in body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + ` (from GET /google-backup/backup-restore/logs). Call POST /google-backup/google-auth first. ` + "`" + `Authorization` + "`" + ` header = Backup-Tools JWT. Session cookie → ` + "`" + `token_key` + "`" + `. No ` + "`" + `ACCESS_TOKEN` + "`" + ` (StorX from DB).",
                 "consumes": [
-                    "application/json"
+                    "application/json",
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2696,7 +2697,14 @@ const docTemplate = `{
                 "summary": "Manual restore Gmail messages",
                 "parameters": [
                     {
-                        "description": "Vault keys (forwarded as JSON array to Backup-Tools)",
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys: one item in array for single restore, up to 10 for batch",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -2734,9 +2742,10 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /google/satellite-to-calendar (max 10 base64 vault keys).",
+                "description": "Proxies Backup-Tools POST /google/satellite-to-calendar. Single or multiple items (max 10): body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + `. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.",
                 "consumes": [
-                    "application/json"
+                    "application/json",
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2747,7 +2756,14 @@ const docTemplate = `{
                 "summary": "Manual restore Google Calendar",
                 "parameters": [
                     {
-                        "description": "Vault keys",
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys (1–10)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -2785,9 +2801,10 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /google/satellite-to-contacts (max 10 base64 vault keys).",
+                "description": "Proxies Backup-Tools POST /google/satellite-to-contacts. Single or multiple items (max 10): body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + `. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.",
                 "consumes": [
-                    "application/json"
+                    "application/json",
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2798,7 +2815,14 @@ const docTemplate = `{
                 "summary": "Manual restore Google Contacts",
                 "parameters": [
                     {
-                        "description": "Vault keys",
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys (1–10)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -2836,9 +2860,10 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64 vault keys). StorX grant resolved from DB by Backup-Tools.",
+                "description": "Proxies Backup-Tools POST /google/satellite-to-drive. Single or multiple items (max 10): body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + `. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.",
                 "consumes": [
-                    "application/json"
+                    "application/json",
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2849,7 +2874,14 @@ const docTemplate = `{
                 "summary": "Manual restore Google Drive",
                 "parameters": [
                     {
-                        "description": "Vault keys",
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys (1–10)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -2887,9 +2919,10 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /google/satellite-to-photos (max 10 base64 vault keys).",
+                "description": "Proxies Backup-Tools POST /google/satellite-to-photos. Single or multiple items (max 10): body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + `. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.",
                 "consumes": [
-                    "application/json"
+                    "application/json",
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2900,7 +2933,14 @@ const docTemplate = `{
                 "summary": "Manual restore Google Photos",
                 "parameters": [
                     {
-                        "description": "Vault keys",
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys (1–10)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -6400,14 +6440,15 @@ const docTemplate = `{
         },
         "consoleapi.GoogleBackupManualRestoreSwaggerRequest": {
             "type": "object",
-            "required": [
-                "google_auth",
-                "keys"
-            ],
             "properties": {
-                "google_auth": {
-                    "type": "string",
-                    "example": "\u003cJWT from POST /google-backup/google-auth\u003e"
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"
+                    ]
                 },
                 "keys": {
                     "type": "array",
@@ -8607,7 +8648,7 @@ const docTemplate = `{
             "name": "google-backup-auth"
         },
         {
-            "description": "Google Backup manual restore: synchronous vault → Google (POST /google-backup/google/*, max 10 keys). Call POST /google-backup/google-auth first.",
+            "description": "Google Backup manual restore: POST /google-backup/google/* (1–10 vault keys per request; same body for single or multiple items). Authorization header = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX from DB). Session cookie required.",
             "name": "google-backup-restore-manual"
         },
         {

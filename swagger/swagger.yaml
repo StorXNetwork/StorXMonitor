@@ -1062,18 +1062,18 @@ definitions:
     type: object
   consoleapi.GoogleBackupManualRestoreSwaggerRequest:
     properties:
-      google_auth:
-        example: <JWT from POST /google-backup/google-auth>
-        type: string
+      ids:
+        example:
+        - dXNlckBnbWFpbC5jb20vcGF0aC9maWxl
+        items:
+          type: string
+        type: array
       keys:
         example:
         - dXNlckBnbWFpbC5jb20vcGF0aC9maWxl
         items:
           type: string
         type: array
-    required:
-    - google_auth
-    - keys
     type: object
   consoleapi.GoogleBackupOnboardingSwagger:
     properties:
@@ -4321,11 +4321,20 @@ paths:
     post:
       consumes:
       - application/json
-      description: Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64
-        vault keys). Requires POST /google-backup/google-auth first. StorX grant is
-        resolved from DB by Backup-Tools; send google_auth JWT + keys only.
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/gmail/insert-mail. Single or
+        multiple items (max 10 per request): send base64 vault keys in body `keys`
+        or `ids` (from GET /google-backup/backup-restore/logs). Call POST /google-backup/google-auth
+        first. `Authorization` header = Backup-Tools JWT. Session cookie → `token_key`.
+        No `ACCESS_TOKEN` (StorX from DB).'
       parameters:
-      - description: Vault keys (forwarded as JSON array to Backup-Tools)
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 'Vault keys: one item in array for single restore, up to 10 for
+          batch'
         in: body
         name: body
         required: true
@@ -4355,10 +4364,17 @@ paths:
     post:
       consumes:
       - application/json
-      description: Proxies Backup-Tools POST /google/satellite-to-calendar (max 10
-        base64 vault keys).
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/satellite-to-calendar. Single
+        or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools
+        JWT. No ACCESS_TOKEN.'
       parameters:
-      - description: Vault keys
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Vault keys (1–10)
         in: body
         name: body
         required: true
@@ -4388,10 +4404,17 @@ paths:
     post:
       consumes:
       - application/json
-      description: Proxies Backup-Tools POST /google/satellite-to-contacts (max 10
-        base64 vault keys).
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/satellite-to-contacts. Single
+        or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools
+        JWT. No ACCESS_TOKEN.'
       parameters:
-      - description: Vault keys
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Vault keys (1–10)
         in: body
         name: body
         required: true
@@ -4421,10 +4444,17 @@ paths:
     post:
       consumes:
       - application/json
-      description: Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64
-        vault keys). StorX grant resolved from DB by Backup-Tools.
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/satellite-to-drive. Single or
+        multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools
+        JWT. No ACCESS_TOKEN.'
       parameters:
-      - description: Vault keys
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Vault keys (1–10)
         in: body
         name: body
         required: true
@@ -4454,10 +4484,17 @@ paths:
     post:
       consumes:
       - application/json
-      description: Proxies Backup-Tools POST /google/satellite-to-photos (max 10 base64
-        vault keys).
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/satellite-to-photos. Single
+        or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools
+        JWT. No ACCESS_TOKEN.'
       parameters:
-      - description: Vault keys
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Vault keys (1–10)
         in: body
         name: body
         required: true
@@ -5827,8 +5864,10 @@ tags:
 - description: 'Google Backup authentication: POST /google-backup/google-auth (Backup-Tools
     google-auth JWT)'
   name: google-backup-auth
-- description: 'Google Backup manual restore: synchronous vault → Google (POST /google-backup/google/*,
-    max 10 keys). Call POST /google-backup/google-auth first.'
+- description: 'Google Backup manual restore: POST /google-backup/google/* (1–10 vault
+    keys per request; same body for single or multiple items). Authorization header
+    = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX
+    from DB). Session cookie required.'
   name: google-backup-restore-manual
 - description: 'Google Backup restore-all scheduler: GET /restore/prepare (flat),
     POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live

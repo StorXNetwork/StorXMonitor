@@ -44,21 +44,46 @@ func (g *GoogleBackupRestore) serveJSONError(ctx context.Context, w http.Respons
 	(&Auth{log: g.log, service: g.service, cookieAuth: g.cookieAuth}).serveJSONError(ctx, w, err)
 }
 
-func (g *GoogleBackupRestore) googleAuthFromRequest(r *http.Request, bodyAuth string) string {
-	if v := strings.TrimSpace(bodyAuth); v != "" {
-		return v
-	}
+func (g *GoogleBackupRestore) googleAuthFromRequest(r *http.Request) string {
 	if v := strings.TrimSpace(r.Header.Get("X-Google-Auth")); v != "" {
 		return v
 	}
 	if v := strings.TrimSpace(r.Header.Get("Google-Auth")); v != "" {
 		return v
 	}
-	auth := strings.TrimSpace(r.Header.Get("Authorization"))
-	if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
-		return strings.TrimSpace(auth[7:])
+	return strings.TrimSpace(r.Header.Get("Authorization"))
+}
+
+func (g *GoogleBackupRestore) parseManualRestoreRequest(r *http.Request) (console.GoogleBackupManualRestoreRequest, error) {
+	googleAuth := g.googleAuthFromRequest(r)
+
+	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(10 << 20); err != nil {
+			return console.GoogleBackupManualRestoreRequest{}, console.ErrValidation.New("invalid request body")
+		}
+		keys := r.MultipartForm.Value["keys"]
+		if len(keys) == 0 {
+			keys = r.MultipartForm.Value["ids"]
+		}
+		return console.GoogleBackupManualRestoreRequest{
+			GoogleAuth: googleAuth,
+			Keys:       keys,
+		}, nil
 	}
-	return auth
+
+	var body GoogleBackupManualRestoreSwaggerRequest
+	if err := decodeStrictJSON(r, &body); err != nil {
+		return console.GoogleBackupManualRestoreRequest{}, err
+	}
+	keys := body.Keys
+	if len(keys) == 0 {
+		keys = body.IDs
+	}
+	return console.GoogleBackupManualRestoreRequest{
+		GoogleAuth: googleAuth,
+		Keys:       keys,
+	}, nil
 }
 
 func decodeStrictJSON(r *http.Request, dest interface{}) error {
@@ -105,15 +130,10 @@ func (g *GoogleBackupRestore) manualRestoreBatch(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var body GoogleBackupManualRestoreSwaggerRequest
-	if err := decodeStrictJSON(r, &body); err != nil {
+	req, err := g.parseManualRestoreRequest(r)
+	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
-	}
-
-	req := console.GoogleBackupManualRestoreRequest{
-		GoogleAuth: g.googleAuthFromRequest(r, body.GoogleAuth),
-		Keys:       body.Keys,
 	}
 	respBody, status, err := g.service.GoogleBackupManualRestore(ctx, tokenKey, backupToolsPath, req)
 	g.service.RecordUserAuditHTTP(ctx, "GB_MANUAL_RESTORE", "Manual restore", "Manual restore completed", status, respBody, err)
@@ -371,14 +391,16 @@ func (g *GoogleBackupRestore) ListRestoreDeadItems(w http.ResponseWriter, r *htt
 // ManualRestoreGmail proxies Backup-Tools POST /google/gmail/insert-mail.
 //
 // @Summary      Manual restore Gmail messages
-// @Description  Proxies Backup-Tools POST /google/gmail/insert-mail (max 10 base64 vault keys). Requires POST /google-backup/google-auth first. StorX grant is resolved from DB by Backup-Tools; send google_auth JWT + keys only.
+// @Description  Proxies Backup-Tools POST /google/gmail/insert-mail. Single or multiple items (max 10 per request): send base64 vault keys in body `keys` or `ids` (from GET /google-backup/backup-restore/logs). Call POST /google-backup/google-auth first. `Authorization` header = Backup-Tools JWT. Session cookie → `token_key`. No `ACCESS_TOKEN` (StorX from DB).
 // @Tags         google-backup-restore-manual
 // @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        body  body  GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys (forwarded as JSON array to Backup-Tools)"
-// @Success      200   {object}  BackupToolsJSONResponse
-// @Failure      400   {object}  SwaggerErrorResponse
-// @Failure      401   {object}  SwaggerErrorResponse
+// @Param        Authorization  header  string  true  "Backup-Tools JWT from POST /google-backup/google-auth"
+// @Param        body           body     GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys: one item in array for single restore, up to 10 for batch"
+// @Success      200            {object}  BackupToolsJSONResponse
+// @Failure      400            {object}  SwaggerErrorResponse
+// @Failure      401            {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/google/gmail/insert-mail [post]
 func (g *GoogleBackupRestore) ManualRestoreGmail(w http.ResponseWriter, r *http.Request) {
@@ -388,14 +410,16 @@ func (g *GoogleBackupRestore) ManualRestoreGmail(w http.ResponseWriter, r *http.
 // ManualRestoreDrive proxies Backup-Tools POST /google/satellite-to-drive.
 //
 // @Summary      Manual restore Google Drive
-// @Description  Proxies Backup-Tools POST /google/satellite-to-drive (max 10 base64 vault keys). StorX grant resolved from DB by Backup-Tools.
+// @Description  Proxies Backup-Tools POST /google/satellite-to-drive. Single or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.
 // @Tags         google-backup-restore-manual
 // @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        body  body  GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys"
-// @Success      200   {object}  BackupToolsJSONResponse
-// @Failure      400   {object}  SwaggerErrorResponse
-// @Failure      401   {object}  SwaggerErrorResponse
+// @Param        Authorization  header  string  true  "Backup-Tools JWT from POST /google-backup/google-auth"
+// @Param        body           body     GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys (1–10)"
+// @Success      200            {object}  BackupToolsJSONResponse
+// @Failure      400            {object}  SwaggerErrorResponse
+// @Failure      401            {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/google/satellite-to-drive [post]
 func (g *GoogleBackupRestore) ManualRestoreDrive(w http.ResponseWriter, r *http.Request) {
@@ -405,14 +429,16 @@ func (g *GoogleBackupRestore) ManualRestoreDrive(w http.ResponseWriter, r *http.
 // ManualRestorePhotos proxies Backup-Tools POST /google/satellite-to-photos.
 //
 // @Summary      Manual restore Google Photos
-// @Description  Proxies Backup-Tools POST /google/satellite-to-photos (max 10 base64 vault keys).
+// @Description  Proxies Backup-Tools POST /google/satellite-to-photos. Single or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.
 // @Tags         google-backup-restore-manual
 // @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        body  body  GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys"
-// @Success      200   {object}  BackupToolsJSONResponse
-// @Failure      400   {object}  SwaggerErrorResponse
-// @Failure      401   {object}  SwaggerErrorResponse
+// @Param        Authorization  header  string  true  "Backup-Tools JWT from POST /google-backup/google-auth"
+// @Param        body           body     GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys (1–10)"
+// @Success      200            {object}  BackupToolsJSONResponse
+// @Failure      400            {object}  SwaggerErrorResponse
+// @Failure      401            {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/google/satellite-to-photos [post]
 func (g *GoogleBackupRestore) ManualRestorePhotos(w http.ResponseWriter, r *http.Request) {
@@ -422,14 +448,16 @@ func (g *GoogleBackupRestore) ManualRestorePhotos(w http.ResponseWriter, r *http
 // ManualRestoreCalendar proxies Backup-Tools POST /google/satellite-to-calendar.
 //
 // @Summary      Manual restore Google Calendar
-// @Description  Proxies Backup-Tools POST /google/satellite-to-calendar (max 10 base64 vault keys).
+// @Description  Proxies Backup-Tools POST /google/satellite-to-calendar. Single or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.
 // @Tags         google-backup-restore-manual
 // @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        body  body  GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys"
-// @Success      200   {object}  BackupToolsJSONResponse
-// @Failure      400   {object}  SwaggerErrorResponse
-// @Failure      401   {object}  SwaggerErrorResponse
+// @Param        Authorization  header  string  true  "Backup-Tools JWT from POST /google-backup/google-auth"
+// @Param        body           body     GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys (1–10)"
+// @Success      200            {object}  BackupToolsJSONResponse
+// @Failure      400            {object}  SwaggerErrorResponse
+// @Failure      401            {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/google/satellite-to-calendar [post]
 func (g *GoogleBackupRestore) ManualRestoreCalendar(w http.ResponseWriter, r *http.Request) {
@@ -439,14 +467,16 @@ func (g *GoogleBackupRestore) ManualRestoreCalendar(w http.ResponseWriter, r *ht
 // ManualRestoreContacts proxies Backup-Tools POST /google/satellite-to-contacts.
 //
 // @Summary      Manual restore Google Contacts
-// @Description  Proxies Backup-Tools POST /google/satellite-to-contacts (max 10 base64 vault keys).
+// @Description  Proxies Backup-Tools POST /google/satellite-to-contacts. Single or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.
 // @Tags         google-backup-restore-manual
 // @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        body  body  GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys"
-// @Success      200   {object}  BackupToolsJSONResponse
-// @Failure      400   {object}  SwaggerErrorResponse
-// @Failure      401   {object}  SwaggerErrorResponse
+// @Param        Authorization  header  string  true  "Backup-Tools JWT from POST /google-backup/google-auth"
+// @Param        body           body     GoogleBackupManualRestoreSwaggerRequest  true  "Vault keys (1–10)"
+// @Success      200            {object}  BackupToolsJSONResponse
+// @Failure      400            {object}  SwaggerErrorResponse
+// @Failure      401            {object}  SwaggerErrorResponse
 // @Security     CookieAuth
 // @Router       /google-backup/google/satellite-to-contacts [post]
 func (g *GoogleBackupRestore) ManualRestoreContacts(w http.ResponseWriter, r *http.Request) {

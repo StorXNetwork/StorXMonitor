@@ -185,10 +185,10 @@ type GoogleBackupManualRestoreRequest struct {
 
 func (r GoogleBackupManualRestoreRequest) Validate() error {
 	if strings.TrimSpace(r.GoogleAuth) == "" {
-		return ErrValidation.New("google_auth is required")
+		return ErrValidation.New("Authorization header is required")
 	}
 	if len(r.Keys) == 0 {
-		return ErrValidation.New("keys is required")
+		return ErrValidation.New("keys or ids is required")
 	}
 	if len(r.Keys) > 10 {
 		return ErrValidation.New("at most 10 keys per request")
@@ -232,11 +232,7 @@ func (s *Service) backupToolsManualRestoreRequest(ctx context.Context, method, p
 	}
 
 	req.Header.Set("token_key", tokenKey)
-	auth := googleAuthJWT
-	if !strings.HasPrefix(strings.ToLower(auth), "bearer ") {
-		auth = "Bearer " + auth
-	}
-	req.Header.Set("Authorization", auth)
+	req.Header.Set("Authorization", googleAuthJWT)
 	if len(payload) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
