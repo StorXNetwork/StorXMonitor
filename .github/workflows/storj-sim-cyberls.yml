@@ -1,4 +1,4 @@
-name: Build StorXNetwork Sim
+name: Build StorXNetwork Sim on CyberLS
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ env:
 
 jobs:
   build-storxnetwork-sim:
-    runs-on: [self-hosted, windows, production, storx]
+    runs-on: [self-hosted, windows, cyberls]
     environment: production
     steps:
     - name: Checkout code
