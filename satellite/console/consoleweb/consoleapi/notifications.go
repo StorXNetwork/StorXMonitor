@@ -64,6 +64,23 @@ type UnreadCountResponse struct {
 	Count int `json:"count"`
 }
 
+// ListNotifications returns a paginated list of user notifications.
+//
+// @Summary      List notifications
+// @Description  **Full route:** `GET /api/v0/notifications`
+//
+// Query `filter`: `unread` or omit for all. `timeFilter`: `1d`, `7d`, `15d`, `1m`, `6m`, `1y` (and aliases like `1day`).
+// @Tags         notifications
+// @Produce      json
+// @Param        limit       query  int     false  "Page size (default 50)"  default(50)
+// @Param        page        query  int     false  "Page number (default 1)"  default(1)
+// @Param        filter      query  string  false  "Filter: unread"
+// @Param        timeFilter  query  string  false  "Time window: 1d, 7d, 15d, 1m, 6m, 1y"
+// @Success      200         {object}  NotificationListResponse
+// @Failure      401         {object}  SwaggerErrorResponse
+// @Failure      500         {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /notifications [get]
 func (n *Notifications) ListNotifications(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -157,6 +174,20 @@ func (n *Notifications) parseTimeFilter(timeFilterStr string) *time.Time {
 	return &cutoffTime
 }
 
+// GetNotificationDetails returns one notification and marks it read.
+//
+// @Summary      Get notification detail
+// @Description  **Full route:** `GET /api/v0/notifications/{id}`
+// @Tags         notifications
+// @Produce      json
+// @Param        id   path  string  true  "Notification UUID"
+// @Success      200  {object}  NotificationResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
+// @Failure      404  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /notifications/{id} [get]
 func (n *Notifications) GetNotificationDetails(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -206,6 +237,17 @@ func (n *Notifications) GetNotificationDetails(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// MarkAllAsRead marks every notification for the user as read.
+//
+// @Summary      Mark all notifications read
+// @Description  **Full route:** `PUT /api/v0/notifications/read-all`
+// @Tags         notifications
+// @Produce      json
+// @Success      200  {object}  map[string]string  "message"
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /notifications/read-all [put]
 func (n *Notifications) MarkAllAsRead(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -222,6 +264,7 @@ func (n *Notifications) MarkAllAsRead(w http.ResponseWriter, r *http.Request) {
 		web.ServeJSONError(ctx, n.log, w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
+	n.service.RecordUserAuditHTTP(ctx, "NOTIFICATION_READ_ALL", "Notifications", "All notifications marked as read", http.StatusOK, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(map[string]string{"message": "All notifications marked as read"}); err != nil {
@@ -229,6 +272,17 @@ func (n *Notifications) MarkAllAsRead(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUnreadCount returns the unread notification count.
+//
+// @Summary      Unread notification count
+// @Description  **Full route:** `GET /api/v0/notifications/count`
+// @Tags         notifications
+// @Produce      json
+// @Success      200  {object}  UnreadCountResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /notifications/count [get]
 func (n *Notifications) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -252,6 +306,20 @@ func (n *Notifications) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DismissNotification hides a notification for the user.
+//
+// @Summary      Dismiss notification
+// @Description  **Full route:** `PUT /api/v0/notifications/{id}/dismiss`
+// @Tags         notifications
+// @Produce      json
+// @Param        id   path  string  true  "Notification UUID"
+// @Success      200  {object}  map[string]string  "message"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      404  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /notifications/{id}/dismiss [put]
 func (n *Notifications) DismissNotification(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -284,6 +352,7 @@ func (n *Notifications) DismissNotification(w http.ResponseWriter, r *http.Reque
 		web.ServeJSONError(ctx, n.log, w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
+	n.service.RecordUserAuditHTTP(ctx, "NOTIFICATION_DISMISS", "Notification", "Notification dismissed", http.StatusOK, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(map[string]string{"message": "Notification dismissed successfully"}); err != nil {

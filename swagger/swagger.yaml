@@ -1,4 +1,5905 @@
+basePath: /api/v0
+definitions:
+  console.AnnouncementConfig:
+    properties:
+      body:
+        type: string
+      enabled:
+        default: false
+        type: boolean
+      name:
+        type: string
+      title:
+        type: string
+    type: object
+  console.CaptchaConfig:
+    properties:
+      login:
+        $ref: '#/definitions/console.MultiCaptchaConfig'
+      registration:
+        $ref: '#/definitions/console.MultiCaptchaConfig'
+    type: object
+  console.MinimumChargeConfig:
+    properties:
+      amount:
+        type: integer
+      enabled:
+        type: boolean
+      startDate:
+        type: string
+    type: object
+  console.MultiCaptchaConfig:
+    properties:
+      hcaptcha:
+        $ref: '#/definitions/console.SingleCaptchaConfig'
+      recaptcha:
+        $ref: '#/definitions/console.SingleCaptchaConfig'
+    type: object
+  console.SingleCaptchaConfig:
+    properties:
+      enabled:
+        default: false
+        type: boolean
+      siteKey:
+        type: string
+    type: object
+  consoleapi.APIKeyListItemSwagger:
+    properties:
+      createdAt:
+        type: string
+      creatorEmail:
+        example: user@example.com
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      name:
+        example: my-key
+        type: string
+      projectId:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      version:
+        example: 2
+        type: integer
+    type: object
+  consoleapi.APIKeysListPagedSwaggerResponse:
+    properties:
+      apiKeys:
+        items:
+          $ref: '#/definitions/consoleapi.APIKeyListItemSwagger'
+        type: array
+      currentPage:
+        example: 1
+        type: integer
+      limit:
+        example: 10
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      order:
+        example: 1
+        type: integer
+      orderDirection:
+        example: 1
+        type: integer
+      pageCount:
+        example: 1
+        type: integer
+      search:
+        example: ""
+        type: string
+      totalCount:
+        example: 3
+        type: integer
+    type: object
+  consoleapi.AuditLogActionsSwaggerResponse:
+    properties:
+      actions:
+        example:
+        - AUTH_LOGIN
+        - AUTH_LOGOUT
+        - PROJECT_CREATE
+        items:
+          type: string
+        type: array
+    type: object
+  consoleapi.AuditLogListSwaggerResponse:
+    properties:
+      Items:
+        items:
+          $ref: '#/definitions/consoleapi.AuditLogRecordSwagger'
+        type: array
+      NextCursor:
+        example: ""
+        type: string
+      TotalCount:
+        example: 42
+        type: integer
+    type: object
+  consoleapi.AuditLogRecordSwagger:
+    properties:
+      action:
+        example: AUTH_LOGIN
+        type: string
+      actor:
+        example: Jane Doe
+        type: string
+      actor_email:
+        example: jane@example.com
+        type: string
+      actor_id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      id:
+        example: 878b7ed7-e0b8-499f-b7ad-eae3af6153c6
+        type: string
+      ip_address:
+        example: 203.0.113.10
+        type: string
+      message:
+        example: User logged in
+        type: string
+      resource:
+        example: Session
+        type: string
+      status:
+        enum:
+        - success
+        - failed
+        example: success
+        type: string
+      timestamp:
+        example: "2026-06-02T10:15:30Z"
+        type: string
+    type: object
+  consoleapi.AuthAccountFreezeStatusSwaggerResponse:
+    properties:
+      frozen:
+        example: false
+        type: boolean
+      trialExpiredFrozen:
+        example: false
+        type: boolean
+      violationFrozen:
+        example: false
+        type: boolean
+      warned:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.AuthAccountSwaggerResponse:
+    properties:
+      companyName:
+        example: ""
+        type: string
+      createdAt:
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      employeeCount:
+        example: ""
+        type: string
+      fullName:
+        example: Jane Doe
+        type: string
+      hasVarPartner:
+        example: false
+        type: boolean
+      haveSalesContact:
+        example: false
+        type: boolean
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      isMFAEnabled:
+        example: false
+        type: boolean
+      isProfessional:
+        example: false
+        type: boolean
+      loginToken:
+        example: ""
+        type: string
+      mfaRecoveryCodeCount:
+        example: 0
+        type: integer
+      paidTier:
+        example: false
+        type: boolean
+      partner:
+        example: ""
+        type: string
+      pendingVerification:
+        example: false
+        type: boolean
+      position:
+        example: ""
+        type: string
+      projectBandwidthLimit:
+        example: 0
+        type: integer
+      projectLimit:
+        example: 10
+        type: integer
+      projectSegmentLimit:
+        example: 0
+        type: integer
+      projectStorageLimit:
+        example: 0
+        type: integer
+      shortName:
+        example: Jane
+        type: string
+      socialFacebook:
+        example: ""
+        type: string
+      socialGithub:
+        example: ""
+        type: string
+      socialLinkedin:
+        example: ""
+        type: string
+      socialTwitter:
+        example: ""
+        type: string
+      trialExpiration:
+        type: string
+      walletId:
+        example: ""
+        type: string
+    type: object
+  consoleapi.AuthUserSettingsSwaggerResponse:
+    properties:
+      noticeDismissal:
+        type: object
+      onboardingEnd:
+        example: false
+        type: boolean
+      onboardingStart:
+        example: true
+        type: boolean
+      onboardingStep:
+        example: GoogleBackupServiceSelection
+        type: string
+      passphrasePrompt:
+        example: true
+        type: boolean
+      sessionDuration:
+        example: 3600
+        type: integer
+    type: object
+  consoleapi.AutosyncJobDetailResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Automatic Backup Account Details
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.AutosyncJobSwagger'
+        type: array
+    type: object
+  consoleapi.AutosyncJobInputDataSwagger:
+    properties:
+      credential_id:
+        example: 12
+        type: integer
+      email:
+        example: dhavalder93@gmail.com
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilter:
+    properties:
+      active:
+        example: true
+        type: boolean
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      name:
+        example: dhavalder@gmail.com
+        type: string
+      policy_id:
+        example: 37
+        type: integer
+      project_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      status:
+        enum:
+        - success
+        - failed
+        - in_progress
+        - in_queue
+        - created
+        example: failed
+        type: string
+      sync_type:
+        enum:
+        - daily
+        - weekly
+        - monthly
+        example: daily
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterByActiveStatusExample:
+    properties:
+      active:
+        example: true
+        type: boolean
+      status:
+        enum:
+        - success
+        - failed
+        - in_progress
+        - in_queue
+        - created
+        example: failed
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterByMethodExample:
+    properties:
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterByNameExample:
+    properties:
+      name:
+        example: dhavalder@gmail.com
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterCombinedExample:
+    properties:
+      active:
+        example: true
+        type: boolean
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      name:
+        example: jenkins
+        type: string
+      status:
+        enum:
+        - success
+        - failed
+        - in_progress
+        - in_queue
+        - created
+        example: success
+        type: string
+    type: object
+  consoleapi.AutosyncJobListFilterExamples:
+    properties:
+      all_fields:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilter'
+      by_active_status:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilterByActiveStatusExample'
+      by_method:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilterByMethodExample'
+      by_name:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilterByNameExample'
+      combined:
+        $ref: '#/definitions/consoleapi.AutosyncJobListFilterCombinedExample'
+    type: object
+  consoleapi.AutosyncJobListResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Automatic backup jobs
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.AutosyncJobSwagger'
+        type: array
+    type: object
+  consoleapi.AutosyncJobSwagger:
+    properties:
+      ID:
+        example: 57
+        type: integer
+      active:
+        example: false
+        type: boolean
+      autodeactivated:
+        example: false
+        type: boolean
+      failure_periods:
+        example: 0
+        type: integer
+      input_data:
+        $ref: '#/definitions/consoleapi.AutosyncJobInputDataSwagger'
+      interval:
+        example: 3h
+        type: string
+      last_run:
+        type: object
+      message:
+        example: Backup scheduled
+        type: string
+      message_status:
+        example: info
+        type: string
+      method:
+        example: gmail
+        type: string
+      name:
+        example: dhavalder93@gmail.com
+        type: string
+      "on":
+        example: ""
+        type: string
+      policy_id:
+        example: 37
+        type: integer
+      sync_type:
+        example: daily
+        type: string
+      task_memory:
+        type: object
+    type: object
+  consoleapi.BackupToolsJSONResponse:
+    additionalProperties: true
+    type: object
+  consoleapi.BucketUsageTotalsItemSwagger:
+    properties:
+      before:
+        example: "2026-06-03T09:01:55.204Z"
+        type: string
+      bucketName:
+        example: my-bucket
+        type: string
+      createdAt:
+        example: "2024-03-20T10:00:00Z"
+        type: string
+      creatorEmail:
+        example: user@example.com
+        type: string
+      egress:
+        example: 0.2
+        type: number
+      location:
+        example: us-east-1
+        type: string
+      objectCount:
+        example: 42
+        type: integer
+      projectID:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+      segmentCount:
+        example: 100
+        type: integer
+      since:
+        example: "2026-06-01T00:00:00.000Z"
+        type: string
+      storage:
+        example: 1.5
+        type: number
+    type: object
+  consoleapi.BucketUsageTotalsPageSwagger:
+    properties:
+      bucketUsages:
+        items:
+          $ref: '#/definitions/consoleapi.BucketUsageTotalsItemSwagger'
+        type: array
+      currentPage:
+        example: 1
+        type: integer
+      limit:
+        example: 10
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      pageCount:
+        example: 1
+        type: integer
+      search:
+        example: ""
+        type: string
+      totalCount:
+        example: 3
+        type: integer
+    type: object
+  consoleapi.CheckUploadSwaggerRequest:
+    properties:
+      file_size:
+        example: 1048576
+        type: integer
+      operation:
+        enum:
+        - login
+        - upload
+        - download
+        example: login
+        type: string
+      project_id:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+    required:
+    - operation
+    - project_id
+    type: object
+  consoleapi.CheckUploadSwaggerResponse:
+    properties:
+      allow_download:
+        example: true
+        type: boolean
+      allow_upload:
+        example: false
+        type: boolean
+      bandwidth_usage_percent:
+        example: 4.2
+        type: number
+      bandwidth_warning_threshold:
+        example: 80
+        type: number
+      message:
+        example: You have used 100% of your storage quota.
+        type: string
+      popup_show:
+        example: true
+        type: boolean
+      remaining_bandwidth:
+        example: 2055208960
+        type: integer
+      remaining_space:
+        example: 0
+        type: integer
+      storage_usage_percent:
+        example: 100
+        type: number
+      storage_warning_threshold:
+        example: 80
+        type: number
+      total_bandwidth:
+        example: 2147483648
+        type: integer
+      total_space:
+        example: 2147483648
+        type: integer
+      upgrade_url:
+        example: https://billing.example.com
+        type: string
+    type: object
+  consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest:
+    properties:
+      emails:
+        example:
+        - billing@salestalker.com
+        - support@salestalker.com
+        items:
+          type: string
+        type: array
+      interval:
+        example: 6h
+        type: string
+      "on":
+        example: 12am
+        type: string
+      policy_id:
+        example: 50
+        type: integer
+      policy_name:
+        example: New team policy
+        type: string
+      services:
+        example:
+        - gmail
+        - drive
+        items:
+          type: string
+        type: array
+    required:
+    - services
+    type: object
+  consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest:
+    properties:
+      interval:
+        enum:
+        - 3h
+        - 12h
+        - daily
+        - weekly
+        - monthly
+        example: 12h
+        type: string
+      job_ids:
+        example:
+        - 101
+        - 102
+        - 103
+        items:
+          type: integer
+        type: array
+      name:
+        example: Executive Team Policy
+        type: string
+      "on":
+        example: ""
+        type: string
+      retention_type:
+        enum:
+        - never
+        - 30_days
+        - 1_year
+        - 7_years
+        example: never
+        type: string
+    required:
+    - interval
+    - name
+    - retention_type
+    type: object
+  consoleapi.DashboardButtonSwagger:
+    properties:
+      click:
+        example: ""
+        type: string
+      color:
+        example: '#2563EB'
+        type: string
+      link:
+        example: /billing
+        type: string
+      text:
+        example: Upgrade
+        type: string
+      textColor:
+        example: '#FFFFFF'
+        type: string
+    type: object
+  consoleapi.DashboardIconSwagger:
+    properties:
+      backgroundColor:
+        example: '#E8F0FE'
+        type: string
+      url:
+        example: /static/icons/protected-users.svg
+        type: string
+    type: object
+  consoleapi.DashboardStatsCardSwaggerResponse:
+    properties:
+      button:
+        $ref: '#/definitions/consoleapi.DashboardButtonSwagger'
+      description:
+        example: Google accounts with backup enabled
+        type: string
+      icon:
+        $ref: '#/definitions/consoleapi.DashboardIconSwagger'
+      status:
+        $ref: '#/definitions/consoleapi.DashboardStatusSwagger'
+      title:
+        example: Protected Users
+        type: string
+      value_1:
+        example: "124"
+        type: string
+      value_1_label:
+        example: ""
+        type: string
+      value_2:
+        example: +2 this week
+        type: string
+      value_2_label:
+        example: growth_this_week
+        type: string
+    type: object
+  consoleapi.DashboardStatusSwagger:
+    properties:
+      backgroundColor:
+        example: '#18DB351A'
+        type: string
+      textColor:
+        example: '#388E3C'
+        type: string
+      value:
+        example: 84% Used
+        type: string
+    type: object
+  consoleapi.DeleteAuthAccountSwaggerRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      password:
+        example: admin-verification-password
+        type: string
+    type: object
+  consoleapi.DeleteProjectSwaggerRequest:
+    properties:
+      data:
+        example: ""
+        type: string
+      step:
+        example: 0
+        type: integer
+    type: object
+  consoleapi.DeleteProjectSwaggerResponse:
+    properties:
+      apiKeys:
+        example: 0
+        type: integer
+      buckets:
+        example: 0
+        type: integer
+      currentUsage:
+        example: false
+        type: boolean
+      invoicingIncomplete:
+        example: false
+        type: boolean
+      lockEnabledBuckets:
+        example: 0
+        type: integer
+    type: object
+  consoleapi.FCMTokenSwaggerResponse:
+    properties:
+      AppVersion:
+        example: 1.2.0
+        type: string
+      BrowserName:
+        example: Chrome
+        type: string
+      CreatedAt:
+        type: string
+      DeviceID:
+        example: device-uuid-123
+        type: string
+      DeviceModel:
+        example: Pixel 8
+        type: string
+      DeviceType:
+        enum:
+        - android
+        - ios
+        - web
+        example: web
+        type: string
+      ID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      IPAddress:
+        example: 203.0.113.10
+        type: string
+      IsActive:
+        example: true
+        type: boolean
+      LastUsedAt:
+        type: string
+      OSVersion:
+        example: "14.0"
+        type: string
+      Token:
+        example: fcm-device-token
+        type: string
+      UpdatedAt:
+        type: string
+      UserAgent:
+        example: Mozilla/5.0 ...
+        type: string
+      UserID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+    type: object
+  consoleapi.GeneratePaymentLinkSwaggerRequest:
+    properties:
+      couponCode:
+        example: SAVE10
+        type: string
+      cryptoMode:
+        enum:
+        - SRX
+        - XDC
+        - USDT
+        example: USDT
+        type: string
+      planId:
+        example: 1
+        type: integer
+    required:
+    - cryptoMode
+    - planId
+    type: object
+  consoleapi.GeneratePaymentLinkSwaggerResponse:
+    properties:
+      redirectURL:
+        example: https://pay.example.com/checkout/abc123
+        type: string
+    type: object
+  consoleapi.GoogleBackupAuthError:
+    properties:
+      error:
+        example: Error getting token from Google!
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupAuthSuccess:
+    properties:
+      action:
+        enum:
+        - registered
+        - logged_in
+        example: registered
+        type: string
+      google_backup:
+        type: object
+      onboarding:
+        $ref: '#/definitions/consoleapi.GoogleBackupOnboardingSwagger'
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupAuthSwaggerRequest:
+    properties:
+      google_key:
+        example: <Google OAuth id_token or access_token>
+        type: string
+    required:
+    - google_key
+    type: object
+  consoleapi.GoogleBackupAuthSwaggerResponse:
+    properties:
+      google-auth:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+    type: object
+  consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger:
+    properties:
+      active_jobs:
+        example: 3
+        type: integer
+      deactive_jobs:
+        example: 1
+        type: integer
+      method:
+        example: gmail
+        type: string
+      total_jobs:
+        example: 4
+        type: integer
+    type: object
+  consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse:
+    properties:
+      message:
+        example: Connected autosync services
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupAutoSyncLiveJobSwagger:
+    properties:
+      id:
+        example: 12
+        type: integer
+      message:
+        example: Backup in progress...
+        type: string
+      message_status:
+        enum:
+        - info
+        - warning
+        - error
+        example: info
+        type: string
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_contacts
+        - google_calendar
+        example: gmail
+        type: string
+      name:
+        example: user@example.com
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncLiveTaskSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncLiveJobSwagger'
+        type: array
+      message:
+        example: Active Automatic Backup Accounts List
+        type: string
+    type: object
+  consoleapi.GoogleBackupAutoSyncLiveTaskSwagger:
+    properties:
+      start_time:
+        example: "2026-06-17T10:30:00Z"
+        type: string
+      status:
+        enum:
+        - running
+        - failed
+        example: running
+        type: string
+    type: object
+  consoleapi.GoogleBackupConnectSwaggerRequest:
+    properties:
+      code:
+        example: 4/0AeanS...
+        type: string
+    required:
+    - code
+    type: object
+  consoleapi.GoogleBackupConnectSwaggerResponse:
+    properties:
+      created:
+        example: true
+        type: boolean
+      google_backup:
+        type: object
+      google_email:
+        example: user@gmail.com
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupDashboardAlertSectionSwagger:
+    properties:
+      count:
+        example: 2
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupDashboardMailboxSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupDashboardAlertsSwaggerResponse:
+    properties:
+      new_connected_accounts_24h:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+      paused_backups:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+      re_auth_required:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+    type: object
+  consoleapi.GoogleBackupDashboardCredentialSwagger:
+    properties:
+      credential_id:
+        example: 12
+        type: integer
+      needs_reconnect_google_auth:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupDashboardMailboxSwagger:
+    properties:
+      account_type:
+        enum:
+        - corporate
+        - individual
+        example: individual
+        type: string
+      connected_at:
+        example: "2026-06-10T08:00:00Z"
+        type: string
+      credential:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardCredentialSwagger'
+      credential_status:
+        enum:
+        - healthy
+        - re_auth_required
+        example: re_auth_required
+        type: string
+      email:
+        example: john@gmail.com
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupDashboardServiceSwagger'
+        type: array
+    type: object
+  consoleapi.GoogleBackupDashboardServiceSwagger:
+    properties:
+      active:
+        example: true
+        type: boolean
+      connected:
+        example: true
+        type: boolean
+      job_id:
+        example: 101
+        type: integer
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_contacts
+        - google_calendar
+        example: gmail
+        type: string
+    type: object
+  consoleapi.GoogleBackupDomainUsersSwaggerResponse:
+    properties:
+      google_backup:
+        type: object
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.GoogleBackupManualRestoreSwaggerRequest:
+    properties:
+      ids:
+        example:
+        - dXNlckBnbWFpbC5jb20vcGF0aC9maWxl
+        items:
+          type: string
+        type: array
+      keys:
+        example:
+        - dXNlckBnbWFpbC5jb20vcGF0aC9maWxl
+        items:
+          type: string
+        type: array
+    type: object
+  consoleapi.GoogleBackupOnboardingSwagger:
+    properties:
+      onboarding_status:
+        enum:
+        - pending
+        - in_progress
+        - completed
+        example: pending
+        type: string
+      onboardingEnd:
+        example: false
+        type: boolean
+      onboardingStart:
+        example: true
+        type: boolean
+      onboardingStep:
+        example: GoogleBackupPending
+        type: string
+    type: object
+  consoleapi.GoogleBackupRestoreAllSwaggerRequest:
+    properties:
+      login_id:
+        example: user@company.com
+        type: string
+      project_id:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+      service:
+        enum:
+        - gmail
+        - drive
+        - photos
+        - calendar
+        - contacts
+        example: gmail
+        type: string
+    required:
+    - login_id
+    - project_id
+    - service
+    type: object
+  consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest:
+    properties:
+      active:
+        example: false
+        type: boolean
+      job_ids:
+        example:
+        - 12
+        - 13
+        - 14
+        items:
+          type: integer
+        type: array
+    required:
+    - active
+    - job_ids
+    type: object
+  consoleapi.MFADisableSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+      recoveryCode:
+        example: ""
+        type: string
+    type: object
+  consoleapi.MFAEnableSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+    type: object
+  consoleapi.MFARegenerateRecoveryCodesSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+      recoveryCode:
+        example: ""
+        type: string
+    type: object
+  consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest:
+    properties:
+      name:
+        example: My Unified Backup Policy
+        type: string
+      policy_ids:
+        example:
+        - 52
+        - 55
+        - 56
+        items:
+          type: integer
+        type: array
+    required:
+    - name
+    - policy_ids
+    type: object
+  consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest:
+    properties:
+      job_ids:
+        example:
+        - 101
+        - 102
+        items:
+          type: integer
+        type: array
+      target_policy_id:
+        example: 61
+        type: integer
+    required:
+    - job_ids
+    - target_policy_id
+    type: object
+  consoleapi.NotificationChannelPreferencesSwagger:
+    properties:
+      email:
+        enum:
+        - 1
+        - 2
+        - 3
+        - 4
+        example: 2
+        type: integer
+      push:
+        enum:
+        - 1
+        - 2
+        - 3
+        - 4
+        example: 2
+        type: integer
+      sms:
+        enum:
+        - 1
+        - 2
+        - 3
+        - 4
+        example: 4
+        type: integer
+    type: object
+  consoleapi.NotificationListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/consoleapi.NotificationResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      pageCount:
+        type: integer
+      totalCount:
+        type: integer
+    type: object
+  consoleapi.NotificationResponse:
+    properties:
+      body:
+        type: string
+      createdAt:
+        type: string
+      data:
+        additionalProperties: true
+        type: object
+      errorMessage:
+        type: string
+      hide:
+        type: boolean
+      id:
+        type: string
+      isRead:
+        type: boolean
+      retryCount:
+        type: integer
+      sentAt:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      tokenId:
+        type: string
+      userId:
+        type: string
+    type: object
+  consoleapi.PaymentCouponSwaggerItem:
+    properties:
+      code:
+        example: SAVE10
+        type: string
+      created_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      discount:
+        example: 10
+        type: number
+      discount_type:
+        enum:
+        - percentage
+        - fixed
+        example: percentage
+        type: string
+      max_discount:
+        example: 50
+        type: number
+      min_order_amount:
+        example: 9.99
+        type: number
+      valid_from:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      valid_to:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+    type: object
+  consoleapi.PaymentInvoiceHistoryItemSwagger:
+    properties:
+      Amount:
+        example: 9.99
+        type: number
+      CreatedAt:
+        example: "2026-06-01T12:00:00Z"
+        type: string
+      Description:
+        example: Plan purchase
+        type: string
+      ID:
+        example: 42
+        type: integer
+      Metadata:
+        example: ""
+        type: string
+      PlanID:
+        example: 1
+        type: integer
+      Source:
+        example: token_payment
+        type: string
+      Status:
+        enum:
+        - pending
+        - complete
+        - failed
+        example: complete
+        type: string
+      Timestamp:
+        example: "2026-06-01T12:00:00Z"
+        type: string
+      Type:
+        enum:
+        - credit
+        - debit
+        - unknown
+        example: debit
+        type: string
+      UserID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+    type: object
+  consoleapi.PaymentPlanGroupSwagger:
+    properties:
+      name:
+        example: monthly
+        type: string
+      plans:
+        items:
+          type: object
+        type: array
+    type: object
+  consoleapi.PaymentPlansSwaggerResponse:
+    properties:
+      crypto_modes:
+        example:
+        - SRX
+        - XDC
+        - USDT
+        items:
+          type: string
+        type: array
+      group:
+        items:
+          $ref: '#/definitions/consoleapi.PaymentPlanGroupSwagger'
+        type: array
+    type: object
+  consoleapi.ProjectConfigPlacementSwaggerItem:
+    properties:
+      description:
+        example: Default placement
+        type: string
+      id:
+        example: 0
+        type: integer
+      idName:
+        example: global
+        type: string
+      lucideIcon:
+        example: globe
+        type: string
+      name:
+        example: Global
+        type: string
+      pending:
+        example: false
+        type: boolean
+      shortName:
+        example: Global
+        type: string
+      title:
+        example: Global
+        type: string
+    type: object
+  consoleapi.ProjectConfigSwaggerResponse:
+    properties:
+      availablePlacements:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectConfigPlacementSwaggerItem'
+        type: array
+      computeAuthToken:
+        example: ""
+        type: string
+      encryptPath:
+        example: true
+        type: boolean
+      eventingEnabled:
+        example: false
+        type: boolean
+      hasManagedPassphrase:
+        example: false
+        type: boolean
+      hasPaidPrivileges:
+        example: true
+        type: boolean
+      isOwnerPaidTier:
+        example: true
+        type: boolean
+      membersCount:
+        example: 1
+        type: integer
+      passphrase:
+        example: ""
+        type: string
+      role:
+        enum:
+        - 0
+        - 1
+        example: 0
+        type: integer
+      salt:
+        example: YWJjZGVmZ2hpams=
+        type: string
+    type: object
+  consoleapi.ProjectDailyUsageResponse:
+    properties:
+      allocatedBandwidthUsage:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectUsageByDayItem'
+        type: array
+      settledBandwidthUsage:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectUsageByDayItem'
+        type: array
+      storageUsage:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectUsageByDayItem'
+        type: array
+    type: object
+  consoleapi.ProjectInfoSwaggerItem:
+    properties:
+      bandwidthUsed:
+        example: 0
+        type: integer
+      createdAt:
+        type: string
+      description:
+        example: Backup vault
+        type: string
+      hasManagedPassphrase:
+        example: false
+        type: boolean
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      isClassic:
+        example: false
+        type: boolean
+      memberCount:
+        example: 1
+        type: integer
+      name:
+        example: My Project
+        type: string
+      ownerId:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      placement:
+        example: ""
+        type: string
+      prevDaysUntilExpiration:
+        example: 0
+        type: integer
+      storageUsed:
+        example: 0
+        type: integer
+      versioning:
+        example: 1
+        type: integer
+    type: object
+  consoleapi.ProjectUsageByDayItem:
+    properties:
+      date:
+        example: "2026-05-26T00:00:00Z"
+        type: string
+      value:
+        example: 9007199254740992
+        type: integer
+    type: object
+  consoleapi.ProjectUsageLimitsSwaggerResponse:
+    properties:
+      bandwidthLimit:
+        example: 107374182400
+        type: integer
+      bandwidthUsed:
+        example: 0
+        type: integer
+      bucketsLimit:
+        example: 100
+        type: integer
+      bucketsUsed:
+        example: 2
+        type: integer
+      objectCount:
+        example: 0
+        type: integer
+      rateLimit:
+        example: 0
+        type: integer
+      rateUsed:
+        example: 0
+        type: integer
+      segmentCount:
+        example: 0
+        type: integer
+      segmentLimit:
+        example: 0
+        type: integer
+      segmentUsed:
+        example: 0
+        type: integer
+      storageLimit:
+        example: 107374182400
+        type: integer
+      storageUsed:
+        example: 0
+        type: integer
+      userSetBandwidthLimit:
+        type: integer
+      userSetStorageLimit:
+        type: integer
+    type: object
+  consoleapi.RegisterFCMTokenSwaggerRequest:
+    properties:
+      appVersion:
+        example: 1.2.0
+        type: string
+      browserName:
+        example: Chrome
+        type: string
+      deviceId:
+        example: device-uuid-123
+        type: string
+      deviceModel:
+        example: Pixel 8
+        type: string
+      deviceType:
+        enum:
+        - android
+        - ios
+        - web
+        example: web
+        type: string
+      osVersion:
+        example: "14.0"
+        type: string
+      token:
+        example: fcm-device-token-string
+        type: string
+      userAgent:
+        example: Mozilla/5.0 ...
+        type: string
+    required:
+    - token
+    type: object
+  consoleapi.ReservedBucketUsageItem:
+    properties:
+      before:
+        example: "2026-05-28T10:00:00Z"
+        type: string
+      bucketName:
+        example: gmail
+        type: string
+      createdAt:
+        example: "2024-03-20T10:00:00Z"
+        type: string
+      egress:
+        example: 12.3
+        type: number
+      location:
+        example: us-east-1
+        type: string
+      objectCount:
+        example: 124
+        type: integer
+      projectID:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      segmentCount:
+        example: 500
+        type: integer
+      since:
+        example: "2024-03-20T10:00:00Z"
+        type: string
+      storage:
+        example: 210.5
+        type: number
+    type: object
+  consoleapi.RespondToProjectInvitationSwaggerRequest:
+    properties:
+      response:
+        example: 1
+        type: integer
+    type: object
+  consoleapi.RestoreAllQueuedSwaggerResponse:
+    properties:
+      job_id:
+        example: 2
+        type: integer
+      message:
+        example: restore job queued
+        type: string
+      status:
+        enum:
+        - queued
+        - running
+        - completed
+        - partial_completed
+        - failed
+        - cancelled
+        example: queued
+        type: string
+    type: object
+  consoleapi.RestoreCancelSwaggerResponse:
+    properties:
+      job_id:
+        example: 2
+        type: integer
+      message:
+        example: restore cancelled
+        type: string
+    type: object
+  consoleapi.RestoreDeadItemSwagger:
+    properties:
+      error_code:
+        example: api_error
+        type: string
+      object_key:
+        example: user@gmail.com/path/file
+        type: string
+      reason:
+        example: google api returned 403
+        type: string
+      restore_job_id:
+        example: 2
+        type: integer
+    type: object
+  consoleapi.RestoreDeadItemsSwaggerResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreDeadItemSwagger'
+        type: array
+    type: object
+  consoleapi.RestoreJobDetailSwagger:
+    properties:
+      ID:
+        example: 2
+        type: integer
+      account_type:
+        enum:
+        - personal
+        - employee_workspace
+        - admin_workspace
+        example: personal
+        type: string
+      auth_mode:
+        enum:
+        - oauth
+        - dwd
+        example: oauth
+        type: string
+      cancelled_at:
+        type: string
+      created_at:
+        type: string
+      cursor_id:
+        example: 7807
+        type: integer
+      failed:
+        example: 0
+        type: integer
+      input_data:
+        $ref: '#/definitions/consoleapi.RestoreJobInputDataSwagger'
+      login_id:
+        example: user@gmail.com
+        type: string
+      message:
+        example: restore in progress
+        type: string
+      message_status:
+        enum:
+        - info
+        - warning
+        - error
+        example: info
+        type: string
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      processed:
+        example: 249
+        type: integer
+      progress_percent:
+        example: 12.5
+        type: number
+      status:
+        enum:
+        - queued
+        - running
+        - completed
+        - partial_completed
+        - failed
+        - cancelled
+        example: running
+        type: string
+      total:
+        example: 1988
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  consoleapi.RestoreJobDetailSwaggerResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Restore Account Details
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreJobDetailSwagger'
+        type: array
+    type: object
+  consoleapi.RestoreJobInputDataSwagger:
+    properties:
+      credential_id:
+        example: 12
+        type: integer
+      cron_job_id:
+        example: 57
+        type: integer
+      project_id:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+    type: object
+  consoleapi.RestoreJobListItemSwagger:
+    properties:
+      ID:
+        example: 2
+        type: integer
+      account_type:
+        enum:
+        - personal
+        - employee_workspace
+        - admin_workspace
+        example: personal
+        type: string
+      auth_mode:
+        enum:
+        - oauth
+        - dwd
+        example: oauth
+        type: string
+      created_at:
+        type: string
+      input_data:
+        $ref: '#/definitions/consoleapi.RestoreJobInputDataSwagger'
+      login_id:
+        example: user@gmail.com
+        type: string
+      message:
+        example: restore in progress
+        type: string
+      message_status:
+        enum:
+        - info
+        - warning
+        - error
+        example: info
+        type: string
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      status:
+        enum:
+        - queued
+        - running
+        - completed
+        - partial_completed
+        - failed
+        - cancelled
+        example: running
+        type: string
+      updated_at:
+        type: string
+    type: object
+  consoleapi.RestoreJobListSwaggerResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Restore jobs list
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreJobListItemSwagger'
+        type: array
+    type: object
+  consoleapi.RestoreLiveJobSwagger:
+    properties:
+      cursor_id:
+        example: 7807
+        type: integer
+      failed:
+        example: 0
+        type: integer
+      id:
+        example: 2
+        type: integer
+      login_id:
+        example: user@gmail.com
+        type: string
+      message:
+        example: restore in progress
+        type: string
+      message_status:
+        enum:
+        - info
+        - warning
+        - error
+        example: info
+        type: string
+      method:
+        enum:
+        - gmail
+        - google_drive
+        - google_photos
+        - google_calendar
+        - google_contacts
+        example: gmail
+        type: string
+      processed:
+        example: 249
+        type: integer
+      progress_percent:
+        example: 12.5
+        type: number
+      status:
+        enum:
+        - queued
+        - running
+        - completed
+        - partial_completed
+        - failed
+        - cancelled
+        example: running
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreLiveTaskSwagger'
+        type: array
+      total:
+        example: 1988
+        type: integer
+    type: object
+  consoleapi.RestoreLiveSwaggerResponse:
+    properties:
+      failed:
+        items:
+          type: object
+        type: array
+      message:
+        example: Active Restore Jobs List
+        type: string
+      success:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreLiveJobSwagger'
+        type: array
+    type: object
+  consoleapi.RestoreLiveTaskSwagger:
+    properties:
+      batch_index:
+        example: 0
+        type: integer
+      start_time:
+        type: string
+      status:
+        enum:
+        - running
+        - retrying
+        - completed
+        - failed
+        example: running
+        type: string
+    type: object
+  consoleapi.RestoreMissingPermissionSwagger:
+    properties:
+      description:
+        example: OAuth scope required for restore
+        type: string
+      scope:
+        example: https://www.googleapis.com/auth/gmail.insert
+        type: string
+      service:
+        example: gmail
+        type: string
+      type:
+        example: oauth
+        type: string
+    type: object
+  consoleapi.RestorePrepareSwaggerResponse:
+    properties:
+      account_type:
+        enum:
+        - personal
+        - employee_workspace
+        - admin_workspace
+        example: personal
+        type: string
+      auth_mode:
+        enum:
+        - oauth
+        - dwd
+        example: oauth
+        type: string
+      backup_item_count:
+        example: 1988
+        type: integer
+      credential_id:
+        example: 12
+        type: integer
+      cron_job_id:
+        example: 57
+        type: integer
+      delegation_setup:
+        type: object
+      granted_scopes:
+        items:
+          type: string
+        type: array
+      login_id:
+        example: user@gmail.com
+        type: string
+      message:
+        type: string
+      missing_permissions:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreMissingPermissionSwagger'
+        type: array
+      oauth_holder_email:
+        example: user@gmail.com
+        type: string
+      project_id:
+        example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
+        type: string
+      ready:
+        example: false
+        type: boolean
+      reason:
+        example: missing_permissions
+        type: string
+      reconnect_hint:
+        type: string
+      required_dwd_scopes:
+        items:
+          type: string
+        type: array
+      service:
+        example: gmail
+        type: string
+    type: object
+  consoleapi.SetAuthUserSettingsSwaggerRequest:
+    properties:
+      noticeDismissal:
+        type: object
+      onboardingEnd:
+        example: false
+        type: boolean
+      onboardingStart:
+        example: true
+        type: boolean
+      onboardingStep:
+        example: welcome
+        type: string
+      passphrasePrompt:
+        example: true
+        type: boolean
+      sessionDuration:
+        example: 3600
+        type: integer
+    type: object
+  consoleapi.SettingsMessageSwaggerResponse:
+    properties:
+      message:
+        example: token updated successfully
+        type: string
+    type: object
+  consoleapi.SwaggerErrorResponse:
+    properties:
+      error:
+        example: error message
+        type: string
+    type: object
+  consoleapi.UnreadCountResponse:
+    properties:
+      count:
+        type: integer
+    type: object
+  consoleapi.UpdateAuthAccountInfoSwaggerRequest:
+    properties:
+      socialFacebook:
+        type: string
+      socialGithub:
+        example: jane
+        type: string
+      socialLinkedin:
+        example: https://linkedin.com/in/jane
+        type: string
+      socialTwitter:
+        example: '@jane'
+        type: string
+      walletId:
+        example: "0xabc"
+        type: string
+    type: object
+  consoleapi.UpdateAuthAccountSwaggerRequest:
+    properties:
+      fullName:
+        example: Jane Doe
+        type: string
+      shortName:
+        example: Jane
+        type: string
+    type: object
+  consoleapi.UpdateFCMTokenSwaggerRequest:
+    properties:
+      appVersion:
+        example: 1.2.0
+        type: string
+      browserName:
+        example: Chrome
+        type: string
+      deviceId:
+        example: device-uuid-123
+        type: string
+      deviceModel:
+        example: Pixel 8
+        type: string
+      deviceType:
+        enum:
+        - android
+        - ios
+        - web
+        example: web
+        type: string
+      isActive:
+        example: true
+        type: boolean
+      osVersion:
+        example: "14.0"
+        type: string
+      token:
+        example: fcm-device-token-string
+        type: string
+      userAgent:
+        example: Mozilla/5.0 ...
+        type: string
+    type: object
+  consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest:
+    properties:
+      active:
+        example: true
+        type: boolean
+    required:
+    - active
+    type: object
+  consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest:
+    properties:
+      active:
+        example: true
+        type: boolean
+      code:
+        example: ""
+        type: string
+      google_email:
+        example: user@gmail.com
+        type: string
+      project_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      refresh_token:
+        example: <google refresh token>
+        type: string
+      storx_token:
+        example: <storx access grant>
+        type: string
+    required:
+    - google_email
+    - project_id
+    type: object
+  consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest:
+    properties:
+      interval:
+        enum:
+        - 3h
+        - 12h
+        - daily
+        - weekly
+        - monthly
+        example: 3h
+        type: string
+      "on":
+        example: ""
+        type: string
+      retention_type:
+        enum:
+        - never
+        - 30_days
+        - 1_year
+        - 7_years
+        example: never
+        type: string
+    required:
+    - interval
+    - retention_type
+    type: object
+  consoleapi.UpsertProjectSwaggerRequest:
+    properties:
+      bandwidthLimit:
+        example: 0
+        type: integer
+      description:
+        example: Optional description
+        type: string
+      managePassphrase:
+        example: false
+        type: boolean
+      name:
+        example: My Project
+        type: string
+      prevDaysUntilExpiration:
+        example: 0
+        type: integer
+      storageLimit:
+        example: 0
+        type: integer
+    type: object
+  consoleapi.UpsertUserNotificationPreferenceSwaggerRequest:
+    properties:
+      preferences:
+        $ref: '#/definitions/consoleapi.NotificationChannelPreferencesSwagger'
+    type: object
+  consoleapi.UserDeveloperAccessHistorySwaggerItem:
+    properties:
+      application_name:
+        example: My Integration
+        type: string
+      client_id:
+        example: client-id
+        type: string
+      created_at:
+        type: string
+      request_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      scopes:
+        example:
+        - read
+        items:
+          type: string
+        type: array
+      status:
+        example: 1
+        type: integer
+    type: object
+  consoleapi.UserDeveloperAccessSwaggerItem:
+    properties:
+      access_granted_date:
+        type: string
+      application_description:
+        example: Backup integration
+        type: string
+      application_name:
+        example: My Integration
+        type: string
+      approved_scopes:
+        example:
+        - read
+        - write
+        items:
+          type: string
+        type: array
+      client_id:
+        example: client-id
+        type: string
+      consent_expires_at:
+        type: string
+      developer_email:
+        example: dev@example.com
+        type: string
+      developer_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      developer_name:
+        example: Acme App
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      last_access_date:
+        type: string
+      rejected_scopes:
+        items:
+          type: string
+        type: array
+      total_requests:
+        example: 12
+        type: integer
+    type: object
+  consoleapi.UserNotificationPreferenceSwagger:
+    properties:
+      CreatedAt:
+        type: string
+      ID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      Preferences:
+        type: object
+      UpdatedAt:
+        type: string
+      UserID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+    type: object
+  consoleapi.UserProjectInvitationSwaggerItem:
+    properties:
+      createdAt:
+        type: string
+      inviterEmail:
+        example: owner@example.com
+        type: string
+      projectDescription:
+        example: Shared backup project
+        type: string
+      projectID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      projectName:
+        example: My Project
+        type: string
+    type: object
+  consoleapi.V1AccessCreateSwaggerRequest:
+    properties:
+      access_grant:
+        example: serialized-access-grant
+        type: string
+      public:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.V1AccessCreateSwaggerResponse:
+    properties:
+      access_key_id:
+        example: AKIA...
+        type: string
+      endpoint:
+        example: https://storx.io
+        type: string
+      secret_key:
+        example: '...'
+        type: string
+    type: object
+  consoleweb.FrontendConfig:
+    properties:
+      abTestingEnabled:
+        type: boolean
+      activeSessionsViewEnabled:
+        type: boolean
+      allowedUsageReportDateRange:
+        $ref: '#/definitions/time.Duration'
+      altObjBrowserPagingEnabled:
+        type: boolean
+      altObjBrowserPagingThreshold:
+        type: integer
+      analyticsEnabled:
+        type: boolean
+      announcement:
+        $ref: '#/definitions/console.AnnouncementConfig'
+      apiBaseURL:
+        description: |-
+          ApiBaseURL is the base URL for all API requests. The frontend MUST use this (e.g. apiBaseURL + "api/v0/...")
+          for every API call so requests hit the correct host. Using relative paths when the app is served from
+          a different host (e.g. dev server) causes the wrong host to return HTML → DOCTYPE/JSON parse error.
+        type: string
+      betaSatelliteFeedbackURL:
+        type: string
+      betaSatelliteSupportURL:
+        type: string
+      billingFeaturesEnabled:
+        type: boolean
+      billingInformationTabEnabled:
+        type: boolean
+      billingStripeCheckoutEnabled:
+        type: boolean
+      bucketLimitsUIEnabled:
+        type: boolean
+      captcha:
+        $ref: '#/definitions/console.CaptchaConfig'
+      collectBillingInfoOnOnboarding:
+        type: boolean
+      computeGatewayURL:
+        type: string
+      computeUIEnabled:
+        type: boolean
+      couponCodeBillingUIEnabled:
+        type: boolean
+      couponCodeSignupUIEnabled:
+        type: boolean
+      csrfToken:
+        type: string
+      cunoFSBetaEnabled:
+        type: boolean
+      daysBeforeTrialEndNotification:
+        type: integer
+      defaultPaidBandwidthLimit:
+        $ref: '#/definitions/memory.Size'
+      defaultPaidStorageLimit:
+        $ref: '#/definitions/memory.Size'
+      defaultProjectLimit:
+        type: integer
+      deleteProjectEnabled:
+        type: boolean
+      documentationURL:
+        type: string
+      domainsPageEnabled:
+        type: boolean
+      downloadPrefixEnabled:
+        type: boolean
+      egressMBCents:
+        type: string
+      emailChangeFlowEnabled:
+        type: boolean
+      emissionImpactViewEnabled:
+        type: boolean
+      enableRegionTag:
+        type: boolean
+      entitlementsEnabled:
+        type: boolean
+      externalAddress:
+        description: ExternalAddress is the canonical URL of the console (e.g. for
+          links and redirects).
+        type: string
+      fileBrowserFlowDisabled:
+        type: boolean
+      galleryViewEnabled:
+        type: boolean
+      gatewayCredentialsRequestURL:
+        type: string
+      generalRequestURL:
+        type: string
+      hideProjectEncryptionOptions:
+        type: boolean
+      hideUplinkBehavior:
+        type: boolean
+      homepageURL:
+        type: string
+      inactivityTimerDuration:
+        type: integer
+      inactivityTimerEnabled:
+        type: boolean
+      inactivityTimerViewerEnabled:
+        type: boolean
+      isBetaSatellite:
+        type: boolean
+      limitIncreaseRequestEnabled:
+        type: boolean
+      limitsAreaEnabled:
+        type: boolean
+      linksharingURL:
+        type: string
+      liveCheckBadPasswords:
+        type: boolean
+      maxAddFundsAmount:
+        type: integer
+      maxNameCharacters:
+        type: integer
+      minAddFundsAmount:
+        type: integer
+      minimumCharge:
+        $ref: '#/definitions/console.MinimumChargeConfig'
+      nativeTokenPaymentsEnabled:
+        type: boolean
+      neededTransactionConfirmations:
+        type: integer
+      newDetailedUsageReportEnabled:
+        type: boolean
+      newPricingStartDate:
+        type: string
+      noLimitsUiEnabled:
+        type: boolean
+      objectBrowserKeyLifetime:
+        $ref: '#/definitions/time.Duration'
+      objectBrowserKeyNamePrefix:
+        type: string
+      objectLockUIEnabled:
+        type: boolean
+      objectMountConsultationEnabled:
+        type: boolean
+      optionalSignupSuccessURL:
+        type: string
+      partneredSatellites:
+        items:
+          $ref: '#/definitions/consoleweb.PartneredSatellite'
+        type: array
+      passwordMaximumLength:
+        type: integer
+      passwordMinimumLength:
+        type: integer
+      pathwayOverviewEnabled:
+        type: boolean
+      pricingPackagesEnabled:
+        type: boolean
+      productPriceSummaries:
+        items:
+          type: string
+        type: array
+      projectLimitsIncreaseRequestURL:
+        type: string
+      publicLinksharingURL:
+        type: string
+      requireBillingAddress:
+        type: boolean
+      restAPIKeysUIEnabled:
+        type: boolean
+      satelliteManagedEncryptionEnabled:
+        type: boolean
+      satelliteName:
+        type: string
+      satelliteNodeURL:
+        type: string
+      scheduleMeetingURL:
+        type: string
+      segmentMonthCents:
+        type: string
+      segmentsUIEnabled:
+        type: boolean
+      selfServeAccountDeleteEnabled:
+        type: boolean
+      selfServePlacementSelectEnabled:
+        type: boolean
+      showNewPricingTiers:
+        type: boolean
+      signupActivationCodeEnabled:
+        type: boolean
+      ssoEnabled:
+        type: boolean
+      storageMBMonthCents:
+        type: string
+      stripePublicKey:
+        type: string
+      unregisteredInviteEmailsEnabled:
+        type: boolean
+      upgradePayUpfrontAmount:
+        type: integer
+      useGeneratedPrivateAPI:
+        type: boolean
+      userBalanceForUpgrade:
+        type: integer
+      userFeedbackEnabled:
+        type: boolean
+      valdiSignUpURL:
+        type: string
+      versioningUIEnabled:
+        type: boolean
+      zipDownloadLimit:
+        type: integer
+      zkSyncContractAddress:
+        type: string
+    type: object
+  consoleweb.PartneredSatellite:
+    properties:
+      address:
+        type: string
+      name:
+        type: string
+    type: object
+  memory.Size:
+    enum:
+    - 1
+    - 1024
+    - 1048576
+    - 1073741824
+    - 1099511627776
+    - 1125899906842624
+    - 1152921504606846976
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - B
+    - KiB
+    - MiB
+    - GiB
+    - TiB
+    - PiB
+    - EiB
+  staticapi.StaticBlogItemSwagger:
+    properties:
+      by:
+        example: admin
+        type: string
+      date:
+        example: JANUARY 1, 2022
+        type: string
+      description:
+        example: Cloud storage has become an integral part of our digital lives.
+        type: string
+      image:
+        example: https://miro.medium.com/v2/resize:fit:1400/format:webp/0*j5KNMeLGxLjo4vNW
+        type: string
+      link:
+        example: https://medium.com/storx-network/cloud-storage-reimagined-with-storx-network-5c28296ac25f
+        type: string
+      title:
+        example: Cloud Storage Reimagined with StorX Network
+        type: string
+    type: object
+  staticapi.StaticResourceItemSwagger:
+    properties:
+      desc:
+        example: Step-by-step guide to backup Google Workspace data
+        type: string
+      link:
+        example: /guides?type=google-backup
+        type: string
+      name:
+        example: Google Backup Guide
+        type: string
+      type:
+        enum:
+        - url
+        - contact
+        example: url
+        type: string
+    type: object
+  time.Duration:
+    enum:
+    - -9223372036854775808
+    - 9223372036854775807
+    - 1
+    - 1000
+    - 1000000
+    - 1000000000
+    - 60000000000
+    - 3600000000000
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - minDuration
+    - maxDuration
+    - Nanosecond
+    - Microsecond
+    - Millisecond
+    - Second
+    - Minute
+    - Hour
 info:
-  contact: {}
-paths: {}
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API documentation for StorX Monitor server
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: StorX Monitor API
+  version: "1.0"
+paths:
+  /api-keys/delete-by-name:
+    delete:
+      description: '**Full route:** `DELETE /api/v0/api-keys/delete-by-name`'
+      parameters:
+      - description: API key display name
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: Project internal UUID (use this or publicID)
+        in: query
+        name: projectID
+        type: string
+      - description: Project public UUID (use this or projectID)
+        in: query
+        name: publicID
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API key deleted
+        "204":
+          description: API key not found
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete API key by name (S3 credentials / vault setup)
+      tags:
+      - api-keys-s3-vault-setup
+  /api-keys/list-paged:
+    get:
+      description: '**Full route:** `GET /api/v0/api-keys/list-paged`'
+      parameters:
+      - description: Project UUID
+        in: query
+        name: projectID
+        required: true
+        type: string
+      - description: Page size
+        example: 10
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - description: Page number (1-based)
+        example: 1
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: 'Sort field: 1=name, 2=created, 3=creator email'
+        example: 1
+        in: query
+        name: order
+        required: true
+        type: integer
+      - description: Sort direction
+        example: 1
+        in: query
+        name: orderDirection
+        required: true
+        type: integer
+      - description: Name search filter
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.APIKeysListPagedSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List API keys (paginated)
+      tags:
+      - access
+  /audit-logs:
+    get:
+      description: '**Full route:** `GET /api/v0/audit-logs`'
+      parameters:
+      - description: Filter by action code (e.g. AUTH_LOGIN)
+        in: query
+        name: action
+        type: string
+      - description: Filter by status
+        enum:
+        - success
+        - failed
+        in: query
+        name: status
+        type: string
+      - description: Search action, resource, message, or record id
+        in: query
+        name: search
+        type: string
+      - description: Range start (RFC3339)
+        example: "2026-06-01T00:00:00Z"
+        in: query
+        name: from
+        type: string
+      - description: Range end (RFC3339)
+        example: "2026-06-02T23:59:59Z"
+        in: query
+        name: to
+        type: string
+      - default: 50
+        description: Page size (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor from previous response NextCursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuditLogListSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List audit logs
+      tags:
+      - audit-logs
+  /audit-logs/actions:
+    get:
+      description: '**Full route:** `GET /api/v0/audit-logs/actions`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuditLogActionsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List audit log action codes
+      tags:
+      - audit-logs
+  /audit-logs/export:
+    get:
+      description: '**Full route:** `GET /api/v0/audit-logs/export`'
+      parameters:
+      - description: Filter by action code
+        in: query
+        name: action
+        type: string
+      - description: Filter by status
+        enum:
+        - success
+        - failed
+        in: query
+        name: status
+        type: string
+      - description: Search action, resource, message, or record id
+        in: query
+        name: search
+        type: string
+      - description: Range start (RFC3339)
+        example: "2026-06-01T00:00:00Z"
+        in: query
+        name: from
+        type: string
+      - description: Range end (RFC3339)
+        example: "2026-06-02T23:59:59Z"
+        in: query
+        name: to
+        type: string
+      - description: Max rows per batch (internal pagination)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: 'CSV file (Content-Disposition: audit-logs.csv)'
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Export audit logs as CSV
+      tags:
+      - audit-logs
+  /auth/account:
+    delete:
+      consumes:
+      - application/json
+      description: '**Full route:** `DELETE /api/v0/auth/account`'
+      parameters:
+      - description: Target email and verification password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.DeleteAuthAccountSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete account (admin)
+      tags:
+      - auth-account
+    get:
+      description: '**Full route:** `GET /api/v0/auth/account`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthAccountSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get current account
+      tags:
+      - auth-account
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/auth/account`'
+      parameters:
+      - description: Name fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateAuthAccountSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update account display name
+      tags:
+      - auth-account
+  /auth/account/freezestatus:
+    get:
+      description: '**Full route:** `GET /api/v0/auth/account/freezestatus`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthAccountFreezeStatusSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Account billing freeze status
+      tags:
+      - auth-account
+  /auth/account/info:
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/auth/account/info`'
+      parameters:
+      - description: Social and wallet fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateAuthAccountInfoSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update account profile links
+      tags:
+      - auth-account
+  /auth/account/settings:
+    get:
+      description: '**Full route:** `GET /api/v0/auth/account/settings`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthUserSettingsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get account settings
+      tags:
+      - auth-account
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/auth/account/settings`'
+      parameters:
+      - description: Settings patch
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.SetAuthUserSettingsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthUserSettingsSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update account settings
+      tags:
+      - auth-account
+  /auth/developer-access:
+    get:
+      description: '**Full route:** `GET /api/v0/auth/developer-access`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.UserDeveloperAccessSwaggerItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List developer access to my account
+      tags:
+      - auth-account
+  /auth/developer-access/{clientId}/history:
+    get:
+      description: '**Full route:** `GET /api/v0/auth/developer-access/{clientId}/history`'
+      parameters:
+      - description: OAuth client ID
+        in: path
+        name: clientId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.UserDeveloperAccessHistorySwaggerItem'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Developer access history
+      tags:
+      - auth-account
+  /auth/developer-access/{clientId}/revoke:
+    delete:
+      description: '**Full route:** `DELETE /api/v0/auth/developer-access/{clientId}/revoke`'
+      parameters:
+      - description: OAuth client ID
+        in: path
+        name: clientId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Revoke developer access
+      tags:
+      - auth-account
+  /auth/google-backup:
+    get:
+      description: '**Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code
+        (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP). If email exists,
+        logs in; otherwise registers. Returns JSON with `action`, `onboarding`, and
+        `google_backup`. Sets session cookie.'
+      parameters:
+      - description: Fresh Google OAuth code (single-use)
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: OAuth state (UTM / verifier payload)
+        in: query
+        name: state
+        type: string
+      - description: When true, inserts CRM lead in Zoho
+        in: query
+        name: zoho-insert
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Set-Cookie: _tokenKey'
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAuthSuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAuthError'
+      summary: Google Backup auth (register or login)
+      tags:
+      - google-backup-onboarding
+  /auth/mfa/disable:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/mfa/disable`'
+      parameters:
+      - description: Passcode or recovery code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MFADisableSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Disable MFA
+      tags:
+      - auth-account
+  /auth/mfa/enable:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/mfa/enable`'
+      parameters:
+      - description: TOTP passcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MFAEnableSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Enable MFA
+      tags:
+      - auth-account
+  /auth/mfa/generate-recovery-codes:
+    post:
+      description: '**Full route:** `POST /api/v0/auth/mfa/generate-recovery-codes`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Generate MFA recovery codes
+      tags:
+      - auth-account
+  /auth/mfa/generate-secret-key:
+    post:
+      description: '**Full route:** `POST /api/v0/auth/mfa/generate-secret-key`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: TOTP secret key string
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Generate MFA secret key
+      tags:
+      - auth-account
+  /auth/mfa/regenerate-recovery-codes:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/mfa/regenerate-recovery-codes`'
+      parameters:
+      - description: Passcode or recovery code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MFARegenerateRecoveryCodesSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Regenerate MFA recovery codes
+      tags:
+      - auth-account
+  /auth/refresh-session:
+    post:
+      description: '**Full route:** `POST /api/v0/auth/refresh-session`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New session expiresAt (RFC3339)
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Refresh login session
+      tags:
+      - auth-account
+  /blog-list:
+    get:
+      description: '**Full route:** `GET /blog-list` (server root, not under `/api/v0`).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/staticapi.StaticBlogItemSwagger'
+            type: array
+      summary: List featured blogs
+      tags:
+      - static-api
+  /buckets/check-upload:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/buckets/check-upload`'
+      parameters:
+      - description: project_id, operation, optional file_size
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.CheckUploadSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.CheckUploadSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Check storage and bandwidth quota (popup)
+      tags:
+      - buckets-quota-check
+  /buckets/usage-totals:
+    get:
+      description: '**Full route:** `GET /api/v0/buckets/usage-totals`'
+      parameters:
+      - description: Project public UUID
+        in: query
+        name: projectID
+        required: true
+        type: string
+      - description: Range end (2006-01-02T15:04:05.999Z)
+        in: query
+        name: before
+        required: true
+        type: string
+      - description: Page size
+        example: 10
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - description: Page number (1-based)
+        example: 1
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: Bucket name filter
+        in: query
+        name: search
+        type: string
+      - description: Range start (2006-01-02T15:04:05.999Z)
+        in: query
+        name: since
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BucketUsageTotalsPageSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Paginated bucket usage totals
+      tags:
+      - buckets
+  /buckets/usage-totals-for-reserved:
+    get:
+      description: '**Full route:** `GET /api/v0/buckets/usage-totals-for-reserved`'
+      parameters:
+      - description: Project UUID
+        in: query
+        name: projectID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.ReservedBucketUsageItem'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Reserved vault usage totals
+      tags:
+      - buckets-reserved-usage
+  /config:
+    get:
+      description: '**Full route:** `GET /api/v0/config`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleweb.FrontendConfig'
+        "500":
+          description: Internal Server Error
+      summary: Get frontend satellite configuration
+      tags:
+      - config
+  /dashboard/stats:
+    get:
+      description: '**Full route:** `GET /api/v0/dashboard/stats`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.DashboardStatsCardSwaggerResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Dashboard stats cards
+      tags:
+      - dashboard
+  /fcm-token:
+    get:
+      description: '**Full route:** `GET /api/v0/fcm-token`. Settings → Push devices.
+        Returns all FCM token records for the logged-in user (active and inactive).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.FCMTokenSwaggerResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List FCM device tokens
+      tags:
+      - settings-fcm
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/fcm-token`. Settings → Push devices.
+        Registers the device FCM token for the logged-in user. If the same `token`
+        string already exists, metadata is updated and `200` semantics apply (existing
+        record returned). `ip_address` is derived from `X-Forwarded-For`, `X-Real-IP`,
+        or `RemoteAddr` — do not send from client.'
+      parameters:
+      - description: FCM token and optional device metadata
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.RegisterFCMTokenSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/consoleapi.FCMTokenSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Register FCM device token
+      tags:
+      - settings-fcm
+  /fcm-token/{tokenId}:
+    delete:
+      description: '**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`. Settings
+        → Push devices. Permanently removes a token record owned by the current user.'
+      parameters:
+      - description: FCM token record UUID
+        in: path
+        name: tokenId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.SettingsMessageSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete FCM device token
+      tags:
+      - settings-fcm
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/fcm-token/{tokenId}`. Settings →
+        Push devices. Updates metadata or `isActive` for a token owned by the current
+        user. All body fields are optional; send only fields to change.'
+      parameters:
+      - description: FCM token record UUID
+        in: path
+        name: tokenId
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateFCMTokenSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.SettingsMessageSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update FCM device token
+      tags:
+      - settings-fcm
+  /google-backup/auto-sync/jobs:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies
+        Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter`
+        query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service
+        dropdown → `method` (gmail, google_drive, google_photos, google_calendar,
+        google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running
+        → `status` (success, failed, in_progress, in_queue, created — last run, not
+        same as active); Search bar → `name` (partial email). No `search` param on
+        job list — use `filter.name`. Mailbox/domain search → `GET .../users-groups?search=...`.
+        See `GET .../auto-sync/jobs/filter-schema` for examples.'
+      parameters:
+      - description: URL-encoded AutosyncJobListFilter JSON. See definitions and GET
+          .../auto-sync/jobs/filter-schema for four examples.
+        example: '%7B%22method%22%3A%22gmail%22%2C%22active%22%3Atrue%2C%22status%22%3A%22failed%22%7D'
+        in: query
+        name: filter
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Google Backup auto-sync jobs
+      tags:
+      - google-backup
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite
+        enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`.
+        Omits `interval`/`on` when `policy_id` is set; schedule validation is handled
+        by Backup-Tools. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.'
+      parameters:
+      - description: Backup-Tools sync type (default daily)
+        in: query
+        name: sync_type
+        type: string
+      - description: Job create request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create Google Backup auto-sync jobs
+      tags:
+      - google-backup
+  /google-backup/auto-sync/jobs/{job_id}:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`.
+        Proxies Backup-Tools `GET /auto-sync/job/{job_id}` with session `token_key`.
+        Job is in `success[0]`.'
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get Google Backup auto-sync job
+      tags:
+      - google-backup
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/{job_id}`.
+        Proxies Backup-Tools `PUT /auto-sync/job/{job_id}` with body `{ "active":
+        true|false }` only.'
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      - description: Active toggle
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Toggle Google Backup auto-sync job active
+      tags:
+      - google-backup
+  /google-backup/auto-sync/jobs/filter-schema:
+    get:
+      description: '**Not a live route.** Documents `AutosyncJobListFilter` and four
+        filter examples for `GET /api/v0/google-backup/auto-sync/jobs?filter=` (URL-encoded
+        JSON). UI: method=Service dropdown; active=on/off toggle; status=last run
+        result; name=search bar (partial email).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobListFilterExamples'
+      summary: Auto-sync job list filter schema
+      tags:
+      - google-backup
+  /google-backup/auto-sync/jobs/project:
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/project`'
+      parameters:
+      - description: Project-scoped update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update Google Backup jobs by project
+      tags:
+      - google-backup
+  /google-backup/auto-sync/jobs/services:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/jobs/services`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Google Backup auto-sync service stats
+      tags:
+      - google-backup
+  /google-backup/auto-sync/live:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/auto-sync/live`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Live auto-sync backup progress
+      tags:
+      - google-backup-autosync-live
+  /google-backup/auto-sync/policy:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List backup policies
+      tags:
+      - google-backup-policy
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Omit job_ids for empty policy; set job_ids for split or move-to-new
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create backup policy
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/policy/{policy_id}:
+    delete:
+      parameters:
+      - description: Policy ID (linked_job_count must be 0)
+        in: path
+        name: policy_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete empty backup policy
+      tags:
+      - google-backup-policy
+    get:
+      parameters:
+      - description: Policy ID
+        in: path
+        name: policy_id
+        required: true
+        type: string
+      - description: Filter linked_jobs by email, name, method, or service label.
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get backup policy details
+      tags:
+      - google-backup-policy
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Policy ID
+        in: path
+        name: policy_id
+        required: true
+        type: string
+      - description: interval, on, retention_type
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update backup policy schedule
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/policy/available-assignments:
+    get:
+      parameters:
+      - description: Target policy ID.
+        in: query
+        name: policy_id
+        required: true
+        type: string
+      - description: Step 1 — filter mailbox name or email.
+        in: query
+        name: search
+        type: string
+      - description: Step 2 — return services for this mailbox.
+        in: query
+        name: email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List available assignments for Add Email modal
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/policy/merge:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Complete policy_ids from one preview group plus new policy name
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Merge duplicate policies into a new policy
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/policy/merge/preview:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Preview duplicate policy merge
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/policy/move:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: target_policy_id and job_ids
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Move job assignments to a policy
+      tags:
+      - google-backup-policy
+  /google-backup/auto-sync/policy/options:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List policy options for move picker
+      tags:
+      - google-backup-policy
+  /google-backup/backup-restore/logs:
+    get:
+      parameters:
+      - description: 'Comma-separated: backup, restore, or both (default backup,restore).'
+        in: query
+        name: types
+        type: string
+      - description: Partial match on subject or message.
+        in: query
+        name: search
+        type: string
+      - description: 'Exact service filter: gmail, google_drive, google_photos, google_contacts,
+          google_calendar.'
+        in: query
+        name: method
+        type: string
+      - description: info, warning, or error.
+        in: query
+        name: message_status
+        type: string
+      - description: Page size on merged list (default 10, max 100).
+        in: query
+        name: limit
+        type: integer
+      - description: Rows to skip (default 0).
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List backup and restore logs
+      tags:
+      - google-backup-logs
+  /google-backup/connect:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/google-backup/connect`. Body: Google
+        OAuth `code` (login redirect_uri). Returns scopes metadata. Tokens stored
+        server-side only.'
+      parameters:
+      - description: OAuth authorization code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupConnectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupConnectSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Connect Google account for backup
+      tags:
+      - google-backup
+  /google-backup/domain-users:
+    get:
+      description: '**Route:** `GET /api/v0/google-backup/domain-users`. Workspace
+        mailboxes for corporate Gmail. Optional `google_email` query.'
+      parameters:
+      - description: 'Google account email (default: latest credential for user)'
+        in: query
+        name: google_email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupDomainUsersSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Gmail corporate domain-users
+      tags:
+      - google-backup
+  /google-backup/google-auth:
+    post:
+      consumes:
+      - application/json
+      description: Proxies Backup-Tools POST /google-auth. Call before restore-all
+        or manual restore. Pass Google OAuth id_token or access_token as google_key.
+      parameters:
+      - description: Google OAuth token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupAuthSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAuthSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Exchange Google token for Backup-Tools auth JWT
+      tags:
+      - google-backup-auth
+  /google-backup/google/gmail/insert-mail:
+    post:
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/gmail/insert-mail. Single or
+        multiple items (max 10 per request): send base64 vault keys in body `keys`
+        or `ids` (from GET /google-backup/backup-restore/logs). Call POST /google-backup/google-auth
+        first. `Authorization` header = Backup-Tools JWT. Session cookie → `token_key`.
+        No `ACCESS_TOKEN` (StorX from DB).'
+      parameters:
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 'Vault keys: one item in array for single restore, up to 10 for
+          batch'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Gmail messages
+      tags:
+      - google-backup-restore-manual
+  /google-backup/google/satellite-to-calendar:
+    post:
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/satellite-to-calendar. Single
+        or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools
+        JWT. No ACCESS_TOKEN.'
+      parameters:
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Vault keys (1–10)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Google Calendar
+      tags:
+      - google-backup-restore-manual
+  /google-backup/google/satellite-to-contacts:
+    post:
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/satellite-to-contacts. Single
+        or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools
+        JWT. No ACCESS_TOKEN.'
+      parameters:
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Vault keys (1–10)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Google Contacts
+      tags:
+      - google-backup-restore-manual
+  /google-backup/google/satellite-to-drive:
+    post:
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/satellite-to-drive. Single or
+        multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools
+        JWT. No ACCESS_TOKEN.'
+      parameters:
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Vault keys (1–10)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Google Drive
+      tags:
+      - google-backup-restore-manual
+  /google-backup/google/satellite-to-photos:
+    post:
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: 'Proxies Backup-Tools POST /google/satellite-to-photos. Single
+        or multiple items (max 10): body `keys` or `ids`. Authorization = Backup-Tools
+        JWT. No ACCESS_TOKEN.'
+      parameters:
+      - description: Backup-Tools JWT from POST /google-backup/google-auth
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Vault keys (1–10)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Manual restore Google Photos
+      tags:
+      - google-backup-restore-manual
+  /google-backup/restore/all:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/google-backup/restore/all`'
+      parameters:
+      - description: Restore-all request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupRestoreAllSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/consoleapi.RestoreAllQueuedSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/consoleapi.RestorePrepareSwaggerResponse'
+      security:
+      - CookieAuth: []
+      summary: Start restore-all job
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/job/{job_id}:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/restore/job/{job_id}`'
+      parameters:
+      - description: Restore job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.RestoreJobDetailSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get restore job status
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/job/{job_id}/cancel:
+    post:
+      description: '**Full route:** `POST /api/v0/google-backup/restore/job/{job_id}/cancel`'
+      parameters:
+      - description: Restore job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.RestoreCancelSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Cancel restore job
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/job/{job_id}/dead-items:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/restore/job/{job_id}/dead-items`'
+      parameters:
+      - description: Restore job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.RestoreDeadItemsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List restore dead-letter items
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/jobs:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/restore/jobs`'
+      parameters:
+      - description: 'UI service filter: gmail, drive, photos, calendar, contacts'
+        in: query
+        name: service
+        type: string
+      - description: Internal method alias (google_drive, etc.)
+        in: query
+        name: method
+        type: string
+      - description: queued, running, completed, partial_completed, failed, cancelled
+        in: query
+        name: status
+        type: string
+      - description: Partial match on login_id
+        in: query
+        name: search
+        type: string
+      - description: Alias for search (partial login_id)
+        in: query
+        name: email
+        type: string
+      - description: Created-at range start (YYYY-MM-DD or RFC3339)
+        in: query
+        name: from_time
+        type: string
+      - description: Created-at range end (YYYY-MM-DD end-of-day or RFC3339)
+        in: query
+        name: to_time
+        type: string
+      - description: Max jobs (default 20, max 100)
+        in: query
+        name: limit
+        type: string
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.RestoreJobListSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List restore job history
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/live:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/restore/live`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.RestoreLiveSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List active restore jobs
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/prepare:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/restore/prepare`'
+      parameters:
+      - description: Storj/Satellite project public UUID
+        in: query
+        name: project_id
+        required: true
+        type: string
+      - description: Mailbox email (same as policy UI)
+        in: query
+        name: login_id
+        required: true
+        type: string
+      - description: gmail, drive, photos, calendar, or contacts
+        in: query
+        name: service
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.RestorePrepareSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Pre-flight restore-all check
+      tags:
+      - google-backup-restore-cron
+  /google-backup/users-groups:
+    get:
+      parameters:
+      - description: Filter by domain.
+        in: query
+        name: domain
+        type: string
+      - description: Partial match on mailbox email.
+        in: query
+        name: search
+        type: string
+      - description: gmail, google_drive, google_photos, google_contacts, google_calendar,
+          all, all_services.
+        in: query
+        name: method
+        type: string
+      - description: corporate, individual, all, all_types.
+        in: query
+        name: account_type
+        type: string
+      - description: healthy, re_auth_required, all, all_statuses.
+        in: query
+        name: credential_status
+        type: string
+      - description: Page size (default 10).
+        in: query
+        name: limit
+        type: integer
+      - description: Rows to skip (default 0).
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Users & Groups mailboxes
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/dashboard-alerts:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/users-groups/dashboard-alerts`.
+        Proxies Backup-Tools `GET /autosync/dashboard-alerts` with session `token_key`.
+        UI mapping: Auth Errors → `re_auth_required`; Paused Backups → `paused_backups`;
+        New Mailboxes (24h) → `new_connected_accounts_24h`. Review links: re-auth
+        → `GET .../users-groups?credential_status=re_auth_required`; paused → `GET
+        .../users-groups?active=false`; new → sort by `connected_at` on users-groups
+        list.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Dashboard alert cards
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/domains:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Users & Groups domains
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/jobs/active:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: job_ids from list entities[].services[].job_id
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Bulk pause or resume jobs
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/mailbox/credentials:
+    get:
+      parameters:
+      - description: Mailbox email.
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mailbox credentials tab
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/mailbox/overview:
+    get:
+      parameters:
+      - description: Mailbox email.
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mailbox overview tab
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/mailbox/schedule:
+    get:
+      parameters:
+      - description: Mailbox email.
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mailbox schedule tab
+      tags:
+      - google-backup-users-groups
+  /google-backup/users-groups/mailbox/services:
+    get:
+      parameters:
+      - description: Mailbox email.
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mailbox services tab
+      tags:
+      - google-backup-users-groups
+  /guides:
+    get:
+      description: '**Full route:** `GET /guides` (server root, not under `/api/v0`).'
+      parameters:
+      - description: Guide identifier
+        enum:
+        - usage-guideline
+        - google-backup
+        - microsoft-backup
+        - corporate-mail-backup
+        - signup
+        in: query
+        name: type
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML guide page
+          schema:
+            type: string
+        "404":
+          description: Guide not found
+          schema:
+            type: string
+        "405":
+          description: Method Not Allowed
+          schema:
+            type: string
+      summary: Get documentation guide
+      tags:
+      - static-api
+  /notifications:
+    get:
+      description: '**Full route:** `GET /api/v0/notifications`'
+      parameters:
+      - default: 50
+        description: Page size (default 50)
+        in: query
+        name: limit
+        type: integer
+      - default: 1
+        description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: 'Filter: unread'
+        in: query
+        name: filter
+        type: string
+      - description: 'Time window: 1d, 7d, 15d, 1m, 6m, 1y'
+        in: query
+        name: timeFilter
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.NotificationListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List notifications
+      tags:
+      - notifications
+  /notifications/{id}:
+    get:
+      description: '**Full route:** `GET /api/v0/notifications/{id}`'
+      parameters:
+      - description: Notification UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.NotificationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get notification detail
+      tags:
+      - notifications
+  /notifications/{id}/dismiss:
+    put:
+      description: '**Full route:** `PUT /api/v0/notifications/{id}/dismiss`'
+      parameters:
+      - description: Notification UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Dismiss notification
+      tags:
+      - notifications
+  /notifications/count:
+    get:
+      description: '**Full route:** `GET /api/v0/notifications/count`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.UnreadCountResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Unread notification count
+      tags:
+      - notifications
+  /notifications/read-all:
+    put:
+      description: '**Full route:** `PUT /api/v0/notifications/read-all`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Mark all notifications read
+      tags:
+      - notifications
+  /payment-plans:
+    get:
+      description: '**Full route:** `GET /payment-plans` (server root, not under `/api/v0`).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.PaymentPlansSwaggerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      summary: List payment plans
+      tags:
+      - payments
+  /payments/coupons:
+    get:
+      description: Returns all currently active billing coupons (valid within their
+        valid_from / valid_to window).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.PaymentCouponSwaggerItem'
+            type: array
+        "404":
+          description: No coupons found
+          schema:
+            type: string
+        "500":
+          description: Failed to get coupons
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: List active coupons
+      tags:
+      - payments
+  /payments/generate-payment-link:
+    post:
+      consumes:
+      - application/json
+      description: Creates a payment gateway checkout session for the selected plan
+        and crypto mode (`SRX`, `XDC`, or `USDT`). Optional `couponCode` applies a
+        discount when valid. Returns a `redirectURL` for the client to open.
+      parameters:
+      - description: Plan, crypto mode, and optional coupon
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.GeneratePaymentLinkSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GeneratePaymentLinkSwaggerResponse'
+        "400":
+          description: Invalid request or coupon
+          schema:
+            type: string
+        "500":
+          description: Server or gateway error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Generate payment link
+      tags:
+      - payments
+  /payments/invoice-history:
+    get:
+      description: Returns billing transactions for the logged-in user. Supports cursor
+        pagination via `starting_after` or `ending_before` (transaction `ID`) and
+        an optional `limit` page size.
+      parameters:
+      - description: Max items to return (default slice size when no cursor)
+        in: query
+        name: limit
+        type: integer
+      - description: Return transactions after this transaction ID
+        in: query
+        name: starting_after
+        type: integer
+      - description: Return transactions before this transaction ID
+        in: query
+        name: ending_before
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.PaymentInvoiceHistoryItemSwagger'
+            type: array
+        "500":
+          description: Failed to load billing history
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Invoice / billing history
+      tags:
+      - payments
+  /projects:
+    get:
+      description: '**Full route:** `GET /api/v0/projects`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.ProjectInfoSwaggerItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List my projects
+      tags:
+      - projects
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/projects`'
+      parameters:
+      - description: Project name and optional limits
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpsertProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectInfoSwaggerItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create project
+      tags:
+      - projects
+  /projects/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: '**Full route:** `DELETE /api/v0/projects/{id}`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Deletion step payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.DeleteProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.DeleteProjectSwaggerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete project (multi-step)
+      tags:
+      - projects
+    patch:
+      consumes:
+      - application/json
+      description: '**Full route:** `PATCH /api/v0/projects/{id}`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpsertProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update project
+      tags:
+      - projects
+  /projects/{id}/config:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/config`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectConfigSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Project config for S3 credentials and vault setup
+      tags:
+      - projects-s3-vault-setup
+  /projects/{id}/daily-usage:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/daily-usage`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Range start (Unix seconds)
+        in: query
+        name: from
+        required: true
+        type: integer
+      - description: Range end (Unix seconds)
+        in: query
+        name: to
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectDailyUsageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Project daily storage and bandwidth usage
+      tags:
+      - projects-daily-usage
+  /projects/{id}/salt:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/salt`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Base64-encoded salt
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get project encryption salt
+      tags:
+      - projects
+  /projects/{id}/usage-limits:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/usage-limits`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectUsageLimitsSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Project usage and limits
+      tags:
+      - projects
+  /projects/invitations:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/invitations`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.UserProjectInvitationSwaggerItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List my pending project invitations
+      tags:
+      - projects
+  /projects/invitations/{id}/respond:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/projects/invitations/{id}/respond`'
+      parameters:
+      - description: Project public UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Accept or decline
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.RespondToProjectInvitationSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Accept or decline a project invitation
+      tags:
+      - projects
+  /resources-list:
+    get:
+      description: '**Full route:** `GET /resources-list` (server root, not under
+        `/api/v0`).'
+      parameters:
+      - description: If true, returns app-specific resources (app-resources.json)
+        in: query
+        name: app
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/staticapi.StaticResourceItemSwagger'
+            type: array
+      summary: List help resources
+      tags:
+      - static-api
+  /user-guideline-for-app:
+    get:
+      description: '**Full route:** `GET /user-guideline-for-app` (server root, not
+        under `/api/v0`).'
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML usage guideline page
+          schema:
+            type: string
+      summary: Mobile app usage guideline
+      tags:
+      - static-api
+  /user/notification-preferences:
+    get:
+      description: '**Full route:** `GET /api/v0/user/notification-preferences`. Settings
+        → Notification preferences. Returns a JSON **array** with zero or one global
+        preference row. Each row `Preferences` map uses keys `push`, `email`, `sms`
+        with minimum priority levels 1–4 (marketing, info, warning, critical).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.UserNotificationPreferenceSwagger'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get notification preferences
+      tags:
+      - settings-notification-preferences
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/user/notification-preferences`. Settings
+        → Notification preferences. Upserts global channel thresholds applied to all
+        notifications. `preferences` may include any of `push`, `email`, `sms` — each
+        value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical
+        (string names `marketing`/`info`/`warning`/`critical` also accepted). Returns
+        `201` on create, `200` on update.'
+      parameters:
+      - description: Global channel preferences
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpsertUserNotificationPreferenceSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.UserNotificationPreferenceSwagger'
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/consoleapi.UserNotificationPreferenceSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create or update notification preference
+      tags:
+      - settings-notification-preferences
+  /v1/access:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /v1/access` (server root on the StorX auth
+        host, e.g. `https://storx.io/v1/access`).'
+      parameters:
+      - description: Access grant and visibility
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.V1AccessCreateSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.V1AccessCreateSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      summary: Exchange access grant for S3 credentials
+      tags:
+      - access
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+  CookieAuth:
+    in: cookie
+    name: _tokenKey
+    type: apiKey
 swagger: "2.0"
+tags:
+- description: 'Project management: invitations, members, usage, and project CRUD'
+  name: projects
+- description: 'Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage
+    — daily storageUsage and settledBandwidthUsage (bytes per day) for charts'
+  name: projects-daily-usage
+- description: 'S3 credentials & vault setup: GET /api/v0/projects/{id}/config — salt,
+    passphrase, role, placements, and feature flags for access-grant / vault flows
+    in the frontend'
+  name: projects-s3-vault-setup
+- description: 'S3 credentials & vault setup: DELETE /api/v0/api-keys/delete-by-name
+    — remove an API key by name and project when revoking S3 credentials from the
+    frontend vault flow'
+  name: api-keys-s3-vault-setup
+- description: 'Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved,
+    and bucket APIs'
+  name: buckets
+- description: 'Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved
+    — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)'
+  name: buckets-reserved-usage
+- description: 'Storage & bandwidth quota popup: POST /api/v0/buckets/check-upload
+    — usage percents, allow_upload/download, popup_show + message (login, upload,
+    download). Same usage data as dashboard quota cards.'
+  name: buckets-quota-check
+- description: API key management operations
+  name: api-keys
+- description: 'Payment and billing: GET /payment-plans (server root), GET /api/v0/payments/coupons,
+    POST /api/v0/payments/generate-payment-link, GET /api/v0/payments/invoice-history'
+  name: payments
+- description: Analytics operations
+  name: analytics
+- description: 'Google Backup combined auth: `GET /auth/google-backup` (register or
+    login by email). Returns `action`, `onboarding` block, and `google_backup`. OAuth
+    redirect = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`.'
+  name: google-backup-onboarding
+- description: Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs`
+    sets onboarding complete on success.
+  name: google-backup
+- description: 'Live backup progress poll: GET /api/v0/google-backup/auto-sync/live
+    → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not
+    `/autosync/live`.'
+  name: google-backup-autosync-live
+- description: GET /google-backup/users-groups/*
+  name: google-backup-users-groups
+- description: 'Google Backup shared policies: schedule, retention, merge (Backup-Tools
+    /auto-sync/policy/*)'
+  name: google-backup-policy
+- description: 'Google Backup authentication: POST /google-backup/google-auth (Backup-Tools
+    google-auth JWT)'
+  name: google-backup-auth
+- description: 'Google Backup manual restore: POST /google-backup/google/* (1–10 vault
+    keys per request; same body for single or multiple items). Authorization header
+    = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX
+    from DB). Session cookie required.'
+  name: google-backup-restore-manual
+- description: 'Google Backup restore-all scheduler: GET /restore/prepare (flat),
+    POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live
+    use {message,success,failed} envelope). UI service param (gmail,drive,...) maps
+    to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect
+    or PUT /auto-sync/jobs/project.'
+  name: google-backup-restore-cron
+- description: GET /google-backup/backup-restore/logs
+  name: google-backup-logs
+- description: 'Account & session: profile, settings, refresh-session, developer-access,
+    MFA'
+  name: auth-account
+- description: 'Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token`
+    (session cookie). IP address is set server-side.'
+  name: settings-fcm
+- description: 'Settings → Notification preferences: global channel thresholds at
+    `/api/v0/user/notification-preferences` (push, email, sms minimum priority levels
+    applied to all notifications).'
+  name: settings-notification-preferences
+- description: 'Access management: GET /api/v0/api-keys/list-paged (paginated keys),
+    POST /v1/access (exchange access grant for S3 credentials on auth host)'
+  name: access
+- description: 'In-app notifications: GET/PUT /api/v0/notifications (list, count,
+    detail, dismiss, read-all)'
+  name: notifications
+- description: 'Public console bootstrap config: GET /api/v0/config (feature flags,
+    API base URL, CSRF token, billing/UI toggles)'
+  name: config
+- description: 'System audit logs: GET /api/v0/audit-logs (list with filters), GET
+    /api/v0/audit-logs/actions (filter dropdown), GET /api/v0/audit-logs/export (CSV)'
+  name: audit-logs
+- description: 'Public static content at server root (not under /api/v0): GET /resources-list,
+    /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0
+    — use the host root path when calling.'
+  name: static-api

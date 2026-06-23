@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
@@ -71,6 +72,12 @@ type DB interface {
 	Domains() Domains
 	// Entitlements is a getter for Entitlements repository.
 	Entitlements() entitlements.DB
+
+	// GoogleBackupCredentials is a getter for Google backup OAuth credentials.
+	GoogleBackupCredentials() GoogleBackupCredentials
+
+	// AuditLogs is a getter for audit log records.
+	AuditLogs() auditlog.DB
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

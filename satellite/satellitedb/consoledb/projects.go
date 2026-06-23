@@ -303,6 +303,9 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if project.PassphraseEncKeyID != nil {
 		createFields.PassphraseEncKeyId = dbx.Project_PassphraseEncKeyId(*project.PassphraseEncKeyID)
 	}
+	if project.PathEncryption != nil {
+		createFields.PathEncryption = dbx.Project_PathEncryption(*project.PathEncryption)
+	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])

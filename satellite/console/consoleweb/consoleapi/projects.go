@@ -70,6 +70,18 @@ func NewProjects(log *zap.Logger, service *console.Service) *Projects {
 }
 
 // GetUserProjects returns the user's projects.
+//
+// @Summary      List my projects
+// @Description  **Full route:** `GET /api/v0/projects`
+//
+// Returns all projects the authenticated user owns or is a member of.
+// @Tags         projects
+// @Produce      json
+// @Success      200  {array}   ProjectInfoSwaggerItem
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects [get]
 func (p *Projects) GetUserProjects(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -100,6 +112,20 @@ func (p *Projects) GetUserProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateProject handles updating projects.
+//
+// @Summary      Update project
+// @Description  **Full route:** `PATCH /api/v0/projects/{id}`
+// @Tags         projects
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project public UUID"
+// @Param        body  body  UpsertProjectSwaggerRequest  true  "Fields to update"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id} [patch]
 func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -128,6 +154,7 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = p.service.UpdateProject(ctx, id, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_UPDATE", "Project", "Project updated", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -144,6 +171,23 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteProject handles deleting projects.
+//
+// @Summary      Delete project (multi-step)
+// @Description  **Full route:** `DELETE /api/v0/projects/{id}`
+//
+// Multi-step deletion flow via `step` and `data` in the JSON body. Returns 409 with blockers when the project cannot be deleted yet.
+// @Tags         projects
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project public UUID"
+// @Param        body  body  DeleteProjectSwaggerRequest  true  "Deletion step payload"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      409   {object}  DeleteProjectSwaggerResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id} [delete]
 func (p *Projects) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -181,6 +225,7 @@ func (p *Projects) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := p.service.DeleteProject(ctx, id, data.Step, data.Data)
+	p.service.RecordUserAudit(ctx, "PROJECT_DELETE", "Project", "Project deleted", err)
 	if err != nil {
 		if resp != nil {
 			w.WriteHeader(http.StatusConflict)
@@ -227,6 +272,7 @@ func (p *Projects) UpdateUserSpecifiedLimits(w http.ResponseWriter, r *http.Requ
 	}
 
 	err = p.service.UpdateUserSpecifiedLimits(ctx, id, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_LIMITS_UPDATE", "Project limits", "Project limits updated", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -284,6 +330,7 @@ func (p *Projects) RequestLimitIncrease(w http.ResponseWriter, r *http.Request) 
 	}
 
 	err = p.service.RequestLimitIncrease(ctx, id, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_LIMIT_INCREASE", "Project", "Project limit increase requested", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -295,6 +342,20 @@ func (p *Projects) RequestLimitIncrease(w http.ResponseWriter, r *http.Request) 
 }
 
 // CreateProject handles creating projects.
+//
+// @Summary      Create project
+// @Description  **Full route:** `POST /api/v0/projects`
+// @Tags         projects
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UpsertProjectSwaggerRequest  true  "Project name and optional limits"
+// @Success      201   {object}  ProjectInfoSwaggerItem
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      403   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects [post]
 func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -309,6 +370,7 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	project, err := p.service.CreateProject(ctx, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_CREATE", "Project", "Project created", err)
 	if err != nil {
 		if console.ErrBotUser.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusForbidden, err)
@@ -322,6 +384,11 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 		if console.ErrValidation.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
+		if console.ErrConflict.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusConflict, err)
 			return
 		}
 
@@ -516,6 +583,7 @@ func (p *Projects) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updatedMember, err := p.service.UpdateProjectMemberRole(ctx, memberID, publicID, newRole)
+	p.service.RecordUserAudit(ctx, "PROJECT_MEMBER_UPDATE", "Project member", "Project member updated", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -615,6 +683,20 @@ func (p *Projects) GetMember(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetSalt returns the project's salt.
+//
+// @Summary      Get project encryption salt
+// @Description  **Full route:** `GET /api/v0/projects/{id}/salt`
+//
+// Returns the project salt as a base64-encoded string (used for access grant / encryption setup).
+// @Tags         projects
+// @Produce      json
+// @Param        id  path  string  true  "Project public UUID"
+// @Success      200  {string}  string  "Base64-encoded salt"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/salt [get]
 func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -684,6 +766,30 @@ func (p *Projects) GetEmissionImpact(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetConfig returns config specific to a project.
+//
+// @Summary      Project config for S3 credentials and vault setup
+// @Description  **Full route:** `GET /api/v0/projects/{id}/config`
+//
+// Returns project-scoped settings used by the frontend when creating access grants, S3 credentials, and vault setup flows.
+//
+// **Response fields:**
+// - `salt` — base64-encoded project salt (also available via `GET /projects/{id}/salt`).
+// - `passphrase` — managed-encryption passphrase when enabled (empty otherwise).
+// - `hasManagedPassphrase`, `encryptPath` — encryption mode flags for the UI.
+// - `role` — caller's project role (`0` = admin, `1` = member).
+// - `isOwnerPaidTier`, `hasPaidPrivileges` — billing / feature gating for the project owner.
+// - `availablePlacements` — placement options for bucket / vault creation.
+// - `computeAuthToken` — present for project admins when compute UI is enabled.
+// - `eventingEnabled` — whether bucket eventing is enabled for this project.
+// @Tags         projects-s3-vault-setup
+// @Produce      json
+// @Param        id  path  string  true  "Project public UUID"
+// @Success      200  {object}  ProjectConfigSwaggerResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/config [get]
 func (p *Projects) GetConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -784,6 +890,7 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = p.service.InviteNewProjectMember(ctx, id, email)
+	p.service.RecordUserAudit(ctx, "PROJECT_INVITE", "Project member", "Project member invited", err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
@@ -826,6 +933,7 @@ func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = p.service.ReinviteProjectMembers(ctx, id, data.Emails)
+	p.service.RecordUserAudit(ctx, "PROJECT_REINVITE", "Project member", "Project members reinvited", err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
@@ -880,6 +988,18 @@ func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserInvitations returns the user's pending project member invitations.
+//
+// @Summary      List my pending project invitations
+// @Description  **Full route:** `GET /api/v0/projects/invitations`
+//
+// Returns project invitations for the authenticated user (project name, description, inviter email, createdAt).
+// @Tags         projects
+// @Produce      json
+// @Success      200  {array}   UserProjectInvitationSwaggerItem
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/invitations [get]
 func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -936,6 +1056,24 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 }
 
 // RespondToInvitation handles accepting or declining a user's project member invitation.
+//
+// @Summary      Accept or decline a project invitation
+// @Description  **Full route:** `POST /api/v0/projects/invitations/{id}/respond`
+//
+// Path `id` is the project public UUID. Body `response`: `0` = decline, `1` = accept.
+// @Tags         projects
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project public UUID"
+// @Param        body  body  RespondToProjectInvitationSwaggerRequest  true  "Accept or decline"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      403   {object}  SwaggerErrorResponse
+// @Failure      404   {object}  SwaggerErrorResponse
+// @Failure      409   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/invitations/{id}/respond [post]
 func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -966,6 +1104,7 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = p.service.RespondToProjectInvitation(ctx, id, payload.Response)
+	p.service.RecordUserAudit(ctx, "PROJECT_INVITATION_RESPOND", "Project invitation", "Project invitation responded", err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		switch {
@@ -1011,6 +1150,7 @@ func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Re
 	}
 
 	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, payload)
+	p.service.RecordUserAudit(ctx, "PROJECT_MEMBERS_DELETE", "Project members", "Project members removed", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)

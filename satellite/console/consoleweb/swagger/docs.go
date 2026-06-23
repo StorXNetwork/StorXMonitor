@@ -9,22 +9,8699 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "http://www.swagger.io/support",
+            "email": "support@swagger.io"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
-    "paths": {}
+    "paths": {
+        "/api-keys/delete-by-name": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/api-keys/delete-by-name` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-keys-s3-vault-setup"
+                ],
+                "summary": "Delete API key by name (S3 credentials / vault setup)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API key display name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Project internal UUID (use this or publicID)",
+                        "name": "projectID",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Project public UUID (use this or projectID)",
+                        "name": "publicID",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "API key deleted"
+                    },
+                    "204": {
+                        "description": "API key not found"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api-keys/list-paged": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/api-keys/list-paged` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "access"
+                ],
+                "summary": "List API keys (paginated)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "projectID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Sort field: 1=name, 2=created, 3=creator email",
+                        "name": "order",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Sort direction",
+                        "name": "orderDirection",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name search filter",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.APIKeysListPagedSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/audit-logs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/audit-logs` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audit-logs"
+                ],
+                "summary": "List audit logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by action code (e.g. AUTH_LOGIN)",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "success",
+                            "failed"
+                        ],
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search action, resource, message, or record id",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-06-01T00:00:00Z",
+                        "description": "Range start (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-06-02T23:59:59Z",
+                        "description": "Range end (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor from previous response NextCursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuditLogListSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/audit-logs/actions": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/audit-logs/actions` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audit-logs"
+                ],
+                "summary": "List audit log action codes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuditLogActionsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/audit-logs/export": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/audit-logs/export` + "`" + `",
+                "produces": [
+                    "text/csv"
+                ],
+                "tags": [
+                    "audit-logs"
+                ],
+                "summary": "Export audit logs as CSV",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by action code",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "success",
+                            "failed"
+                        ],
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search action, resource, message, or record id",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-06-01T00:00:00Z",
+                        "description": "Range start (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-06-02T23:59:59Z",
+                        "description": "Range end (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max rows per batch (internal pagination)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV file (Content-Disposition: audit-logs.csv)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/auth/account` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Get current account",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthAccountSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/auth/account` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Delete account (admin)",
+                "parameters": [
+                    {
+                        "description": "Target email and verification password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DeleteAuthAccountSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PATCH /api/v0/auth/account` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Update account display name",
+                "parameters": [
+                    {
+                        "description": "Name fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateAuthAccountSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account/freezestatus": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/auth/account/freezestatus` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Account billing freeze status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthAccountFreezeStatusSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account/info": {
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PATCH /api/v0/auth/account/info` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Update account profile links",
+                "parameters": [
+                    {
+                        "description": "Social and wallet fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateAuthAccountInfoSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account/settings": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/auth/account/settings` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Get account settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthUserSettingsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PATCH /api/v0/auth/account/settings` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Update account settings",
+                "parameters": [
+                    {
+                        "description": "Settings patch",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SetAuthUserSettingsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthUserSettingsSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/developer-access": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/auth/developer-access` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "List developer access to my account",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.UserDeveloperAccessSwaggerItem"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/developer-access/{clientId}/history": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/auth/developer-access/{clientId}/history` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Developer access history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth client ID",
+                        "name": "clientId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.UserDeveloperAccessHistorySwaggerItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/developer-access/{clientId}/revoke": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/auth/developer-access/{clientId}/revoke` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Revoke developer access",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth client ID",
+                        "name": "clientId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/google-backup": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup` + "`" + `. Exchanges OAuth code (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP). If email exists, logs in; otherwise registers. Returns JSON with ` + "`" + `action` + "`" + `, ` + "`" + `onboarding` + "`" + `, and ` + "`" + `google_backup` + "`" + `. Sets session cookie.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-onboarding"
+                ],
+                "summary": "Google Backup auth (register or login)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fresh Google OAuth code (single-use)",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth state (UTM / verifier payload)",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, inserts CRM lead in Zoho",
+                        "name": "zoho-insert",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Set-Cookie: _tokenKey",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthSuccess"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/disable": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/mfa/disable` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Disable MFA",
+                "parameters": [
+                    {
+                        "description": "Passcode or recovery code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MFADisableSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/enable": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/mfa/enable` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Enable MFA",
+                "parameters": [
+                    {
+                        "description": "TOTP passcode",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MFAEnableSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/generate-recovery-codes": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/mfa/generate-recovery-codes` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Generate MFA recovery codes",
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/generate-secret-key": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/mfa/generate-secret-key` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Generate MFA secret key",
+                "responses": {
+                    "200": {
+                        "description": "TOTP secret key string",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/regenerate-recovery-codes": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/mfa/regenerate-recovery-codes` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Regenerate MFA recovery codes",
+                "parameters": [
+                    {
+                        "description": "Passcode or recovery code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MFARegenerateRecoveryCodesSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh-session": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/refresh-session` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Refresh login session",
+                "responses": {
+                    "200": {
+                        "description": "New session expiresAt (RFC3339)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/blog-list": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /blog-list` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "static-api"
+                ],
+                "summary": "List featured blogs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/staticapi.StaticBlogItemSwagger"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/buckets/check-upload": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/buckets/check-upload` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "buckets-quota-check"
+                ],
+                "summary": "Check storage and bandwidth quota (popup)",
+                "parameters": [
+                    {
+                        "description": "project_id, operation, optional file_size",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CheckUploadSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CheckUploadSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/buckets/usage-totals": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/buckets/usage-totals` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "buckets"
+                ],
+                "summary": "Paginated bucket usage totals",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "projectID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Range end (2006-01-02T15:04:05.999Z)",
+                        "name": "before",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name filter",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Range start (2006-01-02T15:04:05.999Z)",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BucketUsageTotalsPageSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/buckets/usage-totals-for-reserved": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/buckets/usage-totals-for-reserved` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "buckets-reserved-usage"
+                ],
+                "summary": "Reserved vault usage totals",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "projectID",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.ReservedBucketUsageItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/config": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /api/v0/config` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Get frontend satellite configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleweb.FrontendConfig"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/dashboard/stats": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/dashboard/stats` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Dashboard stats cards",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.DashboardStatsCardSwaggerResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/fcm-token": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/fcm-token` + "`" + `. Settings → Push devices. Returns all FCM token records for the logged-in user (active and inactive).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings-fcm"
+                ],
+                "summary": "List FCM device tokens",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.FCMTokenSwaggerResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/fcm-token` + "`" + `. Settings → Push devices. Registers the device FCM token for the logged-in user. If the same ` + "`" + `token` + "`" + ` string already exists, metadata is updated and ` + "`" + `200` + "`" + ` semantics apply (existing record returned). ` + "`" + `ip_address` + "`" + ` is derived from ` + "`" + `X-Forwarded-For` + "`" + `, ` + "`" + `X-Real-IP` + "`" + `, or ` + "`" + `RemoteAddr` + "`" + ` — do not send from client.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings-fcm"
+                ],
+                "summary": "Register FCM device token",
+                "parameters": [
+                    {
+                        "description": "FCM token and optional device metadata",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RegisterFCMTokenSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.FCMTokenSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/fcm-token/{tokenId}": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/fcm-token/{tokenId}` + "`" + `. Settings → Push devices. Updates metadata or ` + "`" + `isActive` + "`" + ` for a token owned by the current user. All body fields are optional; send only fields to change.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings-fcm"
+                ],
+                "summary": "Update FCM device token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "FCM token record UUID",
+                        "name": "tokenId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateFCMTokenSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SettingsMessageSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/fcm-token/{tokenId}` + "`" + `. Settings → Push devices. Permanently removes a token record owned by the current user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings-fcm"
+                ],
+                "summary": "Delete FCM device token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "FCM token record UUID",
+                        "name": "tokenId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SettingsMessageSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /auto-sync/job` + "`" + ` with session ` + "`" + `token_key` + "`" + `. Single ` + "`" + `filter` + "`" + ` query param = URL-encoded ` + "`" + `AutosyncJobListFilter` + "`" + ` JSON. UI mapping: Service dropdown → ` + "`" + `method` + "`" + ` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive → ` + "`" + `active` + "`" + ` (true/false, user toggle); Success/Failed/Running → ` + "`" + `status` + "`" + ` (success, failed, in_progress, in_queue, created — last run, not same as active); Search bar → ` + "`" + `name` + "`" + ` (partial email). No ` + "`" + `search` + "`" + ` param on job list — use ` + "`" + `filter.name` + "`" + `. Mailbox/domain search → ` + "`" + `GET .../users-groups?search=...` + "`" + `. See ` + "`" + `GET .../auto-sync/jobs/filter-schema` + "`" + ` for examples.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "List Google Backup auto-sync jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "%7B%22method%22%3A%22gmail%22%2C%22active%22%3Atrue%2C%22status%22%3A%22failed%22%7D",
+                        "description": "URL-encoded AutosyncJobListFilter JSON. See definitions and GET .../auto-sync/jobs/filter-schema for four examples.",
+                        "name": "filter",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools ` + "`" + `/auto-sync/job` + "`" + `. Omits ` + "`" + `interval` + "`" + `/` + "`" + `on` + "`" + ` when ` + "`" + `policy_id` + "`" + ` is set; schedule validation is handled by Backup-Tools. On success (no failed jobs) sets onboarding to ` + "`" + `GoogleBackupCompleted` + "`" + `.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Create Google Backup auto-sync jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools sync type (default daily)",
+                        "name": "sync_type",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job create request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs/filter-schema": {
+            "get": {
+                "description": "**Not a live route.** Documents ` + "`" + `AutosyncJobListFilter` + "`" + ` and four filter examples for ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs?filter=` + "`" + ` (URL-encoded JSON). UI: method=Service dropdown; active=on/off toggle; status=last run result; name=search bar (partial email).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Auto-sync job list filter schema",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobListFilterExamples"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs/project": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/google-backup/auto-sync/jobs/project` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Update Google Backup jobs by project",
+                "parameters": [
+                    {
+                        "description": "Project-scoped update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs/services": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs/services` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "List Google Backup auto-sync service stats",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/jobs/{job_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /auto-sync/job/{job_id}` + "`" + ` with session ` + "`" + `token_key` + "`" + `. Job is in ` + "`" + `success[0]` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Get Google Backup auto-sync job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/google-backup/auto-sync/jobs/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `PUT /auto-sync/job/{job_id}` + "`" + ` with body ` + "`" + `{ \"active\": true|false }` + "`" + ` only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Toggle Google Backup auto-sync job active",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Active toggle",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/live": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/live` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-autosync-live"
+                ],
+                "summary": "Live auto-sync backup progress",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "List backup policies",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Create backup policy",
+                "parameters": [
+                    {
+                        "description": "Omit job_ids for empty policy; set job_ids for split or move-to-new",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/available-assignments": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "List available assignments for Add Email modal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target policy ID.",
+                        "name": "policy_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Step 1 — filter mailbox name or email.",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Step 2 — return services for this mailbox.",
+                        "name": "email",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/merge": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Merge duplicate policies into a new policy",
+                "parameters": [
+                    {
+                        "description": "Complete policy_ids from one preview group plus new policy name",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/merge/preview": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Preview duplicate policy merge",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/move": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Move job assignments to a policy",
+                "parameters": [
+                    {
+                        "description": "target_policy_id and job_ids",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/options": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "List policy options for move picker",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/auto-sync/policy/{policy_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Get backup policy details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter linked_jobs by email, name, method, or service label.",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Update backup policy schedule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "interval, on, retention_type",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-policy"
+                ],
+                "summary": "Delete empty backup policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID (linked_job_count must be 0)",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/backup-restore/logs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-logs"
+                ],
+                "summary": "List backup and restore logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Comma-separated: backup, restore, or both (default backup,restore).",
+                        "name": "types",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Partial match on subject or message.",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact service filter: gmail, google_drive, google_photos, google_contacts, google_calendar.",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "info, warning, or error.",
+                        "name": "message_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size on merged list (default 10, max 100).",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows to skip (default 0).",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/connect": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `. Body: Google OAuth ` + "`" + `code` + "`" + ` (login redirect_uri). Returns scopes metadata. Tokens stored server-side only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Connect Google account for backup",
+                "parameters": [
+                    {
+                        "description": "OAuth authorization code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupConnectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupConnectSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/domain-users": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/google-backup/domain-users` + "`" + `. Workspace mailboxes for corporate Gmail. Optional ` + "`" + `google_email` + "`" + ` query.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Gmail corporate domain-users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Google account email (default: latest credential for user)",
+                        "name": "google_email",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupDomainUsersSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google-auth": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google-auth. Call before restore-all or manual restore. Pass Google OAuth id_token or access_token as google_key.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-auth"
+                ],
+                "summary": "Exchange Google token for Backup-Tools auth JWT",
+                "parameters": [
+                    {
+                        "description": "Google OAuth token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAuthSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/gmail/insert-mail": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/gmail/insert-mail. Single or multiple items (max 10 per request): send base64 vault keys in body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + ` (from GET /google-backup/backup-restore/logs). Call POST /google-backup/google-auth first. ` + "`" + `Authorization` + "`" + ` header = Backup-Tools JWT. Session cookie → ` + "`" + `token_key` + "`" + `. No ` + "`" + `ACCESS_TOKEN` + "`" + ` (StorX from DB).",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Gmail messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys: one item in array for single restore, up to 10 for batch",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/satellite-to-calendar": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/satellite-to-calendar. Single or multiple items (max 10): body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + `. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Google Calendar",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys (1–10)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/satellite-to-contacts": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/satellite-to-contacts. Single or multiple items (max 10): body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + `. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Google Contacts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys (1–10)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/satellite-to-drive": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/satellite-to-drive. Single or multiple items (max 10): body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + `. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Google Drive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys (1–10)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/google/satellite-to-photos": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Proxies Backup-Tools POST /google/satellite-to-photos. Single or multiple items (max 10): body ` + "`" + `keys` + "`" + ` or ` + "`" + `ids` + "`" + `. Authorization = Backup-Tools JWT. No ACCESS_TOKEN.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-manual"
+                ],
+                "summary": "Manual restore Google Photos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backup-Tools JWT from POST /google-backup/google-auth",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Vault keys (1–10)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupManualRestoreSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/all": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/restore/all` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "Start restore-all job",
+                "parameters": [
+                    {
+                        "description": "Restore-all request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupRestoreAllSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestoreAllQueuedSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestorePrepareSwaggerResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/job/{job_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/job/{job_id}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "Get restore job status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Restore job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestoreJobDetailSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/job/{job_id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/restore/job/{job_id}/cancel` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "Cancel restore job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Restore job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestoreCancelSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/job/{job_id}/dead-items": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/job/{job_id}/dead-items` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "List restore dead-letter items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Restore job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestoreDeadItemsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/jobs` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "List restore job history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UI service filter: gmail, drive, photos, calendar, contacts",
+                        "name": "service",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Internal method alias (google_drive, etc.)",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "queued, running, completed, partial_completed, failed, cancelled",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Partial match on login_id",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Alias for search (partial login_id)",
+                        "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Created-at range start (YYYY-MM-DD or RFC3339)",
+                        "name": "from_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Created-at range end (YYYY-MM-DD end-of-day or RFC3339)",
+                        "name": "to_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Max jobs (default 20, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestoreJobListSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/live": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/live` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "List active restore jobs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestoreLiveSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/prepare": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/prepare` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "Pre-flight restore-all check",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Storj/Satellite project public UUID",
+                        "name": "project_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mailbox email (same as policy UI)",
+                        "name": "login_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "gmail, drive, photos, calendar, or contacts",
+                        "name": "service",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestorePrepareSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "List Users \u0026 Groups mailboxes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by domain.",
+                        "name": "domain",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Partial match on mailbox email.",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "gmail, google_drive, google_photos, google_contacts, google_calendar, all, all_services.",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "corporate, individual, all, all_types.",
+                        "name": "account_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "healthy, re_auth_required, all, all_statuses.",
+                        "name": "credential_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10).",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows to skip (default 0).",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/dashboard-alerts": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/users-groups/dashboard-alerts` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /autosync/dashboard-alerts` + "`" + ` with session ` + "`" + `token_key` + "`" + `. UI mapping: Auth Errors → ` + "`" + `re_auth_required` + "`" + `; Paused Backups → ` + "`" + `paused_backups` + "`" + `; New Mailboxes (24h) → ` + "`" + `new_connected_accounts_24h` + "`" + `. Review links: re-auth → ` + "`" + `GET .../users-groups?credential_status=re_auth_required` + "`" + `; paused → ` + "`" + `GET .../users-groups?active=false` + "`" + `; new → sort by ` + "`" + `connected_at` + "`" + ` on users-groups list.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Dashboard alert cards",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/domains": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "List Users \u0026 Groups domains",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/jobs/active": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Bulk pause or resume jobs",
+                "parameters": [
+                    {
+                        "description": "job_ids from list entities[].services[].job_id",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/mailbox/credentials": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Mailbox credentials tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email.",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/mailbox/overview": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Mailbox overview tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email.",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/mailbox/schedule": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Mailbox schedule tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email.",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/users-groups/mailbox/services": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-users-groups"
+                ],
+                "summary": "Mailbox services tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email.",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/guides": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /guides` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "static-api"
+                ],
+                "summary": "Get documentation guide",
+                "parameters": [
+                    {
+                        "enum": [
+                            "usage-guideline",
+                            "google-backup",
+                            "microsoft-backup",
+                            "corporate-mail-backup",
+                            "signup"
+                        ],
+                        "type": "string",
+                        "description": "Guide identifier",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "HTML guide page",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Guide not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/notifications` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "List notifications",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: unread",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Time window: 1d, 7d, 15d, 1m, 6m, 1y",
+                        "name": "timeFilter",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.NotificationListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/count": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/notifications/count` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Unread notification count",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UnreadCountResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/read-all": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/notifications/read-all` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Mark all notifications read",
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/notifications/{id}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Get notification detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Notification UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.NotificationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}/dismiss": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/notifications/{id}/dismiss` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Dismiss notification",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Notification UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/payment-plans": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /payment-plans` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "List payment plans",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.PaymentPlansSwaggerResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/coupons": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Returns all currently active billing coupons (valid within their valid_from / valid_to window).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "List active coupons",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.PaymentCouponSwaggerItem"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No coupons found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to get coupons",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/generate-payment-link": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Creates a payment gateway checkout session for the selected plan and crypto mode (` + "`" + `SRX` + "`" + `, ` + "`" + `XDC` + "`" + `, or ` + "`" + `USDT` + "`" + `). Optional ` + "`" + `couponCode` + "`" + ` applies a discount when valid. Returns a ` + "`" + `redirectURL` + "`" + ` for the client to open.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Generate payment link",
+                "parameters": [
+                    {
+                        "description": "Plan, crypto mode, and optional coupon",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GeneratePaymentLinkSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GeneratePaymentLinkSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or coupon",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Server or gateway error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/invoice-history": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Returns billing transactions for the logged-in user. Supports cursor pagination via ` + "`" + `starting_after` + "`" + ` or ` + "`" + `ending_before` + "`" + ` (transaction ` + "`" + `ID` + "`" + `) and an optional ` + "`" + `limit` + "`" + ` page size.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Invoice / billing history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (default slice size when no cursor)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return transactions after this transaction ID",
+                        "name": "starting_after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return transactions before this transaction ID",
+                        "name": "ending_before",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.PaymentInvoiceHistoryItemSwagger"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to load billing history",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "List my projects",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.ProjectInfoSwaggerItem"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Create project",
+                "parameters": [
+                    {
+                        "description": "Project name and optional limits",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpsertProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectInfoSwaggerItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/invitations": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/invitations` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "List my pending project invitations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.UserProjectInvitationSwaggerItem"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/invitations/{id}/respond": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects/invitations/{id}/respond` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Accept or decline a project invitation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Accept or decline",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RespondToProjectInvitationSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/projects/{id}` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Delete project (multi-step)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Deletion step payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DeleteProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DeleteProjectSwaggerResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PATCH /api/v0/projects/{id}` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Update project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpsertProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/config": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/config` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects-s3-vault-setup"
+                ],
+                "summary": "Project config for S3 credentials and vault setup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectConfigSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/daily-usage": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/daily-usage` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects-daily-usage"
+                ],
+                "summary": "Project daily storage and bandwidth usage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Range start (Unix seconds)",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Range end (Unix seconds)",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectDailyUsageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/salt": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/salt` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Get project encryption salt",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Base64-encoded salt",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/usage-limits": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/usage-limits` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Project usage and limits",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project public UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectUsageLimitsSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/resources-list": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /resources-list` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "static-api"
+                ],
+                "summary": "List help resources",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "If true, returns app-specific resources (app-resources.json)",
+                        "name": "app",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/staticapi.StaticResourceItemSwagger"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/user-guideline-for-app": {
+            "get": {
+                "description": "**Full route:** ` + "`" + `GET /user-guideline-for-app` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "static-api"
+                ],
+                "summary": "Mobile app usage guideline",
+                "responses": {
+                    "200": {
+                        "description": "HTML usage guideline page",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/notification-preferences": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/user/notification-preferences` + "`" + `. Settings → Notification preferences. Returns a JSON **array** with zero or one global preference row. Each row ` + "`" + `Preferences` + "`" + ` map uses keys ` + "`" + `push` + "`" + `, ` + "`" + `email` + "`" + `, ` + "`" + `sms` + "`" + ` with minimum priority levels 1–4 (marketing, info, warning, critical).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings-notification-preferences"
+                ],
+                "summary": "Get notification preferences",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.UserNotificationPreferenceSwagger"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/user/notification-preferences` + "`" + `. Settings → Notification preferences. Upserts global channel thresholds applied to all notifications. ` + "`" + `preferences` + "`" + ` may include any of ` + "`" + `push` + "`" + `, ` + "`" + `email` + "`" + `, ` + "`" + `sms` + "`" + ` — each value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names ` + "`" + `marketing` + "`" + `/` + "`" + `info` + "`" + `/` + "`" + `warning` + "`" + `/` + "`" + `critical` + "`" + ` also accepted). Returns ` + "`" + `201` + "`" + ` on create, ` + "`" + `200` + "`" + ` on update.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings-notification-preferences"
+                ],
+                "summary": "Create or update notification preference",
+                "parameters": [
+                    {
+                        "description": "Global channel preferences",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpsertUserNotificationPreferenceSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UserNotificationPreferenceSwagger"
+                        }
+                    },
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UserNotificationPreferenceSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/access": {
+            "post": {
+                "description": "**Full route:** ` + "`" + `POST /v1/access` + "`" + ` (server root on the StorX auth host, e.g. ` + "`" + `https://storx.io/v1/access` + "`" + `).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "access"
+                ],
+                "summary": "Exchange access grant for S3 credentials",
+                "parameters": [
+                    {
+                        "description": "Access grant and visibility",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.V1AccessCreateSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.V1AccessCreateSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "console.AnnouncementConfig": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "name": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "console.CaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "$ref": "#/definitions/console.MultiCaptchaConfig"
+                },
+                "registration": {
+                    "$ref": "#/definitions/console.MultiCaptchaConfig"
+                }
+            }
+        },
+        "console.MinimumChargeConfig": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "console.MultiCaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "hcaptcha": {
+                    "$ref": "#/definitions/console.SingleCaptchaConfig"
+                },
+                "recaptcha": {
+                    "$ref": "#/definitions/console.SingleCaptchaConfig"
+                }
+            }
+        },
+        "console.SingleCaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "siteKey": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.APIKeyListItemSwagger": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "creatorEmail": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "my-key"
+                },
+                "projectId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "consoleapi.APIKeysListPagedSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "apiKeys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.APIKeyListItemSwagger"
+                    }
+                },
+                "currentPage": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "order": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "orderDirection": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "pageCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "search": {
+                    "type": "string",
+                    "example": ""
+                },
+                "totalCount": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "consoleapi.AuditLogActionsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "AUTH_LOGIN",
+                        "AUTH_LOGOUT",
+                        "PROJECT_CREATE"
+                    ]
+                }
+            }
+        },
+        "consoleapi.AuditLogListSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "Items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.AuditLogRecordSwagger"
+                    }
+                },
+                "NextCursor": {
+                    "type": "string",
+                    "example": ""
+                },
+                "TotalCount": {
+                    "type": "integer",
+                    "example": 42
+                }
+            }
+        },
+        "consoleapi.AuditLogRecordSwagger": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "example": "AUTH_LOGIN"
+                },
+                "actor": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                },
+                "actor_email": {
+                    "type": "string",
+                    "example": "jane@example.com"
+                },
+                "actor_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "878b7ed7-e0b8-499f-b7ad-eae3af6153c6"
+                },
+                "ip_address": {
+                    "type": "string",
+                    "example": "203.0.113.10"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "User logged in"
+                },
+                "resource": {
+                    "type": "string",
+                    "example": "Session"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "failed"
+                    ],
+                    "example": "success"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-06-02T10:15:30Z"
+                }
+            }
+        },
+        "consoleapi.AuthAccountFreezeStatusSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "frozen": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "trialExpiredFrozen": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "violationFrozen": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "warned": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.AuthAccountSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "companyName": {
+                    "type": "string",
+                    "example": ""
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "employeeCount": {
+                    "type": "string",
+                    "example": ""
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                },
+                "hasVarPartner": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "haveSalesContact": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "isMFAEnabled": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isProfessional": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "loginToken": {
+                    "type": "string",
+                    "example": ""
+                },
+                "mfaRecoveryCodeCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "paidTier": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "partner": {
+                    "type": "string",
+                    "example": ""
+                },
+                "pendingVerification": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "position": {
+                    "type": "string",
+                    "example": ""
+                },
+                "projectBandwidthLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "projectLimit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "projectSegmentLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "projectStorageLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "shortName": {
+                    "type": "string",
+                    "example": "Jane"
+                },
+                "socialFacebook": {
+                    "type": "string",
+                    "example": ""
+                },
+                "socialGithub": {
+                    "type": "string",
+                    "example": ""
+                },
+                "socialLinkedin": {
+                    "type": "string",
+                    "example": ""
+                },
+                "socialTwitter": {
+                    "type": "string",
+                    "example": ""
+                },
+                "trialExpiration": {
+                    "type": "string"
+                },
+                "walletId": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "consoleapi.AuthUserSettingsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "noticeDismissal": {
+                    "type": "object"
+                },
+                "onboardingEnd": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "onboardingStart": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "onboardingStep": {
+                    "type": "string",
+                    "example": "GoogleBackupServiceSelection"
+                },
+                "passphrasePrompt": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sessionDuration": {
+                    "type": "integer",
+                    "example": 3600
+                }
+            }
+        },
+        "consoleapi.AutosyncJobDetailResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Automatic Backup Account Details"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.AutosyncJobSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.AutosyncJobInputDataSwagger": {
+            "type": "object",
+            "properties": {
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "email": {
+                    "type": "string",
+                    "example": "dhavalder93@gmail.com"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilter": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "dhavalder@gmail.com"
+                },
+                "policy_id": {
+                    "type": "integer",
+                    "example": 37
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "failed",
+                        "in_progress",
+                        "in_queue",
+                        "created"
+                    ],
+                    "example": "failed"
+                },
+                "sync_type": {
+                    "type": "string",
+                    "enum": [
+                        "daily",
+                        "weekly",
+                        "monthly"
+                    ],
+                    "example": "daily"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterByActiveStatusExample": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "failed",
+                        "in_progress",
+                        "in_queue",
+                        "created"
+                    ],
+                    "example": "failed"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterByMethodExample": {
+            "type": "object",
+            "properties": {
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterByNameExample": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "dhavalder@gmail.com"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterCombinedExample": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "jenkins"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "failed",
+                        "in_progress",
+                        "in_queue",
+                        "created"
+                    ],
+                    "example": "success"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListFilterExamples": {
+            "type": "object",
+            "properties": {
+                "all_fields": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilter"
+                },
+                "by_active_status": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilterByActiveStatusExample"
+                },
+                "by_method": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilterByMethodExample"
+                },
+                "by_name": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilterByNameExample"
+                },
+                "combined": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobListFilterCombinedExample"
+                }
+            }
+        },
+        "consoleapi.AutosyncJobListResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Automatic backup jobs"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.AutosyncJobSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.AutosyncJobSwagger": {
+            "type": "object",
+            "properties": {
+                "ID": {
+                    "type": "integer",
+                    "example": 57
+                },
+                "active": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "autodeactivated": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "failure_periods": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "input_data": {
+                    "$ref": "#/definitions/consoleapi.AutosyncJobInputDataSwagger"
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "3h"
+                },
+                "last_run": {
+                    "type": "object"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Backup scheduled"
+                },
+                "message_status": {
+                    "type": "string",
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "dhavalder93@gmail.com"
+                },
+                "on": {
+                    "type": "string",
+                    "example": ""
+                },
+                "policy_id": {
+                    "type": "integer",
+                    "example": 37
+                },
+                "sync_type": {
+                    "type": "string",
+                    "example": "daily"
+                },
+                "task_memory": {
+                    "type": "object"
+                }
+            }
+        },
+        "consoleapi.BackupToolsJSONResponse": {
+            "type": "object",
+            "additionalProperties": true
+        },
+        "consoleapi.BucketUsageTotalsItemSwagger": {
+            "type": "object",
+            "properties": {
+                "before": {
+                    "type": "string",
+                    "example": "2026-06-03T09:01:55.204Z"
+                },
+                "bucketName": {
+                    "type": "string",
+                    "example": "my-bucket"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2024-03-20T10:00:00Z"
+                },
+                "creatorEmail": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "egress": {
+                    "type": "number",
+                    "example": 0.2
+                },
+                "location": {
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "objectCount": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "projectID": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                },
+                "segmentCount": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "since": {
+                    "type": "string",
+                    "example": "2026-06-01T00:00:00.000Z"
+                },
+                "storage": {
+                    "type": "number",
+                    "example": 1.5
+                }
+            }
+        },
+        "consoleapi.BucketUsageTotalsPageSwagger": {
+            "type": "object",
+            "properties": {
+                "bucketUsages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.BucketUsageTotalsItemSwagger"
+                    }
+                },
+                "currentPage": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "pageCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "search": {
+                    "type": "string",
+                    "example": ""
+                },
+                "totalCount": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "consoleapi.CheckUploadSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "operation",
+                "project_id"
+            ],
+            "properties": {
+                "file_size": {
+                    "type": "integer",
+                    "example": 1048576
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": [
+                        "login",
+                        "upload",
+                        "download"
+                    ],
+                    "example": "login"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                }
+            }
+        },
+        "consoleapi.CheckUploadSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "allow_download": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allow_upload": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "bandwidth_usage_percent": {
+                    "type": "number",
+                    "example": 4.2
+                },
+                "bandwidth_warning_threshold": {
+                    "type": "number",
+                    "example": 80
+                },
+                "message": {
+                    "type": "string",
+                    "example": "You have used 100% of your storage quota."
+                },
+                "popup_show": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "remaining_bandwidth": {
+                    "type": "integer",
+                    "example": 2055208960
+                },
+                "remaining_space": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "storage_usage_percent": {
+                    "type": "number",
+                    "example": 100
+                },
+                "storage_warning_threshold": {
+                    "type": "number",
+                    "example": 80
+                },
+                "total_bandwidth": {
+                    "type": "integer",
+                    "example": 2147483648
+                },
+                "total_space": {
+                    "type": "integer",
+                    "example": 2147483648
+                },
+                "upgrade_url": {
+                    "type": "string",
+                    "example": "https://billing.example.com"
+                }
+            }
+        },
+        "consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "services"
+            ],
+            "properties": {
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "billing@salestalker.com",
+                        "support@salestalker.com"
+                    ]
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "6h"
+                },
+                "on": {
+                    "type": "string",
+                    "example": "12am"
+                },
+                "policy_id": {
+                    "type": "integer",
+                    "example": 50
+                },
+                "policy_name": {
+                    "type": "string",
+                    "example": "New team policy"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "gmail",
+                        "drive"
+                    ]
+                }
+            }
+        },
+        "consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest": {
+            "type": "object",
+            "required": [
+                "interval",
+                "name",
+                "retention_type"
+            ],
+            "properties": {
+                "interval": {
+                    "type": "string",
+                    "enum": [
+                        "3h",
+                        "12h",
+                        "daily",
+                        "weekly",
+                        "monthly"
+                    ],
+                    "example": "12h"
+                },
+                "job_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        101,
+                        102,
+                        103
+                    ]
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Executive Team Policy"
+                },
+                "on": {
+                    "type": "string",
+                    "example": ""
+                },
+                "retention_type": {
+                    "type": "string",
+                    "enum": [
+                        "never",
+                        "30_days",
+                        "1_year",
+                        "7_years"
+                    ],
+                    "example": "never"
+                }
+            }
+        },
+        "consoleapi.DashboardButtonSwagger": {
+            "type": "object",
+            "properties": {
+                "click": {
+                    "type": "string",
+                    "example": ""
+                },
+                "color": {
+                    "type": "string",
+                    "example": "#2563EB"
+                },
+                "link": {
+                    "type": "string",
+                    "example": "/billing"
+                },
+                "text": {
+                    "type": "string",
+                    "example": "Upgrade"
+                },
+                "textColor": {
+                    "type": "string",
+                    "example": "#FFFFFF"
+                }
+            }
+        },
+        "consoleapi.DashboardIconSwagger": {
+            "type": "object",
+            "properties": {
+                "backgroundColor": {
+                    "type": "string",
+                    "example": "#E8F0FE"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "/static/icons/protected-users.svg"
+                }
+            }
+        },
+        "consoleapi.DashboardStatsCardSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "button": {
+                    "$ref": "#/definitions/consoleapi.DashboardButtonSwagger"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Google accounts with backup enabled"
+                },
+                "icon": {
+                    "$ref": "#/definitions/consoleapi.DashboardIconSwagger"
+                },
+                "status": {
+                    "$ref": "#/definitions/consoleapi.DashboardStatusSwagger"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Protected Users"
+                },
+                "value_1": {
+                    "type": "string",
+                    "example": "124"
+                },
+                "value_1_label": {
+                    "type": "string",
+                    "example": ""
+                },
+                "value_2": {
+                    "type": "string",
+                    "example": "+2 this week"
+                },
+                "value_2_label": {
+                    "type": "string",
+                    "example": "growth_this_week"
+                }
+            }
+        },
+        "consoleapi.DashboardStatusSwagger": {
+            "type": "object",
+            "properties": {
+                "backgroundColor": {
+                    "type": "string",
+                    "example": "#18DB351A"
+                },
+                "textColor": {
+                    "type": "string",
+                    "example": "#388E3C"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "84% Used"
+                }
+            }
+        },
+        "consoleapi.DeleteAuthAccountSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "admin-verification-password"
+                }
+            }
+        },
+        "consoleapi.DeleteProjectSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string",
+                    "example": ""
+                },
+                "step": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "consoleapi.DeleteProjectSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "apiKeys": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "buckets": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "currentUsage": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "invoicingIncomplete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "lockEnabledBuckets": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "consoleapi.FCMTokenSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "AppVersion": {
+                    "type": "string",
+                    "example": "1.2.0"
+                },
+                "BrowserName": {
+                    "type": "string",
+                    "example": "Chrome"
+                },
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "DeviceID": {
+                    "type": "string",
+                    "example": "device-uuid-123"
+                },
+                "DeviceModel": {
+                    "type": "string",
+                    "example": "Pixel 8"
+                },
+                "DeviceType": {
+                    "type": "string",
+                    "enum": [
+                        "android",
+                        "ios",
+                        "web"
+                    ],
+                    "example": "web"
+                },
+                "ID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "IPAddress": {
+                    "type": "string",
+                    "example": "203.0.113.10"
+                },
+                "IsActive": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "LastUsedAt": {
+                    "type": "string"
+                },
+                "OSVersion": {
+                    "type": "string",
+                    "example": "14.0"
+                },
+                "Token": {
+                    "type": "string",
+                    "example": "fcm-device-token"
+                },
+                "UpdatedAt": {
+                    "type": "string"
+                },
+                "UserAgent": {
+                    "type": "string",
+                    "example": "Mozilla/5.0 ..."
+                },
+                "UserID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "consoleapi.GeneratePaymentLinkSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "cryptoMode",
+                "planId"
+            ],
+            "properties": {
+                "couponCode": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "cryptoMode": {
+                    "type": "string",
+                    "enum": [
+                        "SRX",
+                        "XDC",
+                        "USDT"
+                    ],
+                    "example": "USDT"
+                },
+                "planId": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.GeneratePaymentLinkSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "redirectURL": {
+                    "type": "string",
+                    "example": "https://pay.example.com/checkout/abc123"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAuthError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Error getting token from Google!"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAuthSuccess": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "registered",
+                        "logged_in"
+                    ],
+                    "example": "registered"
+                },
+                "google_backup": {
+                    "type": "object"
+                },
+                "onboarding": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupOnboardingSwagger"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAuthSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "google_key"
+            ],
+            "properties": {
+                "google_key": {
+                    "type": "string",
+                    "example": "\u003cGoogle OAuth id_token or access_token\u003e"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAuthSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "google-auth": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIs..."
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger": {
+            "type": "object",
+            "properties": {
+                "active_jobs": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "deactive_jobs": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "method": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "total_jobs": {
+                    "type": "integer",
+                    "example": 4
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Connected autosync services"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncLiveJobSwagger": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Backup in progress..."
+                },
+                "message_status": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error"
+                    ],
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_contacts",
+                        "google_calendar"
+                    ],
+                    "example": "gmail"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveTaskSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveJobSwagger"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Active Automatic Backup Accounts List"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncLiveTaskSwagger": {
+            "type": "object",
+            "properties": {
+                "start_time": {
+                    "type": "string",
+                    "example": "2026-06-17T10:30:00Z"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "running",
+                        "failed"
+                    ],
+                    "example": "running"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupConnectSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "4/0AeanS..."
+                }
+            }
+        },
+        "consoleapi.GoogleBackupConnectSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "google_backup": {
+                    "type": "object"
+                },
+                "google_email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardAlertSectionSwagger": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupDashboardMailboxSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardAlertsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "new_connected_accounts_24h": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                },
+                "paused_backups": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                },
+                "re_auth_required": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardCredentialSwagger": {
+            "type": "object",
+            "properties": {
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "needs_reconnect_google_auth": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardMailboxSwagger": {
+            "type": "object",
+            "properties": {
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "corporate",
+                        "individual"
+                    ],
+                    "example": "individual"
+                },
+                "connected_at": {
+                    "type": "string",
+                    "example": "2026-06-10T08:00:00Z"
+                },
+                "credential": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardCredentialSwagger"
+                },
+                "credential_status": {
+                    "type": "string",
+                    "enum": [
+                        "healthy",
+                        "re_auth_required"
+                    ],
+                    "example": "re_auth_required"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "john@gmail.com"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupDashboardServiceSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDashboardServiceSwagger": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "connected": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "job_id": {
+                    "type": "integer",
+                    "example": 101
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_contacts",
+                        "google_calendar"
+                    ],
+                    "example": "gmail"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDomainUsersSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "google_backup": {
+                    "type": "object"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.GoogleBackupManualRestoreSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"
+                    ]
+                },
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"
+                    ]
+                }
+            }
+        },
+        "consoleapi.GoogleBackupOnboardingSwagger": {
+            "type": "object",
+            "properties": {
+                "onboardingEnd": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "onboardingStart": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "onboardingStep": {
+                    "type": "string",
+                    "example": "GoogleBackupPending"
+                },
+                "onboarding_status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "in_progress",
+                        "completed"
+                    ],
+                    "example": "pending"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupRestoreAllSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "login_id",
+                "project_id",
+                "service"
+            ],
+            "properties": {
+                "login_id": {
+                    "type": "string",
+                    "example": "user@company.com"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                },
+                "service": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "drive",
+                        "photos",
+                        "calendar",
+                        "contacts"
+                    ],
+                    "example": "gmail"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "active",
+                "job_ids"
+            ],
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "job_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        12,
+                        13,
+                        14
+                    ]
+                }
+            }
+        },
+        "consoleapi.MFADisableSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "recoveryCode": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "consoleapi.MFAEnableSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "consoleapi.MFARegenerateRecoveryCodesSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "recoveryCode": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "policy_ids"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "My Unified Backup Policy"
+                },
+                "policy_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        52,
+                        55,
+                        56
+                    ]
+                }
+            }
+        },
+        "consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "job_ids",
+                "target_policy_id"
+            ],
+            "properties": {
+                "job_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        101,
+                        102
+                    ]
+                },
+                "target_policy_id": {
+                    "type": "integer",
+                    "example": 61
+                }
+            }
+        },
+        "consoleapi.NotificationChannelPreferencesSwagger": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "example": 2
+                },
+                "push": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "example": 2
+                },
+                "sms": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "example": 4
+                }
+            }
+        },
+        "consoleapi.NotificationListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.NotificationResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageCount": {
+                    "type": "integer"
+                },
+                "totalCount": {
+                    "type": "integer"
+                }
+            }
+        },
+        "consoleapi.NotificationResponse": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "hide": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isRead": {
+                    "type": "boolean"
+                },
+                "retryCount": {
+                    "type": "integer"
+                },
+                "sentAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "tokenId": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.PaymentCouponSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "discount": {
+                    "type": "number",
+                    "example": 10
+                },
+                "discount_type": {
+                    "type": "string",
+                    "enum": [
+                        "percentage",
+                        "fixed"
+                    ],
+                    "example": "percentage"
+                },
+                "max_discount": {
+                    "type": "number",
+                    "example": 50
+                },
+                "min_order_amount": {
+                    "type": "number",
+                    "example": 9.99
+                },
+                "valid_from": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "valid_to": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                }
+            }
+        },
+        "consoleapi.PaymentInvoiceHistoryItemSwagger": {
+            "type": "object",
+            "properties": {
+                "Amount": {
+                    "type": "number",
+                    "example": 9.99
+                },
+                "CreatedAt": {
+                    "type": "string",
+                    "example": "2026-06-01T12:00:00Z"
+                },
+                "Description": {
+                    "type": "string",
+                    "example": "Plan purchase"
+                },
+                "ID": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "Metadata": {
+                    "type": "string",
+                    "example": ""
+                },
+                "PlanID": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "Source": {
+                    "type": "string",
+                    "example": "token_payment"
+                },
+                "Status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "complete",
+                        "failed"
+                    ],
+                    "example": "complete"
+                },
+                "Timestamp": {
+                    "type": "string",
+                    "example": "2026-06-01T12:00:00Z"
+                },
+                "Type": {
+                    "type": "string",
+                    "enum": [
+                        "credit",
+                        "debit",
+                        "unknown"
+                    ],
+                    "example": "debit"
+                },
+                "UserID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "consoleapi.PaymentPlanGroupSwagger": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "monthly"
+                },
+                "plans": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                }
+            }
+        },
+        "consoleapi.PaymentPlansSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "crypto_modes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "SRX",
+                        "XDC",
+                        "USDT"
+                    ]
+                },
+                "group": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.PaymentPlanGroupSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.ProjectConfigPlacementSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Default placement"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "idName": {
+                    "type": "string",
+                    "example": "global"
+                },
+                "lucideIcon": {
+                    "type": "string",
+                    "example": "globe"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Global"
+                },
+                "pending": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "shortName": {
+                    "type": "string",
+                    "example": "Global"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Global"
+                }
+            }
+        },
+        "consoleapi.ProjectConfigSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "availablePlacements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectConfigPlacementSwaggerItem"
+                    }
+                },
+                "computeAuthToken": {
+                    "type": "string",
+                    "example": ""
+                },
+                "encryptPath": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "eventingEnabled": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "hasManagedPassphrase": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "hasPaidPrivileges": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "isOwnerPaidTier": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "membersCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "passphrase": {
+                    "type": "string",
+                    "example": ""
+                },
+                "role": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ],
+                    "example": 0
+                },
+                "salt": {
+                    "type": "string",
+                    "example": "YWJjZGVmZ2hpams="
+                }
+            }
+        },
+        "consoleapi.ProjectDailyUsageResponse": {
+            "type": "object",
+            "properties": {
+                "allocatedBandwidthUsage": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectUsageByDayItem"
+                    }
+                },
+                "settledBandwidthUsage": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectUsageByDayItem"
+                    }
+                },
+                "storageUsage": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectUsageByDayItem"
+                    }
+                }
+            }
+        },
+        "consoleapi.ProjectInfoSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "bandwidthUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Backup vault"
+                },
+                "hasManagedPassphrase": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "isClassic": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "memberCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My Project"
+                },
+                "ownerId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "placement": {
+                    "type": "string",
+                    "example": ""
+                },
+                "prevDaysUntilExpiration": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "storageUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "versioning": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.ProjectUsageByDayItem": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "example": "2026-05-26T00:00:00Z"
+                },
+                "value": {
+                    "type": "integer",
+                    "example": 9007199254740992
+                }
+            }
+        },
+        "consoleapi.ProjectUsageLimitsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "bandwidthLimit": {
+                    "type": "integer",
+                    "example": 107374182400
+                },
+                "bandwidthUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "bucketsLimit": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "bucketsUsed": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "objectCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "rateLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "rateUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "segmentCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "segmentLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "segmentUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "storageLimit": {
+                    "type": "integer",
+                    "example": 107374182400
+                },
+                "storageUsed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "userSetBandwidthLimit": {
+                    "type": "integer"
+                },
+                "userSetStorageLimit": {
+                    "type": "integer"
+                }
+            }
+        },
+        "consoleapi.RegisterFCMTokenSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "token"
+            ],
+            "properties": {
+                "appVersion": {
+                    "type": "string",
+                    "example": "1.2.0"
+                },
+                "browserName": {
+                    "type": "string",
+                    "example": "Chrome"
+                },
+                "deviceId": {
+                    "type": "string",
+                    "example": "device-uuid-123"
+                },
+                "deviceModel": {
+                    "type": "string",
+                    "example": "Pixel 8"
+                },
+                "deviceType": {
+                    "type": "string",
+                    "enum": [
+                        "android",
+                        "ios",
+                        "web"
+                    ],
+                    "example": "web"
+                },
+                "osVersion": {
+                    "type": "string",
+                    "example": "14.0"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "fcm-device-token-string"
+                },
+                "userAgent": {
+                    "type": "string",
+                    "example": "Mozilla/5.0 ..."
+                }
+            }
+        },
+        "consoleapi.ReservedBucketUsageItem": {
+            "type": "object",
+            "properties": {
+                "before": {
+                    "type": "string",
+                    "example": "2026-05-28T10:00:00Z"
+                },
+                "bucketName": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2024-03-20T10:00:00Z"
+                },
+                "egress": {
+                    "type": "number",
+                    "example": 12.3
+                },
+                "location": {
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "objectCount": {
+                    "type": "integer",
+                    "example": 124
+                },
+                "projectID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "segmentCount": {
+                    "type": "integer",
+                    "example": 500
+                },
+                "since": {
+                    "type": "string",
+                    "example": "2024-03-20T10:00:00Z"
+                },
+                "storage": {
+                    "type": "number",
+                    "example": 210.5
+                }
+            }
+        },
+        "consoleapi.RespondToProjectInvitationSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "response": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.RestoreAllQueuedSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore job queued"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "partial_completed",
+                        "failed",
+                        "cancelled"
+                    ],
+                    "example": "queued"
+                }
+            }
+        },
+        "consoleapi.RestoreCancelSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore cancelled"
+                }
+            }
+        },
+        "consoleapi.RestoreDeadItemSwagger": {
+            "type": "object",
+            "properties": {
+                "error_code": {
+                    "type": "string",
+                    "example": "api_error"
+                },
+                "object_key": {
+                    "type": "string",
+                    "example": "user@gmail.com/path/file"
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "google api returned 403"
+                },
+                "restore_job_id": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "consoleapi.RestoreDeadItemsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreDeadItemSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.RestoreJobDetailSwagger": {
+            "type": "object",
+            "properties": {
+                "ID": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "personal"
+                },
+                "auth_mode": {
+                    "type": "string",
+                    "enum": [
+                        "oauth",
+                        "dwd"
+                    ],
+                    "example": "oauth"
+                },
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "cursor_id": {
+                    "type": "integer",
+                    "example": 7807
+                },
+                "failed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "input_data": {
+                    "$ref": "#/definitions/consoleapi.RestoreJobInputDataSwagger"
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore in progress"
+                },
+                "message_status": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error"
+                    ],
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "processed": {
+                    "type": "integer",
+                    "example": 249
+                },
+                "progress_percent": {
+                    "type": "number",
+                    "example": 12.5
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "partial_completed",
+                        "failed",
+                        "cancelled"
+                    ],
+                    "example": "running"
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 1988
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.RestoreJobDetailSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Restore Account Details"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreJobDetailSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.RestoreJobInputDataSwagger": {
+            "type": "object",
+            "properties": {
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "cron_job_id": {
+                    "type": "integer",
+                    "example": 57
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                }
+            }
+        },
+        "consoleapi.RestoreJobListItemSwagger": {
+            "type": "object",
+            "properties": {
+                "ID": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "personal"
+                },
+                "auth_mode": {
+                    "type": "string",
+                    "enum": [
+                        "oauth",
+                        "dwd"
+                    ],
+                    "example": "oauth"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "input_data": {
+                    "$ref": "#/definitions/consoleapi.RestoreJobInputDataSwagger"
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore in progress"
+                },
+                "message_status": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error"
+                    ],
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "partial_completed",
+                        "failed",
+                        "cancelled"
+                    ],
+                    "example": "running"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.RestoreJobListSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Restore jobs list"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreJobListItemSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.RestoreLiveJobSwagger": {
+            "type": "object",
+            "properties": {
+                "cursor_id": {
+                    "type": "integer",
+                    "example": 7807
+                },
+                "failed": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "restore in progress"
+                },
+                "message_status": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error"
+                    ],
+                    "example": "info"
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "gmail",
+                        "google_drive",
+                        "google_photos",
+                        "google_calendar",
+                        "google_contacts"
+                    ],
+                    "example": "gmail"
+                },
+                "processed": {
+                    "type": "integer",
+                    "example": 249
+                },
+                "progress_percent": {
+                    "type": "number",
+                    "example": 12.5
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "partial_completed",
+                        "failed",
+                        "cancelled"
+                    ],
+                    "example": "running"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreLiveTaskSwagger"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 1988
+                }
+            }
+        },
+        "consoleapi.RestoreLiveSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Active Restore Jobs List"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreLiveJobSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.RestoreLiveTaskSwagger": {
+            "type": "object",
+            "properties": {
+                "batch_index": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "running",
+                        "retrying",
+                        "completed",
+                        "failed"
+                    ],
+                    "example": "running"
+                }
+            }
+        },
+        "consoleapi.RestoreMissingPermissionSwagger": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "OAuth scope required for restore"
+                },
+                "scope": {
+                    "type": "string",
+                    "example": "https://www.googleapis.com/auth/gmail.insert"
+                },
+                "service": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "oauth"
+                }
+            }
+        },
+        "consoleapi.RestorePrepareSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "personal"
+                },
+                "auth_mode": {
+                    "type": "string",
+                    "enum": [
+                        "oauth",
+                        "dwd"
+                    ],
+                    "example": "oauth"
+                },
+                "backup_item_count": {
+                    "type": "integer",
+                    "example": 1988
+                },
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "cron_job_id": {
+                    "type": "integer",
+                    "example": 57
+                },
+                "delegation_setup": {
+                    "type": "object"
+                },
+                "granted_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "login_id": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "missing_permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreMissingPermissionSwagger"
+                    }
+                },
+                "oauth_holder_email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"
+                },
+                "ready": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "missing_permissions"
+                },
+                "reconnect_hint": {
+                    "type": "string"
+                },
+                "required_dwd_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "service": {
+                    "type": "string",
+                    "example": "gmail"
+                }
+            }
+        },
+        "consoleapi.SetAuthUserSettingsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "noticeDismissal": {
+                    "type": "object"
+                },
+                "onboardingEnd": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "onboardingStart": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "onboardingStep": {
+                    "type": "string",
+                    "example": "welcome"
+                },
+                "passphrasePrompt": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sessionDuration": {
+                    "type": "integer",
+                    "example": 3600
+                }
+            }
+        },
+        "consoleapi.SettingsMessageSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "token updated successfully"
+                }
+            }
+        },
+        "consoleapi.SwaggerErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "error message"
+                }
+            }
+        },
+        "consoleapi.UnreadCountResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "consoleapi.UpdateAuthAccountInfoSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "socialFacebook": {
+                    "type": "string"
+                },
+                "socialGithub": {
+                    "type": "string",
+                    "example": "jane"
+                },
+                "socialLinkedin": {
+                    "type": "string",
+                    "example": "https://linkedin.com/in/jane"
+                },
+                "socialTwitter": {
+                    "type": "string",
+                    "example": "@jane"
+                },
+                "walletId": {
+                    "type": "string",
+                    "example": "0xabc"
+                }
+            }
+        },
+        "consoleapi.UpdateAuthAccountSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "fullName": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                },
+                "shortName": {
+                    "type": "string",
+                    "example": "Jane"
+                }
+            }
+        },
+        "consoleapi.UpdateFCMTokenSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "appVersion": {
+                    "type": "string",
+                    "example": "1.2.0"
+                },
+                "browserName": {
+                    "type": "string",
+                    "example": "Chrome"
+                },
+                "deviceId": {
+                    "type": "string",
+                    "example": "device-uuid-123"
+                },
+                "deviceModel": {
+                    "type": "string",
+                    "example": "Pixel 8"
+                },
+                "deviceType": {
+                    "type": "string",
+                    "enum": [
+                        "android",
+                        "ios",
+                        "web"
+                    ],
+                    "example": "web"
+                },
+                "isActive": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "osVersion": {
+                    "type": "string",
+                    "example": "14.0"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "fcm-device-token-string"
+                },
+                "userAgent": {
+                    "type": "string",
+                    "example": "Mozilla/5.0 ..."
+                }
+            }
+        },
+        "consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "active"
+            ],
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "google_email",
+                "project_id"
+            ],
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "code": {
+                    "type": "string",
+                    "example": ""
+                },
+                "google_email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "refresh_token": {
+                    "type": "string",
+                    "example": "\u003cgoogle refresh token\u003e"
+                },
+                "storx_token": {
+                    "type": "string",
+                    "example": "\u003cstorx access grant\u003e"
+                }
+            }
+        },
+        "consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest": {
+            "type": "object",
+            "required": [
+                "interval",
+                "retention_type"
+            ],
+            "properties": {
+                "interval": {
+                    "type": "string",
+                    "enum": [
+                        "3h",
+                        "12h",
+                        "daily",
+                        "weekly",
+                        "monthly"
+                    ],
+                    "example": "3h"
+                },
+                "on": {
+                    "type": "string",
+                    "example": ""
+                },
+                "retention_type": {
+                    "type": "string",
+                    "enum": [
+                        "never",
+                        "30_days",
+                        "1_year",
+                        "7_years"
+                    ],
+                    "example": "never"
+                }
+            }
+        },
+        "consoleapi.UpsertProjectSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "bandwidthLimit": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Optional description"
+                },
+                "managePassphrase": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My Project"
+                },
+                "prevDaysUntilExpiration": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "storageLimit": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "consoleapi.UpsertUserNotificationPreferenceSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "preferences": {
+                    "$ref": "#/definitions/consoleapi.NotificationChannelPreferencesSwagger"
+                }
+            }
+        },
+        "consoleapi.UserDeveloperAccessHistorySwaggerItem": {
+            "type": "object",
+            "properties": {
+                "application_name": {
+                    "type": "string",
+                    "example": "My Integration"
+                },
+                "client_id": {
+                    "type": "string",
+                    "example": "client-id"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "request_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "read"
+                    ]
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.UserDeveloperAccessSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "access_granted_date": {
+                    "type": "string"
+                },
+                "application_description": {
+                    "type": "string",
+                    "example": "Backup integration"
+                },
+                "application_name": {
+                    "type": "string",
+                    "example": "My Integration"
+                },
+                "approved_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "read",
+                        "write"
+                    ]
+                },
+                "client_id": {
+                    "type": "string",
+                    "example": "client-id"
+                },
+                "consent_expires_at": {
+                    "type": "string"
+                },
+                "developer_email": {
+                    "type": "string",
+                    "example": "dev@example.com"
+                },
+                "developer_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "developer_name": {
+                    "type": "string",
+                    "example": "Acme App"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "last_access_date": {
+                    "type": "string"
+                },
+                "rejected_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "total_requests": {
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
+        "consoleapi.UserNotificationPreferenceSwagger": {
+            "type": "object",
+            "properties": {
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "ID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "Preferences": {
+                    "type": "object"
+                },
+                "UpdatedAt": {
+                    "type": "string"
+                },
+                "UserID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "consoleapi.UserProjectInvitationSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "inviterEmail": {
+                    "type": "string",
+                    "example": "owner@example.com"
+                },
+                "projectDescription": {
+                    "type": "string",
+                    "example": "Shared backup project"
+                },
+                "projectID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "projectName": {
+                    "type": "string",
+                    "example": "My Project"
+                }
+            }
+        },
+        "consoleapi.V1AccessCreateSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "access_grant": {
+                    "type": "string",
+                    "example": "serialized-access-grant"
+                },
+                "public": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.V1AccessCreateSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "access_key_id": {
+                    "type": "string",
+                    "example": "AKIA..."
+                },
+                "endpoint": {
+                    "type": "string",
+                    "example": "https://storx.io"
+                },
+                "secret_key": {
+                    "type": "string",
+                    "example": "..."
+                }
+            }
+        },
+        "consoleweb.FrontendConfig": {
+            "type": "object",
+            "properties": {
+                "abTestingEnabled": {
+                    "type": "boolean"
+                },
+                "activeSessionsViewEnabled": {
+                    "type": "boolean"
+                },
+                "allowedUsageReportDateRange": {
+                    "$ref": "#/definitions/time.Duration"
+                },
+                "altObjBrowserPagingEnabled": {
+                    "type": "boolean"
+                },
+                "altObjBrowserPagingThreshold": {
+                    "type": "integer"
+                },
+                "analyticsEnabled": {
+                    "type": "boolean"
+                },
+                "announcement": {
+                    "$ref": "#/definitions/console.AnnouncementConfig"
+                },
+                "apiBaseURL": {
+                    "description": "ApiBaseURL is the base URL for all API requests. The frontend MUST use this (e.g. apiBaseURL + \"api/v0/...\")\nfor every API call so requests hit the correct host. Using relative paths when the app is served from\na different host (e.g. dev server) causes the wrong host to return HTML → DOCTYPE/JSON parse error.",
+                    "type": "string"
+                },
+                "betaSatelliteFeedbackURL": {
+                    "type": "string"
+                },
+                "betaSatelliteSupportURL": {
+                    "type": "string"
+                },
+                "billingFeaturesEnabled": {
+                    "type": "boolean"
+                },
+                "billingInformationTabEnabled": {
+                    "type": "boolean"
+                },
+                "billingStripeCheckoutEnabled": {
+                    "type": "boolean"
+                },
+                "bucketLimitsUIEnabled": {
+                    "type": "boolean"
+                },
+                "captcha": {
+                    "$ref": "#/definitions/console.CaptchaConfig"
+                },
+                "collectBillingInfoOnOnboarding": {
+                    "type": "boolean"
+                },
+                "computeGatewayURL": {
+                    "type": "string"
+                },
+                "computeUIEnabled": {
+                    "type": "boolean"
+                },
+                "couponCodeBillingUIEnabled": {
+                    "type": "boolean"
+                },
+                "couponCodeSignupUIEnabled": {
+                    "type": "boolean"
+                },
+                "csrfToken": {
+                    "type": "string"
+                },
+                "cunoFSBetaEnabled": {
+                    "type": "boolean"
+                },
+                "daysBeforeTrialEndNotification": {
+                    "type": "integer"
+                },
+                "defaultPaidBandwidthLimit": {
+                    "$ref": "#/definitions/memory.Size"
+                },
+                "defaultPaidStorageLimit": {
+                    "$ref": "#/definitions/memory.Size"
+                },
+                "defaultProjectLimit": {
+                    "type": "integer"
+                },
+                "deleteProjectEnabled": {
+                    "type": "boolean"
+                },
+                "documentationURL": {
+                    "type": "string"
+                },
+                "domainsPageEnabled": {
+                    "type": "boolean"
+                },
+                "downloadPrefixEnabled": {
+                    "type": "boolean"
+                },
+                "egressMBCents": {
+                    "type": "string"
+                },
+                "emailChangeFlowEnabled": {
+                    "type": "boolean"
+                },
+                "emissionImpactViewEnabled": {
+                    "type": "boolean"
+                },
+                "enableRegionTag": {
+                    "type": "boolean"
+                },
+                "entitlementsEnabled": {
+                    "type": "boolean"
+                },
+                "externalAddress": {
+                    "description": "ExternalAddress is the canonical URL of the console (e.g. for links and redirects).",
+                    "type": "string"
+                },
+                "fileBrowserFlowDisabled": {
+                    "type": "boolean"
+                },
+                "galleryViewEnabled": {
+                    "type": "boolean"
+                },
+                "gatewayCredentialsRequestURL": {
+                    "type": "string"
+                },
+                "generalRequestURL": {
+                    "type": "string"
+                },
+                "hideProjectEncryptionOptions": {
+                    "type": "boolean"
+                },
+                "hideUplinkBehavior": {
+                    "type": "boolean"
+                },
+                "homepageURL": {
+                    "type": "string"
+                },
+                "inactivityTimerDuration": {
+                    "type": "integer"
+                },
+                "inactivityTimerEnabled": {
+                    "type": "boolean"
+                },
+                "inactivityTimerViewerEnabled": {
+                    "type": "boolean"
+                },
+                "isBetaSatellite": {
+                    "type": "boolean"
+                },
+                "limitIncreaseRequestEnabled": {
+                    "type": "boolean"
+                },
+                "limitsAreaEnabled": {
+                    "type": "boolean"
+                },
+                "linksharingURL": {
+                    "type": "string"
+                },
+                "liveCheckBadPasswords": {
+                    "type": "boolean"
+                },
+                "maxAddFundsAmount": {
+                    "type": "integer"
+                },
+                "maxNameCharacters": {
+                    "type": "integer"
+                },
+                "minAddFundsAmount": {
+                    "type": "integer"
+                },
+                "minimumCharge": {
+                    "$ref": "#/definitions/console.MinimumChargeConfig"
+                },
+                "nativeTokenPaymentsEnabled": {
+                    "type": "boolean"
+                },
+                "neededTransactionConfirmations": {
+                    "type": "integer"
+                },
+                "newDetailedUsageReportEnabled": {
+                    "type": "boolean"
+                },
+                "newPricingStartDate": {
+                    "type": "string"
+                },
+                "noLimitsUiEnabled": {
+                    "type": "boolean"
+                },
+                "objectBrowserKeyLifetime": {
+                    "$ref": "#/definitions/time.Duration"
+                },
+                "objectBrowserKeyNamePrefix": {
+                    "type": "string"
+                },
+                "objectLockUIEnabled": {
+                    "type": "boolean"
+                },
+                "objectMountConsultationEnabled": {
+                    "type": "boolean"
+                },
+                "optionalSignupSuccessURL": {
+                    "type": "string"
+                },
+                "partneredSatellites": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleweb.PartneredSatellite"
+                    }
+                },
+                "passwordMaximumLength": {
+                    "type": "integer"
+                },
+                "passwordMinimumLength": {
+                    "type": "integer"
+                },
+                "pathwayOverviewEnabled": {
+                    "type": "boolean"
+                },
+                "pricingPackagesEnabled": {
+                    "type": "boolean"
+                },
+                "productPriceSummaries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "projectLimitsIncreaseRequestURL": {
+                    "type": "string"
+                },
+                "publicLinksharingURL": {
+                    "type": "string"
+                },
+                "requireBillingAddress": {
+                    "type": "boolean"
+                },
+                "restAPIKeysUIEnabled": {
+                    "type": "boolean"
+                },
+                "satelliteManagedEncryptionEnabled": {
+                    "type": "boolean"
+                },
+                "satelliteName": {
+                    "type": "string"
+                },
+                "satelliteNodeURL": {
+                    "type": "string"
+                },
+                "scheduleMeetingURL": {
+                    "type": "string"
+                },
+                "segmentMonthCents": {
+                    "type": "string"
+                },
+                "segmentsUIEnabled": {
+                    "type": "boolean"
+                },
+                "selfServeAccountDeleteEnabled": {
+                    "type": "boolean"
+                },
+                "selfServePlacementSelectEnabled": {
+                    "type": "boolean"
+                },
+                "showNewPricingTiers": {
+                    "type": "boolean"
+                },
+                "signupActivationCodeEnabled": {
+                    "type": "boolean"
+                },
+                "ssoEnabled": {
+                    "type": "boolean"
+                },
+                "storageMBMonthCents": {
+                    "type": "string"
+                },
+                "stripePublicKey": {
+                    "type": "string"
+                },
+                "unregisteredInviteEmailsEnabled": {
+                    "type": "boolean"
+                },
+                "upgradePayUpfrontAmount": {
+                    "type": "integer"
+                },
+                "useGeneratedPrivateAPI": {
+                    "type": "boolean"
+                },
+                "userBalanceForUpgrade": {
+                    "type": "integer"
+                },
+                "userFeedbackEnabled": {
+                    "type": "boolean"
+                },
+                "valdiSignUpURL": {
+                    "type": "string"
+                },
+                "versioningUIEnabled": {
+                    "type": "boolean"
+                },
+                "zipDownloadLimit": {
+                    "type": "integer"
+                },
+                "zkSyncContractAddress": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleweb.PartneredSatellite": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "memory.Size": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+                1,
+                1024,
+                1048576,
+                1073741824,
+                1099511627776,
+                1125899906842624,
+                1152921504606846976
+            ],
+            "x-enum-varnames": [
+                "B",
+                "KiB",
+                "MiB",
+                "GiB",
+                "TiB",
+                "PiB",
+                "EiB"
+            ]
+        },
+        "staticapi.StaticBlogItemSwagger": {
+            "type": "object",
+            "properties": {
+                "by": {
+                    "type": "string",
+                    "example": "admin"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "JANUARY 1, 2022"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Cloud storage has become an integral part of our digital lives."
+                },
+                "image": {
+                    "type": "string",
+                    "example": "https://miro.medium.com/v2/resize:fit:1400/format:webp/0*j5KNMeLGxLjo4vNW"
+                },
+                "link": {
+                    "type": "string",
+                    "example": "https://medium.com/storx-network/cloud-storage-reimagined-with-storx-network-5c28296ac25f"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Cloud Storage Reimagined with StorX Network"
+                }
+            }
+        },
+        "staticapi.StaticResourceItemSwagger": {
+            "type": "object",
+            "properties": {
+                "desc": {
+                    "type": "string",
+                    "example": "Step-by-step guide to backup Google Workspace data"
+                },
+                "link": {
+                    "type": "string",
+                    "example": "/guides?type=google-backup"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Google Backup Guide"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "url",
+                        "contact"
+                    ],
+                    "example": "url"
+                }
+            }
+        },
+        "time.Duration": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+                -9223372036854775808,
+                9223372036854775807,
+                1,
+                1000,
+                1000000,
+                1000000000,
+                60000000000,
+                3600000000000
+            ],
+            "x-enum-varnames": [
+                "minDuration",
+                "maxDuration",
+                "Nanosecond",
+                "Microsecond",
+                "Millisecond",
+                "Second",
+                "Minute",
+                "Hour"
+            ]
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "CookieAuth": {
+            "type": "apiKey",
+            "name": "_tokenKey",
+            "in": "cookie"
+        }
+    },
+    "tags": [
+        {
+            "description": "Project management: invitations, members, usage, and project CRUD",
+            "name": "projects"
+        },
+        {
+            "description": "Storage \u0026 bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts",
+            "name": "projects-daily-usage"
+        },
+        {
+            "description": "S3 credentials \u0026 vault setup: GET /api/v0/projects/{id}/config — salt, passphrase, role, placements, and feature flags for access-grant / vault flows in the frontend",
+            "name": "projects-s3-vault-setup"
+        },
+        {
+            "description": "S3 credentials \u0026 vault setup: DELETE /api/v0/api-keys/delete-by-name — remove an API key by name and project when revoking S3 credentials from the frontend vault flow",
+            "name": "api-keys-s3-vault-setup"
+        },
+        {
+            "description": "Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved, and bucket APIs",
+            "name": "buckets"
+        },
+        {
+            "description": "Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)",
+            "name": "buckets-reserved-usage"
+        },
+        {
+            "description": "Storage \u0026 bandwidth quota popup: POST /api/v0/buckets/check-upload — usage percents, allow_upload/download, popup_show + message (login, upload, download). Same usage data as dashboard quota cards.",
+            "name": "buckets-quota-check"
+        },
+        {
+            "description": "API key management operations",
+            "name": "api-keys"
+        },
+        {
+            "description": "Payment and billing: GET /payment-plans (server root), GET /api/v0/payments/coupons, POST /api/v0/payments/generate-payment-link, GET /api/v0/payments/invoice-history",
+            "name": "payments"
+        },
+        {
+            "description": "Analytics operations",
+            "name": "analytics"
+        },
+        {
+            "description": "Google Backup combined auth: ` + "`" + `GET /auth/google-backup` + "`" + ` (register or login by email). Returns ` + "`" + `action` + "`" + `, ` + "`" + `onboarding` + "`" + ` block, and ` + "`" + `google_backup` + "`" + `. OAuth redirect = ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` + "`" + `.",
+            "name": "google-backup-onboarding"
+        },
+        {
+            "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). ` + "`" + `POST /auto-sync/jobs` + "`" + ` sets onboarding complete on success.",
+            "name": "google-backup"
+        },
+        {
+            "description": "Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not ` + "`" + `/autosync/live` + "`" + `.",
+            "name": "google-backup-autosync-live"
+        },
+        {
+            "description": "GET /google-backup/users-groups/*",
+            "name": "google-backup-users-groups"
+        },
+        {
+            "description": "Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)",
+            "name": "google-backup-policy"
+        },
+        {
+            "description": "Google Backup authentication: POST /google-backup/google-auth (Backup-Tools google-auth JWT)",
+            "name": "google-backup-auth"
+        },
+        {
+            "description": "Google Backup manual restore: POST /google-backup/google/* (1–10 vault keys per request; same body for single or multiple items). Authorization header = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX from DB). Session cookie required.",
+            "name": "google-backup-restore-manual"
+        },
+        {
+            "description": "Google Backup restore-all scheduler: GET /restore/prepare (flat), POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live use {message,success,failed} envelope). UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.",
+            "name": "google-backup-restore-cron"
+        },
+        {
+            "description": "GET /google-backup/backup-restore/logs",
+            "name": "google-backup-logs"
+        },
+        {
+            "description": "Account \u0026 session: profile, settings, refresh-session, developer-access, MFA",
+            "name": "auth-account"
+        },
+        {
+            "description": "Settings → Push devices: register and manage FCM tokens at ` + "`" + `/api/v0/fcm-token` + "`" + ` (session cookie). IP address is set server-side.",
+            "name": "settings-fcm"
+        },
+        {
+            "description": "Settings → Notification preferences: global channel thresholds at ` + "`" + `/api/v0/user/notification-preferences` + "`" + ` (push, email, sms minimum priority levels applied to all notifications).",
+            "name": "settings-notification-preferences"
+        },
+        {
+            "description": "Access management: GET /api/v0/api-keys/list-paged (paginated keys), POST /v1/access (exchange access grant for S3 credentials on auth host)",
+            "name": "access"
+        },
+        {
+            "description": "In-app notifications: GET/PUT /api/v0/notifications (list, count, detail, dismiss, read-all)",
+            "name": "notifications"
+        },
+        {
+            "description": "Public console bootstrap config: GET /api/v0/config (feature flags, API base URL, CSRF token, billing/UI toggles)",
+            "name": "config"
+        },
+        {
+            "description": "System audit logs: GET /api/v0/audit-logs (list with filters), GET /api/v0/audit-logs/actions (filter dropdown), GET /api/v0/audit-logs/export (CSV)",
+            "name": "audit-logs"
+        },
+        {
+            "description": "Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 — use the host root path when calling.",
+            "name": "static-api"
+        }
+    ]
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
+	Version:          "1.0",
 	Host:             "",
-	BasePath:         "",
+	BasePath:         "/api/v0",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "StorX Monitor API",
+	Description:      "API documentation for StorX Monitor server",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

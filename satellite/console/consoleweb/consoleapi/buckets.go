@@ -323,6 +323,7 @@ func (b *Buckets) UpdateImmutabilityRules(w http.ResponseWriter, r *http.Request
 	}
 
 	err = b.service.UpdateBucketImmutabilityRules(ctx, []byte(bucketName), projectID, rules)
+	b.service.RecordUserAudit(ctx, "BUCKET_IMMUTABILITY_UPDATE", "Bucket", "Bucket immutability updated", err)
 	if err != nil {
 		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
@@ -381,6 +382,7 @@ func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Req
 	}
 
 	err = b.service.UpdateBucketMigrationStatus(ctx, []byte(bucketName), projectID, statusInt)
+	b.service.RecordUserAudit(ctx, "BUCKET_MIGRATION_UPDATE", "Bucket", "Bucket migration updated", err)
 	if err != nil {
 		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
@@ -397,6 +399,28 @@ func (b *Buckets) UpdateBucketMigrationStatus(w http.ResponseWriter, r *http.Req
 }
 
 // GetBucketTotals returns a page of bucket usage totals since project creation.
+// GetBucketTotals returns paginated per-bucket usage totals for a project in a time range.
+//
+// @Summary      Paginated bucket usage totals
+// @Description  **Full route:** `GET /api/v0/buckets/usage-totals`
+//
+// Example: `?projectID=37159d9b-6f3c-4c38-bfe2-0efbbc4b568d&before=2026-06-03T09:01:55.204Z&limit=10&search=&page=1`
+//
+// `before` and `limit` and `page` are required. `since` is optional (RFC3339 with millis, e.g. `2006-01-02T15:04:05.999Z`).
+// @Tags         buckets
+// @Produce      json
+// @Param        projectID  query  string  true   "Project public UUID"
+// @Param        before     query  string  true   "Range end (2006-01-02T15:04:05.999Z)"
+// @Param        limit      query  int     true   "Page size"  example(10)
+// @Param        page       query  int     true   "Page number (1-based)"  example(1)
+// @Param        search     query  string  false  "Bucket name filter"
+// @Param        since      query  string  false  "Range start (2006-01-02T15:04:05.999Z)"
+// @Success      200        {object}  BucketUsageTotalsPageSwagger
+// @Failure      400        {object}  SwaggerErrorResponse
+// @Failure      401        {object}  SwaggerErrorResponse
+// @Failure      500        {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /buckets/usage-totals [get]
 func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -534,7 +558,28 @@ func (b *Buckets) GetSingleBucketTotals(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// GetBucketTotalsForReservedBucket
+// GetBucketTotalsForReservedBucket returns usage for reserved integration vaults (Google Backup, Dropbox, etc.).
+//
+// @Summary      Reserved vault usage totals
+// @Description  **Full route:** `GET /api/v0/buckets/usage-totals-for-reserved`
+//
+// Returns per-bucket **storage** (GB), **objectCount**, and metadata for vaults created for integrations.
+// Only buckets that exist for the project are included (no zero placeholders).
+//
+// **Reserved bucket names** (SQL filter): `gmail`, `google-drive`, `google-cloud`, `google-photos`, `google-calendar`, `google-contacts`, `dropbox`, `aws-s3`, `github`, `shopify`, `quickbooks`.
+//
+// **Protected Services overview (UI):** call this endpoint with `projectID`, then filter the array where `bucketName` is one of:
+// `gmail`, `google-drive`, `google-photos`, `google-contacts`, `google-calendar`.
+// Use `bucketName` as vault name, `storage` as used storage, `objectCount` as item count.
+// @Tags         buckets-reserved-usage
+// @Produce      json
+// @Param        projectID  query     string  true  "Project UUID"
+// @Success      200        {array}   ReservedBucketUsageItem
+// @Failure      400        {object}  SwaggerErrorResponse
+// @Failure      401        {object}  SwaggerErrorResponse
+// @Failure      500        {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /buckets/usage-totals-for-reserved [get]
 func (b *Buckets) GetBucketTotalsForReservedBucket(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -574,6 +619,22 @@ func (b *Buckets) GetBucketTotalsForReservedBucket(w http.ResponseWriter, r *htt
 	}
 }
 
+// CheckUpload evaluates storage/bandwidth quota and returns popup flags for the UI.
+//
+// @Summary      Check storage and bandwidth quota (popup)
+// @Description  **Full route:** `POST /api/v0/buckets/check-upload`
+//
+// Returns quota usage and whether to show a warning popup. `operation`: `login` (after sign-in), `upload` (before upload), `download` (before download). Optional `file_size` validates the operation fits remaining quota (not used for `login`). Popup text comes from DB config `popup_messages`. Related: `GET /api/v0/dashboard/stats` (dashboard cards), `GET /api/v0/projects/{id}/usage-limits` (raw limits).
+// @Tags         buckets-quota-check
+// @Accept       json
+// @Produce      json
+// @Param        body  body  CheckUploadSwaggerRequest  true  "project_id, operation, optional file_size"
+// @Success      200   {object}  CheckUploadSwaggerResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /buckets/check-upload [post]
 func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

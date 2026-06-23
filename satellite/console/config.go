@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/yaml.v3"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 	"github.com/StorXNetwork/common/storxnetwork"
 	"github.com/StorXNetwork/common/uuid"
@@ -67,6 +68,7 @@ type Config struct {
 	HideUplinkBehavior                        bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`
 	EmailApiKey                               string                    `help:"api key for email" default:""`
 	PushNotifications                         pushnotifications.Config
+	AuditLog                                  auditlog.Config
 	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
 

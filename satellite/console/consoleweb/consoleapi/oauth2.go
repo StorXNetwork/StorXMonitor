@@ -39,6 +39,7 @@ func (a *OAuth2API) CreateOAuth2Request(w http.ResponseWriter, r *http.Request) 
 		RedirectURI: req.RedirectURI,
 		Scopes:      req.Scope,
 	})
+	a.Service.RecordUserAudit(ctx, "OAUTH2_REQUEST", "OAuth2", "OAuth2 authorization requested", err)
 	if err != nil {
 		status := http.StatusBadRequest
 		errMsg := err.Error()
@@ -87,6 +88,7 @@ func (a *OAuth2API) ConsentOAuth2Request(w http.ResponseWriter, r *http.Request)
 		ApprovedScopes: req.ApprovedScopes,
 		RejectedScopes: req.RejectedScopes,
 	})
+	a.Service.RecordUserAudit(ctx, "OAUTH2_CONSENT", "OAuth2", "OAuth2 consent recorded", err)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})

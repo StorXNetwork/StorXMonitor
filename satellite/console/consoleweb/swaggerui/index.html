@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StorX Monitor API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css">
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script>
+        // Browsers forbid setting the Cookie request header from JS, so Swagger's
+        // CookieAuth "Authorize" dialog does not send _tokenKey by itself. Sync the
+        // authorized value into document.cookie (same origin) and send credentials.
+        function syncCookieAuthFromSwagger(ui) {
+            try {
+                const authorized = ui.getSystem().authSelectors.authorized();
+                const entry = authorized && authorized.get && authorized.get('CookieAuth');
+                const value = entry && (entry.get ? entry.get('value') : entry.value);
+                if (value) {
+                    document.cookie = '_tokenKey=' + value + '; path=/; SameSite=Lax';
+                }
+            } catch (e) {
+                console.warn('swagger CookieAuth sync:', e);
+            }
+        }
+
+        // Routes documented at server root (not under /api/v0) are tagged in swagger.json
+        // descriptions with "server root". Swagger UI still prefixes basePath, so rewrite
+        // /api/v0/resources-list -> /resources-list (and the same for payment-plans, etc.).
+        function collectRootPathsFromSpec(spec) {
+            const rootPaths = new Set();
+            if (!spec || !spec.paths) {
+                return rootPaths;
+            }
+
+            for (const [path, methods] of Object.entries(spec.paths)) {
+                for (const op of Object.values(methods)) {
+                    if (op && typeof op.description === 'string' && op.description.includes('server root')) {
+                        rootPaths.add(path);
+                        break;
+                    }
+                }
+            }
+
+            return rootPaths;
+        }
+
+        function rewriteRootPathRequest(req, rootPaths, basePath) {
+            if (!rootPaths || rootPaths.size === 0) {
+                return req;
+            }
+
+            try {
+                const url = new URL(req.url, window.location.origin);
+                const normalizedBase = (basePath || '/api/v0').replace(/\/$/, '');
+
+                for (const path of rootPaths) {
+                    const prefixedPath = normalizedBase + path;
+                    if (url.pathname === prefixedPath) {
+                        url.pathname = path;
+                        req.url = url.toString();
+                        break;
+                    }
+                }
+            } catch (e) {
+                console.warn('swagger root path rewrite:', e);
+            }
+
+            return req;
+        }
+
+        function initSwaggerUI(spec) {
+            const rootPaths = collectRootPathsFromSpec(spec);
+            const basePath = (spec && spec.basePath) || '/api/v0';
+            let ui;
+
+            ui = SwaggerUIBundle({
+                spec: spec,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                withCredentials: true,
+                persistAuthorization: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIBundle.SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "BaseLayout",
+                requestInterceptor: function(req) {
+                    syncCookieAuthFromSwagger(ui);
+                    req.credentials = 'include';
+                    return rewriteRootPathRequest(req, rootPaths, basePath);
+                }
+            });
+            window.ui = ui;
+        }
+
+        window.onload = function() {
+            fetch('./swagger.json')
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('failed to load swagger.json');
+                    }
+                    return response.json();
+                })
+                .then(initSwaggerUI)
+                .catch(function(err) {
+                    console.error('swagger init failed:', err);
+                });
+        };
+    </script>
+</body>
+</html>

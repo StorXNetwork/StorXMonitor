@@ -1198,6 +1198,44 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add audit_logs table",
+				Version:     130,
+				Action: migrate.SQL{
+					`CREATE TABLE audit_logs (
+						id BYTES(16) NOT NULL,
+						timestamp TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+						actor_id STRING(MAX) NOT NULL,
+						actor_name STRING(MAX),
+						actor_email STRING(MAX),
+						action STRING(MAX) NOT NULL,
+						resource STRING(MAX),
+						ip_address STRING(MAX),
+						status STRING(MAX) NOT NULL
+					) PRIMARY KEY ( id )`,
+					`CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp )`,
+					`CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add message column to audit_logs",
+				Version:     131,
+				Action: migrate.SQL{
+					`ALTER TABLE audit_logs ADD COLUMN message STRING(MAX)`,
+					`UPDATE audit_logs SET message = action WHERE message IS NULL`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop actor_name and actor_email from audit_logs",
+				Version:     132,
+				Action: migrate.SQL{
+					`ALTER TABLE audit_logs DROP COLUMN actor_name`,
+					`ALTER TABLE audit_logs DROP COLUMN actor_email`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4995,6 +5033,53 @@ true, NOW(), NOW());`,
 						UNIQUE ( user_id, google_email )
 					);`,
 					`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add audit_logs table",
+				Version:     374,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS audit_logs (
+						id bytea NOT NULL,
+						timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						actor_id text NOT NULL,
+						action text NOT NULL,
+						resource text,
+						message text NOT NULL,
+						ip_address text,
+						status text NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX IF NOT EXISTS audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp );`,
+					`CREATE INDEX IF NOT EXISTS audit_log_action_timestamp_idx ON audit_logs ( action, timestamp );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "global user notification preferences remove category",
+				Version:     375,
+				Action: migrate.SQL{
+					`DELETE FROM user_notification_preferences`,
+					`DROP INDEX IF EXISTS user_notification_preferences_user_type_index`,
+					`DROP INDEX IF EXISTS user_notification_preferences_user_config_index`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS category`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS config_type`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS custom_variables`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS is_active`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS user_notification_preferences_user_id ON user_notification_preferences ( user_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop legacy user_notification_preferences columns if migration 375 ran before cleanup",
+				Version:     376,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS user_notification_preferences_user_type_index`,
+					`DROP INDEX IF EXISTS user_notification_preferences_user_config_index`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS config_type`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS custom_variables`,
+					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS is_active`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

@@ -1,0 +1,124 @@
+name: Build Satellite on CyberLS
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_go_mod_tidy:
+        description: 'Run go mod tidy'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  BIN_PATH: 'D:\bin'
+  TEMP_PATH: 'D:\deployment'
+  SERVICES: 'StorxBackup,StorxAuditor,storxnetworksatellite'
+
+jobs:
+  build-satellite:
+    runs-on: [self-hosted, windows, CyberLS]
+    environment: production
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        clean: true
+
+    - name: Setup Git Auth for Private Go Modules
+      shell: powershell
+      env:
+        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: |
+        git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+        go env -w GOPRIVATE=github.com/StorXNetwork/*
+        go env -w GONOSUMDB=github.com/StorXNetwork/*
+        go env -w GONOPROXY=github.com/StorXNetwork/*
+        $gomodcache = if ($env:RUNNER_TEMP) { "$env:RUNNER_TEMP\go-mod-cache" } else { "$env:GITHUB_WORKSPACE\.go-mod-cache" }
+        New-Item -ItemType Directory -Force -Path $gomodcache | Out-Null
+        go env -w GOMODCACHE=$gomodcache
+
+    - name: Go mod tidy
+      if: github.event_name == 'workflow_dispatch' && inputs.run_go_mod_tidy == true
+      shell: powershell
+      run: go mod tidy
+
+    - name: Fast build satellite.exe
+      env:
+        WEB3_AUTH_PRIVATE_KEY: ${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
+      run: |
+        $buildStart = Get-Date
+        Write-Host "Building satellite.exe with optimizations..."
+        
+        # Use Go build cache and skip tests for faster build
+        $env:GOFLAGS = "-buildvcs=false"
+        
+        # Build the ldflags with proper variable expansion
+        $ldflags = "-s -w -X 'github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'"
+        $buildCmd = "go build -ldflags `"$ldflags`" -o `"$env:TEMP_PATH\satellite.exe`" ./cmd/satellite"
+        Write-Host "Build command: $buildCmd"
+        
+        Invoke-Expression $buildCmd
+        
+        $buildTime = (Get-Date) - $buildStart
+        Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
+        
+        if (Test-Path "$env:TEMP_PATH\satellite.exe") {
+          $size = (Get-Item "$env:TEMP_PATH\satellite.exe").Length
+          Write-Host "satellite.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
+        } else {
+          Write-Error "Build failed - satellite.exe not found"
+          exit 1
+        }
+        
+    - name: Parallel service stop
+      run: |
+        $services = $env:SERVICES -split ','
+        $stopJobs = @()
+        
+        foreach ($service in $services) {
+          $stopJobs += Start-Job -ScriptBlock {
+            param($serviceName, $binPath)
+            Set-Location $binPath
+            $status = (Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status
+            if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
+              & ".\nssm.exe" stop $serviceName 2>&1 | Out-Null
+            }
+          } -ArgumentList $service, $env:BIN_PATH
+        }
+        
+        # Wait for all stop jobs to complete (max 10 seconds)
+        $stopJobs | Wait-Job -Timeout 10 | Out-Null
+        Write-Host "All services stopped or timeout reached"
+        
+    - name: Quick file replacement
+      run: |
+        # Minimal file operations
+        if (Test-Path "$env:BIN_PATH\satellite.exe") {
+          Remove-Item "$env:BIN_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
+        }
+        Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        Write-Host "satellite.exe replaced"
+        
+    - name: Parallel service start
+      run: |
+        $services = $env:SERVICES -split ','
+        $startJobs = @()
+        
+        foreach ($service in $services) {
+          $startJobs += Start-Job -ScriptBlock {
+            param($serviceName, $binPath)
+            Set-Location $binPath
+            & cmd /c ".\nssm.exe" start $serviceName 2>&1 | Out-Null
+          } -ArgumentList $service, $env:BIN_PATH
+        }
+        
+        # Wait for all start jobs to complete (max 15 seconds)
+        $startJobs | Wait-Job -Timeout 15 | Out-Null
+        
+        # Quick status check
+        foreach ($service in $services) {
+          $status = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
+          Write-Host "$service status: $status"
+        }
+        Write-Host "All services started"

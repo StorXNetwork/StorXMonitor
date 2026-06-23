@@ -37,6 +37,17 @@ CREATE TABLE admins (
 	deleted_at timestamp with time zone,
 	PRIMARY KEY ( id )
 ) ;
+CREATE TABLE audit_logs (
+	id bytea NOT NULL,
+	timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	actor_id text NOT NULL,
+	action text NOT NULL,
+	resource text,
+	message text NOT NULL,
+	ip_address text,
+	status text NOT NULL,
+	PRIMARY KEY ( id )
+) ;
 CREATE TABLE backup_final_statuses (
 	backup_date text NOT NULL,
 	status text NOT NULL,
@@ -727,11 +738,11 @@ CREATE TABLE user_delete_requests (
 CREATE TABLE user_notification_preferences (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
-	category text,
 	preferences jsonb NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id )
 ) ;
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
@@ -901,6 +912,8 @@ CREATE TABLE api_key_tails (
 ) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
 CREATE INDEX admin_email_status_index ON admins ( email, status ) ;
+CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp ) ;
+CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp ) ;
 CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;

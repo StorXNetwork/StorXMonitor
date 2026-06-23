@@ -58,7 +58,8 @@ func (ki *KeyInfos) Set(s string) error {
 			continue
 		}
 
-		info := strings.Split(keyStr, ":")
+		// SplitN so Windows paths (e.g. C:\storx\kms\key) are not broken by the drive-letter colon.
+		info := strings.SplitN(keyStr, ":", 2)
 		if len(info) != 2 {
 			return Error.New("Invalid key (expected format key-id:version,checksum, got %s)", keyStr)
 		}

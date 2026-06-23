@@ -1782,7 +1782,7 @@ func (db *ProjectAccounting) GetBucketTotalsForReservedBuckets(ctx context.Conte
 	defer mon.Task()(&ctx)(&err)
 
 	bucketsQuery := db.db.Rebind(`SELECT name, versioning, placement, created_at FROM bucket_metainfos
-	WHERE project_id = ? AND name IN ('gmail', 'google-drive', 'google-cloud', 'google-photos', 'dropbox', 'aws-s3', 'github', 'shopify', 'quickbooks')
+	WHERE project_id = ? AND name IN ('gmail', 'google-drive', 'google-cloud', 'google-photos', 'google-calendar', 'google-contacts', 'dropbox', 'aws-s3', 'github', 'shopify', 'quickbooks')
 	ORDER BY name ASC`)
 
 	args := []interface{}{

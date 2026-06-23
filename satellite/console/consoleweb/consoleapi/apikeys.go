@@ -94,6 +94,7 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name, apiKeyVersion)
+	keys.service.RecordUserAudit(ctx, "API_KEY_CREATE", "API key", "API key created", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -129,6 +130,25 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetProjectAPIKeys returns paged API keys by project ID.
+//
+// @Summary      List API keys (paginated)
+// @Description  **Full route:** `GET /api/v0/api-keys/list-paged`
+//
+// Paginated project API keys for access management UI. All query parameters are required.
+// @Tags         access
+// @Produce      json
+// @Param        projectID       query  string  true   "Project UUID"
+// @Param        limit           query  int     true   "Page size"  example(10)
+// @Param        page            query  int     true   "Page number (1-based)"  example(1)
+// @Param        order           query  int     true   "Sort field: 1=name, 2=created, 3=creator email"  example(1)
+// @Param        orderDirection  query  int     true   "Sort direction"  example(1)
+// @Param        search          query  string  false  "Name search filter"
+// @Success      200             {object}  APIKeysListPagedSwaggerResponse
+// @Failure      400             {object}  SwaggerErrorResponse
+// @Failure      401             {object}  SwaggerErrorResponse
+// @Failure      500             {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /api-keys/list-paged [get]
 func (keys *APIKeys) GetProjectAPIKeys(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -461,6 +481,7 @@ func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = keys.service.DeleteAPIKeys(ctx, keyIDs)
+	keys.service.RecordUserAudit(ctx, "API_KEY_DELETE", "API key", "API key deleted", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -479,6 +500,36 @@ func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
 
 // DeleteByNameAndProjectID deletes specific API key by it's name and project ID.
 // ID here may be project.publicID or project.ID.
+//
+// @Summary      Delete API key by name (S3 credentials / vault setup)
+// @Description  **Full route:** `DELETE /api/v0/api-keys/delete-by-name`
+//
+// Deletes a single project API key when the frontend revokes S3 credentials during vault or access-grant setup. Identify the key by its **display name** (not the macaroon ID).
+//
+// **Query parameters:**
+// - `name` — required API key name (e.g. the label shown in the vault UI).
+// - `projectID` — project internal UUID, **or**
+// - `publicID` — project public UUID. Provide exactly one of `projectID` or `publicID`.
+//
+// **Behavior:**
+// - `200` — key deleted (empty response body).
+// - `204` — no key with that name exists for the project (idempotent from the UI perspective).
+// - Requires session cookie auth and CSRF protection (same as other mutating console routes).
+// - Triggers an `api_key_deleted` notification unless the name contains `Web file browser API key`.
+//
+// **Related:** `GET /api/v0/api-keys/list-paged` lists keys; `POST /api/v0/api-keys/create/{projectID}` creates keys; `GET /api/v0/projects/{id}/config` loads vault encryption settings.
+// @Tags         api-keys-s3-vault-setup
+// @Produce      json
+// @Param        name       query  string  true   "API key display name"
+// @Param        projectID  query  string  false  "Project internal UUID (use this or publicID)"
+// @Param        publicID   query  string  false  "Project public UUID (use this or projectID)"
+// @Success      200  "API key deleted"
+// @Success      204  "API key not found"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /api-keys/delete-by-name [delete]
 func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -512,6 +563,7 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 	}
 
 	err = keys.service.DeleteAPIKeyByNameAndProjectID(ctx, name, projectID)
+	keys.service.RecordUserAudit(ctx, "API_KEY_DELETE", "API key", "API key deleted", err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)

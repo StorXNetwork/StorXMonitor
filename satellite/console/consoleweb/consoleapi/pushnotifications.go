@@ -50,8 +50,19 @@ type RegisterTokenRequest struct {
 	// Note: ip_address is extracted from request on server side, not from client
 }
 
-// RegisterToken handles POST /api/v0/push-notifications/tokens.
-// Saves/registers a new FCM token for the authenticated user.
+// RegisterToken handles POST /api/v0/fcm-token.
+//
+// @Summary      Register FCM device token
+// @Description  **Full route:** `POST /api/v0/fcm-token`. Settings → Push devices. Registers the device FCM token for the logged-in user. If the same `token` string already exists, metadata is updated and `200` semantics apply (existing record returned). `ip_address` is derived from `X-Forwarded-For`, `X-Real-IP`, or `RemoteAddr` — do not send from client.
+// @Tags         settings-fcm
+// @Accept       json
+// @Produce      json
+// @Param        body  body  RegisterFCMTokenSwaggerRequest  true  "FCM token and optional device metadata"
+// @Success      201   {object}  FCMTokenSwaggerResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /fcm-token [post]
 func (p *PushNotifications) RegisterToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -94,6 +105,7 @@ func (p *PushNotifications) RegisterToken(w http.ResponseWriter, r *http.Request
 			web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
 			return
 		}
+		p.service.RecordUserAuditHTTP(ctx, "FCM_TOKEN_UPDATE", "Push token", "Push token updated", http.StatusOK, nil, nil)
 		w.Header().Set("Content-Type", "application/json")
 		if err = json.NewEncoder(w).Encode(existingToken); err != nil {
 			p.log.Error("failed to encode response", zap.Error(err))
@@ -128,6 +140,7 @@ func (p *PushNotifications) RegisterToken(w http.ResponseWriter, r *http.Request
 		web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
 		return
 	}
+	p.service.RecordUserAuditHTTP(ctx, "FCM_TOKEN_REGISTER", "Push token", "Push token registered", http.StatusCreated, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -149,8 +162,22 @@ type UpdateTokenRequest struct {
 	IsActive    *bool   `json:"isActive"`
 }
 
-// UpdateToken handles PUT /api/v0/push-notifications/tokens/:tokenId.
-// Updates an existing FCM token.
+// UpdateToken handles PUT /api/v0/fcm-token/{tokenId}.
+//
+// @Summary      Update FCM device token
+// @Description  **Full route:** `PUT /api/v0/fcm-token/{tokenId}`. Settings → Push devices. Updates metadata or `isActive` for a token owned by the current user. All body fields are optional; send only fields to change.
+// @Tags         settings-fcm
+// @Accept       json
+// @Produce      json
+// @Param        tokenId  path  string  true  "FCM token record UUID"
+// @Param        body     body  UpdateFCMTokenSwaggerRequest  true  "Fields to update"
+// @Success      200      {object}  SettingsMessageSwaggerResponse
+// @Failure      400      {object}  SwaggerErrorResponse
+// @Failure      401      {object}  SwaggerErrorResponse
+// @Failure      403      {object}  SwaggerErrorResponse
+// @Failure      404      {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /fcm-token/{tokenId} [put]
 func (p *PushNotifications) UpdateToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -208,6 +235,7 @@ func (p *PushNotifications) UpdateToken(w http.ResponseWriter, r *http.Request) 
 		web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
 		return
 	}
+	p.service.RecordUserAuditHTTP(ctx, "FCM_TOKEN_UPDATE", "Push token", "Push token updated", http.StatusOK, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(map[string]string{"message": "token updated successfully"}); err != nil {
@@ -215,8 +243,16 @@ func (p *PushNotifications) UpdateToken(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// GetTokens handles GET /api/v0/push-notifications/tokens.
-// Retrieves all tokens for the authenticated user.
+// GetTokens handles GET /api/v0/fcm-token.
+//
+// @Summary      List FCM device tokens
+// @Description  **Full route:** `GET /api/v0/fcm-token`. Settings → Push devices. Returns all FCM token records for the logged-in user (active and inactive).
+// @Tags         settings-fcm
+// @Produce      json
+// @Success      200  {array}   FCMTokenSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /fcm-token [get]
 func (p *PushNotifications) GetTokens(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -240,8 +276,20 @@ func (p *PushNotifications) GetTokens(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteToken handles DELETE /api/v0/push-notifications/tokens/:tokenId.
-// Deletes a token (soft delete by setting is_active = false).
+// DeleteToken handles DELETE /api/v0/fcm-token/{tokenId}.
+//
+// @Summary      Delete FCM device token
+// @Description  **Full route:** `DELETE /api/v0/fcm-token/{tokenId}`. Settings → Push devices. Permanently removes a token record owned by the current user.
+// @Tags         settings-fcm
+// @Produce      json
+// @Param        tokenId  path  string  true  "FCM token record UUID"
+// @Success      200      {object}  SettingsMessageSwaggerResponse
+// @Failure      400      {object}  SwaggerErrorResponse
+// @Failure      401      {object}  SwaggerErrorResponse
+// @Failure      403      {object}  SwaggerErrorResponse
+// @Failure      404      {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /fcm-token/{tokenId} [delete]
 func (p *PushNotifications) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -282,6 +330,7 @@ func (p *PushNotifications) DeleteToken(w http.ResponseWriter, r *http.Request) 
 		web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
 		return
 	}
+	p.service.RecordUserAuditHTTP(ctx, "FCM_TOKEN_DELETE", "Push token", "Push token deleted", http.StatusOK, nil, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(map[string]string{"message": "token deleted successfully"}); err != nil {
