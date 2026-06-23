@@ -15,7 +15,7 @@ env:
 
 jobs:
   build-storxnetwork-sim:
-    runs-on: [self-hosted, windows, CyberLS]
+    runs-on: [self-hosted, windows, cyberls]
     environment: production
     steps:
     - name: Checkout code
