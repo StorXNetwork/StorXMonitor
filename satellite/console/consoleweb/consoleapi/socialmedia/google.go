@@ -272,19 +272,12 @@ var googleBackupScopeAlternates = map[string][]string{
 	"https://www.googleapis.com/auth/gmail.readonly": {
 		"https://www.googleapis.com/auth/gmail.readonly",
 	},
-	"https://www.googleapis.com/auth/gmail.insert": {
-		"https://www.googleapis.com/auth/gmail.insert",
-	},
 	"https://www.googleapis.com/auth/admin.directory.user.readonly": {
 		"https://www.googleapis.com/auth/admin.directory.user.readonly",
 	},
 	"https://www.googleapis.com/auth/drive.readonly": {
 		"https://www.googleapis.com/auth/drive.readonly",
 		"https://www.googleapis.com/auth/drive.photos.readonly",
-	},
-	"https://www.googleapis.com/auth/photoslibrary.readonly": {
-		"https://www.googleapis.com/auth/photoslibrary.readonly",
-		"https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
 	},
 	"https://www.googleapis.com/auth/calendar.readonly": {
 		"https://www.googleapis.com/auth/calendar.readonly",
@@ -375,15 +368,12 @@ var GoogleRegisterBackupScopes = []string{
 	"openid",
 	"email",
 	"profile",
-	// Gmail — personal mailbox read + restore insert
+	// Gmail — personal mailbox read
 	"https://www.googleapis.com/auth/gmail.readonly",
-	"https://www.googleapis.com/auth/gmail.insert",
 	// Workspace admin — corporate domain-users and directory listing
 	"https://www.googleapis.com/auth/admin.directory.user.readonly",
 	// Google Drive
 	"https://www.googleapis.com/auth/drive.readonly",
-	// Google Photos
-	"https://www.googleapis.com/auth/photoslibrary.readonly",
 	// Google Calendar
 	"https://www.googleapis.com/auth/calendar.readonly",
 	// Google Contacts (People API)
